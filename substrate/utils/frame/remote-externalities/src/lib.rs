@@ -20,15 +20,23 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
+mod client;
+mod config;
+mod key_range;
 mod logging;
+mod parallel;
 
-use codec::{Compact, Decode, Encode};
+pub use config::{Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+
+use client::{with_timeout, Client, ConnectionManager, RPC_TIMEOUT};
+use codec::Encode;
+use config::Snapshot;
+#[cfg(all(test, feature = "remote-test"))]
+use config::DEFAULT_HTTP_ENDPOINT;
 use indicatif::{ProgressBar, ProgressStyle};
-use jsonrpsee::{
-	core::params::ArrayParams,
-	ws_client::{WsClient, WsClientBuilder},
-};
+use jsonrpsee::core::params::ArrayParams;
 use log::*;
+use parallel::{run_workers, ProcessResult};
 use serde::de::DeserializeOwned;
 use sp_core::{
 	hexdisplay::HexDisplay,
@@ -43,77 +51,33 @@ use sp_runtime::{
 };
 use sp_state_machine::TestExternalities;
 use std::{
-	cmp::{max, min},
-	fs,
+	collections::{BTreeSet, VecDeque},
+	future::Future,
 	ops::{Deref, DerefMut},
-	path::{Path, PathBuf},
-	sync::Arc,
-	time::{Duration, Instant},
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc, Mutex,
+	},
+	time::Duration,
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
-use tokio_retry::{strategy::FixedInterval, Retry};
+
+use crate::key_range::{initialize_work_queue, subdivide_remaining_range};
 
 type Result<T, E = &'static str> = std::result::Result<T, E>;
 
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
 type ChildKeyValues = Vec<(ChildInfo, Vec<KeyValue>)>;
-type SnapshotVersion = Compact<u16>;
 
 const LOG_TARGET: &str = "remote-ext";
-const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
-const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
-
-/// The snapshot that we store on disk.
-#[derive(Decode, Encode)]
-struct Snapshot<B: BlockT> {
-	snapshot_version: SnapshotVersion,
-	state_version: StateVersion,
-	// <Vec<Key, (Value, MemoryDbRefCount)>>
-	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-	// The storage root of the state. This may vary from the storage root in the header, if not the
-	// entire state was fetched.
-	storage_root: B::Hash,
-	header: B::Header,
-}
-
-impl<B: BlockT> Snapshot<B> {
-	pub fn new(
-		state_version: StateVersion,
-		raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-		storage_root: B::Hash,
-		header: B::Header,
-	) -> Self {
-		Self {
-			snapshot_version: SNAPSHOT_VERSION,
-			state_version,
-			raw_storage,
-			storage_root,
-			header,
-		}
-	}
-
-	fn load(path: &PathBuf) -> Result<Snapshot<B>> {
-		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
-		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
-		// check that first, before proceeding to decode the rest of the snapshot.
-		let snapshot_version = SnapshotVersion::decode(&mut &*bytes)
-			.map_err(|_| "Failed to decode snapshot version")?;
-
-		if snapshot_version != SNAPSHOT_VERSION {
-			return Err("Unsupported snapshot version detected. Please create a new snapshot.")
-		}
-
-		Decode::decode(&mut &*bytes).map_err(|_| "Decode failed")
-	}
-}
 
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
 pub struct RemoteExternalities<B: BlockT> {
 	/// The inner externalities.
 	pub inner_ext: TestExternalities<HashingFor<B>>,
-	/// The block header which we created this externality env.
+	/// The block header which we created this externalities env.
 	pub header: B::Header,
 }
 
@@ -127,165 +91,6 @@ impl<B: BlockT> Deref for RemoteExternalities<B> {
 impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner_ext
-	}
-}
-
-/// The execution mode.
-#[derive(Clone)]
-pub enum Mode<H> {
-	/// Online. Potentially writes to a snapshot file.
-	Online(OnlineConfig<H>),
-	/// Offline. Uses a state snapshot file and needs not any client config.
-	Offline(OfflineConfig),
-	/// Prefer using a snapshot file if it exists, else use a remote server.
-	OfflineOrElseOnline(OfflineConfig, OnlineConfig<H>),
-}
-
-impl<H> Default for Mode<H> {
-	fn default() -> Self {
-		Mode::Online(OnlineConfig::default())
-	}
-}
-
-/// Configuration of the offline execution.
-///
-/// A state snapshot config must be present.
-#[derive(Clone)]
-pub struct OfflineConfig {
-	/// The configuration of the state snapshot file to use. It must be present.
-	pub state_snapshot: SnapshotConfig,
-}
-
-/// Description of the transport protocol (for online execution).
-#[derive(Debug, Clone)]
-pub enum Transport {
-	/// Use the `URI` to open a new WebSocket connection.
-	Uri(String),
-	/// Use WS connection.
-	RemoteClient(Arc<WsClient>),
-}
-
-impl Transport {
-	fn as_client(&self) -> Option<&WsClient> {
-		match self {
-			Self::RemoteClient(client) => Some(client),
-			_ => None,
-		}
-	}
-
-	// Build an [`Self::RemoteClient`] from a URI.
-	async fn init(&mut self) -> Result<()> {
-		if let Self::Uri(uri) = self {
-			debug!(target: LOG_TARGET, "initializing remote client to {uri:?}");
-
-			let ws_client = WsClientBuilder::default()
-				.max_request_size(u32::MAX)
-				.max_response_size(u32::MAX)
-				.request_timeout(std::time::Duration::from_secs(60 * 5))
-				.build(uri)
-				.await
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "error: {e:?}");
-					"failed to build http client"
-				})?;
-
-			*self = Self::RemoteClient(Arc::new(ws_client))
-		}
-
-		Ok(())
-	}
-}
-
-impl From<String> for Transport {
-	fn from(uri: String) -> Self {
-		Transport::Uri(uri)
-	}
-}
-
-impl From<WsClient> for Transport {
-	fn from(client: WsClient) -> Self {
-		Transport::RemoteClient(Arc::new(client))
-	}
-}
-
-/// Configuration of the online execution.
-///
-/// A state snapshot config may be present and will be written to in that case.
-#[derive(Clone)]
-pub struct OnlineConfig<H> {
-	/// The block hash at which to get the runtime state. Will be latest finalized head if not
-	/// provided.
-	pub at: Option<H>,
-	/// An optional state snapshot file to WRITE to, not for reading. Not written if set to `None`.
-	pub state_snapshot: Option<SnapshotConfig>,
-	/// The pallets to scrape. These values are hashed and added to `hashed_prefix`.
-	pub pallets: Vec<String>,
-	/// Transport config.
-	pub transport: Transport,
-	/// Lookout for child-keys, and scrape them as well if set to true.
-	pub child_trie: bool,
-	/// Storage entry key prefixes to be injected into the externalities. The *hashed* prefix must
-	/// be given.
-	pub hashed_prefixes: Vec<Vec<u8>>,
-	/// Storage entry keys to be injected into the externalities. The *hashed* key must be given.
-	pub hashed_keys: Vec<Vec<u8>>,
-}
-
-impl<H: Clone> OnlineConfig<H> {
-	/// Return rpc (ws) client reference.
-	fn rpc_client(&self) -> &WsClient {
-		self.transport
-			.as_client()
-			.expect("ws client must have been initialized by now; qed.")
-	}
-
-	fn at_expected(&self) -> H {
-		self.at.clone().expect("block at must be initialized; qed")
-	}
-}
-
-impl<H> Default for OnlineConfig<H> {
-	fn default() -> Self {
-		Self {
-			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
-			child_trie: true,
-			at: None,
-			state_snapshot: None,
-			pallets: Default::default(),
-			hashed_keys: Default::default(),
-			hashed_prefixes: Default::default(),
-		}
-	}
-}
-
-impl<H> From<String> for OnlineConfig<H> {
-	fn from(t: String) -> Self {
-		Self { transport: t.into(), ..Default::default() }
-	}
-}
-
-/// Configuration of the state snapshot.
-#[derive(Clone)]
-pub struct SnapshotConfig {
-	/// The path to the snapshot file.
-	pub path: PathBuf,
-}
-
-impl SnapshotConfig {
-	pub fn new<P: Into<PathBuf>>(path: P) -> Self {
-		Self { path: path.into() }
-	}
-}
-
-impl From<String> for SnapshotConfig {
-	fn from(s: String) -> Self {
-		Self::new(s)
-	}
-}
-
-impl Default for SnapshotConfig {
-	fn default() -> Self {
-		Self { path: Path::new("SNAPSHOT").into() }
 	}
 }
 
@@ -304,6 +109,8 @@ pub struct Builder<B: BlockT> {
 	///
 	/// Overwrite only with care.
 	overwrite_state_version: Option<StateVersion>,
+	/// Connection manager for RPC clients (initialized during `init_remote_client`).
+	conn_manager: Option<ConnectionManager>,
 }
 
 impl<B: BlockT> Default for Builder<B> {
@@ -313,6 +120,7 @@ impl<B: BlockT> Default for Builder<B> {
 			hashed_key_values: Default::default(),
 			hashed_blacklist: Default::default(),
 			overwrite_state_version: None,
+			conn_manager: None,
 		}
 	}
 }
@@ -334,6 +142,10 @@ impl<B: BlockT> Builder<B> {
 			_ => panic!("Unexpected mode: Online"),
 		}
 	}
+
+	fn conn_manager(&self) -> Result<&ConnectionManager> {
+		self.conn_manager.as_ref().ok_or("connection manager must be initialized; qed")
+	}
 }
 
 // RPC methods
@@ -342,193 +154,213 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
-	const PARALLEL_REQUESTS: usize = 8;
-	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
-	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
-	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
-	const INITIAL_BATCH_SIZE: usize = 10;
-	// nodes by default will not return more than 1000 keys per request
-	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
-	const MAX_RETRIES: usize = 12;
-	const KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(5);
+	const PARALLEL_REQUESTS_PER_CLIENT: usize = 4;
 
+	fn parallel_requests(&self) -> usize {
+		self.conn_manager
+			.as_ref()
+			.map(|cm| cm.num_clients() * Self::PARALLEL_REQUESTS_PER_CLIENT)
+			.expect("connection manager must be initialized; qed")
+	}
+
+	/// Execute an RPC call on any available client. Tries each client until one succeeds.
+	///
+	/// Starts with a random client to distribute load across clients.
+	async fn with_any_client<T, E, F, Fut>(&self, op_name: &'static str, f: F) -> Result<T, ()>
+	where
+		F: Fn(Client) -> Fut,
+		Fut: Future<Output = std::result::Result<T, E>>,
+		E: std::fmt::Debug,
+	{
+		let conn_manager = self.conn_manager().map_err(|_| ())?;
+		let num_clients = conn_manager.num_clients();
+		let start_offset: usize = rand::random();
+		for j in 0..num_clients {
+			let i = (start_offset + j) % num_clients;
+			let client = conn_manager.get(i).await;
+			let result = with_timeout(f(client), RPC_TIMEOUT).await;
+			match result {
+				Ok(Ok(value)) => return Ok(value),
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Client {i}: {op_name} RPC error: {e:?}");
+				},
+				Err(()) => {
+					debug!(target: LOG_TARGET, "Client {i}: {op_name} timeout");
+				},
+			}
+		}
+		Err(())
+	}
+
+	/// Get a single storage value. Tries each client until one succeeds.
 	async fn rpc_get_storage(
 		&self,
 		key: StorageKey,
 		maybe_at: Option<B::Hash>,
 	) -> Result<Option<StorageData>> {
 		trace!(target: LOG_TARGET, "rpc: get_storage");
-		self.as_online().rpc_client().storage(key, maybe_at).await.map_err(|e| {
-			error!(target: LOG_TARGET, "Error = {e:?}");
-			"rpc get_storage failed."
+		self.with_any_client("get_storage", move |client| {
+			let key = key.clone();
+			async move { client.storage(key, maybe_at).await }
 		})
+		.await
+		.map_err(|_| "rpc get_storage failed on all clients")
 	}
 
-	/// Get the latest finalized head.
+	/// Fetch the state version from the runtime. Tries each client until one succeeds.
+	async fn fetch_state_version(&self) -> Result<StateVersion> {
+		let conn_manager = self.conn_manager()?;
+
+		for i in 0..conn_manager.num_clients() {
+			let client = conn_manager.get(i).await;
+			let result = with_timeout(
+				StateApi::<B::Hash>::runtime_version(client.ws_client.as_ref(), None),
+				RPC_TIMEOUT,
+			)
+			.await;
+
+			match result {
+				Ok(Ok(version)) => return Ok(version.state_version()),
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Client {i}: runtime_version RPC error: {e:?}");
+				},
+				Err(()) => {
+					debug!(target: LOG_TARGET, "Client {i}: runtime_version timeout");
+				},
+			}
+		}
+
+		Err("rpc runtime_version failed on all clients")
+	}
+
+	/// Get the latest finalized head. Tries each client until one succeeds.
 	async fn rpc_get_head(&self) -> Result<B::Hash> {
 		trace!(target: LOG_TARGET, "rpc: finalized_head");
-
-		// sadly this pretty much unreadable...
-		ChainApi::<(), _, B::Header, ()>::finalized_head(self.as_online().rpc_client())
-			.await
-			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {e:?}");
-				"rpc finalized_head failed."
-			})
+		self.with_any_client("finalized_head", |client| async move {
+			ChainApi::<(), _, B::Header, ()>::finalized_head(&*client).await
+		})
+		.await
+		.map_err(|_| "rpc finalized_head failed on all clients")
 	}
 
-	async fn get_keys_single_page(
-		&self,
-		prefix: Option<StorageKey>,
-		start_key: Option<StorageKey>,
-		at: B::Hash,
-	) -> Result<Vec<StorageKey>> {
-		self.as_online()
-			.rpc_client()
-			.storage_keys_paged(prefix, Self::DEFAULT_KEY_DOWNLOAD_PAGE, start_key, Some(at))
-			.await
-			.map_err(|e| {
-				error!(target: LOG_TARGET, "Error = {e:?}");
-				"rpc get_keys failed"
-			})
-	}
-
-	/// Get keys with `prefix` at `block` in a parallel manner.
+	/// Get keys with `prefix` at `block` using parallel workers.
 	async fn rpc_get_keys_parallel(
 		&self,
 		prefix: &StorageKey,
 		block: B::Hash,
 		parallel: usize,
 	) -> Result<Vec<StorageKey>> {
-		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
-		/// non-empty list.
-		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
-			let mut prefix = prefix.as_ref().to_vec();
-			let scale = 32usize.saturating_sub(prefix.len());
+		let work_queue = initialize_work_queue(&[prefix.clone()]);
+		let initial_ranges = work_queue.lock().unwrap().len();
+		info!(target: LOG_TARGET, "🔧 Initialized work queue with {initial_ranges} ranges");
 
-			// no need to divide workload
-			if scale < 9 {
-				prefix.extend(vec![0; scale]);
-				return vec![StorageKey(prefix)]
-			}
+		let conn_manager = self.conn_manager()?;
+		info!(target: LOG_TARGET, "🌐 Using {} RPC provider(s)", conn_manager.num_clients());
+		info!(target: LOG_TARGET, "🚀 Spawning {parallel} parallel workers for key fetching");
 
-			let chunks = 16;
-			let step = 0x10000 / chunks;
-			let ext = scale - 2;
+		let all_keys: Arc<Mutex<BTreeSet<StorageKey>>> = Arc::new(Mutex::new(BTreeSet::new()));
+		let last_logged_milestone = Arc::new(AtomicUsize::new(0));
+		let initial_work = work_queue.lock().unwrap().drain(..).collect();
+		let all_keys_for_result = all_keys.clone();
 
-			(0..chunks)
-				.map(|i| {
-					let mut key = prefix.clone();
-					let start = i * step;
-					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
-					key.extend(vec![0; ext]);
-					StorageKey(key)
-				})
-				.collect()
-		}
+		run_workers(initial_work, conn_manager, parallel, move |worker_index, range, client| {
+			let all_keys = all_keys.clone();
+			let last_logged_milestone = last_logged_milestone.clone();
 
-		let start_keys = gen_start_keys(&prefix);
-		let start_keys: Vec<Option<&StorageKey>> = start_keys.iter().map(Some).collect();
-		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
-		end_keys.push(None);
+			async move {
+				trace!(
+					target: LOG_TARGET,
+					"Worker {worker_index}: fetching keys starting at {:?} (page_size: {})",
+					HexDisplay::from(&range.start_key.0),
+					range.page_size
+				);
 
-		// use a semaphore to limit max scraping tasks
-		let parallel = Arc::new(tokio::sync::Semaphore::new(parallel));
-		let builder = Arc::new(self.clone());
-		let mut handles = vec![];
+				let rpc_result = with_timeout(
+					client.storage_keys_paged(
+						Some(range.prefix.clone()),
+						range.page_size,
+						Some(range.start_key.clone()),
+						Some(block),
+					),
+					RPC_TIMEOUT,
+				)
+				.await;
 
-		for (worker_index, (start_key, end_key)) in start_keys.into_iter().zip(end_keys).enumerate()
-		{
-			let permit = parallel
-				.clone()
-				.acquire_owned()
-				.await
-				.expect("semaphore is not closed until the end of loop");
+				let page = match rpc_result {
+					Ok(Ok(p)) => p,
+					Ok(Err(e)) => {
+						debug!(target: LOG_TARGET, "Worker {worker_index}: RPC error: {e:?}");
+						return ProcessResult::Retry {
+							work: range.with_halved_page_size(),
+							sleep_duration: Duration::from_secs(15),
+							recreate_client: true,
+						};
+					},
+					Err(()) => {
+						debug!(target: LOG_TARGET, "Worker {worker_index}: timeout");
+						return ProcessResult::Retry {
+							work: range.with_halved_page_size(),
+							sleep_duration: Duration::from_secs(5),
+							recreate_client: true,
+						};
+					},
+				};
 
-			let builder = builder.clone();
-			let prefix = prefix.clone();
-			let start_key = start_key.cloned();
-			let end_key = end_key.cloned();
+				// Filter keys and determine if this was a full batch
+				let (page, is_full_batch) = range.filter_keys(page);
+				let last_two_keys = if page.len() >= 2 {
+					Some((page[page.len() - 2].clone(), page[page.len() - 1].clone()))
+				} else {
+					None
+				};
 
-			let handle = tokio::spawn(async move {
-				let res = builder
-					.rpc_get_keys_in_range(
-						&prefix,
-						block,
-						start_key.as_ref(),
-						end_key.as_ref(),
-						worker_index,
-					)
-					.await;
-				drop(permit);
-				res
-			});
+				let total_keys = {
+					let mut keys = all_keys.lock().unwrap();
+					keys.extend(page);
+					keys.len()
+				};
 
-			handles.push(handle);
-		}
-
-		parallel.close();
-
-		let keys = futures::future::join_all(handles)
-			.await
-			.into_iter()
-			.filter_map(|res| match res {
-				Ok(Ok(keys)) => Some(keys),
-				_ => None,
-			})
-			.flatten()
-			.collect::<Vec<StorageKey>>();
-
-		Ok(keys)
-	}
-
-	/// Get all keys with `prefix` within the given range at `block`.
-	/// Both `start_key` and `end_key` are optional if you want an open-ended range.
-	async fn rpc_get_keys_in_range(
-		&self,
-		prefix: &StorageKey,
-		block: B::Hash,
-		start_key: Option<&StorageKey>,
-		end_key: Option<&StorageKey>,
-		worker_index: usize,
-	) -> Result<Vec<StorageKey>> {
-		let mut last_key: Option<&StorageKey> = start_key;
-		let mut keys: Vec<StorageKey> = vec![];
-
-		loop {
-			// This loop can hit the node with very rapid requests, occasionally causing it to
-			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			let retry_strategy =
-				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-			let get_page_closure =
-				|| self.get_keys_single_page(Some(prefix.clone()), last_key.cloned(), block);
-			let mut page = Retry::spawn(retry_strategy, get_page_closure).await?;
-
-			// avoid duplicated keys across workloads
-			if let (Some(last), Some(end)) = (page.last(), end_key) {
-				if last >= end {
-					page.retain(|key| key < end);
+				// Log progress every 10,000 keys
+				const LOG_INTERVAL: usize = 10_000;
+				let current_milestone = (total_keys / LOG_INTERVAL) * LOG_INTERVAL;
+				let last_milestone = last_logged_milestone.load(Ordering::Relaxed);
+				if current_milestone > last_milestone && current_milestone > 0 {
+					if last_logged_milestone
+						.compare_exchange(
+							last_milestone,
+							current_milestone,
+							Ordering::SeqCst,
+							Ordering::Relaxed,
+						)
+						.is_ok()
+					{
+						info!(target: LOG_TARGET, "📊 Scraped {total_keys} keys so far...");
+					}
 				}
+
+				// Subdivide remaining range if this was a full batch
+				let new_work = if is_full_batch {
+					if let Some((second_last, last)) = last_two_keys {
+						subdivide_remaining_range(
+							&second_last,
+							&last,
+							range.end_key.as_ref(),
+							&range.prefix,
+						)
+					} else {
+						vec![]
+					}
+				} else {
+					vec![]
+				};
+
+				ProcessResult::Success { new_work }
 			}
+		})
+		.await;
 
-			let page_len = page.len();
-			keys.extend(page);
-			last_key = keys.last();
-
-			// scraping out of range or no more matches,
-			// we are done either way
-			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
-				debug!(target: LOG_TARGET, "last page received: {page_len}");
-				break
-			}
-
-			debug!(
-				target: LOG_TARGET,
-				"new total = {}, full page received: {}, worker = {worker_index}",
-				keys.len(),
-				HexDisplay::from(last_key.expect("full page received, cannot be None"))
-			);
-		}
+		let keys: Vec<_> = all_keys_for_result.lock().unwrap().iter().cloned().collect();
+		info!(target: LOG_TARGET, "🎉 Parallel key fetching complete: {} unique keys", keys.len());
 
 		Ok(keys)
 	}
@@ -578,97 +410,57 @@ where
 	/// }
 	/// ```
 	async fn get_storage_data_dynamic_batch_size(
-		client: &WsClient,
-		payloads: Vec<(String, ArrayParams)>,
+		client: &Client,
+		worker_index: usize,
+		payloads: &[(String, ArrayParams)],
 		bar: &ProgressBar,
-	) -> Result<Vec<Option<StorageData>>, String> {
+		batch_size: usize,
+	) -> std::result::Result<Vec<Option<StorageData>>, String> {
 		let mut all_data: Vec<Option<StorageData>> = vec![];
 		let mut start_index = 0;
-		let mut retries = 0usize;
-		let mut batch_size = Self::INITIAL_BATCH_SIZE;
 		let total_payloads = payloads.len();
 
 		while start_index < total_payloads {
-			debug!(
-				target: LOG_TARGET,
-				"Remaining payloads: {} Batch request size: {batch_size}",
-				total_payloads - start_index,
-			);
-
 			let end_index = usize::min(start_index + batch_size, total_payloads);
 			let page = &payloads[start_index..end_index];
+
+			trace!(
+				target: LOG_TARGET,
+				"Worker {worker_index}: fetching values {start_index}..{end_index} of {total_payloads}",
+			);
 
 			// Build the batch request
 			let mut batch = BatchRequestBuilder::new();
 			for (method, params) in page.iter() {
-				batch
-					.insert(method, params.clone())
-					.map_err(|_| "Invalid batch method and/or params")?;
+				if batch.insert(method, params.clone()).is_err() {
+					panic!("Invalid batch method and/or params; qed");
+				}
 			}
 
-			let request_started = Instant::now();
-			let batch_response = match client.batch_request::<Option<StorageData>>(batch).await {
-				Ok(batch_response) => {
-					retries = 0;
-					batch_response
-				},
-				Err(e) => {
-					if retries > Self::MAX_RETRIES {
-						return Err(e.to_string())
-					}
+			let rpc_result = with_timeout(
+				client.ws_client.batch_request::<Option<StorageData>>(batch),
+				RPC_TIMEOUT,
+			)
+			.await;
 
-					retries += 1;
-					let failure_log = format!(
-						"Batch request failed ({retries}/{} retries). Error: {e}",
-						Self::MAX_RETRIES
-					);
-					// after 2 subsequent failures something very wrong is happening. log a warning
-					// and reset the batch size down to 1.
-					if retries >= 2 {
-						warn!("{failure_log}");
-						batch_size = 1;
-					} else {
-						debug!("{failure_log}");
-						// Decrease batch size by DECREASE_FACTOR
-						batch_size =
-							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
-					}
-					continue
-				},
+			let batch_response = match rpc_result {
+				Ok(Ok(r)) => r,
+				Ok(Err(e)) => return Err(format!("RPC error: {e:?}")),
+				Err(()) => return Err("timeout".to_string()),
 			};
-
-			let request_duration = request_started.elapsed();
-			batch_size = if request_duration > Self::REQUEST_DURATION_TARGET {
-				// Decrease batch size
-				max(1, (batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize)
-			} else {
-				// Increase batch size, but not more than the remaining total payloads to process
-				min(
-					total_payloads - start_index,
-					max(
-						batch_size + 1,
-						(batch_size as f32 * Self::BATCH_SIZE_INCREASE_FACTOR) as usize,
-					),
-				)
-			};
-
-			debug!(
-				target: LOG_TARGET,
-				"Request duration: {request_duration:?} Target duration: {:?} Last batch size: {} Next batch size: {batch_size}",
-				Self::REQUEST_DURATION_TARGET,
-				end_index - start_index,
-			);
 
 			let batch_response_len = batch_response.len();
 			for item in batch_response.into_iter() {
 				match item {
 					Ok(x) => all_data.push(x),
-					Err(e) => return Err(e.message().to_string()),
+					Err(e) => {
+						warn!(target: LOG_TARGET, "Value worker {worker_index}: batch item error: {}", e.message());
+						all_data.push(None);
+					},
 				}
 			}
 			bar.inc(batch_response_len as u64);
 
-			// Update the start index for the next iteration
 			start_index = end_index;
 		}
 
@@ -685,18 +477,9 @@ where
 		at: B::Hash,
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<Vec<KeyValue>> {
+		let parallel = self.parallel_requests();
 		let keys = logging::with_elapsed_async(
-			|| async {
-				// TODO: We could start downloading when having collected the first batch of keys.
-				// https://github.com/paritytech/polkadot-sdk/issues/2494
-				let keys = self
-					.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
-					.await?
-					.into_iter()
-					.collect::<Vec<_>>();
-
-				Ok(keys)
-			},
+			|| async { self.rpc_get_keys_parallel(&prefix, at, parallel).await },
 			"Scraping keys...",
 			|keys| format!("Found {} keys", keys.len()),
 		)
@@ -706,7 +489,8 @@ where
 			return Ok(Default::default())
 		}
 
-		let client = self.as_online().rpc_client();
+		let conn_manager = self.conn_manager()?;
+
 		let payloads = keys
 			.iter()
 			.map(|key| ("state_getStorage".to_string(), rpc_params!(key, at)))
@@ -722,39 +506,85 @@ where
 			.unwrap()
 			.progress_chars("=>-"),
 		);
-		let payloads_chunked = payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
-		let requests = payloads_chunked.map(|payload_chunk| {
-			Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
-		});
-		// Execute the requests and move the Result outside.
-		let storage_data_result: Result<Vec<_>, _> =
-			futures::future::join_all(requests).await.into_iter().collect();
-		// Handle the Result.
-		let storage_data = match storage_data_result {
-			Ok(storage_data) => storage_data.into_iter().flatten().collect::<Vec<_>>(),
-			Err(e) => {
-				error!(target: LOG_TARGET, "Error while getting storage data: {e}");
-				return Err("Error while getting storage data")
+
+		// Create batches of payloads for dynamic work distribution
+		// Each batch is: (start_index, payloads, batch_size)
+		const BATCH_SIZE: usize = 1000;
+		let batches: VecDeque<_> = payloads
+			.chunks(BATCH_SIZE)
+			.enumerate()
+			.map(|(i, chunk)| (i * BATCH_SIZE, chunk.to_vec(), BATCH_SIZE))
+			.collect();
+
+		info!(target: LOG_TARGET, "🔧 Initialized {} batches for value fetching", batches.len());
+		info!(target: LOG_TARGET, "🚀 Spawning {parallel} parallel workers for value fetching");
+
+		let results: Arc<Mutex<Vec<Option<StorageData>>>> =
+			Arc::new(Mutex::new(vec![None; payloads.len()]));
+		let results_for_extraction = results.clone();
+		let bar_for_finish = bar.clone();
+
+		run_workers(
+			batches,
+			conn_manager,
+			parallel,
+			move |worker_index, (start_index, batch, batch_size), client| {
+				let results = results.clone();
+				let bar = bar.clone();
+
+				async move {
+					debug!(
+						target: LOG_TARGET,
+						"Value worker {worker_index}: Processing batch at {start_index} with {} payloads",
+						batch.len()
+					);
+
+					match Self::get_storage_data_dynamic_batch_size(
+						&client,
+						worker_index,
+						&batch,
+						&bar,
+						batch_size,
+					)
+					.await
+					{
+						Ok(batch_results) => {
+							let mut results_lock = results.lock().unwrap();
+							for (offset, result) in batch_results.into_iter().enumerate() {
+								results_lock[start_index + offset] = result;
+							}
+							ProcessResult::Success { new_work: vec![] }
+						},
+						Err(e) => {
+							debug!(target: LOG_TARGET, "Value worker {worker_index}: failed: {e:?}");
+							let new_batch_size = (batch_size / 2).max(10);
+							ProcessResult::Retry {
+								work: (start_index, batch, new_batch_size),
+								sleep_duration: Duration::from_secs(15),
+								recreate_client: true,
+							}
+						},
+					}
+				}
 			},
-		};
-		bar.finish_with_message("✅ Downloaded key values");
+		)
+		.await;
+
+		let storage_data = results_for_extraction.lock().unwrap().clone();
+
+		bar_for_finish.finish_with_message("✅ Downloaded key values");
 		println!();
 
 		// Check if we got responses for all submitted requests.
 		assert_eq!(keys.len(), storage_data.len());
 
-		let key_values = keys
+		// Filter out None values - keys without values should NOT be inserted
+		// (inserting with empty value would change the trie structure)
+		let key_values: Vec<_> = keys
 			.iter()
 			.zip(storage_data)
-			.map(|(key, maybe_value)| match maybe_value {
-				Some(data) => (key.clone(), data),
-				None => {
-					warn!(target: LOG_TARGET, "key {key:?} had none corresponding value.");
-					let data = StorageData(vec![]);
-					(key.clone(), data)
-				},
-			})
-			.collect::<Vec<_>>();
+			.filter_map(|(key, maybe_value)| maybe_value.map(|data| (key.clone(), data)))
+			.collect();
 
 		logging::with_elapsed(
 			|| {
@@ -779,14 +609,12 @@ where
 
 	/// Get the values corresponding to `child_keys` at the given `prefixed_top_key`.
 	pub(crate) async fn rpc_child_get_storage_paged(
-		client: &WsClient,
+		client: &Client,
 		prefixed_top_key: &StorageKey,
 		child_keys: Vec<StorageKey>,
 		at: B::Hash,
 	) -> Result<Vec<KeyValue>> {
-		let child_keys_len = child_keys.len();
-
-		let payloads = child_keys
+		let payloads: Vec<_> = child_keys
 			.iter()
 			.map(|key| {
 				(
@@ -798,86 +626,20 @@ where
 					],
 				)
 			})
-			.collect::<Vec<_>>();
+			.collect();
 
 		let bar = ProgressBar::new(payloads.len() as u64);
 		let storage_data =
-			match Self::get_storage_data_dynamic_batch_size(client, payloads, &bar).await {
-				Ok(storage_data) => storage_data,
-				Err(e) => {
-					error!(target: LOG_TARGET, "batch processing failed: {e:?}");
-					return Err("batch processing failed")
-				},
-			};
-
-		assert_eq!(child_keys_len, storage_data.len());
-
-		Ok(child_keys
-			.iter()
-			.zip(storage_data)
-			.map(|(key, maybe_value)| match maybe_value {
-				Some(v) => (key.clone(), v),
-				None => {
-					warn!(target: LOG_TARGET, "key {key:?} had no corresponding value.");
-					(key.clone(), StorageData(vec![]))
-				},
-			})
-			.collect::<Vec<_>>())
-	}
-
-	pub(crate) async fn rpc_child_get_keys(
-		client: &WsClient,
-		prefixed_top_key: &StorageKey,
-		child_prefix: StorageKey,
-		at: B::Hash,
-	) -> Result<Vec<StorageKey>> {
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let mut all_child_keys = Vec::new();
-		let mut start_key = None;
-
-		loop {
-			let get_child_keys_closure = || {
-				let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
-				substrate_rpc_client::ChildStateApi::storage_keys_paged(
-					client,
-					top_key,
-					Some(child_prefix.clone()),
-					Self::DEFAULT_KEY_DOWNLOAD_PAGE,
-					start_key.clone(),
-					Some(at),
-				)
-			};
-
-			let child_keys = Retry::spawn(retry_strategy.clone(), get_child_keys_closure)
+			Self::get_storage_data_dynamic_batch_size(client, 0, &payloads, &bar, 1000)
 				.await
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {e:?}");
-					"rpc child_get_keys failed."
-				})?;
+				.map_err(|_| "rpc child_get_storage failed")?;
 
-			let keys_count = child_keys.len();
-			if keys_count == 0 {
-				break;
-			}
-
-			start_key = child_keys.last().cloned();
-			all_child_keys.extend(child_keys);
-
-			if keys_count < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
-				break;
-			}
-		}
-
-		debug!(
-			target: LOG_TARGET,
-			"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}",
-			std::thread::current().id(),
-			all_child_keys.len(),
-			HexDisplay::from(prefixed_top_key)
-		);
-
-		Ok(all_child_keys)
+		// Filter out None values
+		Ok(child_keys
+			.into_iter()
+			.zip(storage_data)
+			.filter_map(|(key, maybe_value)| maybe_value.map(|v| (key, v)))
+			.collect())
 	}
 }
 
@@ -886,65 +648,168 @@ where
 	B::Hash: DeserializeOwned,
 	B::Header: DeserializeOwned,
 {
+	/// Fetch all keys and values for a single child trie.
+	async fn fetch_single_child_trie(
+		client: &Client,
+		prefixed_top_key: &StorageKey,
+		at: B::Hash,
+	) -> Result<(ChildInfo, Vec<KeyValue>)> {
+		let top_key = PrefixedStorageKey::new(prefixed_top_key.0.clone());
+		let page_size = 1000u32;
+
+		trace!(
+			target: LOG_TARGET,
+			"Fetching child trie keys for {:?}",
+			HexDisplay::from(&prefixed_top_key.0)
+		);
+
+		// Fetch all keys for this child trie
+		let mut child_keys = Vec::new();
+		let mut start_key: Option<StorageKey> = None;
+
+		loop {
+			let rpc_result = with_timeout(
+				substrate_rpc_client::ChildStateApi::storage_keys_paged(
+					client.ws_client.as_ref(),
+					top_key.clone(),
+					Some(StorageKey(vec![])),
+					page_size,
+					start_key.clone(),
+					Some(at),
+				),
+				RPC_TIMEOUT,
+			)
+			.await;
+
+			let page = match rpc_result {
+				Ok(Ok(p)) => p,
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Child trie RPC error: {e:?}");
+					return Err("rpc child_get_keys failed");
+				},
+				Err(()) => {
+					debug!(target: LOG_TARGET, "Child trie RPC timeout");
+					return Err("rpc child_get_keys timeout");
+				},
+			};
+
+			let is_full_batch = page.len() == page_size as usize;
+			start_key = page.last().cloned();
+			child_keys.extend(page);
+
+			if !is_full_batch {
+				break;
+			}
+		}
+
+		// Fetch values for all keys
+		let child_kv =
+			Self::rpc_child_get_storage_paged(client, prefixed_top_key, child_keys, at).await?;
+
+		// Parse the child info
+		let un_prefixed = match ChildType::from_prefixed_key(&top_key) {
+			Some((ChildType::ParentKeyId, storage_key)) => storage_key,
+			None => return Err("invalid child key"),
+		};
+
+		Ok((ChildInfo::new_default(un_prefixed), child_kv))
+	}
+
 	/// Load all of the child keys from the remote config, given the already scraped list of top key
 	/// pairs.
 	///
 	/// `top_kv` need not be only child-bearing top keys. It should be all of the top keys that are
 	/// included thus far.
 	///
-	/// This function concurrently populates `pending_ext`. the return value is only for writing to
-	/// cache, we can also optimize further.
+	/// This function uses parallel workers to fetch child tries concurrently.
 	async fn load_child_remote(
 		&self,
 		top_kv: &[KeyValue],
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues> {
-		let child_roots = top_kv
+		let child_roots: VecDeque<StorageKey> = top_kv
 			.iter()
 			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
 			.map(|(k, _)| k.clone())
-			.collect::<Vec<_>>();
+			.collect();
 
 		if child_roots.is_empty() {
 			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape");
 			return Ok(Default::default())
 		}
 
+		let total_count = child_roots.len();
 		info!(
 			target: LOG_TARGET,
-			"👩‍👦 scraping child-tree data from {} top keys",
-			child_roots.len(),
+			"👩‍👦 scraping child-tree data from {} child tries",
+			total_count,
 		);
 
 		let at = self.as_online().at_expected();
+		let conn_manager = self.conn_manager()?;
+		let parallel = self.parallel_requests();
 
-		let client = self.as_online().rpc_client();
-		let mut child_kv = vec![];
-		for prefixed_top_key in child_roots {
-			let child_keys =
-				Self::rpc_child_get_keys(client, &prefixed_top_key, StorageKey(vec![]), at).await?;
+		let results: Arc<Mutex<Vec<(ChildInfo, Vec<KeyValue>)>>> = Arc::new(Mutex::new(Vec::new()));
+		let results_for_extraction = results.clone();
+		let completed_count = Arc::new(AtomicUsize::new(0));
 
-			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(client, &prefixed_top_key, child_keys, at)
-					.await?;
+		run_workers(
+			child_roots,
+			conn_manager,
+			parallel,
+			move |worker_index, prefixed_top_key, client| {
+				let results = results.clone();
+				let completed_count = completed_count.clone();
 
-			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
-			let un_prefixed = match ChildType::from_prefixed_key(&prefixed_top_key) {
-				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-				None => {
-					error!(target: LOG_TARGET, "invalid key: {prefixed_top_key:?}");
-					return Err("Invalid child key")
-				},
-			};
+				async move {
+					match Self::fetch_single_child_trie(&client, &prefixed_top_key, at).await {
+						Ok((info, child_kv_inner)) => {
+							results.lock().unwrap().push((info, child_kv_inner));
 
-			let info = ChildInfo::new_default(un_prefixed);
-			let key_values =
-				child_kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect::<Vec<_>>();
-			child_kv.push((info.clone(), child_kv_inner));
+							let done = completed_count.fetch_add(1, Ordering::SeqCst) + 1;
+							if done.is_multiple_of(100) || done == total_count {
+								info!(
+									target: LOG_TARGET,
+									"👩‍👦 Child tries progress: {}/{} completed",
+									done,
+									total_count
+								);
+							}
+
+							ProcessResult::Success { new_work: vec![] }
+						},
+						Err(e) => {
+							error!(target: LOG_TARGET, "Worker {worker_index}: Failed: {e:?}");
+							ProcessResult::Retry {
+								work: prefixed_top_key,
+								sleep_duration: Duration::from_secs(5),
+								recreate_client: true,
+							}
+						},
+					}
+				}
+			},
+		)
+		.await;
+
+		// Extract results and populate pending_ext
+		let child_kv_results = results_for_extraction.lock().unwrap().clone();
+
+		let mut child_kv = Vec::new();
+		for (info, kv_inner) in child_kv_results {
+			let key_values: Vec<(Vec<u8>, Vec<u8>)> =
+				kv_inner.iter().cloned().map(|(k, v)| (k.0, v.0)).collect();
 			for (k, v) in key_values {
 				pending_ext.insert_child(info.clone(), k, v);
 			}
+			child_kv.push((info, kv_inner));
 		}
+
+		info!(
+			target: LOG_TARGET,
+			"👩‍👦 Completed scraping {} child tries",
+			child_kv.len()
+		);
 
 		Ok(child_kv)
 	}
@@ -1006,10 +871,17 @@ where
 
 	/// The entry point of execution, if `mode` is online.
 	///
-	/// initializes the remote client in `transport`, and sets the `at` field, if not specified.
+	/// Initializes the remote clients and sets the `at` field if not specified.
 	async fn init_remote_client(&mut self) -> Result<()> {
-		// First, initialize the http client.
-		self.as_online_mut().transport.init().await?;
+		// First, create all clients from URIs, filtering out ones that fail to connect.
+		let online_config = self.as_online();
+		let mut clients = Vec::new();
+		for uri in &online_config.transport_uris {
+			if let Some(client) = Client::new(uri.clone()).await {
+				clients.push(Arc::new(tokio::sync::Mutex::new(client)));
+			}
+		}
+		self.conn_manager = Some(ConnectionManager::new(clients)?);
 
 		// Then, if `at` is not set, set it.
 		if self.as_online().at.is_none() {
@@ -1051,19 +923,34 @@ where
 		Ok(())
 	}
 
+	/// Load the header for the target block. Tries each client until one succeeds.
 	async fn load_header(&self) -> Result<B::Header> {
-		let retry_strategy =
-			FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
-		let get_header_closure = || {
-			ChainApi::<(), _, B::Header, ()>::header(
-				self.as_online().rpc_client(),
-				Some(self.as_online().at_expected()),
+		let conn_manager = self.conn_manager()?;
+		let at = self.as_online().at_expected();
+
+		for i in 0..conn_manager.num_clients() {
+			let client = conn_manager.get(i).await;
+			let result = with_timeout(
+				ChainApi::<(), _, B::Header, ()>::header(client.ws_client.as_ref(), Some(at)),
+				RPC_TIMEOUT,
 			)
-		};
-		Retry::spawn(retry_strategy, get_header_closure)
-			.await
-			.map_err(|_| "Failed to fetch header for block from network")?
-			.ok_or("Network returned None block header")
+			.await;
+
+			match result {
+				Ok(Ok(Some(header))) => return Ok(header),
+				Ok(Ok(None)) => {
+					debug!(target: LOG_TARGET, "Client {i}: header returned None");
+				},
+				Ok(Err(e)) => {
+					debug!(target: LOG_TARGET, "Client {i}: header RPC error: {e:?}");
+				},
+				Err(()) => {
+					debug!(target: LOG_TARGET, "Client {i}: header timeout");
+				},
+			}
+		}
+
+		Err("rpc header failed on all clients")
 	}
 
 	/// Load the data from a remote server. The main code path is calling into `load_top_remote` and
@@ -1071,14 +958,7 @@ where
 	///
 	/// Must be called after `init_remote_client`.
 	async fn load_remote_and_maybe_save(&mut self) -> Result<TestExternalities<HashingFor<B>>> {
-		let state_version =
-			StateApi::<B::Hash>::runtime_version(self.as_online().rpc_client(), None)
-				.await
-				.map_err(|e| {
-					error!(target: LOG_TARGET, "Error = {e:?}");
-					"rpc runtime_version failed."
-				})
-				.map(|v| v.state_version())?;
+		let state_version = self.fetch_state_version().await?;
 		let mut pending_ext = TestExternalities::new_with_code_and_state(
 			Default::default(),
 			Default::default(),
@@ -1089,15 +969,13 @@ where
 		let top_kv = self.load_top_remote(&mut pending_ext).await?;
 		self.load_child_remote(&top_kv, &mut pending_ext).await?;
 
+		let header = self.load_header().await?;
+		let (raw_storage, computed_root) = pending_ext.into_raw_snapshot();
+
 		// If we need to save a snapshot, save the raw storage and root hash to the snapshot.
 		if let Some(path) = self.as_online().state_snapshot.clone().map(|c| c.path) {
-			let (raw_storage, storage_root) = pending_ext.into_raw_snapshot();
-			let snapshot = Snapshot::<B>::new(
-				state_version,
-				raw_storage.clone(),
-				storage_root,
-				self.load_header().await?,
-			);
+			let snapshot =
+				Snapshot::<B>::new(state_version, raw_storage.clone(), computed_root, header);
 			let encoded = snapshot.encode();
 			info!(
 				target: LOG_TARGET,
@@ -1105,16 +983,14 @@ where
 				encoded.len(),
 			);
 			std::fs::write(path, encoded).map_err(|_| "fs::write failed")?;
-
-			// pending_ext was consumed when creating the snapshot, need to reinitailize it
-			return Ok(TestExternalities::from_raw_snapshot(
-				raw_storage,
-				storage_root,
-				self.overwrite_state_version.unwrap_or(state_version),
-			))
 		}
 
-		Ok(pending_ext)
+		// Return the externalities (reconstructed from verified snapshot)
+		Ok(TestExternalities::from_raw_snapshot(
+			raw_storage,
+			computed_root,
+			self.overwrite_state_version.unwrap_or(state_version),
+		))
 	}
 
 	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<B>> {
@@ -1196,9 +1072,7 @@ where
 
 	/// Inject a manual list of key and values to the storage.
 	pub fn inject_hashed_key_value(mut self, injections: Vec<KeyValue>) -> Self {
-		for i in injections {
-			self.hashed_key_values.push(i.clone());
-		}
+		self.hashed_key_values.extend(injections);
 		self
 	}
 
@@ -1299,7 +1173,8 @@ mod tests {
 #[cfg(all(test, feature = "remote-test"))]
 mod remote_tests {
 	use super::test_prelude::*;
-	use std::{env, os::unix::fs::MetadataExt};
+	use frame_support::storage::KeyPrefixIterator;
+	use std::{env, os::unix::fs::MetadataExt, path::Path};
 
 	fn endpoint() -> String {
 		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
@@ -1313,7 +1188,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1355,7 +1230,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1383,7 +1258,7 @@ mod remote_tests {
 		// create an ext with children keys
 		let mut child_ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: true,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1396,7 +1271,7 @@ mod remote_tests {
 		// create an ext without children keys
 		let mut ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1422,7 +1297,7 @@ mod remote_tests {
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
-					transport: endpoint().clone().into(),
+					transport_uris: vec![endpoint().clone()],
 					pallets: vec!["Proxy".to_owned()],
 					child_trie: false,
 					state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1439,7 +1314,7 @@ mod remote_tests {
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
-					transport: "ws://non-existent:666".to_owned().into(),
+					transport_uris: vec!["ws://non-existent:666".to_owned()],
 					..Default::default()
 				},
 			))
@@ -1464,7 +1339,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1480,7 +1355,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Proxy".to_owned(), "Multisig".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1498,7 +1373,7 @@ mod remote_tests {
 
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
@@ -1528,7 +1403,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Crowdloan".to_owned()],
 				child_trie: true,
@@ -1560,7 +1435,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				pallets: vec!["Staking".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1579,7 +1454,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: endpoint().clone().into(),
+				transport_uris: vec![endpoint().clone()],
 				..Default::default()
 			}))
 			.build()
@@ -1593,21 +1468,85 @@ mod remote_tests {
 		init_logger();
 
 		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
-			transport: endpoint().clone().into(),
+			transport_uris: vec![endpoint().clone()],
 			..Default::default()
 		}));
 		builder.init_remote_client().await.unwrap();
 
 		let at = builder.as_online().at.unwrap();
 
+		// Test with a specific prefix
 		let prefix = StorageKey(vec![13]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 4).await.unwrap();
-		assert_eq!(paged, para);
+		assert!(!para.is_empty(), "Should fetch some keys with prefix");
 
+		// Test with empty prefix (all keys)
 		let prefix = StorageKey(vec![]);
-		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None, 0).await.unwrap();
 		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
-		assert_eq!(paged, para);
+		assert!(!para.is_empty(), "Should fetch some keys with empty prefix");
+	}
+
+	#[tokio::test]
+	#[ignore] // This test takes a long time, run with --ignored
+	async fn bridge_hub_polkadot_storage_root_matches() {
+		init_logger();
+
+		// Use multiple RPC providers for load distribution
+		let endpoints = vec![
+			"wss://bridge-hub-polkadot-rpc.n.dwellir.com",
+			"wss://sys.ibp.network/bridgehub-polkadot",
+			"wss://bridgehub-polkadot.api.onfinality.io/public",
+			"wss://dot-rpc.stakeworld.io/bridgehub",
+		];
+
+		info!(target: LOG_TARGET, "Connecting to Bridge Hub Polkadot using {} RPC providers", endpoints.len());
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Online(OnlineConfig {
+				transport_uris: endpoints.into_iter().map(|e| e.to_owned()).collect(),
+				child_trie: true,
+				..Default::default()
+			}))
+			.build()
+			.await
+			.expect("Failed to build remote externalities");
+
+		// Get the computed storage root from our downloaded state
+		let backend = ext.as_backend();
+		let computed_root = *backend.root();
+		// Get the expected storage root from the block header
+		let expected_root = ext.header.state_root;
+
+		info!(
+			target: LOG_TARGET,
+			"Computed storage root: {:?}",
+			computed_root
+		);
+		info!(
+			target: LOG_TARGET,
+			"Expected storage root (from header): {:?}",
+			expected_root
+		);
+
+		// The storage roots must match exactly - this proves we downloaded all keys correctly
+		assert_eq!(
+			computed_root, expected_root,
+			"Storage root mismatch! Computed: {:?}, Expected: {:?}. \
+			This indicates that not all keys were fetched or there were duplicates.",
+			computed_root, expected_root
+		);
+
+		// Verify we actually got some keys
+		ext.execute_with(|| {
+			let key_count = KeyPrefixIterator::<()>::new(vec![], vec![], |_| Ok(())).count();
+
+			info!(target: LOG_TARGET, "Total keys in state: {}", key_count);
+			assert!(key_count > 0, "Should have fetched some keys");
+		});
+
+		info!(
+			target: LOG_TARGET,
+			"✅ Storage root verification successful! All keys were fetched correctly."
+		);
 	}
 }

@@ -78,7 +78,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -501,6 +501,16 @@ where
 		>,
 	> + Send
 	       + Sync {
+		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
+		// Start 2 hours in the past to avoid timestamps immediately running into the future.
+		let initial_relay_slot = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.expect("Current time is always after UNIX_EPOCH; qed")
+			.sub(Duration::from_secs(2 * 60 * 60))
+			.as_millis() as u64 /
+			RELAY_CHAIN_SLOT_DURATION_MILLIS;
+
 		move |block: Hash, ()| {
 			let current_para_head = client
 				.header(block)
@@ -522,17 +532,23 @@ where
 			let relay_parent_offset =
 				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
 
-			// Standard relay chain slot duration for all relay chain networks.
-			const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
-
 			let relay_blocks_per_para_block =
 				(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+
+			// Each para block gets a unique relay slot: initial_relay_slot +
+			// relay_blocks_per_para_block * block_number
+			let target_relay_slot = initial_relay_slot +
+				u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
+
+			let relay_offset = (target_relay_slot as u32)
+				.saturating_sub(relay_blocks_per_para_block * current_block_number);
 
 			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 				current_para_block: current_block_number,
 				para_id,
 				current_para_block_head,
 				relay_blocks_per_para_block,
+				relay_offset,
 				relay_parent_offset,
 				para_blocks_per_relay_epoch: 10,
 				upgrade_go_ahead: should_send_go_ahead.then(|| {
@@ -542,9 +558,9 @@ where
 				..Default::default()
 			};
 
-			let timestamp_provider = sp_timestamp::InherentDataProvider::new(
-				(slot_duration.as_millis() * current_block_number as u64).into(),
-			);
+			let timestamp = target_relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS;
+
+			let timestamp_provider = sp_timestamp::InherentDataProvider::new(timestamp.into());
 
 			futures::future::ready(Ok((timestamp_provider, mocked_parachain)))
 		}
