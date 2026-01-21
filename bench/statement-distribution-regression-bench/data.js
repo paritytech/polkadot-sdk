@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768986678752,
+  "lastUpdate": 1768990463930,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb",
-          "message": "Fix `zombienet-substrate-0002-validators-warp-sync` (#8878)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8871\nRelated to #8748\n\nFix `zombienet-substrate-0002-validators-warp-sync`",
-          "timestamp": "2025-06-18T11:08:36Z",
-          "tree_id": "44eecdbe6318c8ce6583340f94006ec98f56792f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6cd17e550caeaa1b8184b5f3135ca21f2cb16eb"
-        },
-        "date": 1750249836656,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.93999999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034601084696,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04537988564799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06354888750999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
+          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-21T08:47:44Z",
+          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
+        },
+        "date": 1768990441909,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.052,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03828818517600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06392743679799995,
             "unit": "seconds"
           }
         ]
