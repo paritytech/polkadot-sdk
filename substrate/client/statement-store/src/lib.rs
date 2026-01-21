@@ -182,10 +182,14 @@ where
 	BE: Backend<Block> + 'static,
 	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	fn read_allowance(&self, account_id: &AccountId) -> Result<Option<StatementAllowance>> {
+	fn read_allowance(
+		&self,
+		account_id: &AccountId,
+		block_hash: Option<Block::Hash>,
+	) -> Result<Option<StatementAllowance>> {
 		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
-		let block_hash = self.client.info().finalized_hash;
+		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
 		let key = statement_allowance_key(account_id);
 		let storage_key = StorageKey(key);
 		self.client
@@ -203,7 +207,9 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	read_allowance_fn: Box<dyn Fn(&AccountId) -> Result<Option<StatementAllowance>> + Send + Sync>,
+	read_allowance_fn: Box<
+		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
+	>,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
 	time_override: Option<u64>,
@@ -572,7 +578,9 @@ impl Store {
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
 		let read_allowance_fn =
-			Box::new(move |account_id: &AccountId| storage_reader.read_allowance(account_id));
+			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
+				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+			});
 
 		let store = Store {
 			db,
@@ -963,7 +971,13 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
-		let validation = match (self.read_allowance_fn)(&account_id) {
+		let validation = match (self.read_allowance_fn)(
+			&account_id,
+			statement.proof().and_then(|p| match p {
+				Proof::OnChain { block_hash, .. } => Some(*block_hash),
+				_ => None,
+			}),
+		) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
 				log::debug!(
