@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768945690642,
+  "lastUpdate": 1768986576878,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "32168055+antkve@users.noreply.github.com",
-            "name": "Anthony Kveder",
-            "username": "antkve"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "7d875655ea38b734d6f1a3a79aef227e846f227c",
-          "message": "Fix bridge tests (#8900)\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/8800\n\n# Description\nFixing bridges integration tests by setting up pool\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-06-19T08:01:30Z",
-          "tree_id": "c6e34fd12d4d4103f3b1939a1c19acfc7ca43cbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d875655ea38b734d6f1a3a79aef227e846f227c"
-        },
-        "date": 1750323672806,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.373041763000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19920596503333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12372983130000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
+          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
+          "timestamp": "2026-01-21T07:54:49Z",
+          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
+        },
+        "date": 1768986551777,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1241298645,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.156883916733333,
             "unit": "seconds"
           }
         ]
