@@ -2,11 +2,9 @@ title: '[pallet-broker] add extrinsic to forcefully remove the potential renewal
 doc:
 - audience: Runtime User
   description: |-
-    Part of #6929
-
     Add an extrinsic allowing to forcefully remove the existing potential renewal from chain without the need to directly manipulate the storage.
 crates:
 - name: pallet-broker
   bump: major
 - name: coretime-westend-runtime
-  bump: patch
+  bump: major
