@@ -126,7 +126,6 @@ mod tests {
 	use crate::{
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
-		exec::PrecompileExt,
 		metering::Token,
 		pallet,
 		precompiles::{
