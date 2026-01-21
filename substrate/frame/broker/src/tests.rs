@@ -2837,13 +2837,11 @@ fn remove_potential_renewal_works() {
 			Broker::do_remove_potential_renewal(region_id.core + 1, region.end),
 			Error::<Test>::UnknownRenewal
 		);
-		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 
 		assert_noop!(
 			Broker::do_remove_potential_renewal(region_id.core, region.end + 1),
 			Error::<Test>::UnknownRenewal
 		);
-		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 
 		let new_region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
 		let new_region = Regions::<Test>::get(new_region_id).unwrap();
@@ -2863,9 +2861,11 @@ fn remove_potential_renewal_works() {
 
 		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
 		// Ensure that the correct potential renewal was removed.
-		assert!(PotentialRenewals::<Test>::iter().any(|renewal| {
-			renewal.0.core == new_region_id.core && renewal.0.when == new_region.end
-		}));
+		let renewal_ids: Vec<_> = PotentialRenewals::<Test>::iter().map(|(id, _)| id).collect();
+		assert_eq!(
+			renewal_ids,
+			vec![PotentialRenewalId { core: new_region_id.core, when: new_region.end }]
+		);
 
 		assert_noop!(
 			Broker::do_remove_potential_renewal(region_id.core, region.end),

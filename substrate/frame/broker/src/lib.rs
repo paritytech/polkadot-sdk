@@ -1040,9 +1040,10 @@ pub mod pallet {
 			Self::do_remove_assignment(region_id)
 		}
 
-		/// Forcefully remove a potential renewal record from chain. Note that only the specified
-		/// potential renewal will be removed while any related auto renewals will stay intact and
-		/// will fail.
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// Note that only the specified potential renewal will be removed while any related auto
+		/// renewals will stay intact and will fail.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `core`: Core which the target potential renewal record refers to.
