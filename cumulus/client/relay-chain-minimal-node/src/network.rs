@@ -76,7 +76,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
-		bitswap_config: None,
+		ipfs_config: None,
 		notification_metrics,
 	};
 
