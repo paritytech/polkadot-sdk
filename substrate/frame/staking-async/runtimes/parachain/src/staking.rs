@@ -31,6 +31,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use xcm::latest::prelude::*;
+use xcm_executor::XcmExecutor as XcmExec;
 
 pub(crate) fn enable_dot_preset(fast: bool) {
 	Pages::set(&32);
@@ -540,6 +541,38 @@ impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSet
 	}
 }
 
+/// Converter from AccountId to XCM Location.
+pub struct AccountIdToLocation;
+impl Convert<AccountId, Location> for AccountIdToLocation {
+	fn convert(account: AccountId) -> Location {
+		Junction::AccountId32 { network: None, id: account.into() }.into()
+	}
+}
+
+/// Converter from KeysMessage to XCM for session keys operations.
+pub struct KeysMessageToXcm;
+impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
+	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
+		let call = match msg {
+			rc_client::KeysMessage::SetKeys { stash, keys } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys }),
+			rc_client::KeysMessage::PurgeKeys { stash } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash }),
+		};
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: call.encode().into(),
+			},
+		])
+	}
+}
+
 pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
@@ -558,53 +591,38 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	fn set_keys(
 		stash: Self::AccountId,
 		keys: Vec<u8>,
-		_max_fee: Option<Self::Balance>,
+		max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		let xcm = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh {
-					stash,
-					keys,
-				})
-				.encode()
-				.into(),
-			},
-		]);
-		send_xcm::<xcm_config::XcmRouter>(StakingXcmDestination::get(), xcm)
-			.map(|_| Default::default())
-			.map_err(|_| {
-				rc_client::SendKeysError::Send(rc_client::SendOperationError::DeliveryFailed)
-			})
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			AccountIdToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, 0)
 	}
 
 	fn purge_keys(
 		stash: Self::AccountId,
-		_max_fee: Option<Self::Balance>,
+		max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		let xcm = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
-					.encode()
-					.into(),
-			},
-		]);
-		send_xcm::<xcm_config::XcmRouter>(StakingXcmDestination::get(), xcm)
-			.map(|_| Default::default())
-			.map_err(|_| {
-				rc_client::SendKeysError::Send(rc_client::SendOperationError::DeliveryFailed)
-			})
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			AccountIdToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, 0)
 	}
 }
 

@@ -51,10 +51,11 @@ test(
 		}
 
 		const steps = [
-			// Expect FeesPaid event on AH after set_keys
+			// Expect FeesPaid event on AH after set_keys with non-zero fees
 			Observe.on(Chain.Parachain, "StakingRcClient", "FeesPaid").withDataCheck((x: any) => {
 				logger.info(`FeesPaid (set_keys): who=${x.who}, fees=${x.fees}`);
-				return true;
+				// Verify fees are non-zero (delivery fees are charged)
+				return BigInt(x.fees) > 0n;
 			}),
 			// Expect SessionKeysUpdated on RC confirming keys were set
 			Observe.on(Chain.Relay, "StakingAhClient", "SessionKeysUpdated")
@@ -69,10 +70,11 @@ test(
 						max_delivery_and_remote_execution_fee: undefined,
 					}).signAndSubmit(aliceStashSigner);
 				}),
-			// Expect FeesPaid event on AH after purge_keys
+			// Expect FeesPaid event on AH after purge_keys with non-zero fees
 			Observe.on(Chain.Parachain, "StakingRcClient", "FeesPaid").withDataCheck((x: any) => {
 				logger.info(`FeesPaid (purge_keys): who=${x.who}, fees=${x.fees}`);
-				return true;
+				// Verify fees are non-zero (delivery fees are charged)
+				return BigInt(x.fees) > 0n;
 			}),
 			// Expect SessionKeysUpdated on RC confirming keys were purged
 			Observe.on(Chain.Relay, "StakingAhClient", "SessionKeysUpdated").withDataCheck(
