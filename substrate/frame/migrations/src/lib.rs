@@ -708,8 +708,8 @@ pub mod pallet {
 			match Cursor::<T>::get() {
 				Some(MigrationCursor::Active(cursor)) =>
 					T::Migrations::nth_migrating_prefixes(cursor.index)
-					.flatten()
-					.unwrap_or_default(),
+						.flatten()
+						.unwrap_or_default(),
 				_ => Vec::new(),
 			}
 		}

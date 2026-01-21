@@ -124,7 +124,9 @@ impl SteppedMigrations for MockedMigrations {
 	}
 
 	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
-		MIGRATIONS::get().get(n as usize).map(|(k, s)| Some(vec![mocked_id(*k, *s).into_inner()]))
+		MIGRATIONS::get()
+			.get(n as usize)
+			.map(|(k, s)| Some(vec![mocked_id(*k, *s).into_inner()]))
 	}
 
 	#[cfg(feature = "try-runtime")]
