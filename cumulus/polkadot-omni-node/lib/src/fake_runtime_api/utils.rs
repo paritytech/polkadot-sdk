@@ -234,6 +234,15 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
+				fn validate_statement(
+					_source: sp_statement_store::runtime_api::StatementSource,
+					_statement: sp_statement_store::Statement,
+				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
+					unimplemented!()
+				}
+			}
+
 			impl cumulus_primitives_core::TargetBlockRate<$block> for $runtime {
 				fn target_block_rate() -> u32 {
 					unimplemented!()

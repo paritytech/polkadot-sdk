@@ -17,7 +17,7 @@
 
 //! Runtime support for the statement store.
 
-use crate::{Hash, Statement, Topic};
+use crate::{Hash, Statement, StatementAllowance as ValidStatement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -65,6 +65,17 @@ impl StatementSource {
 			StatementSource::Chain | StatementSource::Local => true,
 			StatementSource::Network => false,
 		}
+	}
+}
+
+sp_api::decl_runtime_apis! {
+	/// Runtime API trait for statement validation.
+	pub trait ValidateStatement {
+		/// Validate the statement.
+		fn validate_statement(
+			source: StatementSource,
+			statement: Statement,
+		) -> Result<ValidStatement, InvalidStatement>;
 	}
 }
 
