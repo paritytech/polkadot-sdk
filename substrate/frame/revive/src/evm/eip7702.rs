@@ -27,7 +27,7 @@ use crate::{
 	storage::AccountInfo,
 	AccountInfoOf, Config,
 };
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::vec::Vec;
 
 use sp_core::{H160, U256};
 use sp_io::crypto::secp256k1_ecdsa_recover;
@@ -79,8 +79,7 @@ pub enum AuthorizationResult {
 /// Total gas refund for accounts that already existed
 pub fn process_authorizations<T: Config>(
 	authorization_list: Vec<AuthorizationListEntry>,
-	chain_id: U256,
-	accessed_addresses: &mut BTreeSet<H160>,
+	chain_id: U256
 ) -> u64 {
 	let mut total_refund = 0u64;
 	let mut last_valid_by_authority: alloc::collections::BTreeMap<H160, H160> =
@@ -100,9 +99,6 @@ pub fn process_authorizations<T: Config>(
 
 	// Second pass: apply only the last valid authorization per authority
 	for (authority, target_address) in last_valid_by_authority.iter() {
-		// Add authority to accessed addresses (EIP-2929)
-		accessed_addresses.insert(*authority);
-
 		// Set the delegation or clear it
 		if target_address.is_zero() {
 			// Clear delegation (reset to EOA)

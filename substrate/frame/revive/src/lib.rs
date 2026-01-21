@@ -1366,8 +1366,7 @@ pub mod pallet {
 				//    - Existing account: 12500 gas (25000 - 12500 refund)
 				// 5. Deduct net authorization cost from the transaction's gas limit before execution
 				//
-				// This ensures authorization processing is properly metered and cannot exceed the gas limit.
-				let mut accessed_addresses = alloc::collections::BTreeSet::new();
+
 				let chain_id = U256::from(T::ChainId::get());
 
 				// Calculate authorization intrinsic gas cost (step 1)
@@ -1379,8 +1378,7 @@ pub mod pallet {
 				// Process authorizations and get refund (steps 2-3)
 				let auth_refund = evm::eip7702::process_authorizations::<T>(
 					authorization_list.clone(),
-					chain_id,
-					&mut accessed_addresses,
+					chain_id
 				);
 
 				// Calculate net authorization gas cost: intrinsic - refund (step 4)
@@ -1626,25 +1624,6 @@ fn dispatch_result<R>(
 }
 
 impl<T: Config> Pallet<T> {
-	/// Process EIP-7702 authorization list for a transaction
-	///
-	/// This processes authorization tuples according to EIP-7702, setting delegation
-	/// indicators for EOAs. Returns the total gas refund for existing accounts.
-	///
-	/// # Parameters
-	/// - `authorization_list`: List of authorization tuples to process
-	/// - `accessed_addresses`: Set to track accessed addresses for EIP-2929 gas accounting
-	///
-	/// # Returns
-	/// Total gas refund (in EVM gas units)
-	pub fn process_eip7702_authorizations(
-		authorization_list: Vec<evm::AuthorizationListEntry>,
-		accessed_addresses: &mut alloc::collections::BTreeSet<H160>,
-	) -> u64 {
-		let chain_id = T::ChainId::get().into();
-		evm::eip7702::process_authorizations::<T>(authorization_list, chain_id, accessed_addresses)
-	}
-
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the

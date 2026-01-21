@@ -72,8 +72,6 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
-		// EIP-7702: Store the authorization list for later processing
-		let authorization_list = self.authorization_list.clone();
 
 		// EIP-7702: Store the authorization list for later processing
 		let authorization_list = self.authorization_list.clone();
@@ -205,7 +203,7 @@ impl GenericTransaction {
 					transaction_encoded,
 					effective_gas_price,
 					encoded_len,
-					authorization_list: authorization_list.clone(),
+					authorization_list: self.authorization_list.clone(),
 				}
 				.into();
 				call
@@ -295,7 +293,7 @@ impl GenericTransaction {
 			tx_fee,
 			storage_deposit,
 			eth_gas_limit: gas,
-			authorization_list,
+			authorization_list: self.authorization_list.clone(),
 		})
 	}
 }
