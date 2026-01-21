@@ -19,23 +19,20 @@
 
 use crate::{
 	evm::{
-		AuthorizationListEntry,
-		eip7702::authorization_intrinsic_gas,
+		eip7702::authorization_intrinsic_gas, AuthorizationListEntry, PER_AUTH_BASE_COST,
+		PER_EMPTY_ACCOUNT_COST,
 	},
 	storage::{AccountInfo, AccountType},
 	test_utils::builder::Contract,
 	tests::{builder, *},
-	AccountInfoOf, Code, Config, PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
+	AccountInfoOf, Code, Config,
 };
 use frame_support::{assert_ok, traits::fungible::Mutate};
-use sp_core::{H160, H256, Pair, U256, ecdsa, keccak_256};
+use sp_core::{ecdsa, keccak_256, Pair, H160, H256, U256};
 
 /// Helper function to initialize an EOA account in pallet storage
 fn initialize_eoa_account(address: &H160) {
-	let account_info = AccountInfo::<Test> {
-		account_type: AccountType::EOA,
-		dust: 0,
-	};
+	let account_info = AccountInfo::<Test> { account_type: AccountType::EOA, dust: 0 };
 	AccountInfoOf::<Test>::insert(address, account_info);
 }
 
@@ -63,9 +60,6 @@ impl TestSigner {
 		Self { keypair, address }
 	}
 
-
-
-
 	/// Sign an EIP-7702 authorization tuple
 	fn sign_authorization(
 		&self,
@@ -75,7 +69,7 @@ impl TestSigner {
 	) -> AuthorizationListEntry {
 		// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 		let mut message = Vec::new();
-		message.push(crate::EIP7702_MAGIC);
+		message.push(crate::evm::EIP7702_MAGIC);
 
 		// RLP encode [chain_id, address, nonce]
 		let mut rlp_stream = crate::evm::rlp::RlpStream::new_list(3);
@@ -104,17 +98,9 @@ impl TestSigner {
 		let s = U256::from_big_endian(&s_bytes);
 		let y_parity = U256::from(recovery_id);
 
-		AuthorizationListEntry {
-			chain_id,
-			address,
-			nonce,
-			y_parity,
-			r,
-			s,
-		}
+		AuthorizationListEntry { chain_id, address, nonce, y_parity, r, s }
 	}
 }
-
 
 #[test]
 fn delegation_indicator_format() {
@@ -164,7 +150,6 @@ fn delegation_indicator_detection() {
 
 #[test]
 fn authorization_gas_calculation() {
-
 	// One authorization
 	assert_eq!(authorization_intrinsic_gas(1), PER_EMPTY_ACCOUNT_COST);
 
