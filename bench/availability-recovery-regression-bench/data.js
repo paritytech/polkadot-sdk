@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769014642229,
+  "lastUpdate": 1769038290024,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "40a005033bc1b67344cc4ac5e594956b583780f3",
-          "message": "More deterministic check for polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl (#8921)\n\n`polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl`\nis flaky on CI. I suspect the reason for this is session changes\nhappening during the measurement step. To make this more predictable\nI've modified the checker to wait for a session change before counting\nthe `CandidateIncluded` events. Hopefully this will stabilize the test\non CI too.",
-          "timestamp": "2025-06-20T14:29:07Z",
-          "tree_id": "7eb5a00ab10abc5e6c965b171a4effeba046b8bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/40a005033bc1b67344cc4ac5e594956b583780f3"
-        },
-        "date": 1750433966631,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19862450319999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.432447984266663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12277264006666669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
+          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-21T22:20:18Z",
+          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
+        },
+        "date": 1769038264866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.233898059033338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12713404593333336,
             "unit": "seconds"
           }
         ]
