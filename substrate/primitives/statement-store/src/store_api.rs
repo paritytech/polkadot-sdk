@@ -218,7 +218,7 @@ pub trait StatementStore: Send + Sync {
 	fn has_statement(&self, hash: &Hash) -> bool;
 
 	/// Return all statement hashes.
-	fn statement_hashes(&self) -> Result<Vec<Hash>>;
+	fn statement_hashes(&self) -> Vec<Hash>;
 
 	/// Fetch statements by their hashes with a filter callback.
 	///

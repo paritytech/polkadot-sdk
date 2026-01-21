@@ -1153,27 +1153,9 @@ impl_runtime_apis! {
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement> {
 			match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => {
-					tracing::debug!(target: "runtime", "Valid statement signature from account: {:?}", account);
-				},
-				SignatureVerificationResult::Invalid => {
-					tracing::debug!(target: "runtime", "Bad statement signature.");
-					return Err(InvalidStatement::BadProof)
-				},
-				SignatureVerificationResult::NoSignature => {
-					tracing::debug!(target: "runtime", "Missing statement signature.");
-					return Err(InvalidStatement::NoProof)
-				},
-			};
-
-			// For now just allow a small quota to everyone to help with testing.
-			// Later we will have more sophisticated checks here.
-			// In the future we will allow people.
-			Ok(ValidStatement {
-				max_count: 2 * 1024,
-				max_size: 1024 * 10,
-			})
-
+				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
+			}
 		}
 	}
 }
