@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768986576878,
+  "lastUpdate": 1768990379044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "35d8868a9773cb560f00bd79f644228af6708d8f",
-          "message": "DHT bootnodes: rate limit the discovery attempts instead of limiting max retry count (#8792)\n\nInstead of giving up after 5 discovery attempts, keep retrying with a\ndelay of 30 seconds until the discovery succeeds.\n\nThis fixes a DHT bootnodes zombinet test execution on CI where\nindividual nodes may start with a significant delay. This will also help\nshould there be temporary connectivity issues leading to 5 failures in a\nrow.\n\n---------\n\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-06-19T15:38:11Z",
-          "tree_id": "6d51d118fa8225e4896ea6c39f2c73e1572894f8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/35d8868a9773cb560f00bd79f644228af6708d8f"
-        },
-        "date": 1750351220171,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.282803414233333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20250733476666669,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.156883916733333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
+          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-21T08:47:44Z",
+          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
+        },
+        "date": 1768990356684,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13591909289999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.552891170833332,
             "unit": "seconds"
           }
         ]
