@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768945722418,
+  "lastUpdate": 1768986610854,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "86f833bff3c434e6fdd202c0521eb1dcaf7fb31e",
-          "message": "[pallet-revive-rpc] fix sqlite in-memory connection pool issue (#8897)\n\nFix in-memory sqlite connection pool issue\nsee https://github.com/launchbadge/sqlx/issues/2510\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T17:09:55Z",
-          "tree_id": "1b66734bfc6368fd978192f62b5adb847f93f0ec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/86f833bff3c434e6fdd202c0521eb1dcaf7fb31e"
-        },
-        "date": 1750270850811,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01316174724,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009026970640000102,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15833415083333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02257356952666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00979255922000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
+          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
+          "timestamp": "2026-01-21T07:54:49Z",
+          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
+        },
+        "date": 1768986585832,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009931689306666661,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00706608438,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14691670859333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023434392806666662,
             "unit": "seconds"
           }
         ]
