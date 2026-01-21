@@ -98,6 +98,14 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 					self.handle.send_response(peer, response).await;
 				},
+				BitswapEvent::Response { peer, responses } => {
+					// We're a server, not a client - ignore incoming responses
+					log::trace!(
+						target: LOG_TARGET,
+						"ignoring bitswap response from {peer:?} with {} entries",
+						responses.len()
+					);
+				},
 			}
 		}
 	}

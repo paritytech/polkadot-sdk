@@ -899,7 +899,11 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
+<<<<<<< HEAD
 litep2p = { version = "0.10.0", features = ["websocket"] }
+=======
+litep2p = { version = "0.13.0", features = ["rsa", "websocket"] }
+>>>>>>> 0a38650 (Upgrade litep2p to v0.13.0 (#10859))
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
