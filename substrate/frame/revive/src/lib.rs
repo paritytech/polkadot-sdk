@@ -139,18 +139,6 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
-/// EIP-7702: Magic value for authorization signature message
-const EIP7702_MAGIC: u8 = 0x05;
-
-/// EIP-7702: Delegation indicator prefix (0xef0100)
-const DELEGATION_INDICATOR_PREFIX: [u8; 3] = [0xef, 0x01, 0x00];
-
-/// EIP-7702: Base cost for processing each authorization tuple
-const PER_AUTH_BASE_COST: u64 = 12500;
-
-/// EIP-7702: Cost for empty account creation
-const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
