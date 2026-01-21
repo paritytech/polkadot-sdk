@@ -349,11 +349,9 @@ fn valid_signature_is_verified_correctly() {
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
 		// Process authorizations
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			chain_id,
-			&mut accessed,
 		);
 
 		// Should succeed and set delegation
@@ -362,9 +360,6 @@ fn valid_signature_is_verified_correctly() {
 
 		// Existing account should get refund
 		assert_eq!(refund, PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
-
-		// Authority should be in accessed addresses
-		assert!(accessed.contains(&authority));
 	});
 }
 
@@ -390,11 +385,9 @@ fn invalid_chain_id_rejects_authorization() {
 		let auth = signer.sign_authorization(wrong_chain_id, target, nonce);
 
 		// Process with correct chain ID - should reject
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			correct_chain_id,
-			&mut accessed,
 		);
 
 		// Should not set delegation
@@ -427,11 +420,9 @@ fn nonce_mismatch_rejects_authorization() {
 		let auth = signer.sign_authorization(chain_id, target, wrong_nonce);
 
 		// Process - should reject due to nonce mismatch
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			chain_id,
-			&mut accessed,
 		);
 
 		// Should not set delegation
@@ -468,11 +459,9 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		let auth3 = signer.sign_authorization(chain_id, target3, nonce);
 
 		// Process all three - last one should win
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth1, auth2, auth3],
 			chain_id,
-			&mut accessed,
 		);
 
 		// Should set delegation to target3 (last one)
@@ -505,11 +494,9 @@ fn authorization_increments_nonce() {
 		let auth = signer.sign_authorization(chain_id, target, U256::from(initial_nonce));
 
 		// Process authorization
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let _refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			chain_id,
-			&mut accessed,
 		);
 
 		// Nonce should be incremented
@@ -542,11 +529,9 @@ fn chain_id_zero_accepts_any_chain() {
 		let auth = signer.sign_authorization(U256::zero(), target, nonce);
 
 		// Process with current chain ID
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			current_chain_id,
-			&mut accessed,
 		);
 
 		// Should succeed
@@ -574,11 +559,9 @@ fn new_account_gets_no_refund() {
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
 		// Process authorization
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth],
 			chain_id,
-			&mut accessed,
 		);
 
 		// New account should get no refund
@@ -612,11 +595,9 @@ fn clearing_delegation_with_zero_address() {
 
 		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target, nonce);
-		let mut accessed = alloc::collections::BTreeSet::new();
 		let _refund1 = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth1],
 			chain_id,
-			&mut accessed,
 		);
 
 		// Verify delegation is set
@@ -627,11 +608,9 @@ fn clearing_delegation_with_zero_address() {
 
 		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		let mut accessed2 = alloc::collections::BTreeSet::new();
 		let _refund2 = crate::evm::eip7702::process_authorizations::<Test>(
 			vec![auth2],
 			chain_id,
-			&mut accessed2,
 		);
 
 		// Delegation should be cleared

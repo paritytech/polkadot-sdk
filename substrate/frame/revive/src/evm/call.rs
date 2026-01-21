@@ -72,8 +72,6 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
-		// EIP-7702: Store the authorization list for later processing
-		let authorization_list = self.authorization_list.clone();
 
 		// We would like to allow for transactions without a chain id to be executed through pallet
 		// revive. These are called unprotected transactions and they are transactions that predate
@@ -186,7 +184,7 @@ impl GenericTransaction {
 					transaction_encoded,
 					effective_gas_price,
 					encoded_len,
-					authorization_list: authorization_list.clone(),
+					authorization_list: self.authorization_list.clone(),
 				}
 				.into();
 				call
@@ -276,7 +274,7 @@ impl GenericTransaction {
 			tx_fee,
 			storage_deposit,
 			eth_gas_limit: gas,
-			authorization_list,
+			authorization_list: self.authorization_list.clone(),
 		})
 	}
 }
