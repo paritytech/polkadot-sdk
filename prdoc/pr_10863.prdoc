@@ -1,0 +1,7 @@
+title: 'parachain-system: Ensure left-over message budget fits into the PoV'
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
