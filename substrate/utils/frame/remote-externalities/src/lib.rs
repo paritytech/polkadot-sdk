@@ -94,7 +94,7 @@ impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 	}
 }
 
-/// Builder for remote-externalities.
+/// Builder for [`RemoteExternalities`].
 #[derive(Clone)]
 pub struct Builder<B: BlockT> {
 	/// Custom key-pairs to be injected into the final externalities. The *hashed* keys and values
