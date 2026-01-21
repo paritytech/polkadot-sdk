@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768986610854,
+  "lastUpdate": 1768990407225,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "32168055+antkve@users.noreply.github.com",
-            "name": "Anthony Kveder",
-            "username": "antkve"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "7d875655ea38b734d6f1a3a79aef227e846f227c",
-          "message": "Fix bridge tests (#8900)\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/8800\n\n# Description\nFixing bridges integration tests by setting up pool\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-06-19T08:01:30Z",
-          "tree_id": "c6e34fd12d4d4103f3b1939a1c19acfc7ca43cbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d875655ea38b734d6f1a3a79aef227e846f227c"
-        },
-        "date": 1750323699566,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02238890642666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013064978866666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009257352840000066,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15667308564666677,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023434392806666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97e54c54a9573daf4d4a5234a42a3d1f054d7f91",
+          "message": "[CI|Release] Improve post crates action (#10803)\n\nhttps://github.com/paritytech/release-engineering/issues/280\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-21T08:47:44Z",
+          "tree_id": "601aeb5b6aba51b4e1ad695e6818647d4b4f5427",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/97e54c54a9573daf4d4a5234a42a3d1f054d7f91"
+        },
+        "date": 1768990385000,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007180498426666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14640747971333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009865551139999977,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02352352682,
             "unit": "seconds"
           }
         ]
