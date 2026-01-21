@@ -842,7 +842,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 				for round in 0..config.num_rounds {
 					let round_start = std::time::Instant::now();
 
-					// Step 1: Create subscriptions for messages we expect to receive
+					// Create subscriptions for messages we expect to receive
 					if client_id == 0 {
 						info!("Creating subscriptions for expected messages");
 					}
