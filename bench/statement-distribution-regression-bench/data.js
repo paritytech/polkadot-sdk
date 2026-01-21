@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768990463930,
+  "lastUpdate": 1769014742028,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "f10da5373cde92d9fc63ebfc66b9f62f5ad34a11",
-          "message": "[pallet-revive] only record diff if value changed (#8881)\n\nOnly record storage change in diff mode if the value differ from the\ninitial one.\nPrevious implementation would report a diff for example when the old\nvalue was written again.\n\nUpdated tests in https://github.com/paritytech/evm-test-suite/pull/96\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T15:29:50Z",
-          "tree_id": "c3ae3ee372616e288e1b45aa53082dbd2c513d7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f10da5373cde92d9fc63ebfc66b9f62f5ad34a11"
-        },
-        "date": 1750264632342,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96199999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044855226637999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033943341689999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06392743679799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0a386503ab5d3f77d30031e539640c89b254b492",
+          "message": "Upgrade litep2p to v0.13.0 (#10859)\n\nThis PR upgrades litep2p to the latest version, bringing multiple fixes\nwith this release.\n\nSpecifically, this release enhances WebSocket stability by resolving\n`AsyncWrite` errors and ensuring that partial writes during the\nnegotiation phase no longer trigger connection failures.\n\nIt also fixes large file download using Bitswap protocol by grouping\nblocks into batches of <= 2 MiB.",
+          "timestamp": "2026-01-21T15:43:42Z",
+          "tree_id": "c3ae5729679199b94777f823ad261bf884d02989",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a386503ab5d3f77d30031e539640c89b254b492"
+        },
+        "date": 1769014717769,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.05199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038368881972,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06800352108599997,
             "unit": "seconds"
           }
         ]
