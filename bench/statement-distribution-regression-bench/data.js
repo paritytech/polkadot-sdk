@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768945786827,
+  "lastUpdate": 1768986678752,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OliverLim818@gmail.com",
-            "name": "cuteolaf",
-            "username": "cuteolaf"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "79c84d47fc30e365488f5926cbea0d00eb6d3c52",
-          "message": "replace `pure` with `create_pure` in comments (#8892)\n\n# Description\n\nFixed some comments in the implementation of proxy pallet.",
-          "timestamp": "2025-06-18T08:40:45Z",
-          "tree_id": "88412a2b037372def5632f5177debada7b5e77ac",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/79c84d47fc30e365488f5926cbea0d00eb6d3c52"
-        },
-        "date": 1750239774687,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03452566605199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04563547324199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03813170811200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "841c77b967af6ba4f2bb70e1d3fad70e5749dc61",
+          "message": "Migrate pallet-example-offchain-worker to TransactionExtension API (#10716)\n\n## Summary\n\nPart of #2415\n\nThis PR is a focused extraction from the larger PR #10150, specifically\nmigrating only `pallet-example-offchain-worker` to use the modern\n`TransactionExtension` API.\n\n## Changes\n\nThis PR migrates `pallet-example-offchain-worker` from the deprecated\n`ValidateUnsigned` trait to the `TransactionExtension` API using the\n`#[pallet::authorize]` attribute.",
+          "timestamp": "2026-01-21T07:54:49Z",
+          "tree_id": "fc6c9fa3a67ef038039a680458f7a8d27e6c4ec1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/841c77b967af6ba4f2bb70e1d3fad70e5749dc61"
+        },
+        "date": 1768986654177,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.036,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038047590526,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06354888750999993,
             "unit": "seconds"
           }
         ]
