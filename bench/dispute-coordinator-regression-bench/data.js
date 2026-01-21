@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768990492226,
+  "lastUpdate": 1769014775059,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21804,6 +21804,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00927155994999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0a386503ab5d3f77d30031e539640c89b254b492",
+          "message": "Upgrade litep2p to v0.13.0 (#10859)\n\nThis PR upgrades litep2p to the latest version, bringing multiple fixes\nwith this release.\n\nSpecifically, this release enhances WebSocket stability by resolving\n`AsyncWrite` errors and ensuring that partial writes during the\nnegotiation phase no longer trigger connection failures.\n\nIt also fixes large file download using Bitswap protocol by grouping\nblocks into batches of <= 2 MiB.",
+          "timestamp": "2026-01-21T15:43:42Z",
+          "tree_id": "c3ae5729679199b94777f823ad261bf884d02989",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0a386503ab5d3f77d30031e539640c89b254b492"
+        },
+        "date": 1769014750813,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00271230998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006558477039999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009271494529999976,
             "unit": "seconds"
           }
         ]
