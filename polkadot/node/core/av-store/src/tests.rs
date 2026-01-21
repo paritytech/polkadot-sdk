@@ -536,7 +536,7 @@ fn store_pov_and_queries_work() {
 						chunk: branch.1.to_vec(),
 						index: validator_index.into(),
 						proof: Proof::try_from(branch.0.clone()).unwrap(),
-						session_index: None
+						session_index: None,
 					};
 					assert_eq!(chunk, expected_chunk);
 					assert_eq!(chunk, query_all_chunks_res[validator_index as usize]);
@@ -626,7 +626,7 @@ fn store_pov_and_queries_work() {
 						chunk: branch.1.to_vec(),
 						index: expected_chunk_index,
 						proof: Proof::try_from(branch.0.clone()).unwrap(),
-						session_index: None
+						session_index: None,
 					};
 					assert_eq!(chunk, expected_chunk);
 					assert_eq!(
@@ -705,7 +705,7 @@ fn query_all_chunks_works() {
 				chunk: vec![1, 2, 3],
 				index: ChunkIndex(1),
 				proof: Proof::try_from(vec![vec![3, 4, 5]]).unwrap(),
-				session_index: None
+				session_index: None,
 			};
 
 			let (tx, rx) = oneshot::channel();

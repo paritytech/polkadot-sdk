@@ -41,9 +41,7 @@ use polkadot_node_core_chain_selection::{
 	self as chain_selection_subsystem, Config as ChainSelectionConfig,
 };
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
-use polkadot_node_core_rewards_statistics_collector::{
-	Config as RewardsStatisticsCollectorConfig,
-};
+use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{IncomingRequest, ReqProtocolNames},

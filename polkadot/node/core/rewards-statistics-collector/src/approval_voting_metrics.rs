@@ -16,7 +16,7 @@
 
 use crate::View;
 use polkadot_primitives::{BlockNumber, Hash, ValidatorIndex};
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct ApprovalsStats {

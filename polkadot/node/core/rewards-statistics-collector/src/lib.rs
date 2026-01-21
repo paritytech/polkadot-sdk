@@ -23,18 +23,12 @@
 
 use crate::error::{FatalError, FatalResult, JfyiError, Result};
 use futures::{channel::oneshot, prelude::*};
-use polkadot_node_primitives::{
-	new_session_window_size, SessionWindowSize, DISPUTE_WINDOW,
-};
+use polkadot_node_primitives::{new_session_window_size, SessionWindowSize, DISPUTE_WINDOW};
 use polkadot_node_subsystem::{
-	messages::{
-		ChainApiMessage, RewardsStatisticsCollectorMessage,
-	},
+	messages::{ChainApiMessage, RewardsStatisticsCollectorMessage},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use polkadot_primitives::{
-	AuthorityDiscoveryId, BlockNumber, Hash, SessionIndex, ValidatorIndex,
-};
+use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, SessionIndex, ValidatorIndex};
 use std::collections::{BTreeMap, HashMap};
 
 mod approval_voting_metrics;
@@ -52,9 +46,7 @@ use crate::{
 	},
 };
 use approval_voting_metrics::ApprovalsStats;
-use polkadot_node_subsystem_util::{
-	request_session_index_for_child, request_session_info,
-};
+use polkadot_node_subsystem_util::{request_session_index_for_child, request_session_info};
 
 const MAX_SESSION_VIEWS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
 const MAX_AVAILABILITIES_TO_KEEP: SessionWindowSize = new_session_window_size!(3);

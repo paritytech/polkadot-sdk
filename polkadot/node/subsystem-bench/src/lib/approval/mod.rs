@@ -57,9 +57,7 @@ use polkadot_node_primitives::approval::time::{
 use polkadot_node_core_approval_voting::{
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,
 };
-use polkadot_node_core_rewards_statistics_collector::{
-	RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem,
-};
+use polkadot_node_core_rewards_statistics_collector::RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem;
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
 use polkadot_node_subsystem::{

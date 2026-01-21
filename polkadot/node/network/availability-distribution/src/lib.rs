@@ -110,13 +110,8 @@ where
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self {
-			mut runtime,
-			authority_discovery_service,
-			recvs,
-			metrics,
-			req_protocol_names,
-		} = self;
+		let Self { mut runtime, authority_discovery_service, recvs, metrics, req_protocol_names } =
+			self;
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,

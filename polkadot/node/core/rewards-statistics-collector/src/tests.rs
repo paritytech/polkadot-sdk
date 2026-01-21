@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashSet;
 use super::*;
 use assert_matches::assert_matches;
 use overseer::FromOrchestra;
@@ -22,13 +21,14 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActiveLeavesUpdate, ActivatedLeaf,
+	ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{CandidateHash, Hash, Header, SessionIndex, SessionInfo};
 use sp_application_crypto::Pair as PairT;
-use sp_authority_discovery::{AuthorityPair as AuthorityDiscoveryPair};
+use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
+use std::collections::HashSet;
 use test_helpers::mock::new_leaf;
 
 type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<
@@ -195,13 +195,7 @@ fn single_candidate_approved() {
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		activate_leaf(
-			&mut virtual_overseer,
-			leaf.clone(),
-			1,
-			Some(default_session_info(1)),
-		)
-		.await;
+		activate_leaf(&mut virtual_overseer, leaf.clone(), 1, Some(default_session_info(1))).await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx.clone()])
 			.await;
@@ -228,16 +222,9 @@ fn candidate_approved_for_different_forks() {
 
 		let leaf1 = new_leaf(rb_hash_fork_1.clone(), rb_number);
 
-		activate_leaf(
-			&mut virtual_overseer,
-			leaf0.clone(),
-			1,
-			Some(default_session_info(1)),
-		)
-		.await;
+		activate_leaf(&mut virtual_overseer, leaf0.clone(), 1, Some(default_session_info(1))).await;
 
-		activate_leaf(&mut virtual_overseer, leaf1.clone(),1, None)
-			.await;
+		activate_leaf(&mut virtual_overseer, leaf1.clone(), 1, None).await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash_fork_0, rb_number, vec![validator_idx0])
 			.await;
@@ -266,13 +253,7 @@ fn candidate_approval_stats_with_no_shows() {
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf1 = new_leaf(rb_hash.clone(), rb_number);
-		activate_leaf(
-			&mut virtual_overseer,
-			leaf1.clone(),
-			1,
-			Some(default_session_info(1)),
-		)
-		.await;
+		activate_leaf(&mut virtual_overseer, leaf1.clone(), 1, Some(default_session_info(1))).await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, approvals_from).await;
 
@@ -391,21 +372,13 @@ fn note_chunks_uploaded_to_active_validator() {
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		activate_leaf(
-			&mut virtual_overseer,
-			leaf1,
-			session_index,
-			Some(session_info),
-		)
-		.await;
+		activate_leaf(&mut virtual_overseer, leaf1, session_index, Some(session_info)).await;
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
 				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(
 					session_index,
-					HashSet::from_iter(vec![
-						validator_idx_auth_id,
-					])
+					HashSet::from_iter(vec![validator_idx_auth_id]),
 				),
 			})
 			.await;
