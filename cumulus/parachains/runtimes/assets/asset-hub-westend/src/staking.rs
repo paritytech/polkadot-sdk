@@ -395,17 +395,15 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	}
 }
 
-/// Message to set session keys on the Relay Chain.
-/// Note: proof is validated on AH side, so only keys are sent to RC.
-#[derive(Encode, Decode, Clone)]
-pub struct SetKeysMessage {
-	pub stash: AccountId,
-	pub keys: Vec<u8>,
-}
-
-pub struct SetKeysToXcm;
-impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
-	fn convert(msg: SetKeysMessage) -> Xcm<()> {
+pub struct KeysMessageToXcm;
+impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
+	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
+		let call = match msg {
+			rc_client::KeysMessage::SetKeys { stash, keys } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }),
+			rc_client::KeysMessage::PurgeKeys { stash } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }),
+		};
 		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
@@ -414,39 +412,7 @@ impl sp_runtime::traits::Convert<SetKeysMessage, Xcm<()>> for SetKeysToXcm {
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
 				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys {
-					stash: msg.stash,
-					keys: msg.keys,
-				})
-				.encode()
-				.into(),
-			},
-		])
-	}
-}
-
-/// Message to purge session keys on the Relay Chain.
-#[derive(Encode, Decode, Clone)]
-pub struct PurgeKeysMessage {
-	pub stash: AccountId,
-}
-
-pub struct PurgeKeysToXcm;
-impl sp_runtime::traits::Convert<PurgeKeysMessage, Xcm<()>> for PurgeKeysToXcm {
-	fn convert(msg: PurgeKeysMessage) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys {
-					stash: msg.stash,
-				})
-				.encode()
-				.into(),
+				call: call.encode().into(),
 			},
 		])
 	}
@@ -486,7 +452,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	fn set_keys(
 		stash: Self::AccountId,
 		keys: Vec<u8>,
-		max_fee: Option<Self::Balance>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
 			&RemoteKeysExecutionWeight::get(),
@@ -495,8 +461,8 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
-			SetKeysMessage,
-			SetKeysToXcm,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
 		>::send_with_fees::<
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 			RuntimeCall,
@@ -504,16 +470,16 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			AccountIdToLocation,
 			Self::Balance,
 		>(
-			SetKeysMessage { stash: stash.clone(), keys },
+			rc_client::KeysMessage::set_keys(stash.clone(), keys),
 			stash,
-			max_fee,
+			max_delivery_and_remote_execution_fee,
 			execution_cost,
 		)
 	}
 
 	fn purge_keys(
 		stash: Self::AccountId,
-		max_fee: Option<Self::Balance>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
 		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
 			&RemoteKeysExecutionWeight::get(),
@@ -522,8 +488,8 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			RelayLocation,
-			PurgeKeysMessage,
-			PurgeKeysToXcm,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
 		>::send_with_fees::<
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 			RuntimeCall,
@@ -531,9 +497,9 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			AccountIdToLocation,
 			Self::Balance,
 		>(
-			PurgeKeysMessage { stash: stash.clone() },
+			rc_client::KeysMessage::purge_keys(stash.clone()),
 			stash,
-			max_fee,
+			max_delivery_and_remote_execution_fee,
 			execution_cost,
 		)
 	}

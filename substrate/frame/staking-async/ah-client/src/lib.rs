@@ -1033,6 +1033,87 @@ pub mod pallet {
 }
 
 #[cfg(test)]
+mod keys_from_ah_tests {
+	use super::*;
+	use crate::mock::*;
+	use codec::Encode;
+	use frame_support::{assert_noop, assert_ok, hypothetically};
+	use sp_runtime::DispatchError;
+
+	#[test]
+	fn set_keys_from_ah() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let stash = 42u64;
+			let keys = MockSessionKeys { dummy: [1u8; 32] };
+
+			// success with root origin
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert_eq!(SetKeysCalls::get(), vec![(stash, keys.clone())]);
+			});
+
+			// rejects bad origin
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_noop!(
+					StakingAsyncAhClient::set_keys_from_ah(
+						RuntimeOrigin::signed(1),
+						stash,
+						keys.encode(),
+					),
+					DispatchError::BadOrigin
+				);
+				assert!(SetKeysCalls::get().is_empty());
+			});
+
+			// handles invalid keys gracefully
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					vec![1u8, 2, 3], // invalid encoding
+				));
+				assert!(SetKeysCalls::get().is_empty());
+				System::assert_has_event(
+					Event::<Test>::Unexpected(UnexpectedKind::InvalidKeysFromAssetHub).into(),
+				);
+			});
+		});
+	}
+
+	#[test]
+	fn purge_keys_from_ah() {
+		new_test_ext().execute_with(|| {
+			let stash = 42u64;
+
+			// success with root origin
+			hypothetically!({
+				PurgeKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::root(), stash));
+				assert_eq!(PurgeKeysCalls::get(), vec![stash]);
+			});
+
+			// rejects bad origin
+			hypothetically!({
+				PurgeKeysCalls::take();
+				assert_noop!(
+					StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::signed(1), stash),
+					DispatchError::BadOrigin
+				);
+				assert!(PurgeKeysCalls::get().is_empty());
+			});
+		});
+	}
+}
+
+#[cfg(test)]
 mod send_queue_tests {
 	use frame_support::hypothetically;
 	use sp_runtime::Perbill;

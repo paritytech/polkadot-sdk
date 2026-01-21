@@ -479,11 +479,11 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
 
-// Session keys type for AH that must match RC's SessionKeys.
+// Session keys type that must match RC's SessionKeys.
 // This ensures that keys validated on AH can be decoded on RC.
 // Uses the same OtherSessionHandler as rc::SessionKeys.
 frame::deps::sp_runtime::impl_opaque_keys! {
-	pub struct AHSessionKeys {
+	pub struct RCSessionKeys {
 		pub other: frame::deps::sp_runtime::testing::UintAuthorityId,
 	}
 }
@@ -494,7 +494,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
-	type SessionKeys = AHSessionKeys;
+	type SessionKeys = RCSessionKeys;
 	type Balance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
 	type MaxSessionKeysProofLength = ConstU32<512>;
@@ -618,7 +618,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	fn set_keys(
 		stash: Self::AccountId,
 		keys: Vec<u8>,
-		max_fee: Option<Self::Balance>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
@@ -629,7 +629,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		let total_fee = delivery_fee.saturating_add(execution_cost);
 
 		// Check max fee limit before charging
-		if let Some(max) = max_fee {
+		if let Some(max) = max_delivery_and_remote_execution_fee {
 			if total_fee > max {
 				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
 			}
@@ -664,7 +664,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 
 	fn purge_keys(
 		stash: Self::AccountId,
-		max_fee: Option<Self::Balance>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
 		Self::ensure_delivery_guard()
 			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
@@ -675,7 +675,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		let total_fee = delivery_fee.saturating_add(execution_cost);
 
 		// Check max fee limit before charging
-		if let Some(max) = max_fee {
+		if let Some(max) = max_delivery_and_remote_execution_fee {
 			if total_fee > max {
 				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
 			}
