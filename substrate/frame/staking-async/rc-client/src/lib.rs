@@ -679,30 +679,17 @@ where
 			fun: Fungible(total_fee.into()),
 		});
 
-		// Wrap fee charging and delivery in a transaction so fees are rolled back if delivery
-		// fails. Without this, users would lose fees on transient delivery failures (e.g., queue
-		// full).
-		match with_transaction_opaque_err(|| {
-			if let Err(e) = XcmExec::charge_fees(payer_location, total_assets) {
-				log::error!(target: LOG_TARGET, "Failed to charge fees: {:?}", e);
-				return TransactionOutcome::Rollback(Err(SendKeysError::Send(
-					SendOperationError::ChargeFeesFailed,
-				)));
-			}
+		XcmExec::charge_fees(payer_location, total_assets).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to charge fees: {:?}", e);
+			SendKeysError::Send(SendOperationError::ChargeFeesFailed)
+		})?;
 
-			if let Err(e) = Sender::deliver(ticket) {
-				log::error!(target: LOG_TARGET, "Failed to deliver XCM: {:?}", e);
-				return TransactionOutcome::Rollback(Err(SendKeysError::Send(
-					SendOperationError::DeliveryFailed,
-				)));
-			}
+		Sender::deliver(ticket).map_err(|e| {
+			log::error!(target: LOG_TARGET, "Failed to deliver XCM: {:?}", e);
+			SendKeysError::Send(SendOperationError::DeliveryFailed)
+		})?;
 
-			TransactionOutcome::Commit(Ok(total_fee))
-		}) {
-			Ok(inner) => inner,
-			// unreachable; `with_transaction_opaque_err` always returns `Ok(inner)`
-			Err(_) => Err(SendKeysError::Send(SendOperationError::DeliveryFailed)),
-		}
+		Ok(total_fee)
 	}
 }
 
