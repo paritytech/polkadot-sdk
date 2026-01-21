@@ -464,12 +464,15 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 }
 
-// Placeholder session keys for the generic parachain runtime.
-// In production (e.g., asset-hub-westend), this should be replaced with the actual
-// relay chain session keys type that matches the target relay chain.
+// Relay chain session keys matching Westend configuration.
 sp_runtime::impl_opaque_keys! {
 	pub struct RelayChainSessionKeys {
-		pub aura: sp_consensus_aura::sr25519::AuthorityId,
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
 	}
 }
 
