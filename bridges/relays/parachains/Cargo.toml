@@ -11,10 +11,10 @@ publish = false
 workspace = true
 
 [dependencies]
-async-std = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 relay-utils = { workspace = true }
+tokio = { features = ["time"], workspace = true }
 tracing = { workspace = true }
 
 # Bridge dependencies
