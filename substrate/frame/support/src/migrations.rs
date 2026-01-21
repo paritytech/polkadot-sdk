@@ -980,7 +980,7 @@ impl SteppedMigrations for Tuple {
 		let mut i = 0;
 		for_tuples!( #(
             let len = Tuple::len() as u32;
-            if n < i + len {
+            if (i + len) > n {
                 return Tuple::nth_migrating_prefixes(n - i);
             }
             i += len;

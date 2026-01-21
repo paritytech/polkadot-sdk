@@ -335,7 +335,9 @@ pub struct MbmStatus {
 	pub ongoing: MbmIsOngoing,
 	/// Progress information about the current migration, if any.
 	pub progress: Option<MbmProgress>,
-	/// The storage prefixes that are affected by the current migration, if any.
+	/// The storage prefixes that are affected by the current migration.
+	///
+	/// Can be empty if the migration does not know or there are no prefixes.
 	pub prefixes: Vec<Vec<u8>>,
 }
 
@@ -349,6 +351,8 @@ pub struct MbmProgress {
 	/// The number of steps that the current migration has taken.
 	pub current_migration_steps: u32,
 	/// The maximum number of steps that the current migration can take.
+	///
+	/// Can be `None` if the migration does not know or there is no limit.
 	pub current_migration_max_steps: Option<u32>,
 }
 
@@ -703,7 +707,9 @@ pub mod pallet {
 			}
 		}
 
-		/// Returns the storage prefixes affected by the current migration, if any.
+		/// Returns the storage prefixes affected by the current migration.
+		///
+		/// Can be empty if the migration does not know or there are no prefixes.
 		pub fn affected_prefixes() -> Vec<Vec<u8>> {
 			match Cursor::<T>::get() {
 				Some(MigrationCursor::Active(cursor)) =>
