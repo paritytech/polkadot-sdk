@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::HashSet;
 use super::*;
 use assert_matches::assert_matches;
 use overseer::FromOrchestra;
@@ -21,10 +22,10 @@ use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, RewardsStatisticsCollectorMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf,
+	ActiveLeavesUpdate, ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_primitives::{Hash, Header, SessionIndex, SessionInfo};
+use polkadot_primitives::{CandidateHash, Hash, Header, SessionIndex, SessionInfo};
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::{AuthorityPair as AuthorityDiscoveryPair};
 use sp_keyring::Sr25519Keyring;
@@ -37,7 +38,6 @@ type VirtualOverseer = polkadot_node_subsystem_test_helpers::TestSubsystemContex
 async fn activate_leaf(
 	virtual_overseer: &mut VirtualOverseer,
 	activated: ActivatedLeaf,
-	leaf_header: Header,
 	session_index: SessionIndex,
 	session_info: Option<SessionInfo>,
 ) {
@@ -198,7 +198,6 @@ fn single_candidate_approved() {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf.clone(),
-			default_header(rb_number),
 			1,
 			Some(default_session_info(1)),
 		)
@@ -232,13 +231,12 @@ fn candidate_approved_for_different_forks() {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf0.clone(),
-			default_header(rb_number),
 			1,
 			Some(default_session_info(1)),
 		)
 		.await;
 
-		activate_leaf(&mut virtual_overseer, leaf1.clone(), default_header(rb_number), 1, None)
+		activate_leaf(&mut virtual_overseer, leaf1.clone(),1, None)
 			.await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash_fork_0, rb_number, vec![validator_idx0])
@@ -271,7 +269,6 @@ fn candidate_approval_stats_with_no_shows() {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf1.clone(),
-			default_header(rb_number),
 			1,
 			Some(default_session_info(1)),
 		)
@@ -383,8 +380,6 @@ fn default_session_info(session_idx: SessionIndex) -> SessionInfo {
 fn note_chunks_uploaded_to_active_validator() {
 	let activated_leaf_hash = Hash::from_low_u64_be(111);
 	let leaf1 = new_leaf(activated_leaf_hash.clone(), 1);
-	let leaf1_number: BlockNumber = 1;
-	let leaf1_header = default_header(leaf1_number);
 
 	let session_index: SessionIndex = 2;
 	let mut session_info: SessionInfo = default_session_info(session_index);
@@ -394,14 +389,11 @@ fn note_chunks_uploaded_to_active_validator() {
 	let validator_idx_auth_id: AuthorityDiscoveryId = validator_idx_pair.0.public().into();
 	session_info.discovery_keys = vec![validator_idx_auth_id.clone()];
 
-	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(132));
-
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf1,
-			leaf1_header,
 			session_index,
 			Some(session_info),
 		)
@@ -409,9 +401,12 @@ fn note_chunks_uploaded_to_active_validator() {
 
 		virtual_overseer
 			.send(FromOrchestra::Communication {
-				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(HashSet::from_iter(vec![
-					validator_idx_auth_id,
-				])),
+				msg: RewardsStatisticsCollectorMessage::ChunkUploaded(
+					session_index,
+					HashSet::from_iter(vec![
+						validator_idx_auth_id,
+					])
+				),
 			})
 			.await;
 
@@ -462,12 +457,10 @@ fn prune_unfinalized_forks() {
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf_a = new_leaf(hash_a.clone(), number_a);
-		let leaf_a_header = default_header(number_a);
 
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf_a,
-			leaf_a_header,
 			session_zero,
 			Some(default_session_info(session_zero)),
 		)
@@ -489,9 +482,7 @@ fn prune_unfinalized_forks() {
 		.await;
 
 		let leaf_b = new_leaf(hash_b.clone(), 2);
-		let leaf_b_header = header_with_number_and_parent(2, hash_a.clone());
-
-		activate_leaf(&mut virtual_overseer, leaf_b, leaf_b_header, session_zero, None).await;
+		activate_leaf(&mut virtual_overseer, leaf_b, session_zero, None).await;
 
 		candidate_approved(
 			&mut virtual_overseer,
@@ -502,9 +493,7 @@ fn prune_unfinalized_forks() {
 		.await;
 
 		let leaf_c = new_leaf(hash_c.clone(), 2);
-		let leaf_c_header = header_with_number_and_parent(2, hash_a.clone());
-
-		activate_leaf(&mut virtual_overseer, leaf_c, leaf_c_header, session_zero, None).await;
+		activate_leaf(&mut virtual_overseer, leaf_c, session_zero, None).await;
 
 		candidate_approved(
 			&mut virtual_overseer,
@@ -515,9 +504,7 @@ fn prune_unfinalized_forks() {
 		.await;
 
 		let leaf_d = new_leaf(hash_d.clone(), 3);
-		let leaf_d_header = header_with_number_and_parent(3, hash_c.clone());
-
-		activate_leaf(&mut virtual_overseer, leaf_d, leaf_d_header, session_zero, None).await;
+		activate_leaf(&mut virtual_overseer, leaf_d, session_zero, None).await;
 
 		candidate_approved(
 			&mut virtual_overseer,
@@ -604,17 +591,13 @@ fn prune_unfinalized_forks() {
 	let hash_g = Hash::from_slice(&[06; 32]);
 	let number_g: BlockNumber = 5;
 
-	let candidate_hash_e = CandidateHash(Hash::from_low_u64_be(0xEE0011));
 	let session_one: SessionIndex = 1;
 
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		let leaf_e = new_leaf(hash_e.clone(), 4);
-		let leaf_e_header = header_with_number_and_parent(4, hash_d.clone());
-
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf_e,
-			leaf_e_header,
 			session_one,
 			Some(default_session_info(session_one)),
 		)
@@ -630,15 +613,11 @@ fn prune_unfinalized_forks() {
 		no_shows(&mut virtual_overseer, hash_e, number_e, vec![ValidatorIndex(2)]).await;
 
 		let leaf_f = new_leaf(hash_f.clone(), number_f);
-		let leaf_f_header = header_with_number_and_parent(number_f, hash_e.clone());
-
-		activate_leaf(&mut virtual_overseer, leaf_f, leaf_f_header, session_one, None).await;
+		activate_leaf(&mut virtual_overseer, leaf_f, session_one, None).await;
 		candidate_approved(&mut virtual_overseer, hash_f, number_f, vec![ValidatorIndex(3)]).await;
 
 		let leaf_g = new_leaf(hash_g.clone(), number_g);
-		let leaf_g_header = header_with_number_and_parent(number_g, hash_e.clone());
-
-		activate_leaf(&mut virtual_overseer, leaf_g, leaf_g_header, session_one, None).await;
+		activate_leaf(&mut virtual_overseer, leaf_g, session_one, None).await;
 		candidate_approved(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(0)]).await;
 		no_shows(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(1)]).await;
 

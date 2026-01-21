@@ -14,20 +14,36 @@ doc:
         Its primary responsibility is to collect and track data reflecting node’s perspective
         on the approval work carried out by all session validators.
 
-        It also modifies the `ErasureChunk` to include the session index to which the chunk belongs to
+        The PR modifies the `ErasureChunk` to include the session index to which the chunk belongs to
+
+        The PR includes a new CLI option: `verbose_approval_metrics`, it enables or disable
+        publishing prometheus metrics per validator collected approvals metrics. If not specified, set to false,
+        the default behavior is to publish collected statistics metrics per session only.
 
 crates:
-  - name: polkadot-node-core-rewards-statistics-collector
-    bump: minor
-  - name: polkadot-node-core-approval-voting
-    bump: patch
-  - name: polkadot-node-core-av-store
-    bump: patch
-  - name: polkadot-node-network-availability-distribution
-    bump: patch
-  - name: polkadot-node-network-protocol
+  - name: polkadot-sdk
     bump: patch
   - name: polkadot-overseer
     bump: patch
   - name: polkadot-node-primitives
     bump: patch
+  - name: polkadot-node-subsystem-types
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-availability-distribution
+    bump: patch
+  - name: polkadot-availability-recovery
+    bump: patch
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-node-core-rewards-statistics-collector
+    bump: major
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: polkadot-cli
+    bump: minor
