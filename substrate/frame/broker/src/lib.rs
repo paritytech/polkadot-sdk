@@ -1040,5 +1040,20 @@ pub mod pallet {
 			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
+
+		/*
+		#[pallet::call_index(60)]
+		pub fn potential_renewal(origin: OriginFor<T>, core: CoreIndex, renew: bool) -> DispatchResult {
+			let who = T::AdminOrigin::ensure_origin_or_root(origin)?;
+			if renew {
+				Self::do_renew(who, core)?;
+			} else {
+				
+				let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+				PotentialRenewals::<T>::remove(renewal_id);
+			}
+			Ok(Pays::Yes.into())
+		}
+			*/
 	}
 }

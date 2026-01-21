@@ -226,6 +226,34 @@ impl<T: Config> Pallet<T> {
 		Ok(core)
 	}
 
+	pub(crate) fn do_add_potential_renewal(core: CoreIndex) -> Result<(), Error<T>> {
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+		// Check if a record already exists
+		if PotentialRenewals::<T>::contains_key(renewal_id) {
+			return Err(Error::<T>::NotAllowed);
+		}
+		price = Self::sale_price(&sale, now);
+		let workload = Workload::<T>::get(core);
+		log::debug!(
+			"Create PotentialRenewalRecord for workload {:?}",
+			workload
+		);
+		let new_record = PotentialRenewalRecord { price, completion: Complete(workload) }
+		PotentialRenewals::<T>::insert(PotentialRenewalId { core, when: begin }, &new_record);
+	}
+
+	pub(crate) fn do_remove_potential_renewal(core: CoreIndex) -> Result<(), Error<T>> {
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+		let current_record = PotentialRenewals::<T>::get(renewal_id);
+
+		if let Some(_) = current_record {
+			PotentialRenewals::<T>::remove(renewal_id);
+		}  
+	}
+
 	pub(crate) fn do_transfer(
 		region_id: RegionId,
 		maybe_check_owner: Option<T::AccountId>,
