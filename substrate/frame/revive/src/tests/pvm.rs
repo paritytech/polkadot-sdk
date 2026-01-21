@@ -4898,3 +4898,625 @@ fn return_data_limit_is_enforced() {
 		}
 	});
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn storage_deposit_from_hold_works() {
+	let ed = 200;
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(ed).build().execute_with(|| {
+		let hold_initial = 500_000;
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = Some((0u32.into(), Default::default()));
+
+		// Instantiate the BOB contract.
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
+			.exec_config(exec_config)
+			.native_value(1_000)
+			.build_and_unwrap_contract();
+
+		// Check that the BOB contract has been instantiated.
+		get_contract(&addr);
+
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let base_deposit = contract_base_deposit(&addr);
+		let code_deposit = get_code_deposit(&code_hash);
+		assert!(base_deposit > 0);
+		assert!(code_deposit > 0);
+
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
+			base_deposit,
+		);
+		assert_eq!(
+			<Test as Config>::FeeInfo::remaining_txfee(),
+			hold_initial - base_deposit - code_deposit - ed,
+		);
+	});
+}
+
+#[test]
+fn eip3607_reject_tx_from_contract_or_precompile() {
+	let (binary, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// the origins from which we try to call a dispatchable
+		let Contract { addr: contract_addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+		let blake2_addr = H160::from_low_u64_be(9);
+		let system_addr = H160::from_low_u64_be(0x900);
+		let addresses = [contract_addr, blake2_addr, system_addr];
+
+		// used to test `dispatch_as_fallback_account`
+		let call = Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		}));
+
+		for address in addresses.iter() {
+			let origin = <Test as Config>::AddressMapper::to_fallback_account_id(address);
+
+			let result =
+				builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = builder::eth_call(BOB_ADDR)
+				.origin(Origin::EthTransaction(origin.clone()).into())
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = builder::instantiate(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = builder::eth_instantiate_with_code(Default::default())
+				.origin(Origin::EthTransaction(origin.clone()).into())
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = builder::instantiate_with_code(Default::default())
+				.origin(RuntimeOrigin::signed(origin.clone()))
+				.build();
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::upload_code(
+				RuntimeOrigin::signed(origin.clone()),
+				Default::default(),
+				<BalanceOf<Test>>::MAX,
+			);
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::map_account(RuntimeOrigin::signed(origin.clone()));
+			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::dispatch_as_fallback_account(
+				RuntimeOrigin::signed(origin.clone()),
+				call.clone(),
+			);
+			assert_err!(result, DispatchError::BadOrigin);
+		}
+	});
+}
+
+#[test]
+fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	let genesis_config = GenesisConfig::<Test> {
+		debug_settings: Some(DebugSettings::new(false, true, false)),
+		..Default::default()
+	};
+
+	ExtBuilder::default()
+		.genesis_config(Some(genesis_config))
+		.existential_deposit(200)
+		.build()
+		.execute_with(|| {
+			DebugFlag::set(true);
+
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			// the origins from which we try to call a dispatchable
+			let Contract { addr: contract_addr, .. } =
+				builder::bare_instantiate(Code::Upload(binary.clone())).build_and_unwrap_contract();
+
+			assert!(<AccountInfo<Test>>::is_contract(&contract_addr));
+
+			let blake2_addr = H160::from_low_u64_be(9);
+			let system_addr = H160::from_low_u64_be(0x900);
+			let addresses = [contract_addr, blake2_addr, system_addr];
+
+			for address in addresses {
+				let origin = <Test as Config>::AddressMapper::to_fallback_account_id(&address);
+
+				let _ = <Test as Config>::Currency::set_balance(&origin, 10_000_000_000_000);
+
+				let result =
+					builder::call(BOB_ADDR).origin(RuntimeOrigin::signed(origin.clone())).build();
+				assert_ok!(result);
+
+				let result = builder::eth_call(BOB_ADDR)
+					.origin(Origin::EthTransaction(origin.clone()).into())
+					.build();
+				assert_ok!(result);
+
+				let result = builder::instantiate(code_hash)
+					.origin(RuntimeOrigin::signed(origin.clone()))
+					.build();
+				assert_ok!(result);
+
+				let result = builder::eth_instantiate_with_code(binary.clone())
+					.origin(Origin::EthTransaction(origin.clone()).into())
+					.build();
+				assert_ok!(result);
+
+				let result = <Pallet<Test>>::dispatch_as_fallback_account(
+					RuntimeOrigin::signed(origin.clone()),
+					Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+						dest: EVE,
+						keep_alive: false,
+					})),
+				);
+				assert_ok!(result);
+
+				let result = <Pallet<Test>>::upload_code(
+					RuntimeOrigin::signed(origin.clone()),
+					binary.clone(),
+					<BalanceOf<Test>>::MAX,
+				);
+				assert_ok!(result);
+			}
+		});
+}
+
+#[test]
+fn get_set_storage_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = [1; 32];
+		// Checking non-existing keys gets created.
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, value_to_write.clone())
+				.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result =
+			Pallet::<Test>::set_storage(addr, contract_key_to_test, new_value_to_write.clone())
+				.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value = Pallet::<Test>::get_storage(addr, contract_key_to_test).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_storage_var_key_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let contract_key_to_test = vec![1; 85];
+		// Checking non-existing keys gets created.
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, None);
+
+		let value_to_write = Some(vec![1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(write_result, WriteOutcome::New);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, value_to_write);
+
+		// Check existing keys overwrite
+
+		let new_value_to_write = Some(vec![5, 1, 2, 3]);
+		let write_result = Pallet::<Test>::set_storage_var_key(
+			addr,
+			contract_key_to_test.clone(),
+			new_value_to_write.clone(),
+		)
+		.unwrap();
+		assert_eq!(
+			write_result,
+			WriteOutcome::Overwritten(value_to_write.map(|v| v.len()).unwrap_or_default() as u32)
+		);
+		let storage_value =
+			Pallet::<Test>::get_storage_var_key(addr, contract_key_to_test.clone()).unwrap();
+		assert_eq!(storage_value, new_value_to_write);
+	});
+}
+
+#[test]
+fn get_set_immutables_works() {
+	let (code, _code_hash) = compile_module("immutable_data").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let data = [0xfe; 8];
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.data(data.to_vec())
+			.build_and_unwrap_contract();
+
+		// Checking non-existing keys gets created.
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, data.to_vec());
+
+		let new_data = [0xdeu8; 8].to_vec();
+
+		Pallet::<Test>::set_immutables(addr, BoundedVec::truncate_from(new_data.clone())).unwrap();
+		let immutable_data = Pallet::<Test>::get_immutables(addr).unwrap();
+		assert_eq!(immutable_data, new_data);
+	});
+}
+
+#[test]
+fn consume_all_gas_works() {
+	let (code, code_hash) = compile_module("consume_all_gas").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		assert_eq!(
+			builder::bare_instantiate(Code::Upload(code)).build().weight_consumed,
+			WEIGHT_LIMIT,
+			"callvalue == 0 should consume all gas in deploy"
+		);
+		assert_ne!(
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.evm_value(1.into())
+				.build()
+				.weight_consumed,
+			WEIGHT_LIMIT,
+			"callvalue == 1 should not consume all gas in deploy"
+		);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
+			.evm_value(2.into())
+			.build_and_unwrap_contract();
+
+		assert_eq!(
+			builder::bare_call(addr).build().weight_consumed,
+			WEIGHT_LIMIT,
+			"callvalue == 0 should consume all gas"
+		);
+		assert_ne!(
+			builder::bare_call(addr).evm_value(1.into()).build().weight_consumed,
+			WEIGHT_LIMIT,
+			"callvalue == 1 should not consume all gas"
+		);
+	});
+}
+
+#[test]
+fn existential_deposit_shall_not_be_charged_twice() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let callee_addr = create2(
+			&ALICE_ADDR,
+			&code,
+			&[0u8; 0], // empty input
+			&salt,
+		);
+		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
+
+		// first send funds to callee_addr
+		let _ = <Test as Config>::Currency::set_balance(&callee_account, Contracts::min_balance());
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+
+		// then deploy contract to callee_addr using create2
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+
+		assert_eq!(callee_addr, addr);
+
+		// check we charged ed only 1 time
+		assert_eq!(get_balance(&callee_account), Contracts::min_balance());
+	});
+}
+
+#[test]
+fn self_destruct_by_syscall_tracing_works() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
+		Trace,
+	};
+
+	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
+
+	struct TestCase {
+		description: &'static str,
+		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
+		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+	}
+
+	let test_cases = vec![
+		TestCase {
+			description: "CallTracer",
+			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
+			expected_trace_fn: Box::new(|addr, _binary| {
+				Trace::Call(CallTrace {
+					from: ALICE_ADDR,
+					to: addr,
+					call_type: CallType::Call,
+					value: Some(U256::zero()),
+					gas: 0.into(),
+					gas_used: 0.into(),
+					calls: vec![CallTrace {
+						from: addr,
+						to: DJANGO_ADDR,
+						gas: 0.into(),
+
+						call_type: CallType::Selfdestruct,
+						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
+						..Default::default()
+					}],
+					..Default::default()
+				})
+			}),
+			modify_trace_fn: Some(Box::new(|mut actual_trace| {
+				if let Trace::Call(trace) = &mut actual_trace {
+					trace.gas = 0.into();
+					trace.gas_used = 0.into();
+					trace.calls[0].gas = 0.into();
+				}
+				actual_trace
+			})),
+		},
+		TestCase {
+			description: "PrestateTracer (diff mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}",
+							"nonce": 1
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "{{CONTRACT_BALANCE}}",
+							"nonce": 1,
+							"code": "{{CONTRACT_CODE}}"
+						}
+					},
+					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}"
+						},
+						"{{DJANGO_ADDR}}": {
+							"balance": "{{DJANGO_BALANCE_POST}}"
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0"
+						}
+					}
+				}"#;
+
+				let alice_balance_pre = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let alice_balance_post = alice_balance_pre - 50_000_000u64;
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance_post = contract_balance;
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+		TestCase {
+			description: "PrestateTracer (prestate mode)",
+			create_tracer: Box::new(|| {
+				Tracer::PrestateTracer(PrestateTracer::new(PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				}))
+			}),
+			expected_trace_fn: Box::new(|addr, binary| {
+				use alloy_core::hex;
+
+				let json = r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "{{CONTRACT_BALANCE}}",
+						"nonce": 1,
+						"code": "{{CONTRACT_CODE}}"
+					},
+					"{{DJANGO_ADDR}}": {
+						"balance": "{{DJANGO_BALANCE}}"
+					}
+				}"#;
+
+				let alice_balance = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+				let contract_balance = Pallet::<Test>::evm_balance(&addr);
+				let django_balance = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
+
+				let json = json
+					.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", addr))
+					.replace("{{DJANGO_ADDR}}", &format!("{:#x}", DJANGO_ADDR))
+					.replace("{{ALICE_BALANCE}}", &format!("{:#x}", alice_balance))
+					.replace("{{CONTRACT_BALANCE}}", &format!("{:#x}", contract_balance))
+					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
+					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
+
+				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
+				Trace::Prestate(expected)
+			}),
+			modify_trace_fn: None,
+		},
+	];
+
+	for TestCase { description, create_tracer, expected_trace_fn, modify_trace_fn } in test_cases {
+		ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+			get_contract(&addr);
+
+			let expected_trace = expected_trace_fn(addr, binary.clone());
+			let mut tracer = create_tracer();
+			trace(tracer.as_tracing(), || {
+				builder::call(addr).build().unwrap();
+			});
+
+			let mut trace = tracer.collect_trace().unwrap();
+
+			if let Some(modify_trace_fn) = modify_trace_fn {
+				trace = modify_trace_fn(trace);
+			}
+			let trace_wrapped = match trace {
+				crate::evm::Trace::Call(ct) => Trace::Call(ct),
+				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
+			};
+
+			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
+		});
+	}
+}
+
+#[test]
+fn delegate_call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_evm").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.native_value(1337)
+				.data((callee_addr, 100u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+
+#[test]
+fn call_with_gas_limit() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_with_gas").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.native_value(300_000)
+				.build_and_unwrap_contract();
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.native_value(100_000)
+				.build_and_unwrap_contract();
+
+		// fails, not enough gas
+		assert_err!(
+			builder::bare_call(caller_addr)
+				.data((callee_addr, 1u64).encode())
+				.build()
+				.result,
+			Error::<Test>::ContractTrapped,
+		);
+
+		// succeeds, not enough gas but call stipend will be added
+		assert_ok!(builder::call(caller_addr)
+			.value(1337)
+			.data((callee_addr, 100u64).encode())
+			.build());
+
+		// succeeds, enough gas
+		assert_ok!(builder::call(caller_addr)
+			.data((callee_addr, 100_000_000_000u64).encode())
+			.build());
+	});
+}
+>>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))

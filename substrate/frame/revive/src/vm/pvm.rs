@@ -725,8 +725,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		flags: CallFlags,
 		call_type: CallType,
 		callee_ptr: u32,
-		deposit_ptr: u32,
-		weight: Weight,
+		resources: &CallResources<E::T>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -740,8 +739,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
-
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		// we do check this in exec.rs but we want to error out early
 		if input_data_len > limits::CALLDATA_BYTES {
@@ -780,6 +777,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
+<<<<<<< HEAD
 				self.ext.call(
 					weight,
 					deposit_limit,
@@ -789,12 +787,26 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					flags.contains(CallFlags::ALLOW_REENTRY),
 					read_only,
 				)
+=======
+
+				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
+					ReentrancyProtection::AllowReentry
+				} else {
+					ReentrancyProtection::Strict
+				};
+
+				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+>>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
+<<<<<<< HEAD
 				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
+=======
+				self.ext.delegate_call(resources, callee, input_data)
+>>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))
 			},
 		};
 
