@@ -517,14 +517,14 @@ pub struct TestAuthorityDiscovery;
 impl AuthorityDiscovery for TestAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,
-		authority: AuthorityDiscoveryId,
+		_authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<Multiaddr>> {
 		None
 	}
 
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
-		peer_id: PeerId,
+		_peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
 		None
 	}
