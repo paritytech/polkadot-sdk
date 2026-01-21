@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Implementation of the Consensus Statistics Collector subsystem.
+//! Implementation of the Rewards Statistics Collector subsystem.
 //! This component monitors and manages metrics related to parachain candidate approvals,
 //! including approval votes, distribution of approval chunks, chunk downloads, and chunk uploads.
 //!
-//! Its primary responsibility is to collect and track data reflecting each node’s perspective
+//! Its primary responsibility is to collect and track data reflecting node’s perspective
 //! on the approval work carried out by all session validators.
 
 use crate::error::{FatalError, FatalResult, JfyiError, Result};

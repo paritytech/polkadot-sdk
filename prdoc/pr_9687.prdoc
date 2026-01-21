@@ -1,0 +1,33 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: rewards-statistics-collector subsystem
+
+doc:
+  - audience: Node Dev
+    description: |
+        Creates `Rewards Statistics Collector` subsytem.
+
+        This subsystem monitors and collects metrics related to parachain candidate approvals,
+        including approval votes, distribution of approval chunks, chunk downloads, and chunk uploads.
+
+        Its primary responsibility is to collect and track data reflecting node’s perspective
+        on the approval work carried out by all session validators.
+
+        It also modifies the `ErasureChunk` to include the session index to which the chunk belongs to
+
+crates:
+  - name: polkadot-node-core-rewards-statistics-collector
+    bump: minor
+  - name: polkadot-node-core-approval-voting
+    bump: patch
+  - name: polkadot-node-core-av-store
+    bump: patch
+  - name: polkadot-node-network-availability-distribution
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: patch
+  - name: polkadot-overseer
+    bump: patch
+  - name: polkadot-node-primitives
+    bump: patch
