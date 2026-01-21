@@ -29,7 +29,7 @@ commit_with_message() {
 # input: none
 # output: list of filtered runtimes
 get_filtered_runtimes_list() {
-    grep_filters=("runtime.*" "test|template|starters|substrate|docs")
+    grep_filters=("runtime.*" "test|template|starters|substrate")
 
     git grep spec_version: | grep .rs: | grep -e "${grep_filters[0]}" | grep "lib.rs" | grep -vE "${grep_filters[1]}" | cut -d: -f1
 }
@@ -91,20 +91,13 @@ function get_spec_version() {
 reorder_prdocs() {
     VERSION="$1"
 
-    printf "[+] ℹ️ Reordering prdocs:\n"
+    printf "[+] ℹ️ Reordering prdocs:"
 
     VERSION=$(sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/' <<< "$VERSION") #getting reed of the 'v' prefix
-
-    # Check if there are any prdoc files to move
-    if ls prdoc/pr_*.prdoc 1> /dev/null 2>&1; then
-        mkdir -p "prdoc/$VERSION"
-        mv prdoc/pr_*.prdoc prdoc/$VERSION
-        git add -A
-        commit_with_message "Reordering prdocs for the release $VERSION"
-        echo "✅ Successfully reordered prdocs"
-    else
-        echo "⚠️ No prdoc files found to reorder"
-    fi
+    mkdir -p "prdoc/$VERSION"
+    mv prdoc/pr_*.prdoc prdoc/$VERSION
+    git add -A
+    commit_with_message "Reordering prdocs for the release $VERSION"
 }
 
 # Bump the binary version of the polkadot-parachain binary with the
@@ -201,51 +194,4 @@ function get_s3_url_base() {
         exit 1
         ;;
     esac
-}
-
-# Bump spec_version in a runtime file based on release type
-# For patch release: bump last 3 digits (patch part) by 1
-# For new stable release: bump middle part (minor) by 1, reset patch to 0
-#
-# input:
-#   - file: path to the runtime file
-#   - is_patch_release: "true" for patch release, "false" for new stable
-# output: prints the new spec_version, modifies file in place
-bump_spec_version() {
-    local file=$1
-    local is_patch_release=$2
-
-    # Extract current spec_version from file (format: X_YYY_ZZZ)
-    local current_spec=$(grep -oP 'spec_version:\s*\K[0-9]+_[0-9]+_[0-9]+' "$file" | head -1)
-
-    if [ -z "$current_spec" ]; then
-        echo "⚠️  Warning: Could not find spec_version in $file"
-        return 1
-    fi
-
-    # Parse the spec_version (format: X_YYY_ZZZ)
-    local major=$(echo "$current_spec" | cut -d'_' -f1)
-    local minor=$(echo "$current_spec" | cut -d'_' -f2)
-    local patch=$(echo "$current_spec" | cut -d'_' -f3)
-
-    # Remove leading zeros for arithmetic
-    minor=$((10#$minor))
-    patch=$((10#$patch))
-
-    if [ "$is_patch_release" = "true" ]; then
-        # Patch release: bump patch part by 1
-        patch=$((patch + 1))
-    else
-        # New stable release: bump minor by 1, reset patch to 0
-        minor=$((minor + 1))
-        patch=0
-    fi
-
-    # Format back to X_YYY_ZZZ format (with proper zero padding)
-    local new_spec=$(printf "%d_%03d_%03d" "$major" "$minor" "$patch")
-
-    # Replace in file
-    sed -ri "s/spec_version: ${current_spec},/spec_version: ${new_spec},/" "$file"
-
-    echo "$new_spec"
 }
