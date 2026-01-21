@@ -349,7 +349,7 @@ pub struct MbmProgress {
 	/// The number of steps that the current migration has taken.
 	pub current_migration_steps: u32,
 	/// The maximum number of steps that the current migration can take.
-	pub current_migration_max_steps: u32,
+	pub current_migration_max_steps: Option<u32>,
 }
 
 #[frame_support::pallet]
@@ -708,8 +708,8 @@ pub mod pallet {
 			match Cursor::<T>::get() {
 				Some(MigrationCursor::Active(cursor)) =>
 					T::Migrations::nth_migrating_prefixes(cursor.index)
-						.and_then(|r| r.ok())
-						.unwrap_or_default(),
+					.flatten()
+					.unwrap_or_default(),
 				_ => Vec::new(),
 			}
 		}
@@ -851,17 +851,15 @@ impl<T: Config> Pallet<T> {
 			PreUpgradeBytes::<T>::insert(&bounded_id, PreUpgradeBytesWrapper(bytes));
 		}
 
-		let next_cursor = match T::Migrations::nth_transactional_step(
+		let next_cursor = T::Migrations::nth_transactional_step(
 			cursor.index,
 			cursor.inner_cursor.clone().map(|c| c.into_inner()),
 			meter,
-		) {
-			Some(result) => result,
-			None => {
-				defensive!("integrity_test ensures that cursor is valid; qed");
-				Self::upgrade_failed(Some(cursor.index));
-				return None;
-			},
+		);
+		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
+			defensive!("integrity_test ensures that the tuple is valid; qed");
+			Self::upgrade_failed(Some(cursor.index));
+			return None
 		};
 
 		let took = System::<T>::block_number().saturating_sub(cursor.started_at);

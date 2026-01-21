@@ -502,8 +502,8 @@ pub trait SteppedMigration {
 	/// to know which storage prefixes are being migrated. It can be helpful to let
 	/// chain explorers know which part of the state is possibly in a state where it
 	/// cannot be read correctly.
-	fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
-		core::iter::empty()
+	fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+		None::<core::iter::Empty<_>>
 	}
 
 	/// Try to migrate as much as possible with the given weight.
@@ -701,7 +701,7 @@ pub trait SteppedMigrations {
 	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
 	///
 	/// Is guaranteed to return `Some` if `n < Self::len()`.
-	fn nth_max_steps(n: u32) -> Option<u32>;
+	fn nth_max_steps(n: u32) -> Option<Option<u32>>;
 
 	/// Do a [`SteppedMigration::step`] on the `n`th migration.
 	///
@@ -724,7 +724,7 @@ pub trait SteppedMigrations {
 	/// Get the storage prefixes modified by the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
-	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>>;
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>>;
 
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
@@ -780,7 +780,7 @@ impl SteppedMigrations for () {
 		None
 	}
 
-	fn nth_max_steps(_n: u32) -> Option<u32> {
+	fn nth_max_steps(_n: u32) -> Option<Option<u32>> {
 		None
 	}
 
@@ -800,7 +800,7 @@ impl SteppedMigrations for () {
 		None
 	}
 
-	fn nth_migrating_prefixes(_n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+	fn nth_migrating_prefixes(_n: u32) -> Option<Option<Vec<Vec<u8>>>> {
 		None
 	}
 
@@ -838,8 +838,10 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 			.defensive_proof("nth_id should only be called with n==0")
 	}
 
-	fn nth_max_steps(n: u32) -> Option<u32> {
-		n.is_zero().then(|| T::max_steps())?
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+		n.is_zero()
+			.then(|| T::max_steps())
+			.defensive_proof("nth_max_steps should only be called with n==0")
 	}
 
 	fn nth_step(
@@ -886,9 +888,9 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		)
 	}
 
-	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
 		n.is_zero()
-			.then(|| Ok(T::migrating_prefixes().into_iter().collect()))
+			.then(|| T::migrating_prefixes().map(|p| p.into_iter().collect()))
 			.defensive_proof("nth_migrating_prefixes should only be called with n==0")
 	}
 
@@ -974,7 +976,7 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
-	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
 		let mut i = 0;
 		for_tuples!( #(
             let len = Tuple::len() as u32;
@@ -1016,7 +1018,7 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
-	fn nth_max_steps(n: u32) -> Option<u32> {
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
 		let mut i = 0;
 
 		for_tuples!( #(
@@ -1081,8 +1083,8 @@ mod tests {
 			Ok(None)
 		}
 
-		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
-			vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()])
 		}
 	}
 
@@ -1108,8 +1110,8 @@ mod tests {
 			Some(1)
 		}
 
-		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
-			vec![b"M1_prefix".to_vec()]
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M1_prefix".to_vec()])
 		}
 	}
 
@@ -1135,8 +1137,8 @@ mod tests {
 			Some(2)
 		}
 
-		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
-			vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()]
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()])
 		}
 	}
 

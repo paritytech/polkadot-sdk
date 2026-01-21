@@ -119,13 +119,12 @@ impl SteppedMigrations for MockedMigrations {
 		Self::nth_step(n, cursor, meter)
 	}
 
-	fn nth_max_steps(n: u32) -> Option<u32> {
-		MIGRATIONS::get().get(n as usize).map(|(_, s)| *s)
+	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
+		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
 	}
 
-	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-		let (kind, steps) = MIGRATIONS::get()[n as usize];
-		Some(Ok(vec![mocked_id(kind, steps).into_inner()]))
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
+		MIGRATIONS::get().get(n as usize).map(|(k, s)| Some(vec![mocked_id(*k, *s).into_inner()]))
 	}
 
 	#[cfg(feature = "try-runtime")]
