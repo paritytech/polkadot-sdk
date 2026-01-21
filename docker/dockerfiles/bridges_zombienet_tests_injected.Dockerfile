@@ -48,8 +48,10 @@ RUN set -eux; \
 	cd /home/nonroot/bridges-polkadot-sdk/bridges/testing/framework/utils/generate_hex_encoded_call; \
 	npm install
 
+# GHA needs to be run as root
 # use the non-root user
-USER node
+# USER node
+
 # check if executable works in this container
 RUN /usr/local/bin/polkadot --version
 RUN /usr/local/bin/polkadot-parachain --version
