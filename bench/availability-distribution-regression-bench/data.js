@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769014675773,
+  "lastUpdate": 1769038322456,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "daaaf6b2f70f81eba57ad7a12d87aebc453ab5d0",
-          "message": "ParachainSystem: Do not emit the `SelectCore` digest (#8903)\n\nThis will be moved into an inherent digest.\n\nAs preparation for:\nhttps://github.com/paritytech/polkadot-sdk/issues/8893\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-20T08:56:51Z",
-          "tree_id": "b641c915158c9f5dcc84a803061e0b8b3cb69d43",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/daaaf6b2f70f81eba57ad7a12d87aebc453ab5d0"
-        },
-        "date": 1750413719137,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15849727496666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022648845953333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012779007553333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009034437346666755,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009950491860000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
+          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-21T22:20:18Z",
+          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
+        },
+        "date": 1769038298612,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0070752323399999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14420921799333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023117807540000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009633291793333318,
             "unit": "seconds"
           }
         ]
