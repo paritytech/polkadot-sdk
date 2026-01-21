@@ -328,12 +328,7 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"--max-runtime-instances=32".into(),
 					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
-					format!(
-						"--rpc-max-connections={}",
-						PARTICIPANT_SIZE / collators.len() as u32 + 1000
-					)
-					.as_str()
-					.into(),
+					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
@@ -739,8 +734,6 @@ struct LatencyBenchConfig {
 	num_nodes: usize,
 	num_clients: u32,
 	max_retries: u32,
-	retry_delay_ms: u64,
-	propagation_delay_ms: u64,
 	interval_ms: u64,
 	req_timeout_ms: u64,
 	messages_pattern: &'static [(usize, usize)],
@@ -775,9 +768,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		num_rounds: 1,
 		messages_pattern: &[(5, 1024 / 2)],
 		max_retries: 500,
-		retry_delay_ms: 1000,
 		req_timeout_ms: 3000,
-		propagation_delay_ms: 1000,
 	});
 
 	let collator_names: Vec<String> =
@@ -802,8 +793,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	let mut rpc_clients = Vec::new();
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
-		let rpc_client = node.rpc().await?;
-		rpc_clients.push(rpc_client);
+		rpc_clients.push(node);
 	}
 
 	let barrier = Arc::new(Barrier::new(config.num_clients as usize));
@@ -823,7 +813,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 			let test_run_id = Arc::clone(&test_run_id);
 			let (keyring, _) = sr25519::Pair::generate();
 			let node_idx = (client_id as usize) % config.num_nodes;
-			let rpc_client = rpc_clients[node_idx].clone();
+			let rpc_node = rpc_clients[node_idx].clone();
 			let neighbour_id = (client_id + 1) % config.num_clients;
 			let neighbour_node_idx = (neighbour_id as usize) % config.num_nodes;
 			if node_idx == neighbour_node_idx && config.num_nodes > 1 {
@@ -834,6 +824,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 			tokio::spawn(async move {
 				barrier.wait().await;
+				let rpc_client = rpc_node.rpc().await?;
 
 				if client_id == 0 {
 					let sync_time = sync_start.elapsed();
@@ -851,6 +842,42 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 				for round in 0..config.num_rounds {
 					let round_start = std::time::Instant::now();
 
+					// Step 1: Create subscriptions for messages we expect to receive
+					if client_id == 0 {
+						info!("Creating subscriptions for expected messages");
+					}
+
+					let mut subscriptions = Vec::new();
+					for msg_idx in 0..config.messages_per_client() as u32 {
+						let topic_str =
+							format!("{}-{}-{}-{}", *test_run_id, neighbour_id, round, msg_idx);
+						if client_id == 0 {
+							info!("Subscribed {msg_idx} message(s) {topic_str:?}");
+						}
+
+						let topic = blake2_256(topic_str.as_bytes());
+
+						let subscription = rpc_client
+							.subscribe::<Bytes>(
+								"statement_subscribeStatement",
+								rpc_params![TopicFilter::MatchAll(vec![topic.to_vec().into()])],
+								"statement_unsubscribeStatement",
+							)
+							.await
+							.map_err(|e| {
+								anyhow!(
+									"Client {}: Failed to subscribe for message {} from neighbour {}: {}",
+									client_id, msg_idx, neighbour_id, e
+								)
+							})?;
+						subscriptions.push((msg_idx, topic_str, subscription));
+					}
+
+					if client_id == 0 {
+						info!("Created {} subscriptions", subscriptions.len());
+					}
+
+					// Step 2: Send messages
 					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
@@ -894,60 +921,56 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let sent_count = msg_idx;
 					let send_duration = send_start.elapsed();
 
-					let propagation_jitter = (client_id % 1000) as u64;
-					tokio::time::sleep(Duration::from_millis(
-						config.propagation_delay_ms + propagation_jitter,
-					))
-					.await;
-
+					// Step 3: Wait for subscriptions to receive messages
 					let receive_start = std::time::Instant::now();
 					let mut received_count = 0;
-					let mut receive_attempts = 0;
+					let receive_attempts = subscriptions.len() as u32;
 
 					if client_id == 0 {
-						info!("Start receiving messages");
+						info!("Start receiving messages via subscriptions");
 					}
 
-					for msg_idx in 0..config.messages_per_client() as u32 {
-						// Use same test run ID for topic lookup
-						let topic_str =
-							format!("{}-{}-{}-{}", *test_run_id, neighbour_id, round, msg_idx);
-						let topic = blake2_256(topic_str.as_bytes());
+					let total_timeout =
+						Duration::from_millis(config.req_timeout_ms * config.max_retries as u64);
 
-						for retry in 0..config.max_retries {
-							receive_attempts += 1;
-							match timeout(
-								Duration::from_millis(config.req_timeout_ms),
-								rpc_client.request::<Vec<Bytes>>(
-									"statement_broadcastsStatement",
-									rpc_params![vec![topic]],
-								),
-							)
-							.await
-							{
-								Ok(Ok(statements)) if !statements.is_empty() => {
-									received_count += statements.len() as u32;
-									if client_id == 0 {
-										info!("Received {received_count} message(s) {topic_str:?}")
-									}
-									break;
-								},
-								res if retry < config.max_retries - 1 => {
-									if client_id == 0 {
-										info!("Waiting to retry, {res:?} {topic_str:?}")
-									}
-									tokio::time::sleep(Duration::from_millis(
-										config.retry_delay_ms,
-									))
-									.await;
-								},
-								_ => {
-									return Err(anyhow!(
-										"Client {}: Failed to retrieve message {} from neighbour {} after {} retries",
-										client_id, msg_idx, neighbour_id, config.max_retries
-									));
-								},
+					let mut futures: FuturesUnordered<_> = subscriptions
+						.into_iter()
+						.map(|(msg_idx, topic_str, mut subscription)| async move {
+							match timeout(total_timeout, subscription.next()).await {
+								Ok(Some(Ok(_statement_bytes))) => Ok((msg_idx, topic_str)),
+								Ok(Some(Err(e))) => Err(anyhow!(
+									"Subscription error for message {}: {}",
+									msg_idx,
+									e
+								)),
+								Ok(None) => Err(anyhow!(
+									"Subscription ended unexpectedly for message {}",
+									msg_idx
+								)),
+								Err(_) => Err(anyhow!("Timeout waiting for message {}", msg_idx)),
 							}
+						})
+						.collect();
+
+					while let Some(result) = futures.next().await {
+						match result {
+							Ok((msg_idx, topic_str)) => {
+								received_count += 1;
+								if client_id == 0 {
+									info!(
+										"Received {received_count} message(s) {topic_str:?} (msg_idx: {})",
+										msg_idx
+									);
+								}
+							},
+							Err(e) => {
+								return Err(anyhow!(
+									"Client {}: Failed to receive message from neighbour {}: {}",
+									client_id,
+									neighbour_id,
+									e
+								));
+							},
 						}
 					}
 
