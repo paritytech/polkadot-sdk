@@ -564,6 +564,7 @@ fn real_eth_sig_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn validate_unsigned_works() {
 	use sp_runtime::traits::ValidateUnsigned;
 	let source = sp_runtime::transaction_validity::TransactionSource::External;

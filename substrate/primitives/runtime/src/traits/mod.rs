@@ -1851,6 +1851,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
 	/// If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1863,6 +1864,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
 	/// transaction. If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
@@ -1889,6 +1891,16 @@ pub trait GetNodeBlockType {
 /// function is called right before dispatching the call wrapped by an unsigned extrinsic. The
 /// [`validate_unsigned`](Self::validate_unsigned) function is mainly being used in the context of
 /// the transaction pool to check the validity of the call wrapped by an unsigned extrinsic.
+///
+/// # Deprecation Notice
+///
+/// This trait is deprecated and will be removed in a future release. Use `TransactionExtension`
+/// instead.
+///
+/// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
+#[deprecated(
+	note = "Use `TransactionExtension` trait instead. See https://github.com/paritytech/polkadot-sdk/issues/2415"
+)]
 pub trait ValidateUnsigned {
 	/// The call to validate
 	type Call;

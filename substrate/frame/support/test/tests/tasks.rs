@@ -135,6 +135,7 @@ fn tasks_work() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn do_task_unsigned_validation_rejects_external_source() {
 	new_test_ext().execute_with(|| {
 		use frame_support::pallet_prelude::{

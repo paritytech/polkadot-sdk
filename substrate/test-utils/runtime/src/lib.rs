@@ -1280,6 +1280,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
