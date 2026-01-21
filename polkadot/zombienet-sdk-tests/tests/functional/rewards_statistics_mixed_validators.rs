@@ -92,10 +92,6 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
 	)
 	.await?;
 
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-
-	//wait_for_nth_session_change(&mut blocks_sub, 1).await?;
-
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates. We can only do this for the collator based on cumulus.
 	assert_finality_lag(&relay_client, 6).await?;

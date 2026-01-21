@@ -86,7 +86,7 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 		15,
 		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
 			.into_iter()
-			.collect(),
+			.collect::<HashMap<ParaId, Range<u32>>>(),
 	)
 	.await?;
 

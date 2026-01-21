@@ -29,7 +29,7 @@ use zombienet_sdk::subxt::{
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
-fn find_event_and_decode_fields<T: Decode>(
+pub fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
 	variant: &str,

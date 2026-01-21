@@ -22,19 +22,19 @@ doc:
 
 crates:
   - name: polkadot-sdk
-    bump: patch
+    bump: minor
   - name: polkadot-overseer
-    bump: patch
+    bump: major
   - name: polkadot-node-primitives
-    bump: patch
+    bump: major
   - name: polkadot-node-subsystem-types
-    bump: patch
+    bump: minor
   - name: polkadot-node-network-protocol
     bump: patch
   - name: polkadot-service
-    bump: patch
+    bump: major
   - name: polkadot-availability-distribution
-    bump: patch
+    bump: major
   - name: polkadot-availability-recovery
     bump: patch
   - name: polkadot-node-core-approval-voting
@@ -42,8 +42,8 @@ crates:
   - name: polkadot-node-core-av-store
     bump: patch
   - name: polkadot-node-core-rewards-statistics-collector
-    bump: major
+    bump: patch
   - name: cumulus-relay-chain-inprocess-interface
     bump: patch
   - name: polkadot-cli
-    bump: minor
+    bump: major
