@@ -1571,4 +1571,43 @@ mod remote_tests {
 			"✅ Storage root verification successful! All keys were fetched correctly."
 		);
 	}
+
+	#[tokio::test]
+	async fn builder_fails_with_invalid_transport_uris() {
+		init_logger();
+
+		// Using HTTP/HTTPS URIs should fail because Client::new() returns None for non-WS URIs
+		let result = Builder::<Block>::new()
+			.mode(Mode::Online(OnlineConfig {
+				transport_uris: vec!["http://try-runtime.polkadot.io:443".to_string()],
+				pallets: vec!["Proxy".to_owned()],
+				..Default::default()
+			}))
+			.build()
+			.await;
+
+		match result {
+			Err(e) => assert_eq!(e, "At least one client must be provided"),
+			Ok(_) => panic!("Expected error but got success"),
+		}
+
+		// Multiple invalid URIs should also fail
+		let result = Builder::<Block>::new()
+			.mode(Mode::Online(OnlineConfig {
+				transport_uris: vec![
+					"http://try-runtime.polkadot.io:443".to_string(),
+					"https://try-runtime.polkadot.io:443".to_string(),
+					"garbage".to_string(),
+				],
+				pallets: vec!["Proxy".to_owned()],
+				..Default::default()
+			}))
+			.build()
+			.await;
+
+		match result {
+			Err(e) => assert_eq!(e, "At least one client must be provided"),
+			Ok(_) => panic!("Expected error but got success"),
+		}
+	}
 }
