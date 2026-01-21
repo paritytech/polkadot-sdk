@@ -19,7 +19,6 @@
 
 use crate::{
 	evm::{
-		eip7702::authorization_intrinsic_gas,
 		fees::{compute_max_integer_quotient, InfoT},
 		runtime::SetWeightLimit,
 		TYPE_EIP7702, TYPE_LEGACY,
@@ -72,7 +71,7 @@ impl GenericTransaction {
 	{
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
-		
+
 		// EIP-7702: Store the authorization list for later processing
 		let authorization_list = self.authorization_list.clone();
 
@@ -105,7 +104,7 @@ impl GenericTransaction {
 			log::debug!(target: LOG_TARGET, "No gas provided");
 			return Err(InvalidTransaction::Call);
 		};
-		
+
 		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
 		// Per spec: "Note, this implies a null destination is not valid."
 		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
@@ -113,17 +112,14 @@ impl GenericTransaction {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
 				return Err(InvalidTransaction::Call);
 			}
-			
+
 			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
 			// Per spec: "The transaction is considered invalid if the length of authorization_list is zero."
-			if authorization_list.is_empty() {
+			if self.authorization_list.is_empty() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);
 			}
 		}
-		
-		// EIP-7702: Calculate intrinsic gas for authorization list processing
-		let _auth_intrinsic_gas = authorization_intrinsic_gas(authorization_list.len());
 
 		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
 		// Per spec: "Note, this implies a null destination is not valid."
