@@ -73,6 +73,7 @@ pub enum EnactmentAction<Block: BlockT> {
 	/// Enactment phase of maintenance shall be skipped
 	HandleFinalization,
 	/// Chain reversion to an older block shall be handled.
+	/// Primarily used in development and testing environments.
 	HandleReversion { new_head: Block::Hash },
 }
 
