@@ -25,13 +25,25 @@ use crate::{
 	address::AddressMapper,
 	evm::api::{rlp, AuthorizationListEntry},
 	storage::AccountInfo,
-	AccountInfoOf, Config, EIP7702_MAGIC, PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
+	AccountInfoOf, Config,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use sp_core::{H160, U256};
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use sp_runtime::SaturatedConversion;
+
+/// EIP-7702: Magic value for authorization signature message
+pub const EIP7702_MAGIC: u8 = 0x05;
+
+/// EIP-7702: Delegation indicator prefix (0xef0100)
+pub const DELEGATION_INDICATOR_PREFIX: [u8; 3] = [0xef, 0x01, 0x00];
+
+/// EIP-7702: Base cost for processing each authorization tuple
+pub const PER_AUTH_BASE_COST: u64 = 12500;
+
+/// EIP-7702: Cost for empty account creation
+pub const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
 
 /// Result of processing an authorization tuple
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,7 +275,7 @@ pub fn authorization_intrinsic_gas(authorization_count: usize) -> u64 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::DELEGATION_INDICATOR_PREFIX;
+	use crate::evm::DELEGATION_INDICATOR_PREFIX;
 
 	#[test]
 	fn test_delegation_indicator_size() {
