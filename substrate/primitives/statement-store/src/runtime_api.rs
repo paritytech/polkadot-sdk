@@ -17,7 +17,7 @@
 
 //! Runtime support for the statement store.
 
-use crate::{Hash, Statement, StatementAllowance as ValidStatement, Topic};
+use crate::{Hash, Statement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
@@ -32,6 +32,8 @@ use Debug;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
+
+pub use crate::StatementAllowance as ValidStatement;
 
 /// An reason for an invalid statement.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
