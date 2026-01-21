@@ -37,6 +37,7 @@ tokio = { features = [
 
 [dev-dependencies]
 frame-support = { workspace = true, default-features = true }
+jsonrpsee = { features = ["http-client", "ws-client", "server"], workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]
