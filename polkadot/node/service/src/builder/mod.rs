@@ -426,7 +426,7 @@ where
 				stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 			};
 			let reputation_config = ReputationConfig {
-				col_reputation_data: parachains_db::REAL_COLUMNS.col_reputation_data,
+				col_reputation_data: parachains_db::REAL_COLUMNS.col_collator_reputation_data,
 			};
 
 			// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
