@@ -6852,11 +6852,13 @@ dependencies = [
 name = "frame-remote-externalities"
 version = "0.35.0"
 dependencies = [
+ "frame-support",
  "futures",
  "indicatif",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
+ "rand 0.8.5",
  "serde",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
@@ -6867,7 +6869,6 @@ dependencies = [
  "spinners",
  "substrate-rpc-client",
  "tokio",
- "tokio-retry",
 ]
 
 [[package]]
@@ -11716,6 +11717,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "pallet-treasury",
  "parity-scale-codec",
@@ -25789,17 +25791,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-retry"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
-dependencies = [
- "pin-project",
- "rand 0.8.5",
  "tokio",
 ]
 
