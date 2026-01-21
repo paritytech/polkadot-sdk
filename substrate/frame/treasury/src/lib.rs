@@ -191,8 +191,6 @@ pub struct Proposal<AccountId, Balance> {
 pub enum PaymentState<AssetKind, Balance, Id> {
 	/// Pending claim.
 	Pending,
-	// Payment attempted with a payment identifier.
-	//Attempted { id: Id },
 	/// Payment attempted with payment identifiers for each payment execution
 	Attempted {
 		executions: BoundedVec<PaymentExecution<AssetKind, Balance, Id>, ConstU32<32>>,
@@ -260,8 +258,6 @@ pub struct PaymentExecution<AssetKind, Balance, PaymentId> {
 )]
 pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
 	pub asset: SpendAsset<AssetKind>,
-	// The kind of asset to be spent.
-	//pub asset_kind: AssetKind,
 	/// The asset amount of the spend.
 	pub amount: AssetBalance,
 	/// The beneficiary of the spend.
@@ -357,7 +353,7 @@ pub mod pallet {
 		/// Type parameter used to identify the beneficiaries eligible to receive treasury spends.
 		type Beneficiary: Parameter + MaxEncodedLen;
 
-		/// Converting trainnt to take a source type and convert to [`Self::Beneficiary`].
+		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
@@ -507,7 +503,6 @@ pub mod pallet {
 		/// An approved spend was voided.
 		AssetSpendVoided { index: SpendIndex },
 		/// A payment happened.
-		// Paid { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
 		Paid {
 			index: SpendIndex,
 			execution:
@@ -547,9 +542,9 @@ pub mod pallet {
 		/// The payment has neither failed nor succeeded yet.
 		Inconclusive,
 
-		EmptyAssetCategory,
+        LowBalance,
 
-		BalanceToLowp,
+		EmptyAssetCategory,
 
 		InvalidPaymentState,
 
@@ -758,7 +753,6 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::spend())]
 		pub fn spend(
 			origin: OriginFor<T>,
-			// asset_kind: Box<T::AssetKind>,
 			asset: Box<SpendAsset<T::AssetKind>>,
 			#[pallet::compact] amount: AssetBalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
@@ -818,7 +812,6 @@ pub mod pallet {
 				index,
 				SpendStatus {
 					asset: *asset.clone(),
-					//asset_kind: *asset_kind.clone(),
 					amount,
 					beneficiary: beneficiary.clone(),
 					valid_from,
@@ -831,7 +824,6 @@ pub mod pallet {
 			Self::deposit_event(Event::AssetSpendApproved {
 				index,
 				asset: *asset,
-				// asset_kind: *asset_kind,
 				amount,
 				beneficiary,
 				valid_from,
@@ -870,7 +862,11 @@ pub mod pallet {
 
 			match spend.asset {
 				SpendAsset::Specific(ref asset_kind) => {
-					// TODO: Compare asset balance here
+                    // Validate asset has sufficient balance before attempting payment
+                    let available = T::AssetCategories::available_balance(asset_kind);
+                    if available < spend.amount {
+                        return Err(Error::<T, I>::LowBalance.into());
+                    }
 					match spend.status {
 						PaymentState::Pending | PaymentState::Failed(_) => {
 							let id = T::Paymaster::pay(
@@ -1174,7 +1170,7 @@ pub mod pallet {
 						.collect();
 
 					if !failed.is_empty() {
-						spend.status = PaymentState::Failed;
+						spend.status = State::Failed;
 						Spends::<T, I>::insert(index, spend);
 
 						for payment_id in failed {
