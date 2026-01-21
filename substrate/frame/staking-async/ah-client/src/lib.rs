@@ -459,6 +459,17 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation. Logged as an event
 		/// for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// Session keys updated for a validator.
+		SessionKeysUpdated { stash: T::AccountId, update: SessionKeysUpdate },
+	}
+
+	/// The type of session keys update received from AssetHub.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
+	pub enum SessionKeysUpdate {
+		/// Session keys have been set.
+		Set,
+		/// Session keys have been purged.
+		Purged,
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -652,7 +663,12 @@ pub mod pallet {
 					},
 				};
 
-			T::SessionInterface::set_keys(&stash, session_keys)
+			T::SessionInterface::set_keys(&stash, session_keys)?;
+			Self::deposit_event(Event::SessionKeysUpdated {
+				stash,
+				update: SessionKeysUpdate::Set,
+			});
+			Ok(())
 		}
 
 		/// Purge session keys for a validator, forwarded from AssetHub.
@@ -665,7 +681,12 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
 
-			T::SessionInterface::purge_keys(&stash)
+			T::SessionInterface::purge_keys(&stash)?;
+			Self::deposit_event(Event::SessionKeysUpdated {
+				stash,
+				update: SessionKeysUpdate::Purged,
+			});
+			Ok(())
 		}
 	}
 
@@ -1056,6 +1077,10 @@ mod keys_from_ah_tests {
 					keys.encode(),
 				));
 				assert_eq!(SetKeysCalls::get(), vec![(stash, keys.clone())]);
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdated { stash, update: SessionKeysUpdate::Set }
+						.into(),
+				);
 			});
 
 			// rejects bad origin
@@ -1091,6 +1116,7 @@ mod keys_from_ah_tests {
 	#[test]
 	fn purge_keys_from_ah() {
 		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
 			let stash = 42u64;
 
 			// success with root origin
@@ -1098,6 +1124,10 @@ mod keys_from_ah_tests {
 				PurgeKeysCalls::take();
 				assert_ok!(StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::root(), stash));
 				assert_eq!(PurgeKeysCalls::get(), vec![stash]);
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdated { stash, update: SessionKeysUpdate::Purged }
+						.into(),
+				);
 			});
 
 			// rejects bad origin

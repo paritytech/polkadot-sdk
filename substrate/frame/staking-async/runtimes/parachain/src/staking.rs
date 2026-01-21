@@ -515,6 +515,10 @@ pub enum RelayChainRuntimePallets {
 pub enum AhClientCalls {
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	#[codec(index = 3)]
+	SetKeysFromAh { stash: AccountId, keys: Vec<u8> },
+	#[codec(index = 4)]
+	PurgeKeysFromAh { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
@@ -552,20 +556,55 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	}
 
 	fn set_keys(
-		_stash: Self::AccountId,
-		_keys: Vec<u8>,
+		stash: Self::AccountId,
+		keys: Vec<u8>,
 		_max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		// Stub implementation for test runtime - no actual fees charged
-		Ok(Default::default())
+		let xcm = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh {
+					stash,
+					keys,
+				})
+				.encode()
+				.into(),
+			},
+		]);
+		send_xcm::<xcm_config::XcmRouter>(StakingXcmDestination::get(), xcm)
+			.map(|_| Default::default())
+			.map_err(|_| {
+				rc_client::SendKeysError::Send(rc_client::SendOperationError::DeliveryFailed)
+			})
 	}
 
 	fn purge_keys(
-		_stash: Self::AccountId,
+		stash: Self::AccountId,
 		_max_fee: Option<Self::Balance>,
 	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
-		// Stub implementation for test runtime - no actual fees charged
-		Ok(Default::default())
+		let xcm = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
+					.encode()
+					.into(),
+			},
+		]);
+		send_xcm::<xcm_config::XcmRouter>(StakingXcmDestination::get(), xcm)
+			.map(|_| Default::default())
+			.map_err(|_| {
+				rc_client::SendKeysError::Send(rc_client::SendOperationError::DeliveryFailed)
+			})
 	}
 }
 

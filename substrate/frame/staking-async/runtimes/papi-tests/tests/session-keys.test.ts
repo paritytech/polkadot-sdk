@@ -51,24 +51,36 @@ test(
 		}
 
 		const steps = [
-			// Expect FeesPaid event after set_keys
-			Observe.on(Chain.Parachain, "StakingRcClient", "FeesPaid")
+			// Expect FeesPaid event on AH after set_keys
+			Observe.on(Chain.Parachain, "StakingRcClient", "FeesPaid").withDataCheck((x: any) => {
+				logger.info(`FeesPaid (set_keys): who=${x.who}, fees=${x.fees}`);
+				return true;
+			}),
+			// Expect SessionKeysUpdated on RC confirming keys were set
+			Observe.on(Chain.Relay, "StakingAhClient", "SessionKeysUpdated")
 				.withDataCheck((x: any) => {
-					logger.info(`FeesPaid (set_keys): who=${x.who}, fees=${x.fees}`);
-					return true;
+					logger.info(`SessionKeysUpdated: stash=${x.stash}, update=${x.update?.type}`);
+					return x.update?.type === "Set";
 				})
 				.onPass(async () => {
-					// After set_keys succeeds, submit purge_keys
+					// After RC confirms keys set, submit purge_keys
 					logger.info("Submitting purge_keys for alice");
 					apis.paraApi.tx.StakingRcClient.purge_keys({
 						max_delivery_and_remote_execution_fee: undefined,
 					}).signAndSubmit(aliceStashSigner);
 				}),
-			// Expect second FeesPaid event after purge_keys
+			// Expect FeesPaid event on AH after purge_keys
 			Observe.on(Chain.Parachain, "StakingRcClient", "FeesPaid").withDataCheck((x: any) => {
 				logger.info(`FeesPaid (purge_keys): who=${x.who}, fees=${x.fees}`);
 				return true;
 			}),
+			// Expect SessionKeysUpdated on RC confirming keys were purged
+			Observe.on(Chain.Relay, "StakingAhClient", "SessionKeysUpdated").withDataCheck(
+				(x: any) => {
+					logger.info(`SessionKeysUpdated: stash=${x.stash}, update=${x.update?.type}`);
+					return x.update?.type === "Purged";
+				},
+			),
 		];
 
 		const testCase = new TestCase(
