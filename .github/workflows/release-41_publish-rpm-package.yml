@@ -1,5 +1,6 @@
-name: Release - Publish polkadot deb package
+name: Release - Publish polkadot RPM package
 
+# This workflow publishes the polkadot RPM package by calling a reusable workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -8,10 +9,21 @@ on:
         default: polkadot-stable2412
         required: true
         type: string
-
       distribution:
-        description: Distribution where to publish deb package (release, staging, stable2407, etc)
-        default: staging
+        description: Distribution where to publish rpm package (release, staging)
+        default: release
+        required: true
+        type: string
+
+  workflow_call:
+    inputs:
+      tag:
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
+        required: true
+        type: string
+      distribution:
+        description: Distribution where to publish rpm package (release, staging)
+        default: release
         required: true
         type: string
 
@@ -27,7 +39,7 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
       distribution: ${{ inputs.distribution }}
-      package_type: 'deb'
-      aws_repo_base_path: "s3://releases-package-repos"
+      package_type: 'rpm'
+      aws_repo_base_path: ${{ inputs.distribution == 'release' && 's3://releases-package-repos' || 's3://staging-package-repos' }}
       cloudfront_distribution_id: "E36FKEYWDXAZYJ"
     secrets: inherit
