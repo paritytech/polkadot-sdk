@@ -76,12 +76,8 @@ impl PersistentDb {
 		let mut db_transaction = self.db.transaction();
 		let mut paras_to_prune = BTreeSet::new();
 
-		for key in self.db.iter(self.reputation_column) {
+		for key in self.db.iter_with_prefix(self.reputation_column, REPUTATION_PREFIX) {
 			let (key, _) = key.map_err(|e| Error::IterationFailed { source: e })?;
-			// Only interested in Para|Peer keys
-			if &key[..] == LAST_FINALIZED_KEY {
-				continue;
-			}
 			if let Some(para_id) = para_id_from_key(&key) {
 				if !registered_paras.contains(&para_id) {
 					paras_to_prune.insert(para_id);
@@ -90,8 +86,8 @@ impl PersistentDb {
 		}
 
 		for para_id in &paras_to_prune {
-			let prefix_for_para = para_id.encode();
-			// Delete all entries from DB starting with the Para ID
+			let prefix_for_para = reputation_key_prefix(para_id);
+			// Delete all entries from DB starting with the reputation prefix + Para ID
 			db_transaction.delete_prefix(self.reputation_column, &prefix_for_para);
 		}
 
@@ -106,7 +102,7 @@ impl PersistentDb {
 		Ok(())
 	}
 
-	fn process_bumps_inner(
+	fn handle_finalized_block(
 		&mut self,
 		leaf_number: BlockNumber,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
@@ -129,20 +125,20 @@ impl PersistentDb {
 		}
 		let mut db_transaction = self.db.transaction();
 		db_transaction.put_vec(self.reputation_column, LAST_FINALIZED_KEY, leaf_number.encode());
-		self.db.write(db_transaction)?;
 
-		let updates = self.bump_reputations(bumps, decay_value)?;
+		let updates = self.update_all_para_reputations(bumps, decay_value, &mut db_transaction)?;
+		self.db.write(db_transaction)?;
 		Ok(updates)
 	}
 
-	fn bump_reputations(
+	fn update_all_para_reputations(
 		&mut self,
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		maybe_decay_value: Option<Score>,
+		db_transaction: &mut DBTransaction,
 	) -> Result<Vec<ReputationUpdate>> {
 		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 		let mut reported_updates = vec![];
-		let mut db_transaction = self.db.transaction();
 
 		for (para_id, bumps_per_para) in bumps {
 			let mut current_entries_for_para = self.get_all_entries_for_para(&para_id)?;
@@ -150,12 +146,12 @@ impl PersistentDb {
 
 			// Apply bumps
 			let para_bumps =
-				self.apply_bumps(&mut current_entries_for_para, &bumps_per_para, now, para_id);
+				self.increment_peer_scores(&mut current_entries_for_para, &bumps_per_para, now, para_id);
 			reported_updates.extend(para_bumps);
 
 			// Apply decay
 			if let Some(decay_value) = maybe_decay_value {
-				let decay_updates = self.apply_decay(
+				let decay_updates = self.decay_inactive_peers(
 					&mut current_entries_for_para,
 					&bumps_per_para,
 					decay_value,
@@ -165,22 +161,21 @@ impl PersistentDb {
 			}
 
 			// LRU
-			let eviction_updates = self.apply_lru_eviction(&mut current_entries_for_para, para_id);
+			let eviction_updates = self.evict_least_recent_peers(&mut current_entries_for_para, para_id);
 			reported_updates.extend(eviction_updates);
 
 			//
-			self.commit_to_db(
+			self.write_reputation_updates(
 				para_id,
 				&original_entries,
 				&current_entries_for_para,
-				&mut db_transaction,
+				db_transaction,
 			);
 		}
-		self.db.write(db_transaction)?;
 		Ok(reported_updates)
 	}
 
-	fn apply_bumps(
+	fn increment_peer_scores(
 		&self,
 		entries: &mut HashMap<PeerId, ScoreEntry>,
 		bumps: &HashMap<PeerId, Score>,
@@ -209,7 +204,7 @@ impl PersistentDb {
 		updates
 	}
 
-	fn apply_decay(
+	fn decay_inactive_peers(
 		&self,
 		entries: &mut HashMap<PeerId, ScoreEntry>,
 		bumped_peers: &HashMap<PeerId, Score>,
@@ -244,7 +239,7 @@ impl PersistentDb {
 		updates
 	}
 
-	fn apply_lru_eviction(
+	fn evict_least_recent_peers(
 		&self,
 		entries: &mut HashMap<PeerId, ScoreEntry>,
 		para_id: ParaId,
@@ -284,7 +279,7 @@ impl PersistentDb {
 		updates
 	}
 
-	fn commit_to_db(
+	fn write_reputation_updates(
 		&self,
 		para_id: ParaId,
 		original_peers: &BTreeSet<PeerId>,
@@ -292,7 +287,7 @@ impl PersistentDb {
 		db_transaction: &mut DBTransaction,
 	) {
 		if current_state.is_empty() {
-			let prefix = para_id.encode();
+			let prefix = reputation_key_prefix(&para_id);
 			db_transaction.delete_prefix(self.reputation_column, &prefix);
 			gum::debug!(
 				target: LOG_TARGET,
@@ -318,7 +313,7 @@ impl PersistentDb {
 
 	fn get_all_entries_for_para(&self, para_id: &ParaId) -> Result<HashMap<PeerId, ScoreEntry>> {
 		let mut entries: HashMap<PeerId, ScoreEntry> = HashMap::new();
-		let para_prefix = para_id.encode();
+		let para_prefix = reputation_key_prefix(para_id);
 		for item in self.db.iter_with_prefix(self.reputation_column, &para_prefix) {
 			let (key, _) = item.map_err(|e| Error::IterationFailed { source: e })?;
 			let peer_id = peer_id_from_key(&key)
@@ -374,7 +369,7 @@ impl Backend for PersistentDb {
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
-		match self.process_bumps_inner(leaf_number, bumps, decay_value) {
+		match self.handle_finalized_block(leaf_number, bumps, decay_value) {
 			Ok(updates) => updates,
 			Err(e) => {
 				gum::error!(target:LOG_TARGET, ?e, leaf_number, "Failed to process reputation bumps.");
@@ -425,28 +420,41 @@ enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-/// Key format [ParaId|PeerId]
+/// Key format [reputation_|ParaId|PeerId]
 fn reputation_key(para_id: &ParaId, peer_id: &PeerId) -> Vec<u8> {
 	let peer_bytes = peer_id.to_bytes();
-	let mut key = para_id.encode();
+	let mut key = Vec::with_capacity(REPUTATION_PREFIX.len() + 4 + peer_bytes.len());
+	key.extend_from_slice(REPUTATION_PREFIX);
+	key.extend_from_slice(&para_id.encode());
 	key.extend_from_slice(&peer_bytes);
 	key
 }
 
+/// Returns the prefix for all reputation keys for a given para.
+/// Key prefix format [reputation_|ParaId]
+fn reputation_key_prefix(para_id: &ParaId) -> Vec<u8> {
+	let mut prefix = Vec::with_capacity(REPUTATION_PREFIX.len() + 4);
+	prefix.extend_from_slice(REPUTATION_PREFIX);
+	prefix.extend_from_slice(&para_id.encode());
+	prefix
+}
+
 fn para_id_from_key(key: &[u8]) -> Option<ParaId> {
-	if key.len() < 4 {
+	let prefix_len = REPUTATION_PREFIX.len();
+	if key.len() < prefix_len + 4 {
 		return None;
 	}
 
-	ParaId::decode(&mut &key[0..4]).ok()
+	ParaId::decode(&mut &key[prefix_len..prefix_len + 4]).ok()
 }
 
 fn peer_id_from_key(key: &[u8]) -> Option<PeerId> {
-	if key.len() <= 4 {
+	let prefix_len = REPUTATION_PREFIX.len();
+	if key.len() <= prefix_len + 4 {
 		return None;
 	}
 
-	PeerId::from_bytes(&key[4..]).ok()
+	PeerId::from_bytes(&key[prefix_len + 4..]).ok()
 }
 
 fn load_and_decode<D: Decode>(db: &dyn Database, column: u32, key: &[u8]) -> Result<Option<D>> {
@@ -466,6 +474,9 @@ struct ScoreEntry {
 
 /// Key for the last processed finalized block number.
 const LAST_FINALIZED_KEY: &[u8] = b"last_finalized";
+
+/// Prefix for all reputation keys.
+const REPUTATION_PREFIX: &[u8] = b"reputation_";
 
 #[cfg(test)]
 mod tests {
@@ -610,6 +621,76 @@ mod tests {
 		db.slash(&peer_id, &ParaId::from(100), Score::new(8).unwrap()).await;
 		assert_eq!(db.query(&peer_id, &ParaId::from(100)).await, None);
 		assert_eq!(para_count(&db), 2);
+	}
+
+	#[tokio::test]
+	async fn test_no_prefix_collision() {
+		// This test ensures that deleting entries for one ParaId doesn't accidentally
+		// delete entries for another ParaId whose numeric value contains the first as a prefix.
+		// For example, ParaId(1000) and ParaId(10000).
+		let db = test_db();
+		let mut db = PersistentDb::new(db, 0, 10);
+
+		let peer_1 = PeerId::random();
+		let peer_2 = PeerId::random();
+		let para_1000 = ParaId::from(1000);
+		let para_10000 = ParaId::from(10000);
+
+		// Add reputation for both paras
+		assert_eq!(
+			db.process_bumps(
+				1,
+				[
+					(para_1000, [(peer_1, Score::new(10).unwrap())].into_iter().collect()),
+					(para_10000, [(peer_2, Score::new(20).unwrap())].into_iter().collect()),
+				]
+				.into_iter()
+				.collect(),
+				None,
+			)
+			.await
+			.len(),
+			2
+		);
+
+		// Verify both entries exist
+		assert_eq!(db.query(&peer_1, &para_1000).await.unwrap(), Score::new(10).unwrap());
+		assert_eq!(db.query(&peer_2, &para_10000).await.unwrap(), Score::new(20).unwrap());
+		assert_eq!(para_count(&db), 2);
+
+		// Prune para_1000 - this should NOT affect para_10000
+		db.prune_paras([para_10000].into_iter().collect()).await;
+
+		// Verify para_1000 was deleted but para_10000 remains
+		assert_eq!(db.query(&peer_1, &para_1000).await, None);
+		assert_eq!(db.query(&peer_2, &para_10000).await.unwrap(), Score::new(20).unwrap());
+		assert_eq!(para_count(&db), 1);
+
+		// Test the reverse: add para_1000 back and delete para_10000
+		assert_eq!(
+			db.process_bumps(
+				2,
+				[(para_1000, [(peer_1, Score::new(15).unwrap())].into_iter().collect())]
+					.into_iter()
+					.collect(),
+				None,
+			)
+			.await
+			.len(),
+			1
+		);
+
+		assert_eq!(db.query(&peer_1, &para_1000).await.unwrap(), Score::new(15).unwrap());
+		assert_eq!(db.query(&peer_2, &para_10000).await.unwrap(), Score::new(20).unwrap());
+		assert_eq!(para_count(&db), 2);
+
+		// Prune para_10000 - this should NOT affect para_1000
+		db.prune_paras([para_1000].into_iter().collect()).await;
+
+		// Verify para_10000 was deleted but para_1000 remains
+		assert_eq!(db.query(&peer_1, &para_1000).await.unwrap(), Score::new(15).unwrap());
+		assert_eq!(db.query(&peer_2, &para_10000).await, None);
+		assert_eq!(para_count(&db), 1);
 	}
 
 	#[tokio::test]
