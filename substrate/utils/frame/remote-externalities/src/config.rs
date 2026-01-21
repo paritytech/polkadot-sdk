@@ -26,7 +26,7 @@ use std::{
 
 use crate::Result;
 
-pub(crate) const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
+pub(crate) const DEFAULT_HTTP_ENDPOINT: &str = "wss://try-runtime.polkadot.io:443";
 pub(crate) type SnapshotVersion = Compact<u16>;
 pub(crate) const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
