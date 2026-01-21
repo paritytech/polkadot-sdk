@@ -10,5 +10,5 @@ doc:
 crates:
 - name: sc-network
   bump: major
-- nmae: sc-network-types
+- name: sc-network-types
   bump: major
