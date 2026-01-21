@@ -21,9 +21,9 @@ use crate::metrics::{
 	StandaloneMetric, F64, U64,
 };
 
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 use sysinfo::{RefreshKind, System};
 
 /// Global metrics update interval.

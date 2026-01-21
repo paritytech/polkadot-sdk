@@ -43,4 +43,7 @@ pub enum Error {
 	/// Prometheus error.
 	#[error("{0}")]
 	Prometheus(#[from] prometheus_endpoint::prometheus::Error),
+	/// Task join error.
+	#[error("Failed to join task: {0}")]
+	TaskJoin(String),
 }

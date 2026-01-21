@@ -30,8 +30,8 @@ use std::cell::RefCell;
 /// (get it with `option_env!("CARGO_PKG_VERSION")` from a binary package code).
 pub static RELAYER_VERSION: Mutex<Option<String>> = Mutex::new(None);
 
-async_std::task_local! {
-	pub(crate) static LOOP_NAME: RefCell<String> = RefCell::new(String::default());
+tokio::task_local! {
+	pub(crate) static LOOP_NAME: RefCell<String>
 }
 
 /// Initialize relay environment.
@@ -66,7 +66,10 @@ pub fn initialize_logger(with_timestamp: bool) {
 	}
 }
 
-/// Initialize relay loop. Must only be called once per every loop task.
-pub(crate) fn initialize_loop(loop_name: String) {
-	LOOP_NAME.with(|g_loop_name| *g_loop_name.borrow_mut() = loop_name);
+/// Run a future within the context of a named loop.
+pub(crate) async fn run_in_loop_context<F, T>(loop_name: String, future: F) -> T
+where
+	F: std::future::Future<Output = T>,
+{
+	LOOP_NAME.scope(RefCell::new(loop_name), future).await
 }
