@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769014742028,
+  "lastUpdate": 1769038387466,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "86f833bff3c434e6fdd202c0521eb1dcaf7fb31e",
-          "message": "[pallet-revive-rpc] fix sqlite in-memory connection pool issue (#8897)\n\nFix in-memory sqlite connection pool issue\nsee https://github.com/launchbadge/sqlx/issues/2510\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-18T17:09:55Z",
-          "tree_id": "1b66734bfc6368fd978192f62b5adb847f93f0ec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/86f833bff3c434e6fdd202c0521eb1dcaf7fb31e"
-        },
-        "date": 1750270905050,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03431941128400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04507258302599993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06800352108599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "81a3af9830ea8b6ff64b066b73b04bb3b675add5",
+          "message": "parachain-system: Ensure left-over message budget fits into the PoV (#10863)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-21T22:20:18Z",
+          "tree_id": "4bf5bf95429f6f1ff512cf11703aa41c58195224",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/81a3af9830ea8b6ff64b066b73b04bb3b675add5"
+        },
+        "date": 1769038363652,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.058,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038536287622,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06563554588799994,
             "unit": "seconds"
           }
         ]
