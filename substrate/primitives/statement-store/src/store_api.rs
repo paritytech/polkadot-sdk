@@ -16,7 +16,7 @@
 // limitations under the License.
 
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS};
+use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
 use sp_core::Bytes;
 use std::collections::HashSet;
 
@@ -86,6 +86,9 @@ impl TryInto<CheckedTopicFilter> for TopicFilter {
 			TopicFilter::Any => Ok(CheckedTopicFilter::Any),
 			TopicFilter::MatchAll(topics) => {
 				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				if topics.len() > MAX_TOPICS {
+					return Err(Error::Decode("Too many topics in MatchAll filter".into()));
+				}
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));

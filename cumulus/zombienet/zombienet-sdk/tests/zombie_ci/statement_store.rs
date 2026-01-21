@@ -103,6 +103,6 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	log::info!("Statement store test passed");
 	log::info!("Keeping network alive");
 
-	tokio::time::sleep(Duration::from_hours(24)).await;
+	tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
 	Ok(())
 }
