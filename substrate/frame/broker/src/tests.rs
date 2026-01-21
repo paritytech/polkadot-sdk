@@ -2800,3 +2800,13 @@ fn force_reserve_works() {
 		);
 	});
 }
+
+#[test]
+fn force_transfer_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
+
+		// TODO
+	});
+}
