@@ -19,7 +19,6 @@
 
 use crate::{
 	evm::{
-		eip7702::authorization_intrinsic_gas,
 		fees::{compute_max_integer_quotient, InfoT},
 		runtime::SetWeightLimit,
 		TYPE_EIP7702, TYPE_LEGACY,
@@ -72,7 +71,7 @@ impl GenericTransaction {
 	{
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
-		
+
 		// EIP-7702: Store the authorization list for later processing
 		let authorization_list = self.authorization_list.clone();
 
@@ -86,11 +85,12 @@ impl GenericTransaction {
 		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
 		match (self.chain_id, self.r#type.as_ref()) {
 			(None, Some(super::Byte(TYPE_LEGACY))) => {},
-			(Some(chain_id), ..) =>
+			(Some(chain_id), ..) => {
 				if chain_id != <T as Config>::ChainId::get().into() {
 					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 					return Err(InvalidTransaction::Call);
-				},
+				}
+			},
 			(None, ..) => {
 				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
 				return Err(InvalidTransaction::Call);
@@ -101,7 +101,7 @@ impl GenericTransaction {
 			log::debug!(target: LOG_TARGET, "No gas provided");
 			return Err(InvalidTransaction::Call);
 		};
-		
+
 		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
 		// Per spec: "Note, this implies a null destination is not valid."
 		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
@@ -109,17 +109,14 @@ impl GenericTransaction {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
 				return Err(InvalidTransaction::Call);
 			}
-			
+
 			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
 			// Per spec: "The transaction is considered invalid if the length of authorization_list is zero."
-			if authorization_list.is_empty() {
+			if self.authorization_list.is_empty() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);
 			}
 		}
-		
-		// EIP-7702: Calculate intrinsic gas for authorization list processing
-		let _auth_intrinsic_gas = authorization_intrinsic_gas(authorization_list.len());
 
 		// Currently, effective_gas_price will always be the same as base_fee
 		// Because all callers of `into_call` will prepare `tx` that way. Some of the subsequent
@@ -174,7 +171,7 @@ impl GenericTransaction {
 
 				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call)
+					return Err(InvalidTransaction::Call);
 				}
 
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
