@@ -218,7 +218,7 @@ pub struct Cli<Config: CliConfig> {
 
 	/// Enable the statement store.
 	///
-	/// User limits for statements should be provided by the runtime.
+	/// The statement store reads the storage of the chain to determine if users are allowed to store statements or not.
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
