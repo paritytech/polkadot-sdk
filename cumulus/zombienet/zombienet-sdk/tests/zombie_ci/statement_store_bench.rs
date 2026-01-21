@@ -830,7 +830,7 @@ fn channel_message(sender: &sr25519::Public, receiver: &sr25519::Public) -> Chan
 }
 
 fn get_keypair(idx: u32) -> sr25519::Pair {
-	sr25519::Pair::from_string(&format!("//StatementBench//{}", idx), None).expect("Valid seed")
+	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
 }
 
 struct LatencyBenchConfig {
@@ -958,7 +958,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							let mut statement = Statement::new();
 
 							let topic_str =
-								format!("{}-{}-{}-{}", test_run_id, client_id, round, msg_idx);
+								format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
 							let topic = blake2_256(topic_str.as_bytes());
 							let channel = blake2_256(msg_idx.to_le_bytes().as_ref());
 
@@ -1006,7 +1006,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					for msg_idx in 0..config.messages_per_client() as u32 {
 						// Use same test run ID for topic lookup
 						let topic_str =
-							format!("{}-{}-{}-{}", test_run_id, neighbour_id, round, msg_idx);
+							format!("{test_run_id}-{neighbour_id}-{round}-{msg_idx}");
 						let topic = blake2_256(topic_str.as_bytes());
 
 						for retry in 0..config.max_retries {
