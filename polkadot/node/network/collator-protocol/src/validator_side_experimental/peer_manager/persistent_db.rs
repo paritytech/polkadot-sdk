@@ -17,7 +17,7 @@
 use crate::{
 	validator_side_experimental::{
 		common::Score,
-		peer_manager::{backend::Backend, ReputationUpdateKind},
+		peer_manager::{backend::Backend, ReputationUpdate, ReputationUpdateKind},
 	},
 	LOG_TARGET,
 };
@@ -32,59 +32,6 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-use super::ReputationUpdate;
-
-#[derive(Debug, thiserror::Error)]
-enum Error {
-	#[error("Database IO error: {0}")]
-	Io(#[from] std::io::Error),
-	#[error("Dailed to decode value from DB: {0}")]
-	Decode(#[from] codec::Error),
-	#[error("Invalid key for para {para_id:?}")]
-	InvalidKey { para_id: Option<ParaId> },
-	#[error("Failed to iterate entries: {source}")]
-	IterationFailed {
-		#[source]
-		source: std::io::Error,
-	},
-}
-
-type Result<T> = std::result::Result<T, Error>;
-
-/// Key format [ParaId|PeerId]
-fn reputation_key(para_id: &ParaId, peer_id: &PeerId) -> Vec<u8> {
-	let peer_bytes = peer_id.to_bytes();
-	let mut key = Vec::with_capacity(4 + peer_bytes.len());
-	para_id.using_encoded(|encoded_id| key.extend_from_slice(encoded_id));
-	key.extend_from_slice(&peer_bytes);
-	key
-}
-
-fn para_id_from_key(key: &[u8]) -> Option<ParaId> {
-	if key.len() < 4 {
-		return None;
-	}
-
-	ParaId::decode(&mut &key[0..4]).ok()
-}
-
-fn peer_id_from_key(key: &[u8]) -> Option<PeerId> {
-	if key.len() <= 4 {
-		return None;
-	}
-
-	PeerId::from_bytes(&key[4..]).ok()
-}
-
-fn load_and_decode<D: Decode>(db: &dyn Database, column: u32, key: &[u8]) -> Result<Option<D>> {
-	match db.get(column, key)? {
-		None => Ok(None),
-		Some(raw) => D::decode(&mut &raw[..]).map(Some).map_err(Into::into),
-	}
-}
-
-type Timestamp = u128;
-
 /// Configuration for the reputation db.
 #[derive(Debug, Clone, Copy)]
 pub struct ReputationConfig {
@@ -92,98 +39,10 @@ pub struct ReputationConfig {
 	pub col_reputation_data: u32,
 }
 
-#[derive(Clone, Debug, Decode, Encode)]
-struct ScoreEntry {
-	score: Score,
-	last_bumped: Timestamp,
-}
-
-/// Key for the last processed finalized block number.
-const LAST_FINALIZED_KEY: &[u8] = b"last_finalized";
-
 pub struct PersistentDb {
 	db: Arc<dyn Database>,
 	reputation_column: u32,
 	stored_limit_per_para: u16,
-}
-
-#[async_trait]
-impl Backend for PersistentDb {
-	async fn processed_finalized_block_number(&self) -> Option<polkadot_primitives::BlockNumber> {
-		match load_and_decode(self.db.as_ref(), self.reputation_column, LAST_FINALIZED_KEY) {
-			Ok(block_number) => block_number,
-			Err(e) => {
-				gum::error!(target: LOG_TARGET, ?e, "Failed to load the last finalized block number");
-				None
-			},
-		}
-	}
-
-	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
-		let key = reputation_key(para_id, peer_id);
-		match load_and_decode::<ScoreEntry>(self.db.as_ref(), self.reputation_column, &key) {
-			Ok(Some(entry)) => Some(entry.score),
-			Ok(None) => None,
-			Err(e) => {
-				gum::error!(target: LOG_TARGET, ?peer_id, ?para_id, ?e, "Failed to query");
-				None
-			},
-		}
-	}
-
-	async fn slash(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score) {
-		if let Err(e) = self.slash_inner(peer_id, para_id, value) {
-			gum::error!(target: LOG_TARGET, ?peer_id, ?para_id, ?e, "Failed to slash reputation");
-		}
-	}
-
-	async fn prune_paras(&mut self, registered_paras: std::collections::BTreeSet<ParaId>) {
-		if let Err(e) = self.prune_paras_inner(registered_paras) {
-			gum::error!(target: LOG_TARGET, ?e, "Failed to prune paras.");
-		}
-	}
-
-	async fn process_bumps(
-		&mut self,
-		leaf_number: polkadot_primitives::BlockNumber,
-		bumps: std::collections::BTreeMap<ParaId, std::collections::HashMap<PeerId, Score>>,
-		decay_value: Option<Score>,
-	) -> Vec<super::ReputationUpdate> {
-		match self.process_bumps_inner(leaf_number, bumps, decay_value) {
-			Ok(updates) => updates,
-			Err(e) => {
-				gum::error!(target:LOG_TARGET, ?e, leaf_number, "Failed to process reputation bumps.");
-				vec![]
-			},
-		}
-	}
-
-	async fn max_scores_for_paras(
-		&self,
-		paras: std::collections::BTreeSet<ParaId>,
-	) -> std::collections::HashMap<ParaId, Score> {
-		let mut max_scores = HashMap::with_capacity(paras.len());
-		for para in paras {
-			let max_score = match self.get_all_entries_for_para(&para) {
-				Ok(score_entries) => score_entries
-					.values()
-					.map(|score_entry| score_entry.score)
-					.max()
-					.unwrap_or(Score::new(0).unwrap()),
-				Err(e) => {
-					gum::error!(
-						target: LOG_TARGET,
-						?para,
-						?e,
-						"Failed to get entries, can't determine max"
-					);
-					Score::new(0).unwrap()
-				},
-			};
-			max_scores.insert(para, max_score);
-		}
-		max_scores
-	}
 }
 
 impl PersistentDb {
@@ -193,7 +52,7 @@ impl PersistentDb {
 
 	fn slash_inner(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score) -> Result<()> {
 		let key = reputation_key(para_id, peer_id);
-		// Searching the reputation of peer_id for the para_id
+		// Retrieving the reputation of peer_id for the para_id
 		let mut db_entry =
 			match load_and_decode::<ScoreEntry>(self.db.as_ref(), self.reputation_column, &key)? {
 				Some(score_entry) => score_entry,
@@ -212,7 +71,7 @@ impl PersistentDb {
 		Ok(())
 	}
 
-	fn prune_paras_inner(&mut self, registed_paras: BTreeSet<ParaId>) -> Result<()> {
+	fn prune_paras_inner(&mut self, registered_paras: BTreeSet<ParaId>) -> Result<()> {
 		//
 		let mut db_transaction = self.db.transaction();
 		let mut paras_to_prune = BTreeSet::new();
@@ -224,15 +83,14 @@ impl PersistentDb {
 				continue;
 			}
 			if let Some(para_id) = para_id_from_key(&key) {
-				if !registed_paras.contains(&para_id) {
+				if !registered_paras.contains(&para_id) {
 					paras_to_prune.insert(para_id);
 				}
 			}
 		}
 
 		for para_id in &paras_to_prune {
-			let mut prefix_for_para = Vec::new();
-			para_id.using_encoded(|encoded| prefix_for_para.extend_from_slice(encoded));
+			let prefix_for_para = para_id.encode();
 			// Delete all entries from DB starting with the Para ID
 			db_transaction.delete_prefix(self.reputation_column, &prefix_for_para);
 		}
@@ -434,8 +292,7 @@ impl PersistentDb {
 		db_transaction: &mut DBTransaction,
 	) {
 		if current_state.is_empty() {
-			let mut prefix = Vec::new();
-			para_id.using_encoded(|encoded| prefix.extend_from_slice(encoded));
+			let prefix = para_id.encode();
 			db_transaction.delete_prefix(self.reputation_column, &prefix);
 			gum::debug!(
 				target: LOG_TARGET,
@@ -461,8 +318,7 @@ impl PersistentDb {
 
 	fn get_all_entries_for_para(&self, para_id: &ParaId) -> Result<HashMap<PeerId, ScoreEntry>> {
 		let mut entries: HashMap<PeerId, ScoreEntry> = HashMap::new();
-		let mut para_prefix = Vec::new();
-		para_id.using_encoded(|encoded| para_prefix.extend_from_slice(encoded));
+		let para_prefix = para_id.encode();
 		for item in self.db.iter_with_prefix(self.reputation_column, &para_prefix) {
 			let (key, _) = item.map_err(|e| Error::IterationFailed { source: e })?;
 			let peer_id = peer_id_from_key(&key)
@@ -475,6 +331,141 @@ impl PersistentDb {
 		Ok(entries)
 	}
 }
+
+#[async_trait]
+impl Backend for PersistentDb {
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		match load_and_decode(self.db.as_ref(), self.reputation_column, LAST_FINALIZED_KEY) {
+			Ok(block_number) => block_number,
+			Err(e) => {
+				gum::error!(target: LOG_TARGET, ?e, "Failed to load the last finalized block number");
+				None
+			},
+		}
+	}
+
+	async fn query(&self, peer_id: &PeerId, para_id: &ParaId) -> Option<Score> {
+		let key = reputation_key(para_id, peer_id);
+		match load_and_decode::<ScoreEntry>(self.db.as_ref(), self.reputation_column, &key) {
+			Ok(Some(entry)) => Some(entry.score),
+			Ok(None) => None,
+			Err(e) => {
+				gum::error!(target: LOG_TARGET, ?peer_id, ?para_id, ?e, "Failed to query");
+				None
+			},
+		}
+	}
+
+	async fn slash(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score) {
+		if let Err(e) = self.slash_inner(peer_id, para_id, value) {
+			gum::error!(target: LOG_TARGET, ?peer_id, ?para_id, ?e, "Failed to slash reputation");
+		}
+	}
+
+	async fn prune_paras(&mut self, registered_paras: BTreeSet<ParaId>) {
+		if let Err(e) = self.prune_paras_inner(registered_paras) {
+			gum::error!(target: LOG_TARGET, ?e, "Failed to prune paras.");
+		}
+	}
+
+	async fn process_bumps(
+		&mut self,
+		leaf_number: BlockNumber,
+		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+		decay_value: Option<Score>,
+	) -> Vec<ReputationUpdate> {
+		match self.process_bumps_inner(leaf_number, bumps, decay_value) {
+			Ok(updates) => updates,
+			Err(e) => {
+				gum::error!(target:LOG_TARGET, ?e, leaf_number, "Failed to process reputation bumps.");
+				vec![]
+			},
+		}
+	}
+
+	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		let mut max_scores = HashMap::with_capacity(paras.len());
+		for para in paras {
+			let max_score = match self.get_all_entries_for_para(&para) {
+				Ok(score_entries) => score_entries
+					.values()
+					.map(|score_entry| score_entry.score)
+					.max()
+					.unwrap_or(Score::new(0).unwrap()),
+				Err(e) => {
+					gum::error!(
+						target: LOG_TARGET,
+						?para,
+						?e,
+						"Failed to get entries, can't determine max"
+					);
+					Score::new(0).unwrap()
+				},
+			};
+			max_scores.insert(para, max_score);
+		}
+		max_scores
+	}
+}
+
+#[derive(Debug, thiserror::Error)]
+enum Error {
+	#[error("Database IO error: {0}")]
+	Io(#[from] std::io::Error),
+	#[error("Dailed to decode value from DB: {0}")]
+	Decode(#[from] codec::Error),
+	#[error("Invalid key for para {para_id:?}")]
+	InvalidKey { para_id: Option<ParaId> },
+	#[error("Failed to iterate entries: {source}")]
+	IterationFailed {
+		#[source]
+		source: std::io::Error,
+	},
+}
+
+type Result<T> = std::result::Result<T, Error>;
+
+/// Key format [ParaId|PeerId]
+fn reputation_key(para_id: &ParaId, peer_id: &PeerId) -> Vec<u8> {
+	let peer_bytes = peer_id.to_bytes();
+	let mut key = para_id.encode();
+	key.extend_from_slice(&peer_bytes);
+	key
+}
+
+fn para_id_from_key(key: &[u8]) -> Option<ParaId> {
+	if key.len() < 4 {
+		return None;
+	}
+
+	ParaId::decode(&mut &key[0..4]).ok()
+}
+
+fn peer_id_from_key(key: &[u8]) -> Option<PeerId> {
+	if key.len() <= 4 {
+		return None;
+	}
+
+	PeerId::from_bytes(&key[4..]).ok()
+}
+
+fn load_and_decode<D: Decode>(db: &dyn Database, column: u32, key: &[u8]) -> Result<Option<D>> {
+	match db.get(column, key)? {
+		None => Ok(None),
+		Some(raw) => D::decode(&mut &raw[..]).map(Some).map_err(Into::into),
+	}
+}
+
+type Timestamp = u128;
+
+#[derive(Clone, Debug, Decode, Encode)]
+struct ScoreEntry {
+	score: Score,
+	last_bumped: Timestamp,
+}
+
+/// Key for the last processed finalized block number.
+const LAST_FINALIZED_KEY: &[u8] = b"last_finalized";
 
 #[cfg(test)]
 mod tests {

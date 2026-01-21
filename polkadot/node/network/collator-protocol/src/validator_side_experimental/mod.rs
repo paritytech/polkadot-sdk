@@ -90,7 +90,6 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		//let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
 		let backend = PersistentDb::new(db.clone(), reputation_col, MAX_STORED_SCORES_PER_PARA);
 
 		match PeerManager::startup(
