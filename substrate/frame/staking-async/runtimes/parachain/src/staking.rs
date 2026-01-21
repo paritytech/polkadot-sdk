@@ -525,51 +525,24 @@ pub enum AhClientCalls {
 pub struct ValidatorSetToXcm;
 impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSetToXcm {
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
-					.encode()
-					.into(),
-			},
-		])
+		rc_client::build_transact_xcm(
+			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+		)
 	}
 }
 
-/// Converter from AccountId to XCM Location.
-pub struct AccountIdToLocation;
-impl Convert<AccountId, Location> for AccountIdToLocation {
-	fn convert(account: AccountId) -> Location {
-		Junction::AccountId32 { network: None, id: account.into() }.into()
-	}
-}
-
-/// Converter from KeysMessage to XCM for session keys operations.
 pub struct KeysMessageToXcm;
 impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
-		let call = match msg {
+		let encoded_call = match msg {
 			rc_client::KeysMessage::SetKeys { stash, keys } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys }),
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
+					.encode(),
 			rc_client::KeysMessage::PurgeKeys { stash } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash }),
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
+					.encode(),
 		};
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: call.encode().into(),
-			},
-		])
+		rc_client::build_transact_xcm(encoded_call)
 	}
 }
 
@@ -602,7 +575,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			XcmExec<xcm_config::XcmConfig>,
 			RuntimeCall,
 			AccountId,
-			AccountIdToLocation,
+			rc_client::AccountId32ToLocation,
 			Self::Balance,
 		>(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, 0)
 	}
@@ -620,7 +593,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			XcmExec<xcm_config::XcmConfig>,
 			RuntimeCall,
 			AccountId,
-			AccountIdToLocation,
+			rc_client::AccountId32ToLocation,
 			Self::Balance,
 		>(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, 0)
 	}

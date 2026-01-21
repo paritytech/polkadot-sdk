@@ -379,42 +379,22 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	for ValidatorSetToXcm
 {
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
-					.encode()
-					.into(),
-			},
-		])
+		rc_client::build_transact_xcm(
+			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+		)
 	}
 }
 
 pub struct KeysMessageToXcm;
 impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
-		let call = match msg {
+		let encoded_call = match msg {
 			rc_client::KeysMessage::SetKeys { stash, keys } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }),
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode(),
 			rc_client::KeysMessage::PurgeKeys { stash } =>
-				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }),
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode(),
 		};
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: call.encode().into(),
-			},
-		])
+		rc_client::build_transact_xcm(encoded_call)
 	}
 }
 
@@ -424,14 +404,6 @@ parameter_types! {
 	/// Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
 	/// Slight overpaymennt is the price we pay for maintainability here.
 	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
-}
-
-/// Converts an AccountId to an XCM Location for fee charging.
-pub struct AccountIdToLocation;
-impl sp_runtime::traits::Convert<AccountId, Location> for AccountIdToLocation {
-	fn convert(account: AccountId) -> Location {
-		Junction::AccountId32 { network: None, id: account.into() }.into()
-	}
 }
 
 pub struct StakingXcmToRelayChain;
@@ -467,7 +439,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 			RuntimeCall,
 			AccountId,
-			AccountIdToLocation,
+			rc_client::AccountId32ToLocation,
 			Self::Balance,
 		>(
 			rc_client::KeysMessage::set_keys(stash.clone(), keys),
@@ -494,7 +466,7 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
 			RuntimeCall,
 			AccountId,
-			AccountIdToLocation,
+			rc_client::AccountId32ToLocation,
 			Self::Balance,
 		>(
 			rc_client::KeysMessage::purge_keys(stash.clone()),

@@ -142,8 +142,38 @@ use sp_staking::SessionIndex;
 // `SendToRelayChain` trait abstraction.
 #[cfg(feature = "xcm-sender")]
 use xcm::latest::{
-	send_xcm, validate_send, ExecuteXcm, Fungibility::Fungible, Location, SendError, SendXcm, Xcm,
+	send_xcm, validate_send, ExecuteXcm, Fungibility::Fungible, Instruction, Junction, Location,
+	OriginKind, SendError, SendXcm, WeightLimit, Xcm,
 };
+
+/// Builds an XCM message with `UnpaidExecution` + `Transact` from an encoded call.
+///
+/// This is the standard pattern for system parachain → relay chain messages where
+/// the relay chain trusts the parachain origin and doesn't charge fees.
+#[cfg(feature = "xcm-sender")]
+pub fn build_transact_xcm(encoded_call: Vec<u8>) -> Xcm<()> {
+	Xcm(vec![
+		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		Instruction::Transact {
+			origin_kind: OriginKind::Native,
+			fallback_max_weight: None,
+			call: encoded_call.into(),
+		},
+	])
+}
+
+/// Converts an `AccountId32`-compatible account to an XCM `Location`.
+///
+/// Use this as the `AccountToLoc` parameter for [`XCMSender::send_with_fees`].
+#[cfg(feature = "xcm-sender")]
+pub struct AccountId32ToLocation;
+
+#[cfg(feature = "xcm-sender")]
+impl<AccountId: Into<[u8; 32]>> Convert<AccountId, Location> for AccountId32ToLocation {
+	fn convert(account: AccountId) -> Location {
+		Junction::AccountId32 { network: None, id: account.into() }.into()
+	}
+}
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
