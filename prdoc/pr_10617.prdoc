@@ -9,6 +9,6 @@ doc:
 
 crates:
   - name: sc-network-statement
-    bump: minor
+    bump: major
   - name: polkadot-omni-node-lib
-    bump: minor
+    bump: major
