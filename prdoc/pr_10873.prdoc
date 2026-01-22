@@ -1,0 +1,5 @@
+title: '[pallet-revive] bump resolc'
+doc:
+- audience: Runtime Dev
+  description: bump resolc version to 0.6.0 in github workflows
+crates: []
