@@ -495,7 +495,32 @@ impl Statement {
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
 
-		let mut output = Vec::new();
+		// Calculate capacity for preallocation using size_of for type sizes:
+		// - Compact length prefix: 1-5 bytes (assume 5 for safety)
+		// - Proof field: 1 (tag) + 1 (enum discriminant) + size_of::<Proof>()
+		// - DecryptionKey: 1 (tag) + size_of::<DecryptionKey>()
+		// - Priority: 1 (tag) + size_of::<u32>()
+		// - Channel: 1 (tag) + size_of::<Channel>()
+		// - Each topic: 1 (tag) + size_of::<Topic>()
+		// - Data: 1 (tag) + 5 (compact len) + data.len()
+		let proof_size =
+			if !for_signing && self.proof.is_some() { 1 + 1 + size_of::<Proof>() } else { 0 };
+		let decryption_key_size =
+			if self.decryption_key.is_some() { 1 + size_of::<DecryptionKey>() } else { 0 };
+		let priority_size = if self.priority.is_some() { 1 + size_of::<u32>() } else { 0 };
+		let channel_size = if self.channel.is_some() { 1 + size_of::<Channel>() } else { 0 };
+		let topics_size = self.num_topics as usize * (1 + size_of::<Topic>());
+		let data_size = self.data.as_ref().map_or(0, |d| 1 + 5 + d.len());
+		let compact_prefix_size = if !for_signing { 5 } else { 0 };
+
+		let capacity =
+			compact_prefix_size +
+				proof_size + decryption_key_size +
+				priority_size +
+				channel_size + topics_size +
+				data_size;
+
+		let mut output = Vec::with_capacity(capacity);
 		// When encoding signature payload, the length prefix is omitted.
 		// This is so that the signature for encoded statement can potentially be derived without
 		// needing to re-encode the statement.
