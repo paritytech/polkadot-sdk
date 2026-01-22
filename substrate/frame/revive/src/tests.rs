@@ -591,7 +591,8 @@ fn ext_builder_with_genesis_config_works() {
 				revm::bytecode::opcode::PUSH1,
 				0x00,
 				revm::bytecode::opcode::RETURN,
-			].into(),
+			]
+			.into(),
 			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
