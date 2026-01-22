@@ -24,10 +24,10 @@ use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
 
-/// Information relating to the period of a scheduled task. First item is the length of the
-/// period and the second is the number of times it should be executed in total before the task
-/// is considered finished and removed.
-pub type Period<Moment> = (Moment, u32);
+/// Information relating to the period of a scheduled task. First item is the duration
+/// between executions and the second is the number of times it should be executed in
+/// total before the task is considered finished and removed.
+pub type Period<Duration> = (Duration, u32);
 
 /// Priority with which a call is scheduled. It's just a linear amount with lowest values meaning
 /// higher priority.

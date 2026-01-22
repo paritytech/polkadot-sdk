@@ -69,6 +69,21 @@
 //!       index.
 //!
 //! [`on_initialize`]: frame_support::traits::Hooks::on_initialize
+//!
+//! ## Bucket Resolution
+//!
+//! Tasks are organized into time buckets for efficient storage and processing. The bucket size
+//! is configured via [`Config::BucketResolution`] (typically 60 seconds / 1 minute).
+//!
+//! **Important:** All timestamps are rounded down to the nearest bucket boundary:
+//! - A task scheduled at timestamp `125_000ms` with a 60-second bucket resolution will be
+//!   placed in bucket 2 (`125_000 / 60_000 = 2`), which covers `120_000ms` to `179_999ms`.
+//! - Periodic task durations are also converted to bucket counts. A period of `180_000ms`
+//!   (3 minutes) becomes a period of 3 buckets.
+//!
+//! This means:
+//! - Tasks cannot be scheduled with finer granularity than the bucket resolution.
+//! - Periodic durations must be at least one bucket (`>= BucketResolution`).
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -86,7 +101,7 @@ extern crate alloc;
 
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData, num::NonZeroU32};
+use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
@@ -102,39 +117,24 @@ use frame_support::{
 use frame_system::{self as system};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
+	traits::{BadOrigin, Dispatchable, One, Saturating},
 	DispatchError, RuntimeDebug,
 };
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-/// Just a simple index for naming period tasks.
-pub type PeriodicIndex = u32;
-/// Number of buckets to advance for periodic or retry scheduling. Must be non-zero.
-///
-/// This is bucket-based rather than time-based for predictable behavior:
-/// - `1`: Schedule in the next bucket
-/// - `N`: Skip N-1 buckets, schedule in bucket + N
-///
-/// The actual time delay is `period * BucketResolution`. For example, with a
-/// `BucketResolution` of 60 seconds, `period = 2` means ~2 minutes between executions.
-///
-/// Used for both periodic task intervals and retry scheduling.
-pub type Period = NonZeroU32;
-/// The location of a scheduled task (bucket, index).
-pub type TaskAddress<BucketKey> = (BucketKey, u32);
-
-/// The moment type used by a config's timestamp provider (timestamp in milliseconds).
-/// This represents absolute time as provided by the timestamp pallet.
+/// Absolute timestamp in milliseconds from the timestamp provider.
 pub type MomentFor<T> = <<T as Config>::TimestampProvider as Time>::Moment;
-
-/// The time bucket type, representing which scheduling bucket a task belongs to.
-/// Calculated as: timestamp / BucketResolution.
-/// This is the same underlying type as MomentFor but represents a different concept:
-/// MomentFor is an absolute timestamp, TimeBucketFor is a bucket index.
-pub type TimeBucketFor<T> = MomentFor<T>;
-
+/// Bucket index (`timestamp / BucketResolution`).
+pub type BucketFor<T> = MomentFor<T>;
+/// Duration in milliseconds (external API).
+pub type DurationFor<T> = MomentFor<T>;
+/// Duration in bucket units (internal storage).
+pub type PeriodFor<T> = BucketFor<T>;
+/// Task location: `(bucket_index, position_in_bucket)`.
+pub type TaskAddress<Bucket> = (Bucket, u32);
+/// Bounded call type for scheduled tasks.
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
@@ -177,7 +177,7 @@ pub struct RetryConfig<Period> {
 	TypeInfo,
 	DecodeWithMemTracking,
 )]
-pub struct Scheduled<Name, Call, Period, PalletsOrigin, AccountId> {
+pub struct Scheduled<Name, Call, Interval, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
 	pub maybe_id: Option<Name>,
 	/// This task's priority.
@@ -185,15 +185,15 @@ pub struct Scheduled<Name, Call, Period, PalletsOrigin, AccountId> {
 	/// The call to be dispatched.
 	pub call: Call,
 	/// If the call is periodic, then this points to the information concerning that.
-	pub maybe_periodic: Option<time_schedule::Period<Period>>,
+	pub maybe_periodic: Option<time_schedule::Period<Interval>>,
 	/// The origin with which to dispatch the call.
 	pub origin: PalletsOrigin,
 	#[doc(hidden)]
 	pub _phantom: PhantomData<AccountId>,
 }
 
-impl<Name, Call, Period, PalletsOrigin, AccountId>
-	Scheduled<Name, Call, Period, PalletsOrigin, AccountId>
+impl<Name, Call, Interval, PalletsOrigin, AccountId>
+	Scheduled<Name, Call, Interval, PalletsOrigin, AccountId>
 where
 	Call: Clone,
 	PalletsOrigin: Clone,
@@ -213,11 +213,10 @@ where
 }
 
 /// Scheduled task type alias.
-/// Uses `MomentFor<T>` for time period (milliseconds) instead of block number.
 pub type ScheduledOf<T> = Scheduled<
 	TaskName,
 	BoundedCallOf<T>,
-	MomentFor<T>,
+	PeriodFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
 >;
@@ -332,7 +331,7 @@ pub mod pallet {
 
 	/// Time bucket at which the agenda began incomplete execution.
 	#[pallet::storage]
-	pub type IncompleteSince<T: Config> = StorageValue<_, TimeBucketFor<T>>;
+	pub type IncompleteSince<T: Config> = StorageValue<_, BucketFor<T>>;
 
 	/// Items to be executed, indexed by time bucket.
 	///
@@ -343,7 +342,7 @@ pub mod pallet {
 	pub type Agenda<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		TimeBucketFor<T>,
+		BucketFor<T>,
 		BoundedVec<Option<ScheduledOf<T>>, T::MaxScheduledPerBucket>,
 		ValueQuery,
 	>;
@@ -353,55 +352,50 @@ pub mod pallet {
 	pub type Retries<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		TaskAddress<TimeBucketFor<T>>,
-		RetryConfig<Period>,
+		TaskAddress<BucketFor<T>>,
+		RetryConfig<PeriodFor<T>>,
 		OptionQuery,
 	>;
 
 	/// Lookup from a name to the bucket and index of the task.
 	#[pallet::storage]
-	pub type Lookup<T: Config> =
-		StorageMap<_, Twox64Concat, TaskName, TaskAddress<TimeBucketFor<T>>>;
+	pub type Lookup<T: Config> = StorageMap<_, Twox64Concat, TaskName, TaskAddress<BucketFor<T>>>;
 
 	/// Events type.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Scheduled some task.
-		Scheduled { when: TimeBucketFor<T>, index: u32 },
+		Scheduled { when: BucketFor<T>, index: u32 },
 		/// Canceled some task.
-		Canceled { when: TimeBucketFor<T>, index: u32 },
+		Canceled { when: BucketFor<T>, index: u32 },
 		/// Dispatched some task.
-		Dispatched {
-			task: TaskAddress<TimeBucketFor<T>>,
-			id: Option<TaskName>,
-			result: DispatchResult,
-		},
+		Dispatched { task: TaskAddress<BucketFor<T>>, id: Option<TaskName>, result: DispatchResult },
 		/// Set a retry configuration for some task.
 		///
 		/// `period` is the number of buckets to advance between retries (not a time duration).
 		/// The actual retry delay is `period * BucketResolution`.
 		/// If `try_same_bucket_first` is true, retries will first attempt the same bucket.
 		RetrySet {
-			task: TaskAddress<TimeBucketFor<T>>,
+			task: TaskAddress<BucketFor<T>>,
 			id: Option<TaskName>,
-			period: Period,
+			period: PeriodFor<T>,
 			retries: u8,
 			try_same_bucket_first: bool,
 		},
 		/// Cancel a retry configuration for some task.
-		RetryCancelled { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		RetryCancelled { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
 		/// The call for the provided hash was not found so the task has been aborted.
-		CallUnavailable { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		CallUnavailable { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that bucket.
-		PeriodicFailed { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		PeriodicFailed { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be retried since the agenda is full at that bucket or there
 		/// was not enough weight to reschedule it.
-		RetryFailed { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		RetryFailed { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
-		PermanentlyOverweight { task: TaskAddress<TimeBucketFor<T>>, id: Option<TaskName> },
+		PermanentlyOverweight { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
 		/// Agenda is incomplete from `when`.
-		AgendaIncomplete { when: TimeBucketFor<T> },
+		AgendaIncomplete { when: BucketFor<T> },
 	}
 
 	#[pallet::error]
@@ -416,8 +410,8 @@ pub mod pallet {
 		RescheduleNoChange,
 		/// Attempt to use a non-named function on a named task.
 		Named,
-		/// Periodic scheduling period must be at least BucketResolution.
-		PeriodTooSmall,
+		/// Duration must be at least BucketResolution.
+		DurationTooSmall,
 	}
 
 	#[pallet::hooks]
@@ -469,7 +463,7 @@ pub mod pallet {
 		pub fn schedule(
 			origin: OriginFor<T>,
 			when: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -502,7 +496,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: TaskName,
 			when: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -535,7 +529,7 @@ pub mod pallet {
 		pub fn schedule_after(
 			origin: OriginFor<T>,
 			after: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -558,7 +552,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: TaskName,
 			after: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -575,29 +569,30 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set a retry configuration for a task so that, in case its scheduled run
-		/// fails, it will be retried after `period` buckets, for a total amount of `retries`
-		/// retries or until it succeeds.
+		/// Set a retry configuration for a task. On failure, retries up to `retries` times
+		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
 		///
-		/// The `period` is bucket-based, not time-based:
-		/// - `1`: Retry in the next bucket
-		/// - `N`: Skip N-1 buckets before retrying
+		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
+		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
+		/// normally while the task is retrying.
 		///
-		/// If `try_same_bucket_first` is true, the retry will first attempt to schedule
-		/// in the same bucket before falling back to `period` buckets ahead.
-		///
-		/// The actual time delay is approximately `period * BucketResolution`.
-		/// If the target bucket is full, the retry falls back to the next bucket.
+		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+		/// clones of the original task. Their retry configuration will be derived from the
+		/// original task's configuration, but will have a lower value for `remaining` than the
+		/// original `total_retries`.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
 			origin: OriginFor<T>,
-			task: TaskAddress<MomentFor<T>>,
+			task: TaskAddress<BucketFor<T>>,
 			retries: u8,
-			period: Period,
+			duration: DurationFor<T>,
 			try_same_bucket_first: bool,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
+			let period = duration / bucket_resolution;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = task;
 			let agenda = Agenda::<T>::get(bucket);
@@ -608,35 +603,47 @@ pub mod pallet {
 			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
 			Retries::<T>::insert(
 				task,
-				RetryConfig { total_retries: retries, remaining: retries, period, try_same_bucket_first },
+				RetryConfig {
+					total_retries: retries,
+					remaining: retries,
+					period,
+					try_same_bucket_first,
+				},
 			);
-			Self::deposit_event(Event::RetrySet { task, id: None, period, retries, try_same_bucket_first });
+			Self::deposit_event(Event::RetrySet {
+				task,
+				id: None,
+				period,
+				retries,
+				try_same_bucket_first,
+			});
 			Ok(())
 		}
 
-		/// Set a retry configuration for a named task so that, in case its scheduled
-		/// run fails, it will be retried after `period` buckets, for a total amount of
-		/// `retries` retries or until it succeeds.
+		/// Set a retry configuration for a named task. On failure, retries up to `retries` times
+		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
 		///
-		/// The `period` is bucket-based, not time-based:
-		/// - `1`: Retry in the next bucket
-		/// - `N`: Skip N-1 buckets before retrying
+		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
+		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
+		/// normally while the task is retrying.
 		///
-		/// If `try_same_bucket_first` is true, the retry will first attempt to schedule
-		/// in the same bucket before falling back to `period` buckets ahead.
-		///
-		/// The actual time delay is approximately `period * BucketResolution`.
-		/// If the target bucket is full, the retry falls back to the next bucket.
+		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
+		/// clones of the original task. Their retry configuration will be derived from the
+		/// original task's configuration, but will have a lower value for `remaining` than the
+		/// original `total_retries`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
 			origin: OriginFor<T>,
 			id: TaskName,
 			retries: u8,
-			period: Period,
+			duration: DurationFor<T>,
 			try_same_bucket_first: bool,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
+			let period = duration / bucket_resolution;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			let agenda = Agenda::<T>::get(bucket);
@@ -647,7 +654,12 @@ pub mod pallet {
 			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
 			Retries::<T>::insert(
 				(bucket, index),
-				RetryConfig { total_retries: retries, remaining: retries, period, try_same_bucket_first },
+				RetryConfig {
+					total_retries: retries,
+					remaining: retries,
+					period,
+					try_same_bucket_first,
+				},
 			);
 			Self::deposit_event(Event::RetrySet {
 				task: (bucket, index),
@@ -664,7 +676,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
 		pub fn cancel_retry(
 			origin: OriginFor<T>,
-			task: TaskAddress<MomentFor<T>>,
+			task: TaskAddress<BucketFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -689,18 +701,13 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// Convert a timestamp in milliseconds to a bucket key (timestamp / BucketResolution).
-	fn timestamp_to_bucket(timestamp: MomentFor<T>) -> TimeBucketFor<T> {
+	fn timestamp_to_bucket(timestamp: MomentFor<T>) -> BucketFor<T> {
 		timestamp / T::BucketResolution::get().into()
 	}
 
 	fn resolve_time(when: DispatchTime<MomentFor<T>>) -> Result<MomentFor<T>, DispatchError> {
 		let now = T::TimestampProvider::now();
-		let when = match when {
-			DispatchTime::At(x) => x,
-			// Schedule after the specified delay from now.
-			// Tasks can be scheduled within the same bucket since buckets may span multiple blocks.
-			DispatchTime::After(x) => now.saturating_add(x),
-		};
+		let when = when.evaluate(now);
 
 		// Allow scheduling at the current timestamp or in the future.
 		// Tasks in the current bucket will be processed in this or a subsequent block.
@@ -715,7 +722,7 @@ impl<T: Config> Pallet<T> {
 	fn place_task(
 		when: MomentFor<T>,
 		what: ScheduledOf<T>,
-	) -> Result<TaskAddress<TimeBucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
+	) -> Result<TaskAddress<BucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
 		let maybe_name = what.maybe_id;
 		let bucket = Self::timestamp_to_bucket(when);
 		let index = Self::push_to_agenda(bucket, what)?;
@@ -729,7 +736,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Push a task to the agenda for a given bucket.
 	fn push_to_agenda(
-		bucket: TimeBucketFor<T>,
+		bucket: BucketFor<T>,
 		what: ScheduledOf<T>,
 	) -> Result<u32, (DispatchError, ScheduledOf<T>)> {
 		let mut agenda = Agenda::<T>::get(bucket);
@@ -751,7 +758,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Remove trailing `None` items of an agenda at `bucket`. If all items are `None` remove
 	/// the agenda record entirely.
-	fn cleanup_agenda(bucket: TimeBucketFor<T>) {
+	fn cleanup_agenda(bucket: BucketFor<T>) {
 		let mut agenda = Agenda::<T>::get(bucket);
 		match agenda.iter().rposition(|i| i.is_some()) {
 			Some(i) if agenda.len() > i + 1 => {
@@ -765,30 +772,32 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Schedule a task.
+	/// Schedule a task. Periodic durations are converted to bucket counts.
 	fn do_schedule(
 		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
 		let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
 
-		// sanitize maybe_periodic
+		// Convert duration-based period to bucket-based period.
+		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
 		let maybe_periodic = maybe_periodic
-			.filter(|p| p.1 > 1 && !p.0.is_zero())
-			// Remove one from the number of repetitions since we will schedule one now.
-			.map(|(p, c)| (p, c - 1));
-
-		// Validate periodic constraint: period must be >= BucketResolution
-		// This prevents same-bucket scheduling
-		if let Some((period, _)) = maybe_periodic {
-			ensure!(period >= bucket_resolution, Error::<T>::PeriodTooSmall);
-		}
+			.filter(|p| p.1 > 1)
+			.map(|(duration, count)| -> Result<_, DispatchError> {
+				ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
+				// Convert duration to bucket count (rounded down).
+				// Safe because we checked duration >= bucket_resolution above, so period >= 1.
+				let period = duration / bucket_resolution;
+				// Remove one from the number of repetitions since we will schedule one now.
+				Ok((period, count - 1))
+			})
+			.transpose()?;
 
 		let task = Scheduled {
 			maybe_id: None,
@@ -811,7 +820,7 @@ impl<T: Config> Pallet<T> {
 	/// Cancel a task by address.
 	fn do_cancel(
 		origin: Option<T::PalletsOrigin>,
-		(bucket, index): TaskAddress<TimeBucketFor<T>>,
+		(bucket, index): TaskAddress<BucketFor<T>>,
 	) -> Result<(), DispatchError> {
 		let scheduled = Agenda::<T>::try_mutate(bucket, |agenda| {
 			agenda.get_mut(index as usize).map_or(
@@ -840,9 +849,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Reschedule a task by address.
 	fn do_reschedule(
-		(bucket, index): TaskAddress<TimeBucketFor<T>>,
+		(bucket, index): TaskAddress<BucketFor<T>>,
 		new_time: DispatchTime<MomentFor<T>>,
-	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
 		let new_bucket = Self::timestamp_to_bucket(new_time);
 
@@ -862,15 +871,15 @@ impl<T: Config> Pallet<T> {
 		Self::place_task(new_time, task).map_err(|x| x.0)
 	}
 
-	/// Schedule a named task.
+	/// Schedule a named task. Periodic durations are converted to bucket counts.
 	fn do_schedule_named(
 		id: TaskName,
 		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
-	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		// ensure id is unique
 		if Lookup::<T>::contains_key(&id) {
 			return Err(Error::<T>::FailedToSchedule.into());
@@ -881,15 +890,19 @@ impl<T: Config> Pallet<T> {
 		let lookup_hash = call.lookup_hash();
 		let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
 
-		// sanitize maybe_periodic
-		let maybe_periodic =
-			maybe_periodic.filter(|p| p.1 > 1 && !p.0.is_zero()).map(|(p, c)| (p, c - 1));
-
-		// Validate periodic constraint: period must be >= BucketResolution
-		// This prevents same-bucket scheduling
-		if let Some((period, _)) = maybe_periodic {
-			ensure!(period >= bucket_resolution, Error::<T>::PeriodTooSmall);
-		}
+		// Convert duration-based period to bucket-based period.
+		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
+		let maybe_periodic = maybe_periodic
+			.filter(|p| p.1 > 1)
+			.map(|(duration, count)| -> Result<_, DispatchError> {
+				ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
+				// Convert duration to bucket count (rounded down).
+				// Safe because we checked duration >= bucket_resolution above, so period >= 1.
+				let period = duration / bucket_resolution;
+				// Remove one from the number of repetitions since we will schedule one now.
+				Ok((period, count - 1))
+			})
+			.transpose()?;
 
 		let task = Scheduled {
 			maybe_id: Some(id),
@@ -938,7 +951,7 @@ impl<T: Config> Pallet<T> {
 	fn do_reschedule_named(
 		id: TaskName,
 		new_time: DispatchTime<MomentFor<T>>,
-	) -> Result<TaskAddress<TimeBucketFor<T>>, DispatchError> {
+	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
 		let new_bucket = Self::timestamp_to_bucket(new_time);
 
@@ -961,7 +974,7 @@ impl<T: Config> Pallet<T> {
 	/// Cancel the retry configuration for a task.
 	fn do_cancel_retry(
 		origin: &T::PalletsOrigin,
-		(bucket, index): TaskAddress<TimeBucketFor<T>>,
+		(bucket, index): TaskAddress<BucketFor<T>>,
 	) -> Result<(), DispatchError> {
 		let agenda = Agenda::<T>::get(bucket);
 		let scheduled = agenda
@@ -1003,7 +1016,7 @@ impl<T: Config> Pallet<T> {
 		let mut bucket = IncompleteSince::<T>::take()
 			.map(|stored| stored.min(now_bucket))
 			.unwrap_or(now_bucket);
-		let mut earliest_incomplete: Option<TimeBucketFor<T>> = None;
+		let mut earliest_incomplete: Option<BucketFor<T>> = None;
 		let mut is_first = true;
 
 		let max_items = T::MaxScheduledPerBucket::get();
@@ -1013,7 +1026,7 @@ impl<T: Config> Pallet<T> {
 			&& bucket <= now_bucket
 			&& weight.can_consume(service_agenda_base_weight)
 		{
-			if !Self::service_agenda(weight, is_first, now, bucket, u32::MAX) {
+			if !Self::service_agenda(weight, is_first, bucket, u32::MAX) {
 				// Track the earliest bucket with incomplete tasks
 				if earliest_incomplete.is_none() {
 					earliest_incomplete = Some(bucket);
@@ -1047,8 +1060,7 @@ impl<T: Config> Pallet<T> {
 	fn service_agenda(
 		weight: &mut WeightMeter,
 		mut is_first: bool,
-		now: MomentFor<T>,
-		bucket: TimeBucketFor<T>,
+		bucket: BucketFor<T>,
 		max: u32,
 	) -> bool {
 		let mut agenda = Agenda::<T>::get(bucket);
@@ -1090,7 +1102,7 @@ impl<T: Config> Pallet<T> {
 
 			// Execute the task - any retries scheduled to the same bucket will be
 			// written to storage, we'll merge them after processing
-			let result = Self::service_task(weight, now, bucket, agenda_index, is_first, task);
+			let result = Self::service_task(weight, bucket, agenda_index, is_first, task);
 			match result {
 				Err((Unavailable, _)) => dropped += 1,
 				Err((Overweight, _)) => postponed += 1,
@@ -1122,8 +1134,7 @@ impl<T: Config> Pallet<T> {
 	/// Service a single task.
 	fn service_task(
 		weight: &mut WeightMeter,
-		now: MomentFor<T>,
-		bucket: TimeBucketFor<T>,
+		bucket: BucketFor<T>,
 		agenda_index: u32,
 		is_first: bool,
 		mut task: ScheduledOf<T>,
@@ -1176,13 +1187,7 @@ impl<T: Config> Pallet<T> {
 
 				match maybe_retry_config {
 					Some(retry_config) if failed => {
-						Self::schedule_retry(
-							weight,
-							bucket,
-							agenda_index,
-							&task,
-							retry_config,
-						);
+						Self::schedule_retry(weight, bucket, agenda_index, &task, retry_config);
 					},
 					_ => {},
 				}
@@ -1194,7 +1199,9 @@ impl<T: Config> Pallet<T> {
 					} else {
 						task.maybe_periodic = None;
 					}
-					let wake = now.saturating_add(period);
+					// Calculate target bucket and convert to timestamp for place_task.
+					let target_bucket = bucket.saturating_add(period);
+					let wake = target_bucket.saturating_mul(T::BucketResolution::get().into());
 					match Self::place_task(wake, task) {
 						Ok(new_address) => {
 							if let Some(retry_config) = maybe_retry_config {
@@ -1262,10 +1269,10 @@ impl<T: Config> Pallet<T> {
 	/// If the target bucket is full, falls back to the next bucket.
 	fn schedule_retry(
 		weight: &mut WeightMeter,
-		bucket: TimeBucketFor<T>,
+		bucket: BucketFor<T>,
 		agenda_index: u32,
 		task: &ScheduledOf<T>,
-		retry_config: RetryConfig<Period>,
+		retry_config: RetryConfig<PeriodFor<T>>,
 	) {
 		if weight
 			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBucket::get()))
@@ -1285,7 +1292,8 @@ impl<T: Config> Pallet<T> {
 			None => return,
 		};
 
-		let new_retry_config = RetryConfig { total_retries, remaining, period, try_same_bucket_first };
+		let new_retry_config =
+			RetryConfig { total_retries, remaining, period, try_same_bucket_first };
 
 		// If try_same_bucket_first, attempt same bucket first
 		if try_same_bucket_first {
@@ -1297,7 +1305,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Try target bucket (current + period)
-		let target_bucket = bucket.saturating_add(period.get().into());
+		let target_bucket = bucket.saturating_add(period);
 		let target_time = target_bucket.saturating_mul(T::BucketResolution::get().into());
 		match Self::place_task(target_time, task.as_retry()) {
 			Ok(address) => {
@@ -1306,7 +1314,8 @@ impl<T: Config> Pallet<T> {
 			Err((_, retry_task)) => {
 				// Target bucket is full, try the next bucket
 				let next_bucket = target_bucket.saturating_add(1u32.into());
-				let next_bucket_time = next_bucket.saturating_mul(T::BucketResolution::get().into());
+				let next_bucket_time =
+					next_bucket.saturating_mul(T::BucketResolution::get().into());
 				match Self::place_task(next_bucket_time, retry_task) {
 					Ok(address) => {
 						Retries::<T>::insert(address, new_retry_config);
@@ -1344,7 +1353,7 @@ use time_schedule::v1::TaskName;
 impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
-	type Address = TaskAddress<TimeBucketFor<T>>;
+	type Address = TaskAddress<BucketFor<T>>;
 	type Hasher = T::Hashing;
 
 	fn schedule(
@@ -1383,7 +1392,7 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
-	type Address = TaskAddress<TimeBucketFor<T>>;
+	type Address = TaskAddress<BucketFor<T>>;
 	type Hasher = T::Hashing;
 
 	fn schedule_named(

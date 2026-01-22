@@ -22,14 +22,8 @@ use crate::mock::{
 	logger, new_test_ext, root, run_to_time, LoggerCall, Preimage, RuntimeCall, RuntimeOrigin,
 	Scheduler, Test, Timestamp,
 };
-use core::num::NonZeroU32;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::{traits::BadOrigin, DispatchError};
-
-/// Helper to create NonZeroU32 for retry periods in tests
-fn nz(n: u32) -> NonZeroU32 {
-	NonZeroU32::new(n).expect("retry period must be non-zero")
-}
 
 /// Helper to count tasks in a bucket (using BoundedVec)
 fn agenda_task_count(bucket: u64) -> usize {
@@ -482,8 +476,8 @@ fn retry_scheduling_works() {
 		));
 		assert!(task_exists(4, 0));
 
-		// Retry 10 times, advancing 3 buckets each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(3), false));
+		// Retry 10 times, advancing 3 buckets (180_000ms) each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 180_000, false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -559,8 +553,8 @@ fn named_retry_scheduling_works() {
 		);
 		assert!(task_exists(4, 0));
 
-		// Retry 10 times, advancing 3 buckets each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(3), false));
+		// Retry 10 times, advancing 3 buckets (180_000ms) each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 180_000, false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -612,8 +606,8 @@ fn retry_scheduling_expires() {
 		));
 		assert!(task_exists(4, 0));
 
-		// Task 42 will be retried 3 times, advancing 1 bucket each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, nz(1), false));
+		// Task 42 will be retried 3 times, advancing 1 bucket (60_000ms) each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, 60_000, false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
@@ -672,11 +666,11 @@ fn set_retry_works() {
 		));
 
 		assert!(task_exists(4, 0));
-		// Make sure the retry configuration was stored
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(2), false));
+		// Make sure the retry configuration was stored (duration 120_000ms = 2 buckets)
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 120_000, false));
 		assert_eq!(
 			Retries::<Test>::get((4, 0)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: nz(2), try_same_bucket_first: false })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: 2, try_same_bucket_first: false })
 		);
 	});
 }
@@ -702,12 +696,12 @@ fn set_named_retry_works() {
 		));
 
 		assert!(task_exists(4, 0));
-		// Make sure the retry configuration was stored
-		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, nz(2), false));
+		// Make sure the retry configuration was stored (duration 120_000ms = 2 buckets)
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 120_000, false));
 		let address = Lookup::<Test>::get([42u8; 32]).unwrap();
 		assert_eq!(
 			Retries::<Test>::get(address),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: nz(2), try_same_bucket_first: false })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: 2, try_same_bucket_first: false })
 		);
 	});
 }
@@ -734,8 +728,74 @@ fn set_retry_bad_origin() {
 		assert!(task_exists(4, 0));
 		// Try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, nz(2), false);
+			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, 120_000, false);
 		assert_eq!(res, Err(BadOrigin.into()));
+	});
+}
+
+#[test]
+fn set_retry_rejects_duration_too_small() {
+	new_test_ext().execute_with(|| {
+		// Set initial time
+		Timestamp::set_timestamp(60_000);
+
+		// Task 42 at minute 4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(LoggerCall::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		assert!(task_exists(4, 0));
+		// Try to set retry with duration less than bucket resolution (60_000ms)
+		assert_noop!(
+			Scheduler::set_retry(root().into(), (4, 0), 10, 59_999, false),
+			Error::<Test>::DurationTooSmall
+		);
+		// Zero duration should also fail
+		assert_noop!(
+			Scheduler::set_retry(root().into(), (4, 0), 10, 0, false),
+			Error::<Test>::DurationTooSmall
+		);
+	});
+}
+
+#[test]
+fn set_retry_named_rejects_duration_too_small() {
+	new_test_ext().execute_with(|| {
+		// Set initial time
+		Timestamp::set_timestamp(60_000);
+
+		// Named task 42 at minute 4
+		assert_ok!(Scheduler::do_schedule_named(
+			[1u8; 32],
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(LoggerCall::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		// Try to set retry with duration less than bucket resolution (60_000ms)
+		assert_noop!(
+			Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 59_999, false),
+			Error::<Test>::DurationTooSmall
+		);
+		// Zero duration should also fail
+		assert_noop!(
+			Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 0, false),
+			Error::<Test>::DurationTooSmall
+		);
 	});
 }
 
@@ -775,10 +835,10 @@ fn cancel_removes_retry_entry() {
 		));
 
 		assert_eq!(agenda_task_count(4), 2);
-		// Task 20 will be retried 10 times, advancing 1 bucket each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(1), false));
-		// Task 42 will be retried 10 times, advancing 1 bucket each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(1), false));
+		// Task 20 will be retried 10 times, advancing 1 bucket (60_000ms) each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 60_000, false));
+		// Task 42 will be retried 10 times, advancing 1 bucket (60_000ms) each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 60_000, false));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
@@ -860,10 +920,10 @@ fn cancel_retries_works() {
 		));
 
 		assert_eq!(agenda_task_count(4), 2);
-		// Task 20 will be retried 10 times, advancing 1 bucket each time
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(1), false));
-		// Task 42 will be retried 10 times, advancing 1 bucket each time
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(1), false));
+		// Task 20 will be retried 10 times, advancing 1 bucket (60_000ms) each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 60_000, false));
+		// Task 42 will be retried 10 times, advancing 1 bucket (60_000ms) each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 60_000, false));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
@@ -1657,8 +1717,8 @@ fn retry_falls_back_to_next_bucket_when_current_full() {
 		)
 		.unwrap();
 
-		// Set retry with try_same_bucket_first, period 1 for fallback
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(1), true));
+		// Set retry with try_same_bucket_first, duration 60_000ms (1 bucket) for fallback
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, 60_000, true));
 
 		// Fill up bucket 3 to max capacity (MaxScheduledPerBucket = 100 in mock)
 		for i in 1..100 {
@@ -1712,9 +1772,9 @@ fn retry_same_bucket_first_with_space_available() {
 		)
 		.unwrap();
 
-		// Set retry with try_same_bucket_first=true, period=2
+		// Set retry with try_same_bucket_first=true, duration=120_000ms (2 buckets)
 		// Should retry in same bucket since there's space
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(2), true));
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, 120_000, true));
 
 		// Set up time threshold so the call fails
 		logger::set_time_threshold(999_000, 999_999);
@@ -1752,9 +1812,9 @@ fn retry_without_same_bucket_first_advances_by_period() {
 		)
 		.unwrap();
 
-		// Set retry with try_same_bucket_first=false, period=2
+		// Set retry with try_same_bucket_first=false, duration=120_000ms (2 buckets)
 		// Should retry in bucket 3+2=5, not same bucket
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(2), false));
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, 120_000, false));
 
 		// Set up time threshold so the call fails
 		logger::set_time_threshold(999_000, 999_999);
