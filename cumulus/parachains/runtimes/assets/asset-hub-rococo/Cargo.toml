@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-rococo-runtime"
-version = "0.31.0"
+version = "0.31.1"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo variant of Asset Hub parachain runtime"
@@ -59,8 +59,6 @@ sp-transaction-pool.workspace = true
 sp-version.workspace = true
 sp-weights.workspace = true
 tracing = { workspace = true }
-
-# num-traits feature needed for dex integer sq root:
 assets-common.workspace = true
 bp-asset-hub-rococo.workspace = true
 bp-asset-hub-westend.workspace = true
@@ -92,8 +90,8 @@ xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
-asset-test-utils = { default-features = true, workspace = true }
-parachains-runtimes-test-utils = { default-features = true, workspace = true }
+asset-test-utils = { default-features = true, path = "../test-utils" }
+parachains-runtimes-test-utils = { default-features = true, path = "../../test-utils" }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -143,7 +141,6 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
-	"asset-test-utils/try-runtime",
 	"assets-common/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",

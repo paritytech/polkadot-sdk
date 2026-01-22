@@ -1,6 +1,6 @@
 [package]
 name = "pallet-multi-asset-bounties"
-version = "0.2.0"
+version = "0.2.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -27,9 +27,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, workspace = true }
-pallet-preimage = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-preimage = { default-features = true, path = "../preimage" }
+pallet-utility = { default-features = true, path = "../utility" }
 
 [features]
 default = ["std"]
@@ -48,16 +48,10 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-preimage/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-preimage/try-runtime",
-	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]
