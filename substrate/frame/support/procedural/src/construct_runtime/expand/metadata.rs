@@ -133,22 +133,6 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						extensions_v0: <
-								<
-									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::TransactionExtensionsV0
-								as
-								#scrate::sp_runtime::traits::TransactionExtension::<
-									<#runtime as #system_path::Config>::RuntimeCall
-								>
-							>::metadata()
-								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
-									identifier: meta.identifier,
-									ty: meta.ty,
-									implicit: meta.implicit,
-								})
-								.collect(),
 						extensions_by_version: versioned_extensions_metadata.by_version,
 						extensions_in_versions: versioned_extensions_metadata.in_versions
 								.into_iter()

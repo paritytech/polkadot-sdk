@@ -155,7 +155,9 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 		ExtrinsicMetadata {
 			ty: ir.ty,
 			version: *lowest_supported_version,
-			signed_extensions: ir.extensions_v0.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.extensions_v0()
+				.expect("Metadata V14 expect a defined transaction extenstion pipeline version 0")
+				.into_iter().map(Into::into).collect(),
 		}
 	}
 }

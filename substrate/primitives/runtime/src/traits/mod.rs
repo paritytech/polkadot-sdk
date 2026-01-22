@@ -1502,12 +1502,10 @@ pub trait ExtrinsicMetadata {
 	/// By format we mean the encoded representation of the `Extrinsic`.
 	const VERSIONS: &'static [u8];
 
-	/// The transaction extensions version 0 attached to this `Extrinsic`.
-	// We could remove this associated type and let user retrieve it from
-	// `TransactionExtensionsVersions`.
-	type TransactionExtensionsV0;
-
 	/// All version of transaction extensions attached to this `Extrinsic`.
+	///
+	/// For the transaction extension pipeline used for the signed extrinsics it is defined as the
+	/// version 0, if defined.
 	type TransactionExtensionsVersions;
 }
 
