@@ -1,0 +1,16 @@
+title: Upgrade litep2p to v0.13.0
+doc:
+- audience: Node Dev
+  description: |-
+    This PR upgrades litep2p to the latest version, bringing multiple fixes with this release.
+
+    Specifically, this release enhances WebSocket stability by resolving `AsyncWrite` errors and ensuring that partial writes during the negotiation phase no longer trigger connection failures.
+
+    It also fixes large file download using Bitswap protocol by grouping blocks into batches of <= 2 MiB.
+crates:
+- name: sc-network
+  bump: minor
+  validate: false
+- name: sc-network-types
+  bump: minor
+  validate: false
