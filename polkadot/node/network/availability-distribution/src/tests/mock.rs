@@ -18,9 +18,8 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use async_trait::async_trait;
 use sp_keyring::Sr25519Keyring;
-
+use async_trait::async_trait;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
@@ -163,6 +162,7 @@ pub fn get_valid_chunk_data(
 			chunk: chunk.to_vec(),
 			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
+			session_index: None,
 		})
 		.nth(chunk_index.0 as usize)
 		.expect("There really should be enough chunks.");
@@ -182,14 +182,14 @@ impl MockEmptyAuthorityDiscovery {
 impl AuthorityDiscovery for MockEmptyAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
 		&mut self,
-		authority: AuthorityDiscoveryId,
+		_authority: AuthorityDiscoveryId,
 	) -> Option<HashSet<Multiaddr>> {
 		None
 	}
 
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
-		peer_id: PeerId,
+		_peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
 		None
 	}

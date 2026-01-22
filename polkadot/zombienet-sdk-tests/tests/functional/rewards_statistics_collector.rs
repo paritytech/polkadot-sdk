@@ -4,6 +4,7 @@
 // Test that nodes fetch availability chunks early for scheduled cores and normally for occupied
 // core.
 
+use std::collections::HashMap;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, report_label_with_attributes,

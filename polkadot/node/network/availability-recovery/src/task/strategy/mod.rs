@@ -42,7 +42,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeTxMessage},
 	overseer, RecoveryError,
 };
-use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex};
+use polkadot_primitives::{AuthorityDiscoveryId, BlakeTwo256, ChunkIndex, HashT, ValidatorIndex, SessionIndex};
 use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
@@ -689,7 +689,7 @@ mod tests {
 			let (erasure_task_tx, _erasure_task_rx) = mpsc::channel(10);
 
 			Self {
-				session_index: SessionIndex(0),
+				session_index: 0 as SessionIndex,
 				validator_authority_keys: validator_authority_id(&validators),
 				n_validators: validators.len(),
 				threshold: recovery_threshold(validators.len()).unwrap(),

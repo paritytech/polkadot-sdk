@@ -37,6 +37,7 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+async-trait = { workspace = true }
 futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
@@ -44,6 +45,7 @@ polkadot-subsystem-bench = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 
 [features]
 subsystem-benchmarks = []

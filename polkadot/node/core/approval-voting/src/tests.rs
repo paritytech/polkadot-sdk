@@ -651,7 +651,6 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 }
 
 struct ExpectApprovalsStatsCollected {
-	candidate_hash: CandidateHash,
 	block_hash: Hash,
 	validators: Vec<ValidatorIndex>,
 	no_shows: Option<(SessionIndex, Vec<ValidatorIndex>)>,
@@ -659,11 +658,10 @@ struct ExpectApprovalsStatsCollected {
 
 impl ExpectApprovalsStatsCollected {
 	fn new(
-		candidate_hash: CandidateHash,
 		block_hash: Hash,
 		validators: Vec<ValidatorIndex>,
 	) -> Self {
-		Self { candidate_hash, block_hash, validators, no_shows: None }
+		Self { block_hash, validators, no_shows: None }
 	}
 
 	fn with_no_shows(&mut self, no_shows: (SessionIndex, Vec<ValidatorIndex>)) -> &mut Self {
@@ -710,11 +708,10 @@ async fn import_approval(
 			overseer_recv(overseer).await,
 			AllMessages::RewardsStatisticsCollector(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
-					c_hash, b_hash, validators,
+					b_hash, _b_number, validators,
 				)
 			) => {
 				assert_eq!(b_hash, expected_stats_collected.block_hash);
-				assert_eq!(c_hash, expected_stats_collected.candidate_hash);
 				assert_eq!(validators, expected_stats_collected.validators);
 			}
 		);
@@ -1680,7 +1677,7 @@ fn subsystem_accepts_and_imports_approval_after_assignment() {
 			candidate_hash,
 			session_index,
 			true,
-			Some(ExpectApprovalsStatsCollected::new(candidate_hash, block_hash, vec![validator])),
+			Some(ExpectApprovalsStatsCollected::new(block_hash, vec![validator])),
 			None,
 		)
 		.await;
@@ -2431,7 +2428,6 @@ fn import_checked_approval_updates_entries_and_schedules() {
 			session_index,
 			true,
 			Some(ExpectApprovalsStatsCollected::new(
-				candidate_hash,
 				block_hash,
 				vec![validator_index_a, validator_index_b],
 			)),
@@ -2566,13 +2562,11 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 
 			let expected_stats_collected = if i == 1 {
 				Some(ExpectApprovalsStatsCollected::new(
-					candidate_hash1,
 					block_hash,
 					vec![validator1, validator2],
 				))
 			} else if i == 3 {
 				Some(ExpectApprovalsStatsCollected::new(
-					candidate_hash2,
 					block_hash,
 					vec![validator1, validator2],
 				))
@@ -2862,7 +2856,6 @@ fn approved_ancestor_test(
 				i as u32 + 1,
 				true,
 				Some(ExpectApprovalsStatsCollected::new(
-					candidate_hash,
 					*block_hash,
 					vec![validator],
 				)),
@@ -3447,7 +3440,6 @@ where
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
 			let expect_approvals_stats_collected = if expect_chain_approved {
 				Some(ExpectApprovalsStatsCollected::new(
-					candidate_hash,
 					block_hash,
 					validators_collected.clone(),
 				))
@@ -3857,7 +3849,7 @@ fn pre_covers_dont_stall_approval() {
 		// that may not be the reality from the database's perspective. This could be avoided
 		// entirely by having replies processed after database writes, but that would constitute a
 		// larger refactor and incur a performance penalty.
-		futures_timer::Delay::new(Duration::from_millis(100)).await;
+		Delay::new(Duration::from_millis(100)).await;
 
 		// The candidate should not be approved.
 		let candidate_entry = store.load_candidate_entry(&candidate_hash).unwrap().unwrap();
@@ -3869,7 +3861,7 @@ fn pre_covers_dont_stall_approval() {
 		clock.inner.lock().set_tick(30);
 
 		// Sleep to ensure we get a consistent read on the database.
-		futures_timer::Delay::new(Duration::from_millis(100)).await;
+		Delay::new(Duration::from_millis(100)).await;
 
 		// The next wakeup should observe the assignment & approval from
 		// tranche 1, and the no-show from tranche 0 should be immediately covered.
@@ -3879,10 +3871,9 @@ fn pre_covers_dont_stall_approval() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::CandidateApproved(
-				c_hash, b_hash, validators,
+				b_hash, _b_number, validators,
 			)) => {
 				assert_eq!(b_hash, block_hash);
-				assert_eq!(c_hash, candidate_hash);
 				assert_eq!(validators, vec![validator_index_b, validator_index_c]);
 			}
 		);
@@ -3890,10 +3881,9 @@ fn pre_covers_dont_stall_approval() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RewardsStatisticsCollector(RewardsStatisticsCollectorMessage::NoShows(
-				c_hash, b_hash, validators
+				b_hash, _b_number, validators
 			)) => {
 				assert_eq!(b_hash, block_hash);
-				assert_eq!(c_hash, candidate_hash);
 				assert_eq!(validators, vec![validator_index_a]);
 			}
 		);
@@ -4065,11 +4055,10 @@ fn waits_until_approving_assignments_are_old_enough() {
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RewardsStatisticsCollector(
 				RewardsStatisticsCollectorMessage::CandidateApproved(
-					c_hash, b_hash, validators
+					b_hash, _b_number, validators
 				)
 			) => {
 				assert_eq!(b_hash, block_hash);
-				assert_eq!(c_hash, candidate_hash);
 				assert_eq!(validators, vec![validator_index_a, validator_index_b]);
 			}
 		);

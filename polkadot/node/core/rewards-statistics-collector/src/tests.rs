@@ -61,7 +61,7 @@ async fn activate_leaf(
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionInfo(req_session, tx))
+				RuntimeApiMessage::Request(_parent, RuntimeApiRequest::SessionInfo(req_session, tx))
 			) if req_session == session_index => {
 				tx.send(Ok(Some(session_info))).unwrap();
 			}
@@ -85,8 +85,7 @@ async fn finalize_block(
 		)))
 		.await;
 
-	let expected_amt_request_blocks =
-		(fin_block_number.saturating_sub(latest_finalized_block_number) as usize);
+	let expected_amt_request_blocks = fin_block_number.saturating_sub(latest_finalized_block_number) as usize;
 
 	assert_matches!(
 		virtual_overseer.recv().await,
@@ -174,7 +173,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	futures::pin_mut!(test_fut);
 	futures::pin_mut!(subsystem);
-	let (_, view) = futures::executor::block_on(future::join(
+	_ = futures::executor::block_on(future::join(
 		async move {
 			let mut virtual_overseer = test_fut.await;
 			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
@@ -186,7 +185,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 #[test]
 fn single_candidate_approved() {
 	let validator_idx = ValidatorIndex(2);
-	let candidate_hash: CandidateHash = CandidateHash(Hash::from_low_u64_be(111));
 
 	let rb_hash = Hash::from_low_u64_be(132);
 	let rb_number: BlockNumber = 1;
@@ -275,7 +273,6 @@ fn candidate_approval_stats_with_no_shows() {
 
 #[test]
 fn note_chunks_downloaded() {
-	let candidate_hash = CandidateHash(Hash::from_low_u64_be(132));
 	let session_idx: SessionIndex = 2;
 	let chunk_downloads = vec![(ValidatorIndex(0), 10u64), (ValidatorIndex(1), 2)];
 
@@ -321,22 +318,6 @@ fn note_chunks_downloaded() {
 		let count = ac.downloads.get(&auth_id).unwrap();
 		assert_eq!(*count, expected_count);
 	}
-}
-
-fn default_header(number: BlockNumber) -> Header {
-	Header {
-		parent_hash: Hash::zero(),
-		number,
-		state_root: Hash::zero(),
-		extrinsics_root: Hash::zero(),
-		digest: Default::default(),
-	}
-}
-
-fn header_with_number_and_parent(block_number: BlockNumber, parent_hash: Hash) -> Header {
-	let mut header = default_header(block_number);
-	header.parent_hash = parent_hash;
-	header
 }
 
 fn default_session_info(session_idx: SessionIndex) -> SessionInfo {
@@ -656,7 +637,7 @@ fn assert_relay_view_approval_stats(
 ) {
 	assert_eq!(view.per_relay.len(), expected_relay_view_stats.len());
 
-	for ((hash, block_number, votes, no_shows)) in &expected_relay_view_stats {
+	for (hash, block_number, votes, no_shows) in &expected_relay_view_stats {
 		assert_votes(&view, *hash, *block_number, votes.clone());
 		assert_no_shows(&view, *hash, *block_number, no_shows.clone());
 	}
