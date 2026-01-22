@@ -756,6 +756,8 @@ pub trait SteppedMigrations {
 
 		for n in 0..l {
 			ensure!(Self::nth_id(n).is_some(), "id is None");
+			ensure!(Self::nth_max_steps(n).is_some(), "steps is None");
+
 			// The cursor that we use does not matter. Hence use empty.
 			ensure!(
 				Self::nth_step(n, Some(vec![]), &mut WeightMeter::new()).is_some(),
@@ -831,7 +833,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	fn len() -> u32 {
 		1
 	}
-
+	// It should be generally fine to call with n>0, but the code should not attempt to.
 	fn nth_id(n: u32) -> Option<Vec<u8>> {
 		n.is_zero()
 			.then(|| T::id().encode())
@@ -1190,9 +1192,9 @@ mod tests {
 		assert_eq!(M1::max_steps(), Some(1));
 		assert_eq!(M2::max_steps(), Some(2));
 
-		assert_eq!(<(M0, M1)>::nth_max_steps(0), None);
-		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(1));
-		assert_eq!(<(M0, M1, M2)>::nth_max_steps(2), Some(2));
+		assert_eq!(<(M0, M1)>::nth_max_steps(0), Some(None));
+		assert_eq!(<(M0, M1)>::nth_max_steps(1), Some(Some(1)));
+		assert_eq!(<(M0, M1, M2)>::nth_max_steps(2), Some(Some(2)));
 
 		assert_eq!(<(M0, M1)>::nth_max_steps(2), None);
 	}
@@ -1267,11 +1269,11 @@ mod tests {
 		// Test single migration
 		assert_eq!(
 			M0::nth_migrating_prefixes(0),
-			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
 		);
 
 		// Test migration with no prefixes
-		assert_eq!(M3::nth_migrating_prefixes(0), Some(Ok(Vec::new())));
+		assert_eq!(M3::nth_migrating_prefixes(0), Some(None));
 
 		// Test tuple migrations
 		type Pair = (M0, M1);
@@ -1280,11 +1282,11 @@ mod tests {
 		// First migration in tuple
 		assert_eq!(
 			Pair::nth_migrating_prefixes(0),
-			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
 		);
 
 		// Second migration in tuple
-		assert_eq!(Pair::nth_migrating_prefixes(1), Some(Ok(vec![b"M1_prefix".to_vec()])));
+		assert_eq!(Pair::nth_migrating_prefixes(1), Some(Some(vec![b"M1_prefix".to_vec()])));
 
 		// Out of bounds
 		assert_eq!(Pair::nth_migrating_prefixes(2), None);
@@ -1296,16 +1298,20 @@ mod tests {
 		// First migration
 		assert_eq!(
 			Nested::nth_migrating_prefixes(0),
-			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
 		);
 
 		// Second migration (first in inner tuple)
-		assert_eq!(Nested::nth_migrating_prefixes(1), Some(Ok(vec![b"M1_prefix".to_vec()])));
+		assert_eq!(Nested::nth_migrating_prefixes(1), Some(Some(vec![b"M1_prefix".to_vec()])));
 
 		// Third migration (second in inner tuple)
 		assert_eq!(
 			Nested::nth_migrating_prefixes(2),
-			Some(Ok(vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()]))
+			Some(Some(vec![
+				b"M2_prefix1".to_vec(),
+				b"M2_prefix2".to_vec(),
+				b"M2_prefix3".to_vec()
+			]))
 		);
 
 		assert_eq!(Nested::nth_migrating_prefixes(3), None);

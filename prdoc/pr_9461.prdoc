@@ -17,5 +17,3 @@ crates:
     bump: major
   - name: pallet-migrations
     bump: major
-  - name: pallet-example-mbm
-    bump: minor
