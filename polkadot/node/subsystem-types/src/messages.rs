@@ -71,12 +71,29 @@ pub use network_bridge_event::NetworkBridgeEvent;
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
 	pub candidate_para_id: ParaId,
-	/// The relay-parent of the candidate.
-	pub candidate_relay_parent: Hash,
+	/// The scheduling parent of the candidate (for V3, may differ from execution relay_parent).
+	pub candidate_scheduling_parent: Hash,
 	/// Hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// Parent head data hash.
 	pub parent_head_data_hash: Hash,
+}
+
+/// A reference to a backable candidate along with its scheduling parent.
+///
+/// The scheduling parent determines which validator group is responsible
+/// for backing this candidate and is used to look up per-scheduling-parent state.
+///
+/// This is distinct from `BackedCandidate` which includes the full candidate
+/// data and backing signatures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BackableCandidateRef {
+	/// The hash of the candidate that can be backed.
+	pub candidate_hash: CandidateHash,
+	/// The scheduling parent hash used for validator group assignment.
+	/// For V3 candidates, this may differ from the candidate's relay_parent.
+	/// For V1/V2 candidates, this equals the relay_parent.
+	pub scheduling_parent: Hash,
 }
 
 /// Messages received by the Candidate Backing subsystem.
@@ -84,15 +101,21 @@ pub struct CanSecondRequest {
 pub enum CandidateBackingMessage {
 	/// Requests a set of backable candidates attested by the subsystem.
 	///
+	/// The input is a map from `ParaId` to a vector of backable candidate references.
+	/// Each reference contains the candidate hash and its scheduling parent (used for
+	/// validator group assignment).
+	///
 	/// The order of candidates of the same para must be preserved in the response.
 	/// If a backed candidate of a para cannot be retrieved, the response should not contain any
 	/// candidates of the same para that follow it in the input vector. In other words, assuming
 	/// candidates are supplied in dependency order, we must ensure that this dependency order is
 	/// preserved.
-	GetBackableCandidates(
-		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
-		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
-	),
+	GetBackableCandidates {
+		/// Map from para ID to backable candidate references with their scheduling parents.
+		candidates: HashMap<ParaId, Vec<BackableCandidateRef>>,
+		/// Channel to send the backed candidates (with full signatures).
+		sender: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+	},
 	/// Request the subsystem to check whether it's allowed to second given candidate.
 	/// The rule is to only fetch collations that can either be directly chained to any
 	/// FragmentChain in the view or there is at least one FragmentChain where this candidate is a
@@ -103,13 +126,27 @@ pub enum CandidateBackingMessage {
 	/// parent.
 	CanSecond(CanSecondRequest, oneshot::Sender<bool>),
 	/// Note that the Candidate Backing subsystem should second the given candidate in the context
-	/// of the given relay-parent (ref. by hash). This candidate must be validated.
-	Second(Hash, CandidateReceipt, PersistedValidationData, PoV),
+	/// of the given scheduling parent (ref. by hash). This candidate must be validated.
+	Second {
+		/// The scheduling parent hash (determines validator group assignment).
+		scheduling_parent: Hash,
+		/// The candidate to second.
+		candidate: CandidateReceipt,
+		/// Persisted validation data.
+		pvd: PersistedValidationData,
+		/// Proof of validity.
+		pov: PoV,
+	},
 	/// Note a validator's statement about a particular candidate in the context of the given
-	/// relay-parent. Disagreements about validity must be escalated to a broader check by the
+	/// scheduling parent. Disagreements about validity must be escalated to a broader check by the
 	/// Disputes Subsystem, though that escalation is deferred until the approval voting stage to
 	/// guarantee availability. Agreements are simply tallied until a quorum is reached.
-	Statement(Hash, SignedFullStatementWithPVD),
+	Statement {
+		/// The scheduling parent hash (determines validator group context).
+		scheduling_parent: Hash,
+		/// The signed statement with persisted validation data.
+		statement: SignedFullStatementWithPVD,
+	},
 }
 
 /// Blanket error for validation failing for internal reasons.
@@ -1416,20 +1453,26 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Try getting N backable candidate hashes along with their relay parents for the given
-	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// Get N backable candidate references with their scheduling parents for the given
+	/// parachain, under the given relay chain leaf hash.
+	///
 	/// Timed out ancestors should not be included in the collection.
 	/// N should represent the number of scheduled cores of this ParaId.
 	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
 	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
 	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
-	GetBackableCandidates(
-		Hash,
-		ParaId,
-		u32,
-		Ancestors,
-		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
-	),
+	GetBackableCandidates {
+		/// The relay chain leaf hash under which to query. Must be an active leaf.
+		leaf: Hash,
+		/// The parachain to get backable candidates for.
+		para_id: ParaId,
+		/// The maximum number of candidates to return.
+		count: u32,
+		/// Required ancestor path for the candidates.
+		ancestors: Ancestors,
+		/// Channel to send the result.
+		sender: oneshot::Sender<Vec<BackableCandidateRef>>,
+	},
 	/// Get the hypothetical or actual membership of candidates with the given properties
 	/// under the specified active leave's fragment chain.
 	///

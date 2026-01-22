@@ -88,6 +88,23 @@ fn byte32_slice_from(n: u32) -> [u8; 32] {
 	slice
 }
 
+/// Configuration for which candidate descriptor version to use in benchmarks and tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CandidateDescriptorVersionConfig {
+	/// V1 descriptor (legacy format, no UMP signals).
+	V1,
+	/// V2 descriptor (includes UMP signals with SelectCore and optional ApprovedPeer).
+	V2,
+	/// V3 descriptor (includes UMP signals and explicit scheduling_parent field).
+	V3,
+}
+
+impl Default for CandidateDescriptorVersionConfig {
+	fn default() -> Self {
+		Self::V1
+	}
+}
+
 /// Paras inherent `enter` benchmark scenario builder.
 pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	/// Active validators. Validators should be declared prior to all other setup.
@@ -128,9 +145,9 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	code_upgrade: Option<u32>,
 	/// Cores which should not be available when being populated with pending candidates.
 	unavailable_cores: Vec<u32>,
-	/// Use v2 candidate descriptor.
-	candidate_descriptor_v2: bool,
-	/// Send an approved peer ump signal. Only useful for v2 descriptors
+	/// Version of candidate descriptor to use in generated candidates.
+	descriptor_version: CandidateDescriptorVersionConfig,
+	/// Send an approved peer ump signal. Only useful for v2/v3 descriptors.
 	approved_peer_signal: Option<ApprovedPeerId>,
 	/// Apply custom changes to generated candidates
 	candidate_modifier: Option<CandidateModifier<T::Hash>>,
@@ -167,7 +184,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			elastic_paras: Default::default(),
 			code_upgrade: None,
 			unavailable_cores: vec![],
-			candidate_descriptor_v2: false,
+			descriptor_version: CandidateDescriptorVersionConfig::default(), // V1
 			approved_peer_signal: None,
 			candidate_modifier: None,
 			_phantom: core::marker::PhantomData::<T>,
@@ -278,13 +295,16 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self
 	}
 
-	/// Toggle usage of v2 candidate descriptors.
-	pub(crate) fn set_candidate_descriptor_v2(mut self, enable: bool) -> Self {
-		self.candidate_descriptor_v2 = enable;
+	/// Set the candidate descriptor version to use.
+	pub(crate) fn set_candidate_descriptor_version(
+		mut self,
+		version: CandidateDescriptorVersionConfig,
+	) -> Self {
+		self.descriptor_version = version;
 		self
 	}
 
-	/// Set an approved peer to be sent as a UMP signal. Only used for v2 descriptors
+	/// Set an approved peer to be sent as a UMP signal. Only used for v2/v3 descriptors.
 	pub(crate) fn set_approved_peer_signal(mut self, peer_id: ApprovedPeerId) -> Self {
 		self.approved_peer_signal = Some(peer_id);
 		self
@@ -657,17 +677,40 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 						let group_validators =
 							scheduler::Pallet::<T>::group_validators(group_idx).unwrap();
 
-						let descriptor = CandidateDescriptorV2::new(
-							para_id,
-							relay_parent,
-							core_idx,
-							self.target_session,
-							persisted_validation_data_hash,
-							pov_hash,
-							Default::default(),
-							head_data.hash(),
-							validation_code_hash,
-						);
+						let descriptor = match self.descriptor_version {
+							CandidateDescriptorVersionConfig::V3 => {
+								// V3 descriptor with explicit scheduling_parent.
+								// For tests, we use relay_parent as scheduling_parent.
+								CandidateDescriptorV2::new_v3(
+									para_id,
+									relay_parent,
+									core_idx,
+									self.target_session,
+									persisted_validation_data_hash,
+									pov_hash,
+									Default::default(),
+									head_data.hash(),
+									validation_code_hash,
+									relay_parent, // scheduling_parent
+								)
+							},
+							CandidateDescriptorVersionConfig::V1 |
+							CandidateDescriptorVersionConfig::V2 => {
+								// V1 and V2 use the same constructor (new()).
+								// They differ only in whether UMP signals are added to commitments.
+								CandidateDescriptorV2::new(
+									para_id,
+									relay_parent,
+									core_idx,
+									self.target_session,
+									persisted_validation_data_hash,
+									pov_hash,
+									Default::default(),
+									head_data.hash(),
+									validation_code_hash,
+								)
+							},
+						};
 
 						let mut candidate = CommittedCandidateReceipt::<T::Hash> {
 							descriptor,
@@ -682,7 +725,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							},
 						};
 
-						if self.candidate_descriptor_v2 {
+						// V2 and V3 require UMP signals. V1 does not.
+						if matches!(
+							self.descriptor_version,
+							CandidateDescriptorVersionConfig::V2 |
+								CandidateDescriptorVersionConfig::V3
+						) {
 							// `UMPSignal` separator.
 							candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
 

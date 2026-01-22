@@ -27,7 +27,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
-	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
+	BackableCandidateRef, NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
@@ -819,7 +819,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 
 fn test_candidate_backing_msg() -> CandidateBackingMessage {
 	let (sender, _) = oneshot::channel();
-	CandidateBackingMessage::GetBackableCandidates(Default::default(), sender)
+	CandidateBackingMessage::GetBackableCandidates { candidates: Default::default(), sender }
 }
 
 fn test_chain_api_msg() -> ChainApiMessage {

@@ -27,8 +27,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	CandidateDescriptorVersion, CandidateReceiptV2, ClaimQueueOffset, CollatorPair, CoreSelector,
-	PersistedValidationData, UMPSignal, UMP_SEPARATOR,
+	node_features::FeatureIndex, CandidateDescriptorVersion, CandidateReceiptV2, ClaimQueueOffset,
+	CollatorPair, CoreSelector, NodeFeatures, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;
@@ -176,6 +176,7 @@ fn submit_collation_is_no_op_before_initialization() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent: Hash::repeat_byte(0),
+					scheduling_parent: Some(Hash::repeat_byte(0)),
 					collation: test_collation(),
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
@@ -209,11 +210,19 @@ fn submit_collation_leads_to_distribution() {
 			})
 			.await;
 
+		let mut collation = test_collation();
+		collation.upward_messages.force_push(UMP_SEPARATOR);
+		// Add a core selector signal to make this V3-compatible
+		collation
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
 		virtual_overseer
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
-					collation: test_collation(),
+					scheduling_parent: Some(relay_parent),
+					collation,
 					parent_head: dummy_head_data(),
 					validation_code_hash,
 					result_sender: None,
@@ -458,6 +467,7 @@ fn v2_receipts_failed_core_index_check() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
+					scheduling_parent: Some(relay_parent),
 					collation: test_collation(),
 					parent_head: dummy_head_data(),
 					validation_code_hash,
@@ -515,6 +525,7 @@ fn approved_peer_signal() {
 			.send(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 					relay_parent,
+					scheduling_parent: Some(relay_parent),
 					collation,
 					parent_head: dummy_head_data(),
 					validation_code_hash,
@@ -545,7 +556,7 @@ fn approved_peer_signal() {
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
 				assert_eq!(descriptor.validation_code_hash(), validation_code_hash);
-				assert_eq!(descriptor.version(), CandidateDescriptorVersion::V2);
+				assert_eq!(descriptor.version(true), CandidateDescriptorVersion::V3);
 			}
 		);
 
@@ -600,6 +611,17 @@ mod helpers {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::SessionIndexForChild(tx))) => {
 				assert_eq!(hash, activated_hash);
 				tx.send(Ok(1)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(hash, RuntimeApiRequest::NodeFeatures(_session_index, tx))) => {
+				assert_eq!(hash, activated_hash);
+				let mut node_features = NodeFeatures::new();
+				node_features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+				node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+				tx.send(Ok(node_features)).unwrap();
 			}
 		);
 
@@ -730,6 +752,17 @@ mod helpers {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::SessionIndexForChild(tx))) => {
 				assert_eq!(rp, relay_parent);
 				tx.send(Ok(1)).unwrap();
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(rp, RuntimeApiRequest::NodeFeatures(_session_index, tx))) => {
+				assert_eq!(rp, relay_parent);
+				let mut node_features = NodeFeatures::new();
+				node_features.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+				node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+				tx.send(Ok(node_features)).unwrap();
 			}
 		);
 

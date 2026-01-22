@@ -223,6 +223,12 @@ pub(super) async fn update_view(
 						_,
 						RuntimeApiRequest::SessionIndexForChild(_),
 					))
+				) && !matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::NodeFeatures(_, _),
+					))
 				) {
 					break
 				}
@@ -259,6 +265,12 @@ pub(super) async fn update_view(
 						RuntimeApiRequest::CandidateEvents(tx),
 					)) => {
 						tx.send(Ok(vec![])).unwrap();
+					},
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::NodeFeatures(_, tx),
+					)) => {
+						tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 					},
 					_ => {
 						unimplemented!()

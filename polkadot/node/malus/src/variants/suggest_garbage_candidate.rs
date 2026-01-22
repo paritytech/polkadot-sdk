@@ -78,12 +78,12 @@ where
 		match msg {
 			FromOrchestra::Communication {
 				msg:
-					CandidateBackingMessage::Second(
-						relay_parent,
-						ref candidate,
-						ref validation_data,
-						ref _pov,
-					),
+					CandidateBackingMessage::Second {
+						scheduling_parent: relay_parent,
+						candidate: ref candidate,
+						pvd: ref validation_data,
+						pov: ref _pov,
+					},
 			} => {
 				gum::debug!(
 					target: MALUS,
@@ -215,8 +215,8 @@ where
 						descriptor: CandidateDescriptorV2::new(
 							candidate.descriptor.para_id(),
 							relay_parent,
-							candidate.descriptor.core_index().unwrap_or(CoreIndex(0)),
-							candidate.descriptor.session_index().unwrap_or(0),
+							candidate.descriptor.core_index(false).unwrap_or(CoreIndex(0)),
+							candidate.descriptor.session_index(false).unwrap_or(0),
 							validation_data_hash,
 							pov_hash,
 							erasure_root,
@@ -228,12 +228,12 @@ where
 					let malicious_candidate_hash = malicious_candidate.hash();
 
 					let message = FromOrchestra::Communication {
-						msg: CandidateBackingMessage::Second(
-							relay_parent,
-							malicious_candidate,
-							validation_data,
+						msg: CandidateBackingMessage::Second {
+							scheduling_parent: relay_parent,
+							candidate: malicious_candidate,
+							pvd: validation_data,
 							pov,
-						),
+						},
 					};
 
 					gum::info!(

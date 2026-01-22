@@ -608,18 +608,14 @@ impl<T: Config> Pallet<T> {
 			}
 
 			let node_features = configuration::ActiveConfig::<T>::get().node_features;
-
-			let allow_v2_receipts = node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
+			let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
 
 			let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 				backed_candidates,
 				&allowed_relay_parents,
 				concluded_invalid_hashes,
 				eligible,
-				allow_v2_receipts,
+				v3_enabled,
 			);
 			let count = count_backed_candidates(&backed_candidates_with_core);
 
@@ -975,46 +971,54 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	candidate: &BackedCandidate<T::Hash>,
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-	allow_v2_receipts: bool,
+	v3_enabled: bool,
 ) -> bool {
-	let descriptor_version = candidate.descriptor().version();
+	let descriptor_version = candidate.descriptor().version(v3_enabled);
 
-	if descriptor_version == CandidateDescriptorVersion::Unknown {
-		log::debug!(
-			target: LOG_TARGET,
-			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
+	match descriptor_version {
+		CandidateDescriptorVersion::Unknown => {
+			log::debug!(
+				target: LOG_TARGET,
+				"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+				candidate.candidate().hash(),
+				candidate.descriptor().para_id()
+			);
+			return false
+		},
+		_ => {},
 	}
 
-	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-	// any we drop any descendants of the dropped v2 candidates.
-	if descriptor_version == CandidateDescriptorVersion::V2 && !allow_v2_receipts {
-		log::debug!(
-			target: LOG_TARGET,
-			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id()
-		);
-		return false
-	}
-
-	// Get the claim queue snapshot at the candidate relay parent.
-	let Some((rp_info, _)) =
-		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
-	else {
+	// Check relay_parent exists in allowed relay parents (execution context).
+	// Needed for all versions to access relay chain state.
+	let relay_parent = candidate.descriptor().relay_parent();
+	let Some(_) = allowed_relay_parents.acquire_info(relay_parent, None) else {
 		log::debug!(
 			target: LOG_TARGET,
 			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-			candidate.descriptor().relay_parent(),
+			relay_parent,
 			candidate.candidate().hash(),
 		);
 		return false
 	};
 
-	if let Err(err) = candidate.candidate().parse_ump_signals(&rp_info.claim_queue) {
+	// Check scheduling_parent exists in allowed relay parents (scheduling context).
+	// For V1/V2: scheduling_parent() returns relay_parent (duplicate check, but cheap).
+	// For V3: scheduling_parent() returns the actual scheduling_parent field.
+	let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+	let Some((sp_info, _)) = allowed_relay_parents.acquire_info(scheduling_parent, None) else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Scheduling parent {:?} for candidate {:?} is not in the allowed relay parents.",
+			scheduling_parent,
+			candidate.candidate().hash(),
+		);
+		return false
+	};
+
+	// UMP signals check uses scheduling parent's claim queue.
+	// For V1/V2: scheduling_parent == relay_parent, so uses same claim queue as before.
+	// For V3: uses the claim queue from the scheduling_parent.
+	if let Err(err) = candidate.candidate().parse_ump_signals(&sp_info.claim_queue, v3_enabled) {
 		log::debug!(
 			target: LOG_TARGET,
 			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
@@ -1030,24 +1034,27 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return true
 	}
 
-	let Some(session_index) = candidate.descriptor().session_index() else {
+	// For V2/V3: Check scheduling session matches current session.
+	// For V2: scheduling_session() returns session_index (relay parent session).
+	// For V3: scheduling_session() returns scheduling_session_index.
+	let Some(scheduling_session) = candidate.descriptor().scheduling_session(v3_enabled) else {
 		log::debug!(
 			target: LOG_TARGET,
-			"Invalid V2 candidate receipt {:?} for paraid {:?}, missing session index.",
+			"Invalid V2/V3 candidate receipt {:?} for paraid {:?}, missing scheduling session.",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
 		);
 		return false
 	};
 
-	// Check if session index is equal to current session index.
-	if session_index != shared::CurrentSessionIndex::<T>::get() {
+	// Check if scheduling session is equal to current session index.
+	if scheduling_session != shared::CurrentSessionIndex::<T>::get() {
 		log::debug!(
 			target: LOG_TARGET,
-			"Dropping V2 candidate receipt {:?} for paraid {:?}, invalid session index {}, current session {}",
+			"Dropping candidate receipt {:?} for paraid {:?}, invalid scheduling session {}, current session {}",
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
-			session_index,
+			scheduling_session,
 			shared::CurrentSessionIndex::<T>::get()
 		);
 		return false
@@ -1062,15 +1069,14 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 /// subsequent candidates after the filtered one.
 ///
 /// Filter out:
-/// 1. Candidates that have v2 descriptors if the node `CandidateReceiptV2` feature is not enabled.
-/// 2. any candidates which don't form a chain with the other candidates of the paraid (even if they
+/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
 ///    do form a chain but are not in the right order).
-/// 3. any candidates that have a concluded invalid dispute or who are descendants of a concluded
+/// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
-/// 4. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
+/// 3. any unscheduled candidates, as well as candidates whose paraid has multiple cores assigned
 ///    but have no core index (either injected or in the v2 descriptor).
-/// 5. all backing votes from disabled validators
-/// 6. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
+/// 4. all backing votes from disabled validators
+/// 5. any candidates that end up with less than `effective_minimum_backing_votes` backing votes
 ///
 /// Returns the scheduled
 /// backed candidates which passed filtering, mapped by para id and in the right dependency order.
@@ -1079,15 +1085,14 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	concluded_invalid_with_descendants: BTreeSet<CandidateHash>,
 	scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
-	allow_v2_receipts: bool,
+	v3_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	// Map the candidates to the right paraids, while making sure that the order between candidates
 	// of the same para is preserved.
 	let mut candidates_per_para: BTreeMap<ParaId, Vec<_>> = BTreeMap::new();
 
 	for candidate in backed_candidates {
-		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
-		{
+		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, v3_enabled) {
 			continue
 		}
 
@@ -1119,8 +1124,12 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 
 	// Map candidates to scheduled cores. Filter out any unscheduled candidates along with their
 	// descendants.
-	let mut backed_candidates_with_core =
-		map_candidates_to_cores::<T>(&allowed_relay_parents, scheduled, candidates_per_para);
+	let mut backed_candidates_with_core = map_candidates_to_cores::<T>(
+		&allowed_relay_parents,
+		scheduled,
+		candidates_per_para,
+		v3_enabled,
+	);
 
 	// Filter out backing statements from disabled validators. If by that we render a candidate with
 	// less backing votes than required, filter that candidate also. As all the other filtering
@@ -1451,6 +1460,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	mut scheduled: BTreeMap<ParaId, BTreeSet<CoreIndex>>,
 	candidates: BTreeMap<ParaId, Vec<BackedCandidate<T::Hash>>>,
+	v3_enabled: bool,
 ) -> BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>> {
 	let mut backed_candidates_with_core = BTreeMap::new();
 
@@ -1496,7 +1506,9 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 				break;
 			}
 
-			if let Some(core_index) = get_core_index::<T>(allowed_relay_parents, &candidate) {
+			if let Some(core_index) =
+				get_core_index::<T>(allowed_relay_parents, &candidate, v3_enabled)
+			{
 				if scheduled_cores.remove(&core_index) {
 					temp_backed_candidates.push((candidate, core_index));
 				} else {
@@ -1544,11 +1556,12 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 fn get_core_index<T: configuration::Config + scheduler::Config + inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	candidate: &BackedCandidate<T::Hash>,
+	v3_enabled: bool,
 ) -> Option<CoreIndex> {
 	candidate
 		.candidate()
 		.descriptor
-		.core_index()
+		.core_index(v3_enabled)
 		.or_else(|| get_injected_core_index::<T>(allowed_relay_parents, &candidate))
 }
 

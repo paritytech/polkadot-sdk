@@ -37,8 +37,8 @@ use polkadot_node_network_protocol::{
 		CollationVersion, PeerSet, PeerSetProtocolNames, PerPeerSet, ProtocolVersion,
 		ValidationVersion,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, ObservedRole, OurView, PeerId,
-	UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, v3_collation, ObservedRole, OurView,
+	PeerId, UnifiedReputationChange as Rep, View,
 };
 
 use polkadot_node_subsystem::{
@@ -65,7 +65,8 @@ use super::validator_discovery;
 ///
 /// Defines the `Network` trait with an implementation for an `Arc<NetworkService>`.
 use crate::network::{
-	send_collation_message_v1, send_collation_message_v2, send_validation_message_v3, Network,
+	send_collation_message_v1, send_collation_message_v2, send_collation_message_v3,
+	send_validation_message_v3, Network,
 };
 use crate::{network::get_peer_id_by_authority_id, WireMessage};
 
@@ -518,6 +519,12 @@ async fn handle_collation_message<AD>(
 				CollationVersion::V2 => send_collation_message_v2(
 					vec![peer],
 					WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(local_view),
+					metrics,
+					notification_sinks,
+				),
+				CollationVersion::V3 => send_collation_message_v3(
+					vec![peer],
+					WireMessage::<v3_collation::CollationProtocol>::ViewUpdate(local_view),
 					metrics,
 					notification_sinks,
 				),

@@ -20,8 +20,9 @@ use futures::{future, Future};
 use polkadot_node_primitives::{BlockData, InvalidCandidate, SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ChainApiMessage, CollatorProtocolMessage, HypotheticalMembership, PvfExecKind,
-		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
+		AllMessages, BackableCandidateRef, ChainApiMessage, CollatorProtocolMessage,
+		HypotheticalMembership, PvfExecKind, RuntimeApiMessage, RuntimeApiRequest,
+		ValidationFailed,
 	},
 	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, TimeoutExt,
 };
@@ -70,7 +71,6 @@ fn dummy_pvd() -> PersistedValidationData {
 struct PerSessionCacheState {
 	has_cached_validators: bool,
 	has_cached_node_features: bool,
-	has_cached_executor_params: bool,
 	has_cached_minimum_backing_votes: bool,
 }
 
@@ -263,14 +263,34 @@ async fn assert_validation_request(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-		) if hash == validation_code.hash() => {
+	// executor_params may be requested before validation (if not cached).
+	// Handle it if present, otherwise proceed to validation code request.
+	let msg = virtual_overseer.recv().await;
+	match msg {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionExecutorParams(_session_index, tx),
+		)) => {
+			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			// Now expect the validation code request
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+				) if hash == validation_code.hash() => {
+					tx.send(Ok(Some(validation_code))).unwrap();
+				}
+			);
+		},
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::ValidationCodeByHash(hash, tx),
+		)) if hash == validation_code.hash() => {
+			// executor_params was cached, go directly to validation code
 			tx.send(Ok(Some(validation_code))).unwrap();
-		}
-	);
+		},
+		other => panic!("Expected SessionExecutorParams or ValidationCodeByHash, got: {:?}", other),
+	}
 }
 
 async fn assert_validate_from_exhaustive(
@@ -591,19 +611,6 @@ async fn activate_leaf(
 			test_state.per_session_cache_state.has_cached_node_features = true;
 		}
 
-		if !test_state.per_session_cache_state.has_cached_executor_params {
-			// Check if subsystem job issues a request for the executor parameters.
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionExecutorParams(_session_index, tx))
-				) if parent == hash => {
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				}
-			);
-			test_state.per_session_cache_state.has_cached_executor_params = true;
-		}
-
 		if !test_state.per_session_cache_state.has_cached_minimum_backing_votes {
 			// Check if subsystem job issues a request for the minimum backing votes.
 			assert_matches!(
@@ -630,6 +637,7 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
+	// executor_params is handled inside assert_validation_request
 	assert_validation_request(virtual_overseer, assert_validation_code.clone()).await;
 
 	if fetch_pov {
@@ -756,12 +764,12 @@ fn backing_second_works() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -885,8 +893,10 @@ fn backing_works() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -925,20 +935,25 @@ fn backing_works() {
 		)
 		.await;
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_b.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackableCandidates(
-			std::iter::once((
+		let msg = CandidateBackingMessage::GetBackableCandidates {
+			candidates: std::iter::once((
 				test_state.chain_ids[0],
-				vec![(candidate_a_hash, test_state.relay_parent)],
+				vec![BackableCandidateRef {
+					candidate_hash: candidate_a_hash,
+					scheduling_parent: test_state.relay_parent,
+				}],
 			))
 			.collect(),
-			tx,
-		);
+			sender: tx,
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 
@@ -1093,8 +1108,10 @@ fn get_backed_candidate_preserves_order() {
 			.flatten()
 			.expect("should be signed");
 
-			let statement =
-				CandidateBackingMessage::Statement(test_state.relay_parent, signed.clone());
+			let statement = CandidateBackingMessage::Statement {
+				scheduling_parent: test_state.relay_parent,
+				statement: signed.clone(),
+			};
 
 			virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -1133,21 +1150,33 @@ fn get_backed_candidate_preserves_order() {
 
 		// Happy case, all candidates should be present.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackableCandidates(
-			[
+		let msg = CandidateBackingMessage::GetBackableCandidates {
+			candidates: [
 				(
 					test_state.chain_ids[0],
 					vec![
-						(candidate_a_hash, test_state.relay_parent),
-						(candidate_b_hash, test_state.relay_parent),
+						BackableCandidateRef {
+							candidate_hash: candidate_a_hash,
+							scheduling_parent: test_state.relay_parent,
+						},
+						BackableCandidateRef {
+							candidate_hash: candidate_b_hash,
+							scheduling_parent: test_state.relay_parent,
+						},
 					],
 				),
-				(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
+				(
+					test_state.chain_ids[1],
+					vec![BackableCandidateRef {
+						candidate_hash: candidate_c_hash,
+						scheduling_parent: test_state.relay_parent,
+					}],
+				),
 			]
 			.into_iter()
 			.collect(),
-			tx,
-		);
+			sender: tx,
+		};
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 		let mut candidates = rx.await.unwrap();
 		assert_eq!(2, candidates.len());
@@ -1175,24 +1204,42 @@ fn get_backed_candidate_preserves_order() {
 		// fine.
 		for candidates in [
 			vec![
-				(candidate_a_hash, Hash::repeat_byte(9)),
-				(candidate_b_hash, test_state.relay_parent),
+				BackableCandidateRef {
+					candidate_hash: candidate_a_hash,
+					scheduling_parent: Hash::repeat_byte(9),
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b_hash,
+					scheduling_parent: test_state.relay_parent,
+				},
 			],
 			vec![
-				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
-				(candidate_b_hash, test_state.relay_parent),
+				BackableCandidateRef {
+					candidate_hash: CandidateHash(Hash::repeat_byte(9)),
+					scheduling_parent: test_state.relay_parent,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b_hash,
+					scheduling_parent: test_state.relay_parent,
+				},
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackableCandidates(
-				[
+			let msg = CandidateBackingMessage::GetBackableCandidates {
+				candidates: [
 					(test_state.chain_ids[0], candidates),
-					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
+					(
+						test_state.chain_ids[1],
+						vec![BackableCandidateRef {
+							candidate_hash: candidate_c_hash,
+							scheduling_parent: test_state.relay_parent,
+						}],
+					),
 				]
 				.into_iter()
 				.collect(),
-				tx,
-			);
+				sender: tx,
+			};
 			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 			let mut candidates = rx.await.unwrap();
 			assert_eq!(candidates.len(), 1);
@@ -1214,24 +1261,42 @@ fn get_backed_candidate_preserves_order() {
 		// ParaId 2 is fine.
 		for candidates in [
 			vec![
-				(candidate_a_hash, test_state.relay_parent),
-				(candidate_b_hash, Hash::repeat_byte(9)),
+				BackableCandidateRef {
+					candidate_hash: candidate_a_hash,
+					scheduling_parent: test_state.relay_parent,
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b_hash,
+					scheduling_parent: Hash::repeat_byte(9),
+				},
 			],
 			vec![
-				(candidate_a_hash, test_state.relay_parent),
-				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
+				BackableCandidateRef {
+					candidate_hash: candidate_a_hash,
+					scheduling_parent: test_state.relay_parent,
+				},
+				BackableCandidateRef {
+					candidate_hash: CandidateHash(Hash::repeat_byte(9)),
+					scheduling_parent: test_state.relay_parent,
+				},
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackableCandidates(
-				[
+			let msg = CandidateBackingMessage::GetBackableCandidates {
+				candidates: [
 					(test_state.chain_ids[0], candidates),
-					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
+					(
+						test_state.chain_ids[1],
+						vec![BackableCandidateRef {
+							candidate_hash: candidate_c_hash,
+							scheduling_parent: test_state.relay_parent,
+						}],
+					),
 				]
 				.into_iter()
 				.collect(),
-				tx,
-			);
+				sender: tx,
+			};
 			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 			let mut candidates = rx.await.unwrap();
 			assert_eq!(2, candidates.len());
@@ -1259,24 +1324,42 @@ fn get_backed_candidate_preserves_order() {
 		// candidate hash). No candidates should be returned for para id 1. Para Id 2 is fine.
 		for candidates in [
 			vec![
-				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
-				(CandidateHash(Hash::repeat_byte(10)), test_state.relay_parent),
+				BackableCandidateRef {
+					candidate_hash: CandidateHash(Hash::repeat_byte(9)),
+					scheduling_parent: test_state.relay_parent,
+				},
+				BackableCandidateRef {
+					candidate_hash: CandidateHash(Hash::repeat_byte(10)),
+					scheduling_parent: test_state.relay_parent,
+				},
 			],
 			vec![
-				(candidate_a_hash, Hash::repeat_byte(9)),
-				(candidate_b_hash, Hash::repeat_byte(10)),
+				BackableCandidateRef {
+					candidate_hash: candidate_a_hash,
+					scheduling_parent: Hash::repeat_byte(9),
+				},
+				BackableCandidateRef {
+					candidate_hash: candidate_b_hash,
+					scheduling_parent: Hash::repeat_byte(10),
+				},
 			],
 		] {
 			let (tx, rx) = oneshot::channel();
-			let msg = CandidateBackingMessage::GetBackableCandidates(
-				[
+			let msg = CandidateBackingMessage::GetBackableCandidates {
+				candidates: [
 					(test_state.chain_ids[0], candidates),
-					(test_state.chain_ids[1], vec![(candidate_c_hash, test_state.relay_parent)]),
+					(
+						test_state.chain_ids[1],
+						vec![BackableCandidateRef {
+							candidate_hash: candidate_c_hash,
+							scheduling_parent: test_state.relay_parent,
+						}],
+					),
 				]
 				.into_iter()
 				.collect(),
-				tx,
-			);
+				sender: tx,
+			};
 			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 			let mut candidates = rx.await.unwrap();
 			assert_eq!(candidates.len(), 1);
@@ -1372,36 +1455,48 @@ fn extract_core_index_from_statement_works() {
 	.flatten()
 	.expect("should be signed");
 
-	let core_index_1 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_1,
-	)
-	.unwrap();
+	// Build a minimal PerSchedulingParentState for the test
+	let groups: HashMap<CoreIndex, Vec<ValidatorIndex>> = test_state
+		.validator_groups
+		.0
+		.iter()
+		.enumerate()
+		.map(|(i, g)| (CoreIndex(i as u32), g.clone()))
+		.collect();
+
+	let sp_state = PerSchedulingParentState {
+		parent: test_state.relay_parent,
+		node_features: test_state.node_features.clone(),
+		assigned_core: None,
+		backed: HashSet::new(),
+		table: Table::new(),
+		table_context: TableContext {
+			validator: None,
+			disabled_validators: Default::default(),
+			groups,
+			validators: test_state.validator_public.clone(),
+		},
+		issued_statements: HashSet::new(),
+		awaiting_validation: HashSet::new(),
+		fallbacks: HashMap::new(),
+		minimum_backing_votes: test_state.minimum_backing_votes,
+		n_cores: test_state.availability_cores.len() as u32,
+		claim_queue: test_state.claim_queue.clone().into(),
+		validator_to_group: Arc::new(test_state.validator_to_group.clone()),
+		session_index: test_state.session(),
+		group_rotation_info: test_state.validator_groups.1.clone(),
+	};
+
+	let core_index_1 = core_index_from_statement(&sp_state, &signed_statement_1).unwrap();
 
 	assert_eq!(core_index_1, CoreIndex(0));
 
-	let core_index_2 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_2,
-	);
+	let core_index_2 = core_index_from_statement(&sp_state, &signed_statement_2);
 
 	// Must be none, para_id in descriptor is different than para assigned to core
 	assert_eq!(core_index_2, None);
 
-	let core_index_3 = core_index_from_statement(
-		&test_state.validator_to_group,
-		&test_state.validator_groups.1,
-		test_state.availability_cores.len() as _,
-		&test_state.claim_queue.clone().into(),
-		&signed_statement_3,
-	)
-	.unwrap();
+	let core_index_3 = core_index_from_statement(&sp_state, &signed_statement_3).unwrap();
 
 	assert_eq!(core_index_3, CoreIndex(1));
 }
@@ -1486,8 +1581,10 @@ fn backing_works_while_validation_ongoing() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		assert_matches!(
@@ -1549,8 +1646,10 @@ fn backing_works_while_validation_ongoing() {
 			}
 		);
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_b.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -1564,20 +1663,25 @@ fn backing_works_while_validation_ongoing() {
 			) if candidate_a_hash == candidate_hash && candidate_para_id == para_id
 		);
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_c.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackableCandidates(
-			std::iter::once((
+		let msg = CandidateBackingMessage::GetBackableCandidates {
+			candidates: std::iter::once((
 				test_state.chain_ids[0],
-				vec![(candidate_a.hash(), test_state.relay_parent)],
+				vec![BackableCandidateRef {
+					candidate_hash: candidate_a.hash(),
+					scheduling_parent: test_state.relay_parent,
+				}],
 			))
 			.collect(),
-			tx,
-		);
+			sender: tx,
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 
@@ -1668,8 +1772,10 @@ fn backing_misbehavior_works() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, seconded_2.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: seconded_2.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -1710,8 +1816,10 @@ fn backing_misbehavior_works() {
 		.await;
 
 		// This `Valid` statement is redundant after the `Seconded` statement already sent.
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, valid_2.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: valid_2.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -1800,12 +1908,12 @@ fn backing_doesnt_second_invalid() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate_a.to_plain(),
-			pvd_a.clone(),
-			pov_block_a.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate_a.to_plain(),
+			pvd: pvd_a.clone(),
+			pov: pov_block_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -1840,12 +1948,12 @@ fn backing_doesnt_second_invalid() {
 			) if parent_hash == test_state.relay_parent && c == candidate_a.to_plain()
 		);
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate_b.to_plain(),
-			pvd_b.clone(),
-			pov_block_b.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate_b.to_plain(),
+			pvd: pvd_b.clone(),
+			pov: pov_block_b.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -1963,8 +2071,10 @@ fn backing_second_after_first_fails_works() {
 		.expect("should be signed");
 
 		// Send in a `Statement` with a candidate.
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2024,12 +2134,12 @@ fn backing_second_after_first_fails_works() {
 
 		// Ask subsystem to `Second` a candidate that already has a statement issued about.
 		// This should emit no actions from subsystem.
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd_a.clone(),
-			pov_a.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd_a.clone(),
+			pov: pov_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -2054,12 +2164,12 @@ fn backing_second_after_first_fails_works() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate_to_second.to_plain(),
-			pvd_to_second.clone(),
-			pov_to_second.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate_to_second.to_plain(),
+			pvd: pvd_to_second.clone(),
+			pov: pov_to_second.clone(),
+		};
 
 		// In order to trigger _some_ actions from subsystem ask it to second another
 		// candidate. The only reason to do so is to make sure that no actions were
@@ -2122,8 +2232,10 @@ fn backing_works_after_failed_validation() {
 		.expect("should be signed");
 
 		// Send in a `Statement` with a candidate.
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2184,14 +2296,17 @@ fn backing_works_after_failed_validation() {
 		// Try to get a set of backable candidates to trigger _some_ action in the subsystem
 		// and check that it is still alive.
 		let (tx, rx) = oneshot::channel();
-		let msg = CandidateBackingMessage::GetBackableCandidates(
-			std::iter::once((
+		let msg = CandidateBackingMessage::GetBackableCandidates {
+			candidates: std::iter::once((
 				test_state.chain_ids[0],
-				vec![(candidate.hash(), test_state.relay_parent)],
+				vec![BackableCandidateRef {
+					candidate_hash: candidate.hash(),
+					scheduling_parent: test_state.relay_parent,
+				}],
 			))
 			.collect(),
-			tx,
-		);
+			sender: tx,
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 		assert_eq!(rx.await.unwrap().len(), 0);
@@ -2349,8 +2464,10 @@ fn retry_works() {
 		.expect("should be signed");
 
 		// Send in a `Statement` with a candidate.
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		assert_matches!(
@@ -2385,8 +2502,10 @@ fn retry_works() {
 			}
 		);
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_b.clone(),
+		};
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		// Not deterministic which message comes first:
@@ -2421,8 +2540,10 @@ fn retry_works() {
 			}
 		}
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_c.clone(),
+		};
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
 		assert_matches!(
@@ -2542,8 +2663,10 @@ fn observes_backing_even_if_not_validator() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_a.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_a.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2563,8 +2686,10 @@ fn observes_backing_even_if_not_validator() {
 			}
 		);
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_b.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_b.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2577,8 +2702,10 @@ fn observes_backing_even_if_not_validator() {
 			) if candidate_a_hash == candidate_hash && candidate_para_id == para_id
 		);
 
-		let statement =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_c.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_c.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2633,12 +2760,12 @@ fn new_leaf_view_doesnt_clobber_old() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -2684,12 +2811,12 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_second() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			test_state.relay_parent,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: test_state.relay_parent,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -2750,7 +2877,10 @@ fn disabled_validator_doesnt_distribute_statement_on_receiving_statement() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement = CandidateBackingMessage::Statement(test_state.relay_parent, signed.clone());
+		let statement = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
 
@@ -2827,8 +2957,10 @@ fn validator_ignores_statements_from_disabled_validators() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement_2 =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_2.clone());
+		let statement_2 = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_2.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_2 }).await;
 
@@ -2854,8 +2986,10 @@ fn validator_ignores_statements_from_disabled_validators() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement_3 =
-			CandidateBackingMessage::Statement(test_state.relay_parent, signed_3.clone());
+		let statement_3 = CandidateBackingMessage::Statement {
+			scheduling_parent: test_state.relay_parent,
+			statement: signed_3.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_3 }).await;
 
@@ -2951,12 +3085,12 @@ fn seconding_sanity_check_allowed_on_all() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3066,12 +3200,12 @@ fn seconding_sanity_check_disallowed() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3135,12 +3269,12 @@ fn seconding_sanity_check_disallowed() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3238,12 +3372,12 @@ fn seconding_sanity_check_allowed_on_at_least_one_leaf() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3343,12 +3477,12 @@ fn prospective_parachains_reject_candidate() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3409,12 +3543,12 @@ fn prospective_parachains_reject_candidate() {
 
 		// Try seconding the same candidate.
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3496,12 +3630,12 @@ fn second_multiple_candidates_per_relay_parent() {
 		let candidate_b = candidate_b.build();
 
 		for candidate in &[candidate_a, candidate_b] {
-			let second = CandidateBackingMessage::Second(
-				leaf_hash,
-				candidate.to_plain(),
-				pvd.clone(),
-				pov.clone(),
-			);
+			let second = CandidateBackingMessage::Second {
+				scheduling_parent: leaf_hash,
+				candidate: candidate.to_plain(),
+				pvd: pvd.clone(),
+				pov: pov.clone(),
+			};
 
 			virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3670,8 +3804,14 @@ fn concurrent_dependent_candidates() {
 		.flatten()
 		.expect("should be signed");
 
-		let statement_a = CandidateBackingMessage::Statement(leaf_grandparent, signed_a.clone());
-		let statement_b = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
+		let statement_a = CandidateBackingMessage::Statement {
+			scheduling_parent: leaf_grandparent,
+			statement: signed_a.clone(),
+		};
+		let statement_b = CandidateBackingMessage::Statement {
+			scheduling_parent: leaf_parent,
+			statement: signed_b.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_a }).await;
 
@@ -3875,12 +4015,12 @@ fn seconding_sanity_check_occupy_same_depth() {
 
 		for candidate in &[candidate_a, candidate_b] {
 			let (candidate, expected_head_data, para_id) = candidate;
-			let second = CandidateBackingMessage::Second(
-				leaf_hash,
-				candidate.to_plain(),
-				pvd.clone(),
-				pov.clone(),
-			);
+			let second = CandidateBackingMessage::Second {
+				scheduling_parent: leaf_hash,
+				candidate: candidate.to_plain(),
+				pvd: pvd.clone(),
+				pov: pov.clone(),
+			};
 
 			virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 
@@ -3997,12 +4137,12 @@ fn occupied_core_assignment() {
 		}
 		.build();
 
-		let second = CandidateBackingMessage::Second(
-			leaf_a_hash,
-			candidate.to_plain(),
-			pvd.clone(),
-			pov.clone(),
-		);
+		let second = CandidateBackingMessage::Second {
+			scheduling_parent: leaf_a_hash,
+			candidate: candidate.to_plain(),
+			pvd: pvd.clone(),
+			pov: pov.clone(),
+		};
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: second }).await;
 

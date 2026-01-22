@@ -316,7 +316,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -330,12 +330,12 @@ async fn assert_candidate_backing_second(
 
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
-		AllMessages::CandidateBacking(CandidateBackingMessage::Second(
-			relay_parent,
-			candidate_receipt,
-			received_pvd,
-			incoming_pov,
-		)) => {
+		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+			scheduling_parent: relay_parent,
+			candidate: candidate_receipt,
+			pvd: received_pvd,
+			pov: incoming_pov,
+		}) => {
 			assert_eq!(expected_relay_parent, relay_parent);
 			assert_eq!(expected_para_id, candidate_receipt.descriptor.para_id());
 			assert_eq!(*expected_pov, incoming_pov);
@@ -422,7 +422,7 @@ async fn connect_and_declare_collator(
 				para_id,
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 			)),
-		CollationVersion::V2 =>
+		CollationVersion::V2 | CollationVersion::V3 =>
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
@@ -444,18 +444,18 @@ async fn connect_and_declare_collator(
 async fn advertise_collation(
 	virtual_overseer: &mut VirtualOverseer,
 	peer: PeerId,
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
 ) {
 	let wire_message = match candidate {
 		Some((candidate_hash, parent_head_data_hash)) =>
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
-				relay_parent,
+				scheduling_parent,
 				candidate_hash,
 				parent_head_data_hash,
 			}),
 		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
-			relay_parent,
+			scheduling_parent,
 		)),
 	};
 	overseer_send(

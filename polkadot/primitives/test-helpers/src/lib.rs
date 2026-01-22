@@ -26,8 +26,8 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{
 	AppVerify, CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2,
 	CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData,
-	Id, Id as ParaId, InternalVersion, MutateDescriptorV2, PersistedValidationData, SessionIndex,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use scale_info::TypeInfo;
@@ -102,13 +102,13 @@ impl<H> CandidateReceipt<H> {
 	}
 }
 
-impl<H: Copy> From<CandidateReceiptV2<H>> for CandidateReceipt<H> {
+impl<H: Copy + AsRef<[u8]>> From<CandidateReceiptV2<H>> for CandidateReceipt<H> {
 	fn from(value: CandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CandidateReceipt<H>> for CandidateReceiptV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CandidateReceipt<H>> for CandidateReceiptV2<H> {
 	fn from(value: CandidateReceipt<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
@@ -176,13 +176,13 @@ impl Ord for CommittedCandidateReceipt {
 	}
 }
 
-impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for CommittedCandidateReceipt<H> {
+impl<H: Copy + AsRef<[u8]>> From<CommittedCandidateReceiptV2<H>> for CommittedCandidateReceipt<H> {
 	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
 }
 
-impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
+impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	fn from(value: CandidateDescriptorV2<H>) -> Self {
 		Self {
 			para_id: value.para_id(),
@@ -208,28 +208,33 @@ where
 	a
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
 		let collator = value.collator.as_slice();
+		let signature = value.signature.into_inner().0;
 
 		CandidateDescriptorV2::new_from_raw(
 			value.para_id,
 			value.relay_parent,
-			InternalVersion(collator[0]),
-			u16::from_ne_bytes(clone_into_array(&collator[1..=2])),
-			SessionIndex::from_ne_bytes(clone_into_array(&collator[3..=6])),
-			clone_into_array(&collator[7..]),
+			collator[0],
+			u16::from_ne_bytes(clone_into_array(&collator[1..3])),
+			SessionIndex::from_ne_bytes(clone_into_array(&collator[3..7])),
+			collator[7],
+			clone_into_array(&collator[8..]),
 			value.persisted_validation_data_hash,
 			value.pov_hash,
 			value.erasure_root,
-			value.signature.into_inner().0,
+			H::from(Hash::from_slice(&signature[0..32])),
+			clone_into_array(&signature[32..64]),
 			value.para_head,
 			value.validation_code_hash,
 		)
 	}
 }
 
-impl<H: Copy + AsRef<[u8]>> From<CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+impl<H: Copy + AsRef<[u8]> + From<Hash>> From<CommittedCandidateReceipt<H>>
+	for CommittedCandidateReceiptV2<H>
+{
 	fn from(value: CommittedCandidateReceipt<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
@@ -288,7 +293,9 @@ pub fn dummy_candidate_receipt<H: AsRef<[u8]>>(relay_parent: H) -> CandidateRece
 }
 
 /// Creates a v2 candidate receipt with filler data.
-pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(relay_parent: H) -> CandidateReceiptV2<H> {
+pub fn dummy_candidate_receipt_v2<H: AsRef<[u8]> + Copy + Default>(
+	relay_parent: H,
+) -> CandidateReceiptV2<H> {
 	CandidateReceiptV2::<H> {
 		commitments_hash: dummy_candidate_commitments(dummy_head_data()).hash(),
 		descriptor: dummy_candidate_descriptor_v2(relay_parent),
@@ -306,7 +313,7 @@ pub fn dummy_committed_candidate_receipt<H: AsRef<[u8]>>(
 }
 
 /// Creates a v2 committed candidate receipt with filler data.
-pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy>(
+pub fn dummy_committed_candidate_receipt_v2<H: AsRef<[u8]> + Copy + Default>(
 	relay_parent: H,
 ) -> CommittedCandidateReceiptV2<H> {
 	CommittedCandidateReceiptV2 {
@@ -405,7 +412,7 @@ pub fn dummy_candidate_descriptor<H: AsRef<[u8]>>(relay_parent: H) -> CandidateD
 }
 
 /// Create a v2 candidate descriptor with filler data.
-pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+pub fn dummy_candidate_descriptor_v2<H: AsRef<[u8]> + Copy + Default>(
 	relay_parent: H,
 ) -> CandidateDescriptorV2<H> {
 	let invalid = Hash::zero();
@@ -568,7 +575,7 @@ pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
 }
 
 /// Create a v2 candidate descriptor.
-pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
+pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy + Default>(
 	para_id: ParaId,
 	relay_parent: H,
 	core_index: CoreIndex,
@@ -595,6 +602,39 @@ pub fn make_valid_candidate_descriptor_v2<H: AsRef<[u8]> + Copy>(
 
 	descriptor
 }
+
+/// Create a v3 candidate descriptor with explicit scheduling_parent.
+///
+/// V3 descriptors are identified by `version=1` and have a non-zero scheduling_parent field.
+/// V3 candidates require UMP signals to be present.
+pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
+	para_id: ParaId,
+	relay_parent: H,
+	core_index: CoreIndex,
+	session_index: SessionIndex,
+	persisted_validation_data_hash: Hash,
+	pov_hash: Hash,
+	validation_code_hash: impl Into<ValidationCodeHash>,
+	para_head: Hash,
+	erasure_root: Hash,
+	scheduling_parent: H,
+) -> CandidateDescriptorV2<H> {
+	let validation_code_hash = validation_code_hash.into();
+
+	CandidateDescriptorV2::new_v3(
+		para_id,
+		relay_parent,
+		core_index,
+		session_index,
+		persisted_validation_data_hash,
+		pov_hash,
+		erasure_root,
+		para_head,
+		validation_code_hash,
+		scheduling_parent,
+	)
+}
+
 /// After manually modifying the candidate descriptor, resign with a defined collator key.
 pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor: &mut CandidateDescriptor<H>,
@@ -688,7 +728,7 @@ mod candidate_receipt_tests {
 	use polkadot_primitives::{
 		transpose_claim_queue, v9::CandidateUMPSignals, BackedCandidate,
 		CandidateDescriptorVersion, ClaimQueueOffset, CommittedCandidateReceiptError, CoreSelector,
-		InternalVersion, UMPSignal, UMP_SEPARATOR,
+		UMPSignal, UMP_SEPARATOR,
 	};
 	use std::collections::BTreeMap;
 
@@ -738,7 +778,7 @@ mod candidate_receipt_tests {
 		// We get same candidate hash.
 		assert_eq!(old_ccr.hash(), new_ccr.hash());
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::V1);
 		assert_eq!(old_ccr.descriptor.collator, new_ccr.descriptor.collator().unwrap());
 		assert_eq!(old_ccr.descriptor.signature, new_ccr.descriptor.signature().unwrap());
 	}
@@ -746,18 +786,18 @@ mod candidate_receipt_tests {
 	#[test]
 	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2(Hash::default());
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::V2);
 		// Put some unknown version.
-		new_ccr.descriptor.set_version(InternalVersion(100));
+		new_ccr.descriptor.set_version(100);
 
 		// Deserialize as V1.
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
 
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
+		assert_eq!(new_ccr.descriptor.version(false), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
-			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new()),
-			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
+			new_ccr.parse_ump_signals(&std::collections::BTreeMap::new(), false),
+			Err(CommittedCandidateReceiptError::UnknownVersion(100))
 		);
 	}
 
@@ -794,7 +834,7 @@ mod candidate_receipt_tests {
 		let v2_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
-		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
+		assert_eq!(v2_ccr.descriptor.core_index(false), Some(CoreIndex(123)));
 
 		let mut cq = BTreeMap::new();
 		cq.insert(
@@ -802,7 +842,7 @@ mod candidate_receipt_tests {
 			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
 		);
 
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
@@ -830,18 +870,18 @@ mod candidate_receipt_tests {
 		let v1_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
-		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(v1_ccr.descriptor.version(false), CandidateDescriptorVersion::V1);
 		assert!(!v1_ccr.commitments.ump_signals().unwrap().is_empty());
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
 		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
 
-		assert_eq!(v1_ccr.descriptor.core_index(), None);
+		assert_eq!(v1_ccr.descriptor.core_index(false), None);
 
 		assert_eq!(
-			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq)),
-			Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
+			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq), false),
+			Err(CommittedCandidateReceiptError::UMPSignalWithV1Descriptor)
 		);
 	}
 
@@ -860,7 +900,7 @@ mod candidate_receipt_tests {
 
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
 		// version 2. Should still pass checks without core selector.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		let mut cq = BTreeMap::new();
 		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
@@ -868,7 +908,7 @@ mod candidate_receipt_tests {
 
 		// Passes even if 2 cores are assigned, because elastic scaling MVP could still inject the
 		// core index in the `BackedCandidate`.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq), false).is_ok());
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();
@@ -884,7 +924,7 @@ mod candidate_receipt_tests {
 		assert_eq!(new_ccr.descriptor.signature(), Some(old_ccr.descriptor.signature));
 		assert_eq!(new_ccr.descriptor.collator(), Some(old_ccr.descriptor.collator));
 
-		assert_eq!(new_ccr.descriptor.core_index(), None);
+		assert_eq!(new_ccr.descriptor.core_index(false), None);
 		assert_eq!(new_ccr.descriptor.para_id(), ParaId::new(1000));
 
 		assert_eq!(old_ccr_hash, new_ccr.hash());
@@ -914,12 +954,18 @@ mod candidate_receipt_tests {
 		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
 		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq, false),
+			Ok(CandidateUMPSignals::dummy(None, None))
+		);
 
 		// separator
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		assert_eq!(new_ccr.parse_ump_signals(&cq), Ok(CandidateUMPSignals::dummy(None, None)));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq, false),
+			Ok(CandidateUMPSignals::dummy(None, None))
+		);
 
 		// CoreIndex commitment
 		{
@@ -930,7 +976,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(Some((CoreSelector(0), ClaimQueueOffset(1))), None))
 			);
 		}
@@ -945,7 +991,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
 			);
 
@@ -957,7 +1003,7 @@ mod candidate_receipt_tests {
 				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(
 					Some((CoreSelector(0), ClaimQueueOffset(1))),
 					Some(vec![1, 2, 3].try_into().unwrap())
@@ -976,7 +1022,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Ok(CandidateUMPSignals::dummy(
 				Some((CoreSelector(0), ClaimQueueOffset(1))),
 				Some(vec![1, 2, 3].try_into().unwrap())
@@ -1007,7 +1053,7 @@ mod candidate_receipt_tests {
 
 		// No signals can be decoded.
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::UmpSignalDecode)
 		);
 		assert_eq!(
@@ -1038,13 +1084,13 @@ mod candidate_receipt_tests {
 			let cq = transpose_claim_queue(cq);
 
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Ok(CandidateUMPSignals::dummy(None, Some(vec![1, 2, 3].try_into().unwrap())))
 			);
 
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Err(CommittedCandidateReceiptError::InvalidCoreIndex)
 			);
 			new_ccr.descriptor.set_core_index(CoreIndex(0));
@@ -1056,14 +1102,14 @@ mod candidate_receipt_tests {
 
 			// No assignments.
 			assert_eq!(
-				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default())),
+				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default()), false),
 				Err(CommittedCandidateReceiptError::NoAssignment)
 			);
 
 			// Mismatch between descriptor index and commitment.
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
+				new_ccr.parse_ump_signals(&cq, false),
 				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
 					descriptor: CoreIndex(1),
 					commitments: CoreIndex(0),
@@ -1086,7 +1132,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![4, 5].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
 		);
 
@@ -1107,7 +1153,7 @@ mod candidate_receipt_tests {
 			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
+			new_ccr.parse_ump_signals(&cq, false),
 			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
 		);
 	}

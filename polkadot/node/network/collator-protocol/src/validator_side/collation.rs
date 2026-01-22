@@ -50,8 +50,8 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorId, Hash, HeadData,
-	Id as ParaId, PersistedValidationData,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CollatorId,
+	Hash, HeadData, Id as ParaId, PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -76,19 +76,22 @@ impl ProspectiveCandidate {
 /// Identifier of a fetched collation.
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct FetchedCollation {
-	/// Candidate's relay parent.
-	pub relay_parent: Hash,
+	/// Candidate's scheduling parent.
+	pub scheduling_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
 }
 
-impl From<&CandidateReceipt<Hash>> for FetchedCollation {
-	fn from(receipt: &CandidateReceipt<Hash>) -> Self {
+impl FetchedCollation {
+	/// Create a new `FetchedCollation` from a candidate receipt.
+	///
+	/// Requires `v3_enabled` to correctly extract the scheduling parent from V3 descriptors.
+	pub fn new(receipt: &CandidateReceipt<Hash>, v3_enabled: bool) -> Self {
 		let descriptor = receipt.descriptor();
 		Self {
-			relay_parent: descriptor.relay_parent(),
+			scheduling_parent: descriptor.scheduling_parent(v3_enabled),
 			para_id: descriptor.para_id(),
 			candidate_hash: receipt.hash(),
 		}
@@ -96,10 +99,10 @@ impl From<&CandidateReceipt<Hash>> for FetchedCollation {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PendingCollation {
-	/// Candidate's relay parent.
-	pub relay_parent: Hash,
+	/// Candidate's scheduling parent
+	pub scheduling_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
 	/// Peer that advertised this collation.
@@ -109,21 +112,55 @@ pub struct PendingCollation {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 	/// Hash of the candidate's commitments.
 	pub commitments_hash: Option<Hash>,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+}
+
+// Manual Hash implementation for use in collation_requests_cancel_handles.
+//
+// Purpose: Prevents concurrent fetch requests for the same collation from the same peer.
+// The hash identifies a unique (peer_id, candidate/scheduling_parent) pair.
+//
+// For V2/V3: Uses (peer_id, candidate_hash, parent_head_data_hash) from prospective_candidate
+// For V1: Uses (peer_id, scheduling_parent, para_id) as fallback when candidate_hash unavailable
+//
+// Note: This does NOT prevent fetching the same candidate from different peers sequentially.
+// Multiple peers can advertise the same candidate, and we may fetch from each peer in turn
+// if earlier fetches fail. This is acceptable for redundancy but could be optimized in future.
+//
+// Fields excluded from hash:
+// - advertised_descriptor_version: Protocol metadata, not part of request identity
+impl std::hash::Hash for PendingCollation {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.scheduling_parent.hash(state);
+		self.para_id.hash(state);
+		self.peer_id.hash(state);
+		self.prospective_candidate.hash(state);
+		self.commitments_hash.hash(state);
+		// Explicitly exclude advertised_descriptor_version - it's protocol metadata
+	}
 }
 
 impl PendingCollation {
+	/// Constructor for PendingCollation.
+	///
+	/// For V1/V2 protocol advertisements, pass `None` for `advertised_descriptor_version`.
+	/// For V3 protocol advertisements, pass `Some(version)` to track the advertised version.
 	pub fn new(
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: Option<ProspectiveCandidate>,
+		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	) -> Self {
 		Self {
-			relay_parent,
+			scheduling_parent,
 			para_id,
 			peer_id: *peer_id,
 			prospective_candidate,
 			commitments_hash: None,
+			advertised_descriptor_version,
 		}
 	}
 }
@@ -145,6 +182,7 @@ pub fn fetched_collation_sanity_check(
 	fetched: &CandidateReceipt,
 	persisted_validation_data: &PersistedValidationData,
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
+	v3_enabled: bool,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
 		return Err(SecondingError::PersistedValidationDataMismatch)
@@ -157,12 +195,24 @@ pub fn fetched_collation_sanity_check(
 		return Err(SecondingError::CandidateHashMismatch)
 	}
 
-	if advertised.relay_parent != fetched.descriptor.relay_parent() {
-		return Err(SecondingError::RelayParentMismatch)
+	if advertised.scheduling_parent != fetched.descriptor.scheduling_parent(v3_enabled) {
+		return Err(SecondingError::SchedulingParentMismatch)
 	}
 
 	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
 		return Err(SecondingError::ParentHeadDataMismatch)
+	}
+
+	// For V3 protocol advertisements, verify the fetched descriptor version matches the advertised
+	// one.
+	if let Some(advertised_version) = &advertised.advertised_descriptor_version {
+		let fetched_version = fetched.descriptor.version(v3_enabled);
+		if advertised_version != &fetched_version {
+			return Err(SecondingError::DescriptorVersionMismatch(
+				advertised_version.clone(),
+				fetched_version,
+			))
+		}
 	}
 
 	Ok(())
@@ -370,7 +420,7 @@ impl Future for CollationFetchRequest {
 				CollationEvent {
 					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
-					pending_collation: self.pending_collation,
+					pending_collation: self.pending_collation.clone(),
 				},
 				Err(CollationFetchError::Cancelled),
 			))
@@ -381,7 +431,7 @@ impl Future for CollationFetchRequest {
 				CollationEvent {
 					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
-					pending_collation: self.pending_collation,
+					pending_collation: self.pending_collation.clone(),
 				},
 				res.map_err(CollationFetchError::Request),
 			)

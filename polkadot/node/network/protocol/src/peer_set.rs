@@ -146,7 +146,7 @@ impl PeerSet {
 	pub fn get_main_version(self) -> ProtocolVersion {
 		match self {
 			PeerSet::Validation => ValidationVersion::V3.into(),
-			PeerSet::Collation => CollationVersion::V2.into(),
+			PeerSet::Collation => CollationVersion::V3.into(),
 		}
 	}
 
@@ -179,6 +179,8 @@ impl PeerSet {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
+				} else if version == CollationVersion::V3.into() {
+					Some("collation/3")
 				} else {
 					None
 				},
@@ -258,6 +260,8 @@ pub enum CollationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
+	/// The third version, adds explicit scheduling_parent field and candidate descriptor version.
+	V3 = 3,
 }
 
 /// Marker indicating the version is unknown.

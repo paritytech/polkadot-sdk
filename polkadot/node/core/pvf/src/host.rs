@@ -38,16 +38,14 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
 	messages::PvfExecKind, ActiveLeavesUpdate, SubsystemError, SubsystemResult,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{Hash, PersistedValidationData};
+use polkadot_primitives::Hash;
 use std::{
 	collections::HashMap,
 	path::PathBuf,
-	sync::Arc,
 	time::{Duration, SystemTime},
 };
 
@@ -114,9 +112,7 @@ impl ValidationHost {
 	pub async fn execute_pvf(
 		&mut self,
 		pvf: PvfPrepData,
-		exec_timeout: Duration,
-		pvd: Arc<PersistedValidationData>,
-		pov: Arc<PoV>,
+		validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
 		priority: Priority,
 		exec_kind: PvfExecKind,
 		result_tx: ResultSender,
@@ -124,9 +120,7 @@ impl ValidationHost {
 		self.to_host_tx
 			.send(ToHost::ExecutePvf(ExecutePvfInputs {
 				pvf,
-				exec_timeout,
-				pvd,
-				pov,
+				validation_context,
 				priority,
 				exec_kind,
 				result_tx,
@@ -200,9 +194,7 @@ enum ToHost {
 
 struct ExecutePvfInputs {
 	pvf: PvfPrepData,
-	exec_timeout: Duration,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
+	validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
 	priority: Priority,
 	exec_kind: PvfExecKind,
 	result_tx: ResultSender,
@@ -601,9 +593,9 @@ async fn handle_execute_pvf(
 	awaiting_prepare: &mut AwaitingPrepare,
 	inputs: ExecutePvfInputs,
 ) -> Result<(), Fatal> {
-	let ExecutePvfInputs { pvf, exec_timeout, pvd, pov, priority, exec_kind, result_tx } = inputs;
+	let ExecutePvfInputs { pvf, validation_context, priority, exec_kind, result_tx } = inputs;
 	let artifact_id = ArtifactId::from_pvf_prep_data(&pvf);
-	let executor_params = (*pvf.executor_params()).clone();
+	let exec_timeout = validation_context.exec_timeout;
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
@@ -620,9 +612,7 @@ async fn handle_execute_pvf(
 							artifact: ArtifactPathId::new(artifact_id, path, *checksum),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
-								pvd,
-								pov,
-								executor_params,
+								validation_context,
 								exec_kind,
 								result_tx,
 							},
@@ -651,9 +641,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							pvd,
-							pov,
-							executor_params,
+							validation_context,
 							exec_kind,
 							result_tx,
 						},
@@ -666,9 +654,7 @@ async fn handle_execute_pvf(
 					artifact_id,
 					PendingExecutionRequest {
 						exec_timeout,
-						pvd,
-						pov,
-						executor_params,
+						validation_context,
 						result_tx,
 						exec_kind,
 					},
@@ -700,9 +686,7 @@ async fn handle_execute_pvf(
 						artifact_id,
 						PendingExecutionRequest {
 							exec_timeout,
-							pvd,
-							pov,
-							executor_params,
+							validation_context,
 							exec_kind,
 							result_tx,
 						},
@@ -723,14 +707,7 @@ async fn handle_execute_pvf(
 			pvf,
 			priority,
 			artifact_id,
-			PendingExecutionRequest {
-				exec_timeout,
-				pvd,
-				pov,
-				executor_params,
-				result_tx,
-				exec_kind,
-			},
+			PendingExecutionRequest { exec_timeout, validation_context, result_tx, exec_kind },
 		)
 		.await?;
 	}
@@ -852,7 +829,7 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } in
+	for PendingExecutionRequest { exec_timeout, validation_context, result_tx, exec_kind } in
 		pending_requests
 	{
 		if result_tx.is_canceled() {
@@ -875,11 +852,9 @@ async fn handle_prepare_done(
 				artifact: ArtifactPathId::new(artifact_id.clone(), &path, checksum),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
-					pvd,
-					pov,
-					executor_params,
-					exec_kind,
+					validation_context,
 					result_tx,
+					exec_kind,
 				},
 			},
 		)

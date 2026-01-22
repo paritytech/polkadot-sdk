@@ -30,15 +30,16 @@ use futures::{
 use futures_timer::Delay;
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
-		ProvisionableData, ProvisionerInherentData, ProvisionerMessage,
+		Ancestors, BackableCandidateRef, CandidateBackingMessage, ChainApiMessage,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerInherentData,
+		ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	BackedCandidate, CandidateEvent, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
+	BackedCandidate, CandidateEvent, CoreIndex, CoreState, Hash, Id as ParaId,
 	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use sc_consensus_slots::time_until_next_slot;
@@ -281,7 +282,7 @@ async fn handle_active_leaves_update<Context>(
 	let Some(inherent) = inherents.get(&header.parent_hash) else { return Ok(()) };
 
 	let diff = inherent.backed_candidates.len() as isize - in_block_count;
-	gum::debug!(target: LOG_TARGET, 
+	gum::debug!(target: LOG_TARGET,
 		 ?diff,
 		 ?in_block_count,
 		 local_count = ?inherent.backed_candidates.len(),
@@ -591,10 +592,10 @@ fn select_availability_bitfields(
 async fn request_backable_candidates(
 	availability_cores: &[CoreState],
 	bitfields: &[SignedAvailabilityBitfield],
-	relay_parent: &ActivatedLeaf,
+	scheduling_parent: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
-	let block_number_under_construction = relay_parent.number + 1;
+) -> Result<HashMap<ParaId, Vec<BackableCandidateRef>>, Error> {
+	let block_number_under_construction = scheduling_parent.number + 1;
 
 	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
 	// we'll need to iterate through them.
@@ -645,14 +646,14 @@ async fn request_backable_candidates(
 		};
 	}
 
-	let mut selected_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>> =
+	let mut selected_candidates: HashMap<ParaId, Vec<BackableCandidateRef>> =
 		HashMap::with_capacity(scheduled_cores_per_para.len());
 
 	for (para_id, core_count) in scheduled_cores_per_para {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
 
 		let response = get_backable_candidates(
-			relay_parent.hash,
+			scheduling_parent.hash,
 			para_id,
 			para_ancestors,
 			core_count as u32,
@@ -663,7 +664,7 @@ async fn request_backable_candidates(
 		if response.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				leaf_hash = ?relay_parent.hash,
+				leaf_hash = ?scheduling_parent.hash,
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
@@ -684,10 +685,10 @@ async fn select_candidates(
 	leaf: &ActivatedLeaf,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
 ) -> Result<Vec<BackedCandidate>, Error> {
-	let relay_parent = leaf.hash;
+	let scheduling_parent = leaf.hash;
 	gum::trace!(
 		target: LOG_TARGET,
-		leaf_hash=?relay_parent,
+		leaf_hash=?scheduling_parent,
 		"before GetBackedCandidates"
 	);
 
@@ -697,14 +698,14 @@ async fn select_candidates(
 
 	// now get the backed candidates corresponding to these candidate receipts
 	let (tx, rx) = oneshot::channel();
-	sender.send_unbounded_message(CandidateBackingMessage::GetBackableCandidates(
-		selected_candidates.clone(),
-		tx,
-	));
+	sender.send_unbounded_message(CandidateBackingMessage::GetBackableCandidates {
+		candidates: selected_candidates.clone(),
+		sender: tx,
+	});
 	let candidates = rx.await.map_err(|err| Error::CanceledBackedCandidates(err))?;
 	gum::trace!(
 		target: LOG_TARGET,
-		leaf_hash=?relay_parent,
+		leaf_hash=?scheduling_parent,
 		"Got {} backed candidates", candidates.len()
 	);
 
@@ -731,7 +732,7 @@ async fn select_candidates(
 		target: LOG_TARGET,
 		n_candidates = merged_candidates.len(),
 		n_cores = availability_cores.len(),
-		?relay_parent,
+		?scheduling_parent,
 		"Selected backed candidates",
 	);
 
@@ -741,21 +742,21 @@ async fn select_candidates(
 /// Requests backable candidates from Prospective Parachains based on
 /// the given ancestors in the fragment chain. The ancestors may not be ordered.
 async fn get_backable_candidates(
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	para_id: ParaId,
 	ancestors: Ancestors,
 	count: u32,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Vec<(CandidateHash, Hash)>, Error> {
+) -> Result<Vec<BackableCandidateRef>, Error> {
 	let (tx, rx) = oneshot::channel();
 	sender
-		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
-			relay_parent,
+		.send_message(ProspectiveParachainsMessage::GetBackableCandidates {
+			leaf: scheduling_parent,
 			para_id,
 			count,
 			ancestors,
-			tx,
-		))
+			sender: tx,
+		})
 		.await;
 
 	rx.await.map_err(Error::CanceledBackableCandidates)

@@ -17,6 +17,7 @@
 use super::*;
 
 use crate::{
+	builder::CandidateDescriptorVersionConfig,
 	configuration::{self, HostConfiguration},
 	mock::MockGenesisConfig,
 };
@@ -58,8 +59,8 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, ClaimQueueOffset, CollatorId,
-		CollatorSignature, CommittedCandidateReceiptV2, CoreSelector, InternalVersion,
+		ApprovedPeerId, AvailabilityBitfield, CandidateDescriptorV2, CandidateDescriptorVersion,
+		ClaimQueueOffset, CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreSelector,
 		MutateDescriptorV2, UMPSignal, UncheckedSigned,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
@@ -67,6 +68,15 @@ mod enter {
 	use rstest::rstest;
 	use sp_core::ByteArray;
 	use sp_runtime::Perbill;
+
+	/// Helper to convert v2_descriptor bool to CandidateDescriptorVersionConfig
+	fn descriptor_version(v2: bool) -> CandidateDescriptorVersionConfig {
+		if v2 {
+			CandidateDescriptorVersionConfig::V2
+		} else {
+			CandidateDescriptorVersionConfig::V1
+		}
+	}
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,
@@ -76,7 +86,7 @@ mod enter {
 		code_upgrade: Option<u32>,
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
-		v2_descriptor: bool,
+		descriptor_version: CandidateDescriptorVersionConfig,
 		approved_peer_signal: Option<ApprovedPeerId>,
 		candidate_modifier: Option<CandidateModifier<<Test as frame_system::Config>::Hash>>,
 	}
@@ -90,7 +100,7 @@ mod enter {
 			code_upgrade,
 			elastic_paras,
 			unavailable_cores,
-			v2_descriptor,
+			descriptor_version,
 			candidate_modifier,
 			approved_peer_signal,
 		}: TestConfig,
@@ -110,7 +120,7 @@ mod enter {
 			.set_backed_and_concluding_paras(backed_and_concluding.clone())
 			.set_dispute_sessions(&dispute_sessions[..])
 			.set_unavailable_cores(unavailable_cores)
-			.set_candidate_descriptor_v2(v2_descriptor)
+			.set_candidate_descriptor_version(descriptor_version)
 			.set_candidate_modifier(candidate_modifier);
 
 		if let Some(approved_peer_signal) = approved_peer_signal {
@@ -157,14 +167,6 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let dispute_statements = BTreeMap::new();
 
 			let mut backed_and_concluding = BTreeMap::new();
@@ -179,7 +181,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -253,20 +255,14 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let dispute_statements = BTreeMap::new();
 
+			// Map: ParaId -> number of validity votes for backed candidates.
+			// Each para (0, 1, 2) has candidates with 2 validity votes each.
 			let mut backed_and_concluding = BTreeMap::new();
-			backed_and_concluding.insert(0, 1);
-			backed_and_concluding.insert(1, 1);
-			backed_and_concluding.insert(2, 1);
+			backed_and_concluding.insert(0, 2);
+			backed_and_concluding.insert(1, 2);
+			backed_and_concluding.insert(2, 2);
 
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements,
@@ -276,7 +272,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -355,14 +351,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -380,7 +368,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -550,7 +538,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -732,7 +720,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -808,7 +796,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -882,7 +870,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -972,7 +960,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1061,7 +1049,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1097,14 +1085,6 @@ mod enter {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			use crate::inclusion::WeightInfo as _;
 
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			// The number of candidates is chosen to go over the weight limit
 			// of the mock runtime together with the `enact_candidate`s weight.
@@ -1130,7 +1110,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1211,13 +1191,6 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 			// Create the inherent data for this block
 			let mut dispute_statements = BTreeMap::new();
 			// Control the number of statements per dispute to ensure we have enough space
@@ -1239,7 +1212,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1347,7 +1320,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1401,13 +1374,6 @@ mod enter {
 			u64::MAX,
 		)));
 		new_test_ext(default_config()).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 			// Create the inherent data for this block
 			let dispute_statements = BTreeMap::new();
 
@@ -1424,7 +1390,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1479,13 +1445,6 @@ mod enter {
 			u64::MAX,
 		)));
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 			let mut backed_and_concluding = BTreeMap::new();
 			// 2 backed candidates shall be scheduled
 			backed_and_concluding.insert(0, 2);
@@ -1499,7 +1458,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1549,7 +1508,6 @@ mod enter {
 		len: usize,
 		start_core_index: usize,
 		code_upgrade_index: Option<usize>,
-		v2_receipts: bool,
 	) -> Vec<BackedCandidate> {
 		if let Some(code_upgrade_index) = code_upgrade_index {
 			assert!(code_upgrade_index < len, "Code upgrade index out of bounds");
@@ -1565,10 +1523,8 @@ mod enter {
 				if Some(idx) == code_upgrade_index {
 					builder.new_validation_code = Some(vec![1, 2, 3, 4].into());
 				}
-				if v2_receipts {
-					builder.core_index = Some(core_index);
-					builder.core_selector = Some(idx as u8);
-				}
+				builder.core_index = Some(core_index);
+				builder.core_selector = Some(idx as u8);
 				let ccr = builder.build();
 
 				BackedCandidate::new(ccr.into(), Default::default(), Default::default(), core_index)
@@ -1591,14 +1547,6 @@ mod enter {
 			// Create an overweight inherent and oversized block
 			let mut backed_and_concluding = BTreeMap::new();
 
-			// Enable the v2 receipts.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
-			)
-			.unwrap();
-
 			for i in 0..30 {
 				backed_and_concluding.insert(i, i);
 			}
@@ -1611,7 +1559,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -1629,7 +1577,7 @@ mod enter {
 				backed_candidate_weight::<Test>(&para_inherent_data.backed_candidates[0]);
 
 			let mut input_candidates =
-				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1), v2_descriptor);
+				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1));
 			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
 
 			input_candidates.append(&mut para_inherent_data.backed_candidates);
@@ -1704,7 +1652,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				descriptor_version: CandidateDescriptorVersionConfig::V1,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -1742,9 +1690,9 @@ mod enter {
 
 		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
-			backed_and_concluding.insert(0, 1);
-			backed_and_concluding.insert(1, 1);
-			backed_and_concluding.insert(2, 1);
+			backed_and_concluding.insert(0, 2);
+			backed_and_concluding.insert(1, 2);
+			backed_and_concluding.insert(2, 2);
 
 			let unavailable_cores = vec![];
 
@@ -1756,7 +1704,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -1772,18 +1720,19 @@ mod enter {
 			// Make the last candidate look like v1, by using an unknown version.
 			unfiltered_para_inherent_data.backed_candidates[9]
 				.descriptor_mut()
-				.set_version(InternalVersion(123));
+				.set_version(123);
 
 			let mut inherent_data = InherentData::new();
 			inherent_data
 				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
 				.unwrap();
 
-			// We expect all backed candidates to be filtered out.
+			// We expect the unknown version candidate to be filtered out, but V2 candidates to
+			// remain. V2 is now always enabled, so V2 descriptors are valid.
 			let filtered_para_inherend_data =
 				Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
 
-			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 0);
+			assert_eq!(filtered_para_inherend_data.backed_candidates.len(), 9);
 
 			let dispatch_error = Pallet::<Test>::enter(
 				frame_system::RawOrigin::None.into(),
@@ -1798,18 +1747,192 @@ mod enter {
 		});
 	}
 
+	// Test that V3 descriptors are accepted when CandidateReceiptV3 feature is enabled
+	// and UMP signals are present (V3 requires UMP signals).
+	#[test]
+	fn v3_descriptors_are_accepted_when_enabled() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: None,
+			});
+
+			let para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			assert_eq!(para_inherent_data.backed_candidates.len(), 3);
+
+			// Verify all candidates have V3 descriptors (version=1)
+			for candidate in &para_inherent_data.backed_candidates {
+				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+			}
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// V3 candidates with UMP signals should be accepted (not filtered out)
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(filtered.backed_candidates.len(), 3);
+
+			// Verify the filtered candidates are still V3
+			for candidate in &filtered.backed_candidates {
+				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+			}
+		});
+	}
+
+	// Test that V3 descriptors without UMP signals are rejected.
+	// This protects old nodes from being tricked into backing invalid V3 candidates.
+	#[test]
+	fn v3_descriptors_without_ump_signals_are_rejected() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				// Remove UMP signals from one candidate to make it invalid
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 1.into() {
+						// Clear UMP signals - V3 requires them
+						candidate.commitments.upward_messages.clear();
+					}
+					candidate
+				}),
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 3);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// The candidate without UMP signals should be filtered out
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(filtered.backed_candidates.len(), 2);
+
+			// Entering with unfiltered data should fail
+			let dispatch_error =
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), para_inherent_data)
+					.unwrap_err()
+					.error;
+
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	// Test that V3 descriptors with UMP signals are rejected when CandidateReceiptV3 is NOT
+	// enabled. When v3_enabled=false, V3 descriptors (with non-zero scheduling_parent) are
+	// detected as V1. Since V1 forbids UMP signals and V3 requires them, valid V3 candidates are
+	// rejected as invalid V1 (UMPSignalWithV1Descriptor). This protects old nodes from slashing.
+	#[test]
+	fn v3_descriptors_rejected_as_v1_when_disabled() {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			// Only enable V2, NOT V3
+			// V3 is NOT enabled - runtime will see V3 descriptors as V1
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: None,
+			});
+
+			let para_inherent_data = scenario.data.clone();
+			assert_eq!(para_inherent_data.backed_candidates.len(), 3);
+
+			// Verify descriptor version detection behavior
+			for candidate in &para_inherent_data.backed_candidates {
+				// With v3_enabled=true, we correctly see V3
+				assert_eq!(candidate.descriptor().version(true), CandidateDescriptorVersion::V3);
+				// With v3_enabled=false, V3 (non-zero scheduling_parent) is detected as V1
+				assert_eq!(candidate.descriptor().version(false), CandidateDescriptorVersion::V1);
+			}
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &para_inherent_data)
+				.unwrap();
+
+			// All candidates filtered: detected as V1 but have UMP signals
+			// (UMPSignalWithV1Descriptor)
+			let filtered = Pallet::<Test>::create_inherent_inner(&inherent_data).unwrap();
+			assert_eq!(filtered.backed_candidates.len(), 0);
+
+			// Entering with unfiltered data should fail
+			let dispatch_error =
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), para_inherent_data)
+					.unwrap_err()
+					.error;
+
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
 	#[test]
 	fn too_many_ump_signals() {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
 			// Set the v2 receipts feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1826,7 +1949,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: None,
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 2.into() {
@@ -1874,12 +1997,6 @@ mod enter {
 		// Invalid core selector. Cannot decode it.
 		new_test_ext(config).execute_with(|| {
 			// Set the V2 receipts feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1894,7 +2011,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 1.into() {
@@ -1934,12 +2051,6 @@ mod enter {
 		let config = default_config();
 		new_test_ext(config).execute_with(|| {
 			// Set the V2 receipts feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
 
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
@@ -1954,7 +2065,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 1.into() {
@@ -2003,14 +2114,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2026,7 +2129,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: has_approved_peer_signal
 					.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
@@ -2051,14 +2154,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2072,7 +2167,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -2109,14 +2204,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2150,7 +2237,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: Default::default(),
 				unavailable_cores: vec![],
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(candidate_modifier),
 			});
@@ -2185,14 +2272,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2208,7 +2287,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores,
-				v2_descriptor: true,
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
 				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
@@ -2230,7 +2309,7 @@ mod enter {
 				descriptor: CandidateDescriptorV2::new(
 					backed_candidate.descriptor().para_id(),
 					backed_candidate.descriptor().relay_parent(),
-					backed_candidate.descriptor().core_index().unwrap(),
+					backed_candidate.descriptor().core_index(false).unwrap(),
 					100,
 					backed_candidate.descriptor().persisted_validation_data_hash(),
 					backed_candidate.descriptor().pov_hash(),
@@ -2277,14 +2356,6 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// V2 receipts are always enabled.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::CandidateReceiptV2 as u8,
-				true,
-			)
-			.unwrap();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -2298,7 +2369,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
-				v2_descriptor,
+				descriptor_version: descriptor_version(v2_descriptor),
 				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(|mut candidate| {
 					if candidate.descriptor.para_id() == ParaId::from(0) {

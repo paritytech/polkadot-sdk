@@ -448,8 +448,10 @@ pub struct Collation<BlockNumber = polkadot_primitives::BlockNumber> {
 #[derive(Debug)]
 #[cfg(not(target_os = "unknown"))]
 pub struct CollationSecondedSignal {
-	/// The hash of the relay chain block that was used as context to sign [`Self::statement`].
-	pub relay_parent: Hash,
+	/// The hash of the relay chain block used as context for scheduling/validator assignment
+	/// to sign [`Self::statement`]. For V3 this is the scheduling parent (may differ from
+	/// the candidate's relay_parent). For V1/V2 this equals the relay_parent.
+	pub scheduling_parent: Hash,
 	/// The statement about seconding the collation.
 	///
 	/// Anything else than [`Statement::Seconded`] is forbidden here.
@@ -536,6 +538,10 @@ pub struct SubmitCollationParams {
 	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
 	/// The core index on which the resulting candidate should be backed
 	pub core_index: CoreIndex,
+	/// The scheduling parent for V3 candidate descriptors.
+	/// If set, the candidate descriptor will use this as the scheduling parent
+	/// (creating a V3 descriptor). If None, relay_parent is used (V2 descriptor).
+	pub scheduling_parent: Option<Hash>,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.
