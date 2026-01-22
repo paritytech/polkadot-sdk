@@ -83,7 +83,10 @@ impl StorageCmd {
 		info!("Preparing keys from block {}", best_hash);
 		// Load KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
-			let start_at = self.params.random_seed.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
+			let start_at = self
+				.params
+				.random_seed
+				.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
 			let mut iter_args = sp_state_machine::IterArgs::default();
 			iter_args.start_at = start_at.as_deref();
 			trie.pairs(iter_args)?.take(keys_limit).collect()
