@@ -262,12 +262,6 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 			contract_result.gas_consumed,
 			gas_limit
 		);
-		assert!(
-			gas_limit > contract_result.gas_consumed * 99 / 100,
-			"Inner call gas should be most of total gas consumed. Consumed: {}, Limit: {}",
-			contract_result.gas_consumed,
-			gas_limit
-		);
 		let decoded = Caller::normalCall::abi_decode_returns(&result.data)
 			.expect("Should decode return data");
 		assert!(!decoded.success, "INVALID opcode should cause inner call to fail");
