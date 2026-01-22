@@ -366,7 +366,13 @@ Imagine a provider who technically kept the data but was slow, unresponsive, or 
 
 **Why would anyone burn?**
 
-They've already lost the money either way—paying or burning, funds leave their account. The choice is: reward the provider, or punish them. For genuinely bad service, punishment is rational—it warns future clients and may improve the ecosystem.
+Burning costs *more* than paying. When burning, the client loses the locked payment AND pays an additional premium (governance-configurable, e.g., 10%) from their account. This premium is deducted at burn time—if the client lacks sufficient funds, the burn fails and they must pay instead.
+
+This design has several important properties:
+- **Anti-griefing**: Spite burns cost the client extra, not just the provider
+- **Anti-blackmail**: "Refund me or I burn" now costs the blackmailer—they can't credibly threaten without losing money themselves
+- **Credible signal**: A burn means the client was so dissatisfied they paid extra to punish. This makes burns rare but meaningful.
+- **Natural cooling off**: An angry client without liquid funds can't burn impulsively—they're forced to pay, which may be the right outcome anyway
 
 ### Freeloading Prevention
 

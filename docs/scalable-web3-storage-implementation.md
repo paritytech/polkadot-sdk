@@ -74,7 +74,7 @@ Once accepted, agreements are binding for both parties until expiry:
 - **No early exit for providers**: Providers cannot voluntarily leave. They committed to store data for the agreed duration.
 - **No early cancellation for clients**: Clients cannot cancel and reclaim locked payment. They committed to pay for the agreed duration.
 - **Provider's protection**: Before accepting, providers can set `max_duration` and review the terms. They can also block future extensions via `set_extensions_blocked`.
-- **Client's protection**: Clients can challenge if provider loses data (slashing). At settlement, clients can burn payment to signal poor service.
+- **Client's protection**: Clients can challenge if provider loses data (slashing). At settlement, clients can burn payment to signal poor service (burns cost an additional premium, making them a credible but costly signal).
 
 **Agreement expiry:**
 
@@ -1210,8 +1210,10 @@ impl<T: Config> Pallet<T> {
 pub enum EndAction {
     /// Pay provider in full
     Pay,
-    /// Burn portion, pay rest (0-100%)
-    Burn { burn_percent: u8 },
+    /// Burn locked payment entirely. 
+    /// Additionally deducts `T::BurnPremium` (e.g., 10%) from caller's free balance.
+    /// Fails if caller has insufficient funds for the premium.
+    Burn,
 }
 
 pub enum RemovalReason {
