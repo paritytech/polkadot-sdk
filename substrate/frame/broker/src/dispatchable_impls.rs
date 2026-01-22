@@ -623,7 +623,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -> DispatchResult {
 		let renewal_id = PotentialRenewalId { core, when };
 
-		let _ = PotentialRenewals::<T>::take(renewal_id).ok_or(Error::<T>::UnknownRenewal)?;
+		PotentialRenewals::<T>::take(renewal_id).ok_or(Error::<T>::UnknownRenewal)?;
 
 		Self::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
 
