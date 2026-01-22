@@ -85,7 +85,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill, Permill, RuntimeDebug,
+	ApplyExtrinsicResult, Debug, Perbill, Permill,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -638,7 +638,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -1196,6 +1196,9 @@ construct_runtime!(
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
 
+		// Dynamic Allocation Pool / Issuance buffer
+		Dap: pallet_dap = 98,
+
 		// Balances.
 		Vesting: pallet_vesting = 100,
 
@@ -1240,6 +1243,7 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+	pallet_dap::migrations::v1::InitBufferAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -1464,8 +1468,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -1870,7 +1874,15 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+					fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+
+				}
+			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((

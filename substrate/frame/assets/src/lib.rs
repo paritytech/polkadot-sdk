@@ -1876,11 +1876,11 @@ pub mod pallet {
 		///
 		/// Emits `AssetMinBalanceChanged` event when successful.
 		#[pallet::call_index(33)]
-		#[pallet::weight(T::WeightInfo::set_reserves())]
+		#[pallet::weight(T::WeightInfo::set_reserves(reserves.len() as u32))]
 		pub fn set_reserves(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			reserves: Vec<T::ReserveData>,
+			reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let origin = ensure_signed(origin.clone())
@@ -2028,7 +2028,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			);
 
 			let calculated_approvals = Approvals::<T, I>::iter_prefix((&asset_id,)).count() as u32;
-			ensure!(details.approvals == calculated_approvals, "Asset approvals count mismatch");
+
+			if details.approvals != calculated_approvals {
+				log::error!(
+					"Asset {asset_id:?} approvals count mismatch: calculated {calculated_approvals} vs expected {}",
+					details.approvals,
+				);
+
+				return Err("Asset approvals count mismatch".into())
+			}
 		}
 		Ok(())
 	}
