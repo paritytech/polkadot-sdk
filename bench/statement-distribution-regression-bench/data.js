@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769038387466,
+  "lastUpdate": 1769094642970,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "32168055+antkve@users.noreply.github.com",
-            "name": "Anthony Kveder",
-            "username": "antkve"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "7d875655ea38b734d6f1a3a79aef227e846f227c",
-          "message": "Fix bridge tests (#8900)\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/8800\n\n# Description\nFixing bridges integration tests by setting up pool\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2025-06-19T08:01:30Z",
-          "tree_id": "c6e34fd12d4d4103f3b1939a1c19acfc7ca43cbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d875655ea38b734d6f1a3a79aef227e846f227c"
-        },
-        "date": 1750323754491,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.97799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034169558732000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044778960367999956,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06563554588799994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2eb43506e24f8d19028b0d928c3039d2830e7572",
+          "message": "[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address` precompiles (#10861)\n\nI couldn't see where the weight is charged in those builtin pre-compiles\nand a quick test indicated that there's no charges implemented. Assuming\nthose are compute-heavy functions, the missing weight charges seem like\na serious DoS vector.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-22T13:58:11Z",
+          "tree_id": "d648dc0c502a8f294882daa049dea09aaded03a3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2eb43506e24f8d19028b0d928c3039d2830e7572"
+        },
+        "date": 1769094619241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.02200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06381491746599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038249218589999995,
             "unit": "seconds"
           }
         ]
