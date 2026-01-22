@@ -17,58 +17,22 @@
 
 //! *BLS12-381* types and host functions.
 
-use crate::utils;
+use crate::{define_pairing_types, utils};
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
-use ark_ec::{pairing::Pairing, CurveConfig, CurveGroup};
+use ark_ec::CurveGroup;
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
 };
 
-/// First pairing group definitions.
-pub mod g1 {
-	pub use ark_bls12_381_ext::g1::{BETA, G1_GENERATOR_X, G1_GENERATOR_Y};
-	/// Group configuration.
-	pub type G1Config = ark_bls12_381_ext::g1::Config<super::HostHooks>;
-	/// Short Weierstrass form point affine representation.
-	pub type G1Affine = ark_bls12_381_ext::g1::G1Affine<super::HostHooks>;
-	/// Short Weierstrass form point projective representation.
-	pub type G1Projective = ark_bls12_381_ext::g1::G1Projective<super::HostHooks>;
-}
-
-/// Second pairing group definitions.
-pub mod g2 {
-	pub use ark_bls12_381_ext::g2::{
-		G2_GENERATOR_X, G2_GENERATOR_X_C0, G2_GENERATOR_X_C1, G2_GENERATOR_Y, G2_GENERATOR_Y_C0,
-		G2_GENERATOR_Y_C1,
-	};
-	/// Group configuration.
-	pub type G2Config = ark_bls12_381_ext::g2::Config<super::HostHooks>;
-	/// Short Weierstrass form point affine representation.
-	pub type G2Affine = ark_bls12_381_ext::g2::G2Affine<super::HostHooks>;
-	/// Short Weierstrass form point projective representation.
-	pub type G2Projective = ark_bls12_381_ext::g2::G2Projective<super::HostHooks>;
-}
-
-pub use self::{
-	g1::{G1Affine, G1Config, G1Projective},
-	g2::{G2Affine, G2Config, G2Projective},
-};
-
 /// Configuration for *BLS12-381* curve.
 pub type Config = ark_bls12_381_ext::Config<HostHooks>;
 
-/// *BLS12-381* definition.
-///
-/// A generic *BLS12* model specialized with *BLS12-381* configuration.
+/// *BLS12-381* pairing friendly curve.
 pub type Bls12_381 = ark_bls12_381_ext::Bls12_381<HostHooks>;
 
-/// G1 and G2 scalar field (Fr).
-pub type ScalarField = <G1Config as CurveConfig>::ScalarField;
-
-/// Bls12-381 pairing target field.
-pub type TargetField = <Bls12_381 as Pairing>::TargetField;
+define_pairing_types!(ark_bls12_381_ext::Bls12_381<HostHooks>);
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
@@ -76,9 +40,9 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn multi_miller_loop(
-		g1: impl Iterator<Item = <Bls12_381 as Pairing>::G1Prepared>,
-		g2: impl Iterator<Item = <Bls12_381 as Pairing>::G2Prepared>,
-	) -> <Bls12_381 as Pairing>::TargetField {
+		g1: impl Iterator<Item = G1Prepared>,
+		g2: impl Iterator<Item = G2Prepared>,
+	) -> TargetField {
 		host_calls::bls12_381_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
 			.and_then(|res| utils::decode(res))
 			.unwrap_or_default()
@@ -209,40 +173,7 @@ pub trait HostCalls {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use ark_ec::{AffineRepr, VariableBaseMSM};
-	use ark_ff::PrimeField;
-	use ark_std::{test_rng, UniformRand};
-
-	fn msm_args<P: AffineRepr>(count: usize) -> (Vec<P>, Vec<P::ScalarField>) {
-		let mut rng = test_rng();
-		(0..count).map(|_| (P::rand(&mut rng), P::ScalarField::rand(&mut rng))).unzip()
-	}
-
-	fn mul_args<P: AffineRepr>() -> (P, P::ScalarField) {
-		let (p, s) = msm_args::<P>(1);
-		(p[0], s[0])
-	}
-
-	fn mul<
-		SubAffine: AffineRepr<ScalarField = ScalarField>,
-		ArkAffine: AffineRepr<ScalarField = ScalarField>,
-	>()
-	where
-		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
-	{
-		let (p, s) = mul_args::<SubAffine>();
-
-		// This goes implicitly through the hostcall
-		let r1 = (p * s).into_affine();
-
-		// This directly calls into arkworks
-		let p_enc = utils::encode(p);
-		let s_enc = utils::encode(s.into_bigint().as_ref());
-		let r2_enc = utils::mul_affine_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
-		let r2 = utils::decode::<SubAffine>(r2_enc).unwrap();
-
-		assert_eq!(r1, r2);
-	}
+	use crate::utils::testing::*;
 
 	#[test]
 	fn mul_works_g1() {
@@ -252,27 +183,6 @@ mod tests {
 	#[test]
 	fn mul_works_g2() {
 		mul::<G2Affine, ark_bls12_381::G2Affine>();
-	}
-
-	fn msm<
-		SubAffine: AffineRepr<ScalarField = ScalarField>,
-		ArkAffine: AffineRepr<ScalarField = ScalarField>,
-	>()
-	where
-		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
-	{
-		let (bases, scalars) = msm_args::<SubAffine>(10);
-
-		// This goes implicitly through the hostcall
-		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
-
-		// This directly calls into arkworks
-		let bases_enc = utils::encode(&bases[..]);
-		let scalars_enc = utils::encode(&scalars[..]);
-		let r2_enc = utils::msm_sw::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
-		let r2 = utils::decode::<SubAffine>(r2_enc).unwrap();
-
-		assert_eq!(r1, r2);
 	}
 
 	#[test]

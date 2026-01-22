@@ -40,6 +40,29 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
 
+/// Define pairing related types
+#[macro_export]
+macro_rules! define_pairing_types {
+	($curve:ty) => {
+		/// An element in G1 (affine).
+		pub type G1Affine = <$curve as ark_ec::pairing::Pairing>::G1Affine;
+		/// An element in G1 (projective).
+		pub type G1Projective = <$curve as ark_ec::pairing::Pairing>::G1;
+		/// An element in G2 (affine).
+		pub type G2Affine = <$curve as ark_ec::pairing::Pairing>::G2Affine;
+		/// An element in G2 (projective).
+		pub type G2Projective = <$curve as ark_ec::pairing::Pairing>::G2;
+		/// G1 and G2 scalar field (Fr).
+		pub type ScalarField = <$curve as ark_ec::pairing::Pairing>::ScalarField;
+		/// Pairing target field.
+		pub type TargetField = <$curve as ark_ec::pairing::Pairing>::TargetField;
+		/// An element in G1 preprocessed for pairing.
+		pub type G1Prepared = <$curve as ark_ec::pairing::Pairing>::G1Prepared;
+		/// An element in G2 preprocessed for pairing.
+		pub type G2Prepared = <$curve as ark_ec::pairing::Pairing>::G2Prepared;
+	};
+}
+
 #[inline(always)]
 #[allow(unused)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
@@ -129,4 +152,60 @@ pub fn mul_affine_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
 	Ok(encode::<TEAffine<T>>(res))
+}
+
+#[cfg(test)]
+pub mod testing {
+	use super::*;
+	use ark_ec::{AffineRepr, VariableBaseMSM};
+	use ark_ff::PrimeField;
+	use ark_std::{test_rng, UniformRand};
+
+	pub fn msm_args<P: AffineRepr>(count: usize) -> (Vec<P>, Vec<P::ScalarField>) {
+		let mut rng = test_rng();
+		(0..count).map(|_| (P::rand(&mut rng), P::ScalarField::rand(&mut rng))).unzip()
+	}
+
+	pub fn mul_args<P: AffineRepr>() -> (P, P::ScalarField) {
+		let (p, s) = msm_args::<P>(1);
+		(p[0], s[0])
+	}
+
+	pub fn mul<SubAffine: AffineRepr, ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>>()
+	where
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let (p, s) = mul_args::<SubAffine>();
+
+		// This goes implicitly through the hostcall
+		let r1 = (p * s).into_affine();
+
+		// This directly calls into arkworks
+		let p_enc = encode(p);
+		let s_enc = encode(s.into_bigint().as_ref());
+		let r2_enc = mul_affine_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
+		let r2 = decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn msm<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let (bases, scalars) = msm_args::<SubAffine>(10);
+
+		// This goes implicitly through the hostcall
+		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
+
+		// This directly calls into arkworks
+		let bases_enc = encode(&bases[..]);
+		let scalars_enc = encode(&scalars[..]);
+		let r2_enc = msm_sw::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
+		let r2 = decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
 }

@@ -2,7 +2,8 @@ title: Change EC Hostcalls to use Affine representation
 doc:
 - audience: Runtime Dev
   description: |-
-	Replace point arguments from projective to affine representation.  
+	Replace point arguments from projective to affine representation for
+	BLS12-381, BLS12-377, and BW6-761 curves.
 	The affine representation of a point (i.e., `(x, y)`) is the standard way
 	to encode EC points and is therefore more portable. Additionally, it avoids
 	systematic divisions in the runtime for returned arguments.
