@@ -1,1 +1,33 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+- pallet-revive-proc-macro@0.7.1
+- sc-network-types@0.20.1
+- pallet-revive-uapi@0.10.1
+- pallet-revive-fixtures@0.9.1
+- sp-staking@42.1.0
+- frame-support@45.1.0
+- substrate-wasm-builder@31.1.0
+- frame-benchmarking@45.0.1
+- frame-executive@45.0.1
+- sc-network@0.55.1
+- sc-transaction-pool@44.1.0
+- pallet-assets@48.1.0
+- pallet-broker@0.24.1
+- pallet-dap@0.1.1
+- pallet-multi-asset-bounties@0.2.1
+- pallet-asset-conversion-tx-payment@27.0.1
+- pallet-nomination-pools@43.0.1
+- pallet-revive@0.12.2
+- pallet-staking-async@0.9.0
+- pallet-assets-precompiles@0.4.1
+- pallet-contracts@45.0.1
+- pallet-xcm-precompiles@0.3.1
+- parachains-common@27.1.0
+- westend-runtime@30.1.0
+- assets-common@0.27.1
+- asset-test-utils@29.0.1
+- penpal-runtime@0.35.1
+- asset-hub-rococo-runtime@0.31.1
+- asset-hub-westend-runtime@0.40.0
+- emulated-integration-tests-common@27.0.1
+- polkadot-sdk@2512.1.0

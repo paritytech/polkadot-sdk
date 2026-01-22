@@ -1,6 +1,6 @@
 [package]
 name = "sc-transaction-pool"
-version = "44.0.0"
+version = "44.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -62,7 +62,7 @@ anyhow = { workspace = true }
 assert_matches = { workspace = true }
 chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
-cumulus-zombienet-sdk-helpers = { workspace = true, default-features = false }
+cumulus-zombienet-sdk-helpers = { default-features = false, workspace = true }
 env_logger = { workspace = true }
 rstest = { workspace = true }
 sc-block-builder = { default-features = true, workspace = true }

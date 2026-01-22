@@ -7,7 +7,7 @@ doc:
 
 crates:
 - name: pallet-multi-asset-bounties
-  bump: major
+  bump: minor
   validate: false
 - name: parachains-common
   bump: minor

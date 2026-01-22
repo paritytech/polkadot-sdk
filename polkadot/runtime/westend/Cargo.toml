@@ -1,7 +1,7 @@
 [package]
 name = "westend-runtime"
 build = "build.rs"
-version = "30.0.0"
+version = "30.1.0"
 description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
@@ -119,7 +119,7 @@ approx = { workspace = true }
 remote-externalities = { default-features = true, workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-keyring = { default-features = true, workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]

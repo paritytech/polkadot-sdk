@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "27.0.0"
+version = "27.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
