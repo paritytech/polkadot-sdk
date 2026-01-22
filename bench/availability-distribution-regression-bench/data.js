@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769038322456,
+  "lastUpdate": 1769094576846,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "40a005033bc1b67344cc4ac5e594956b583780f3",
-          "message": "More deterministic check for polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl (#8921)\n\n`polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl`\nis flaky on CI. I suspect the reason for this is session changes\nhappening during the measurement step. To make this more predictable\nI've modified the checker to wait for a session change before counting\nthe `CandidateIncluded` events. Hopefully this will stabilize the test\non CI too.",
-          "timestamp": "2025-06-20T14:29:07Z",
-          "tree_id": "7eb5a00ab10abc5e6c965b171a4effeba046b8bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/40a005033bc1b67344cc4ac5e594956b583780f3"
-        },
-        "date": 1750433993394,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15552982094666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00878678780666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012887846953333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022311202659999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009633291793333318,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2eb43506e24f8d19028b0d928c3039d2830e7572",
+          "message": "[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address` precompiles (#10861)\n\nI couldn't see where the weight is charged in those builtin pre-compiles\nand a quick test indicated that there's no charges implemented. Assuming\nthose are compute-heavy functions, the missing weight charges seem like\na serious DoS vector.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-22T13:58:11Z",
+          "tree_id": "d648dc0c502a8f294882daa049dea09aaded03a3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2eb43506e24f8d19028b0d928c3039d2830e7572"
+        },
+        "date": 1769094552441,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009628297399999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14494717981333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023012099893333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0069972292933333305,
             "unit": "seconds"
           }
         ]
