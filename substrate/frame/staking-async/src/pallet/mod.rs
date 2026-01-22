@@ -1039,12 +1039,13 @@ pub mod pallet {
 				}
 			}
 
-			// all voters are reported to the `VoterList`.
-			assert_eq!(
-				T::VoterList::count(),
-				Nominators::<T>::count() + Validators::<T>::count(),
-				"not all genesis stakers were inserted into sorted list provider, something is wrong."
-			);
+			// Due to `PendingRebag`, the bags-list may temporarily lag behind the true
+			// voter set in `pallet-staking`, making such an assertion invalid.
+			// assert_eq!(
+			// 	T::VoterList::count(),
+			// 	Nominators::<T>::count() + Validators::<T>::count(),
+			// 	"not all genesis stakers were inserted into sorted list provider, something is
+			// wrong." );
 
 			// now generate the dev stakers, after all else is setup
 			if let Some((validators, nominators)) = self.dev_stakers {
