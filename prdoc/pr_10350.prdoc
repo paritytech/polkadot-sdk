@@ -1,0 +1,9 @@
+title: Add Preimage precompile
+doc:
+- audience: Runtime Dev
+  description: Implements precompiles for `pallet-preimage`.
+crates:
+- name: pallet-preimage-precompiles
+  bump: major
+- name: polkadot-sdk
+  bump: major
