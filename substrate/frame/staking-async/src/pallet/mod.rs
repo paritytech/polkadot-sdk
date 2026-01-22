@@ -1039,13 +1039,15 @@ pub mod pallet {
 				}
 			}
 
-			// Due to `PendingRebag`, the bags-list may temporarily lag behind the true
-			// voter set in `pallet-staking`, making such an assertion invalid.
-			// assert_eq!(
-			// 	T::VoterList::count(),
-			// 	Nominators::<T>::count() + Validators::<T>::count(),
-			// 	"not all genesis stakers were inserted into sorted list provider, something is
-			// wrong." );
+			// When the bags list is locked, nominators and validators may be temporarily
+			// missing from the voter set. `PendingRebag` will later reconcile the mismatch.
+			crate::log!(
+				debug,
+				"VoterList count: {}, Nominators count: {}, Validators count: {}",
+				T::VoterList::count(),
+				Nominators::<T>::count(),
+				Validators::<T>::count()
+			);
 
 			// now generate the dev stakers, after all else is setup
 			if let Some((validators, nominators)) = self.dev_stakers {
