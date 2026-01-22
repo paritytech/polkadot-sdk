@@ -17,7 +17,7 @@
 
 //! *BLS12-381* types and host functions.
 
-use crate::{define_pairing_types, utils};
+use crate::{pairing_types, utils};
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::CurveGroup;
@@ -32,7 +32,7 @@ pub type Config = ark_bls12_381_ext::Config<HostHooks>;
 /// *BLS12-381* pairing friendly curve.
 pub type Bls12_381 = ark_bls12_381_ext::Bls12_381<HostHooks>;
 
-define_pairing_types!(ark_bls12_381_ext::Bls12_381<HostHooks>);
+pairing_types!(ark_bls12_381_ext::Bls12_381<HostHooks>);
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]

@@ -17,7 +17,7 @@
 
 //! *BW6-761* types and host functions.
 
-use crate::{define_pairing_types, utils};
+use crate::{pairing_types, utils};
 use alloc::vec::Vec;
 use ark_bw6_761_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveGroup};
@@ -32,7 +32,7 @@ pub type Config = ark_bw6_761_ext::Config<HostHooks>;
 /// *BW6-761* pairing friendly curve.
 pub type BW6_761 = ark_bw6_761_ext::BW6_761<HostHooks>;
 
-define_pairing_types!(BW6_761);
+pairing_types!(BW6_761);
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]

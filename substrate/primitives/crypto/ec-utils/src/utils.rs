@@ -42,7 +42,7 @@ pub type BigInteger = Vec<u64>;
 
 /// Define pairing related types
 #[macro_export]
-macro_rules! define_pairing_types {
+macro_rules! pairing_types {
 	($curve:ty) => {
 		/// An element in G1 (affine).
 		pub type G1Affine = <$curve as ark_ec::pairing::Pairing>::G1Affine;

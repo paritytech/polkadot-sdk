@@ -33,12 +33,14 @@ pub struct HostHooks;
 
 /// Group configuration.
 pub type BandersnatchConfig = ark_ed_on_bls12_381_bandersnatch_ext::BandersnatchConfig<HostHooks>;
+
 /// Group configuration for Twisted Edwards form (equal to [`BandersnatchConfig`]).
 pub type EdwardsConfig = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsConfig<HostHooks>;
 /// Twisted Edwards form point affine representation.
 pub type EdwardsAffine = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsAffine<HostHooks>;
 /// Twisted Edwards form point projective representation.
 pub type EdwardsProjective = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsProjective<HostHooks>;
+
 /// Group configuration for Short Weierstrass form (equal to [`BandersnatchConfig`]).
 pub type SWConfig = ark_ed_on_bls12_381_bandersnatch_ext::SWConfig<HostHooks>;
 /// Short Weierstrass form point affine representation.

@@ -17,7 +17,7 @@
 
 //! *BLS12-377* types and host functions.
 
-use crate::{define_pairing_types, utils};
+use crate::utils;
 use alloc::vec::Vec;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveGroup};
@@ -32,7 +32,29 @@ pub type Config = ark_bls12_377_ext::Config<HostHooks>;
 /// *BLS12-377* pairing friendly curve.
 pub type Bls12_377 = ark_bls12_377_ext::Bls12_377<HostHooks>;
 
-define_pairing_types!(Bls12_377);
+/// G1 and G2 scalar field (Fr).
+pub type ScalarField = <Bls12_377 as Pairing>::ScalarField;
+
+/// G1 group configuration.
+pub type G1Config = ark_bls12_377_ext::g1::Config<HostHooks>;
+/// An element in G1 (affine).
+pub type G1Affine = ark_bls12_377_ext::g1::G1Affine<HostHooks>;
+/// An element in G1 (projective).
+pub type G1Projective = ark_bls12_377_ext::g1::G1Projective<HostHooks>;
+
+/// G2 group configuration.
+pub type G2Config = ark_bls12_377_ext::g2::Config<HostHooks>;
+/// An element in G2 (affine).
+pub type G2Affine = ark_bls12_377_ext::g2::G2Affine<HostHooks>;
+/// An element in G2 (projective).
+pub type G2Projective = ark_bls12_377_ext::g2::G2Projective<HostHooks>;
+
+/// An element in G1 preprocessed for pairing.
+pub type G1Prepared = <Bls12_377 as Pairing>::G1Prepared;
+/// An element in G2 preprocessed for pairing.
+pub type G2Prepared = <Bls12_377 as Pairing>::G2Prepared;
+/// Pairing target field.
+pub type TargetField = <Bls12_377 as Pairing>::TargetField;
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
@@ -40,9 +62,9 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn multi_miller_loop(
-		g1: impl Iterator<Item = <Bls12_377 as Pairing>::G1Prepared>,
-		g2: impl Iterator<Item = <Bls12_377 as Pairing>::G2Prepared>,
-	) -> <Bls12_377 as Pairing>::TargetField {
+		g1: impl Iterator<Item = G1Prepared>,
+		g2: impl Iterator<Item = G2Prepared>,
+	) -> TargetField {
 		host_calls::bls12_377_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
 			.and_then(|res| utils::decode(res))
 			.unwrap_or_default()
