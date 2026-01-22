@@ -35,6 +35,9 @@ use ark_scale::{
 	scale::{Decode, Encode},
 };
 
+/// Unexpected failure message.
+pub const FAIL_MSG: &str = "Unexpected failure, bad arguments, broken host/runtime contract; qed";
+
 // SCALE encoding parameters shared by all the enabled modules
 const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
 type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
@@ -149,6 +152,11 @@ pub mod testing {
 		(p[0], s[0])
 	}
 
+	fn pairing_args<E: Pairing>() -> (E::G1Affine, E::G2Affine) {
+		let mut rng = test_rng();
+		(E::G1Affine::rand(&mut rng), E::G2Affine::rand(&mut rng))
+	}
+
 	pub fn mul_test<SubAffine, ArkAffine>()
 	where
 		SubAffine: AffineRepr,
@@ -234,25 +242,15 @@ pub mod testing {
 		SubPairing: Pairing,
 		ArkPairing: Pairing,
 	{
-		use crate::utils::encode;
-
-		let mut rng = test_rng();
-		let a = <SubPairing as Pairing>::ScalarField::rand(&mut rng);
-		let b = <SubPairing as Pairing>::ScalarField::rand(&mut rng);
-
-		let g1 = <SubPairing as Pairing>::G1Affine::generator();
-		let g2 = <SubPairing as Pairing>::G2Affine::generator();
-
-		let g1_a = (g1 * a).into_affine();
-		let g2_b = (g2 * b).into_affine();
+		let (g1, g2) = pairing_args::<SubPairing>();
 
 		// This goes implicitly through the `multi_miller_loop` and `final_exponentiation` hostcalls
-		let r1 = SubPairing::pairing(g1_a, g2_b).0;
+		let r1 = SubPairing::pairing(g1, g2).0;
 
 		// Pairing via direct arkworks calls
-		let g1_a_enc = encode(vec![g1_a]);
-		let g2_b_enc = encode(vec![g2_b]);
-		let r2_enc = multi_miller_loop::<ArkPairing>(g1_a_enc, g2_b_enc).unwrap();
+		let g1_enc = encode(vec![g1]);
+		let g2_enc = encode(vec![g2]);
+		let r2_enc = multi_miller_loop::<ArkPairing>(g1_enc, g2_enc).unwrap();
 		let r2_enc = final_exponentiation::<ArkPairing>(r2_enc).unwrap();
 		let r2 = decode::<<SubPairing as Pairing>::TargetField>(r2_enc).unwrap();
 

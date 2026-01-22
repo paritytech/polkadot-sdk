@@ -17,7 +17,7 @@
 
 //! *BW6-761* types and host functions.
 
-use crate::utils;
+use crate::utils::{self, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_bw6_761_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
@@ -67,40 +67,40 @@ impl CurveHooks for HostHooks {
 	) -> TargetField {
 		host_calls::bw6_761_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
 			.and_then(|res| utils::decode::<TargetField>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 	}
 
 	fn final_exponentiation(target: TargetField) -> TargetField {
 		host_calls::bw6_761_final_exponentiation(utils::encode(target))
 			.and_then(|res| utils::decode::<TargetField>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 	}
 
 	fn msm_g1(bases: &[G1Affine], scalars: &[ScalarField]) -> G1Projective {
 		host_calls::bw6_761_msm_g1(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<G1Affine>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn msm_g2(bases: &[G2Affine], scalars: &[ScalarField]) -> G2Projective {
 		host_calls::bw6_761_msm_g2(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<G2Affine>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
 		host_calls::bw6_761_mul_affine_g1(utils::encode(base.into_affine()), utils::encode(scalar))
 			.and_then(|res| utils::decode::<G1Affine>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
 		host_calls::bw6_761_mul_affine_g2(utils::encode(base.into_affine()), utils::encode(scalar))
 			.and_then(|res| utils::decode::<G2Affine>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 			.into_group()
 	}
 }

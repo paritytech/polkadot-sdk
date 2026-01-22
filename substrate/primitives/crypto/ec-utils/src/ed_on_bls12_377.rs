@@ -17,7 +17,7 @@
 
 //! *Ed-on-BLS12-377* types and host functions.
 
-use crate::utils;
+use crate::utils::{self, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig, CurveGroup};
 use ark_ed_on_bls12_377_ext::CurveHooks;
@@ -44,7 +44,7 @@ impl CurveHooks for HostHooks {
 	fn msm(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
 		host_calls::ed_on_bls12_377_te_msm(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<EdwardsAffine>(res))
-			.unwrap_or_default()
+			.expect(FAIL_MSG)
 			.into_group()
 	}
 
@@ -54,7 +54,7 @@ impl CurveHooks for HostHooks {
 			utils::encode(scalar),
 		)
 		.and_then(|res| utils::decode::<EdwardsAffine>(res))
-		.unwrap_or_default()
+		.expect(FAIL_MSG)
 		.into_group()
 	}
 }

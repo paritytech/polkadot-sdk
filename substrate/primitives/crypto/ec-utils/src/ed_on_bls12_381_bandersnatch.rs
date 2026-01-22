@@ -17,7 +17,7 @@
 
 //! *Ed-on-BLS12-381-Bandersnatch* types and host functions.
 
-use crate::utils;
+use crate::utils::{self, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig, CurveGroup};
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
@@ -57,7 +57,7 @@ impl CurveHooks for HostHooks {
 			utils::encode(scalars),
 		)
 		.and_then(|res| utils::decode::<EdwardsAffine>(res))
-		.unwrap_or_default()
+		.expect(FAIL_MSG)
 		.into_group()
 	}
 
@@ -67,7 +67,7 @@ impl CurveHooks for HostHooks {
 			utils::encode(scalar),
 		)
 		.and_then(|res| utils::decode::<EdwardsAffine>(res))
-		.unwrap_or_default()
+		.expect(FAIL_MSG)
 		.into_group()
 	}
 
@@ -77,7 +77,7 @@ impl CurveHooks for HostHooks {
 			utils::encode(scalars),
 		)
 		.and_then(|res| utils::decode::<SWAffine>(res))
-		.unwrap_or_default()
+		.expect(FAIL_MSG)
 		.into_group()
 	}
 
@@ -87,7 +87,7 @@ impl CurveHooks for HostHooks {
 			utils::encode(scalar),
 		)
 		.and_then(|res| utils::decode::<SWAffine>(res))
-		.unwrap_or_default()
+		.expect(FAIL_MSG)
 		.into_group()
 	}
 }
