@@ -17,7 +17,7 @@ The following crates were updated to the corresponding versions:
 - pallet-multi-asset-bounties@0.2.1
 - pallet-asset-conversion-tx-payment@27.0.1
 - pallet-nomination-pools@43.0.1
-- pallet-revive@0.12.1
+- pallet-revive@0.12.2
 - pallet-staking-async@0.9.0
 - pallet-assets-precompiles@0.4.1
 - pallet-contracts@45.0.1
