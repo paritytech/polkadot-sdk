@@ -84,6 +84,8 @@
 //! This means:
 //! - Tasks cannot be scheduled with finer granularity than the bucket resolution.
 //! - Periodic durations must be at least one bucket (`>= BucketResolution`).
+//! - Retry durations follow the same rules. If `try_same_bucket_first` is enabled,
+//!   retries first attempt the current bucket before advancing by the retry duration.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -572,6 +574,9 @@ pub mod pallet {
 		/// Set a retry configuration for a task. On failure, retries up to `retries` times
 		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
 		///
+		/// If `try_same_bucket_first` is true, retries first attempt the current bucket before
+		/// falling back to `duration` buckets ahead.
+		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
@@ -622,6 +627,9 @@ pub mod pallet {
 
 		/// Set a retry configuration for a named task. On failure, retries up to `retries` times
 		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
+		///
+		/// If `try_same_bucket_first` is true, retries first attempt the current bucket before
+		/// falling back to `duration` buckets ahead.
 		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
