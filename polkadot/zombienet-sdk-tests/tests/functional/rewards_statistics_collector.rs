@@ -4,7 +4,6 @@
 // Test that nodes fetch availability chunks early for scheduled cores and normally for occupied
 // core.
 
-use std::collections::HashMap;
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, report_label_with_attributes,
@@ -12,7 +11,7 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::{Id as ParaId, SessionIndex};
 use serde_json::json;
-use std::ops::Range;
+use std::{collections::HashMap, ops::Range};
 use subxt::{blocks::Block, OnlineClient, PolkadotConfig};
 use zombienet_orchestrator::network::{node::NetworkNode, Network};
 use zombienet_sdk::{LocalFileSystem, NetworkConfigBuilder};

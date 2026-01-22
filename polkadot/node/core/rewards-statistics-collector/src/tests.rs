@@ -85,7 +85,8 @@ async fn finalize_block(
 		)))
 		.await;
 
-	let expected_amt_request_blocks = fin_block_number.saturating_sub(latest_finalized_block_number) as usize;
+	let expected_amt_request_blocks =
+		fin_block_number.saturating_sub(latest_finalized_block_number) as usize;
 
 	assert_matches!(
 		virtual_overseer.recv().await,

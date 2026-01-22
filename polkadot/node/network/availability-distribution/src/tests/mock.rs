@@ -18,7 +18,6 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use sp_keyring::Sr25519Keyring;
 use async_trait::async_trait;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
@@ -34,6 +33,7 @@ use polkadot_primitives_test_helpers::{
 };
 use sc_network::Multiaddr;
 use sc_network_types::PeerId;
+use sp_keyring::Sr25519Keyring;
 
 /// Create dummy session info with two validator groups.
 pub fn make_session_info() -> SessionInfo {

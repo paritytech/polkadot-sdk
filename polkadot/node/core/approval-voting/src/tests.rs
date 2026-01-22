@@ -657,10 +657,7 @@ struct ExpectApprovalsStatsCollected {
 }
 
 impl ExpectApprovalsStatsCollected {
-	fn new(
-		block_hash: Hash,
-		validators: Vec<ValidatorIndex>,
-	) -> Self {
+	fn new(block_hash: Hash, validators: Vec<ValidatorIndex>) -> Self {
 		Self { block_hash, validators, no_shows: None }
 	}
 
@@ -2561,15 +2558,9 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 			};
 
 			let expected_stats_collected = if i == 1 {
-				Some(ExpectApprovalsStatsCollected::new(
-					block_hash,
-					vec![validator1, validator2],
-				))
+				Some(ExpectApprovalsStatsCollected::new(block_hash, vec![validator1, validator2]))
 			} else if i == 3 {
-				Some(ExpectApprovalsStatsCollected::new(
-					block_hash,
-					vec![validator1, validator2],
-				))
+				Some(ExpectApprovalsStatsCollected::new(block_hash, vec![validator1, validator2]))
 			} else {
 				None
 			};
@@ -2855,10 +2846,7 @@ fn approved_ancestor_test(
 				candidate_hash,
 				i as u32 + 1,
 				true,
-				Some(ExpectApprovalsStatsCollected::new(
-					*block_hash,
-					vec![validator],
-				)),
+				Some(ExpectApprovalsStatsCollected::new(*block_hash, vec![validator])),
 				None,
 			)
 			.await;
@@ -3439,10 +3427,7 @@ where
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {
 			let expect_chain_approved = 3 * (i + 1) > n_validators;
 			let expect_approvals_stats_collected = if expect_chain_approved {
-				Some(ExpectApprovalsStatsCollected::new(
-					block_hash,
-					validators_collected.clone(),
-				))
+				Some(ExpectApprovalsStatsCollected::new(block_hash, validators_collected.clone()))
 			} else {
 				None
 			};
