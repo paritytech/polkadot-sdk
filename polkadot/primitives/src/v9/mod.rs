@@ -1835,7 +1835,7 @@ pub const CANDIDATE_DESCRIPTOR_VERSION_V2: u8 = 0;
 pub const CANDIDATE_DESCRIPTOR_VERSION_V3: u8 = 1;
 
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
 	///
 	/// with deprecated collator id and collator signature.
