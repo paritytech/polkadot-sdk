@@ -1,4 +1,4 @@
-title: '[WIP][pallet-assets] ad ForeignAssetIdExtractor to assets precompile'
+title: '[pallet-assets] add ForeignAssetIdExtractor to assets precompile'
 doc:
 - audience: Runtime Dev
   description: |-
