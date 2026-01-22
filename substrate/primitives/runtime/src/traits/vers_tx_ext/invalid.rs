@@ -63,7 +63,7 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 		_source: TransactionSource,
 	) -> Result<ValidTransaction, TransactionValidityError> {
 		// The type cannot be instantiated so this method is never called.
-		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))
+		unreachable!()
 	}
 	fn dispatch_transaction(
 		self,
@@ -73,21 +73,21 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 		_len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>> {
 		// The type cannot be instantiated so this method is never called.
-		Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)).into())
+		unreachable!()
 	}
 }
 
 impl VersTxExtLineVersion for InvalidVersion {
 	fn version(&self) -> u8 {
 		// The type cannot be instantiated so this method is never called.
-		0
+		unreachable!()
 	}
 }
 
 impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
 	fn weight(&self, _call: &Call) -> Weight {
 		// The type cannot be instantiated so this method is never called.
-		Weight::zero()
+		unreachable!()
 	}
 }
 
