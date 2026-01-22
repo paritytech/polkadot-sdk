@@ -131,7 +131,7 @@ where
 					deposit_limit: StorageDepositLimit::get(),
 				},
 				data,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = weight_limit.saturating_sub(weight_consumed);
