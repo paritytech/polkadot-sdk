@@ -22,9 +22,9 @@ use crate::{
 	generic::ExtensionVersion,
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
-		DispatchInfoOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		DispatchInfoOf, DispatchTransaction, Dispatchable, PipelineAtVers, PostDispatchInfoOf,
+		TransactionExtension, Pipeline, PipelineMetadataBuilder, PipelineVersion,
+		PipelineWeight,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -49,7 +49,7 @@ pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
 	Other(ExtensionOtherVersions),
 }
 
-impl<ExtensionV0, ExtensionOtherVersions: VersTxExtLineVersion> VersTxExtLineVersion
+impl<ExtensionV0, ExtensionOtherVersions: PipelineVersion> PipelineVersion
 	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 {
 	fn version(&self) -> u8 {
@@ -120,13 +120,13 @@ impl<ExtensionV0: Decode, ExtensionOtherVersions: DecodeWithVersionWithMemTracki
 impl<
 		Call: Dispatchable + Encode,
 		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersTxExtLine<Call>,
-	> VersTxExtLine<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+		ExtensionOtherVersions: Pipeline<Call>,
+	> Pipeline<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 where
 	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
-	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
-		TxExtLineAtVers::<EXTENSION_V0_VERSION, ExtensionV0>::build_metadata(builder);
+	fn build_metadata(builder: &mut PipelineMetadataBuilder) {
+		PipelineAtVers::<EXTENSION_V0_VERSION, ExtensionV0>::build_metadata(builder);
 		ExtensionOtherVersions::build_metadata(builder);
 	}
 	fn validate_only(
@@ -165,8 +165,8 @@ where
 impl<
 		Call: Dispatchable,
 		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersTxExtLineWeight<Call>,
-	> VersTxExtLineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
+		ExtensionOtherVersions: PipelineWeight<Call>,
+	> PipelineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
 {
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
@@ -182,7 +182,7 @@ mod tests {
 	use crate::{
 		traits::{
 			AsTransactionAuthorizedOrigin, DispatchInfoOf, Dispatchable, Implication,
-			TransactionExtension, TransactionSource, TxExtLineAtVers, ValidateResult,
+			TransactionExtension, TransactionSource, PipelineAtVers, ValidateResult,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,
@@ -331,7 +331,7 @@ mod tests {
 		}
 	}
 
-	type ExtV2 = TxExtLineAtVers<2, OtherExtension>;
+	type ExtV2 = PipelineAtVers<2, OtherExtension>;
 
 	// --------------------------------------------------------------------
 	// Actual unit tests

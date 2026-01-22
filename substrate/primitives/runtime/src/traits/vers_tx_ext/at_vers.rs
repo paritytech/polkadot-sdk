@@ -21,8 +21,8 @@ use crate::{
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, VersTxExtLine, VersTxExtLineMetadataBuilder, VersTxExtLineVersion,
-		VersTxExtLineWeight,
+		TransactionExtension, Pipeline, PipelineMetadataBuilder, PipelineVersion,
+		PipelineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -33,12 +33,12 @@ use sp_weights::Weight;
 
 /// A transaction extension pipeline defined for a single version.
 #[derive(Encode, Clone, Debug, TypeInfo, PartialEq, Eq)]
-pub struct TxExtLineAtVers<const VERSION: u8, Extension> {
+pub struct PipelineAtVers<const VERSION: u8, Extension> {
 	/// The transaction extension pipeline for the version `VERSION`.
 	pub extension: Extension,
 }
 
-impl<const VERSION: u8, Extension> TxExtLineAtVers<VERSION, Extension> {
+impl<const VERSION: u8, Extension> PipelineAtVers<VERSION, Extension> {
 	/// Create a new versioned extension.
 	pub fn new(extension: Extension) -> Self {
 		Self { extension }
@@ -46,14 +46,14 @@ impl<const VERSION: u8, Extension> TxExtLineAtVers<VERSION, Extension> {
 }
 
 impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
-	for TxExtLineAtVers<VERSION, Extension>
+	for PipelineAtVers<VERSION, Extension>
 {
 	fn decode_with_version<I: codec::Input>(
 		extension_version: u8,
 		input: &mut I,
 	) -> Result<Self, codec::Error> {
 		if extension_version == VERSION {
-			Ok(TxExtLineAtVers { extension: Extension::decode(input)? })
+			Ok(PipelineAtVers { extension: Extension::decode(input)? })
 		} else {
 			Err(codec::Error::from("Invalid extension version"))
 		}
@@ -61,22 +61,22 @@ impl<const VERSION: u8, Extension: Decode> DecodeWithVersion
 }
 
 impl<const VERSION: u8, Extension: DecodeWithMemTracking> DecodeWithVersionWithMemTracking
-	for TxExtLineAtVers<VERSION, Extension>
+	for PipelineAtVers<VERSION, Extension>
 {
 }
 
-impl<const VERSION: u8, Extension> VersTxExtLineVersion for TxExtLineAtVers<VERSION, Extension> {
+impl<const VERSION: u8, Extension> PipelineVersion for PipelineAtVers<VERSION, Extension> {
 	fn version(&self) -> u8 {
 		VERSION
 	}
 }
 
-impl<const VERSION: u8, Call, Extension> VersTxExtLine<Call> for TxExtLineAtVers<VERSION, Extension>
+impl<const VERSION: u8, Call, Extension> Pipeline<Call> for PipelineAtVers<VERSION, Extension>
 where
 	Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
 	Extension: TransactionExtension<Call>,
 {
-	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
+	fn build_metadata(builder: &mut PipelineMetadataBuilder) {
 		builder.push_versioned_extension(VERSION, Extension::metadata());
 	}
 	fn validate_only(
@@ -103,7 +103,7 @@ where
 }
 
 impl<const VERSION: u8, Call: Dispatchable, Extension: TransactionExtension<Call>>
-	VersTxExtLineWeight<Call> for TxExtLineAtVers<VERSION, Extension>
+	PipelineWeight<Call> for PipelineAtVers<VERSION, Extension>
 {
 	fn weight(&self, call: &Call) -> Weight {
 		self.extension.weight(call)
@@ -210,10 +210,10 @@ mod tests {
 	}
 
 	// This type represents the versioned extension pipeline for version=3.
-	pub type ExtV3 = TxExtLineAtVers<3, SimpleExtension>;
+	pub type ExtV3 = PipelineAtVers<3, SimpleExtension>;
 
 	// This type represents the versioned extension pipeline for version=10.
-	pub type ExtV10 = TxExtLineAtVers<10, SimpleExtension>;
+	pub type ExtV10 = PipelineAtVers<10, SimpleExtension>;
 
 	// --- Tests ---
 

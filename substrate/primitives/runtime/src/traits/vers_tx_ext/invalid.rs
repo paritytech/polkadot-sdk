@@ -20,8 +20,8 @@
 use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
-		Dispatchable, PostDispatchInfoOf, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		Dispatchable, PostDispatchInfoOf, Pipeline, PipelineMetadataBuilder,
+		PipelineVersion, PipelineWeight,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
@@ -32,7 +32,7 @@ use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
-/// An implementation of [`VersTxExtLine`] that consider any version invalid.
+/// An implementation of [`Pipeline`] that consider any version invalid.
 ///
 /// This is mostly used by [`crate::traits::MultiVersion`].
 // This type cannot be instantiated.
@@ -50,8 +50,8 @@ impl DecodeWithVersion for InvalidVersion {
 
 impl DecodeWithVersionWithMemTracking for InvalidVersion {}
 
-impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
-	fn build_metadata(_builder: &mut VersTxExtLineMetadataBuilder) {
+impl<Call: Dispatchable> Pipeline<Call> for InvalidVersion {
+	fn build_metadata(_builder: &mut PipelineMetadataBuilder) {
 		// Do nothing.
 	}
 	fn validate_only(
@@ -77,14 +77,14 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 	}
 }
 
-impl VersTxExtLineVersion for InvalidVersion {
+impl PipelineVersion for InvalidVersion {
 	fn version(&self) -> u8 {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}
 }
 
-impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
+impl<Call: Dispatchable> PipelineWeight<Call> for InvalidVersion {
 	fn weight(&self, _call: &Call) -> Weight {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()

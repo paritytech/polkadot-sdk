@@ -20,8 +20,8 @@
 use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
-		Dispatchable, InvalidVersion, PostDispatchInfoOf, TxExtLineAtVers, VersTxExtLine,
-		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		Dispatchable, InvalidVersion, PipelineAtVers, PostDispatchInfoOf, Pipeline,
+		PipelineMetadataBuilder, PipelineVersion, PipelineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -44,14 +44,14 @@ impl MultiVersionItem for InvalidVersion {
 	const VERSION: Option<u8> = None;
 }
 
-impl<const VERSION: u8, Extension> MultiVersionItem for TxExtLineAtVers<VERSION, Extension> {
+impl<const VERSION: u8, Extension> MultiVersionItem for PipelineAtVers<VERSION, Extension> {
 	const VERSION: Option<u8> = Some(VERSION);
 }
 
 macro_rules! declare_multi_version_enum {
 	($( $variant:tt, )*) => {
 
-		/// An implementation of [`VersTxExtLine`] that aggregates multiple versioned transaction
+		/// An implementation of [`Pipeline`] that aggregates multiple versioned transaction
 		/// extension pipeline.
 		///
 		/// It is an enum where each variant has its own version, duplicated version must be
@@ -63,14 +63,14 @@ macro_rules! declare_multi_version_enum {
 		/// # Example
 		///
 		/// ```
-		/// use sp_runtime::traits::{MultiVersion, TxExtLineAtVers};
+		/// use sp_runtime::traits::{MultiVersion, PipelineAtVers};
 		///
 		/// struct PaymentExt;
 		/// struct PaymentExtV2;
 		/// struct NonceExt;
 		///
-		/// type ExtV1 = TxExtLineAtVers<1, (NonceExt, PaymentExt)>;
-		/// type ExtV4 = TxExtLineAtVers<4, (NonceExt, PaymentExtV2)>;
+		/// type ExtV1 = PipelineAtVers<1, (NonceExt, PaymentExt)>;
+		/// type ExtV4 = PipelineAtVers<4, (NonceExt, PaymentExtV2)>;
 		///
 		/// /// The transaction extension pipeline that supports both version 1 and 4.
 		/// type TransactionExtension = MultiVersion<ExtV1, ExtV4>;
@@ -88,7 +88,7 @@ macro_rules! declare_multi_version_enum {
 			)*
 		}
 
-		impl<$( $variant: VersTxExtLineVersion, )*> VersTxExtLineVersion for MultiVersion<$( $variant, )*> {
+		impl<$( $variant: PipelineVersion, )*> PipelineVersion for MultiVersion<$( $variant, )*> {
 			fn version(&self) -> u8 {
 				match self {
 					$(
@@ -166,8 +166,8 @@ macro_rules! declare_multi_version_enum {
 			DecodeWithVersionWithMemTracking for MultiVersion<$( $variant, )*>
 		{}
 
-		impl<$( $variant: VersTxExtLineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
-			VersTxExtLineWeight<Call> for MultiVersion<$( $variant, )*>
+		impl<$( $variant: PipelineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
+			PipelineWeight<Call> for MultiVersion<$( $variant, )*>
 		{
 			fn weight(&self, call: &Call) -> Weight {
 				match self {
@@ -178,10 +178,10 @@ macro_rules! declare_multi_version_enum {
 			}
 		}
 
-		impl<$( $variant: VersTxExtLine<Call> + MultiVersionItem, )* Call: Dispatchable>
-			VersTxExtLine<Call> for MultiVersion<$( $variant, )*>
+		impl<$( $variant: Pipeline<Call> + MultiVersionItem, )* Call: Dispatchable>
+			Pipeline<Call> for MultiVersion<$( $variant, )*>
 		{
-			fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
+			fn build_metadata(builder: &mut PipelineMetadataBuilder) {
 				$(
 					$variant::build_metadata(builder);
 				)*
@@ -227,8 +227,8 @@ mod tests {
 	use crate::{
 		traits::{
 			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
-			Implication, TransactionExtension, TransactionSource, ValidateResult, VersTxExtLine,
-			VersTxExtLineVersion, VersTxExtLineWeight,
+			Implication, TransactionExtension, TransactionSource, ValidateResult, Pipeline,
+			PipelineVersion, PipelineWeight,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,
@@ -330,7 +330,7 @@ mod tests {
 		}
 	}
 
-	pub type PipelineV4 = TxExtLineAtVers<4, SimpleExtensionV4>;
+	pub type PipelineV4 = PipelineAtVers<4, SimpleExtensionV4>;
 
 	// Another single-version extension pipeline, version=7
 	#[derive(Clone, Debug, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, TypeInfo)]
@@ -382,7 +382,7 @@ mod tests {
 		}
 	}
 
-	pub type PipelineV7 = TxExtLineAtVers<7, SimpleExtensionV7>;
+	pub type PipelineV7 = PipelineAtVers<7, SimpleExtensionV7>;
 
 	// --------------------------------------------------------
 	// Our MultiVersion definition under test

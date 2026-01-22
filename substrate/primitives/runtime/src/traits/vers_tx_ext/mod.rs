@@ -34,19 +34,18 @@ mod at_vers;
 mod invalid;
 mod multi;
 mod variant;
-pub use at_vers::TxExtLineAtVers;
+pub use at_vers::PipelineAtVers;
 pub use invalid::InvalidVersion;
 pub use multi::MultiVersion;
 pub use variant::ExtensionVariant;
 
 /// The weight for an instance of a versioned transaction extension pipeline and a call.
 ///
-/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`].
+/// This trait is part of [`Pipeline`]. It is defined independently to allow implementation to
+/// rely only on it without bounding the whole trait [`Pipeline`].
 ///
-/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line) weight
-/// (Weight)).
-pub trait VersTxExtLineWeight<Call: Dispatchable> {
+/// (type name is short for versioned (Vers) Pipeline weight (Weight)).
+pub trait PipelineWeight<Call: Dispatchable> {
 	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
 	/// call.
 	fn weight(&self, call: &Call) -> Weight;
@@ -54,12 +53,11 @@ pub trait VersTxExtLineWeight<Call: Dispatchable> {
 
 /// The version for an instance of a versioned transaction extension pipeline.
 ///
-/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`].
+/// This trait is part of [`Pipeline`]. It is defined independently to allow implementation to
+/// rely only on it without bounding the whole trait [`Pipeline`].
 ///
-/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line)
-/// version (Version)).
-pub trait VersTxExtLineVersion {
+/// (type name is short for versioned (Vers) Pipeline version (Version)).
+pub trait PipelineVersion {
 	/// Return the version for the given versioned transaction extension pipeline.
 	fn version(&self) -> u8;
 }
@@ -68,8 +66,8 @@ pub trait VersTxExtLineVersion {
 ///
 /// This defines multiple version of a transaction extensions pipeline.
 ///
-/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line)).
-pub trait VersTxExtLine<Call: Dispatchable>:
+/// (type name is short for versioned (Vers) Pipeline).
+pub trait Pipeline<Call: Dispatchable>:
 	Encode
 	+ DecodeWithVersion
 	+ DecodeWithVersionWithMemTracking
@@ -78,11 +76,11 @@ pub trait VersTxExtLine<Call: Dispatchable>:
 	+ Send
 	+ Sync
 	+ Clone
-	+ VersTxExtLineWeight<Call>
-	+ VersTxExtLineVersion
+	+ PipelineWeight<Call>
+	+ PipelineVersion
 {
 	/// Build the metadata for the versioned transaction extension pipeline.
-	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder);
+	fn build_metadata(builder: &mut PipelineMetadataBuilder);
 
 	/// Validate a transaction.
 	fn validate_only(
@@ -118,7 +116,7 @@ pub trait DecodeWithVersion: Sized {
 pub trait DecodeWithVersionWithMemTracking: DecodeWithVersion {}
 
 /// A type to build the metadata for the versioned transaction extension pipeline.
-pub struct VersTxExtLineMetadataBuilder {
+pub struct PipelineMetadataBuilder {
 	/// The transaction extension pipeline by version and its list of items as vec of index into
 	/// the other field `in_versions`.
 	pub by_version: BTreeMap<u8, Vec<u32>>,
@@ -126,7 +124,7 @@ pub struct VersTxExtLineMetadataBuilder {
 	pub in_versions: Vec<TransactionExtensionMetadata>,
 }
 
-impl VersTxExtLineMetadataBuilder {
+impl PipelineMetadataBuilder {
 	/// Create a new empty metadata builder.
 	pub fn new() -> Self {
 		Self { by_version: BTreeMap::new(), in_versions: Vec::new() }
@@ -172,7 +170,7 @@ mod tests {
 
 	#[test]
 	fn test_metadata_builder() {
-		let mut builder = VersTxExtLineMetadataBuilder::new();
+		let mut builder = PipelineMetadataBuilder::new();
 
 		let ext_item_a = TransactionExtensionMetadata {
 			identifier: "ExtensionA",

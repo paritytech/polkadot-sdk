@@ -23,7 +23,7 @@ use crate::{
 	traits::{
 		self, AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
 		ExtensionVariant, InvalidVersion, MaybeDisplay, Member, PostDispatchInfoOf,
-		TransactionExtension, ValidateUnsigned, VersTxExtLine, VersTxExtLineWeight,
+		TransactionExtension, ValidateUnsigned, Pipeline, PipelineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -85,7 +85,7 @@ where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersTxExtLine<Call>,
+	ExtensionOtherVersions: Pipeline<Call>,
 	RuntimeOrigin: From<Option<AccountId>> + AsTransactionAuthorizedOrigin,
 {
 	type Call = Call;
@@ -150,7 +150,7 @@ impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: PipelineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

@@ -23,7 +23,7 @@ use crate::{
 		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
 		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
 		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension, VersTxExtLineVersion, VersTxExtLineWeight,
+		TransactionExtension, PipelineVersion, PipelineWeight,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -165,7 +165,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode + PipelineVersion,
 {
 	fn size_hint(&self) -> usize {
 		match &self {
@@ -275,7 +275,7 @@ where
 /// ```
 /// use sp_runtime::{
 ///     generic::UncheckedExtrinsic,
-///     traits::{MultiVersion, TxExtLineAtVers},
+///     traits::{MultiVersion, PipelineAtVers},
 /// };
 ///
 /// struct Signature; // Some signature scheme.
@@ -291,8 +291,8 @@ where
 ///
 /// // Definition of the extrinsic.
 /// type ExtensionV0 = (SigV2Ext, NonceExt, PaymentExt);
-/// type ExtensionV1 = TxExtLineAtVers<1, (SigV2Ext, NonceExt, PaymentV2Ext)>;
-/// type ExtensionV2 = TxExtLineAtVers<2, (SigV2Ext, NonceV2Ext, PaymentV2Ext)>;
+/// type ExtensionV1 = PipelineAtVers<1, (SigV2Ext, NonceExt, PaymentV2Ext)>;
+/// type ExtensionV2 = PipelineAtVers<2, (SigV2Ext, NonceV2Ext, PaymentV2Ext)>;
 ///
 /// type OtherVersions = MultiVersion<ExtensionV1, ExtensionV2>;
 ///
@@ -703,7 +703,7 @@ impl<
 	>
 {
 	const VERSIONS: &'static [u8] = &[LEGACY_EXTRINSIC_FORMAT_VERSION, EXTRINSIC_FORMAT_VERSION];
-	type TransactionExtensionsVersions = ExtensionVariant<ExtensionV0, ExtensionOtherVersions>;
+	type TransactionExtensionPipelines = ExtensionVariant<ExtensionV0, ExtensionOtherVersions>;
 }
 
 impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, ExtensionOtherVersions>
@@ -711,7 +711,7 @@ impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, Extensio
 where
 	Call: Dispatchable,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: PipelineWeight<Call>,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.
@@ -814,7 +814,7 @@ where
 	Signature: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode + PipelineVersion,
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -967,7 +967,7 @@ where
 	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode + PipelineVersion,
 {
 	fn from(
 		extrinsic: UncheckedExtrinsic<
@@ -997,7 +997,7 @@ where
 	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
 	Call: DecodeWithMemTracking,
 	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion + VersTxExtLineVersion,
+	ExtensionOtherVersions: DecodeWithVersion + PipelineVersion,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode_with_len(&mut &data[..], data.len())

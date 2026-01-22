@@ -112,8 +112,8 @@ pub type SimpleExtV0 = SimpleExt<0>;
 pub type SimpleExtV4 = SimpleExt<4>;
 pub type SimpleExtV7 = SimpleExt<7>;
 
-pub type Ext4 = sp_runtime::traits::TxExtLineAtVers<4, SimpleExtV4>;
-pub type Ext7 = sp_runtime::traits::TxExtLineAtVers<7, SimpleExtV7>;
+pub type Ext4 = sp_runtime::traits::PipelineAtVers<4, SimpleExtV4>;
+pub type Ext7 = sp_runtime::traits::PipelineAtVers<7, SimpleExtV7>;
 
 pub type OtherVersions = sp_runtime::traits::MultiVersion<Ext4, Ext7>;
 

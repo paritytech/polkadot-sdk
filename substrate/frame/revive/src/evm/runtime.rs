@@ -39,7 +39,7 @@ use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
-		TransactionExtension, VersTxExtLine,
+		TransactionExtension, Pipeline,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	Debug, OpaqueExtrinsic, Weight,
@@ -132,13 +132,13 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		E::ExtensionV0,
 		E::ExtensionOtherVersions,
 	>::VERSIONS;
-	type TransactionExtensionsVersions = <generic::UncheckedExtrinsic<
+	type TransactionExtensionPipelines = <generic::UncheckedExtrinsic<
 		Address,
 		CallOf<E::Config>,
 		Signature,
 		E::ExtensionV0,
 		E::ExtensionOtherVersions,
-	> as ExtrinsicMetadata>::TransactionExtensionsVersions;
+	> as ExtrinsicMetadata>::TransactionExtensionPipelines;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
@@ -310,7 +310,7 @@ pub trait EthExtra {
 	/// The Runtime's transaction extension versions other than 0.
 	///
 	/// Use [`sp_runtime::traits::InvalidVersion`] if no other versions should be supported.
-	type ExtensionOtherVersions: VersTxExtLine<CallOf<Self::Config>>;
+	type ExtensionOtherVersions: Pipeline<CallOf<Self::Config>>;
 
 	/// Get the transaction extension to apply to an unsigned [`crate::Call::eth_transact`]
 	/// extrinsic.

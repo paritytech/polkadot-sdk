@@ -63,8 +63,8 @@ pub use transaction_extension::{
 };
 pub use vers_tx_ext::{
 	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
-	MultiVersion, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-	VersTxExtLineVersion, VersTxExtLineWeight,
+	MultiVersion, PipelineAtVers, Pipeline, PipelineMetadataBuilder, PipelineVersion,
+	PipelineWeight,
 };
 
 /// A lazy value.
@@ -1506,7 +1506,7 @@ pub trait ExtrinsicMetadata {
 	///
 	/// For the transaction extension pipeline used for the signed extrinsics it is defined as the
 	/// version 0, if defined.
-	type TransactionExtensionsVersions;
+	type TransactionExtensionPipelines;
 }
 
 /// Extract the hashing type for a block.

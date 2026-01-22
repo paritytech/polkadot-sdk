@@ -17,7 +17,7 @@ doc:
 
         # New feature
 
-        To use this new feature, you can use the new types `TxExtLineAtVers` and `MultiVersion` to define a transaction extension with multiple version:
+        To use this new feature, you can use the new types `PipelineAtVers` and `MultiVersion` to define a transaction extension with multiple version:
 
         ```rust
         pub type TransactionExtensionV0 = ();
@@ -25,8 +25,8 @@ doc:
         pub type TransactionExtensionV7 = ();
 
         pub type OtherVersions = MultiVersion<
-            TxExtLineAtVers<4, TransactionExtensionV4>;
-            TxExtLineAtVers<7, TransactionExtensionV7>;
+            PipelineAtVers<4, TransactionExtensionV4>;
+            PipelineAtVers<7, TransactionExtensionV7>;
         >;
 
         pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<
