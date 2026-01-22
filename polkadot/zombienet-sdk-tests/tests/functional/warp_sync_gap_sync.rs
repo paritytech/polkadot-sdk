@@ -11,10 +11,12 @@ use anyhow::anyhow;
 use std::time::Duration;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
-	subxt::{self, ext::scale_value::Value, OnlineClient, PolkadotConfig},
+	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	AddNodeOptions, NetworkConfig, NetworkConfigBuilder,
 };
+
+use super::utils::create_set_new_genesis_call;
 
 const POLKADOT_IMAGE_ENV: &str = "POLKADOT_IMAGE";
 const VALIDATOR_NAMES: [&str; 3] = ["validator-0", "validator-1", "validator-2"];
@@ -147,15 +149,4 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
 		anyhow!("config errs: {errs}")
 	})
-}
-
-fn create_set_new_genesis_call(delay_in_blocks: u32) -> subxt::tx::DynamicPayload {
-	// Construct: Beefy(set_new_genesis { delay_in_blocks })
-	let set_new_genesis = Value::named_variant(
-		"set_new_genesis",
-		[("delay_in_blocks", Value::u128(delay_in_blocks as u128))],
-	);
-	let beefy_call = Value::unnamed_variant("Beefy", [set_new_genesis]);
-
-	subxt::tx::dynamic("Sudo", "sudo", vec![beefy_call])
 }
