@@ -24,18 +24,19 @@ use pallet_assets::AssetsCallback;
 
 pub use pallet::*;
 
-pub struct ForeignAssetId<T>(PhantomData<T>);
-impl<T: Config> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T>
+pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
+impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
 	T::AssetId: ToAssetIndex,
-	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config,
+	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
+	I: 'static,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		insert_asset_mapping::<T>(id.to_asset_index(), id)
+		pallet::Pallet::<T>::insert_asset_mapping(id.to_asset_index(), id)
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
-		remove_asset_mapping::<T>(id);
+		pallet::Pallet::<T>::remove_asset_mapping(id);
 		Ok(())
 	}
 }
@@ -67,30 +68,6 @@ impl ToAssetIndex for xcm::v5::Location {
 		use codec::Encode;
 		let h = sp_core::hashing::blake2_256(&self.encode());
 		u32::from_le_bytes([h[0], h[1], h[2], h[3]])
-	}
-}
-
-pub fn insert_asset_mapping<T: crate::pallet::Config>(
-	asset_index: u32,
-	asset_id: &T::ForeignAssetId,
-) -> Result<(), ()> {
-	if crate::pallet::AssetIndexToForeignAssetId::<T>::contains_key(asset_index) {
-		log::debug!(target: LOG_TARGET, "Asset index {:?} already mapped", asset_index);
-		return Err(());
-	}
-	if crate::pallet::ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
-		log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
-		return Err(());
-	}
-	crate::pallet::AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
-	crate::pallet::ForeignAssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
-	Ok(())
-}
-
-pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: &T::ForeignAssetId) {
-	if let Some(asset_index) = crate::pallet::ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
-		crate::pallet::AssetIndexToForeignAssetId::<T>::remove(asset_index);
-		crate::pallet::ForeignAssetIdToAssetIndex::<T>::remove(asset_id);
 	}
 }
 
@@ -133,6 +110,30 @@ pub mod pallet {
 		/// Get the asset index for a given foreign asset ID.
 		pub fn asset_index_of(asset_id: &T::ForeignAssetId) -> Option<u32> {
 			ForeignAssetIdToAssetIndex::<T>::get(asset_id)
+		}
+
+		pub fn insert_asset_mapping(
+			asset_index: u32,
+			asset_id: &T::ForeignAssetId,
+		) -> Result<(), ()> {
+			if AssetIndexToForeignAssetId::<T>::contains_key(asset_index) {
+				log::debug!(target: LOG_TARGET, "Asset index {:?} already mapped", asset_index);
+				return Err(());
+			}
+			if ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
+				log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
+				return Err(());
+			}
+			AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
+			ForeignAssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
+			Ok(())
+		}
+
+		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {
+			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
+				AssetIndexToForeignAssetId::<T>::remove(asset_index);
+				ForeignAssetIdToAssetIndex::<T>::remove(asset_id);
+			}
 		}
 	}
 }

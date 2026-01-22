@@ -43,7 +43,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub use foreign_assets::{pallet, ForeignAssetId, ToAssetIndex};
+pub use foreign_assets::{
+	pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId, ToAssetIndex,
+};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
