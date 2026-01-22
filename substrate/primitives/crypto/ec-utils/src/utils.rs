@@ -40,29 +40,6 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
 
-/// Define pairing related types
-#[macro_export]
-macro_rules! pairing_types {
-	($curve:ty) => {
-		/// An element in G1 (affine).
-		pub type G1Affine = <$curve as ark_ec::pairing::Pairing>::G1Affine;
-		/// An element in G1 (projective).
-		pub type G1Projective = <$curve as ark_ec::pairing::Pairing>::G1;
-		/// An element in G2 (affine).
-		pub type G2Affine = <$curve as ark_ec::pairing::Pairing>::G2Affine;
-		/// An element in G2 (projective).
-		pub type G2Projective = <$curve as ark_ec::pairing::Pairing>::G2;
-		/// G1 and G2 scalar field (Fr).
-		pub type ScalarField = <$curve as ark_ec::pairing::Pairing>::ScalarField;
-		/// Pairing target field.
-		pub type TargetField = <$curve as ark_ec::pairing::Pairing>::TargetField;
-		/// An element in G1 preprocessed for pairing.
-		pub type G1Prepared = <$curve as ark_ec::pairing::Pairing>::G1Prepared;
-		/// An element in G2 preprocessed for pairing.
-		pub type G2Prepared = <$curve as ark_ec::pairing::Pairing>::G2Prepared;
-	};
-}
-
 #[inline(always)]
 #[allow(unused)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
@@ -171,8 +148,10 @@ pub mod testing {
 		(p[0], s[0])
 	}
 
-	pub fn mul<SubAffine: AffineRepr, ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>>()
+	pub fn mul<SubAffine, ArkAffine>()
 	where
+		SubAffine: AffineRepr,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
 		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
 	{
 		let (p, s) = mul_args::<SubAffine>();

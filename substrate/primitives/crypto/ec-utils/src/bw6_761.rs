@@ -17,7 +17,7 @@
 
 //! *BW6-761* types and host functions.
 
-use crate::{pairing_types, utils};
+use crate::utils;
 use alloc::vec::Vec;
 use ark_bw6_761_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveGroup};
@@ -32,7 +32,29 @@ pub type Config = ark_bw6_761_ext::Config<HostHooks>;
 /// *BW6-761* pairing friendly curve.
 pub type BW6_761 = ark_bw6_761_ext::BW6_761<HostHooks>;
 
-pairing_types!(BW6_761);
+/// G1 group configuration.
+pub type G1Config = ark_bw6_761_ext::g1::Config<HostHooks>;
+/// An element in G1 (affine).
+pub type G1Affine = ark_bw6_761_ext::g1::G1Affine<HostHooks>;
+/// An element in G1 (projective).
+pub type G1Projective = ark_bw6_761_ext::g1::G1Projective<HostHooks>;
+
+/// G2 group configuration.
+pub type G2Config = ark_bw6_761_ext::g2::Config<HostHooks>;
+/// An element in G2 (affine).
+pub type G2Affine = ark_bw6_761_ext::g2::G2Affine<HostHooks>;
+/// An element in G2 (projective).
+pub type G2Projective = ark_bw6_761_ext::g2::G2Projective<HostHooks>;
+
+/// G1 and G2 scalar field (Fr).
+pub type ScalarField = <BW6_761 as Pairing>::ScalarField;
+
+/// An element in G1 preprocessed for pairing.
+pub type G1Prepared = <BW6_761 as Pairing>::G1Prepared;
+/// An element in G2 preprocessed for pairing.
+pub type G2Prepared = <BW6_761 as Pairing>::G2Prepared;
+/// Pairing target field.
+pub type TargetField = <BW6_761 as Pairing>::TargetField;
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]

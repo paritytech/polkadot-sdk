@@ -32,9 +32,6 @@ pub type Config = ark_bls12_377_ext::Config<HostHooks>;
 /// *BLS12-377* pairing friendly curve.
 pub type Bls12_377 = ark_bls12_377_ext::Bls12_377<HostHooks>;
 
-/// G1 and G2 scalar field (Fr).
-pub type ScalarField = <Bls12_377 as Pairing>::ScalarField;
-
 /// G1 group configuration.
 pub type G1Config = ark_bls12_377_ext::g1::Config<HostHooks>;
 /// An element in G1 (affine).
@@ -48,6 +45,9 @@ pub type G2Config = ark_bls12_377_ext::g2::Config<HostHooks>;
 pub type G2Affine = ark_bls12_377_ext::g2::G2Affine<HostHooks>;
 /// An element in G2 (projective).
 pub type G2Projective = ark_bls12_377_ext::g2::G2Projective<HostHooks>;
+
+/// G1 and G2 scalar field (Fr).
+pub type ScalarField = <Bls12_377 as Pairing>::ScalarField;
 
 /// An element in G1 preprocessed for pairing.
 pub type G1Prepared = <Bls12_377 as Pairing>::G1Prepared;
@@ -66,13 +66,13 @@ impl CurveHooks for HostHooks {
 		g2: impl Iterator<Item = G2Prepared>,
 	) -> TargetField {
 		host_calls::bls12_377_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
-			.and_then(|res| utils::decode(res))
+			.and_then(|res| utils::decode::<TargetField>(res))
 			.unwrap_or_default()
 	}
 
 	fn final_exponentiation(target: TargetField) -> TargetField {
 		host_calls::bls12_377_final_exponentiation(utils::encode(target))
-			.and_then(|res| utils::decode(res))
+			.and_then(|res| utils::decode::<TargetField>(res))
 			.unwrap_or_default()
 	}
 

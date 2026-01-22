@@ -17,10 +17,10 @@
 
 //! *BLS12-381* types and host functions.
 
-use crate::{pairing_types, utils};
+use crate::utils;
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
-use ark_ec::CurveGroup;
+use ark_ec::{pairing::Pairing, CurveGroup};
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
@@ -32,7 +32,29 @@ pub type Config = ark_bls12_381_ext::Config<HostHooks>;
 /// *BLS12-381* pairing friendly curve.
 pub type Bls12_381 = ark_bls12_381_ext::Bls12_381<HostHooks>;
 
-pairing_types!(ark_bls12_381_ext::Bls12_381<HostHooks>);
+/// G1 group configuration.
+pub type G1Config = ark_bls12_381_ext::g1::Config<HostHooks>;
+/// An element in G1 (affine).
+pub type G1Affine = ark_bls12_381_ext::g1::G1Affine<HostHooks>;
+/// An element in G1 (projective).
+pub type G1Projective = ark_bls12_381_ext::g1::G1Projective<HostHooks>;
+
+/// G2 group configuration.
+pub type G2Config = ark_bls12_381_ext::g2::Config<HostHooks>;
+/// An element in G2 (affine).
+pub type G2Affine = ark_bls12_381_ext::g2::G2Affine<HostHooks>;
+/// An element in G2 (projective).
+pub type G2Projective = ark_bls12_381_ext::g2::G2Projective<HostHooks>;
+
+/// G1 and G2 scalar field (Fr).
+pub type ScalarField = <Bls12_381 as Pairing>::ScalarField;
+
+/// An element in G1 preprocessed for pairing.
+pub type G1Prepared = <Bls12_381 as Pairing>::G1Prepared;
+/// An element in G2 preprocessed for pairing.
+pub type G2Prepared = <Bls12_381 as Pairing>::G2Prepared;
+/// Pairing target field.
+pub type TargetField = <Bls12_381 as Pairing>::TargetField;
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
