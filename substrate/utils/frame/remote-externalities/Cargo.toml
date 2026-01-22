@@ -30,17 +30,17 @@ sp-state-machine = { workspace = true, default-features = true }
 spinners = { workspace = true }
 substrate-rpc-client = { workspace = true, default-features = true }
 tokio = { features = [
-  "macros",
-  "rt-multi-thread",
-  "sync",
+	"macros",
+	"rt-multi-thread",
+	"sync",
 ], workspace = true, default-features = true }
 
 [dev-dependencies]
 frame-support = { workspace = true, default-features = true }
 jsonrpsee = { features = [
-  "http-client",
-  "ws-client",
-  "server",
+	"http-client",
+	"server",
+	"ws-client",
 ], workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
