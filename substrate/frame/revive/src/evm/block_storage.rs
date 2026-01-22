@@ -70,7 +70,7 @@ impl EthereumCallResult {
 	pub(crate) fn new<T: Config>(
 		signer: AccountIdOf<T>,
 		mut output: ContractResult<ExecReturnValue, BalanceOf<T>>,
-		base_call_weight: Weight,
+		mut base_call_weight: Weight,
 		encoded_len: u32,
 		info: &DispatchInfo,
 		effective_gas_price: U256,
@@ -85,9 +85,7 @@ impl EthereumCallResult {
 
 		// Refund pre-charged revert event weight if the call succeeds.
 		if output.result.is_ok() {
-			output
-				.weight_consumed
-				.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+			base_call_weight.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
 		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);

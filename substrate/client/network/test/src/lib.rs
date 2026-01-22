@@ -673,6 +673,10 @@ impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
 	fn next_proof_context(&self) -> B::Hash {
 		self.genesis_hash
 	}
+
+	fn status(&self) -> Option<String> {
+		None
+	}
 }
 
 impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {

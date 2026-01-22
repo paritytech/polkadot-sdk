@@ -258,10 +258,6 @@ pub(crate) mod builder {
 }
 
 impl Test {
-	pub fn set_unstable_interface(unstable_interface: bool) {
-		UNSTABLE_INTERFACE.with(|v| *v.borrow_mut() = unstable_interface);
-	}
-
 	pub fn set_allow_evm_bytecode(allow_evm_bytecode: bool) {
 		ALLOW_EVM_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
 	}
@@ -324,7 +320,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<2, 1, Self>;
+	type WeightToFee = BlockRatioFee<2, 1, Self, u64>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -372,7 +368,6 @@ where
 	}
 }
 parameter_types! {
-	pub static UnstableInterface: bool = true;
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 	pub static DebugFlag: bool = false;
@@ -396,7 +391,6 @@ impl Config for Test {
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerItem;
-	type UnsafeUnstableInterface = UnstableInterface;
 	type AllowEVMBytecode = AllowEvmBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;

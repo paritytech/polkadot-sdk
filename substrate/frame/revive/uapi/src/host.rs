@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{CallFlags, Result, ReturnFlags, StorageFlags};
-use pallet_revive_proc_macro::unstable_hostfn;
 
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
@@ -477,33 +476,6 @@ pub trait HostFn: private::Sealed {
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
 	fn terminate(beneficiary: &[u8; 20]) -> !;
-
-	/// Calculates Ethereum address from the ECDSA compressed public key and stores
-	/// it into the supplied buffer.
-	///
-	/// # Parameters
-	///
-	/// - `pubkey`: The public key bytes.
-	/// - `output`: A reference to the output data buffer to write the address.
-	///
-	/// # Errors
-	///
-	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
-	#[unstable_hostfn]
-	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Verify a sr25519 signature
-	///
-	/// # Parameters
-	///
-	/// - `signature`: The signature bytes.
-	/// - `message`: The message bytes.
-	///
-	/// # Errors
-	///
-	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
-	#[unstable_hostfn]
-	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
 }
 
 mod private {

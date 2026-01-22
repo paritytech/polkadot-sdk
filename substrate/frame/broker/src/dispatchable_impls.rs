@@ -69,8 +69,10 @@ impl<T: Config> Pallet<T> {
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
 
-		// Add to workload - grants one region from the next sale boundary.
-		Workplan::<T>::insert((sale.region_begin, core), &workload);
+		// Add to ForceReservations for dynamic core assignment in rotate_sale.
+		ForceReservations::<T>::try_mutate(|r| {
+			r.try_push(workload.clone()).map_err(|_| Error::<T>::TooManyReservations)
+		})?;
 
 		// Assign now until the next sale boundary unless the next timeslice is already the sale
 		// boundary.
@@ -558,6 +560,7 @@ impl<T: Config> Pallet<T> {
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let mut core = core;
 
 		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
 		//
@@ -566,7 +569,7 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 			.is_some()
 		{
-			Self::do_renew(sovereign_account.clone(), core)?;
+			core = Self::do_renew(sovereign_account.clone(), core)?;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })

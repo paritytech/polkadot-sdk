@@ -28,7 +28,8 @@
     "/dns/collectives-polkadot.bootnodes.polkadotters.com/tcp/30526/p2p/12D3KooWNohUjvJtGKUa8Vhy8C1ZBB5N8JATB6e7rdLVCioeb3ff",
     "/dns/collectives-polkadot.bootnodes.polkadotters.com/tcp/30528/wss/p2p/12D3KooWNohUjvJtGKUa8Vhy8C1ZBB5N8JATB6e7rdLVCioeb3ff",
     "/dns/boot-polkadot-collectives.luckyfriday.io/tcp/443/wss/p2p/12D3KooWCzifnPooTt4kvTnXT7FTKTymVL7xn7DURQLsS2AKpf6w",
-    "/dns/collectives-polkadot-01.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWNscpobBzjPEdjbbjjKRYh9j1whYJvagRJwb9UH68zCPC"
+    "/dns/collectives-polkadot-01.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWNscpobBzjPEdjbbjjKRYh9j1whYJvagRJwb9UH68zCPC",
+    "/dns/boot-collectives-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWPqVor7DwfKUKNJjuNJk57YXB7nN7SHd5erFBBo2VXo6U"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

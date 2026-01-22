@@ -82,6 +82,7 @@
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
 
+#![recursion_limit = "512"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -95,7 +96,11 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
-	Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced, ReservableCurrency,
+	fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
+	tokens::{Fortitude, Preservation},
+	Currency,
+	ExistenceRequirement::AllowDeath,
+	Get, Imbalance, OnUnbalanced, ReservableCurrency,
 };
 
 use sp_runtime::{
@@ -103,9 +108,9 @@ use sp_runtime::{
 	Debug, DispatchResult, Permill,
 };
 
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::EnsureOrigin};
-
-use frame_support::pallet_prelude::*;
+use frame_support::{
+	dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::EnsureOrigin,
+};
 use frame_system::pallet_prelude::{
 	ensure_signed, BlockNumberFor as SystemBlockNumberFor, OriginFor,
 };
@@ -205,6 +210,58 @@ pub trait ChildBountyManager<Balance> {
 	fn bounty_removed(bounty_id: BountyIndex);
 }
 
+/// Transfer all assets that an account holds.
+pub trait TransferAllAssets<AccountId> {
+	/// Transfer all assets from one account to another.
+	///
+	/// This will possibly dust and reap the origin account and endow the receiver.
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult;
+}
+
+impl<AccountId> TransferAllAssets<AccountId> for () {
+	fn force_transfer_all_assets(_: &AccountId, _: &AccountId) -> DispatchResult {
+		Ok(())
+	}
+}
+
+/// Transfer all `RelevantAssets` of the `Fungibles` from one account to another.
+///
+/// The native asset should be the first in the list of `RelevantAssets`, otherwise the transfers
+/// of the other maybe fails.
+pub struct TransferAllFungibles<AccountId, Fungibles, RelevantAssets>(
+	core::marker::PhantomData<(AccountId, Fungibles, RelevantAssets)>,
+);
+impl<AccountId, Fungibles, RelevantAssets> TransferAllAssets<AccountId>
+	for TransferAllFungibles<AccountId, Fungibles, RelevantAssets>
+where
+	Fungibles: FungiblesMutate<AccountId>,
+	RelevantAssets: Get<Vec<<Fungibles as FungiblesInspect<AccountId>>::AssetId>>,
+	AccountId: Eq,
+{
+	fn force_transfer_all_assets(from: &AccountId, to: &AccountId) -> DispatchResult {
+		// We iterate through all assets twice in case that the Native asset was not last in the
+		// list and ED remained because of an insufficient asset at the end of the list.
+		let assets_twice =
+			RelevantAssets::get().into_iter().chain(RelevantAssets::get().into_iter());
+
+		for id in assets_twice {
+			let balance = Fungibles::reducible_balance(
+				id.clone(),
+				from,
+				Preservation::Expendable,
+				Fortitude::Force,
+			);
+			if balance.is_zero() {
+				continue;
+			}
+
+			// Ignore errors since this can only fail if the receiver does not exist.
+			let _ = Fungibles::transfer(id, from, to, balance, Preservation::Expendable);
+		}
+		Ok(())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -276,6 +333,12 @@ pub mod pallet {
 
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
+
+		/// Means to transfer all assets from one account to another.
+		///
+		/// This is only used for bounty closure to ensure that all assets are returned to the
+		/// treasury.
+		type TransferAllAssets: TransferAllAssets<Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -797,14 +860,10 @@ pub mod pallet {
 
 					BountyDescriptions::<T, I>::remove(bounty_id);
 
-					let balance = T::Currency::free_balance(&bounty_account);
-					let res = T::Currency::transfer(
+					T::TransferAllAssets::force_transfer_all_assets(
 						&bounty_account,
 						&Self::account_id(),
-						balance,
-						AllowDeath,
-					); // should not fail
-					debug_assert!(res.is_ok());
+					)?;
 
 					*maybe_bounty = None;
 					T::ChildBountyManager::bounty_removed(bounty_id);

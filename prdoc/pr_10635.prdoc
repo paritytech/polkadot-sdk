@@ -1,0 +1,11 @@
+title: '[pallet-revive] remove unstable host function sr25519_verify'
+doc:
+- audience: Runtime Dev
+  description: fixes part of https://github.com/paritytech/polkadot-sdk/issues/8572
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

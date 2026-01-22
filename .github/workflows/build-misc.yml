@@ -41,7 +41,7 @@ jobs:
         env:
           SUBSTRATE_RUNTIME_TARGET: riscv
         id: required
-        run: forklift cargo check -p minimal-template-runtime -p westend-runtime -p rococo-runtime -p polkadot-test-runtime
+        run: forklift cargo check -p minimal-template-runtime -p westend-runtime -p polkadot-test-runtime
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper

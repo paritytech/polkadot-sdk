@@ -334,7 +334,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<1, 1, Self>;
+	type WeightToFee = BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -431,9 +431,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl apis::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_seed: Option<Vec<u8>>) -> Vec<u8> {
-			Default::default()
+		fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+		Default::default()
 		}
+
 
 		fn decode_session_keys(
 			_encoded: Vec<u8>,

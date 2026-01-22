@@ -291,6 +291,7 @@ struct VerifierState<Block: BlockT> {
 struct GrandpaVerifier<Block: BlockT> {
 	state: VerifierState<Block>,
 	hard_forks: HashMap<(Block::Hash, NumberFor<Block>), (SetId, AuthorityList)>,
+	eras_synced: u64,
 }
 
 impl<Block: BlockT> Verifier<Block> for GrandpaVerifier<Block>
@@ -323,6 +324,9 @@ where
 			next_proof_context: last_header.hash(),
 		};
 
+		// Track eras synced
+		self.eras_synced += proof.proofs.len() as u64;
+
 		let justifications = proof
 			.proofs
 			.into_iter()
@@ -342,6 +346,10 @@ where
 
 	fn next_proof_context(&self) -> Block::Hash {
 		self.state.next_proof_context
+	}
+
+	fn status(&self) -> Option<String> {
+		Some(format!("{} eras synced", self.eras_synced))
 	}
 }
 
@@ -373,6 +381,7 @@ where
 				next_proof_context: genesis_hash,
 			},
 			hard_forks: self.hard_forks.clone(),
+			eras_synced: 0,
 		})
 	}
 }

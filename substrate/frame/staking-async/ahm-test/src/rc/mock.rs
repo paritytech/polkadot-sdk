@@ -25,6 +25,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::traits::FindAuthor;
+use pallet_session::TestSessionHandler;
 use pallet_staking_async_ah_client as ah_client;
 use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
 use sp_staking::SessionIndex;
@@ -132,37 +133,6 @@ impl Convert<AccountId, Option<AccountId>> for ValidatorIdOf {
 	}
 }
 
-pub struct OtherSessionHandler;
-impl OneSessionHandler<AccountId> for OtherSessionHandler {
-	type Key = UintAuthorityId;
-
-	fn on_genesis_session<'a, I: 'a>(_: I)
-	where
-		I: Iterator<Item = (&'a AccountId, Self::Key)>,
-		AccountId: 'a,
-	{
-	}
-
-	fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
-	where
-		I: Iterator<Item = (&'a AccountId, Self::Key)>,
-		AccountId: 'a,
-	{
-	}
-
-	fn on_disabled(_validator_index: u32) {}
-}
-
-impl BoundToRuntimeAppPublic for OtherSessionHandler {
-	type Public = UintAuthorityId;
-}
-
-frame::deps::sp_runtime::impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub other: OtherSessionHandler,
-	}
-}
-
 parameter_types! {
 	pub static Period: BlockNumber = 30;
 	pub static Offset: BlockNumber = 0;
@@ -182,8 +152,8 @@ impl pallet_session::Config for Runtime {
 
 	type DisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy<1>;
 
-	type Keys = SessionKeys;
-	type SessionHandler = <SessionKeys as frame::traits::OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = UintAuthorityId;
+	type SessionHandler = TestSessionHandler;
 
 	type NextSessionRotation = Self::ShouldEndSession;
 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
@@ -527,8 +497,8 @@ impl ExtBuilder {
 				pallet_balances::Pallet::<T>::mint_into(&v, INITIAL_BALANCE).unwrap();
 				pallet_session::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(v),
-					SessionKeys { other: UintAuthorityId(v) },
-					vec![],
+					UintAuthorityId(v),
+					Vec::new(),
 				)
 				.unwrap();
 			}

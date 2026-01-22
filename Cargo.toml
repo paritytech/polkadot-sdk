@@ -159,6 +159,7 @@ members = [
 	"polkadot/core-primitives",
 	"polkadot/erasure-coding",
 	"polkadot/erasure-coding/fuzzer",
+	"polkadot/jemalloc-shim",
 	"polkadot/node/collation-generation",
 	"polkadot/node/core/approval-voting",
 	"polkadot/node/core/approval-voting-parallel",
@@ -347,6 +348,7 @@ members = [
 	"substrate/frame/contracts/uapi",
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
+	"substrate/frame/dap",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/derivatives",
@@ -897,7 +899,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.12.2", features = ["rsa", "websocket"] }
+litep2p = { version = "0.13.0", features = ["rsa", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -974,6 +976,7 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
+pallet-dap = { path = "substrate/frame/dap", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
@@ -1115,6 +1118,7 @@ polkadot-core-primitives = { path = "polkadot/core-primitives", default-features
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false }
+polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false }

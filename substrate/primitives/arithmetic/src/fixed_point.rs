@@ -141,11 +141,13 @@ pub trait FixedPointNumber:
 	fn into_inner(self) -> Self::Inner;
 
 	/// Compute the square root. If it overflows or is negative, then `None` is returned.
+	#[must_use]
 	fn checked_sqrt(self) -> Option<Self>;
 
 	/// Creates self from an integer number `int`.
 	///
 	/// Returns `Self::max` or `Self::min` if `int` exceeds accuracy.
+	#[must_use]
 	fn saturating_from_integer<N: FixedPointOperand>(int: N) -> Self {
 		let mut n: I129 = int.into();
 		n.value = n.value.saturating_mul(Self::DIV.saturated_into());
@@ -155,6 +157,7 @@ pub trait FixedPointNumber:
 	/// Creates `self` from an integer number `int`.
 	///
 	/// Returns `None` if `int` exceeds accuracy.
+	#[must_use]
 	fn checked_from_integer<N: Into<Self::Inner>>(int: N) -> Option<Self> {
 		let int: Self::Inner = int.into();
 		int.checked_mul(&Self::DIV).map(Self::from_inner)
@@ -163,6 +166,7 @@ pub trait FixedPointNumber:
 	/// Creates `self` from a rational number. Equal to `n / d`.
 	///
 	/// Panics if `d = 0`. Returns `Self::max` or `Self::min` if `n / d` exceeds accuracy.
+	#[must_use]
 	fn saturating_from_rational<N: FixedPointOperand, D: FixedPointOperand>(n: N, d: D) -> Self {
 		if d == D::zero() {
 			panic!("attempt to divide by zero")
@@ -173,6 +177,7 @@ pub trait FixedPointNumber:
 	/// Creates `self` from a rational number. Equal to `n / d`.
 	///
 	/// Returns `None` if `d == 0` or `n / d` exceeds accuracy.
+	#[must_use]
 	fn checked_from_rational<N: FixedPointOperand, D: FixedPointOperand>(
 		n: N,
 		d: D,
@@ -198,6 +203,7 @@ pub trait FixedPointNumber:
 	/// Checked multiplication for integer type `N`. Equal to `self * n`.
 	///
 	/// Returns `None` if the result does not fit in `N`.
+	#[must_use]
 	fn checked_mul_int<N: FixedPointOperand>(self, n: N) -> Option<N> {
 		let lhs: I129 = self.into_inner().into();
 		let rhs: I129 = n.into();
@@ -215,6 +221,7 @@ pub trait FixedPointNumber:
 	/// Saturating multiplication for integer type `N`. Equal to `self * n`.
 	///
 	/// Returns `N::min` or `N::max` if the result does not fit in `N`.
+	#[must_use]
 	fn saturating_mul_int<N: FixedPointOperand>(self, n: N) -> N {
 		self.checked_mul_int(n).unwrap_or_else(|| to_bound(self.into_inner(), n))
 	}
@@ -222,6 +229,7 @@ pub trait FixedPointNumber:
 	/// Checked division for integer type `N`. Equal to `self / d`.
 	///
 	/// Returns `None` if the result does not fit in `N` or `d == 0`.
+	#[must_use]
 	fn checked_div_int<N: FixedPointOperand>(self, d: N) -> Option<N> {
 		let lhs: I129 = self.into_inner().into();
 		let rhs: I129 = d.into();
@@ -236,6 +244,7 @@ pub trait FixedPointNumber:
 	/// Saturating division for integer type `N`. Equal to `self / d`.
 	///
 	/// Panics if `d == 0`. Returns `N::min` or `N::max` if the result does not fit in `N`.
+	#[must_use]
 	fn saturating_div_int<N: FixedPointOperand>(self, d: N) -> N {
 		if d == N::zero() {
 			panic!("attempt to divide by zero")
@@ -247,6 +256,7 @@ pub trait FixedPointNumber:
 	/// Equal to `self * n + n`.
 	///
 	/// Returns `N::min` or `N::max` if the multiplication or final result does not fit in `N`.
+	#[must_use]
 	fn saturating_mul_acc_int<N: FixedPointOperand>(self, n: N) -> N {
 		if self.is_negative() && n > N::zero() {
 			n.saturating_sub(Self::zero().saturating_sub(self).saturating_mul_int(n))
@@ -258,6 +268,7 @@ pub trait FixedPointNumber:
 	/// Saturating absolute value.
 	///
 	/// Returns `Self::max` if `self == Self::min`.
+	#[must_use]
 	fn saturating_abs(self) -> Self {
 		let inner = self.into_inner();
 		if inner >= Self::Inner::zero() {
@@ -270,6 +281,7 @@ pub trait FixedPointNumber:
 	/// Takes the reciprocal (inverse). Equal to `1 / self`.
 	///
 	/// Returns `None` if `self = 0`.
+	#[must_use]
 	fn reciprocal(self) -> Option<Self> {
 		Self::one().checked_div(&self)
 	}
@@ -290,6 +302,7 @@ pub trait FixedPointNumber:
 	}
 
 	/// Returns the integer part.
+	#[must_use]
 	fn trunc(self) -> Self {
 		self.into_inner()
 			.checked_div(&Self::DIV)
@@ -303,6 +316,7 @@ pub trait FixedPointNumber:
 	///
 	/// Note: the returned fraction will be non-negative for negative numbers,
 	/// except in the case where the integer part is zero.
+	#[must_use]
 	fn frac(self) -> Self {
 		let integer = self.trunc();
 		let fractional = self.saturating_sub(integer);
@@ -316,6 +330,7 @@ pub trait FixedPointNumber:
 	/// Returns the smallest integer greater than or equal to a number.
 	///
 	/// Saturates to `Self::max` (truncated) if the result does not fit.
+	#[must_use]
 	fn ceil(self) -> Self {
 		if self.is_negative() {
 			self.trunc()
@@ -329,6 +344,7 @@ pub trait FixedPointNumber:
 	/// Returns the largest integer less than or equal to a number.
 	///
 	/// Saturates to `Self::min` (truncated) if the result does not fit.
+	#[must_use]
 	fn floor(self) -> Self {
 		if self.is_negative() {
 			self.saturating_sub(Self::one()).trunc()
@@ -340,6 +356,7 @@ pub trait FixedPointNumber:
 	/// Returns the number rounded to the nearest integer. Rounds half-way cases away from 0.0.
 	///
 	/// Saturates to `Self::min` or `Self::max` (truncated) if the result does not fit.
+	#[must_use]
 	fn round(self) -> Self {
 		let n = self.frac().saturating_mul(Self::saturating_from_integer(10));
 		if n < Self::saturating_from_integer(5) {

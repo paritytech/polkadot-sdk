@@ -28,8 +28,8 @@
 
 use crate::config::*;
 
-use codec::{Decode, Encode};
-use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered, FutureExt};
+use codec::{Compact, Decode, Encode, MaxEncodedLen};
+use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
@@ -43,15 +43,16 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers, ObservedRole,
 };
-use sc_network_common::role::ObservedRole;
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
 use sp_runtime::traits::Block as BlockT;
-use sp_statement_store::{Hash, Statement, StatementSource, StatementStore, SubmitResult};
+use sp_statement_store::{
+	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
+};
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
@@ -86,6 +87,8 @@ mod rep {
 const LOG_TARGET: &str = "statement-gossip";
 /// Maximim time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// Interval for sending statement batches during initial sync to new peers.
+const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -249,6 +252,9 @@ impl StatementHandlerPrototype {
 			} else {
 				None
 			},
+			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
 		};
 
 		Ok(handler)
@@ -285,14 +291,102 @@ pub struct StatementHandler<
 	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	/// Timeout for sending next statement batch during initial sync.
+	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
+	/// Pending initial syncs per peer.
+	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
+	/// Queue for round-robin processing of initial syncs.
+	initial_sync_peer_queue: VecDeque<PeerId>,
 }
 
 /// Peer information
+#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 #[derive(Debug)]
-struct Peer {
+pub struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
 	role: ObservedRole,
+}
+
+/// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
+struct PendingInitialSync {
+	hashes: Vec<Hash>,
+}
+
+/// Result of finding a sendable chunk of statements.
+enum ChunkResult {
+	/// Found a chunk that fits. Contains the end index (exclusive).
+	Send(usize),
+	/// First statement is oversized, skip it.
+	SkipOversized,
+}
+
+/// Result of sending a chunk of statements.
+enum SendChunkResult {
+	/// Successfully sent a chunk of N statements.
+	Sent(usize),
+	/// First statement was oversized and skipped.
+	Skipped,
+	/// Nothing to send.
+	Empty,
+	/// Send failed.
+	Failed,
+}
+
+/// Returns the maximum payload size for statement notifications.
+///
+/// This reserves space for encoding the length of the vector (Compact<u32>),
+/// ensuring the final encoded message fits within MAX_STATEMENT_NOTIFICATION_SIZE.
+fn max_statement_payload_size() -> usize {
+	MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len()
+}
+
+/// Find the largest chunk of statements starting from the beginning that fits
+/// within MAX_STATEMENT_NOTIFICATION_SIZE.
+///
+/// Uses an incremental approach: adds statements one by one until the limit is reached.
+/// This is efficient because we only compute sizes for statements we'll actually send
+/// in this chunk, rather than computing sizes for all statements upfront.
+fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
+	if statements.is_empty() {
+		return ChunkResult::Send(0);
+	}
+	let max_size = max_statement_payload_size();
+
+	// Incrementally add statements until we exceed the limit.
+	// This is efficient because we only compute sizes for statements in this chunk.
+	// accumulated_size is the sum of encoded sizes of all statements so far (without vec
+	// overhead).
+	let mut accumulated_size = 0;
+	let mut count = 0usize;
+
+	for stmt in &statements[0..] {
+		let stmt_size = stmt.encoded_size();
+		let new_count = count + 1;
+		// Compact encoding overhead for the new count
+		let new_total = accumulated_size + stmt_size;
+		if new_total > max_size {
+			break;
+		}
+
+		accumulated_size += stmt_size;
+		count = new_count;
+	}
+
+	// If we couldn't fit even a single statement, skip it.
+	if count == 0 {
+		ChunkResult::SkipOversized
+	} else {
+		ChunkResult::Send(count)
+	}
+}
+
+impl Peer {
+	/// Create a new peer for testing/benchmarking purposes.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_for_testing(known_statements: LruHashSet<Hash>, role: ObservedRole) -> Self {
+		Self { known_statements, role }
+	}
 }
 
 impl<N, S> StatementHandler<N, S>
@@ -300,11 +394,52 @@ where
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
+	/// Create a new `StatementHandler` for testing/benchmarking purposes.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_for_testing(
+		protocol_name: ProtocolName,
+		notification_service: Box<dyn NotificationService>,
+		propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
+		network: N,
+		sync: S,
+		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
+		peers: HashMap<PeerId, Peer>,
+		statement_store: Arc<dyn StatementStore>,
+		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+	) -> Self {
+		Self {
+			protocol_name,
+			notification_service,
+			propagate_timeout,
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network,
+			sync,
+			sync_event_stream,
+			peers,
+			statement_store,
+			queue_sender,
+			metrics: None,
+			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+		}
+	}
+
+	/// Get mutable access to pending statements for testing/benchmarking.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn pending_statements_mut(
+		&mut self,
+	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
+	{
+		&mut self.pending_statements
+	}
+
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
 	/// interrupted.
 	pub async fn run(mut self) {
 		loop {
-			futures::select! {
+			futures::select_biased! {
 				_ = self.propagate_timeout.next() => {
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
@@ -330,13 +465,54 @@ where
 				}
 				event = self.notification_service.next_event().fuse() => {
 					if let Some(event) = event {
-						self.handle_notification_event(event)
+						self.handle_notification_event(event).await
 					} else {
 						// `Notifications` has seemingly closed. Closing as well.
 						return
 					}
 				}
+				_ = &mut self.initial_sync_timeout => {
+					self.process_initial_sync_burst().await;
+					self.initial_sync_timeout =
+						Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse());
+				},
 			}
+		}
+	}
+
+	/// Send a single chunk of statements to a peer.
+	async fn send_statement_chunk(
+		&mut self,
+		peer: &PeerId,
+		statements: &[&Statement],
+	) -> SendChunkResult {
+		match find_sendable_chunk(statements) {
+			ChunkResult::Send(0) => SendChunkResult::Empty,
+			ChunkResult::Send(chunk_end) => {
+				let chunk = &statements[..chunk_end];
+				if let Err(e) = timeout(
+					SEND_TIMEOUT,
+					self.notification_service.send_async_notification(peer, chunk.encode()),
+				)
+				.await
+				{
+					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+					return SendChunkResult::Failed;
+				}
+				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.propagated_statements.inc_by(chunk.len() as u64);
+					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
+				});
+				SendChunkResult::Sent(chunk_end)
+			},
+			ChunkResult::SkipOversized => {
+				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+				self.metrics.as_ref().map(|metrics| {
+					metrics.skipped_oversized_statements.inc();
+				});
+				SendChunkResult::Skipped
+			},
 		}
 	}
 
@@ -365,7 +541,7 @@ where
 		}
 	}
 
-	fn handle_notification_event(&mut self, event: NotificationEvent) {
+	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
 				// only accept peers whose role can be determined
@@ -391,10 +567,20 @@ where
 					},
 				);
 				debug_assert!(_was_in.is_none());
+
+				if !self.sync.is_major_syncing() && !role.is_light() {
+					let hashes = self.statement_store.statement_hashes();
+					if !hashes.is_empty() {
+						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
+						self.initial_sync_peer_queue.push_back(peer);
+					}
+				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				let _peer = self.peers.remove(&peer);
 				debug_assert!(_peer.is_some());
+				self.pending_initial_syncs.remove(&peer);
+				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				// Accept statements only when node is not major syncing
@@ -416,7 +602,8 @@ where
 	}
 
 	/// Called when peer sends us new statements
-	fn on_statements(&mut self, who: PeerId, statements: Statements) {
+	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
+	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			let mut statements_left = statements.len() as u64;
@@ -521,78 +708,56 @@ where
 		}
 	}
 
+	/// Propagate the given `statements` to the given `peer`.
+	///
+	/// Internally filters `statements` to only send unknown statements to the peer.
+	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+		let Some(peer) = self.peers.get_mut(who) else {
+			return;
+		};
+
+		// Never send statements to light nodes
+		if peer.role.is_light() {
+			log::trace!(target: LOG_TARGET, "{who} is a light node, skipping propagation");
+			return
+		}
+
+		let to_send: Vec<_> = statements
+			.iter()
+			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
+			.collect();
+
+		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
+
+		if to_send.is_empty() {
+			return
+		}
+
+		self.send_statements_in_chunks(who, &to_send).await;
+	}
+
+	/// Send statements to a peer in chunks, respecting the maximum notification size.
+	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+		let mut offset = 0;
+		while offset < statements.len() {
+			match self.send_statement_chunk(who, &statements[offset..]).await {
+				SendChunkResult::Sent(chunk_end) => {
+					offset += chunk_end;
+				},
+				SendChunkResult::Skipped => {
+					offset += 1;
+				},
+				SendChunkResult::Empty | SendChunkResult::Failed => return,
+			}
+		}
+	}
+
 	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
 		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
-		for (who, peer) in self.peers.iter_mut() {
+		let peers: Vec<_> = self.peers.keys().copied().collect();
+		for who in peers {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
-
-			// never send statements to light nodes
-			if peer.role.is_light() {
-				log::trace!(target: LOG_TARGET, "{} is a light node, skipping propagation", who);
-				continue
-			}
-
-			let to_send = statements
-				.iter()
-				.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
-				.collect::<Vec<_>>();
-			log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
-
-			let mut offset = 0;
-			while offset < to_send.len() {
-				// Try to send as many statements as possible in one notification
-				let mut current_end = to_send.len();
-				log::trace!(target: LOG_TARGET, "Looking for better chunk size");
-
-				loop {
-					let chunk = &to_send[offset..current_end];
-					let encoded_size = chunk.encoded_size();
-					log::trace!(target: LOG_TARGET, "Chunk: {} statements, {} KB", chunk.len(), encoded_size / 1024);
-
-					// If chunk fits, send it
-					if encoded_size <= MAX_STATEMENT_NOTIFICATION_SIZE as usize {
-						if let Err(e) = timeout(
-							SEND_TIMEOUT,
-							self.notification_service.send_async_notification(who, chunk.encode()),
-						)
-						.await
-						{
-							log::debug!(target: LOG_TARGET, "Failed to send notification to {}, peer disconnected, skipping further batches: {:?}", who, e);
-							offset = to_send.len();
-							break;
-						}
-						offset = current_end;
-						log::trace!(target: LOG_TARGET, "Sent {} statements ({} KB) to {}, {} left", chunk.len(), encoded_size / 1024, who, to_send.len() - offset);
-						self.metrics.as_ref().map(|metrics| {
-							metrics.propagated_statements.inc_by(chunk.len() as u64);
-							metrics.propagated_statements_chunks.observe(chunk.len() as f64);
-						});
-						break;
-					}
-
-					// Size exceeded - split the chunk
-					let split_factor =
-						(encoded_size / MAX_STATEMENT_NOTIFICATION_SIZE as usize) + 1;
-					let mut new_chunk_size = (current_end - offset) / split_factor;
-
-					// Single statement is too large
-					if new_chunk_size == 0 {
-						if chunk.len() == 1 {
-							log::warn!(target: LOG_TARGET, "Statement too large ({} KB), skipping", encoded_size / 1024);
-							self.metrics.as_ref().map(|metrics| {
-								metrics.skipped_oversized_statements.inc();
-							});
-							offset = current_end;
-							break;
-						}
-						// Don't skip more than one statement at once
-						new_chunk_size = 1;
-					}
-
-					// Reduce chunk size and try again
-					current_end = offset + new_chunk_size;
-				}
-			}
+			self.send_statements_to_peer(&who, statements).await;
 		}
 		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
 	}
@@ -609,6 +774,78 @@ where
 			self.do_propagate_statements(&statements).await;
 		}
 	}
+
+	/// Process one batch of initial sync for the next peer in the queue (round-robin).
+	async fn process_initial_sync_burst(&mut self) {
+		if self.sync.is_major_syncing() {
+			return;
+		}
+
+		let Some(peer_id) = self.initial_sync_peer_queue.pop_front() else {
+			return;
+		};
+
+		let Entry::Occupied(mut entry) = self.pending_initial_syncs.entry(peer_id) else {
+			return;
+		};
+
+		if entry.get().hashes.is_empty() {
+			entry.remove();
+			return;
+		}
+
+		// Fetch statements up to max_statement_payload_size (reserves space for vec encoding)
+		let max_size = max_statement_payload_size();
+		let mut accumulated_size = 0;
+		let (statements, processed) = match self.statement_store.statements_by_hashes(
+			&entry.get().hashes,
+			&mut |_hash, encoded, _stmt| {
+				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
+					return FilterDecision::Abort
+				}
+				accumulated_size += encoded.len();
+				FilterDecision::Take
+			},
+		) {
+			Ok(r) => r,
+			Err(e) => {
+				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
+				entry.remove();
+				return;
+			},
+		};
+
+		// Drain processed hashes and check if more remain
+		entry.get_mut().hashes.drain(..processed);
+		let has_more = !entry.get().hashes.is_empty();
+		drop(entry);
+
+		// Send statements (already sized to fit in one message)
+		let to_send: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
+		match self.send_statement_chunk(&peer_id, &to_send).await {
+			SendChunkResult::Failed => {
+				self.pending_initial_syncs.remove(&peer_id);
+				return;
+			},
+			SendChunkResult::Sent(sent) => {
+				debug_assert_eq!(to_send.len(), sent);
+				// Mark statements as known
+				if let Some(peer) = self.peers.get_mut(&peer_id) {
+					for (hash, _) in &statements {
+						peer.known_statements.insert(*hash);
+					}
+				}
+			},
+			SendChunkResult::Empty | SendChunkResult::Skipped => {},
+		}
+
+		// Re-queue if more hashes remain
+		if has_more {
+			self.initial_sync_peer_queue.push_back(peer_id);
+		} else {
+			self.pending_initial_syncs.remove(&peer_id);
+		}
+	}
 }
 
 #[cfg(test)]
@@ -620,15 +857,23 @@ mod tests {
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
+		peer_roles: Arc<Mutex<HashMap<PeerId, ObservedRole>>>,
 	}
 
 	impl TestNetwork {
 		fn new() -> Self {
-			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				reported_peers: Arc::new(Mutex::new(Vec::new())),
+				peer_roles: Arc::new(Mutex::new(HashMap::new())),
+			}
 		}
 
 		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
 			self.reported_peers.lock().unwrap().clone()
+		}
+
+		fn set_peer_role(&self, peer: PeerId, role: ObservedRole) {
+			self.peer_roles.lock().unwrap().insert(peer, role);
 		}
 	}
 
@@ -705,8 +950,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			unimplemented!()
+		fn peer_role(&self, peer: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			self.peer_roles.lock().unwrap().get(&peer).copied()
 		}
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
@@ -851,6 +1096,45 @@ mod tests {
 			self.statements.lock().unwrap().contains_key(hash)
 		}
 
+		fn statement_hashes(&self) -> Vec<sp_statement_store::Hash> {
+			self.statements.lock().unwrap().keys().cloned().collect()
+		}
+
+		fn statements_by_hashes(
+			&self,
+			hashes: &[sp_statement_store::Hash],
+			filter: &mut dyn FnMut(
+				&sp_statement_store::Hash,
+				&[u8],
+				&sp_statement_store::Statement,
+			) -> FilterDecision,
+		) -> sp_statement_store::Result<(
+			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
+			usize,
+		)> {
+			let statements = self.statements.lock().unwrap();
+			let mut result = Vec::new();
+			let mut processed = 0;
+			for hash in hashes {
+				let Some(stmt) = statements.get(hash) else {
+					processed += 1;
+					continue
+				};
+				let encoded = stmt.encode();
+				match filter(hash, &encoded, stmt) {
+					FilterDecision::Skip => {
+						processed += 1;
+					},
+					FilterDecision::Take => {
+						processed += 1;
+						result.push((*hash, stmt.clone()));
+					},
+					FilterDecision::Abort => break,
+				}
+			}
+			Ok((result, processed))
+		}
+
 		fn broadcasts(
 			&self,
 			_match_all_topics: &[sp_statement_store::Topic],
@@ -952,12 +1236,15 @@ mod tests {
 			statement_store: Arc::new(statement_store.clone()),
 			queue_sender,
 			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
 
-	#[test]
-	fn test_skips_processing_statements_that_already_in_store() {
+	#[tokio::test]
+	async fn test_skips_processing_statements_that_already_in_store() {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver) =
 			build_handler();
 
@@ -982,8 +1269,8 @@ mod tests {
 		assert!(no_more.is_err(), "Expected only one statement to be queued");
 	}
 
-	#[test]
-	fn test_reports_for_duplicate_statements() {
+	#[tokio::test]
+	async fn test_reports_for_duplicate_statements() {
 		let (mut handler, statement_store, network, _notification_service, queue_receiver) =
 			build_handler();
 
@@ -1124,5 +1411,441 @@ mod tests {
 		let mut expected_hashes = vec![hash1, hash2, hash3];
 		expected_hashes.sort();
 		assert_eq!(sent_hashes, expected_hashes, "Only small statements should be sent");
+	}
+
+	fn build_handler_no_peers() -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		TestNotificationService,
+	) {
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+
+		let handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service.clone()),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync: TestSync {},
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store.clone()),
+			queue_sender,
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+		};
+		(handler, statement_store, network, notification_service)
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_single_peer() {
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		// Create 20MB of statements (200 statements x 100KB each)
+		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
+		let num_statements = 200;
+		let statement_size = 100 * 1024; // 100KB per statement
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; statement_size];
+			// Use multiple bytes for uniqueness since we have >255 statements
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			statement.set_plain_data(data);
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Setup peer and simulate connection
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Verify peer was added and initial sync was queued
+		assert!(handler.peers.contains_key(&peer_id));
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
+
+		// Process bursts until all statements are sent
+		let mut burst_count = 0;
+		while handler.pending_initial_syncs.contains_key(&peer_id) {
+			handler.process_initial_sync_burst().await;
+			burst_count += 1;
+			// Safety limit
+			assert!(burst_count <= 300, "Too many bursts, possible infinite loop");
+		}
+
+		// Verify multiple bursts were needed
+		// With 200 statements x 100KB each and ~1MB per batch, we expect many bursts
+		assert!(
+			burst_count >= 10,
+			"Expected multiple bursts for 200 statements of 100KB each, got {}",
+			burst_count
+		);
+
+		// Verify all statements were sent
+		let sent = notification_service.get_sent_notifications();
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(peer, notification)| {
+				assert_eq!(*peer, peer_id);
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+		expected_hashes.sort();
+
+		assert_eq!(
+			sent_hashes.len(),
+			expected_hashes.len(),
+			"Expected {} statements to be sent, got {}",
+			expected_hashes.len(),
+			sent_hashes.len()
+		);
+		assert_eq!(sent_hashes, expected_hashes, "All statements should be sent");
+
+		// Verify cleanup
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_multiple_peers_round_robin() {
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		// Create 20MB of statements (200 statements x 100KB each)
+		let num_statements = 200;
+		let statement_size = 100 * 1024; // 100KB per statement
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			let mut data = vec![0u8; statement_size];
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			statement.set_plain_data(data);
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Setup 3 peers and simulate connections
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+		network.set_peer_role(peer1, ObservedRole::Full);
+		network.set_peer_role(peer2, ObservedRole::Full);
+		network.set_peer_role(peer3, ObservedRole::Full);
+
+		// Connect peers
+		for peer in [peer1, peer2, peer3] {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+					peer,
+					direction: sc_network::service::traits::Direction::Inbound,
+					handshake: vec![],
+					negotiated_fallback: None,
+				})
+				.await;
+		}
+
+		// Verify all peers were added and initial syncs were queued
+		assert_eq!(handler.peers.len(), 3);
+		assert_eq!(handler.pending_initial_syncs.len(), 3);
+		assert_eq!(handler.initial_sync_peer_queue.len(), 3);
+
+		// Track which peer was processed on each burst for round-robin verification
+		let mut peer_burst_order = Vec::new();
+		let mut burst_count = 0;
+
+		while !handler.pending_initial_syncs.is_empty() {
+			// Record which peer will be processed next
+			if let Some(&next_peer) = handler.initial_sync_peer_queue.front() {
+				peer_burst_order.push(next_peer);
+			}
+			handler.process_initial_sync_burst().await;
+			burst_count += 1;
+			// Safety limit
+			assert!(burst_count <= 500, "Too many bursts, possible infinite loop");
+		}
+
+		// Verify multiple bursts were needed
+		// With 3 peers and many bursts per peer, we expect many bursts total
+		assert!(
+			burst_count >= 30,
+			"Expected many bursts for 3 peers with 200 statements each, got {}",
+			burst_count
+		);
+
+		// Verify round-robin pattern in first 9 bursts (3 peers x 3 rounds)
+		assert!(peer_burst_order.len() >= 9, "Expected at least 9 bursts");
+		// First round
+		assert_eq!(peer_burst_order[0], peer1, "First burst should be peer1");
+		assert_eq!(peer_burst_order[1], peer2, "Second burst should be peer2");
+		assert_eq!(peer_burst_order[2], peer3, "Third burst should be peer3");
+		// Second round
+		assert_eq!(peer_burst_order[3], peer1, "Fourth burst should be peer1");
+		assert_eq!(peer_burst_order[4], peer2, "Fifth burst should be peer2");
+		assert_eq!(peer_burst_order[5], peer3, "Sixth burst should be peer3");
+
+		// Verify all peers received all statements
+		let sent = notification_service.get_sent_notifications();
+		let mut peer1_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer1)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		let mut peer2_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer2)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		let mut peer3_hashes: Vec<_> = sent
+			.iter()
+			.filter(|(peer, _)| *peer == peer3)
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+
+		peer1_hashes.sort();
+		peer2_hashes.sort();
+		peer3_hashes.sort();
+		expected_hashes.sort();
+
+		assert_eq!(peer1_hashes, expected_hashes, "Peer1 should receive all statements");
+		assert_eq!(peer2_hashes, expected_hashes, "Peer2 should receive all statements");
+		assert_eq!(peer3_hashes, expected_hashes, "Peer3 should receive all statements");
+
+		// Verify cleanup
+		assert!(handler.pending_initial_syncs.is_empty());
+		assert!(handler.initial_sync_peer_queue.is_empty());
+	}
+
+	#[tokio::test]
+	async fn test_send_statements_in_chunks_exact_max_size() {
+		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
+			build_handler();
+
+		// Calculate the data sizes so that 100 statements together exactly fill max_size.
+		// This tests that all 100 statements fit in a single notification.
+		//
+		// The limit check in find_sendable_chunk is:
+		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
+		//
+		// Statement encoding (encodes as Vec<Field>):
+		// - Compact<u32> for number of fields (1 byte for value 1)
+		// - Field::Data discriminant (1 byte, value 8)
+		// - Compact<u32> for the data length (2 bytes for small data)
+		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
+		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
+		let num_statements: usize = 100;
+		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let total_overhead = per_statement_overhead * num_statements;
+		let total_data_size = max_size - total_overhead;
+		let per_statement_data_size = total_data_size / num_statements;
+		let remainder = total_data_size % num_statements;
+
+		let mut expected_hashes = Vec::with_capacity(num_statements);
+		let mut total_encoded_size = 0;
+
+		for i in 0..num_statements {
+			let mut statement = Statement::new();
+			// Distribute remainder across first `remainder` statements to exactly fill max_size
+			let extra = if i < remainder { 1 } else { 0 };
+			let mut data = vec![42u8; per_statement_data_size + extra];
+			// Make each statement unique by modifying the first few bytes
+			data[0] = i as u8;
+			data[1] = (i >> 8) as u8;
+			statement.set_plain_data(data);
+
+			total_encoded_size += statement.encoded_size();
+
+			let hash = statement.hash();
+			expected_hashes.push(hash);
+			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
+		}
+
+		// Verify our calculation: total encoded size should be <= max_size
+		assert!(
+			total_encoded_size == max_size,
+			"Total encoded size {} should be <= max_size {}",
+			total_encoded_size,
+			max_size
+		);
+
+		handler.propagate_statements().await;
+
+		let sent = notification_service.get_sent_notifications();
+
+		// All statements should fit in a single chunk
+		assert_eq!(
+			sent.len(),
+			1,
+			"Expected 1 notification for all {} statements, but got {}",
+			num_statements,
+			sent.len()
+		);
+
+		let (_peer, notification) = &sent[0];
+		assert!(
+			notification.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize,
+			"Notification size {} exceeds limit {}",
+			notification.len(),
+			MAX_STATEMENT_NOTIFICATION_SIZE
+		);
+
+		let decoded = <Statements as Decode>::decode(&mut notification.as_slice()).unwrap();
+		assert_eq!(
+			decoded.len(),
+			num_statements,
+			"Expected {} statements in the notification",
+			num_statements
+		);
+
+		// Verify all statements were sent (order may differ due to HashMap iteration)
+		let mut received_hashes: Vec<_> = decoded.iter().map(|s| s.hash()).collect();
+		expected_hashes.sort();
+		received_hashes.sort();
+		assert_eq!(expected_hashes, received_hashes, "All statement hashes should match");
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_size_limit_consistency() {
+		// This test verifies that process_initial_sync_burst and find_sendable_chunk
+		// use the same size limit (max_statement_payload_size).
+		//
+		// Previously there was a bug where the filter in process_initial_sync_burst used
+		// MAX_STATEMENT_NOTIFICATION_SIZE, but find_sendable_chunk reserved extra space
+		// for Compact::<u32>::max_encoded_len(). This caused a debug_assert failure when
+		// statements fit the filter but not find_sendable_chunk.
+		//
+		// With the fix, both use max_statement_payload_size(), so the filter will reject
+		// statements that wouldn't fit in find_sendable_chunk.
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		let payload_limit = max_statement_payload_size();
+
+		// Create first statement that's just over half the payload limit
+		let first_stmt_data_size = payload_limit / 2 + 10;
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
+		let stmt1_encoded_size = stmt1.encoded_size();
+
+		// Create second statement that, combined with the first, exceeds the payload limit.
+		// This means the filter will only accept the first statement.
+		let remaining = payload_limit.saturating_sub(stmt1_encoded_size);
+		let target_stmt2_encoded = remaining + 3; // 3 bytes over limit when combined
+		let stmt2_data_size = target_stmt2_encoded.saturating_sub(4); // ~4 bytes encoding overhead
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(vec![2u8; stmt2_data_size]);
+		let stmt2_encoded_size = stmt2.encoded_size();
+
+		let total_encoded = stmt1_encoded_size + stmt2_encoded_size;
+
+		// Verify our setup: total exceeds payload limit
+		assert!(
+			total_encoded > payload_limit,
+			"Total {} should exceed payload_limit {} so filter rejects second statement",
+			total_encoded,
+			payload_limit
+		);
+
+		let hash1 = stmt1.hash();
+		let hash2 = stmt2.hash();
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		// Setup peer and simulate connection
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Verify initial sync was queued with both hashes
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
+
+		// Process first burst - should send only one statement (the other doesn't fit)
+		handler.process_initial_sync_burst().await;
+
+		// With the fix, the filter and find_sendable_chunk use the same limit,
+		// so no assertion failure occurs. Only one statement is fetched and sent.
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1, "First burst should send one notification");
+
+		let decoded = <Statements as Decode>::decode(&mut sent[0].1.as_slice()).unwrap();
+		assert_eq!(decoded.len(), 1, "First notification should contain one statement");
+
+		// Verify one of the two statements was sent (order is non-deterministic due to HashMap)
+		let sent_hash = decoded[0].hash();
+		assert!(
+			sent_hash == hash1 || sent_hash == hash2,
+			"Sent statement should be one of the two created"
+		);
+
+		// Second statement should still be pending
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
+
+		// Process second burst - should send the remaining statement
+		handler.process_initial_sync_burst().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 2, "Second burst should send another notification");
+
+		// Both statements should now be sent
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+		let mut expected_hashes = vec![hash1, hash2];
+		expected_hashes.sort();
+		assert_eq!(sent_hashes, expected_hashes, "Both statements should be sent");
+
+		// No more pending
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 }

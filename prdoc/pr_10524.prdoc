@@ -1,0 +1,8 @@
+title: Fix Differential Testing CI Flakiness
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR updates the commit hash of the revive differential testing framework that we use to fix the flakiness we observed in CI. It was fixed in the framework by caching the chainspec of the node's we spawn so that the chainspec is only generated once and used for all of the nodes.
+crates: []

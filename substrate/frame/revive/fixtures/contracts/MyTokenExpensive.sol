@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MyToken is ERC20 {
+contract MyTokenExpensive is ERC20 {
     constructor(uint256 total) ERC20("TestToken1", "TT1") {
         // We mint `total` tokens to the creator of this contract, as
         // a sort of genesis.

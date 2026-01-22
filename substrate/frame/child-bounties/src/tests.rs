@@ -135,6 +135,7 @@ impl pallet_bounties::Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
+	type TransferAllAssets = ();
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -1536,6 +1537,8 @@ fn accept_curator_handles_different_deposit_calculations() {
 		assert_eq!(Balances::reserved_balance(child_curator), reserved_before);
 
 		// Case 3: Upper Limit
+		// Close a child bounty to make room for the next one (MaxActiveChildBountyCount = 2)
+		assert_ok!(ChildBounties::impl_close_child_bounty(parent_index, 0));
 
 		let child_index = 2;
 		let child_curator = account_id(2);
@@ -1608,5 +1611,75 @@ fn accept_curator_handles_different_deposit_calculations() {
 fn integrity_test() {
 	new_test_ext().execute_with(|| {
 		ChildBounties::integrity_test();
+	});
+}
+
+#[test]
+fn max_active_child_bounty_count_is_strictly_enforced() {
+	// Verify that exactly MaxActiveChildBountyCount child bounties can be created,
+	// and attempting to create one more fails with TooManyChildBounties error.
+	new_test_ext().execute_with(|| {
+		// Setup: MaxActiveChildBountyCount is set to 2 in test configuration.
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&account_id(4), 101);
+
+		// Create a parent bounty.
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(2);
+
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 4));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+
+		// Create first child bounty - should succeed.
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"child-1".to_vec()
+		));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
+
+		// Create second child bounty - should succeed (at limit).
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"child-2".to_vec()
+		));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
+
+		// Attempt to create third child bounty - should fail with TooManyChildBounties.
+		assert_noop!(
+			ChildBounties::add_child_bounty(
+				RuntimeOrigin::signed(account_id(4)),
+				0,
+				10,
+				b"child-3".to_vec()
+			),
+			Error::<Test>::TooManyChildBounties,
+		);
+
+		// Verify count hasn't increased.
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
+
+		// Close one child bounty and verify we can add a new one.
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::signed(account_id(4)), 0, 0));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 1);
+
+		// Now we should be able to add another child bounty.
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"child-4".to_vec()
+		));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
 	});
 }

@@ -15,34 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
+//! Genesis tests for the DAP pallet.
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use crate::mock::*;
 
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+type DapPallet = crate::Pallet<Test>;
 
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {
-	input!(
-		signature: [u8; 64],
-		pub_key: [u8; 32],
-		msg: [u8; 11],
-	);
-
-	let exit_status = match api::sr25519_verify(
-		&signature.try_into().unwrap(),
-		msg,
-		&pub_key.try_into().unwrap(),
-	) {
-		Ok(_) => 0u32,
-		Err(code) => code as u32,
-	};
-
-	// Exit with success and take transfer return code to the output buffer.
-	api::return_value(uapi::ReturnFlags::empty(), &exit_status.to_le_bytes());
+#[test]
+fn genesis_creates_buffer_account() {
+	new_test_ext().execute_with(|| {
+		let buffer = DapPallet::buffer_account();
+		// Buffer account should exist after genesis (created via inc_providers)
+		assert!(System::account_exists(&buffer));
+	});
 }

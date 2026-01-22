@@ -225,7 +225,6 @@ pub mod data {
 
 			// check and migrate `Queries`
 			let queries_to_migrate = Queries::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
 				match data.try_migrate(required_xcm_version) {
 					Ok(Some(new_data)) => Some((id, new_data)),
 					Ok(None) => None,
@@ -248,13 +247,12 @@ pub mod data {
 					"Migrating `Queries`"
 				);
 				Queries::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `LockedFungibles`
 			let locked_fungibles_to_migrate =
 				LockedFungibles::<T>::iter().filter_map(|(id, data)| {
-					weight.saturating_add(T::DbWeight::get().reads(1));
 					match data.try_migrate(required_xcm_version) {
 						Ok(Some(new_data)) => Some((id, new_data)),
 						Ok(None) => None,
@@ -277,13 +275,12 @@ pub mod data {
 					"Migrating `LockedFungibles`"
 				);
 				LockedFungibles::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 1. step - just data
 			let remote_locked_fungibles_to_migrate =
 				RemoteLockedFungibles::<T>::iter().filter_map(|(id, data)| {
-					weight.saturating_add(T::DbWeight::get().reads(1));
 					match data.try_migrate(required_xcm_version) {
 						Ok(Some(new_data)) => Some((id, new_data)),
 						Ok(None) => None,
@@ -309,7 +306,7 @@ pub mod data {
 					"Migrating `RemoteLockedFungibles` data"
 				);
 				RemoteLockedFungibles::<T>::insert(id, new_data);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 			}
 
 			// check and migrate `RemoteLockedFungibles` - 2. step - key
@@ -335,7 +332,7 @@ pub mod data {
 					}
 				});
 			for (old_key, new_key) in remote_locked_fungibles_keys_to_migrate {
-				weight.saturating_add(T::DbWeight::get().reads(1));
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 				// make sure, that we don't override accidentally other data
 				if RemoteLockedFungibles::<T>::get(&new_key).is_some() {
 					tracing::error!(
@@ -366,12 +363,12 @@ pub mod data {
 					_,
 					_,
 				>(&old_key, &new_key);
-				weight.saturating_add(T::DbWeight::get().writes(1));
+				weight.saturating_accrue(T::DbWeight::get().writes(1));
 			}
 
 			// check and migrate `AuthorizedAliases`
 			let aliases_to_migrate = AuthorizedAliases::<T>::iter().filter_map(|(id, data)| {
-				weight.saturating_add(T::DbWeight::get().reads(1));
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
 				match (&id, data, PhantomData::<T>).try_migrate(required_xcm_version) {
 					Ok(Some((new_id, new_data))) => Some((id, new_id, new_data)),
 					Ok(None) => None,
@@ -399,7 +396,7 @@ pub mod data {
 				count = count + 1;
 			}
 			// two writes per key, one to remove old entry, one to write new entry
-			weight.saturating_add(T::DbWeight::get().writes(count * 2));
+			weight.saturating_accrue(T::DbWeight::get().writes(count * 2));
 		}
 	}
 }

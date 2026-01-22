@@ -79,6 +79,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::Config as BenchmarkConfig;
 
 mod payment;
 mod types;

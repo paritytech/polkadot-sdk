@@ -2260,6 +2260,71 @@ fn auto_renewal_works() {
 }
 
 #[test]
+fn enable_auto_renew_immediate_updates_core_and_renews() {
+	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
+
+		// Rotate into the next sale where this region is renewable.
+		let sale = SaleInfo::<Test>::get().unwrap();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		let next_sale_block = sale.region_begin as u64 * timeslice_period;
+		advance_to(next_sale_block);
+
+		let sale = SaleInfo::<Test>::get().unwrap();
+		if System::block_number() <= sale.sale_start {
+			advance_to(sale.sale_start + 1);
+		}
+
+		// Pre-sell a core to ensure the renewal allocates a different core index.
+		let _ = Broker::do_purchase(2, u64::max_value()).unwrap();
+		let sale_before_renew = SaleInfo::<Test>::get().unwrap();
+		let expected_new_core = sale_before_renew.first_core + sale_before_renew.cores_sold;
+		assert_ne!(expected_new_core, region_id.core);
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
+
+		// Auto-renewal record should follow the new core.
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord {
+				core: expected_new_core,
+				task: 1001,
+				next_renewal: sale_before_renew.region_end
+			}]
+		);
+
+		// Potential renewal moved to the new core index.
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: expected_new_core,
+			when: sale_before_renew.region_end
+		})
+		.is_some());
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: region_id.core,
+			when: sale_before_renew.region_end
+		})
+		.is_none());
+
+		// Next rotation should renew again and keep auto-renewal enabled.
+		let next_block = sale_before_renew.region_end as u64 * timeslice_period;
+		advance_to(next_block);
+		let sale_after_renew = SaleInfo::<Test>::get().unwrap();
+		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
+		assert_eq!(auto_after_renew.len(), 1);
+		assert_eq!(auto_after_renew[0].task, 1001);
+		assert_eq!(auto_after_renew[0].next_renewal, sale_after_renew.region_end);
+		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
+			core: auto_after_renew[0].core,
+			when: sale_after_renew.region_end
+		})
+		.is_some());
+	});
+}
+
+#[test]
 fn disable_auto_renew_works() {
 	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 3));
@@ -2520,119 +2585,218 @@ fn can_reserve_workloads_quickly() {
 	});
 }
 
-// Add an extrinsic to do it properly.
 #[test]
 fn force_reserve_works() {
-	TestExt::new().execute_with(|| {
-		let system_workload = Schedule::truncate_from(vec![ScheduleItem {
-			mask: CoreMask::complete(),
-			assignment: Task(1004),
-		}]);
+	let system_workload = Schedule::truncate_from(vec![ScheduleItem {
+		mask: CoreMask::complete(),
+		assignment: Task(1004),
+	}]);
 
-		// Not intended to work before sales are started.
+	// Not intended to work before sales are started.
+	TestExt::new().execute_with(|| {
 		assert_noop!(
 			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0),
 			Error::<Test>::NoSales
 		);
+	});
 
-		// Start sales.
-		assert_ok!(Broker::do_start_sales(100, 0));
-		advance_to(1);
+	// With active reservation and purchased coretime - ForceReservation should not overwrite.
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 4));
+		advance_to(2);
 
-		// Add a new core. With the mock this is instant, with current relay implementation it
-		// takes two sessions to come into effect.
-		assert_ok!(Broker::do_request_core_count(1));
+		let existing_reservation = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1000),
+		}]);
+		assert_ok!(Broker::reserve(RuntimeOrigin::root(), existing_reservation.clone()));
 
-		// Force reserve should now work.
-		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0));
-
-		// Reservation is added for the workload.
-		System::assert_has_event(
-			Event::ReservationMade { index: 0, workload: system_workload.clone() }.into(),
-		);
-		System::assert_has_event(Event::CoreCountRequested { core_count: 1 }.into());
-		assert_eq!(Reservations::<Test>::get(), vec![system_workload.clone()]);
-
-		// Advance to where that timeslice will be committed.
-		advance_to(3);
-		System::assert_has_event(
-			Event::CoreAssigned {
-				core: 0,
-				when: 4,
-				assignment: vec![(CoreAssignment::Task(1004), 57600)],
-			}
-			.into(),
-		);
-
-		// It is also in the workplan for the next region.
-		assert_eq!(Workplan::<Test>::get((4, 0)), Some(system_workload.clone()));
-
-		// Go to next sale. Rotate sale puts it in the workplan.
+		// Advance 2 sale periods so the reservation becomes active.
 		advance_sale_period();
-		assert_eq!(Workplan::<Test>::get((7, 0)), Some(system_workload.clone()));
-
-		// Go to the second sale after reserving.
 		advance_sale_period();
 
-		// Check the trace to ensure it has a core in every region.
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Final));
+
+		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 3));
+
+		assert_eq!(
+			Reservations::<Test>::get(),
+			vec![existing_reservation.clone(), system_workload.clone()]
+		);
+		assert_eq!(ForceReservations::<Test>::get(), vec![system_workload.clone()]);
+
+		advance_sale_period();
+		assert!(ForceReservations::<Test>::get().is_empty());
+
+		advance_sale_period();
+
+		// Trace shows:
+		// - Existing reservation active at core 0 (from second sale period)
+		// - Purchased coretime at core 1 (first_core = 1 after reservation)
+		// - ForceReservation at core 2 (first free core after purchase)
 		assert_eq!(
 			CoretimeTrace::get(),
 			vec![
+				// First sale period: all cores to pool (reservation not yet active)
 				(
-					2,
+					6,
 					AssignCore {
 						core: 0,
-						begin: 4,
-						assignment: vec![(Task(1004), 57600)],
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
 						end_hint: None
 					}
 				),
 				(
 					6,
 					AssignCore {
-						core: 0,
+						core: 1,
 						begin: 8,
-						assignment: vec![(Task(1004), 57600)],
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 2,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					6,
+					AssignCore {
+						core: 3,
+						begin: 8,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				// Second sale period: reservation becomes active at core 0
+				(
+					12,
+					AssignCore {
+						core: 0,
+						begin: 14,
+						assignment: vec![(Task(1000), 57600)],
 						end_hint: None
 					}
 				),
 				(
 					12,
 					AssignCore {
-						core: 0,
+						core: 1,
 						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 2,
+						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					12,
+					AssignCore {
+						core: 3,
+						begin: 14,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				// Immediate assignment from force_reserve
+				(
+					16,
+					AssignCore {
+						core: 3,
+						begin: 18,
 						assignment: vec![(Task(1004), 57600)],
 						end_hint: None
 					}
-				)
+				),
+				// Third sale: reservation core 0, purchase core 1, ForceReservation core 2
+				(
+					18,
+					AssignCore {
+						core: 0,
+						begin: 20,
+						assignment: vec![(Task(1000), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 1,
+						begin: 20,
+						assignment: vec![(Task(1001), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 2,
+						begin: 20,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 3,
+						begin: 20,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				// Fourth sale: both permanent reservations active
+				(
+					24,
+					AssignCore {
+						core: 0,
+						begin: 26,
+						assignment: vec![(Task(1000), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 1,
+						begin: 26,
+						assignment: vec![(Task(1004), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 2,
+						begin: 26,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 3,
+						begin: 26,
+						assignment: vec![(Pool, 57600)],
+						end_hint: None
+					}
+				),
 			]
 		);
-		System::assert_has_event(
-			Event::CoreAssigned {
-				core: 0,
-				when: 8,
-				assignment: vec![(CoreAssignment::Task(1004), 57600)],
-			}
-			.into(),
-		);
-		System::assert_has_event(
-			Event::CoreAssigned {
-				core: 0,
-				when: 14,
-				assignment: vec![(CoreAssignment::Task(1004), 57600)],
-			}
-			.into(),
-		);
-		System::assert_has_event(
-			Event::CoreAssigned {
-				core: 0,
-				when: 14,
-				assignment: vec![(CoreAssignment::Task(1004), 57600)],
-			}
-			.into(),
-		);
-
-		// And it's in the workplan for the next period.
-		assert_eq!(Workplan::<Test>::get((10, 0)), Some(system_workload.clone()));
 	});
 }

@@ -443,6 +443,10 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// FRAME pallet for Dynamic Allocation Pool (DAP).
+#[cfg(feature = "pallet-dap")]
+pub use pallet_dap;
+
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
 pub use pallet_delegated_staking;
@@ -941,16 +945,6 @@ pub use polkadot_node_core_pvf_checker;
 /// and the PVF workers.
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
-
-/// Polkadot crate that contains the logic for executing PVFs. Used by the
-/// polkadot-execute-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-execute-worker")]
-pub use polkadot_node_core_pvf_execute_worker;
-
-/// Polkadot crate that contains the logic for preparing PVFs. Used by the
-/// polkadot-prepare-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-prepare-worker")]
-pub use polkadot_node_core_pvf_prepare_worker;
 
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]

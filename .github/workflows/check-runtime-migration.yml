@@ -93,7 +93,7 @@ jobs:
         shell: bash
 
       - name: Download Snapshot
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
