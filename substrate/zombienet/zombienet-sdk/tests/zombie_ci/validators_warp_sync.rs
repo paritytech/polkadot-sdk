@@ -176,30 +176,21 @@ fn build_network_config() -> Result<NetworkConfig> {
 				.with_chain_spec_path(chain_spec.as_str())
 				.with_node(|node| {
 					node.with_name("alice")
-						.validator(true)
 						.with_args(vec!["--sync=warp".into(), "--log=beefy=debug".into()])
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("bob")
-						.validator(true)
 						.with_args(vec!["--sync=warp".into(), "--log=beefy=debug".into()])
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("other-validator")
-						.validator(true)
 						.with_args(vec!["--sync=warp".into(), "--log=beefy=debug".into()])
 				})
-				.with_node(|node| {
-					node.with_name("charlie")
-						.validator(false)
-						.with_db_snapshot(db_snapshot.as_str())
+				.with_fullnode(|node| {
+					node.with_name("charlie").with_db_snapshot(db_snapshot.as_str())
 				})
-				.with_node(|node| {
-					node.with_name("dave").validator(false).with_db_snapshot(db_snapshot.as_str())
-				})
-				.with_node(|node| {
-					node.with_name("eve").validator(false).with_db_snapshot(db_snapshot.as_str())
-				})
+				.with_fullnode(|node| node.with_name("dave").with_db_snapshot(db_snapshot.as_str()))
+				.with_fullnode(|node| node.with_name("eve").with_db_snapshot(db_snapshot.as_str()))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

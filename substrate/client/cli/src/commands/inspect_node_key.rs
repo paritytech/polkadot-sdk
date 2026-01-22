@@ -86,7 +86,7 @@ mod tests {
 
 	#[test]
 	fn inspect_node_key() {
-		let path = tempfile::tempdir().unwrap().into_path().join("node-id").into_os_string();
+		let path = tempfile::tempdir().unwrap().keep().join("node-id").into_os_string();
 		let path = path.to_str().unwrap();
 		let cmd = GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--file", path]);
 
