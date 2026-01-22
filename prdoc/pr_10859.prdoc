@@ -9,6 +9,8 @@ doc:
     It also fixes large file download using Bitswap protocol by grouping blocks into batches of <= 2 MiB.
 crates:
 - name: sc-network
-  bump: major
+  bump: minor
+  validate: false
 - name: sc-network-types
-  bump: major
+  bump: minor
+  validate: false
