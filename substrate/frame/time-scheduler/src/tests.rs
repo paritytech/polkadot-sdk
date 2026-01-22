@@ -100,7 +100,9 @@ fn schedule_after_zero_works() {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
-		// Schedule call with After(0) - should schedule for next minute
+		// Schedule call with After(0) - schedules for current time (same bucket)
+		// Since buckets can span multiple blocks, tasks scheduled within the same bucket
+		// will execute in a subsequent block within that bucket (or when the bucket is processed)
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::After(0),
 			None,
@@ -109,8 +111,12 @@ fn schedule_after_zero_works() {
 			Preimage::bound(call).unwrap()
 		));
 
-		// Should execute in the next minute (minute 3 = 180_000ms)
-		run_to_time(180_000);
+		// Task is in bucket 2 (120_000 / 60_000 = 2)
+		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+
+		// Should execute when we advance time and process bucket 2 again
+		// Simulating "next block" at same time (still bucket 2)
+		run_to_time(120_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 	});
 }
@@ -958,11 +964,11 @@ fn fails_to_schedule_task_in_the_past() {
 			Error::<Test>::TargetTimestampInPast,
 		);
 
-		// Try to schedule at current minute (180_000ms) - also in the past
-		assert_noop!(
-			Scheduler::schedule(RuntimeOrigin::root(), 180_000, None, 127, call3),
-			Error::<Test>::TargetTimestampInPast,
-		);
+		// Scheduling at current time (180_000ms) is allowed - tasks can be scheduled
+		// within the same bucket and will execute in a subsequent block
+		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 180_000, None, 127, call3));
+		// Task should be in bucket 3
+		assert_eq!(Agenda::<Test>::get(3).len(), 1);
 	});
 }
 
@@ -1458,5 +1464,210 @@ fn time_scheduler_v1_named_reschedule_works() {
 		// Executes at minute 6
 		run_to_time(360_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
+	});
+}
+
+#[test]
+fn within_bucket_scheduling_works() {
+	new_test_ext().execute_with(|| {
+		// This test verifies that tasks can be scheduled within the same bucket
+		// and will execute in subsequent blocks within that bucket.
+		//
+		// Bucket resolution is 60_000ms (1 minute).
+		// A bucket can span multiple blocks (e.g., 10 blocks with 6-second block time).
+
+		// Set initial time to the start of bucket 2 (120_000ms)
+		Timestamp::set_timestamp(120_000);
+
+		// First block in bucket 2: process any existing tasks (none)
+		run_to_time(120_000);
+		assert!(logger::log().is_empty());
+
+		// Schedule a task within the same bucket (at current time)
+		let call1 =
+			RuntimeCall::Logger(LoggerCall::log { i: 1, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(120_000), // Same bucket
+			None,
+			127,
+			root(),
+			Preimage::bound(call1).unwrap()
+		));
+
+		// Task is in bucket 2
+		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+
+		// Simulate "second block" still within bucket 2 (time: 126_000ms, 6 seconds later)
+		run_to_time(126_000);
+		// Task should execute now
+		assert_eq!(logger::log(), vec![(root(), 1)]);
+
+		// Clear log for next test
+		logger::clear_log();
+
+		// Schedule another task with After(0) - should go to current bucket
+		let call2 =
+			RuntimeCall::Logger(LoggerCall::log { i: 2, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::After(0),
+			None,
+			127,
+			root(),
+			Preimage::bound(call2).unwrap()
+		));
+
+		// Task is in bucket 2 (126_000 / 60_000 = 2)
+		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+
+		// Simulate "third block" still within bucket 2 (time: 132_000ms)
+		run_to_time(132_000);
+		assert_eq!(logger::log(), vec![(root(), 2)]);
+	});
+}
+
+#[test]
+fn tasks_not_skipped_when_time_jumps() {
+	new_test_ext().execute_with(|| {
+		// This test verifies that tasks in intermediate buckets are not skipped
+		// when time jumps forward across multiple buckets.
+
+		// Set initial time to bucket 2
+		Timestamp::set_timestamp(120_000);
+		run_to_time(120_000);
+
+		// Schedule a task for bucket 4
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(240_000), // bucket 4
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap()
+		));
+
+		// Task is in bucket 4
+		assert_eq!(Agenda::<Test>::get(4).len(), 1);
+		assert!(logger::log().is_empty());
+
+		// Time jumps to bucket 6 (skipping bucket 3, 4, 5)
+		// The scheduler should still process bucket 4's tasks
+		run_to_time(360_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+	});
+}
+
+#[test]
+fn simple_bucket_3_execution() {
+	// Simplified test to debug why bucket 3 isn't being processed
+	new_test_ext().execute_with(|| {
+		// Set initial time to bucket 2
+		Timestamp::set_timestamp(120_000);
+
+		// Schedule a simple task (not timed_log) at bucket 3
+		let call = RuntimeCall::Logger(LoggerCall::log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+
+		let address = Scheduler::do_schedule(
+			DispatchTime::At(180_000), // bucket 3
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap()
+		)
+		.unwrap();
+
+		// Verify task is at expected address
+		assert_eq!(address, (3, 0), "Task should be at bucket 3, index 0");
+
+		// Check agenda before run_to_time
+		eprintln!("Before run_to_time: Agenda bucket 3 = {:?}", Agenda::<Test>::get(3));
+		eprintln!("Before run_to_time: timestamp = {}", pallet_timestamp::Pallet::<Test>::get());
+
+		// Execute at bucket 3
+		run_to_time(180_000);
+
+		// Check timestamp after run_to_time
+		eprintln!("After run_to_time: timestamp = {}", pallet_timestamp::Pallet::<Test>::get());
+
+		// Check IncompleteSince value
+		let incomplete = IncompleteSince::<Test>::get();
+		// Debug: print all events
+		let events = frame_system::Pallet::<Test>::events();
+		eprintln!("All events count: {}", events.len());
+		for e in &events {
+			eprintln!("  Event: {:?}", e.event);
+		}
+		eprintln!("IncompleteSince: {:?}", incomplete);
+
+		// Check agendas
+		eprintln!("Agenda bucket 2: {:?}", Agenda::<Test>::get(2));
+		eprintln!("Agenda bucket 3: {:?}", Agenda::<Test>::get(3));
+
+		// Task should have executed
+		eprintln!("Logger log: {:?}", logger::log());
+		assert_eq!(logger::log(), vec![(root(), 42)], "Task should have executed");
+	});
+}
+
+#[test]
+fn retry_within_same_bucket_works() {
+	new_test_ext().execute_with(|| {
+		// This test verifies that retries can be scheduled within the same bucket.
+
+		// Set initial time to bucket 2
+		Timestamp::set_timestamp(120_000);
+
+		// Schedule a task that will fail at bucket 3
+		let call = RuntimeCall::Logger(LoggerCall::timed_log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+
+		let address = Scheduler::do_schedule(
+			DispatchTime::At(180_000), // bucket 3
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap()
+		)
+		.unwrap();
+
+		// Verify task is at expected address
+		assert_eq!(address, (3, 0), "Task should be at bucket 3, index 0");
+
+		// Set retry with a small period (10 seconds = 10_000ms, within same bucket)
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, 10_000));
+
+		// Verify retry config is set
+		assert!(Retries::<Test>::get((3, 0)).is_some(), "Retry config should be set");
+
+		// Set up the time threshold so the call fails on first attempt but succeeds on retry
+		// The call will fail if now < 185_000 or now > 200_000
+		logger::set_time_threshold(185_000, 200_000);
+
+		// First attempt at bucket 3 start - should fail (180_000 < 185_000)
+		run_to_time(180_000);
+		assert!(logger::log().is_empty(), "Task should have failed");
+
+		// Retry should be scheduled: 180_000 + 10_000 = 190_000, bucket 3 (190_000 / 60_000 = 3)
+		// The retry task should be in bucket 3. Note: the BoundedVec may have Some entries
+		// (for the retry) and None entries (for the completed original task).
+		let agenda = Agenda::<Test>::get(3);
+		let actual_tasks = agenda.iter().filter(|t| t.is_some()).count();
+		assert_eq!(
+			actual_tasks, 1,
+			"Expected exactly 1 retry task in bucket 3, found {}, agenda: {:?}",
+			actual_tasks, agenda
+		);
+
+		// Second attempt at 190_000 - should succeed (185_000 <= 190_000 <= 200_000)
+		run_to_time(190_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+
+		// Clean up
+		logger::clear_time_threshold();
 	});
 }

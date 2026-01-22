@@ -648,15 +648,16 @@ impl<T: Config> Pallet<T> {
 
 	fn resolve_time(when: DispatchTime<MomentFor<T>>) -> Result<MomentFor<T>, DispatchError> {
 		let now = T::TimestampProvider::now();
-		let resolution: MomentFor<T> = T::BucketResolution::get().into();
 		let when = match when {
 			DispatchTime::At(x) => x,
-			// The current bucket has already completed its scheduled tasks, so
-			// schedule the task at least one bucket after the current bucket.
-			DispatchTime::After(x) => now.saturating_add(x).saturating_add(resolution),
+			// Schedule after the specified delay from now.
+			// Tasks can be scheduled within the same bucket since buckets may span multiple blocks.
+			DispatchTime::After(x) => now.saturating_add(x),
 		};
 
-		if when <= now {
+		// Allow scheduling at the current timestamp or in the future.
+		// Tasks in the current bucket will be processed in this or a subsequent block.
+		if when < now {
 			return Err(Error::<T>::TargetTimestampInPast.into());
 		}
 
@@ -921,14 +922,26 @@ use ServiceTaskError::*;
 
 impl<T: Config> Pallet<T> {
 	/// Service agendas starting from the earliest incomplete bucket.
+	///
+	/// This function processes all pending task buckets from the stored starting point
+	/// up to the current bucket. We track `IncompleteSince` which serves dual purposes:
+	/// 1. The earliest bucket with incomplete tasks (if any tasks couldn't complete)
+	/// 2. The next bucket to start processing from (to avoid skipping buckets when time jumps)
+	///
+	/// This ensures that tasks scheduled in intermediate buckets are not skipped when
+	/// time advances across multiple buckets between blocks.
 	fn service_agendas(weight: &mut WeightMeter, now: MomentFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
 			return;
 		}
 
 		let now_bucket = Self::timestamp_to_bucket(now);
-		let mut incomplete_since = now_bucket + One::one();
-		let mut bucket = IncompleteSince::<T>::take().unwrap_or(now_bucket);
+		// Start from the stored bucket or the current bucket (whichever is earlier).
+		// This ensures we don't skip intermediate buckets when time jumps forward.
+		let mut bucket = IncompleteSince::<T>::take()
+			.map(|stored| stored.min(now_bucket))
+			.unwrap_or(now_bucket);
+		let mut earliest_incomplete: Option<TimeBucketFor<T>> = None;
 		let mut is_first = true;
 
 		let max_items = T::MaxScheduledPerBucket::get();
@@ -939,19 +952,31 @@ impl<T: Config> Pallet<T> {
 			&& weight.can_consume(service_agenda_base_weight)
 		{
 			if !Self::service_agenda(weight, is_first, now, bucket, u32::MAX) {
-				incomplete_since = incomplete_since.min(bucket);
+				// Track the earliest bucket with incomplete tasks
+				if earliest_incomplete.is_none() {
+					earliest_incomplete = Some(bucket);
+				}
 			}
 			is_first = false;
 			bucket = bucket.saturating_add(One::one());
 			count_down = count_down.saturating_sub(1);
 		}
-		incomplete_since = incomplete_since.min(bucket);
-		if incomplete_since <= now_bucket {
-			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
-			IncompleteSince::<T>::put(incomplete_since);
+
+		// Determine what to store for next iteration
+		if let Some(incomplete) = earliest_incomplete {
+			// There were incomplete tasks - store the earliest incomplete bucket
+			Self::deposit_event(Event::AgendaIncomplete { when: incomplete });
+			IncompleteSince::<T>::put(incomplete);
+		} else if bucket <= now_bucket {
+			// We ran out of iterations before reaching now_bucket - store where we stopped
+			Self::deposit_event(Event::AgendaIncomplete { when: bucket });
+			IncompleteSince::<T>::put(bucket);
 		} else {
-			// Start from the next bucket on the next iteration
-			IncompleteSince::<T>::put(now_bucket + One::one());
+			// All buckets processed successfully up to and including now_bucket.
+			// Store the current bucket so that:
+			// 1. New tasks scheduled in this bucket (in later blocks) get processed
+			// 2. We don't re-process old buckets unnecessarily
+			IncompleteSince::<T>::put(now_bucket);
 		}
 	}
 
@@ -979,7 +1004,6 @@ impl<T: Config> Pallet<T> {
 		debug_assert!(within_limit, "weight limit should have been checked in advance");
 
 		let mut postponed = (ordered.len() as u32).saturating_sub(max);
-		let mut dropped = 0;
 
 		for (agenda_index, _) in ordered.into_iter().take(max as usize) {
 			let Some(task) = agenda[agenda_index as usize].take() else { continue };
@@ -993,12 +1017,17 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break;
 			}
+			// Clear this slot in storage immediately. This ensures that if a retry or
+			// periodic task is scheduled to the same bucket during execution, it won't
+			// conflict with this slot.
+			Agenda::<T>::mutate(bucket, |storage_agenda| {
+				if let Some(slot) = storage_agenda.get_mut(agenda_index as usize) {
+					*slot = None;
+				}
+			});
 			let result = Self::service_task(weight, now, bucket, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
-				Err((Unavailable, slot)) => {
-					dropped += 1;
-					slot
-				},
+				Err((Unavailable, slot)) => slot,
 				Err((Overweight, slot)) => {
 					postponed += 1;
 					slot
@@ -1009,10 +1038,45 @@ impl<T: Config> Pallet<T> {
 				},
 			};
 		}
-		if postponed > 0 || dropped > 0 {
-			Agenda::<T>::insert(bucket, agenda);
-		} else {
+		// New tasks might have been added to this bucket during processing
+		// (e.g., retries scheduled for the same bucket). We need to merge our
+		// in-memory changes (completed tasks set to None) with any new tasks.
+		let storage_agenda = Agenda::<T>::get(bucket);
+		let original_len = agenda.len();
+		let storage_len = storage_agenda.len();
+
+		// Merge: keep our None slots for processed tasks, but check if new tasks
+		// were scheduled at those indices (which would have overwritten the old entries)
+		let mut merged: Vec<Option<ScheduledOf<T>>> = agenda
+			.into_iter()
+			.enumerate()
+			.map(|(i, slot)| {
+				if slot.is_none() && i < storage_len {
+					// A new task might have been scheduled at this index
+					storage_agenda.get(i).cloned().flatten()
+				} else {
+					slot
+				}
+			})
+			.collect();
+
+		// Append any new tasks that were added beyond the original agenda length
+		for i in original_len..storage_len {
+			if let Some(task) = storage_agenda.get(i) {
+				merged.push(task.clone());
+			}
+		}
+
+		// Truncate to max and convert to bounded vec
+		merged.truncate(T::MaxScheduledPerBucket::get() as usize);
+		let merged_agenda: frame_support::BoundedVec<_, _> = merged
+			.try_into()
+			.expect("length is bounded by MaxScheduledPerBucket");
+
+		if merged_agenda.iter().all(Option::is_none) {
 			Agenda::<T>::remove(bucket);
+		} else {
+			Agenda::<T>::insert(bucket, merged_agenda);
 		}
 
 		postponed == 0

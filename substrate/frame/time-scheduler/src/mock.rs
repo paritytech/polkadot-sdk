@@ -44,6 +44,10 @@ pub mod logger {
 		Log::get().clone()
 	}
 
+	pub fn clear_log() {
+		Log::take();
+	}
+
 	pub fn set_time_threshold(start: u64, end: u64) {
 		TimeThreshold::set(Some((start, end)));
 	}
