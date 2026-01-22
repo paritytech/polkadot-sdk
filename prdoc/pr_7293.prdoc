@@ -1,0 +1,19 @@
+title: '[pallet-broker] add extrinsic to reset_base_price'
+doc:
+- audience: Runtime User
+  description: |-
+    # Description
+
+    part of https://github.com/paritytech/polkadot-sdk/issues/6929
+
+    This PR adds new administrative functionality to the broker pallet, enabling governance or sudo operations to manage coretime allocations without requiring runtime upgrades. The main addition is the reset_base_price extrinsic that allows resetting the minimum/base price for coretime sales.
+
+
+
+
+    Polkadot Address: 121HJWZtD13GJQPD82oEj3gSeHqsRYm1mFgRALu4L96kfPD1
+crates:
+- name: pallet-broker
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
