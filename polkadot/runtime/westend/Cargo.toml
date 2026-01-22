@@ -221,6 +221,7 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
+	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"westend-runtime-constants/std",
@@ -228,7 +229,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"sp-tracing/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

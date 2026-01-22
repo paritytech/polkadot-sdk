@@ -56,16 +56,16 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-storage/std",
-	"sp-externalities/std",
-	"sp-state-machine/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"sc-client-db/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sc-client-db/runtime-benchmarks"
 ]

@@ -58,7 +58,7 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-transaction-payment/try-runtime"
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
 ]

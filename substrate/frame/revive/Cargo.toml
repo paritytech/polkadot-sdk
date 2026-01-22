@@ -114,6 +114,7 @@ std = [
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
+	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
 	"sp-api/std",
@@ -124,36 +125,35 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-version/std",
 	"subxt-signer",
-	"secp256k1/std",
-	"sp-state-machine/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
+	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-proxy/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"pallet-utility/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
-	"pallet-utility/try-runtime"
+	"pallet-transaction-payment/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
 ]
