@@ -1,10 +1,10 @@
-title: remove invalid voter count assertion due to PendingRebag
+title: Remove failing assertion related to VoterList count mismatch
 doc:
 - audience: Runtime Dev
-  description: |-
-    Refers to: #10687
-
-    This PR comments out the section where the error occurs due to the implementation of `PendingRebag` (#9725). This change resolves the issue but may lead to a misalignment where the VoterList count no longer matches the sum of Nominations and Validators.
+  description: PR resolves the error that occurs when VoterList count does not align
+    with sum of Nominations & Validators in bags-list. This misalignment happens while
+    bags-list is locked & nominations/validations are received. Eventually this misalignment
+    evens out due `PendingRebag` implementation
 crates:
 - name: pallet-staking-async
   bump: patch
