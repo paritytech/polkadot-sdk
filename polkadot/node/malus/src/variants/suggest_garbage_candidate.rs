@@ -78,13 +78,12 @@ where
 		match msg {
 			FromOrchestra::Communication {
 				msg:
-				CandidateBackingMessage::Second {
-					scheduling_parent: relay_parent,
-					candidate: ref candidate,
-					pvd: ref validation_data,
-					pov: ref _pov,
-					,
-				},
+					CandidateBackingMessage::Second {
+						scheduling_parent: relay_parent,
+						candidate: ref candidate,
+						pvd: ref validation_data,
+						pov: ref _pov,
+					},
 			} => {
 				gum::debug!(
 					target: MALUS,
@@ -233,8 +232,7 @@ where
 							scheduling_parent: relay_parent,
 							candidate: malicious_candidate,
 							pvd: validation_data,
-							pov: pov,
-							,
+							pov,
 						},
 					};
 
