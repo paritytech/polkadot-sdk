@@ -39,19 +39,6 @@ pub use invalid::InvalidVersion;
 pub use multi::MultiVersion;
 pub use variant::ExtensionVariant;
 
-/// The weight for an instance of a versioned transaction extension pipeline and a call.
-///
-/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`].
-///
-/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line) weight
-/// (Weight)).
-pub trait VersTxExtLineWeight<Call: Dispatchable> {
-	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
-	/// call.
-	fn weight(&self, call: &Call) -> Weight;
-}
-
 /// The version for an instance of a versioned transaction extension pipeline.
 ///
 /// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
@@ -78,7 +65,6 @@ pub trait VersTxExtLine<Call: Dispatchable>:
 	+ Send
 	+ Sync
 	+ Clone
-	+ VersTxExtLineWeight<Call>
 	+ VersTxExtLineVersion
 {
 	/// Build the metadata for the versioned transaction extension pipeline.
@@ -102,6 +88,10 @@ pub trait VersTxExtLine<Call: Dispatchable>:
 		info: &DispatchInfoOf<Call>,
 		len: usize,
 	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Call>>;
+
+	/// Return the pre dispatch weight for the given versioned transaction extension pipeline and
+	/// call.
+	fn weight(&self, call: &Call) -> Weight;
 }
 
 /// A type that can be decoded from a specific version and a [`codec::Input`].

@@ -18,6 +18,7 @@
 //! Dispatch system. Contains a macro for defining runtime modules and
 //! generating values representing lazy module function calls.
 
+use sp_runtime::traits::AsTransactionAuthorizedOrigin;
 use crate::traits::UnfilteredDispatchable;
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::fmt;
@@ -410,9 +411,10 @@ where
 impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions> GetDispatchInfo
 	for UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions>
 where
-	Call: GetDispatchInfo + Dispatchable,
+	Call: GetDispatchInfo + Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: sp_runtime::traits::VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: sp_runtime::traits::VersTxExtLine<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();
@@ -425,9 +427,10 @@ where
 impl<AccountId, Call, ExtensionV0, ExtensionOtherVersions> GetDispatchInfo
 	for CheckedExtrinsic<AccountId, Call, ExtensionV0, ExtensionOtherVersions>
 where
-	Call: GetDispatchInfo + Dispatchable,
+	Call: GetDispatchInfo + Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: sp_runtime::traits::VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: sp_runtime::traits::VersTxExtLine<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	fn get_dispatch_info(&self) -> DispatchInfo {
 		let mut info = self.function.get_dispatch_info();

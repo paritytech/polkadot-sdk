@@ -21,7 +21,7 @@ use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
 		Dispatchable, PostDispatchInfoOf, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		VersTxExtLineVersion,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
@@ -75,17 +75,14 @@ impl<Call: Dispatchable> VersTxExtLine<Call> for InvalidVersion {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}
-}
-
-impl VersTxExtLineVersion for InvalidVersion {
-	fn version(&self) -> u8 {
+	fn weight(&self, _call: &Call) -> Weight {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}
 }
 
-impl<Call: Dispatchable> VersTxExtLineWeight<Call> for InvalidVersion {
-	fn weight(&self, _call: &Call) -> Weight {
+impl VersTxExtLineVersion for InvalidVersion {
+	fn version(&self) -> u8 {
 		// The type cannot be instantiated so this method is never called.
 		unreachable!()
 	}

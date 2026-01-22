@@ -64,7 +64,7 @@ pub use transaction_extension::{
 pub use vers_tx_ext::{
 	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
 	MultiVersion, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-	VersTxExtLineVersion, VersTxExtLineWeight,
+	VersTxExtLineVersion,
 };
 
 /// A lazy value.

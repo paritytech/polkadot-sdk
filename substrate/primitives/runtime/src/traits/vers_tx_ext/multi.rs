@@ -21,7 +21,7 @@ use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
 		Dispatchable, InvalidVersion, PostDispatchInfoOf, TxExtLineAtVers, VersTxExtLine,
-		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		VersTxExtLineMetadataBuilder, VersTxExtLineVersion,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -166,18 +166,6 @@ macro_rules! declare_multi_version_enum {
 			DecodeWithVersionWithMemTracking for MultiVersion<$( $variant, )*>
 		{}
 
-		impl<$( $variant: VersTxExtLineWeight<Call> + MultiVersionItem, )* Call: Dispatchable>
-			VersTxExtLineWeight<Call> for MultiVersion<$( $variant, )*>
-		{
-			fn weight(&self, call: &Call) -> Weight {
-				match self {
-					$(
-						MultiVersion::$variant(v) => v.weight(call),
-					)*
-				}
-			}
-		}
-
 		impl<$( $variant: VersTxExtLine<Call> + MultiVersionItem, )* Call: Dispatchable>
 			VersTxExtLine<Call> for MultiVersion<$( $variant, )*>
 		{
@@ -213,6 +201,13 @@ macro_rules! declare_multi_version_enum {
 					)*
 				}
 			}
+			fn weight(&self, call: &Call) -> Weight {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.weight(call),
+					)*
+				}
+			}
 		}
 	};
 }
@@ -228,7 +223,7 @@ mod tests {
 		traits::{
 			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
 			Implication, TransactionExtension, TransactionSource, ValidateResult, VersTxExtLine,
-			VersTxExtLineVersion, VersTxExtLineWeight,
+			VersTxExtLineVersion,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,

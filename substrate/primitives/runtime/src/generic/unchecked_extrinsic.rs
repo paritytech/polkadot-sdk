@@ -17,13 +17,14 @@
 
 //! Generic implementation of an unchecked (pre-verification) extrinsic.
 
+use crate::traits::AsTransactionAuthorizedOrigin;
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
 		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
 		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension, VersTxExtLineVersion, VersTxExtLineWeight,
+		TransactionExtension, VersTxExtLineVersion, VersTxExtLine,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -710,9 +711,10 @@ impl<
 impl<Address, Call, Signature, ExtensionV0, const MAX_CALL_SIZE: usize, ExtensionOtherVersions>
 	UncheckedExtrinsic<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, MAX_CALL_SIZE>
 where
-	Call: Dispatchable,
+	Call: Dispatchable + Encode,
 	ExtensionV0: TransactionExtension<Call>,
-	ExtensionOtherVersions: VersTxExtLineWeight<Call>,
+	ExtensionOtherVersions: VersTxExtLine<Call>,
+	<Call as Dispatchable>::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 {
 	/// Returns the weight of the extension of this transaction, if present. If the transaction
 	/// doesn't use any extension, the weight returned is equal to zero.

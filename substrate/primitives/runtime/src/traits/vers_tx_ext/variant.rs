@@ -24,7 +24,7 @@ use crate::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
 		TransactionExtension, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		VersTxExtLineVersion,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -160,14 +160,6 @@ where
 			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
 		}
 	}
-}
-
-impl<
-		Call: Dispatchable,
-		ExtensionV0: TransactionExtension<Call>,
-		ExtensionOtherVersions: VersTxExtLineWeight<Call>,
-	> VersTxExtLineWeight<Call> for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
-{
 	fn weight(&self, call: &Call) -> Weight {
 		match self {
 			ExtensionVariant::V0(ext) => ext.weight(call),
