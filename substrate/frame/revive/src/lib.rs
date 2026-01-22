@@ -1105,7 +1105,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -1378,7 +1378,7 @@ pub mod pallet {
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					data,
-					ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -1594,7 +1594,7 @@ impl<T: Config> Pallet<T> {
 		evm_value: U256,
 		transaction_limits: TransactionLimits<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig<T>,
+		exec_config: &ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
@@ -1888,7 +1888,7 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						exec_config,
+						&exec_config,
 					);
 
 					let data = match result.result {
@@ -2819,7 +2819,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
 						},
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 

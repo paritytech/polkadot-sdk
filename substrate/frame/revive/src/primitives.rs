@@ -21,7 +21,7 @@ use crate::{
 	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome,
 	transient_storage::TransientStorage, BalanceOf, Config, Time, H160, U256,
 };
-use alloc::{boxed::Box, fmt::Debug, rc::Rc, string::String, vec::Vec};
+use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cell::RefCell;
 use frame_support::{traits::tokens::Balance, weights::Weight};
@@ -393,7 +393,7 @@ pub struct ExecConfig<T: Config> {
 	/// External transient storage useful for testing.
 	///
 	/// Should be `None`  in production environments.
-	pub transient_storage: Option<Rc<RefCell<TransientStorage<T>>>>,
+	pub transient_storage: Option<RefCell<TransientStorage<T>>>,
 }
 
 impl<T: Config> ExecConfig<T> {

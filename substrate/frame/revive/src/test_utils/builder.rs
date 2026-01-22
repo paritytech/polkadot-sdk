@@ -34,13 +34,14 @@ macro_rules! builder {
         $($extra:item)*
 	) => {
 		paste!{
-			builder!([< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+			builder!(true, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
 		}
 	};
 	// Generate the builder struct and its methods.
 	(
+		true,
 		$name:ident,
-		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+		$method:ident$(<($l:lifetime),+>)?($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
@@ -67,7 +68,32 @@ macro_rules! builder {
 
             $($extra)*
 		}
-	}
+	};
+	// Generate the builder struct and its methods.
+	(
+		false,
+		$name:ident,
+		$method:ident$(<($l:lifetime),+>)?($($field:ident: $type:ty,)*) -> $result:ty;
+		$($extra:item)*
+	) => {
+		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
+		pub struct $name<T: Config> {
+			$($field: $type,)*
+		}
+
+		#[allow(dead_code)]
+		impl<T: Config> $name<T> {
+			$(
+				#[doc = concat!("Set the ", stringify!($field))]
+				pub fn $field(mut self, value: $type) -> Self {
+					self.$field = value;
+					self
+				}
+			)*
+
+			$($extra)*
+		}
+	};
 }
 
 pub struct Contract<T: Config> {
@@ -210,6 +236,8 @@ builder!(
 );
 
 builder!(
+	false,
+	BareCallBuilder,
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
@@ -218,6 +246,17 @@ builder!(
 		data: Vec<u8>,
 		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
+
+	pub fn build(self) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_call(
+			self.origin,
+			self.dest,
+			self.evm_value,
+			self.transaction_limits,
+			self.data,
+			&self.exec_config
+		)
+	}
 
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
@@ -231,7 +270,7 @@ builder!(
 	}
 
 	/// Create a [`BareCallBuilder`] with default values.
-	pub fn bare_call(origin: OriginFor<T>, dest: H160) -> Self {
+	pub fn bare_call<'a>(origin: OriginFor<T>, dest: H160) -> Self {
 		Self {
 			origin,
 			dest,
