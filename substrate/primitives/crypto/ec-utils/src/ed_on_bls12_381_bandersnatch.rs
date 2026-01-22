@@ -92,8 +92,8 @@ impl CurveHooks for HostHooks {
 	}
 }
 
-/// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve
-/// related types from within the runtime.
+/// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve related
+/// types from within the runtime.
 ///
 /// All types are (de-)serialized through the wrapper types from `ark-scale`.
 ///

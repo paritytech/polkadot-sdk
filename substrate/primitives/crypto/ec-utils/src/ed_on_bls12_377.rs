@@ -59,8 +59,8 @@ impl CurveHooks for HostHooks {
 	}
 }
 
-/// Interfaces for working with *Arkworks* *Ed-on-BLS12-377* elliptic curve
-/// related types from within the runtime.
+/// Interfaces for working with *Arkworks* *Ed-on-BLS12-377* elliptic curve related types
+/// from within the runtime.
 ///
 /// All types are (de-)serialized through the wrapper types from `ark-scale`.
 ///
@@ -81,7 +81,7 @@ pub trait HostCalls {
 		utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
 	}
 
-	/// Twisted Edwards multiplication for *Ed-on-BLS12-377*.
+	/// Twisted Edwards affine multiplication for *Ed-on-BLS12-377*.
 	///
 	/// Receives encoded:
 	/// - `base`: `EdwardsAffine`.
