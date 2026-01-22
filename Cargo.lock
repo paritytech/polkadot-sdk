@@ -6849,11 +6849,13 @@ dependencies = [
 name = "frame-remote-externalities"
 version = "0.35.0"
 dependencies = [
+ "frame-support",
  "futures",
  "indicatif",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
+ "rand 0.8.5",
  "serde",
  "sp-core 28.0.0",
  "sp-crypto-hashing 0.1.0",
@@ -6864,7 +6866,6 @@ dependencies = [
  "spinners",
  "substrate-rpc-client",
  "tokio",
- "tokio-retry",
 ]
 
 [[package]]
@@ -9899,9 +9900,9 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 
 [[package]]
 name = "litep2p"
-version = "0.12.3"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d903b21d57fae0e8d184c6ea0107fb5303fcab7cd2acaf5d2d9beb2807194b4a"
+checksum = "c68ba359d7f1a80d18821b46575d5ddb9a9a6672fe0669f5fc9e83cab9abd760"
 dependencies = [
  "async-trait",
  "bs58",
@@ -10463,6 +10464,7 @@ dependencies = [
  "digest 0.10.7",
  "multihash-derive",
  "sha2 0.10.9",
+ "sha3",
  "unsigned-varint 0.7.2",
 ]
 
@@ -25759,17 +25761,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-retry"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
-dependencies = [
- "pin-project",
- "rand 0.8.5",
  "tokio",
 ]
 
