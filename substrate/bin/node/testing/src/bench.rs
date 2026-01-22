@@ -393,7 +393,7 @@ impl BenchDb {
 		};
 		let task_executor = TaskExecutor::new();
 
-		let backend = sc_service::new_db_backend(db_config).expect("Should not fail");
+		let backend = sc_service::new_db_backend(db_config, vec![]).expect("Should not fail");
 		let executor = sc_executor::WasmExecutor::builder()
 			.with_execution_method(WasmExecutionMethod::Compiled {
 				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,

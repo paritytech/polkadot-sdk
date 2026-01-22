@@ -79,7 +79,7 @@ impl ChainInfoCmd {
 			blocks_pruning: config.blocks_pruning,
 			metrics_registry: None,
 		};
-		let backend = sc_service::new_db_backend::<B>(db_config)?;
+		let backend = sc_service::new_db_backend::<B>(db_config, vec![])?;
 		let info: ChainInfo<B> = backend.blockchain().info().into();
 		let mut out = io::stdout();
 		serde_json::to_writer_pretty(&mut out, &info)

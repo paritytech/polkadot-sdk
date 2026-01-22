@@ -101,6 +101,30 @@ pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
 
+/// Predicate to determine if a block should be preserved during pruning.
+///
+/// When block pruning is enabled, blocks outside the pruning window are normally removed.
+/// Implementations of this trait can selectively preserve blocks based on their justifications.
+///
+/// Returns `true` if the block SHOULD be kept, `false` if it can be pruned.
+///
+/// Predicate implementations are provided by consensus crates:
+/// - `sc_consensus_grandpa::KeepGrandpaJustifications` - preserves blocks with GRANDPA justifications
+/// - `sc_consensus_beefy::KeepBeefyJustifications` - preserves blocks with BEEFY justifications
+pub trait ShouldKeepBlock: Send + Sync {
+	/// Check if a block with the given justifications should be preserved.
+	fn should_keep(&self, justifications: &Justifications) -> bool;
+}
+
+impl<F> ShouldKeepBlock for F
+where
+	F: Fn(&Justifications) -> bool + Send + Sync,
+{
+	fn should_keep(&self, justifications: &Justifications) -> bool {
+		(self)(justifications)
+	}
+}
+
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
@@ -1121,13 +1145,26 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	/// Predicates to determine if a block should be preserved during pruning.
+	/// If any predicate returns true, the block is kept.
+	/// Empty vec = prune all blocks (default/current behavior).
+	keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
 	/// Create a new instance of database backend.
 	///
 	/// The pruning window is how old a block must be before the state is pruned.
-	pub fn new(db_config: DatabaseSettings, canonicalization_delay: u64) -> ClientResult<Self> {
+	///
+	/// The `keep_predicates` parameter allows configuring which blocks should be preserved
+	/// during pruning based on their justifications. If any predicate returns `true` for a
+	/// block's justifications, the block will not be pruned. Pass an empty `Vec` to use the
+	/// default behavior (prune all blocks outside the pruning window).
+	pub fn new(
+		db_config: DatabaseSettings,
+		canonicalization_delay: u64,
+		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
+	) -> ClientResult<Self> {
 		use utils::OpenDbError;
 
 		let db_source = &db_config.source;
@@ -1143,7 +1180,7 @@ impl<Block: BlockT> Backend<Block> {
 				Err(as_is) => return Err(as_is.into()),
 			};
 
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
+		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init, keep_predicates)
 	}
 
 	/// Reset the shared trie cache.
@@ -1159,11 +1196,35 @@ impl<Block: BlockT> Backend<Block> {
 		Self::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), canonicalization_delay)
 	}
 
+	/// Create new memory-backed client backend for tests with custom keep predicates.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_keep_predicates(
+		blocks_pruning: u32,
+		canonicalization_delay: u64,
+		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(blocks_pruning),
+			canonicalization_delay,
+			keep_predicates,
+		)
+	}
+
 	/// Create new memory-backed client backend for tests.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_test_with_tx_storage(
 		blocks_pruning: BlocksPruning,
 		canonicalization_delay: u64,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_predicates(blocks_pruning, canonicalization_delay, vec![])
+	}
+
+	/// Create new memory-backed client backend for tests with custom keep predicates.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_and_predicates(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
@@ -1180,7 +1241,7 @@ impl<Block: BlockT> Backend<Block> {
 			metrics_registry: None,
 		};
 
-		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
+		Self::new(db_setting, canonicalization_delay, keep_predicates).expect("failed to create test-db")
 	}
 
 	/// Expose the Database that is used by this backend.
@@ -1215,6 +1276,7 @@ impl<Block: BlockT> Backend<Block> {
 		canonicalization_delay: u64,
 		config: &DatabaseSettings,
 		should_init: bool,
+		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
 	) -> ClientResult<Self> {
 		let mut db_init_transaction = Transaction::new();
 
@@ -1269,6 +1331,7 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache,
+			keep_predicates,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -1942,6 +2005,32 @@ impl<Block: BlockT> Backend<Block> {
 
 				// Before we prune a block, check if it is pinned
 				if let Some(hash) = self.blockchain.hash(number)? {
+					// Check if any keep predicate wants to preserve this block.
+					// We need to check both the current transaction justifications (not yet in DB)
+					// and the DB itself (for justifications from previous transactions).
+					if !self.keep_predicates.is_empty() {
+						let should_keep = if let Some(justification) =
+							current_transaction_justifications.get(&hash)
+						{
+							// Justification was added in this transaction, convert to Justifications
+							let justifications = Justifications::from(justification.clone());
+							self.keep_predicates.iter().any(|p| p.should_keep(&justifications))
+						} else if let Some(justifications) = self.blockchain.justifications(hash)? {
+							// Check justifications from the database
+							self.keep_predicates.iter().any(|p| p.should_keep(&justifications))
+						} else {
+							false
+						};
+
+						if should_keep {
+							debug!(
+								target: "db",
+								"Preserving block #{number} ({hash}) due to keep predicate match"
+							);
+							return Ok(());
+						}
+					}
+
 					self.blockchain.insert_persisted_body_if_pinned(hash)?;
 
 					// If the block was finalized in this transaction, it will not be in the db
@@ -2698,6 +2787,10 @@ pub(crate) mod tests {
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
 
+	// Engine IDs for testing pruning predicates
+	const GRANDPA_ENGINE_ID: ConsensusEngineId = *b"FRNK";
+	const BEEFY_ENGINE_ID: ConsensusEngineId = *b"BEEF";
+
 	type UncheckedXt = TestXt<MockCallU64, ()>;
 	pub(crate) type Block = RawBlock<UncheckedXt>;
 
@@ -2858,6 +2951,7 @@ pub(crate) mod tests {
 				metrics_registry: None,
 			},
 			0,
+			vec![],
 		)
 		.unwrap();
 		assert_eq!(backend.blockchain().info().best_number, 9);
@@ -5014,5 +5108,378 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn prune_blocks_preserves_grandpa_justified_blocks() {
+		// Test that blocks with GRANDPA justifications are preserved when using
+		// a predicate that checks for GRANDPA justifications
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(GRANDPA_ENGINE_ID).is_some())],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// GRANDPA engine ID is *b"FRNK"
+		let grandpa_justification = (GRANDPA_ENGINE_ID, vec![1, 2, 3]);
+
+		// Finalize blocks, adding GRANDPA justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1 gets a GRANDPA justification - should be preserved
+			op.mark_finalized(blocks[1], Some(grandpa_justification.clone())).unwrap();
+			// Other blocks have no justification
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (has GRANDPA justification)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+		assert!(bc.justifications(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_preserves_beefy_justified_blocks() {
+		// Test that blocks with BEEFY justifications are preserved when using
+		// a predicate that checks for BEEFY justifications
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(BEEFY_ENGINE_ID).is_some())],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// BEEFY engine ID is *b"BEEF"
+		let beefy_justification = (BEEFY_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks, adding BEEFY justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1 gets a BEEFY justification - should be preserved
+			op.mark_finalized(blocks[1], Some(beefy_justification.clone())).unwrap();
+			// Other blocks have no justification
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (has BEEFY justification)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+		assert!(bc.justifications(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_with_empty_predicates_prunes_all() {
+		// Test backward compatibility: empty predicates means all blocks are pruned
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![], // Empty predicates
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// GRANDPA justification - but no predicate to preserve it
+		let grandpa_justification = (GRANDPA_ENGINE_ID, vec![1, 2, 3]);
+
+		// Finalize blocks, adding justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			op.mark_finalized(blocks[1], Some(grandpa_justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// All blocks outside pruning window should be pruned, even with justification
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert_eq!(None, bc.body(blocks[1]).unwrap()); // Has justification but no predicate
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_multiple_predicates_or_logic() {
+		// Test that multiple predicates use OR logic: if ANY predicate matches, block is kept
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![
+				Arc::new(|j: &Justifications| j.get(GRANDPA_ENGINE_ID).is_some()),
+				Arc::new(|j: &Justifications| j.get(BEEFY_ENGINE_ID).is_some()),
+			],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 7 blocks
+		for i in 0..7 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let grandpa_justification = (GRANDPA_ENGINE_ID, vec![1, 2, 3]);
+		let beefy_justification = (BEEFY_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks with different justification patterns
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			// Block 1: GRANDPA only - should be preserved
+			op.mark_finalized(blocks[1], Some(grandpa_justification.clone())).unwrap();
+			// Block 2: BEEFY only - should be preserved
+			op.mark_finalized(blocks[2], Some(beefy_justification.clone())).unwrap();
+			// Block 3: No justification - should be pruned
+			op.mark_finalized(blocks[3], None).unwrap();
+			// Block 4: Random/unknown engine ID - should be pruned
+			op.mark_finalized(blocks[4], Some(([9, 9, 9, 9], vec![7, 8, 9]))).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (has GRANDPA justification)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be preserved (has BEEFY justification)
+		assert!(bc.body(blocks[2]).unwrap().is_some());
+
+		// Block 3 should be pruned (no justification)
+		assert_eq!(None, bc.body(blocks[3]).unwrap());
+
+		// Block 4 should be pruned (unknown engine ID)
+		assert_eq!(None, bc.body(blocks[4]).unwrap());
+
+		// Blocks 5 and 6 are within the pruning window
+		assert!(bc.body(blocks[5]).unwrap().is_some());
+		assert!(bc.body(blocks[6]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_custom_closure_predicate() {
+		// Test that custom closure predicates work correctly
+		let custom_engine_id: sp_runtime::ConsensusEngineId = *b"TEST";
+
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(move |justifications: &Justifications| {
+				justifications.get(custom_engine_id).is_some()
+			})],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let custom_justification = (custom_engine_id, vec![1, 2, 3]);
+		let grandpa_justification = (GRANDPA_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1: Custom engine - should be preserved
+			op.mark_finalized(blocks[1], Some(custom_justification.clone())).unwrap();
+			// Block 2: GRANDPA (not in our custom predicate) - should be pruned
+			op.mark_finalized(blocks[2], Some(grandpa_justification.clone())).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (custom engine matches)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be pruned (GRANDPA doesn't match our custom predicate)
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_grandpa_only_does_not_preserve_beefy() {
+		// Test that GRANDPA predicate does NOT preserve blocks with only BEEFY justifications
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(GRANDPA_ENGINE_ID).is_some())], // Only GRANDPA predicate
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let beefy_justification = (BEEFY_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks, adding BEEFY justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1 gets BEEFY justification - should NOT be preserved by GRANDPA predicate
+			op.mark_finalized(blocks[1], Some(beefy_justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should also be pruned (BEEFY justification, but only GRANDPA predicate)
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+
+		// Block 2 should be pruned
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
 	}
 }

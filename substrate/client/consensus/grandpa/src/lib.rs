@@ -148,9 +148,32 @@ use until_imported::UntilGlobalMessageBlocksImported;
 // Re-export these two because it's just so damn convenient.
 pub use sp_consensus_grandpa::{
 	AuthorityId, AuthorityPair, CatchUp, Commit, CompactCommit, GrandpaApi, Message, Precommit,
-	Prevote, PrimaryPropose, ScheduledChange, SignedMessage,
+	Prevote, PrimaryPropose, ScheduledChange, SignedMessage, GRANDPA_ENGINE_ID,
 };
 use std::marker::PhantomData;
+
+/// Predicate that preserves blocks with GRANDPA justifications during pruning.
+///
+/// Use this predicate with `sc_client_db::Backend` to ensure that blocks required for
+/// warp sync are not pruned. GRANDPA justifications at authority set change boundaries
+/// are needed to construct warp sync proofs.
+///
+/// # Example
+///
+/// ```ignore
+/// use sc_consensus_grandpa::KeepGrandpaJustifications;
+/// use sc_service::new_db_backend;
+///
+/// let backend = new_db_backend(settings, vec![Arc::new(KeepGrandpaJustifications)])?;
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KeepGrandpaJustifications;
+
+impl sc_client_db::ShouldKeepBlock for KeepGrandpaJustifications {
+	fn should_keep(&self, justifications: &sp_runtime::Justifications) -> bool {
+		justifications.get(GRANDPA_ENGINE_ID).is_some()
+	}
+}
 
 #[cfg(test)]
 mod tests;

@@ -485,13 +485,16 @@ impl OverheadCmd {
 			self.database()?.unwrap_or(Database::Auto),
 		)?;
 
-		let backend = new_db_backend(DatabaseSettings {
-			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
-			state_pruning: None,
-			blocks_pruning: BlocksPruning::KeepAll,
-			source: database_source,
-			metrics_registry: None,
-		})?;
+		let backend = new_db_backend(
+			DatabaseSettings {
+				trie_cache_maximum_size: self.trie_cache_maximum_size()?,
+				state_pruning: None,
+				blocks_pruning: BlocksPruning::KeepAll,
+				source: database_source,
+				metrics_registry: None,
+			},
+			vec![],
+		)?;
 
 		let genesis_block_builder = GenesisBlockBuilder::new_with_storage(
 			genesis_storage,

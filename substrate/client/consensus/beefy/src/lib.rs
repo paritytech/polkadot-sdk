@@ -86,6 +86,28 @@ mod fisherman;
 #[cfg(test)]
 mod tests;
 
+/// Predicate that preserves blocks with BEEFY justifications during pruning.
+///
+/// Use this predicate with `sc_client_db::Backend` to ensure that blocks with BEEFY
+/// justifications are not pruned.
+///
+/// # Example
+///
+/// ```ignore
+/// use sc_consensus_beefy::KeepBeefyJustifications;
+/// use sc_service::new_db_backend;
+///
+/// let backend = new_db_backend(settings, vec![Arc::new(KeepBeefyJustifications)])?;
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct KeepBeefyJustifications;
+
+impl sc_client_db::ShouldKeepBlock for KeepBeefyJustifications {
+	fn should_keep(&self, justifications: &sp_runtime::Justifications) -> bool {
+		justifications.get(BEEFY_ENGINE_ID).is_some()
+	}
+}
+
 const LOG_TARGET: &str = "beefy";
 
 const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
