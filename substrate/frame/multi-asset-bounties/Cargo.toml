@@ -27,9 +27,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-preimage = { default-features = true, path = "../preimage" }
-pallet-utility = { default-features = true, path = "../utility" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-preimage = { default-features = true, workspace = true }
+pallet-utility = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
