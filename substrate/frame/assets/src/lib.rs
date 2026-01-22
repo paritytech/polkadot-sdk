@@ -1876,11 +1876,11 @@ pub mod pallet {
 		///
 		/// Emits `AssetMinBalanceChanged` event when successful.
 		#[pallet::call_index(33)]
-		#[pallet::weight(T::WeightInfo::set_reserves())]
+		#[pallet::weight(T::WeightInfo::set_reserves(reserves.len() as u32))]
 		pub fn set_reserves(
 			origin: OriginFor<T>,
 			id: T::AssetIdParameter,
-			reserves: Vec<T::ReserveData>,
+			reserves: BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 		) -> DispatchResult {
 			let id: T::AssetId = id.into();
 			let origin = ensure_signed(origin.clone())
