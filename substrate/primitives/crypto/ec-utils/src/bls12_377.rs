@@ -129,10 +129,10 @@ pub trait HostCalls {
 		utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
 	}
 
-	/// Pairing final exponentiation for *BLS12-377.*
+	/// Pairing final exponentiation for *BLS12-377*.
 	///
-	/// - Receives encoded: `TargetField`.
-	/// - Returns encoded: `TargetField`.
+	/// Receives encoded: `TargetField`.
+	/// Returns encoded: `TargetField`.
 	fn bls12_377_final_exponentiation(
 		f: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -141,10 +141,10 @@ pub trait HostCalls {
 
 	/// Multi scalar multiplication on *G1* for *BLS12-377*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `Vec<G1Affine>`.
-	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G1Affine`.
+	/// Receives encoded:
+	/// - `bases`: `Vec<G1Affine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded: `G1Affine`.
 	fn bls12_377_msm_g1(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -154,10 +154,10 @@ pub trait HostCalls {
 
 	/// Multi scalar multiplication on *G2* for *BLS12-377*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `Vec<G2Affine>`.
-	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G2Affine`.
+	/// Receives encoded:
+	/// - `bases`: `Vec<G2Affine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded: `G2Affine`.
 	fn bls12_377_msm_g2(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -167,10 +167,10 @@ pub trait HostCalls {
 
 	/// Affine multiplication on *G1* for *BLS12-377*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `G1Affine`.
-	///   - `scalar`: `BigInteger`.
-	/// - Returns encoded: `G1Affine`.
+	/// Receives encoded:
+	/// - `base`: `G1Affine`.
+	/// - `scalar`: `BigInteger`.
+	/// Returns encoded: `G1Affine`.
 	fn bls12_377_mul_affine_g1(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
@@ -180,10 +180,10 @@ pub trait HostCalls {
 
 	/// Affine multiplication on *G2* for *BLS12-377*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `G2Affine`.
-	///   - `scalar`: `BigInteger`.
-	/// - Returns encoded: `G2Affine`.
+	/// Receives encoded:
+	/// - `base`: `G2Affine`.
+	/// - `scalar`: `BigInteger`.
+	/// Returns encoded: `G2Affine`.
 	fn bls12_377_mul_affine_g2(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,

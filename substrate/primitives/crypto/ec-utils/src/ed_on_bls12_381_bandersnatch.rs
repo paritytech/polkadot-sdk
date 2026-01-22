@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic Curves host functions to handle some of the *Arkworks* *Ed-on-BLS12-381-Bandersnatch*
-//! computationally expensive operations.
+//! *Ed-on-BLS12-381-Bandersnatch* types and host functions.
 
 use crate::utils;
 use alloc::vec::Vec;
@@ -96,8 +95,7 @@ impl CurveHooks for HostHooks {
 /// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve
 /// related types from within the runtime.
 ///
-/// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
-/// with `ark_scale::{ArkScale, ArkScaleProjective}`.
+/// All types are (de-)serialized through the wrapper types from `ark-scale`.
 ///
 /// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
 /// and "not-compressed".
@@ -106,7 +104,7 @@ pub trait HostCalls {
 	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// Receives encoded:
-	/// - `base`: `EdwardsAffine`.
+	/// - `bases`: `Vec<EdwardsAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `EdwardsAffine`.
 	fn ed_on_bls12_381_bandersnatch_te_msm(
@@ -116,11 +114,11 @@ pub trait HostCalls {
 		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 
-	/// Twisted Edwards multiplication for *Ed-on-BLS12-381-Bandersnatch*.
+	/// Twisted Edwards affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// Receives encoded:
-	///   - `base`: `EdwardsAffine`.
-	///   - `scalar`: `BigInteger`.
+	/// - `base`: `EdwardsAffine`.
+	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `EdwardsAffine`.
 	fn ed_on_bls12_381_bandersnatch_te_mul_affine(
 		base: PassFatPointerAndRead<Vec<u8>>,
@@ -134,7 +132,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `bases`: `Vec<SWAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
-	/// Returns encoded `SWAffine`.
+	/// Returns encoded: `SWAffine`.
 	fn ed_on_bls12_381_bandersnatch_sw_msm(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -142,12 +140,12 @@ pub trait HostCalls {
 		utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
 	}
 
-	/// Short Weierstrass projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
+	/// Short Weierstrass affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
 	/// Receives encoded:
 	/// - `base`: `SWAffine`.
 	/// - `scalar`: `BigInteger`.
-	/// Returns encoded `SWAffine`.
+	/// Returns encoded: `SWAffine`.
 	fn ed_on_bls12_381_bandersnatch_sw_mul_affine(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,

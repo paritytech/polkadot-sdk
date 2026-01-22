@@ -118,10 +118,10 @@ impl CurveHooks for HostHooks {
 pub trait HostCalls {
 	/// Pairing multi Miller loop for *BW6-761*.
 	///
-	/// - Receives encoded:
-	///   - `a`: `Vec<G1Affine>`.
-	///   - `b`: `Vec<G2Affine>`.
-	/// - Returns encoded: `TargetField`.
+	/// Receives encoded:
+	/// - `a`: `Vec<G1Affine>`.
+	/// - `b`: `Vec<G2Affine>`.
+	/// Returns encoded: `TargetField`.
 	fn bw6_761_multi_miller_loop(
 		a: PassFatPointerAndRead<Vec<u8>>,
 		b: PassFatPointerAndRead<Vec<u8>>,
@@ -131,8 +131,8 @@ pub trait HostCalls {
 
 	/// Pairing final exponentiation for *BW6-761*.
 	///
-	/// - Receives encoded: `TargetField`.
-	/// - Returns encoded: `TargetField`.
+	/// Receives encoded: `TargetField`.
+	/// Returns encoded: `TargetField`.
 	fn bw6_761_final_exponentiation(
 		f: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -141,10 +141,10 @@ pub trait HostCalls {
 
 	/// Multi scalar multiplication on *G1* for *BW6-761*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `Vec<G1Affine>`.
-	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G1Affine`.
+	/// Receives encoded:
+	/// - `bases`: `Vec<G1Affine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded: `G1Affine`.
 	fn bw6_761_msm_g1(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -154,10 +154,10 @@ pub trait HostCalls {
 
 	/// Multi scalar multiplication on *G2* for *BW6-761*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `Vec<G2Affine>`.
-	///   - `scalars`: `Vec<ScalarField>`.
-	/// - Returns encoded: `G2Affine`.
+	/// Receives encoded:
+	/// - `bases`: `Vec<G2Affine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded: `G2Affine`.
 	fn bw6_761_msm_g2(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -167,10 +167,10 @@ pub trait HostCalls {
 
 	/// Affine multiplication on *G1* for *BW6-761*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `G1Affine`.
-	///   - `scalar`: `BigInteger`.
-	/// - Returns encoded: `G1Affine`.
+	/// Receives encoded:
+	/// - `base`: `G1Affine`.
+	/// - `scalar`: `BigInteger`.
+	/// Returns encoded: `G1Affine`.
 	fn bw6_761_mul_affine_g1(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
@@ -180,10 +180,10 @@ pub trait HostCalls {
 
 	/// Affine multiplication on *G2* for *BW6-761*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `G2Affine`.
-	///   - `scalar`: `BigInteger`.
-	/// - Returns encoded: `G2Affine`.
+	/// Receives encoded:
+	/// - `base`: `G2Affine`.
+	/// - `scalar`: `BigInteger`.
+	/// Returns encoded: `G2Affine`.
 	fn bw6_761_mul_affine_g2(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
@@ -198,22 +198,22 @@ mod tests {
 	use crate::utils::testing::*;
 
 	#[test]
-	fn mul_works_g1() {
+	fn mul_g1_works() {
 		mul_test::<G1Affine, ark_bw6_761::G1Affine>();
 	}
 
 	#[test]
-	fn mul_works_g2() {
-		mul_test::<G2Affine, ark_bw6_761::G2Affine>();
-	}
-
-	#[test]
-	fn msm_works_g1() {
+	fn msm_g1_works() {
 		msm_test::<G1Affine, ark_bw6_761::G1Affine>();
 	}
 
 	#[test]
-	fn msm_works_g2() {
+	fn mul_g2_works() {
+		mul_test::<G2Affine, ark_bw6_761::G2Affine>();
+	}
+
+	#[test]
+	fn msm_g2_works() {
 		msm_test::<G2Affine, ark_bw6_761::G2Affine>();
 	}
 
