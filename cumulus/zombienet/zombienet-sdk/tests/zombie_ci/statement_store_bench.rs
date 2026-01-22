@@ -344,7 +344,7 @@ fn create_chain_spec_with_allowances(
 		let keypair = get_keypair(idx);
 		let account_id = keypair.public();
 
-		let storage_key = statement_allowance_key(&account_id.0);
+		let storage_key = statement_allowance_key(account_id.0);
 		let storage_key_hex = format!("0x{}", HexDisplay::from(&storage_key));
 
 		genesis.insert(storage_key_hex, serde_json::Value::String(allowance_hex.clone()));
