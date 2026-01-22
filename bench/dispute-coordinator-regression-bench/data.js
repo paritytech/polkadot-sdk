@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769038419858,
+  "lastUpdate": 1769094675922,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21902,6 +21902,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0065083774499999966,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2eb43506e24f8d19028b0d928c3039d2830e7572",
+          "message": "[pallet-revive] weight charge in `sr25519_verify` and `ecdsa_to_eth_address` precompiles (#10861)\n\nI couldn't see where the weight is charged in those builtin pre-compiles\nand a quick test indicated that there's no charges implemented. Assuming\nthose are compute-heavy functions, the missing weight charges seem like\na serious DoS vector.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-22T13:58:11Z",
+          "tree_id": "d648dc0c502a8f294882daa049dea09aaded03a3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2eb43506e24f8d19028b0d928c3039d2830e7572"
+        },
+        "date": 1769094652159,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009315338759999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006855354259999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00268880311,
             "unit": "seconds"
           }
         ]
