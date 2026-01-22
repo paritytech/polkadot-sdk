@@ -31,10 +31,10 @@ std = [
 	"bounded-collections/std",
 	"codec/std",
 	"scale-info/std",
+	"schemars?/std",
 	"serde/std",
 	"sp-arithmetic/std",
 	"sp-debug-derive/std",
-	"schemars?/std"
 ]
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.
