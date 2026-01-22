@@ -37,43 +37,39 @@ macro_rules! builder {
 			builder!(true, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
 		}
 	};
+	(
+		$full_expand:literal,
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+        $($extra:item)*
+	) => {
+		paste!{
+			builder!($full_expand, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+		}
+	};
 	// Generate the builder struct and its methods.
 	(
 		true,
 		$name:ident,
-		$method:ident$(<($l:lifetime),+>)?($($field:ident: $type:ty,)*) -> $result:ty;
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
-		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
-		pub struct $name<T: Config> {
-			$($field: $type,)*
-		}
+		builder!(false, $name, $method($($field: $type,)* ) -> $result; $($extra)*);
 
 		#[allow(dead_code)]
 		impl<T: Config> $name<T> {
-			$(
-				#[doc = concat!("Set the ", stringify!($field))]
-				pub fn $field(mut self, value: $type) -> Self {
-					self.$field = value;
-					self
-				}
-			)*
-
 			#[doc = concat!("Build the ", stringify!($method), " call")]
 			pub fn build(self) -> $result {
 				Pallet::<T>::$method(
 					$(self.$field,)*
 				)
 			}
-
-            $($extra)*
 		}
 	};
 	// Generate the builder struct and its methods.
 	(
 		false,
 		$name:ident,
-		$method:ident$(<($l:lifetime),+>)?($($field:ident: $type:ty,)*) -> $result:ty;
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
 		$($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
@@ -237,7 +233,6 @@ builder!(
 
 builder!(
 	false,
-	BareCallBuilder,
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
