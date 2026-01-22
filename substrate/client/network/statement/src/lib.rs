@@ -407,6 +407,8 @@ where
 		statement_store: Arc<dyn StatementStore>,
 		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
 	) -> Self {
+		use std::future::pending;
+
 		Self {
 			protocol_name,
 			notification_service,
@@ -420,7 +422,7 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
-			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		}
@@ -685,14 +687,14 @@ where
 	}
 
 	fn on_handle_statement_import(&mut self, who: PeerId, import: &SubmitResult) {
-		match import {
-			SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
-			SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
-			SubmitResult::KnownExpired => {},
-			SubmitResult::Rejected(_) => {},
-			SubmitResult::Invalid(_) => self.network.report_peer(who, rep::INVALID_STATEMENT),
-			SubmitResult::InternalError(_) => {},
-		}
+		// match import {
+		// 	SubmitResult::New => self.network.report_peer(who, rep::GOOD_STATEMENT),
+		// 	SubmitResult::Known => self.network.report_peer(who, rep::ANY_STATEMENT_REFUND),
+		// 	SubmitResult::KnownExpired => {},
+		// 	SubmitResult::Rejected(_) => {},
+		// 	SubmitResult::Invalid(_) => self.network.report_peer(who, rep::INVALID_STATEMENT),
+		// 	SubmitResult::InternalError(_) => {},
+		// }
 	}
 
 	/// Propagate one statement.

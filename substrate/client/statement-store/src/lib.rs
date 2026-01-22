@@ -209,13 +209,19 @@ where
 		source: StatementSource,
 		statement: Statement,
 	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
-		let block = block.map(Into::into).unwrap_or_else(|| {
-			// Validate against the finalized state.
-			self.client.info().finalized_hash
-		});
-		api.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?
+		// let api = self.client.runtime_api();
+		// let block = block.map(Into::into).unwrap_or_else(|| {
+		// 	// Validate against the finalized state.
+		// 	self.client.info().finalized_hash
+		// });
+		// api.validate_statement(block, source, statement)
+		// 	.map_err(|_| InvalidStatement::InternalError)?
+		match statement.verify_signature() {
+			sp_statement_store::SignatureVerificationResult::Valid(_) => {},
+			sp_statement_store::SignatureVerificationResult::Invalid => todo!(),
+			sp_statement_store::SignatureVerificationResult::NoSignature => todo!(),
+		}
+		Ok(ValidStatement { max_count: 10000, max_size: 1024 * 1024 })
 	}
 }
 

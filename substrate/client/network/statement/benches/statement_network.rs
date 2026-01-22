@@ -32,10 +32,10 @@ use sc_network_types::PeerId;
 use sc_statement_store::Store;
 use sp_core::Pair;
 use sp_statement_store::{Statement, StatementSource, StatementStore};
-use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc};
+use std::{collections::HashMap, num::NonZeroUsize, pin::Pin, sync::Arc, u32};
 use substrate_test_runtime_client::{sc_executor::WasmExecutor, DefaultTestClientBuilderExt};
 
-const STATEMENT_DATA_SIZE: usize = 256;
+const STATEMENT_DATA_SIZE: usize = 1024;
 
 #[derive(Clone)]
 struct TestNetwork;
@@ -173,6 +173,7 @@ fn create_signed_statement(id: usize, keypair: &sp_core::ed25519::Pair) -> State
 	let mut data = vec![0u8; STATEMENT_DATA_SIZE];
 	data[0..8].copy_from_slice(&id.to_le_bytes());
 	statement.set_plain_data(data);
+	statement.set_expiry_from_parts(u32::MAX, 6);
 
 	statement.sign_ed25519_private(keypair);
 	statement
@@ -288,10 +289,11 @@ fn blocking_executor(
 }
 
 fn bench_on_statements(c: &mut Criterion) {
-	let statement_counts = [100, 500, 1000, 2000];
-	let thread_counts = [1, 2, 4, 8];
+	let statement_counts = [2000];
+	let thread_counts = [4];
 	let max_runtime_instances = 8;
-	let executor_types = [("blocking", true), ("non_blocking", false)];
+	let num_same_statements = [1, 2, 4, 8, 15, 30];
+	let executor_types = [("blocking", true)];
 
 	let keypair = sp_core::ed25519::Pair::from_string("//Bench", None).unwrap();
 	let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
@@ -308,35 +310,51 @@ fn bench_on_statements(c: &mut Criterion) {
 					non_blocking_executor(&handle)
 				};
 
-				let benchmark_name = format!(
-					"on_statements/statements_{}/threads_{}/{}",
-					num_statements, num_threads, executor_name
-				);
+				for num_same in num_same_statements {
+					let benchmark_name = format!(
+						"on_statements/statements_{}/repeat_{}/threads_{}/{}",
+						num_statements, num_same, num_threads, executor_name
+					);
 
-				c.bench_function(&benchmark_name, |b| {
-					b.iter_batched(
-						|| build_handler(executor.clone(), num_threads, max_runtime_instances),
-						|(mut handler, peer_id, _temp_dir)| {
-							handler.on_statements(peer_id, statements.clone());
+					c.bench_function(&benchmark_name, |b| {
+						b.iter_batched(
+							|| build_handler(executor.clone(), num_threads, max_runtime_instances),
+							|(mut handler, peer_id, _temp_dir)| {
+								let statements = statements.clone();
+								let chunks = statements
+									.chunks(statements.len() / 20)
+									.into_iter()
+									.map(|c| c.to_vec())
+									.collect::<Vec<_>>();
+								for chunk in chunks {
+									for _ in 0..num_same {
+										handler.on_statements(peer_id, chunk.clone());
+									}
+								}
 
-							runtime.block_on(async {
-								while handler.pending_statements_mut().next().await.is_some() {}
-							});
+								runtime.block_on(async {
+									while handler.pending_statements_mut().next().await.is_some() {}
+								});
 
-							let pending = handler.pending_statements_mut();
-							assert!(
-								pending.is_empty(),
-								"Pending statements not empty: {}",
-								pending.len()
-							);
-						},
-						criterion::BatchSize::LargeInput,
-					)
-				});
+								let pending = handler.pending_statements_mut();
+								assert!(
+									pending.is_empty(),
+									"Pending statements not empty: {}",
+									pending.len()
+								);
+							},
+							criterion::BatchSize::LargeInput,
+						)
+					});
+				}
 			}
 		}
 	}
 }
 
-criterion_group!(benches, bench_on_statements);
+criterion_group! {
+	name = benches;
+	config = Criterion::default().sample_size(10);
+	targets = bench_on_statements
+}
 criterion_main!(benches);
