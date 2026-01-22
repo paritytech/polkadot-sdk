@@ -1,0 +1,31 @@
+title: Add support for handling blockchain reverts
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR builds on top of the work of #10453 (thanks @AlexandruCihodaru ) and adds support for handling blockchain reverts, useful in testing environments with RPCs like `evm_revert` or `anvil_reset`.
+
+    ## Changes
+
+    - Add `ChainEvent::Reverted` variant to represent backward blockchain progression
+    - Add `EnactmentAction::HandleReversion` to route revert events appropriately
+    - Implement `handle_reverted()` method that:
+      - identifies and removes all views beyond the revert point (both active and inactive)
+      - collects transactions from retracted blocks via `included_transactions` cache or API
+      - removes those transactions from mempool (they can be resubmitted later)
+      - creates a fresh view at the new head populated from the current mempool state
+      - atomically updates `most_recent_view` and cleans up listener references
+
+    ## Review Notes
+
+    -  We always create a fresh view at the revert target block rather than reusing stale views, ensuring the view reflects the current mempool state
+    - Pending transactions will appear in the new view only if they pass revalidation against the new head's state
+    - Transactions from reverted blocks are removed without banning, allowing resubmission
+    - View removal and most_recent_view update are performed atomically by holding all three locks (`most_recent_view`,
+      `active_views`, `inactive_views`) simultaneously, following the same pattern as [ViewStore::insert_new_view_sync](https://github.com/paritytech/polkadot-sdk/blob/0a386503ab5d3f77d30031e539640c89b254b492/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L553-L575) to prevent race conditions, as suggested by @michalkucharczyk
+crates:
+- name: sc-transaction-pool-api
+  bump: major
+- name: sc-transaction-pool
+  bump: patch
