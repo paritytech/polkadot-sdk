@@ -19,6 +19,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
+use frame_support::LOG_TARGET;
 use pallet_assets::AssetsCallback;
 
 pub use pallet::*;
@@ -30,8 +31,7 @@ where
 	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		insert_asset_mapping::<T>(id.to_asset_index(), id);
-		Ok(())
+		insert_asset_mapping::<T>(id.to_asset_index(), id)
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
@@ -73,9 +73,18 @@ impl ToAssetIndex for xcm::v5::Location {
 pub fn insert_asset_mapping<T: crate::pallet::Config>(
 	asset_index: u32,
 	asset_id: &T::ForeignAssetId,
-) {
+) -> Result<(), ()> {
+	if crate::pallet::AssetIndexToForeignAssetId::<T>::contains_key(asset_index) {
+		log::debug!(target: LOG_TARGET, "Asset index {:?} already mapped", asset_index);
+		return Err(());
+	}
+	if crate::pallet::ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
+		log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
+		return Err(());
+	}
 	crate::pallet::AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
 	crate::pallet::ForeignAssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
+	Ok(())
 }
 
 pub fn remove_asset_mapping<T: crate::pallet::Config>(asset_id: &T::ForeignAssetId) {

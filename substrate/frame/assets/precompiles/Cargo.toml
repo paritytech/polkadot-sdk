@@ -19,6 +19,7 @@ codec = { workspace = true }
 ethereum-standards = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-revive = { workspace = true }
 scale-info = { workspace = true }
