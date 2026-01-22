@@ -32,7 +32,7 @@ use client::{with_timeout, Client, ConnectionManager, RPC_TIMEOUT};
 use codec::Encode;
 use config::Snapshot;
 #[cfg(all(test, feature = "remote-test"))]
-use config::DEFAULT_HTTP_ENDPOINT as DEFAULT_WS_ENDPOINT;
+use config::DEFAULT_WS_ENDPOINT;
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::core::params::ArrayParams;
 use log::*;
