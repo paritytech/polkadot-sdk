@@ -34,7 +34,8 @@ use sp_runtime::traits::AppVerify;
 pub struct SchedulingInfoPayload {
     /// Which core to use (indexes into the parachain's assigned cores).
     pub core_selector: CoreSelector,
-    /// The internal scheduling parent this signature is valid for.
+    /// The internal scheduling parent whom's slot decides the 
+    /// eligible block author that must sign the payload.
     pub internal_scheduling_parent: polkadot_primitives::Hash,
 }
 
