@@ -223,6 +223,20 @@ impl ValidatorGroup {
 			}
 		}
 	}
+
+	/// Resets the advertised state for the given peer. Should be called when peer disconnects
+	/// so that we re-advertise collations when they reconnect.
+	fn reset_advertised_to_peer(&mut self, authority_ids: &HashSet<AuthorityDiscoveryId>) {
+		for id in authority_ids {
+			let validator_index = match self.validators.iter().position(|v| v == id) {
+				Some(idx) => idx,
+				None => continue,
+			};
+			for advertised in self.advertised_to.values_mut() {
+				advertised.set(validator_index, false);
+			}
+		}
+	}
 }
 
 #[derive(Debug)]
@@ -1375,35 +1389,6 @@ async fn handle_network_msg<Context>(
 				unknown_heads: LruMap::new(ByLength::new(10)),
 			});
 
-			// Advertise collations for the current peer in case this is a reconnect.
-			//
-			// We might try to advertise collation T0 to the peer, then the peer disconnects
-			// before receiving the message. Later on, we generate a new collation T1
-			// and the peer reconnects. We need to make sure the peer gets T0 advertised as well.
-			//
-			// The `advertise_collation` ensures we are not readvertising the same collation
-			// multiple times.
-			if let Some(para_id) = state.collating_on {
-				if let Some(implicit_view) = &state.implicit_view {
-					gum::trace!(target: LOG_TARGET, ?peer_id, ?para_id, "Checking collations on possible reconnect");
-
-					for leaf in implicit_view.leaves() {
-						if let Some(per_relay_parent) = state.per_relay_parent.get_mut(leaf) {
-							advertise_collation(
-								ctx,
-								*leaf,
-								per_relay_parent,
-								&peer_id,
-								&state.peer_ids,
-								&mut state.advertisement_timeouts,
-								&state.metrics,
-							)
-							.await;
-						}
-					}
-				}
-			}
-
 			if let Some(authority_ids) = maybe_authority {
 				gum::trace!(
 					target: LOG_TARGET,
@@ -1422,6 +1407,17 @@ async fn handle_network_msg<Context>(
 		},
 		PeerDisconnected(peer_id) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+
+			// Reset advertised_to bits for this peer so that collations will be
+			// re-advertised when they reconnect.
+			if let Some(authority_ids) = state.peer_ids.get(&peer_id) {
+				for per_relay_parent in state.per_relay_parent.values_mut() {
+					for validator_group in per_relay_parent.validator_group.values_mut() {
+						validator_group.reset_advertised_to_peer(authority_ids);
+					}
+				}
+			}
+
 			state.peer_data.remove(&peer_id);
 			state.peer_ids.remove(&peer_id);
 		},
