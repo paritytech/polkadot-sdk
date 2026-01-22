@@ -18,7 +18,6 @@
 use super::*;
 use crate::{
 	alloy::hex,
-	foreign_assets::insert_asset_mapping,
 	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
 };
 use alloy::primitives::U256;
@@ -49,7 +48,8 @@ fn assert_contract_event(contract: H160, event: IERC20Events) {
 
 fn setup_asset_for_prefix(asset_id: u32, _owner: u64, prefix: u16) {
 	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		insert_asset_mapping::<Test>(0, &asset_id).expect("Failed to insert asset mapping");
+		pallet::Pallet::<Test>::insert_asset_mapping(0, &asset_id)
+			.expect("Failed to insert asset mapping");
 	}
 }
 
