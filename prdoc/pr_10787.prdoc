@@ -8,14 +8,8 @@ doc:
 
 crates:
 - name: sc-statement-store
-  bump: minor
-- name: pallet-statement
-  bump: minor
-- name: sp-storage
-  bump: minor
+  bump: major
 - name: sp-statement-store
-  bump: minor
-- name: people-westend-runtime
-  bump: minor
+  bump: major
 - name: polkadot-omni-node-lib
-  bump: minor
+  bump: patch
