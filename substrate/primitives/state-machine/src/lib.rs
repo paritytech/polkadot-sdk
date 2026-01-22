@@ -160,7 +160,7 @@ mod std_reexport {
 
 #[cfg(feature = "std")]
 mod execution {
-	use crate::backend::AsTrieBackend;
+	use crate::backend::MaybeAsTrieBackend;
 
 	use super::*;
 	use codec::Codec;
@@ -321,12 +321,16 @@ mod execution {
 		runtime_code: &RuntimeCode,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
-		B: AsTrieBackend<H>,
+		B: MaybeAsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
 		Exec: CodeExecutor + Clone + 'static,
 	{
-		let trie_backend = backend.as_trie_backend();
+		let trie_backend = match backend
+			.as_trie_backend() {
+				Some(backend) => backend,
+				None => return Err(Box::new("Current state backend is not a trie backend and thus doesn't support this operation"))
+			};
 		prove_execution_on_trie_backend::<_, _, _>(
 			trie_backend,
 			overlay,
@@ -440,13 +444,17 @@ mod execution {
 	/// Generate storage read proof.
 	pub fn prove_read<B, H, I>(backend: B, keys: I) -> Result<StorageProof, Box<dyn Error>>
 	where
-		B: AsTrieBackend<H>,
+		B: MaybeAsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
 	{
-		let trie_backend = backend.as_trie_backend();
+		let trie_backend = match backend
+			.as_trie_backend() {
+				Some(backend) => backend,
+				None => return Err(Box::new("Current state backend is not a trie backend and thus doesn't support this operation"))
+			};
 		prove_read_on_trie_backend(trie_backend, keys)
 	}
 
@@ -574,11 +582,15 @@ mod execution {
 		start_at: &[Vec<u8>],
 	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
-		B: AsTrieBackend<H>,
+		B: MaybeAsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
 	{
-		let trie_backend = backend.as_trie_backend();
+		let trie_backend = match backend
+			.as_trie_backend() {
+				Some(backend) => backend,
+				None => return Err(Box::new("Current state backend is not a trie backend and thus doesn't support this operation"))
+			};
 		prove_range_read_with_child_with_size_on_trie_backend(trie_backend, size_limit, start_at)
 	}
 
@@ -698,11 +710,15 @@ mod execution {
 		start_at: Option<&[u8]>,
 	) -> Result<(StorageProof, u32), Box<dyn Error>>
 	where
-		B: AsTrieBackend<H>,
+		B: MaybeAsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
 	{
-		let trie_backend = backend.as_trie_backend();
+		let trie_backend = match backend
+			.as_trie_backend() {
+				Some(backend) => backend,
+				None => return Err(Box::new("Current state backend is not a trie backend and thus doesn't support this operation"))
+			};
 		prove_range_read_with_size_on_trie_backend(
 			trie_backend,
 			child_info,
@@ -763,13 +779,17 @@ mod execution {
 		keys: I,
 	) -> Result<StorageProof, Box<dyn Error>>
 	where
-		B: AsTrieBackend<H>,
+		B: MaybeAsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
 	{
-		let trie_backend = backend.as_trie_backend();
+		let trie_backend = match backend
+			.as_trie_backend() {
+				Some(backend) => backend,
+				None => return Err(Box::new("Current state backend is not a trie backend and thus doesn't support this operation"))
+			};
 		prove_child_read_on_trie_backend(trie_backend, child_info, keys)
 	}
 

@@ -23,7 +23,7 @@ use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_state_machine::{backend::AsTrieBackend, Backend};
+use sp_state_machine::{backend::MaybeAsTrieBackend, Backend};
 use sp_storage::ChildInfo;
 use sp_trie::StorageProof;
 use std::{fmt::Debug, sync::Arc, time::Instant};
@@ -82,7 +82,9 @@ impl StorageCmd {
 		// single recorder per block, simulate the same behavior by creating a new
 		// recorder every batch size, so that the amortized cost of reading a key is
 		// measured in conditions closer to the real world.
-		let (mut backend, mut recorder) = self.create_backend::<B, C>(&state);
+		let (mut backend, mut recorder) = self.create_backend::<B, C>(
+			state.as_trie_backend().ok_or("Current backend is not trie backend")?,
+		);
 
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
@@ -135,7 +137,9 @@ impl StorageCmd {
 
 			// Reload recorder
 			if is_batch_full {
-				(backend, recorder) = self.create_backend::<B, C>(&state);
+				(backend, recorder) = self.create_backend::<B, C>(
+					state.as_trie_backend().ok_or("Current backend is not trie backend")?,
+				);
 				read_in_batch = 0;
 			}
 		}
@@ -182,7 +186,11 @@ impl StorageCmd {
 
 				// Reload recorder
 				if is_batch_full {
-					(backend, recorder) = self.create_backend::<B, C>(&state);
+					(backend, recorder) = self.create_backend::<B, C>(
+						state
+							.as_trie_backend()
+							.ok_or("Current backend is not trie backend")?,
+					);
 					read_in_batch = 0;
 				}
 			}
@@ -193,10 +201,14 @@ impl StorageCmd {
 
 	fn create_backend<'a, B, C>(
 		&self,
-		state: &'a C::StateBackend,
+		state: &'a sp_state_machine::TrieBackend<
+			<C::StateBackend as MaybeAsTrieBackend<HashingFor<B>>>::TrieBackendStorage,
+			HashingFor<B>,
+			sp_trie::cache::LocalTrieCache<HashingFor<B>>,
+		>,
 	) -> (
 		sp_state_machine::TrieBackend<
-			&'a <C::StateBackend as AsTrieBackend<HashingFor<B>>>::TrieBackendStorage,
+			&'a <C::StateBackend as MaybeAsTrieBackend<HashingFor<B>>>::TrieBackendStorage,
 			HashingFor<B>,
 			&'a sp_trie::cache::LocalTrieCache<HashingFor<B>>,
 		>,
@@ -207,7 +219,7 @@ impl StorageCmd {
 		B: BlockT + Debug,
 	{
 		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
-		let backend = sp_state_machine::TrieBackendBuilder::wrap(state.as_trie_backend())
+		let backend = sp_state_machine::TrieBackendBuilder::wrap(state)
 			.with_optional_recorder(recorder.clone())
 			.build();
 

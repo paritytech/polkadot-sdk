@@ -1957,7 +1957,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -9167,8 +9167,7 @@ dependencies = [
 [[package]]
 name = "kvdb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7d770dcb02bf6835887c3a979b5107a04ff4bbde97a5f0928d27404a155add9"
+source = "git+https://github.com/Harrm/parity-common.git#dcde8f93cf136b00a8fe8e6f1b9d87b53fe7a2d1"
 dependencies = [
  "smallvec",
 ]
@@ -9176,8 +9175,7 @@ dependencies = [
 [[package]]
 name = "kvdb-memorydb"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf7a85fe66f9ff9cd74e169fdd2c94c6e1e74c412c99a73b4df3200b5d3760b2"
+source = "git+https://github.com/Harrm/parity-common.git#dcde8f93cf136b00a8fe8e6f1b9d87b53fe7a2d1"
 dependencies = [
  "kvdb",
  "parking_lot 0.12.3",
@@ -9186,8 +9184,7 @@ dependencies = [
 [[package]]
 name = "kvdb-rocksdb"
 version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "739ac938a308a9a8b6772fd1d840fd9c0078f9c74fe294feaf32faae727102cc"
+source = "git+https://github.com/Harrm/parity-common.git#dcde8f93cf136b00a8fe8e6f1b9d87b53fe7a2d1"
 dependencies = [
  "kvdb",
  "num_cpus",
@@ -9199,8 +9196,7 @@ dependencies = [
 [[package]]
 name = "kvdb-shared-tests"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d3b4e3e80c369f1b5364b6acdeba9b8a02285e91a5570f7c0404b7f9024541"
+source = "git+https://github.com/Harrm/parity-common.git#dcde8f93cf136b00a8fe8e6f1b9d87b53fe7a2d1"
 dependencies = [
  "kvdb",
 ]
@@ -17823,7 +17819,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "log",
  "multimap",
  "once_cell",
@@ -23095,6 +23091,7 @@ dependencies = [
 name = "sp-database"
 version = "10.0.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "kvdb",
  "kvdb-rocksdb",
  "parking_lot 0.12.3",

@@ -64,6 +64,16 @@ pub struct PruningParams {
 		default_value = "archive-canonical"
 	)]
 	pub blocks_pruning: DatabasePruningMode,
+
+	/// Specify whether to keep state diffs for archive blocks
+	///
+	/// This options enables a separate storage kind that keeps only diffs for each state
+	/// transition, instead of Merkle tree nodes. This saves a lot of space, but makes some
+	/// operations (e.g. key iteration) more expensive and some unavailable (e.g. merkle root
+	/// calculation). Note that enabling this options doesn't automatically set the pruning mode
+	/// for trie nodes, it must be done separately using 'pruning' option.
+	#[arg(alias = "archive-diffs", long, default_value = "false")]
+	pub archive_diffs: bool,
 }
 
 impl PruningParams {
@@ -75,6 +85,11 @@ impl PruningParams {
 	/// Get the block pruning value from the parameters
 	pub fn blocks_pruning(&self) -> error::Result<BlocksPruning> {
 		Ok(self.blocks_pruning.into())
+	}
+
+	/// Get the archive diffs value from the parameters
+	pub fn archive_diffs(&self) -> error::Result<bool> {
+		Ok(self.archive_diffs)
 	}
 }
 

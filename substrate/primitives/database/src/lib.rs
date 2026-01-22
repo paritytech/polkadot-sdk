@@ -79,6 +79,23 @@ impl<H> Transaction<H> {
 	}
 }
 
+pub trait SeekableIterator {
+	/// Seeks to the specified key or the first key that lexicographically follows it.
+	fn seek(&mut self, key: &[u8]);
+
+	/// Seeks to the specified key, or the first key that lexicographically precedes it.
+	fn seek_prev(&mut self, key: &[u8]);
+
+	fn prev(&mut self);
+	fn next(&mut self);
+
+	fn get(&self) -> Option<(&[u8], Vec<u8>)>;
+}
+
+pub trait DatabaseWithSeekableIterator<H: Clone + AsRef<[u8]>>: Database<H> {
+	fn seekable_iter<'a>(&'a self, col: u32) -> Option<Box<dyn SeekableIterator + 'a>>;
+}
+
 pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	/// Commit the `transaction` to the database atomically. Any further calls to `get` or `lookup`
 	/// will reflect the new state.

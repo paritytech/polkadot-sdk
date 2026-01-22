@@ -29,7 +29,7 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, HashingFor},
 };
-use sp_state_machine::{backend::AsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
+use sp_state_machine::{backend::MaybeAsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
 use std::{cell::RefCell, sync::Arc};
 
 /// Call executor that executes methods locally, querying all required
@@ -153,7 +153,9 @@ where
 
 		match recorder {
 			Some(recorder) => {
-				let trie_state = state.as_trie_backend();
+				let trie_state = state.as_trie_backend().ok_or(sp_blockchain::Error::Backend(
+					"Current backend is not trie backend and thus doesn't support this operation".to_string(),
+				))?;
 
 				let backend = sp_state_machine::TrieBackendBuilder::wrap(&trie_state)
 					.with_recorder(recorder.clone())
@@ -211,7 +213,9 @@ where
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
 		let state = self.backend.state_at(at_hash, TrieCacheContext::Untrusted)?;
 
-		let trie_backend = state.as_trie_backend();
+		let trie_backend = state.as_trie_backend().ok_or(sp_blockchain::Error::Backend(
+			"Current backend is not trie backend and thus doesn't support this operation".to_string(),
+		))?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(trie_backend);
 		let runtime_code =

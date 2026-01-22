@@ -314,14 +314,17 @@ fn warm_up_trie_cache<TBl: BlockT>(
 	let start_time = std::time::Instant::now();
 	let mut keys_count = 0;
 	let mut child_keys_count = 0;
-	for key in KeysIter::<_, TBl>::new(untrusted_state()?, None, None)? {
+	for key in KeysIter::<_, TBl>::new(untrusted_state()?, None, None)
+		.map_err(|e| Error::Other(e.to_string()))?
+	{
 		if keys_count != 0 && keys_count % 100_000 == 0 {
 			debug!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
 		}
 		match child_info(key.0.clone()) {
 			Some(info) => {
 				for child_key in
-					KeysIter::<_, TBl>::new_child(untrusted_state()?, info.clone(), None, None)?
+					KeysIter::<_, TBl>::new_child(untrusted_state()?, info.clone(), None, None)
+						.map_err(|e| Error::Other(e.to_string()))?
 				{
 					if trusted_state()?
 						.child_storage(&info, &child_key.0)
