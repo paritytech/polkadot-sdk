@@ -509,6 +509,8 @@ impl pallet_authorship::Config for Runtime {
 parameter_types! {
 	pub const Period: BlockNumber = 10 * MINUTES;
 	pub const Offset: BlockNumber = 0;
+	// 5 keys of 32 bytes, plus beefy key 33 bytes
+	pub const KeyDeposit: Balance = deposit(1, 5 * 32 + 33);
 }
 
 impl_opaque_keys! {
@@ -534,7 +536,7 @@ impl pallet_session::Config for Runtime {
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
-	type KeyDeposit = ();
+	type KeyDeposit = KeyDeposit;
 }
 
 impl pallet_session::historical::Config for Runtime {

@@ -35,6 +35,7 @@ mod benchmarks {
 		frame_system::Pallet::<T>::inc_providers(&caller);
 		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), keys, proof);
@@ -48,6 +49,7 @@ mod benchmarks {
 		frame_system::Pallet::<T>::inc_providers(&caller);
 		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 		let _t = pallet_session::Pallet::<T>::set_keys(
 			RawOrigin::Signed(caller.clone()).into(),
 			keys,
