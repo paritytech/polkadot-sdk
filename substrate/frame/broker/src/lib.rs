@@ -208,6 +208,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
+	/// Scheduled base price for the next sale rotation.
+	#[pallet::storage]
+	pub type ScheduledBasePrice<T> = StorageValue<_, BalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -505,7 +509,7 @@ pub mod pallet {
 		BasePriceReset {
 			/// The new base/minimum price.
 			new_base_price: BalanceOf<T>,
-    },
+		},
 		/// Failed to assign a force reservation due to no free cores available.
 		ForceReservationFailed {
 			/// The schedule that could not be assigned.

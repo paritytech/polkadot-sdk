@@ -620,26 +620,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn do_reset_base_price(new_base_price: BalanceOf<T>) -> DispatchResult {
-		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-
-		// Update the end price
-		sale.end_price = new_base_price;
-
-		// If we have a sellout price that's lower than the new base price, adjust it too
-		if let Some(ref mut sellout_price) = sale.sellout_price {
-			if *sellout_price < new_base_price {
-				*sellout_price = new_base_price;
-			}
-		}
-
-		SaleInfo::<T>::put(&sale);
-
-		Self::deposit_event(Event::<T>::BasePriceReset { new_base_price });
-
-		Ok(())
-	}
-
 	pub(crate) fn ensure_cores_for_sale(
 		status: &StatusRecord,
 		sale: &SaleInfoRecordOf<T>,
@@ -659,5 +639,17 @@ impl<T: Config> Pallet<T> {
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
+	}
+
+	pub(crate) fn do_reset_base_price(new_base_price: BalanceOf<T>) -> DispatchResult {
+		// Should fail if sales haven't started
+		SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Schedule the price change for the next sale rotation
+		ScheduledBasePrice::<T>::put(new_base_price);
+
+		Self::deposit_event(Event::<T>::BasePriceReset { new_base_price });
+
+		Ok(())
 	}
 }
