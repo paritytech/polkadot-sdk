@@ -2,13 +2,22 @@ title: '[pallet-assets] add ForeignAssetIdExtractor to assets precompile'
 doc:
 - audience: Runtime Dev
   description: |-
-    fixes https://github.com/paritytech/polkadot-sdk/issues/8659
-
-    Adds ForeignAssetIdExtractor which converts a u32 asset id to an XCM Location type.
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/8659
+    
+    Implements `ForeignAssetIdExtractor` trait for pallet-assets-precompiles that enables conversion of u32 asset IDs to XCM Location types. This allows smart contracts to interact with foreign assets through a standardized interface.
+    
+    Key additions:
+    - `ForeignAssetIdExtractor` implementation for converting asset indices to foreign asset IDs
+    - Indexing mechanism via `AssetIndexToForeignAssetId` storage to map u32 indices to location-based asset IDs
+    - created new pallet for holding the StorageMaps: pallet-assets-precompiles.
+    - Validation logic to prevent hash collisions during asset index registration
+    - Integration with asset-hub-westend runtime
+    
 crates:
 - name: pallet-assets
   bump: minor
-- name: asset-hub-westend-runtime
-  bump: minor
 - name: pallet-assets-precompiles
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+
