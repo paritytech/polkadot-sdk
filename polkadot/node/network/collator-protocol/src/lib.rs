@@ -23,6 +23,7 @@
 
 use std::{
 	collections::HashSet,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -31,16 +32,16 @@ use futures::{
 	FutureExt, TryFutureExt,
 };
 
-use polkadot_node_subsystem_util::reputation::ReputationAggregator;
+use polkadot_node_subsystem_util::{database::Database, reputation::ReputationAggregator};
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
 	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
-use polkadot_primitives::CollatorPair;
-
 use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, SpawnedSubsystem};
+use polkadot_primitives::CollatorPair;
+pub use validator_side_experimental::ReputationConfig;
 
 mod collator_side;
 mod validator_side;
@@ -91,6 +92,10 @@ pub enum ProtocolSide {
 		keystore: KeystorePtr,
 		/// Prometheus metrics for validators.
 		metrics: validator_side_experimental::Metrics,
+		/// Database used for reputation house keeping.
+		db: Arc<dyn Database>,
+		/// Reputation data column number.
+		reputation_col: u32,
 	},
 	/// Collators operate on a parachain.
 	Collator {
@@ -148,8 +153,8 @@ impl<Context> CollatorProtocolSubsystem {
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
-				validator_side_experimental::run(ctx, keystore, metrics)
+			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_col } =>
+				validator_side_experimental::run(ctx, keystore, metrics, db, reputation_col)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
 			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>

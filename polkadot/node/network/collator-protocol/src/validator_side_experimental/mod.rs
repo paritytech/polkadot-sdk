@@ -35,8 +35,9 @@ use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
 	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
+use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
-use std::{future, future::Future, pin::Pin, time::Duration};
+use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use peer_manager::{Db, PeerManager};
 
@@ -44,12 +45,21 @@ use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
 
+/// Configuration for the reputation db.
+#[derive(Debug, Clone, Copy)]
+pub struct ReputationConfig {
+	/// The data column in the store to use for reputation data.
+	pub col_reputation_data: u32,
+}
+
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 pub(crate) async fn run<Context>(
 	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	_db: Arc<dyn Database>,
+	_reputation_col: u32,
 ) -> FatalResult<()> {
 	gum::info!(LOG_TARGET, "Running experimental collator protocol");
 	if let Some(state) = initialize(&mut ctx, keystore, metrics).await? {
