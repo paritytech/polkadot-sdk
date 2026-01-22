@@ -1,0 +1,14 @@
+title: '[pallet-assets] add ForeignAssetIdExtractor to assets precompile'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/polkadot-sdk/issues/8659
+
+    Adds ForeignAssetIdExtractor which converts a u32 asset id to an XCM Location type.
+crates:
+- name: pallet-assets
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor
