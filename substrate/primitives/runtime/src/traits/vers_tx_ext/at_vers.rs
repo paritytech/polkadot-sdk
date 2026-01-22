@@ -21,7 +21,7 @@ use crate::{
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, VersTxExtLine, VersTxExtLineMetadataBuilder, VersTxExtLineVersion,
+		TransactionExtension, VersTxExtLine, VersTxExtLineMetadataBuilder,
 		VersTxExtLineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
@@ -65,17 +65,14 @@ impl<const VERSION: u8, Extension: DecodeWithMemTracking> DecodeWithVersionWithM
 {
 }
 
-impl<const VERSION: u8, Extension> VersTxExtLineVersion for TxExtLineAtVers<VERSION, Extension> {
-	fn version(&self) -> u8 {
-		VERSION
-	}
-}
-
 impl<const VERSION: u8, Call, Extension> VersTxExtLine<Call> for TxExtLineAtVers<VERSION, Extension>
 where
 	Call: Dispatchable<RuntimeOrigin: AsTransactionAuthorizedOrigin> + Encode,
 	Extension: TransactionExtension<Call>,
 {
+	fn version(&self) -> u8 {
+		VERSION
+	}
 	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 		builder.push_versioned_extension(VERSION, Extension::metadata());
 	}

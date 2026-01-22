@@ -17,13 +17,14 @@
 
 //! Generic implementation of an unchecked (pre-verification) extrinsic.
 
+use crate::traits::VersTxExtLine;
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
 		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
 		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension, VersTxExtLineVersion, VersTxExtLineWeight,
+		TransactionExtension, VersTxExtLineWeight,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -165,7 +166,7 @@ where
 	Address: Encode,
 	Signature: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode,
 {
 	fn size_hint(&self) -> usize {
 		match &self {
@@ -815,7 +816,7 @@ where
 	Signature: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode + VersTxExtLine<Call>,
 {
 	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
 	where
@@ -968,7 +969,7 @@ where
 	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Encode,
 	Call: Encode,
 	ExtensionV0: Encode,
-	ExtensionOtherVersions: Encode + VersTxExtLineVersion,
+	ExtensionOtherVersions: Encode + VersTxExtLine<Call>,
 {
 	fn from(
 		extrinsic: UncheckedExtrinsic<
@@ -998,7 +999,7 @@ where
 	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
 	Call: DecodeWithMemTracking,
 	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion + VersTxExtLineVersion,
+	ExtensionOtherVersions: DecodeWithVersion,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode_with_len(&mut &data[..], data.len())

@@ -52,18 +52,6 @@ pub trait VersTxExtLineWeight<Call: Dispatchable> {
 	fn weight(&self, call: &Call) -> Weight;
 }
 
-/// The version for an instance of a versioned transaction extension pipeline.
-///
-/// This trait is part of [`VersTxExtLine`]. It is defined independently to allow implementation to
-/// rely only on it without bounding the whole trait [`VersTxExtLine`].
-///
-/// (type name is short for versioned (Vers) transaction (Tx) Extension (Ext) pipeline (Line)
-/// version (Version)).
-pub trait VersTxExtLineVersion {
-	/// Return the version for the given versioned transaction extension pipeline.
-	fn version(&self) -> u8;
-}
-
 /// A versioned transaction extension pipeline.
 ///
 /// This defines multiple version of a transaction extensions pipeline.
@@ -79,8 +67,10 @@ pub trait VersTxExtLine<Call: Dispatchable>:
 	+ Sync
 	+ Clone
 	+ VersTxExtLineWeight<Call>
-	+ VersTxExtLineVersion
 {
+	/// Return the version for the given versioned transaction extension pipeline.
+	fn version(&self) -> u8;
+
 	/// Build the metadata for the versioned transaction extension pipeline.
 	fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder);
 

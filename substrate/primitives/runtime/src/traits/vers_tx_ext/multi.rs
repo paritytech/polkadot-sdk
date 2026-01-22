@@ -21,7 +21,7 @@ use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
 		Dispatchable, InvalidVersion, PostDispatchInfoOf, TxExtLineAtVers, VersTxExtLine,
-		VersTxExtLineMetadataBuilder, VersTxExtLineVersion, VersTxExtLineWeight,
+		VersTxExtLineMetadataBuilder, VersTxExtLineWeight,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -86,16 +86,6 @@ macro_rules! declare_multi_version_enum {
 				/// The transaction extension pipeline of a specific version.
 				$variant($variant),
 			)*
-		}
-
-		impl<$( $variant: VersTxExtLineVersion, )*> VersTxExtLineVersion for MultiVersion<$( $variant, )*> {
-			fn version(&self) -> u8 {
-				match self {
-					$(
-						MultiVersion::$variant(v) => v.version(),
-					)*
-				}
-			}
 		}
 
 		// It encodes without the variant index.
@@ -181,6 +171,14 @@ macro_rules! declare_multi_version_enum {
 		impl<$( $variant: VersTxExtLine<Call> + MultiVersionItem, )* Call: Dispatchable>
 			VersTxExtLine<Call> for MultiVersion<$( $variant, )*>
 		{
+			fn version(&self) -> u8 {
+				match self {
+					$(
+						MultiVersion::$variant(v) => v.version(),
+					)*
+				}
+			}
+
 			fn build_metadata(builder: &mut VersTxExtLineMetadataBuilder) {
 				$(
 					$variant::build_metadata(builder);

@@ -24,7 +24,7 @@ use crate::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
 		DispatchInfoOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
 		TransactionExtension, TxExtLineAtVers, VersTxExtLine, VersTxExtLineMetadataBuilder,
-		VersTxExtLineVersion, VersTxExtLineWeight,
+		VersTxExtLineWeight,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -47,17 +47,6 @@ pub enum ExtensionVariant<ExtensionV0, ExtensionOtherVersions> {
 	V0(ExtensionV0),
 	/// A transaction extension pipeline for other versions.
 	Other(ExtensionOtherVersions),
-}
-
-impl<ExtensionV0, ExtensionOtherVersions: VersTxExtLineVersion> VersTxExtLineVersion
-	for ExtensionVariant<ExtensionV0, ExtensionOtherVersions>
-{
-	fn version(&self) -> u8 {
-		match self {
-			ExtensionVariant::V0(_) => EXTENSION_V0_VERSION,
-			ExtensionVariant::Other(ext) => ext.version(),
-		}
-	}
 }
 
 impl<ExtensionV0: Encode, ExtensionOtherVersions: Encode> Encode
@@ -158,6 +147,12 @@ where
 			ExtensionVariant::V0(ext) =>
 				ext.dispatch_transaction(origin, call, info, len, EXTENSION_V0_VERSION),
 			ExtensionVariant::Other(ext) => ext.dispatch_transaction(origin, call, info, len),
+		}
+	}
+	fn version(&self) -> u8 {
+		match self {
+			ExtensionVariant::V0(_) => EXTENSION_V0_VERSION,
+			ExtensionVariant::Other(ext) => ext.version(),
 		}
 	}
 }
