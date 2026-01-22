@@ -971,32 +971,6 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
-		let validation = match (self.read_allowance_fn)(
-			&account_id,
-			statement.proof().and_then(|p| match p {
-				Proof::OnChain { block_hash, .. } => Some(*block_hash),
-				_ => None,
-			}),
-		) {
-			Ok(Some(allowance)) => allowance,
-			Ok(None) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Account {} has no statement allowance set",
-					HexDisplay::from(&account_id),
-				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
-			},
-			Err(e) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Reading statement allowance for account {} failed",
-					HexDisplay::from(&account_id),
-				);
-				return SubmitResult::InternalError(e)
-			},
-		};
-
 		match statement.verify_signature() {
 			SignatureVerificationResult::Valid(_) => {},
 			SignatureVerificationResult::Invalid => {
@@ -1024,6 +998,32 @@ impl StatementStore for Store {
 					self.metrics.report(|metrics| metrics.validations_invalid.inc());
 					return SubmitResult::Invalid(InvalidReason::NoProof);
 				}
+			},
+		};
+
+		let validation = match (self.read_allowance_fn)(
+			&account_id,
+			statement.proof().and_then(|p| match p {
+				Proof::OnChain { block_hash, .. } => Some(*block_hash),
+				_ => None,
+			}),
+		) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Account {} has no statement allowance set",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+			},
+			Err(e) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Reading statement allowance for account {} failed",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::InternalError(e)
 			},
 		};
 

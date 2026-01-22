@@ -67,13 +67,13 @@ pub const STATEMENT_ALLOWANCE_PREFIX: &[u8] = b":statement-allowance:";
 /// Constructs a per-account statement allowance storage key.
 ///
 /// # Arguments
-/// * `account_id` - 32-byte account identifier
+/// * `account_id` - Account identifier as byte slice
 ///
 /// # Returns
 /// Storage key: `":statement-allowance:" ++ account_id`
-pub fn statement_allowance_key(account_id: &[u8; 32]) -> Vec<u8> {
+pub fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
 	let mut key = STATEMENT_ALLOWANCE_PREFIX.to_vec();
-	key.extend_from_slice(account_id);
+	key.extend_from_slice(account_id.as_ref());
 	key
 }
 
