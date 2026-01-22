@@ -1,0 +1,8 @@
+title: EPMB / signed pallet: Add support for lazy deletion of the leader from the storage
+doc:
+- audience: Runtime Dev
+  description: |-
+    Lazy deletion of leader from storage
+crates:
+- name: pallet-election-provider-multi-block
+  bump: minor
