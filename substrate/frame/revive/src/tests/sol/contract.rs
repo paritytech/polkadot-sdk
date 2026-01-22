@@ -276,7 +276,7 @@ fn invalid_opcode_evm() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
@@ -298,7 +298,7 @@ fn call_stop_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
