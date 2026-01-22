@@ -1118,7 +1118,11 @@ impl<T: Config> Pallet<T> {
 	fn messages_collection_size_limit() -> usize {
 		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
 		let max_block_pov = max_block_weight.proof_size();
-		(max_block_pov / 6).saturated_into()
+
+		let remaining_proof_size =
+			frame_system::Pallet::<T>::remaining_block_weight().remaining().proof_size();
+
+		(max_block_pov / 6).min(remaining_proof_size).saturated_into()
 	}
 
 	/// Updates inherent data to only include the messages that weren't already processed
