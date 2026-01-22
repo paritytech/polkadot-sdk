@@ -957,8 +957,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						for _ in 0..count {
 							let mut statement = Statement::new();
 
-							let topic_str =
-								format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
+							let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
 							let topic = blake2_256(topic_str.as_bytes());
 							let channel = blake2_256(msg_idx.to_le_bytes().as_ref());
 
@@ -1005,8 +1004,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 					for msg_idx in 0..config.messages_per_client() as u32 {
 						// Use same test run ID for topic lookup
-						let topic_str =
-							format!("{test_run_id}-{neighbour_id}-{round}-{msg_idx}");
+						let topic_str = format!("{test_run_id}-{neighbour_id}-{round}-{msg_idx}");
 						let topic = blake2_256(topic_str.as_bytes());
 
 						for retry in 0..config.max_retries {
