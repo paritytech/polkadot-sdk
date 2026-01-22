@@ -42,12 +42,13 @@
 //! In this example we are going to build a very simplistic, naive and definitely NOT
 //! production-ready oracle for BTC/USD price.
 //! Offchain Worker (OCW) will be triggered after every block, fetch the current price
-//! and prepare either signed or unsigned transaction to feed the result back on chain.
+//! and prepare either signed or general transaction to feed the result back on chain.
 //! The on-chain logic will simply aggregate the results and store last `64` values to compute
 //! the average price.
 //! Additional logic in OCW is put in place to prevent spamming the network with both signed
-//! and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
-//! one unsigned transaction floating in the network.
+//! and general transactions. The pallet uses the `#[pallet::authorize]` attribute to validate
+//! general transactions, ensuring that only one general transaction can be accepted per
+//! `AuthorizedTxInterval` blocks.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -55,12 +56,12 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::traits::Get;
+use frame_support::{traits::Get, weights::Weight};
 use frame_system::{
 	self as system,
 	offchain::{
-		AppCrypto, CreateBare, CreateSignedTransaction, SendSignedTransaction,
-		SendUnsignedTransaction, SignedPayload, Signer, SigningTypes, SubmitTransaction,
+		AppCrypto, CreateAuthorizedTransaction, CreateSignedTransaction, SendSignedTransaction,
+		SignedPayload, Signer, SigningTypes, SubmitTransaction,
 	},
 	pallet_prelude::BlockNumberFor,
 };
@@ -73,7 +74,10 @@ use sp_runtime::{
 		Duration,
 	},
 	traits::Zero,
-	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityWithRefund,
+		ValidTransaction,
+	},
 	Debug,
 };
 
@@ -129,9 +133,17 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// This pallet's configuration trait
+	///
+	/// # Requirements
+	///
+	/// This pallet requires `frame_system::AuthorizeCall` to be included in the runtime's
+	/// transaction extension pipeline.
+	/// The integrity test will verify this at runtime.
 	#[pallet::config]
 	pub trait Config:
-		CreateSignedTransaction<Call<Self>> + CreateBare<Call<Self>> + frame_system::Config
+		CreateSignedTransaction<Call<Self>>
+		+ CreateAuthorizedTransaction<Call<Self>>
+		+ frame_system::Config
 	{
 		/// The identifier type for an offchain worker.
 		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
@@ -146,19 +158,19 @@ pub mod pallet {
 		#[pallet::constant]
 		type GracePeriod: Get<BlockNumberFor<Self>>;
 
-		/// Number of blocks of cooldown after unsigned transaction is included.
+		/// Number of blocks of cooldown after an authorized transaction is included.
 		///
-		/// This ensures that we only accept unsigned transactions once, every `UnsignedInterval`
-		/// blocks.
+		/// This ensures that we only accept authorized transactions once, every
+		/// `AuthorizedTxInterval` blocks.
 		#[pallet::constant]
-		type UnsignedInterval: Get<BlockNumberFor<Self>>;
+		type AuthorizedTxInterval: Get<BlockNumberFor<Self>>;
 
-		/// A configuration for base priority of unsigned transactions.
+		/// A configuration for base priority of authorized transactions.
 		///
 		/// This is exposed so that it can be tuned for particular runtime, when
-		/// multiple pallets send unsigned transactions.
+		/// multiple pallets send authorized transactions.
 		#[pallet::constant]
-		type UnsignedPriority: Get<TransactionPriority>;
+		type AuthorizedTxPriority: Get<TransactionPriority>;
 
 		/// Maximum number of prices.
 		#[pallet::constant]
@@ -170,6 +182,33 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Integrity test to ensure AuthorizeCall is configured in the runtime.
+		///
+		/// This pallet uses the `#[pallet::authorize]` attribute on calls that require
+		/// authorization validation. For these calls to work properly, the runtime must
+		/// include `frame_system::AuthorizeCall` as part of its transaction extension pipeline.
+		///
+		/// This test validates that the Block type's Extrinsic includes the necessary
+		/// transaction extension structure by checking the type name.
+		fn integrity_test() {
+			use sp_runtime::traits::Block as BlockT;
+
+			// Get the full type name of the Block's Extrinsic type
+			let extrinsic_type_name = core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
+			let extension_type_name = core::any::type_name::<frame_system::AuthorizeCall<T>>();
+
+			// Verify that AuthorizeCall is present in the extrinsic type
+			// The extrinsic should contain the AuthorizeCall extension in its structure
+			assert!(
+				extrinsic_type_name.contains(extension_type_name),
+				"The runtime must include `frame_system::AuthorizeCall` in its transaction extension \
+				pipeline for this pallet to work correctly. The pallet uses `#[pallet::authorize]` \
+				which requires AuthorizeCall to validate authorized transactions. \
+				Current extrinsic type: {}",
+				extrinsic_type_name
+			);
+		}
+
 		/// Offchain Worker entry point.
 		///
 		/// By implementing `fn offchain_worker` you declare a new offchain worker.
@@ -200,17 +239,17 @@ pub mod pallet {
 			let average: Option<u32> = Self::average_price();
 			log::debug!("Current price: {:?}", average);
 
-			// For this example we are going to send both signed and unsigned transactions
+			// For this example we are going to send both signed and general transactions
 			// depending on the block number.
 			// Usually it's enough to choose one or the other.
 			let should_send = Self::choose_transaction_type(block_number);
 			let res = match should_send {
 				TransactionType::Signed => Self::fetch_price_and_send_signed(),
-				TransactionType::UnsignedForAny =>
-					Self::fetch_price_and_send_unsigned_for_any_account(block_number),
-				TransactionType::UnsignedForAll =>
-					Self::fetch_price_and_send_unsigned_for_all_accounts(block_number),
-				TransactionType::Raw => Self::fetch_price_and_send_raw_unsigned(block_number),
+				TransactionType::AuthorizedForAny =>
+					Self::fetch_price_and_send_authorized_tx_for_any_account(block_number),
+				TransactionType::AuthorizedForAll =>
+					Self::fetch_price_and_send_authorized_tx_for_all_accounts(block_number),
+				TransactionType::Raw => Self::fetch_price_and_send_raw_authorized(block_number),
 				TransactionType::None => Ok(()),
 			};
 			if let Err(e) = res {
@@ -246,17 +285,19 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Submit new price to the list via unsigned transaction.
+		/// Submit new price to the list via general transaction.
 		///
 		/// Works exactly like the `submit_price` function, but since we allow sending the
 		/// transaction without a signature, and hence without paying any fees,
 		/// we need a way to make sure that only some transactions are accepted.
-		/// This function can be called only once every `T::UnsignedInterval` blocks.
-		/// Transactions that call that function are de-duplicated on the pool level
-		/// via `validate_unsigned` implementation and also are rendered invalid if
-		/// the function has already been called in current "session".
+		/// This function can be called only once every `T::AuthorizedTxInterval` blocks.
 		///
-		/// It's important to specify `weight` for unsigned calls as well, because even though
+		/// Transactions are de-duplicated on the pool level via the `provides` tag in the
+		/// validation logic (`validate_transaction_parameters`), which returns
+		/// `next_authorized_at`. This ensures only one transaction per interval can be included
+		/// in a block.
+		///
+		/// It's important to specify `weight` for authorized calls as well, because even though
 		/// they don't charge fees, we still don't want a single block to contain unlimited
 		/// number of such transactions.
 		///
@@ -264,35 +305,59 @@ pub mod pallet {
 		/// purpose is to showcase offchain worker capabilities.
 		#[pallet::call_index(1)]
 		#[pallet::weight({0})]
-		pub fn submit_price_unsigned(
+		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
+		// be benchmarked.
+		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			block_number: &BlockNumberFor<T>,
+			new_price: &u32,
+		| -> TransactionValidityWithRefund {
+			Pallet::<T>::validate_transaction_parameters(block_number, new_price)
+				.map(|v| (v, /* no refund */ Weight::zero()))
+		})]
+		pub fn submit_price_authorized(
 			origin: OriginFor<T>,
 			_block_number: BlockNumberFor<T>,
 			price: u32,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction.
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price);
-			// now increment the block number at which we expect next unsigned transaction.
+			// now increment the block number at which we expect next authorized transaction.
 			let current_block = <system::Pallet<T>>::block_number();
-			<NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
+			<NextAuthorizedAt<T>>::put(current_block + T::AuthorizedTxInterval::get());
 			Ok(().into())
 		}
 
 		#[pallet::call_index(2)]
 		#[pallet::weight({0})]
-		pub fn submit_price_unsigned_with_signed_payload(
+		// Minimal weight since validation is lightweight. But in real-world scenarios, this should
+		// be benchmarked.
+		#[pallet::weight_of_authorize(Weight::from_parts(5_000, 0))]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			price_payload: &PricePayload<T::Public, BlockNumberFor<T>>,
+			signature: &T::Signature,
+		| -> TransactionValidityWithRefund {
+			let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(price_payload, signature.clone());
+			if !signature_valid {
+				return Err(InvalidTransaction::BadProof.into())
+			}
+			Pallet::<T>::validate_transaction_parameters(&price_payload.block_number, &price_payload.price)
+				.map(|v| (v, /* no refund */ Weight::zero()))
+		})]
+		pub fn submit_price_authorized_with_signed_payload(
 			origin: OriginFor<T>,
 			price_payload: PricePayload<T::Public, BlockNumberFor<T>>,
 			_signature: T::Signature,
 		) -> DispatchResultWithPostInfo {
-			// This ensures that the function can only be called via unsigned transaction.
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			// Add the price to the on-chain list, but mark it as coming from an empty address.
 			Self::add_price(None, price_payload.price);
-			// now increment the block number at which we expect next unsigned transaction.
+			// now increment the block number at which we expect next authorized transaction.
 			let current_block = <system::Pallet<T>>::block_number();
-			<NextUnsignedAt<T>>::put(current_block + T::UnsignedInterval::get());
+			<NextAuthorizedAt<T>>::put(current_block + T::AuthorizedTxInterval::get());
 			Ok(().into())
 		}
 	}
@@ -305,49 +370,19 @@ pub mod pallet {
 		NewPrice { price: u32, maybe_who: Option<T::AccountId> },
 	}
 
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		/// Validate unsigned call to this module.
-		///
-		/// By default unsigned transactions are disallowed, but implementing the validator
-		/// here we make sure that some particular calls (the ones produced by offchain worker)
-		/// are being whitelisted and marked as valid.
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			// Firstly let's check that we call the right function.
-			if let Call::submit_price_unsigned_with_signed_payload {
-				price_payload: ref payload,
-				ref signature,
-			} = call
-			{
-				let signature_valid =
-					SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
-				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
-				}
-				Self::validate_transaction_parameters(&payload.block_number, &payload.price)
-			} else if let Call::submit_price_unsigned { block_number, price: new_price } = call {
-				Self::validate_transaction_parameters(block_number, new_price)
-			} else {
-				InvalidTransaction::Call.into()
-			}
-		}
-	}
-
 	/// A vector of recently submitted prices.
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
 	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
-	/// Defines the block when next unsigned transaction will be accepted.
+	/// Defines the block when next authorized transaction will be accepted.
 	///
-	/// To prevent spam of unsigned (and unpaid!) transactions on the network,
-	/// we only allow one transaction every `T::UnsignedInterval` blocks.
+	/// To prevent spam of authorized (and unpaid!) transactions on the network,
+	/// we only allow one transaction every `T::AuthorizedTxInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub(super) type NextAuthorizedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
 /// Payload used by this example crate to hold price
@@ -369,8 +404,8 @@ impl<T: SigningTypes> SignedPayload<T> for PricePayload<T::Public, BlockNumberFo
 
 enum TransactionType {
 	Signed,
-	UnsignedForAny,
-	UnsignedForAll,
+	AuthorizedForAny,
+	AuthorizedForAll,
 	Raw,
 	None,
 }
@@ -429,9 +464,9 @@ impl<T: Config> Pallet<T> {
 				if transaction_type == Zero::zero() {
 					TransactionType::Signed
 				} else if transaction_type == BlockNumberFor::<T>::from(1u32) {
-					TransactionType::UnsignedForAny
+					TransactionType::AuthorizedForAny
 				} else if transaction_type == BlockNumberFor::<T>::from(2u32) {
-					TransactionType::UnsignedForAll
+					TransactionType::AuthorizedForAll
 				} else {
 					TransactionType::Raw
 				}
@@ -480,99 +515,127 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// A helper function to fetch the price and send a raw unsigned transaction.
-	fn fetch_price_and_send_raw_unsigned(
+	/// A helper function to fetch the price and send a raw authorized transaction.
+	fn fetch_price_and_send_raw_authorized(
 		block_number: BlockNumberFor<T>,
 	) -> Result<(), &'static str> {
-		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
+		// Make sure we don't fetch the price if the authorized transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = NextUnsignedAt::<T>::get();
-		if next_unsigned_at > block_number {
-			return Err("Too early to send unsigned transaction")
+		let next_authorized_at = NextAuthorizedAt::<T>::get();
+		if next_authorized_at > block_number {
+			return Err("Too early to send authorized transaction")
 		}
 
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// Received price is wrapped into a call to `submit_price_unsigned` public function of this
-		// pallet. This means that the transaction, when executed, will simply call that function
-		// passing `price` as an argument.
-		let call = Call::submit_price_unsigned { block_number, price };
+		// Received price is wrapped into a call to `submit_price_authorized` public function of
+		// this pallet. This means that the transaction, when executed, will simply call that
+		// function passing `price` as an argument.
+		let call = Call::submit_price_authorized { block_number, price };
 
 		// Now let's create a transaction out of this call and submit it to the pool.
-		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
+		// Here we showcase two ways to send a general transaction / unsigned payload (raw)
 		//
-		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
-		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
-		// attack vectors. See validation logic docs for more details.
+		// By default general transactions start the transaction extension pipeline with the origin
+		// `None`. We define custom validation logic using the `#[pallet::authorize]` attribute.
+		// This custom validation is executed by the transaction extension `AuthorizeCall`, which
+		// will change the origin to `frame_system::Origin::Authorized` if validation succeeds.
+		// Note that it's EXTREMELY important to carefully implement custom validation logic, as
+		// any mistakes can lead to opening DoS or spam attack vectors. See validation logic docs
+		// for more details.
 		//
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
-			.map_err(|()| "Unable to submit unsigned transaction.")?;
+			.map_err(|()| "Unable to submit transaction.")?;
 
 		Ok(())
 	}
 
-	/// A helper function to fetch the price, sign payload and send an unsigned transaction
-	fn fetch_price_and_send_unsigned_for_any_account(
+	/// A helper function to fetch the price, sign payload and send an authorized transaction
+	fn fetch_price_and_send_authorized_tx_for_any_account(
 		block_number: BlockNumberFor<T>,
 	) -> Result<(), &'static str> {
-		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
+		// Make sure we don't fetch the price if the authorized transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = NextUnsignedAt::<T>::get();
-		if next_unsigned_at > block_number {
-			return Err("Too early to send unsigned transaction")
+		let next_authorized_at = NextAuthorizedAt::<T>::get();
+		if next_authorized_at > block_number {
+			return Err("Too early to send authorized transaction")
 		}
 
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// -- Sign using any account
-		let (_, result) = Signer::<T, T::AuthorityId>::any_account()
-			.send_unsigned_transaction(
-				|account| PricePayload { price, block_number, public: account.public.clone() },
-				|payload, signature| Call::submit_price_unsigned_with_signed_payload {
-					price_payload: payload,
-					signature,
-				},
-			)
-			.ok_or("No local accounts accounts available.")?;
-		result.map_err(|()| "Unable to submit transaction")?;
+		// Sign using any account and create an authorized transaction
+		let signer = Signer::<T, T::AuthorityId>::any_account();
+
+		// Get the first available account
+		let account = signer.accounts_from_keys().next().ok_or("No local accounts available.")?;
+
+		// Create the payload to sign
+		let payload = PricePayload { price, block_number, public: account.public.clone() };
+
+		// Sign the payload
+		let signature = <PricePayload<
+			<T as SigningTypes>::Public,
+			BlockNumberFor<T>,
+		> as SignedPayload<T>>::sign::<T::AuthorityId>(&payload)
+			.ok_or("Failed to sign payload")?;
+
+		// Create the call with the signed payload
+		let call =
+			Call::submit_price_authorized_with_signed_payload { price_payload: payload, signature };
+
+		// Create an authorized transaction and submit it
+		let xt = T::create_authorized_transaction(call.into());
+		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
+			.map_err(|()| "Unable to submit transaction")?;
 
 		Ok(())
 	}
 
-	/// A helper function to fetch the price, sign payload and send an unsigned transaction
-	fn fetch_price_and_send_unsigned_for_all_accounts(
+	/// A helper function to fetch the price, sign payload and send an authorized transaction
+	fn fetch_price_and_send_authorized_tx_for_all_accounts(
 		block_number: BlockNumberFor<T>,
 	) -> Result<(), &'static str> {
-		// Make sure we don't fetch the price if unsigned transaction is going to be rejected
+		// Make sure we don't fetch the price if the authorized transaction is going to be rejected
 		// anyway.
-		let next_unsigned_at = NextUnsignedAt::<T>::get();
-		if next_unsigned_at > block_number {
-			return Err("Too early to send unsigned transaction")
+		let next_authorized_at = NextAuthorizedAt::<T>::get();
+		if next_authorized_at > block_number {
+			return Err("Too early to send authorized transaction")
 		}
 
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
 		let price = Self::fetch_price().map_err(|_| "Failed to fetch price")?;
 
-		// -- Sign using all accounts
-		let transaction_results = Signer::<T, T::AuthorityId>::all_accounts()
-			.send_unsigned_transaction(
-				|account| PricePayload { price, block_number, public: account.public.clone() },
-				|payload, signature| Call::submit_price_unsigned_with_signed_payload {
-					price_payload: payload,
-					signature,
-				},
-			);
-		for (_account_id, result) in transaction_results.into_iter() {
-			if result.is_err() {
-				return Err("Unable to submit transaction")
-			}
+		// -- Sign using all accounts and create authorized transactions
+		let signer = Signer::<T, T::AuthorityId>::all_accounts();
+
+		// Iterate over all available accounts
+		for account in signer.accounts_from_keys() {
+			// Create the payload to sign
+			let payload = PricePayload { price, block_number, public: account.public.clone() };
+
+			// Sign the payload
+			let signature =
+				<PricePayload<<T as SigningTypes>::Public, BlockNumberFor<T>> as SignedPayload<
+					T,
+				>>::sign::<T::AuthorityId>(&payload)
+				.ok_or("Failed to sign payload")?;
+
+			// Create the call with the signed payload
+			let call = Call::submit_price_authorized_with_signed_payload {
+				price_payload: payload,
+				signature,
+			};
+
+			// Create an authorized transaction and submit it
+			let xt = T::create_authorized_transaction(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
+				.map_err(|()| "Unable to submit transaction")?;
 		}
 
 		Ok(())
@@ -685,8 +748,8 @@ impl<T: Config> Pallet<T> {
 		new_price: &u32,
 	) -> TransactionValidity {
 		// Now let's check if the transaction has any chance to succeed.
-		let next_unsigned_at = NextUnsignedAt::<T>::get();
-		if &next_unsigned_at > block_number {
+		let next_authorized_at = NextAuthorizedAt::<T>::get();
+		if &next_authorized_at > block_number {
 			return InvalidTransaction::Stale.into()
 		}
 		// Let's make sure to reject transactions from the future.
@@ -709,17 +772,17 @@ impl<T: Config> Pallet<T> {
 			// transactions in the pool. Next we tweak the priority depending on how much
 			// it differs from the current average. (the more it differs the more priority it
 			// has).
-			.priority(T::UnsignedPriority::get().saturating_add(avg_price as _))
+			.priority(T::AuthorizedTxPriority::get().saturating_add(avg_price as _))
 			// This transaction does not require anything else to go before into the pool.
-			// In theory we could require `previous_unsigned_at` transaction to go first,
+			// In theory we could require `previous_authorized_at` transaction to go first,
 			// but it's not necessary in our case.
 			//.and_requires()
-			// We set the `provides` tag to be the same as `next_unsigned_at`. This makes
-			// sure only one transaction produced after `next_unsigned_at` will ever
+			// We set the `provides` tag to be the same as `next_authorized_at`. This makes
+			// sure only one transaction produced after `next_authorized_at` will ever
 			// get to the transaction pool and will end up in the block.
 			// We can still have multiple transactions compete for the same "spot",
 			// and the one with higher priority will replace other one in the pool.
-			.and_provides(next_unsigned_at)
+			.and_provides(next_authorized_at)
 			// The transaction is only valid for next 5 blocks. After that it's
 			// going to be revalidated by the pool.
 			.longevity(5)
