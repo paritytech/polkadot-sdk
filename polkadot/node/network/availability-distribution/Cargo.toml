@@ -43,9 +43,9 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 polkadot-subsystem-bench = { workspace = true }
 rstest = { workspace = true }
+sc-network-types = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
 
 [features]
 subsystem-benchmarks = []
