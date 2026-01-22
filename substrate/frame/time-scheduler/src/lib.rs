@@ -1358,7 +1358,8 @@ impl<T: Config> Pallet<T> {
 
 use time_schedule::v1::TaskName;
 
-impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+impl<T: Config>
+	time_schedule::v1::Anon<MomentFor<T>, DurationFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
@@ -1366,7 +1367,7 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 
 	fn schedule(
 		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 		priority: time_schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: Bounded<<T as Config>::RuntimeCall, Self::Hasher>,
@@ -1397,7 +1398,8 @@ impl<T: Config> time_schedule::v1::Anon<MomentFor<T>, <T as Config>::RuntimeCall
 	}
 }
 
-impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+impl<T: Config>
+	time_schedule::v1::Named<MomentFor<T>, DurationFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
@@ -1406,7 +1408,7 @@ impl<T: Config> time_schedule::v1::Named<MomentFor<T>, <T as Config>::RuntimeCal
 	fn schedule_named(
 		id: TaskName,
 		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<MomentFor<T>>>,
+		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
 		priority: time_schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: Bounded<<T as Config>::RuntimeCall, Self::Hasher>,

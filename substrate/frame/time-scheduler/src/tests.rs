@@ -1383,7 +1383,7 @@ fn time_scheduler_v1_anon_basic_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
 		// Schedule a call
-		let _address = <Scheduler as Anon<_, _, _>>::schedule(
+		let _address = <Scheduler as Anon<_, _, _, _>>::schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1418,7 +1418,7 @@ fn time_scheduler_v1_anon_cancel_works() {
 		let bound = Preimage::bound(call).unwrap();
 
 		// Schedule a call
-		let address = <Scheduler as Anon<_, _, _>>::schedule(
+		let address = <Scheduler as Anon<_, _, _, _>>::schedule(
 			DispatchTime::At(240_000), // minute 4
 			None,
 			127,
@@ -1428,14 +1428,14 @@ fn time_scheduler_v1_anon_cancel_works() {
 		.unwrap();
 
 		// Cancel the call
-		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		assert_ok!(<Scheduler as Anon<_, _, _, _>>::cancel(address));
 
 		// It did not get executed
 		run_to_time(600_000);
 		assert!(logger::log().is_empty());
 
 		// Cannot cancel again
-		assert_err!(<Scheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
+		assert_err!(<Scheduler as Anon<_, _, _, _>>::cancel(address), DispatchError::Unavailable);
 	});
 }
 
@@ -1451,7 +1451,7 @@ fn time_scheduler_v1_named_basic_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call
-		let _address = <Scheduler as Named<_, _, _>>::schedule_named(
+		let _address = <Scheduler as Named<_, _, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1488,7 +1488,7 @@ fn time_scheduler_v1_named_cancel_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call
-		<Scheduler as Named<_, _, _>>::schedule_named(
+		<Scheduler as Named<_, _, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1499,7 +1499,7 @@ fn time_scheduler_v1_named_cancel_works() {
 		.unwrap();
 
 		// Cancel the call by name
-		assert_ok!(<Scheduler as Named<_, _, _>>::cancel_named(name));
+		assert_ok!(<Scheduler as Named<_, _, _, _>>::cancel_named(name));
 
 		// It did not get executed
 		run_to_time(600_000);
@@ -1507,7 +1507,7 @@ fn time_scheduler_v1_named_cancel_works() {
 
 		// Cannot cancel again
 		assert_noop!(
-			<Scheduler as Named<_, _, _>>::cancel_named(name),
+			<Scheduler as Named<_, _, _, _>>::cancel_named(name),
 			DispatchError::Unavailable
 		);
 	});
@@ -1525,7 +1525,7 @@ fn time_scheduler_v1_named_reschedule_works() {
 		let name = [1u8; 32];
 
 		// Schedule a call at minute 4
-		<Scheduler as Named<_, _, _>>::schedule_named(
+		<Scheduler as Named<_, _, _, _>>::schedule_named(
 			name,
 			DispatchTime::At(240_000), // minute 4
 			None,
@@ -1536,7 +1536,7 @@ fn time_scheduler_v1_named_reschedule_works() {
 		.unwrap();
 
 		// Reschedule to minute 6
-		assert_ok!(<Scheduler as Named<_, _, _>>::reschedule_named(
+		assert_ok!(<Scheduler as Named<_, _, _, _>>::reschedule_named(
 			name,
 			DispatchTime::At(360_000)
 		));

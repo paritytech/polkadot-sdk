@@ -146,7 +146,10 @@ pub mod v1 {
 	use crate::traits::Bounded;
 
 	/// A type that can be used as a scheduler.
-	pub trait Anon<Moment, Call, Origin> {
+	///
+	/// - `Moment`: Absolute timestamp type.
+	/// - `Duration`: Interval/duration type for periodic scheduling.
+	pub trait Anon<Moment, Duration, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug + TypeInfo;
 		/// The hasher used in the runtime.
@@ -157,7 +160,7 @@ pub mod v1 {
 		/// This is not named.
 		fn schedule(
 			when: DispatchTime<Moment>,
-			maybe_periodic: Option<Period<Moment>>,
+			maybe_periodic: Option<Period<Duration>>,
 			priority: Priority,
 			origin: Origin,
 			call: Bounded<Call, Self::Hasher>,
@@ -195,7 +198,10 @@ pub mod v1 {
 	pub type TaskName = [u8; 32];
 
 	/// A type that can be used as a scheduler.
-	pub trait Named<Moment, Call, Origin> {
+	///
+	/// - `Moment`: Absolute timestamp type.
+	/// - `Duration`: Interval/duration type for periodic scheduling.
+	pub trait Named<Moment, Duration, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug;
 		/// The hasher used in the runtime.
@@ -209,7 +215,7 @@ pub mod v1 {
 		fn schedule_named(
 			id: TaskName,
 			when: DispatchTime<Moment>,
-			maybe_periodic: Option<Period<Moment>>,
+			maybe_periodic: Option<Period<Duration>>,
 			priority: Priority,
 			origin: Origin,
 			call: Bounded<Call, Self::Hasher>,
