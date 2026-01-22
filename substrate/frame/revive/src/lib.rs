@@ -734,7 +734,7 @@ pub mod pallet {
 		#[derive(Clone, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 		pub struct ContractData {
 			/// Contract code.
-			pub code: Vec<u8>,
+			pub code: crate::evm::Bytes,
 			/// Initial storage entries as 32-byte key/value pairs.
 			pub storage: alloc::collections::BTreeMap<Bytes32, Bytes32>,
 		}
@@ -813,12 +813,12 @@ pub mod pallet {
 						);
 					},
 					Some(genesis::ContractData { code, storage }) => {
-						let blob = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-							ContractBlob::<T>::from_pvm_code(   code.clone(), owner.clone()).inspect_err(|err| {
+						let blob = if code.0.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+							ContractBlob::<T>::from_pvm_code(   code.0.clone(), owner.clone()).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
 							})
 						} else {
-							ContractBlob::<T>::from_evm_runtime_code(code.clone(), account_id).inspect_err(|err| {
+							ContractBlob::<T>::from_evm_runtime_code(code.0.clone(), account_id).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
 							})
 						};
@@ -841,7 +841,7 @@ pub mod pallet {
 							AccountInfo { account_type: info.clone().into(), dust: 0 },
 						);
 
-						<PristineCode<T>>::insert(blob.code_hash(), code);
+						<PristineCode<T>>::insert(blob.code_hash(), code.0.clone());
 						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
 						for (k, v) in storage {
 							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {

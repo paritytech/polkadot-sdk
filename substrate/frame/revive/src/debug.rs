@@ -36,8 +36,6 @@ use Debug;
 	Deserialize,
 )]
 pub struct DebugSettings {
-	/// Whether to disable execution tracing.
-	disable_execution_tracing: bool,
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
 	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract or
@@ -45,6 +43,8 @@ pub struct DebugSettings {
 	bypass_eip_3607: bool,
 	/// Whether to enable PolkaVM logs.
 	pvm_logs: bool,
+	/// Whether to disable execution tracing.
+	disable_execution_tracing: bool,
 }
 
 impl DebugSettings {
