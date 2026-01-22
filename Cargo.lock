@@ -23176,6 +23176,7 @@ dependencies = [
 name = "sp-metadata-ir"
 version = "0.6.0"
 dependencies = [
+ "derive-where",
  "frame-metadata 23.0.1",
  "parity-scale-codec",
  "scale-info",

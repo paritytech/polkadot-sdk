@@ -132,7 +132,6 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		E::ExtensionV0,
 		E::ExtensionOtherVersions,
 	>::VERSIONS;
-	type TransactionExtensionsV0 = E::ExtensionV0;
 	type TransactionExtensionsVersions = <generic::UncheckedExtrinsic<
 		Address,
 		CallOf<E::Config>,
