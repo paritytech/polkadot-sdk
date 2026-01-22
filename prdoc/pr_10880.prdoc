@@ -1,0 +1,10 @@
+title: remove invalid voter count assertion due to PendingRebag
+doc:
+- audience: Runtime Dev
+  description: |-
+    Refers to: #10687
+
+    This PR comments out the section where the error occurs due to the implementation of `PendingRebag` (#9725). This change resolves the issue but may lead to a misalignment where the VoterList count no longer matches the sum of Nominations and Validators.
+crates:
+- name: pallet-staking-async
+  bump: patch
