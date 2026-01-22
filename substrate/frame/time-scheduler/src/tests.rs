@@ -22,8 +22,32 @@ use crate::mock::{
 	logger, new_test_ext, root, run_to_time, LoggerCall, Preimage, RuntimeCall, RuntimeOrigin,
 	Scheduler, Test, Timestamp,
 };
+use core::num::NonZeroU32;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use sp_runtime::{traits::BadOrigin, DispatchError};
+
+/// Helper to create NonZeroU32 for retry periods in tests
+fn nz(n: u32) -> NonZeroU32 {
+	NonZeroU32::new(n).expect("retry period must be non-zero")
+}
+
+/// Helper to count tasks in a bucket (using BoundedVec)
+fn agenda_task_count(bucket: u64) -> usize {
+	Agenda::<Test>::get(bucket).iter().filter(|x| x.is_some()).count()
+}
+
+/// Helper to check if a specific task exists
+fn task_exists(bucket: u64, index: u32) -> bool {
+	Agenda::<Test>::get(bucket)
+		.get(index as usize)
+		.and_then(|x| x.as_ref())
+		.is_some()
+}
+
+/// Helper to check if bucket is empty
+fn bucket_is_empty(bucket: u64) -> bool {
+	agenda_task_count(bucket) == 0
+}
 
 #[test]
 #[docify::export]
@@ -46,7 +70,7 @@ fn basic_scheduling_works() {
 		));
 
 		// Check that the task is scheduled in minute 2 (120_000 / 60_000 = 2)
-		assert!(!Agenda::<Test>::get(2).is_empty());
+		assert!(!bucket_is_empty(2));
 		assert!(logger::log().is_empty());
 
 		// Advance timestamp to 120_000ms and run on_initialize
@@ -57,7 +81,7 @@ fn basic_scheduling_works() {
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
 		// Agenda should be cleaned up after dispatch
-		assert!(Agenda::<Test>::get(2).is_empty());
+		assert!(bucket_is_empty(2));
 	});
 }
 
@@ -112,7 +136,7 @@ fn schedule_after_zero_works() {
 		));
 
 		// Task is in bucket 2 (120_000 / 60_000 = 2)
-		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+		assert_eq!(agenda_task_count(2), 1);
 
 		// Should execute when we advance time and process bucket 2 again
 		// Simulating "next block" at same time (still bucket 2)
@@ -206,7 +230,7 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 		.unwrap();
 
 		// Both tasks scheduled
-		assert_eq!(Agenda::<Test>::get(2).len(), 2);
+		assert_eq!(agenda_task_count(2), 2);
 
 		// Cancel both tasks
 		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
@@ -310,7 +334,7 @@ fn reschedule_works() {
 		let new_address = Scheduler::do_reschedule(address, DispatchTime::At(180_000)).unwrap();
 		assert_eq!(new_address, (3, 0));
 
-		// Cannot reschedule to same minute
+		// Cannot reschedule to same bucket
 		assert_noop!(
 			Scheduler::do_reschedule(new_address, DispatchTime::At(180_000)),
 			Error::<Test>::RescheduleNoChange
@@ -353,7 +377,7 @@ fn reschedule_named_works() {
 			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)).unwrap();
 		assert_eq!(new_address, (3, 0));
 
-		// Cannot reschedule to same minute
+		// Cannot reschedule to same bucket
 		assert_noop!(
 			Scheduler::do_reschedule_named([1u8; 32], DispatchTime::At(180_000)),
 			Error::<Test>::RescheduleNoChange
@@ -456,37 +480,37 @@ fn retry_scheduling_works() {
 			}))
 			.unwrap()
 		));
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
-		// Retry 10 times every 3 minutes (180_000ms)
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 180_000));
+		// Retry 10 times, advancing 3 buckets each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(3), false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
 		run_to_time(180_000);
 		assert!(logger::log().is_empty());
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
 		// Minute 4 - task fails, should be retried at minute 7 (240_000 + 180_000 = 420_000)
 		run_to_time(240_000);
-		assert!(Agenda::<Test>::get(4).is_empty());
-		assert!(Agenda::<Test>::get(7)[0].is_some());
+		assert!(bucket_is_empty(4));
+		assert!(task_exists(7, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 6 - still waiting
 		run_to_time(360_000);
-		assert!(Agenda::<Test>::get(7)[0].is_some());
+		assert!(task_exists(7, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 7 - task still fails, should be retried at minute 10
 		run_to_time(420_000);
-		assert!(Agenda::<Test>::get(7).is_empty());
-		assert!(Agenda::<Test>::get(10)[0].is_some());
+		assert!(bucket_is_empty(7));
+		assert!(task_exists(10, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 8 - still waiting (threshold now allows success)
 		run_to_time(480_000);
-		assert!(Agenda::<Test>::get(10)[0].is_some());
+		assert!(task_exists(10, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 9 - still waiting
@@ -533,27 +557,27 @@ fn named_retry_scheduling_works() {
 			.unwrap(),
 			(4, 0)
 		);
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
-		// Retry 10 times every 3 minutes (180_000ms)
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 180_000));
+		// Retry 10 times, advancing 3 buckets each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(3), false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
 		run_to_time(180_000);
 		assert!(logger::log().is_empty());
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
 		// Minute 4 - task fails, should be retried at minute 7
 		run_to_time(240_000);
-		assert!(Agenda::<Test>::get(4).is_empty());
-		assert!(Agenda::<Test>::get(7)[0].is_some());
+		assert!(bucket_is_empty(4));
+		assert!(task_exists(7, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 7 - task still fails, should be retried at minute 10
 		run_to_time(420_000);
-		assert!(Agenda::<Test>::get(7).is_empty());
-		assert!(Agenda::<Test>::get(10)[0].is_some());
+		assert!(bucket_is_empty(7));
+		assert!(task_exists(10, 0));
 		assert!(logger::log().is_empty());
 
 		// Minute 10 - finally succeeds
@@ -586,35 +610,35 @@ fn retry_scheduling_expires() {
 			}))
 			.unwrap()
 		));
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
-		// Task 42 will be retried 3 times every minute (60_000ms)
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, 60_000));
+		// Task 42 will be retried 3 times, advancing 1 bucket each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, nz(1), false));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 
 		// Minute 3 - not yet
 		run_to_time(180_000);
 		assert!(logger::log().is_empty());
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 
 		// Minute 4 - task fails, scheduled for minute 5
 		run_to_time(240_000);
-		assert!(Agenda::<Test>::get(4).is_empty());
-		assert!(Agenda::<Test>::get(5)[0].is_some());
+		assert!(bucket_is_empty(4));
+		assert!(task_exists(5, 0));
 		assert_eq!(Retries::<Test>::get((5, 0)).unwrap().remaining, 2);
 		assert!(logger::log().is_empty());
 
 		// Minute 5 - task fails again, scheduled for minute 6
 		run_to_time(300_000);
-		assert!(Agenda::<Test>::get(5).is_empty());
-		assert!(Agenda::<Test>::get(6)[0].is_some());
+		assert!(bucket_is_empty(5));
+		assert!(task_exists(6, 0));
 		assert_eq!(Retries::<Test>::get((6, 0)).unwrap().remaining, 1);
 		assert!(logger::log().is_empty());
 
 		// Minute 6 - task fails again, scheduled for minute 7
 		run_to_time(360_000);
-		assert!(Agenda::<Test>::get(6).is_empty());
-		assert!(Agenda::<Test>::get(7)[0].is_some());
+		assert!(bucket_is_empty(6));
+		assert!(task_exists(7, 0));
 		assert_eq!(Retries::<Test>::get((7, 0)).unwrap().remaining, 0);
 		assert!(logger::log().is_empty());
 
@@ -647,12 +671,12 @@ fn set_retry_works() {
 			.unwrap()
 		));
 
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 		// Make sure the retry configuration was stored
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 120_000));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(2), false));
 		assert_eq!(
 			Retries::<Test>::get((4, 0)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: 120_000 })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: nz(2), try_same_bucket_first: false })
 		);
 	});
 }
@@ -677,13 +701,13 @@ fn set_named_retry_works() {
 			.unwrap()
 		));
 
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 		// Make sure the retry configuration was stored
-		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, 120_000));
+		assert_ok!(Scheduler::set_retry_named(root().into(), [42u8; 32], 10, nz(2), false));
 		let address = Lookup::<Test>::get([42u8; 32]).unwrap();
 		assert_eq!(
 			Retries::<Test>::get(address),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: 120_000 })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: nz(2), try_same_bucket_first: false })
 		);
 	});
 }
@@ -707,10 +731,10 @@ fn set_retry_bad_origin() {
 			.unwrap()
 		));
 
-		assert!(Agenda::<Test>::get(4)[0].is_some());
+		assert!(task_exists(4, 0));
 		// Try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, 120_000);
+			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, nz(2), false);
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -750,29 +774,29 @@ fn cancel_removes_retry_entry() {
 			.unwrap()
 		));
 
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
-		// Task 20 will be retried 10 times every minute
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 60_000));
-		// Task 42 will be retried 10 times every minute
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 60_000));
+		assert_eq!(agenda_task_count(4), 2);
+		// Task 20 will be retried 10 times, advancing 1 bucket each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(1), false));
+		// Task 42 will be retried 10 times, advancing 1 bucket each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(1), false));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
 		run_to_time(180_000);
 		assert!(logger::log().is_empty());
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		assert_eq!(agenda_task_count(4), 2);
 
 		// Minute 4 - both tasks fail
 		run_to_time(240_000);
-		assert!(Agenda::<Test>::get(4).is_empty());
+		assert!(bucket_is_empty(4));
 		// 42 and 20 are rescheduled for minute 5
-		assert_eq!(Agenda::<Test>::get(5).len(), 2);
+		assert_eq!(agenda_task_count(5), 2);
 		assert!(logger::log().is_empty());
 
 		// Minute 5 - 42 and 20 still fail
 		run_to_time(300_000);
 		// 42 and 20 rescheduled for minute 6
-		assert_eq!(Agenda::<Test>::get(6).len(), 2);
+		assert_eq!(agenda_task_count(6), 2);
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 		assert!(logger::log().is_empty());
 
@@ -783,7 +807,7 @@ fn cancel_removes_retry_entry() {
 		// 20 is removed, 42 still fails
 		run_to_time(360_000);
 		// 42 rescheduled for minute 7
-		assert_eq!(Agenda::<Test>::get(7).len(), 1);
+		assert_eq!(agenda_task_count(7), 1);
 		// 20's retry entry is removed
 		assert!(!Retries::<Test>::contains_key((4, 0)));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
@@ -793,7 +817,7 @@ fn cancel_removes_retry_entry() {
 
 		// Both tasks are canceled, everything is removed now
 		run_to_time(420_000);
-		assert!(Agenda::<Test>::get(8).is_empty());
+		assert!(bucket_is_empty(8));
 		assert_eq!(Retries::<Test>::iter().count(), 0);
 
 		logger::clear_time_threshold();
@@ -835,17 +859,17 @@ fn cancel_retries_works() {
 			.unwrap()
 		));
 
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
-		// Task 20 will be retried 10 times every minute
-		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 60_000));
-		// Task 42 will be retried 10 times every minute
-		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 60_000));
+		assert_eq!(agenda_task_count(4), 2);
+		// Task 20 will be retried 10 times, advancing 1 bucket each time
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, nz(1), false));
+		// Task 42 will be retried 10 times, advancing 1 bucket each time
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, nz(1), false));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 
 		// Minute 3 - not yet
 		run_to_time(180_000);
 		assert!(logger::log().is_empty());
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		assert_eq!(agenda_task_count(4), 2);
 
 		// Cancel the retry config for 20
 		assert_ok!(Scheduler::cancel_retry(root().into(), (4, 0)));
@@ -856,7 +880,7 @@ fn cancel_retries_works() {
 
 		// Minute 4 - both tasks failed and there are no more retries, so they are evicted
 		run_to_time(240_000);
-		assert_eq!(Agenda::<Test>::get(4).len(), 0);
+		assert_eq!(agenda_task_count(4), 0);
 		assert_eq!(Retries::<Test>::iter().count(), 0);
 
 		logger::clear_time_threshold();
@@ -968,7 +992,7 @@ fn fails_to_schedule_task_in_the_past() {
 		// within the same bucket and will execute in a subsequent block
 		assert_ok!(Scheduler::schedule(RuntimeOrigin::root(), 180_000, None, 127, call3));
 		// Task should be in bucket 3
-		assert_eq!(Agenda::<Test>::get(3).len(), 1);
+		assert_eq!(agenda_task_count(3), 1);
 	});
 }
 
@@ -998,15 +1022,15 @@ fn cancel_last_task_removes_agenda() {
 		)
 		.unwrap();
 
-		// Two tasks at agenda
-		assert!(Agenda::<Test>::get(when).len() == 2);
+		// Two tasks in bucket
+		assert!(agenda_task_count(when) == 2);
 		assert_ok!(Scheduler::do_cancel(None, address));
-		// Still two tasks at agenda, `None` and `Some`
-		assert!(Agenda::<Test>::get(when).len() == 2);
+		// With DoubleMap, cancelled tasks are removed from storage immediately
+		assert!(agenda_task_count(when) == 1);
 		// Cancel last task from agenda
 		assert_ok!(Scheduler::do_cancel(None, address2));
-		// If all tasks `None`, agenda fully removed
-		assert!(Agenda::<Test>::get(when).len() == 0);
+		// Bucket should be empty
+		assert!(agenda_task_count(when) == 0);
 	});
 }
 
@@ -1038,15 +1062,15 @@ fn cancel_named_last_task_removes_agenda() {
 		)
 		.unwrap();
 
-		// Two tasks at agenda
-		assert!(Agenda::<Test>::get(when).len() == 2);
+		// Two tasks in bucket
+		assert!(agenda_task_count(when) == 2);
 		assert_ok!(Scheduler::do_cancel_named(None, [2u8; 32]));
-		// Removes trailing `None` and leaves one task
-		assert!(Agenda::<Test>::get(when).len() == 1);
+		// With DoubleMap, cancelled tasks are removed from storage immediately
+		assert!(agenda_task_count(when) == 1);
 		// Cancel last task from agenda
 		assert_ok!(Scheduler::do_cancel_named(None, [1u8; 32]));
-		// If all tasks `None`, agenda fully removed
-		assert!(Agenda::<Test>::get(when).len() == 0);
+		// Bucket should be empty
+		assert!(agenda_task_count(when) == 0);
 	});
 }
 
@@ -1076,18 +1100,18 @@ fn reschedule_last_task_removes_agenda() {
 		)
 		.unwrap();
 
-		// Two tasks at agenda
-		assert!(Agenda::<Test>::get(when).len() == 2);
+		// Two tasks in bucket
+		assert!(agenda_task_count(when) == 2);
 		assert_ok!(Scheduler::do_cancel(None, address));
-		// Still two tasks at agenda, `None` and `Some`
-		assert!(Agenda::<Test>::get(when).len() == 2);
+		// With DoubleMap, cancelled tasks are removed from storage immediately
+		assert!(agenda_task_count(when) == 1);
 		// Reschedule last task from agenda to minute 5
 		assert_eq!(
 			Scheduler::do_reschedule(address2, DispatchTime::At(300_000)).unwrap(),
 			(5, 0)
 		);
-		// If all tasks `None`, agenda fully removed
-		assert!(Agenda::<Test>::get(when).len() == 0);
+		// Bucket should be empty after reschedule
+		assert!(agenda_task_count(when) == 0);
 	});
 }
 
@@ -1124,7 +1148,7 @@ fn root_calls_works() {
 
 		// Minute 3 - scheduled calls are in the agenda
 		run_to_time(180_000);
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		assert_eq!(agenda_task_count(4), 2);
 		assert!(logger::log().is_empty());
 
 		assert_ok!(Scheduler::cancel_named(RuntimeOrigin::root(), [1u8; 32]));
@@ -1169,7 +1193,7 @@ fn should_use_origin() {
 
 		// Minute 3 - scheduled calls are in the agenda
 		run_to_time(180_000);
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		assert_eq!(agenda_task_count(4), 2);
 		assert!(logger::log().is_empty());
 
 		assert_ok!(Scheduler::cancel_named(
@@ -1257,7 +1281,7 @@ fn should_check_origin_for_cancel() {
 
 		// Minute 3 - scheduled calls are in the agenda
 		run_to_time(180_000);
-		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		assert_eq!(agenda_task_count(4), 2);
 		assert!(logger::log().is_empty());
 
 		// Account 2 cannot cancel tasks scheduled by account 1
@@ -1495,7 +1519,7 @@ fn within_bucket_scheduling_works() {
 		));
 
 		// Task is in bucket 2
-		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+		assert_eq!(agenda_task_count(2), 1);
 
 		// Simulate "second block" still within bucket 2 (time: 126_000ms, 6 seconds later)
 		run_to_time(126_000);
@@ -1517,7 +1541,7 @@ fn within_bucket_scheduling_works() {
 		));
 
 		// Task is in bucket 2 (126_000 / 60_000 = 2)
-		assert_eq!(Agenda::<Test>::get(2).len(), 1);
+		assert_eq!(agenda_task_count(2), 1);
 
 		// Simulate "third block" still within bucket 2 (time: 132_000ms)
 		run_to_time(132_000);
@@ -1547,7 +1571,7 @@ fn tasks_not_skipped_when_time_jumps() {
 		));
 
 		// Task is in bucket 4
-		assert_eq!(Agenda::<Test>::get(4).len(), 1);
+		assert_eq!(agenda_task_count(4), 1);
 		assert!(logger::log().is_empty());
 
 		// Time jumps to bucket 6 (skipping bucket 3, 4, 5)
@@ -1583,7 +1607,7 @@ fn simple_bucket_3_execution() {
 		assert_eq!(address, (3, 0), "Task should be at bucket 3, index 0");
 
 		// Check agenda before run_to_time
-		eprintln!("Before run_to_time: Agenda bucket 3 = {:?}", Agenda::<Test>::get(3));
+		eprintln!("Before run_to_time: Agenda bucket 3 count = {}", agenda_task_count(3));
 		eprintln!("Before run_to_time: timestamp = {}", pallet_timestamp::Pallet::<Test>::get());
 
 		// Execute at bucket 3
@@ -1603,8 +1627,8 @@ fn simple_bucket_3_execution() {
 		eprintln!("IncompleteSince: {:?}", incomplete);
 
 		// Check agendas
-		eprintln!("Agenda bucket 2: {:?}", Agenda::<Test>::get(2));
-		eprintln!("Agenda bucket 3: {:?}", Agenda::<Test>::get(3));
+		eprintln!("Agenda bucket 2 count: {}", agenda_task_count(2));
+		eprintln!("Agenda bucket 3 count: {}", agenda_task_count(3));
 
 		// Task should have executed
 		eprintln!("Logger log: {:?}", logger::log());
@@ -1613,10 +1637,8 @@ fn simple_bucket_3_execution() {
 }
 
 #[test]
-fn retry_within_same_bucket_works() {
+fn retry_falls_back_to_next_bucket_when_current_full() {
 	new_test_ext().execute_with(|| {
-		// This test verifies that retries can be scheduled within the same bucket.
-
 		// Set initial time to bucket 2
 		Timestamp::set_timestamp(120_000);
 
@@ -1626,48 +1648,126 @@ fn retry_within_same_bucket_works() {
 			weight: Weight::from_parts(10, 0),
 		});
 
-		let address = Scheduler::do_schedule(
+		Scheduler::do_schedule(
 			DispatchTime::At(180_000), // bucket 3
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap()
+			Preimage::bound(call).unwrap(),
 		)
 		.unwrap();
 
-		// Verify task is at expected address
-		assert_eq!(address, (3, 0), "Task should be at bucket 3, index 0");
+		// Set retry with try_same_bucket_first, period 1 for fallback
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(1), true));
 
-		// Set retry with a small period (10 seconds = 10_000ms, within same bucket)
-		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, 10_000));
+		// Fill up bucket 3 to max capacity (MaxScheduledPerBucket = 100 in mock)
+		for i in 1..100 {
+			let call = RuntimeCall::Logger(LoggerCall::log {
+				i: 100 + i,
+				weight: Weight::from_parts(10, 0),
+			});
+			Scheduler::do_schedule(
+				DispatchTime::At(180_000),
+				None,
+				127,
+				root(),
+				Preimage::bound(call).unwrap(),
+			)
+			.unwrap();
+		}
+		assert_eq!(agenda_task_count(3), 100, "Bucket 3 should be full");
 
-		// Verify retry config is set
-		assert!(Retries::<Test>::get((3, 0)).is_some(), "Retry config should be set");
+		// Set up the time threshold so the call fails
+		logger::set_time_threshold(999_000, 999_999);
 
-		// Set up the time threshold so the call fails on first attempt but succeeds on retry
-		// The call will fail if now < 185_000 or now > 200_000
-		logger::set_time_threshold(185_000, 200_000);
-
-		// First attempt at bucket 3 start - should fail (180_000 < 185_000)
+		// First attempt at bucket 3 - should fail, retry should go to bucket 4 (since 3 is full)
 		run_to_time(180_000);
-		assert!(logger::log().is_empty(), "Task should have failed");
 
-		// Retry should be scheduled: 180_000 + 10_000 = 190_000, bucket 3 (190_000 / 60_000 = 3)
-		// The retry task should be in bucket 3. Note: the BoundedVec may have Some entries
-		// (for the retry) and None entries (for the completed original task).
-		let agenda = Agenda::<Test>::get(3);
-		let actual_tasks = agenda.iter().filter(|t| t.is_some()).count();
-		assert_eq!(
-			actual_tasks, 1,
-			"Expected exactly 1 retry task in bucket 3, found {}, agenda: {:?}",
-			actual_tasks, agenda
-		);
-
-		// Second attempt at 190_000 - should succeed (185_000 <= 190_000 <= 200_000)
-		run_to_time(190_000);
-		assert_eq!(logger::log(), vec![(root(), 42)]);
+		// The retry should be in bucket 4 since bucket 3 was full
+		assert_eq!(agenda_task_count(4), 1, "Retry should be in bucket 4");
 
 		// Clean up
 		logger::clear_time_threshold();
 	});
 }
+
+#[test]
+fn retry_same_bucket_first_with_space_available() {
+	new_test_ext().execute_with(|| {
+		// Set initial time to bucket 2
+		Timestamp::set_timestamp(120_000);
+
+		// Schedule a task that will fail at bucket 3
+		let call = RuntimeCall::Logger(LoggerCall::timed_log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+
+		Scheduler::do_schedule(
+			DispatchTime::At(180_000), // bucket 3
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		)
+		.unwrap();
+
+		// Set retry with try_same_bucket_first=true, period=2
+		// Should retry in same bucket since there's space
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(2), true));
+
+		// Set up time threshold so the call fails
+		logger::set_time_threshold(999_000, 999_999);
+
+		// Run bucket 3 - task fails, retry should go to same bucket (3) since there's space
+		run_to_time(180_000);
+
+		// Retry should be in bucket 3 (same bucket, since there's space)
+		assert_eq!(agenda_task_count(3), 1, "Retry should be in bucket 3 (same bucket)");
+		assert_eq!(agenda_task_count(5), 0, "Bucket 5 should be empty");
+
+		// Clean up
+		logger::clear_time_threshold();
+	});
+}
+
+#[test]
+fn retry_without_same_bucket_first_advances_by_period() {
+	new_test_ext().execute_with(|| {
+		// Set initial time to bucket 2
+		Timestamp::set_timestamp(120_000);
+
+		// Schedule a task that will fail at bucket 3
+		let call = RuntimeCall::Logger(LoggerCall::timed_log {
+			i: 42,
+			weight: Weight::from_parts(10, 0),
+		});
+
+		Scheduler::do_schedule(
+			DispatchTime::At(180_000), // bucket 3
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		)
+		.unwrap();
+
+		// Set retry with try_same_bucket_first=false, period=2
+		// Should retry in bucket 3+2=5, not same bucket
+		assert_ok!(Scheduler::set_retry(RuntimeOrigin::root(), (3, 0), 2, nz(2), false));
+
+		// Set up time threshold so the call fails
+		logger::set_time_threshold(999_000, 999_999);
+
+		// Run bucket 3 - task fails
+		run_to_time(180_000);
+
+		// Retry should be in bucket 5 (3 + period 2), not same bucket
+		assert_eq!(agenda_task_count(3), 0, "Bucket 3 should be empty");
+		assert_eq!(agenda_task_count(5), 1, "Retry should be in bucket 5");
+
+		// Clean up
+		logger::clear_time_threshold();
+	});
+}
+
