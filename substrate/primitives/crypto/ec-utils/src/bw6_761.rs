@@ -62,17 +62,17 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn multi_miller_loop(
-		g1: impl Iterator<Item = <BW6_761 as Pairing>::G1Prepared>,
-		g2: impl Iterator<Item = <BW6_761 as Pairing>::G2Prepared>,
-	) -> <BW6_761 as Pairing>::TargetField {
+		g1: impl Iterator<Item = G1Prepared>,
+		g2: impl Iterator<Item = G2Prepared>,
+	) -> TargetField {
 		host_calls::bw6_761_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
-			.and_then(|res| utils::decode(res))
+			.and_then(|res| utils::decode::<TargetField>(res))
 			.unwrap_or_default()
 	}
 
 	fn final_exponentiation(target: TargetField) -> TargetField {
 		host_calls::bw6_761_final_exponentiation(utils::encode(target))
-			.and_then(|res| utils::decode(res))
+			.and_then(|res| utils::decode::<TargetField>(res))
 			.unwrap_or_default()
 	}
 
@@ -199,21 +199,26 @@ mod tests {
 
 	#[test]
 	fn mul_works_g1() {
-		mul::<G1Affine, ark_bw6_761::G1Affine>();
+		mul_test::<G1Affine, ark_bw6_761::G1Affine>();
 	}
 
 	#[test]
 	fn mul_works_g2() {
-		mul::<G2Affine, ark_bw6_761::G2Affine>();
+		mul_test::<G2Affine, ark_bw6_761::G2Affine>();
 	}
 
 	#[test]
 	fn msm_works_g1() {
-		msm::<G1Affine, ark_bw6_761::G1Affine>();
+		msm_test::<G1Affine, ark_bw6_761::G1Affine>();
 	}
 
 	#[test]
 	fn msm_works_g2() {
-		msm::<G2Affine, ark_bw6_761::G2Affine>();
+		msm_test::<G2Affine, ark_bw6_761::G2Affine>();
+	}
+
+	#[test]
+	fn pairing_works() {
+		pairing_test::<BW6_761, ark_bw6_761::BW6_761>();
 	}
 }

@@ -21,6 +21,8 @@
 // curve may be excluded by the build we resort to `#[allow(unused)]` to
 // suppress the expected warning.
 
+#![allow(unused)]
+
 use alloc::vec::Vec;
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
@@ -41,7 +43,6 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 pub type BigInteger = Vec<u64>;
 
 #[inline(always)]
-#[allow(unused)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
 	encode(iter.collect::<Vec<_>>())
 }
@@ -56,7 +57,12 @@ pub fn decode<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
 	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
 }
 
-#[allow(unused)]
+/// Pairing multi Miller loop.
+///
+/// Receives encoded:
+/// - `g1`: `Vec<G1Affine>`.
+/// - `g2`: `Vec<G2Affine>`.
+/// Returns encoded `TargetField`.
 pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
 	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
@@ -64,7 +70,10 @@ pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>
 	Ok(encode(res.0))
 }
 
-#[allow(unused)]
+/// Pairing final exponentiation.
+///
+/// Receives encoded `TargetField`.
+/// Returns encoded `TargetField`.
 pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let target = decode::<<T as Pairing>::TargetField>(target)?;
 	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(())?;
@@ -76,9 +85,7 @@ pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> 
 /// Expects encoded:
 /// - `bases`: `Vec<SWAffine<SWCurveConfig>>`.
 /// - `scalars`: `Vec<SWCurveConfig::ScalarField>`.
-///
 /// Returns encoded: `SWAffine<SWCurveConfig>`.
-#[allow(unused)]
 pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let bases = decode::<Vec<SWAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
@@ -91,9 +98,7 @@ pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 /// Expects encoded:
 /// - `base`: `SWAffine<SWCurveConfig>`.
 /// - `scalar`: `BigInteger`.
-///
 /// Returns encoded: `SWAffine<SWCurveConfig>`.
-#[allow(unused)]
 pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode::<SWAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
@@ -106,9 +111,7 @@ pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-///
 /// Returns encoded: `TEAffine<TECurveConfig>`.
-#[allow(unused)]
 pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
@@ -121,9 +124,7 @@ pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 /// Expects encoded:
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
-///
 /// Returns encoded: `TEAffine<TECurveConfig>`.
-#[allow(unused)]
 pub fn mul_affine_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
@@ -148,7 +149,7 @@ pub mod testing {
 		(p[0], s[0])
 	}
 
-	pub fn mul<SubAffine, ArkAffine>()
+	pub fn mul_test<SubAffine, ArkAffine>()
 	where
 		SubAffine: AffineRepr,
 		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
@@ -168,7 +169,7 @@ pub mod testing {
 		assert_eq!(r1, r2);
 	}
 
-	pub fn msm<SubAffine, ArkAffine>()
+	pub fn msm_test<SubAffine, ArkAffine>()
 	where
 		SubAffine: AffineRepr,
 		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
@@ -184,6 +185,76 @@ pub mod testing {
 		let scalars_enc = encode(&scalars[..]);
 		let r2_enc = msm_sw::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
 		let r2 = decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn mul_te_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
+	{
+		let (p, s) = mul_args::<SubAffine>();
+
+		// This goes implicitly through the hostcall
+		let r1 = (p * s).into_affine();
+
+		// This directly calls into arkworks
+		let p_enc = encode(p);
+		let s_enc = encode(s.into_bigint().as_ref());
+		let r2_enc = mul_affine_te::<ArkAffine::Config>(p_enc, s_enc).unwrap();
+		let r2 = decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn msm_te_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
+	{
+		let (bases, scalars) = msm_args::<SubAffine>(10);
+
+		// This goes implicitly through the hostcall
+		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
+
+		// This directly calls into arkworks
+		let bases_enc = encode(&bases[..]);
+		let scalars_enc = encode(&scalars[..]);
+		let r2_enc = msm_te::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
+		let r2 = decode::<SubAffine>(r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn pairing_test<SubPairing, ArkPairing>()
+	where
+		SubPairing: Pairing,
+		ArkPairing: Pairing,
+	{
+		use crate::utils::encode;
+
+		let mut rng = test_rng();
+		let a = <SubPairing as Pairing>::ScalarField::rand(&mut rng);
+		let b = <SubPairing as Pairing>::ScalarField::rand(&mut rng);
+
+		let g1 = <SubPairing as Pairing>::G1Affine::generator();
+		let g2 = <SubPairing as Pairing>::G2Affine::generator();
+
+		let g1_a = (g1 * a).into_affine();
+		let g2_b = (g2 * b).into_affine();
+
+		// This goes implicitly through the `multi_miller_loop` and `final_exponentiation` hostcalls
+		let r1 = SubPairing::pairing(g1_a, g2_b).0;
+
+		// Pairing via direct arkworks calls
+		let g1_a_enc = encode(vec![g1_a]);
+		let g2_b_enc = encode(vec![g2_b]);
+		let r2_enc = multi_miller_loop::<ArkPairing>(g1_a_enc, g2_b_enc).unwrap();
+		let r2_enc = final_exponentiation::<ArkPairing>(r2_enc).unwrap();
+		let r2 = decode::<<SubPairing as Pairing>::TargetField>(r2_enc).unwrap();
 
 		assert_eq!(r1, r2);
 	}

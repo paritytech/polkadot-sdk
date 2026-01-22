@@ -20,16 +20,12 @@
 
 use crate::utils;
 use alloc::vec::Vec;
-use ark_ec::CurveConfig;
+use ark_ec::{CurveConfig, CurveGroup};
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
 };
-
-/// Curve hooks jumping into [`host_calls`] host functions.
-#[derive(Copy, Clone)]
-pub struct HostHooks;
 
 /// Group configuration.
 pub type BandersnatchConfig = ark_ed_on_bls12_381_bandersnatch_ext::BandersnatchConfig<HostHooks>;
@@ -48,47 +44,52 @@ pub type SWAffine = ark_ed_on_bls12_381_bandersnatch_ext::SWAffine<HostHooks>;
 /// Short Weierstrass form point projective representation.
 pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostHooks>;
 
+/// Group scalar field (Fr).
+pub type ScalarField = <BandersnatchConfig as CurveConfig>::ScalarField;
+
+/// Curve hooks jumping into [`host_calls`] host functions.
+#[derive(Copy, Clone)]
+pub struct HostHooks;
+
 impl CurveHooks for HostHooks {
-	fn msm_te(
-		bases: &[EdwardsAffine],
-		scalars: &[<EdwardsConfig as CurveConfig>::ScalarField],
-	) -> EdwardsProjective {
+	fn msm_te(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
 		host_calls::ed_on_bls12_381_bandersnatch_te_msm(
 			utils::encode(bases),
 			utils::encode(scalars),
 		)
-		.and_then(|res| utils::decode_proj_te(res))
+		.and_then(|res| utils::decode::<EdwardsAffine>(res))
 		.unwrap_or_default()
+		.into()
 	}
 
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(
-			utils::encode_proj_te(base),
+		host_calls::ed_on_bls12_381_bandersnatch_te_mul_affine(
+			utils::encode(base.into_affine()),
 			utils::encode(scalar),
 		)
-		.and_then(|res| utils::decode_proj_te(res))
+		.and_then(|res| utils::decode::<EdwardsAffine>(res))
 		.unwrap_or_default()
+		.into()
 	}
 
-	fn msm_sw(
-		bases: &[SWAffine],
-		scalars: &[<SWConfig as CurveConfig>::ScalarField],
-	) -> SWProjective {
+	fn msm_sw(bases: &[SWAffine], scalars: &[ScalarField]) -> SWProjective {
 		host_calls::ed_on_bls12_381_bandersnatch_sw_msm(
 			utils::encode(bases),
 			utils::encode(scalars),
 		)
-		.and_then(|res| utils::decode_proj_sw(res))
+		.and_then(|res| utils::decode::<SWAffine>(res))
 		.unwrap_or_default()
+		.into()
 	}
 
 	fn mul_projective_sw(base: &SWProjective, scalar: &[u64]) -> SWProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(
-			utils::encode_proj_sw(base),
+		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_affine(
+			utils::encode(base.into_affine()),
 			utils::encode(scalar),
 		)
-		.and_then(|res| utils::decode_proj_sw(res))
+		.and_then(|res| utils::decode::<SWAffine>(res))
 		.unwrap_or_default()
+		.into()
 	}
 }
 
@@ -104,10 +105,10 @@ impl CurveHooks for HostHooks {
 pub trait HostCalls {
 	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
-	///   - `scalars`: `ArkScale<Vec<EdwardsConfig::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
+	/// Receives encoded:
+	/// - `base`: `EdwardsAffine`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded: `EdwardsAffine`.
 	fn ed_on_bls12_381_bandersnatch_te_msm(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -115,25 +116,25 @@ pub trait HostCalls {
 		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 
-	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
+	/// Twisted Edwards multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
+	/// Receives encoded:
+	///   - `base`: `EdwardsAffine`.
+	///   - `scalar`: `BigInteger`.
+	/// Returns encoded: `EdwardsAffine`.
+	fn ed_on_bls12_381_bandersnatch_te_mul_affine(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
+		utils::mul_affine_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
 	}
 
 	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<Vec<SWAffine>>`.
-	///   - `scalars`: `ArkScale<Vec<SWConfig::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
+	/// Receives encoded:
+	/// - `bases`: `Vec<SWAffine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Returns encoded `SWAffine`.
 	fn ed_on_bls12_381_bandersnatch_sw_msm(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
@@ -143,14 +144,40 @@ pub trait HostCalls {
 
 	/// Short Weierstrass projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<SWProjective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
+	/// Receives encoded:
+	/// - `base`: `SWAffine`.
+	/// - `scalar`: `BigInteger`.
+	/// Returns encoded `SWAffine`.
+	fn ed_on_bls12_381_bandersnatch_sw_mul_affine(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+		utils::mul_affine_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::utils::testing::*;
+
+	#[test]
+	fn te_mul_works() {
+		mul_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
+	}
+
+	#[test]
+	fn te_msm_works() {
+		msm_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
+	}
+
+	#[test]
+	fn sw_mul_works() {
+		mul_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
+	}
+
+	#[test]
+	fn sw_msm_works() {
+		msm_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
 	}
 }

@@ -118,10 +118,10 @@ impl CurveHooks for HostHooks {
 pub trait HostCalls {
 	/// Pairing multi Miller loop for *BLS12-377*.
 	///
-	/// - Receives encoded:
-	///   - `a`: `Vec<G1Affine>`.
-	///   - `b`: `Vec<G2Affine>`.
-	/// - Returns encoded: `TargetField`.
+	/// Receives encoded:
+	/// - `a`: `Vec<G1Affine>`.
+	/// - `b`: `Vec<G2Affine>`.
+	/// Returns encoded: `TargetField`.
 	fn bls12_377_multi_miller_loop(
 		a: PassFatPointerAndRead<Vec<u8>>,
 		b: PassFatPointerAndRead<Vec<u8>>,
@@ -198,22 +198,27 @@ mod tests {
 	use crate::utils::testing::*;
 
 	#[test]
-	fn mul_works_g1() {
-		mul::<G1Affine, ark_bls12_377::G1Affine>();
+	fn mul_g1_works() {
+		mul_test::<G1Affine, ark_bls12_377::G1Affine>();
 	}
 
 	#[test]
-	fn mul_works_g2() {
-		mul::<G2Affine, ark_bls12_377::G2Affine>();
+	fn msm_g1_works() {
+		msm_test::<G1Affine, ark_bls12_377::G1Affine>();
 	}
 
 	#[test]
-	fn msm_works_g1() {
-		msm::<G1Affine, ark_bls12_377::G1Affine>();
+	fn mul_g2_works() {
+		mul_test::<G2Affine, ark_bls12_377::G2Affine>();
 	}
 
 	#[test]
-	fn msm_works_g2() {
-		msm::<G2Affine, ark_bls12_377::G2Affine>();
+	fn msm_g2_works() {
+		msm_test::<G2Affine, ark_bls12_377::G2Affine>();
+	}
+
+	#[test]
+	fn pairing_works() {
+		pairing_test::<Bls12_377, ark_bls12_377::Bls12_377>();
 	}
 }
