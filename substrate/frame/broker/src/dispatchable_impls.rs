@@ -620,6 +620,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -> DispatchResult {
+		let renewal_id = PotentialRenewalId { core, when };
+
+		PotentialRenewals::<T>::take(renewal_id).ok_or(Error::<T>::UnknownRenewal)?;
+
+		Self::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
+
+		Ok(())
+	}
+
 	pub(crate) fn ensure_cores_for_sale(
 		status: &StatusRecord,
 		sale: &SaleInfoRecordOf<T>,

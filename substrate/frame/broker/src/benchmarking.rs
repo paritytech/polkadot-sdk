@@ -1330,6 +1330,35 @@ mod benches {
 
 		Ok(())
 	}
+    
+	fn remove_potential_renewal() -> Result<(), BenchmarkError> {
+		let sale_data = setup_and_start_sale::<T>()?;
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
+		);
+
+		let region_id = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+			.expect("Offer not high enough for configuration.");
+		let region = Regions::<T>::get(region_id).expect("Requested region not found");
+
+		Broker::<T>::do_assign(region_id, None, 1000, Final)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, region_id.core, region.end);
+
+		assert_last_event::<T>(
+			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
+		);
+		Ok(())
+	}
 
 	// Implements a test for each benchmark. Execute with:
 	// `cargo test -p pallet-broker --features runtime-benchmarks`.

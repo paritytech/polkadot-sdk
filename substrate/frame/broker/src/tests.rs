@@ -19,7 +19,7 @@
 
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
@@ -27,7 +27,7 @@ use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{
 	traits::{BadOrigin, Get},
-	Perbill, TokenError,
+	DispatchError, Perbill, TokenError,
 };
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -2828,6 +2828,20 @@ fn reset_base_price_updates_sellout_price() {
 		assert_eq!(sale.sellout_price, Some(150));
 	});
 }
+    
+fn remove_potential_renewal_rejects_non_admin_origin() {
+	TestExt::new().execute_with(|| {
+		assert_noop!(
+			Broker::remove_potential_renewal(RuntimeOrigin::signed(100), 0, 0),
+			DispatchError::BadOrigin
+		);
+
+		assert_noop!(
+			Broker::remove_potential_renewal(RuntimeOrigin::none(), 0, 0),
+			DispatchError::BadOrigin
+		);
+	});
+}
 
 #[test]
 fn reset_base_price_works() {
@@ -2866,6 +2880,63 @@ fn reset_base_price_works() {
 		// Test that purchase uses new price
 		advance_to(sale.sale_start + 1);
 		assert_ok!(Broker::do_purchase(1, 100));
+	});
+}
+    
+fn remove_potential_renewal_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = Regions::<Test>::get(region_id).unwrap();
+		const TASK_ID: TaskId = 1111;
+		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
+
+		// When assigning task to the region it's expected that the potential renewal with the
+		// `when` field equal to the `region.end` will appear if the assignment is final.
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+
+		assert_noop!(
+			Broker::do_remove_potential_renewal(region_id.core + 1, region.end),
+			Error::<Test>::UnknownRenewal
+		);
+
+		assert_noop!(
+			Broker::do_remove_potential_renewal(region_id.core, region.end + 1),
+			Error::<Test>::UnknownRenewal
+		);
+
+		let new_region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let new_region = Regions::<Test>::get(new_region_id).unwrap();
+		const NEW_TASK_ID: TaskId = 2222;
+		Broker::do_assign(new_region_id, None, NEW_TASK_ID, Finality::Final).unwrap();
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 2);
+
+		// Check that target renewal is not expired, so ensure that `do_remove_potential_renewal`
+		// can remove non-expired renewals too.
+		assert_err!(Broker::do_drop_renewal(region_id.core, region.end), Error::<Test>::StillValid);
+
+		Broker::do_remove_potential_renewal(region_id.core, region.end).unwrap();
+		System::assert_has_event(
+			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
+		);
+
+		assert_eq!(PotentialRenewals::<Test>::iter().count(), 1);
+		// Ensure that the correct potential renewal was removed.
+		let renewal_ids: Vec<_> = PotentialRenewals::<Test>::iter().map(|(id, _)| id).collect();
+		assert_eq!(
+			renewal_ids,
+			vec![PotentialRenewalId { core: new_region_id.core, when: new_region.end }]
+		);
+
+		assert_noop!(
+			Broker::do_remove_potential_renewal(region_id.core, region.end),
+			Error::<Test>::UnknownRenewal
+		);
 	});
 }
 
@@ -2973,4 +3044,30 @@ fn reset_base_price_no_sales_fails() {
 		// Should fail if sales haven't started
 		assert_noop!(Broker::reset_base_price(RuntimeOrigin::root(), 50), Error::<Test>::NoSales);
 	});
+  
+fn remove_potential_renewal_makes_auto_renewal_die() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 2));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		const TASK_ID: TaskId = 1111;
+		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
+
+		advance_to(6);
+
+		Broker::do_enable_auto_renew(1, region_id.core, TASK_ID, None).unwrap();
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
+
+		let renewals: Vec<_> = PotentialRenewals::<Test>::iter_keys().collect();
+		assert_eq!(renewals.len(), 1);
+		assert_ok!(Broker::do_remove_potential_renewal(renewals[0].core, renewals[0].when));
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
+
+		advance_to(12);
+
+		assert_eq!(AutoRenewals::<Test>::get().len(), 0);
+	})
 }
