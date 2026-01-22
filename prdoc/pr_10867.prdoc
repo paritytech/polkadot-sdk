@@ -26,6 +26,6 @@ doc:
       `active_views`, `inactive_views`) simultaneously, following the same pattern as [ViewStore::insert_new_view_sync](https://github.com/paritytech/polkadot-sdk/blob/0a386503ab5d3f77d30031e539640c89b254b492/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L553-L575) to prevent race conditions, as suggested by @michalkucharczyk
 crates:
 - name: sc-transaction-pool-api
-  bump: patch
+  bump: major
 - name: sc-transaction-pool
   bump: patch
