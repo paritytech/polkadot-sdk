@@ -29,6 +29,8 @@
 use crate::config::*;
 
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
+#[cfg(any(test, feature = "test-helpers"))]
+use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
@@ -59,7 +61,6 @@ use std::{
 	sync::Arc,
 };
 use tokio::time::timeout;
-
 pub mod config;
 
 /// A set of statements.
@@ -420,7 +421,7 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
-			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		}

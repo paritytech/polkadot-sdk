@@ -560,6 +560,7 @@ mod test {
 	use codec::{Decode, Encode};
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
+	use sp_core::sr25519;
 
 	#[test]
 	fn statement_encoding_matches_vec() {
@@ -693,5 +694,36 @@ mod test {
 			},
 			_ => panic!("Statement TypeInfo should be a Composite"),
 		}
+	}
+
+	#[test]
+	fn measure_hash_2000_statements() {
+		use std::time::Instant;
+		const NUM_STATEMENTS: usize = 30_000;
+		let (keyring, _) = sr25519::Pair::generate();
+
+		// Create 2000 statements with varying data
+		let statements: Vec<Statement> = (0..NUM_STATEMENTS)
+			.map(|i| {
+				let mut statement = Statement::new();
+
+				statement.set_priority(i as u32);
+				statement.set_topic(0, [(i % 256) as u8; 32]);
+				statement.set_plain_data(vec![i as u8; 512]);
+				statement.sign_sr25519_private(&keyring);
+
+				statement.sign_sr25519_private(&keyring);
+				statement
+			})
+			.collect();
+		// Measure time to hash all statements
+		let start = Instant::now();
+		let hashes: Vec<[u8; 32]> = statements.iter().map(|s| s.hash()).collect();
+		let elapsed = start.elapsed();
+		println!("Time to hash {} statements: {:?}", NUM_STATEMENTS, elapsed);
+		println!("Average time per statement: {:?}", elapsed / NUM_STATEMENTS as u32);
+		// Verify hashes are unique
+		let unique_hashes: std::collections::HashSet<_> = hashes.iter().collect();
+		assert_eq!(unique_hashes.len(), NUM_STATEMENTS);
 	}
 }
