@@ -20,7 +20,7 @@
 use crate::utils;
 use alloc::vec::Vec;
 use ark_bw6_761_ext::CurveHooks;
-use ark_ec::{pairing::Pairing, CurveGroup};
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
 	runtime_interface,
@@ -80,30 +80,28 @@ impl CurveHooks for HostHooks {
 		host_calls::bw6_761_msm_g1(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<G1Affine>(res))
 			.unwrap_or_default()
-			.into()
+			.into_group()
 	}
 
 	fn msm_g2(bases: &[G2Affine], scalars: &[ScalarField]) -> G2Projective {
 		host_calls::bw6_761_msm_g2(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<G2Affine>(res))
 			.unwrap_or_default()
-			.into()
+			.into_group()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		let base = base.into_affine();
-		host_calls::bw6_761_mul_affine_g1(utils::encode(base), utils::encode(scalar))
+		host_calls::bw6_761_mul_affine_g1(utils::encode(base.into_affine()), utils::encode(scalar))
 			.and_then(|res| utils::decode::<G1Affine>(res))
 			.unwrap_or_default()
-			.into()
+			.into_group()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		let base = base.into_affine();
-		host_calls::bw6_761_mul_affine_g2(utils::encode(base), utils::encode(scalar))
+		host_calls::bw6_761_mul_affine_g2(utils::encode(base.into_affine()), utils::encode(scalar))
 			.and_then(|res| utils::decode::<G2Affine>(res))
 			.unwrap_or_default()
-			.into()
+			.into_group()
 	}
 }
 

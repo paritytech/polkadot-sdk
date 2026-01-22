@@ -19,7 +19,7 @@
 
 use crate::utils;
 use alloc::vec::Vec;
-use ark_ec::{CurveConfig, CurveGroup};
+use ark_ec::{AffineRepr, CurveConfig, CurveGroup};
 use ark_ed_on_bls12_377_ext::CurveHooks;
 use sp_runtime_interface::{
 	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
@@ -45,7 +45,7 @@ impl CurveHooks for HostHooks {
 		host_calls::ed_on_bls12_377_te_msm(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<EdwardsAffine>(res))
 			.unwrap_or_default()
-			.into()
+			.into_group()
 	}
 
 	fn mul_projective(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
@@ -55,7 +55,7 @@ impl CurveHooks for HostHooks {
 		)
 		.and_then(|res| utils::decode::<EdwardsAffine>(res))
 		.unwrap_or_default()
-		.into()
+		.into_group()
 	}
 }
 
