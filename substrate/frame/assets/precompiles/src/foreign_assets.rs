@@ -15,9 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Ensure we're `no_std` when compiling for Wasm.
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use core::marker::PhantomData;
 use frame_support::LOG_TARGET;
 use pallet_assets::AssetsCallback;
