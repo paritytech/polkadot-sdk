@@ -19,7 +19,6 @@
 
 use crate::{
 	address::AddressMapper,
-
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
 	tracing::if_tracing,
@@ -123,9 +122,8 @@ impl<T: Config> From<H160> for AccountIdOrAddress<T> {
 impl<T: Config> AccountIdOrAddress<T> {
 	pub fn address(&self) -> H160 {
 		match self {
-			AccountIdOrAddress::AccountId(id) => {
-				<T::AddressMapper as AddressMapper<T>>::to_address(id)
-			},
+			AccountIdOrAddress::AccountId(id) =>
+				<T::AddressMapper as AddressMapper<T>>::to_address(id),
 			AccountIdOrAddress::Address(address) => *address,
 		}
 	}
@@ -306,7 +304,7 @@ impl<T: Config> ContractInfo<T> {
 		if_tracing(|t| {
 			t.storage_read(key, value.as_deref());
 		});
-		return value;
+		return value
 	}
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.

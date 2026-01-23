@@ -72,7 +72,6 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
-
 		// We would like to allow for transactions without a chain id to be executed through pallet
 		// revive. These are called unprotected transactions and they are transactions that predate
 		// EIP-155 which do not include a Chain ID. These transactions are still useful today in
@@ -83,12 +82,11 @@ impl GenericTransaction {
 		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
 		match (self.chain_id, self.r#type.as_ref()) {
 			(None, Some(super::Byte(TYPE_LEGACY))) => {},
-			(Some(chain_id), ..) => {
+			(Some(chain_id), ..) =>
 				if chain_id != <T as Config>::ChainId::get().into() {
 					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 					return Err(InvalidTransaction::Call);
-				}
-			},
+				},
 			(None, ..) => {
 				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
 				return Err(InvalidTransaction::Call);

@@ -2518,14 +2518,14 @@ impl<T: Config> Pallet<T> {
 	/// EOAs with delegation indicators to originate transactions.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
 		if DebugSettings::bypass_eip_3607::<T>() {
-			return Ok(());
+			return Ok(())
 		}
 		let Some(address) = origin
 			.as_system_ref()
 			.and_then(|o| o.as_signed())
 			.map(<T::AddressMapper as AddressMapper<T>>::to_address)
 		else {
-			return Ok(());
+			return Ok(())
 		};
 
 		// EIP-7702: Allow EOAs with delegation indicators to originate transactions
