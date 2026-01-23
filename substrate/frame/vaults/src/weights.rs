@@ -39,6 +39,7 @@ pub trait WeightInfo {
 	fn set_max_liquidation_amount() -> Weight;
 	fn poke() -> Weight;
 	fn set_maximum_issuance() -> Weight;
+	fn set_max_position_amount() -> Weight;
 	fn on_idle_one_vault() -> Weight;
 }
 
@@ -101,6 +102,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads_writes(1_u64, 1_u64))
 	}
 	fn set_maximum_issuance() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_max_position_amount() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -169,6 +174,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads_writes(1_u64, 1_u64))
 	}
 	fn set_maximum_issuance() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_max_position_amount() -> Weight {
 		Weight::from_parts(10_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

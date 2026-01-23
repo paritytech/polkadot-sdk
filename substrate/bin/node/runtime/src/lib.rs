@@ -3058,6 +3058,8 @@ parameter_types! {
 	pub const VaultsOracleStalenessThreshold: u64 = 3_600_000;
 	/// DOT collateral location.
 	pub VaultsCollateralLocation: Location = Location::here();
+	/// Maximum vaults to process in on_idle per block.
+	pub const VaultsMaxOnIdleItems: u32 = 16;
 }
 
 /// Insurance fund account that receives protocol revenue (interest and penalties).
@@ -3085,8 +3087,8 @@ pub const DEFAULT_DOT_PRICE: u128 = 421_000_000_000_000;
 
 #[cfg(feature = "runtime-benchmarks")]
 frame_support::parameter_types! {
-    /// Storage for benchmark price override.
-    /// When set, MockOracleAdapter will use this price instead of the default.
+	/// Storage for benchmark price override.
+	/// When set, MockOracleAdapter will use this price instead of the default.
 	pub storage BenchmarkOraclePrice: Option<FixedU128> = None;
 }
 
@@ -3097,10 +3099,9 @@ frame_support::parameter_types! {
 /// - As FixedU128 (18 decimals): 0.000421 × 10^18 = 421_000_000_000_000
 pub struct MockOracleAdapter;
 impl pallet_vaults::ProvidePrice for MockOracleAdapter {
-	type Price = FixedU128;
 	type Moment = u64;
 
-	fn get_price(asset: &Location) -> Option<(Self::Price, Self::Moment)> {
+	fn get_price(asset: &Location) -> Option<(FixedU128, Self::Moment)> {
 		// Only support DOT (native asset) for now
 		if *asset != Location::here() {
 			return None;
@@ -3129,12 +3130,10 @@ impl pallet_vaults::ProvidePrice for MockOracleAdapter {
 pub struct AuctionAdapter;
 impl pallet_vaults::AuctionsHandler<AccountId, Balance> for AuctionAdapter {
 	fn start_auction(
-		_vault_owner: &AccountId,
+		_vault_owner: AccountId,
 		_collateral_amount: Balance,
-		_principal: Balance,
-		_accrued_interest: Balance,
-		_penalty: Balance,
-		_keeper: &AccountId,
+		_debt: sp_pusd::DebtComponents<Balance>,
+		_keeper: AccountId,
 	) -> Result<u32, frame_support::pallet_prelude::DispatchError> {
 		// During benchmarks, return success to allow liquidation benchmarks to complete
 		#[cfg(feature = "runtime-benchmarks")]
@@ -3239,13 +3238,15 @@ impl pallet_vaults::Config for Runtime {
 	type AssetId = u32;
 	type StablecoinAssetId = VaultsStablecoinAssetId;
 	type InsuranceFund = InsuranceFundAccount;
-	type Treasury = TreasuryAccount;
+	type FeeHandler = ResolveTo<TreasuryAccount, Balances>;
+	type SurplusHandler = ResolveAssetTo<TreasuryAccount, Assets>;
 	type MinimumDeposit = VaultsMinimumDeposit;
 	type MinimumMint = VaultsMinimumMint;
 	type TimeProvider = Timestamp;
 	type ManagerOrigin = EnsureVaultsManager;
 	type StaleVaultThreshold = VaultsStaleThreshold;
 	type OracleStalenessThreshold = VaultsOracleStalenessThreshold;
+	type MaxOnIdleItems = VaultsMaxOnIdleItems;
 	type Oracle = MockOracleAdapter;
 	type CollateralLocation = VaultsCollateralLocation;
 	type AuctionsHandler = AuctionAdapter;

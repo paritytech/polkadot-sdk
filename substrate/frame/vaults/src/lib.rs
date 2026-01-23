@@ -156,25 +156,57 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use sp_runtime::FixedU128;
+use xcm::latest::Location;
+
+pub mod migrations;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
-pub mod weights;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
-extern crate alloc;
-
 pub use pallet::*;
-pub use sp_pusd::{AuctionsHandler, CollateralManager, PaymentBreakdown, PurchaseParams};
-use xcm::v5::Location;
+pub use weights::WeightInfo;
 
-#[cfg(feature = "runtime-benchmarks")]
-use sp_runtime::FixedU128;
+// Re-exports for external consumers
+pub use sp_pusd::{AuctionsHandler, CollateralManager, DebtComponents, PaymentBreakdown};
+
+/// TODO: Update/import this trait from the Oracle as soon as it is implemented.
+/// Trait for providing timestamped asset prices via oracle.
+///
+/// This trait abstracts the oracle interface for getting asset prices with their
+/// last update timestamp. The price must be in "normalized" format:
+/// smallest pUSD units per smallest asset unit.
+///
+/// # Example
+/// For DOT at $4.21 with DOT (10 decimals) and pUSD (6 decimals):
+/// - 1 DOT = 4.21 USD
+/// - Price = 4.21 × 10^6 / 10^10 = 0.000421
+///
+/// Assets are identified by XCM `Location`, which can represent:
+/// - Native token: `Location::here()` (DOT from AH perspective)
+/// - Local assets: `Location::new(0, [PalletInstance(50), GeneralIndex(id)])`
+///
+/// The timestamp allows consumers to check for oracle staleness and pause
+/// operations when the price data is too old.
+pub trait ProvidePrice {
+	/// The moment/timestamp type.
+	type Moment;
+
+	/// Get the current price and timestamp when it was last updated.
+	///
+	/// Returns `None` if the price is not available.
+	/// The tuple contains (price, last_update_timestamp).
+	fn get_price(asset: &Location) -> Option<(FixedU128, Self::Moment)>;
+}
 
 /// Helper trait for benchmarking setup.
 ///
@@ -198,46 +230,26 @@ pub trait BenchmarkHelper<AccountId, AssetId, Balance> {
 	fn set_price(price: FixedU128);
 }
 
-/// TODO: Update/import this trait from the Oracle as soon as it is implemented.
-/// Trait for providing timestamped asset prices via oracle.
-///
-/// This trait abstracts the oracle interface for getting asset prices with their
-/// last update timestamp. The price must be in "normalized" format:
-/// smallest pUSD units per smallest asset unit.
-///
-/// # Example
-/// For DOT at $4.21 with DOT (10 decimals) and pUSD (6 decimals):
-/// - 1 DOT = 4.21 USD
-/// - Price = 4.21 × 10^6 / 10^10 = 0.000421
-///
-/// Assets are identified by XCM `Location`, which can represent:
-/// - Native token: `Location::here()` (DOT from AH perspective)
-/// - Local assets: `Location::new(0, [PalletInstance(50), GeneralIndex(id)])`
-///
-/// The timestamp allows consumers to check for oracle staleness and pause
-/// operations when the price data is too old.
-pub trait ProvidePrice {
-	type Price;
-	/// The moment/timestamp type.
-	type Moment;
-
-	/// Get the current price and timestamp when it was last updated.
-	///
-	/// Returns `None` if the price is not available.
-	/// The tuple contains (price, last_update_timestamp).
-	fn get_price(asset: &Location) -> Option<(Self::Price, Self::Moment)>;
-}
-
 #[frame_support::pallet]
 pub mod pallet {
-	use super::{AuctionsHandler, CollateralManager, Location, ProvidePrice, PurchaseParams};
-	use crate::weights::WeightInfo;
+	use super::{
+		AuctionsHandler, CollateralManager, DebtComponents, PaymentBreakdown, ProvidePrice,
+	};
+	use crate::WeightInfo;
+
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
-			fungible::{Inspect, InspectHold, Mutate as FungibleMutate, MutateHold},
-			fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
-			tokens::{Fortitude, Precision, Preservation, Restriction},
+			fungible::{
+				Balanced as FungibleBalanced, Credit, Inspect, InspectHold,
+				Mutate as FungibleMutate, MutateHold,
+			},
+			fungibles,
+			fungibles::{
+				Balanced as FungiblesBalanced, Inspect as FungiblesInspect,
+				Mutate as FungiblesMutate,
+			},
+			tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, Restriction},
 			Time,
 		},
 		weights::WeightMeter,
@@ -245,12 +257,13 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::Zero, FixedPointNumber, FixedPointOperand, FixedU128, Permill, SaturatedConversion,
-		Saturating,
+		traits::{Bounded, Zero},
+		FixedPointNumber, FixedPointOperand, FixedU128, Permill, SaturatedConversion, Saturating,
 	};
+	use xcm::latest::Location;
 
 	/// Log target for this pallet.
-	const LOG_TARGET: &str = "runtime::vaults";
+	pub(crate) const LOG_TARGET: &str = "runtime::vaults";
 
 	/// Milliseconds per year for timestamp-based fee calculations.
 	const MILLIS_PER_YEAR: u64 = (365 * 24 + 6) * 60 * 60 * 1000;
@@ -310,6 +323,7 @@ pub mod pallet {
 		/// Collateral is managed via pallet_balances using holds.
 		/// The Balance type is derived from this and must implement `FixedPointOperand`.
 		type Currency: FungibleMutate<Self::AccountId, Balance: FixedPointOperand>
+			+ FungibleBalanced<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching runtime hold reason.
@@ -317,48 +331,15 @@ pub mod pallet {
 
 		/// The asset used for pUSD debt.
 		/// Constrained to use the same Balance type as Currency.
-		type Asset: FungiblesMutate<
-			Self::AccountId,
-			AssetId = Self::AssetId,
-			Balance = BalanceOf<Self>,
-		>;
+		/// Also implements `Balanced` for creating credits during surplus transfers.
+		type Asset: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>
+			+ fungibles::Balanced<Self::AccountId>;
 
 		/// The AssetId type for pallet_assets (used for pUSD).
 		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen;
 
-		/// The AssetId for the stablecoin (pUSD).
-		#[pallet::constant]
-		type StablecoinAssetId: Get<Self::AssetId>;
-
-		/// Account that receives protocol revenue (interest and penalties).
-		#[pallet::constant]
-		type InsuranceFund: Get<Self::AccountId>;
-
-		/// Treasury account to receive DOT from surplus auctions.
-		#[pallet::constant]
-		type Treasury: Get<Self::AccountId>;
-
-		/// Minimum collateral deposit required to create a vault.
-		#[pallet::constant]
-		type MinimumDeposit: Get<BalanceOf<Self>>;
-
-		/// Minimum amount of stablecoin that can be minted in a single operation.
-		#[pallet::constant]
-		type MinimumMint: Get<BalanceOf<Self>>;
-
 		/// Time provider for fee accrual using UNIX timestamps.
 		type TimeProvider: Time;
-
-		/// Duration (in milliseconds) before a vault is considered stale for on_idle fee accrual.
-		/// Default: 14,400,000 ms (~4 hours).
-		#[pallet::constant]
-		type StaleVaultThreshold: Get<MomentOf<Self>>;
-
-		/// Maximum age (in milliseconds) of oracle price before operations are paused.
-		/// When the oracle price is older than this threshold, price-dependent operations
-		/// (mint, withdraw with debt, liquidate) will fail.
-		#[pallet::constant]
-		type OracleStalenessThreshold: Get<MomentOf<Self>>;
 
 		/// The Oracle providing timestamped asset prices.
 		///
@@ -371,14 +352,22 @@ pub mod pallet {
 		///
 		/// This format allows the vault to perform decimal-agnostic calculations.
 		/// The oracle must also return a timestamp indicating when the price was last updated.
-		type Oracle: ProvidePrice<Price = FixedU128, Moment = MomentOf<Self>>;
-
-		/// The XCM Location of the collateral asset.
-		#[pallet::constant]
-		type CollateralLocation: Get<Location>;
+		type Oracle: ProvidePrice<Moment = MomentOf<Self>>;
 
 		/// The Auctions handler for liquidating collateral.
 		type AuctionsHandler: AuctionsHandler<Self::AccountId, BalanceOf<Self>>;
+
+		/// Handler for DOT received from surplus auctions.
+		///
+		/// Use `ResolveTo<Account, Currency>` for simple single-account deposit,
+		/// or implement custom `OnUnbalanced` logic for fee splitting.
+		type FeeHandler: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+
+		/// Handler for surplus pUSD transfers in DirectTransfer mode.
+		///
+		/// Use `ResolveTo<TreasuryAccount, Assets>` for simple single-account deposit.
+		/// The credit is created from the Insurance Fund's pUSD.
+		type SurplusHandler: OnUnbalanced<fungibles::Credit<Self::AccountId, Self::Asset>>;
 
 		/// Origin allowed to update protocol parameters.
 		///
@@ -397,10 +386,49 @@ pub mod pallet {
 			Self::AssetId,
 			BalanceOf<Self>,
 		>;
+
+		/// The AssetId for the stablecoin (pUSD).
+		#[pallet::constant]
+		type StablecoinAssetId: Get<Self::AssetId>;
+
+		/// Account that receives protocol revenue (interest and penalties).
+		#[pallet::constant]
+		type InsuranceFund: Get<Self::AccountId>;
+
+		/// Minimum collateral deposit required to create a vault.
+		#[pallet::constant]
+		type MinimumDeposit: Get<BalanceOf<Self>>;
+
+		/// Minimum amount of stablecoin that can be minted in a single operation.
+		#[pallet::constant]
+		type MinimumMint: Get<BalanceOf<Self>>;
+
+		/// Duration (in milliseconds) before a vault is considered stale for on_idle fee accrual.
+		/// Suggested value: 14,400,000 ms (~4 hours).
+		#[pallet::constant]
+		type StaleVaultThreshold: Get<MomentOf<Self>>;
+
+		/// Maximum age (in milliseconds) of oracle price before operations are paused.
+		/// When the oracle price is older than this threshold, price-dependent operations
+		/// (mint, withdraw with debt, liquidate) will fail.
+		#[pallet::constant]
+		type OracleStalenessThreshold: Get<MomentOf<Self>>;
+
+		/// Maximum number of vaults to process per `on_idle` call.
+		///
+		/// This is a safety limit independent of weight to guard against benchmarking
+		/// inaccuracies. Even if weight budget allows more, iteration stops after this
+		/// many vaults. Set to `u32::MAX` to effectively disable this limit.
+		#[pallet::constant]
+		type MaxOnIdleItems: Get<u32>;
+
+		/// The XCM Location of the collateral asset.
+		#[pallet::constant]
+		type CollateralLocation: Get<Location>;
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -428,7 +456,7 @@ pub mod pallet {
 
 	impl<T: Config> Vault<T> {
 		/// Create a new healthy vault with zero debt and the current timestamp.
-		pub fn new() -> Self {
+		pub(crate) fn new() -> Self {
 			Self {
 				status: VaultStatus::Healthy,
 				principal: Zero::zero(),
@@ -438,8 +466,15 @@ pub mod pallet {
 		}
 
 		/// Get the total collateral held by the Balances pallet for this vault.
-		pub fn get_held_collateral(&self, who: &T::AccountId) -> BalanceOf<T> {
+		pub(crate) fn get_held_collateral(&self, who: &T::AccountId) -> BalanceOf<T> {
 			T::Currency::balance_on_hold(&HoldReason::VaultDeposit.into(), who)
+		}
+
+		/// Returns total debt (principal + accrued_interest).
+		pub(crate) fn total_debt(&self) -> Result<BalanceOf<T>, Error<T>> {
+			self.principal
+				.checked_add(&self.accrued_interest)
+				.ok_or(Error::<T>::ArithmeticOverflow)
 		}
 	}
 
@@ -487,6 +522,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxLiquidationAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+	/// Maximum pUSD debt that a single vault can have.
+	///
+	/// Should be well below [`MaxLiquidationAmount`] to ensure liquidations proceed smoothly.
+	#[pallet::storage]
+	pub type MaxPositionAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
 	/// Current pUSD at risk in active auctions.
 	///
 	/// This accumulator tracks the sum of debt for all active auctions.
@@ -521,6 +562,8 @@ pub mod pallet {
 		pub maximum_issuance: BalanceOf<T>,
 		/// Maximum pUSD at risk in active auctions.
 		pub max_liquidation_amount: BalanceOf<T>,
+		/// Maximum pUSD debt that a single vault can have.
+		pub max_position_amount: BalanceOf<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -532,8 +575,7 @@ pub mod pallet {
 			LiquidationPenalty::<T>::put(self.liquidation_penalty);
 			MaximumIssuance::<T>::put(self.maximum_issuance);
 			MaxLiquidationAmount::<T>::put(self.max_liquidation_amount);
-
-			// Ensure Insurance Fund account exists so it can receive any amount.
+			MaxPositionAmount::<T>::put(self.max_position_amount);
 			Pallet::<T>::ensure_insurance_fund_exists();
 		}
 	}
@@ -563,13 +605,14 @@ pub mod pallet {
 		},
 		/// A vault was closed and all collateral returned to owner.
 		VaultClosed { owner: T::AccountId },
-		/// Interest was updated on a vault.
-		InterestUpdated {
+		/// Interest accrued and minted to Insurance Fund.
+		InterestAccrued {
 			owner: T::AccountId,
 			/// Interest amount in pUSD.
 			amount: BalanceOf<T>,
 		},
-		/// Liquidation penalty collected during liquidation.
+		/// Liquidation penalty applied to vault debt during liquidation.
+		/// The penalty is collected later during auction purchases.
 		LiquidationPenaltyAdded { owner: T::AccountId, amount: BalanceOf<T> },
 		/// Minimum collateralization ratio was updated by governance.
 		MinimumCollateralizationRatioUpdated { old_value: FixedU128, new_value: FixedU128 },
@@ -583,6 +626,8 @@ pub mod pallet {
 		MaximumIssuanceUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
 		/// Maximum liquidation amount was updated by governance.
 		MaxLiquidationAmountUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
+		/// Maximum single vault debt was updated by governance.
+		MaxPositionAmountUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
 		/// Bad debt accrued when auctions leave unbacked principal.
 		BadDebtAccrued {
 			owner: T::AccountId,
@@ -620,6 +665,10 @@ pub mod pallet {
 		///
 		/// Wait for system debt to decrease or governance to raise [`MaximumIssuance`].
 		ExceedsMaxDebt,
+		/// Minting would exceed maximum single vault debt.
+		///
+		/// Wait for vault debt to decrease or governance to raise [`MaxPositionAmount`].
+		ExceedsMaxPositionAmount,
 		/// Operation would breach the required collateralization ratio.
 		///
 		/// Deposit more collateral, reduce mint amount, or reduce withdrawal amount to maintain
@@ -705,36 +754,51 @@ pub mod pallet {
 			let current_timestamp = T::TimeProvider::now();
 			let stale_threshold = T::StaleVaultThreshold::get();
 			let per_vault_weight = Self::on_idle_per_vault_weight();
+			let max_items = T::MaxOnIdleItems::get();
 
 			// Build iterator from cursor position
 			let cursor = OnIdleCursor::<T>::get();
-			let mut iter = match cursor {
-				Some(ref last_key) => Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(last_key)),
-				None => Vaults::<T>::iter(),
-			};
+			let mut iter = cursor.as_ref().map_or_else(Vaults::<T>::iter, |last_key| {
+				Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(last_key))
+			});
 
 			let mut last_processed: Option<T::AccountId> = None;
-			let mut stopped_for_weight = false;
+			let mut items_processed: u32 = 0;
+			let mut stopped_early = false;
 
 			loop {
 				let Some((owner, mut vault)) = iter.next() else { break };
 
-				// Skip cursor key itself if it still exists
-				if cursor.as_ref() == Some(&owner) {
-					continue;
-				}
-
-				// Check weight budget for processing this vault.
-				if meter.try_consume(per_vault_weight).is_err() {
-					stopped_for_weight = true;
+				// Safety limit: stop if we've processed max items, regardless of weight
+				if items_processed >= max_items {
+					stopped_early = true;
 					break;
 				}
+
+				// Check weight budget for processing this vault
+				if meter.try_consume(per_vault_weight).is_err() {
+					stopped_early = true;
+					break;
+				}
+
+				items_processed = items_processed.saturating_add(1);
 
 				// Only process healthy vaults that are stale.
 				if vault.status == VaultStatus::Healthy {
 					let time_since = current_timestamp.saturating_sub(vault.last_fee_update);
 					if time_since >= stale_threshold {
-						Self::update_vault_fees(&mut vault, &owner, Some(current_timestamp));
+						if let Err(e) =
+							Self::update_vault_fees(&mut vault, &owner, Some(current_timestamp))
+						{
+							log::warn!(
+								target: LOG_TARGET,
+								"on_idle: failed to update vault fees for {:?}: {:?}",
+								owner,
+								e
+							);
+							// Skip this vault; will retry next time
+							continue;
+						}
 						log::debug!(
 							target: LOG_TARGET,
 							"on_idle: updated stale vault fees for {:?}, time_since={:?}ms",
@@ -749,7 +813,7 @@ pub mod pallet {
 			}
 
 			// Update cursor based on how we exited
-			if stopped_for_weight {
+			if stopped_early {
 				if let Some(last) = last_processed {
 					OnIdleCursor::<T>::put(last);
 				}
@@ -789,9 +853,9 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_vault())]
 		pub fn create_vault(origin: OriginFor<T>, initial_deposit: BalanceOf<T>) -> DispatchResult {
-			ensure!(initial_deposit >= T::MinimumDeposit::get(), Error::<T>::BelowMinimumDeposit);
-
 			let who = ensure_signed(origin)?;
+
+			ensure!(initial_deposit >= T::MinimumDeposit::get(), Error::<T>::BelowMinimumDeposit);
 
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				ensure!(maybe_vault.is_none(), Error::<T>::VaultAlreadyExists);
@@ -828,7 +892,7 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::CollateralDeposited`]: Emitted when collateral is successfully deposited.
-		/// - [`Event::InterestUpdated`]: Emitted if stability fees were accrued.
+		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::deposit_collateral())]
 		pub fn deposit_collateral(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
@@ -839,7 +903,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &who, None);
+				Self::update_vault_fees(vault, &who, None)?;
 
 				T::Currency::hold(&HoldReason::VaultDeposit.into(), &who, amount)?;
 
@@ -878,7 +942,7 @@ pub mod pallet {
 		/// - [`Event::CollateralWithdrawn`]: Emitted when collateral is released.
 		/// - [`Event::VaultClosed`]: Emitted if the vault is auto-closed (zero collateral, zero
 		///   debt).
-		/// - [`Event::InterestUpdated`]: Emitted if stability fees were accrued.
+		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::withdraw_collateral())]
 		pub fn withdraw_collateral(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
@@ -889,39 +953,33 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &who, None);
+				Self::update_vault_fees(vault, &who, None)?;
 
 				let available = vault.get_held_collateral(&who);
 				ensure!(available >= amount, Error::<T>::InsufficientCollateral);
 
 				let remaining_collateral = available.saturating_sub(amount);
-				// Prevent dust vaults: if any collateral remains, it must meet MinimumDeposit.
-				// Withdrawing all collateral (when debt == 0) auto-closes the vault.
-				if !remaining_collateral.is_zero() {
+
+				if remaining_collateral.is_zero() {
+					// Withdrawing all collateral (when debt == 0) auto-closes the vault.
+					Self::do_close_vault(vault, &who)?;
+					*maybe_vault = None;
+				} else {
+					// Prevent dust vaults: remaining collateral must meet MinimumDeposit.
 					ensure!(
 						remaining_collateral >= T::MinimumDeposit::get(),
 						Error::<T>::BelowMinimumDeposit
 					);
-				}
 
-				if remaining_collateral.is_zero() {
-					Self::do_close_vault(vault, &who)?;
-					*maybe_vault = None;
-				} else {
 					// Partial withdrawal: check CR if there's debt
-					let total_obligation = vault
-						.principal
-						.checked_add(&vault.accrued_interest)
-						.ok_or(Error::<T>::ArithmeticOverflow)?;
+					let total_obligation = vault.total_debt()?;
 
 					if !total_obligation.is_zero() {
 						// CR = remaining_collateral × Price / (Principal + AccruedInterest)
-
 						let ratio = Self::calculate_collateralization_ratio(
 							remaining_collateral,
 							total_obligation,
-						)?
-						.ok_or(Error::<T>::ArithmeticOverflow)?;
+						)?;
 						let initial_ratio = InitialCollateralizationRatio::<T>::get();
 						ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 					}
@@ -952,7 +1010,7 @@ pub mod pallet {
 		/// stability fees are updated first. The vault must maintain the
 		/// [`InitialCollateralizationRatio`] to create a safety buffer
 		/// preventing immediate liquidation after minting. The total system debt cannot
-		/// exceed [`MaximumIssuance`].
+		/// exceed [`MaximumIssuance`], and the vault's debt cannot exceed [`MaxPositionAmount`].
 		///
 		/// ## Errors
 		///
@@ -960,6 +1018,7 @@ pub mod pallet {
 		/// - [`Error::VaultInLiquidation`]: If the vault is currently being liquidated.
 		/// - [`Error::BelowMinimumMint`]: If `amount` is below [`Config::MinimumMint`].
 		/// - [`Error::ExceedsMaxDebt`]: If minting would exceed the system debt ceiling.
+		/// - [`Error::ExceedsMaxPositionAmount`]: If minting would exceed max single vault debt.
 		/// - [`Error::UnsafeCollateralizationRatio`]: If minting would breach initial ratio.
 		/// - [`Error::PriceNotAvailable`]: If the oracle price is unavailable.
 		/// - [`Error::OracleStale`]: If the oracle price is too old.
@@ -967,7 +1026,7 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::Minted`]: Emitted when pUSD is successfully minted.
-		/// - [`Event::InterestUpdated`]: Emitted if stability fees were accrued.
+		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::mint())]
 		pub fn mint(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
@@ -980,7 +1039,7 @@ pub mod pallet {
 
 				ensure!(amount >= T::MinimumMint::get(), Error::<T>::BelowMinimumMint);
 
-				Self::update_vault_fees(vault, &who, None);
+				Self::update_vault_fees(vault, &who, None)?;
 
 				let new_principal =
 					vault.principal.checked_add(&amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -993,12 +1052,17 @@ pub mod pallet {
 					Error::<T>::ExceedsMaxDebt
 				);
 
+				// Check vault's resulting debt does not exceed MaxPositionAmount
+				ensure!(
+					new_principal <= MaxPositionAmount::<T>::get(),
+					Error::<T>::ExceedsMaxPositionAmount
+				);
+
 				vault.principal = new_principal;
 
 				// Check collateralization ratio (CR). Use InitialCollateralizationRatio for minting
 				// to create safety buffer.
-				let ratio = Self::get_collateralization_ratio(vault, &who)?
-					.ok_or(Error::<T>::ArithmeticOverflow)?;
+				let ratio = Self::get_collateralization_ratio(vault, &who)?;
 				let initial_ratio = InitialCollateralizationRatio::<T>::get();
 				ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
@@ -1017,10 +1081,11 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// Reduces vault debt by burning pUSD from the caller. Payment is applied in order:
-		/// accrued interest first (transferred to [`Config::InsuranceFund`]), then principal
-		/// (burned). Any accrued stability fees are updated before repayment is processed.
-		/// If `amount` exceeds total obligation, the excess is reported but not consumed.
+		/// Reduces vault debt by burning pUSD from the caller. Any accrued stability fees are
+		/// updated before repayment is processed. Payment is applied in order: accrued interest
+		/// first, then principal (both burned). The Insurance Fund already received the interest
+		/// when it was minted during fee accrual. If `amount` exceeds total obligation, the
+		/// excess is reported but not consumed.
 		///
 		/// ## Errors
 		///
@@ -1029,7 +1094,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// - [`Event::InterestUpdated`]: Emitted for interest payment to InsuranceFund.
+		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued before repayment.
 		/// - [`Event::Repaid`]: Emitted for principal portion burned.
 		/// - [`Event::ReturnedExcess`]: Emitted if `amount` exceeded total obligation.
 		#[pallet::call_index(4)]
@@ -1042,7 +1107,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &who, None);
+				Self::update_vault_fees(vault, &who, None)?;
 
 				// Payment order: interest first, then principal
 				// 1. Calculate how much interest to pay (capped by available amount)
@@ -1055,19 +1120,22 @@ pub mod pallet {
 				// 3. Calculate true excess (unused after interest + principal)
 				let true_excess = remaining_after_interest.saturating_sub(principal_to_pay);
 
-				// Transfer interest to InsuranceFund first
+				// Burn interest pUSD from payer.
+				// Note: The Insurance Fund already received this pUSD when it was minted
+				// during fee accrual (mint-on-accrual model). Burning here reduces supply.
 				if !interest_to_pay.is_zero() {
-					T::Asset::transfer(
+					T::Asset::burn_from(
 						T::StablecoinAssetId::get(),
 						&who,
-						&T::InsuranceFund::get(),
 						interest_to_pay,
 						Preservation::Expendable,
+						Precision::Exact,
+						Fortitude::Force,
 					)?;
 					vault.accrued_interest = vault.accrued_interest.saturating_sub(interest_to_pay);
 				}
 
-				// Burn pUSD for principal repayment
+				// Burn principal pUSD from payer
 				if !principal_to_pay.is_zero() {
 					T::Asset::burn_from(
 						T::StablecoinAssetId::get(),
@@ -1078,16 +1146,6 @@ pub mod pallet {
 						Fortitude::Force,
 					)?;
 					vault.principal = vault.principal.saturating_sub(principal_to_pay);
-				}
-
-				if !interest_to_pay.is_zero() {
-					Self::deposit_event(Event::InterestUpdated {
-						owner: who.clone(),
-						amount: interest_to_pay,
-					})
-				};
-
-				if !principal_to_pay.is_zero() {
 					Self::deposit_event(Event::Repaid {
 						owner: who.clone(),
 						amount: principal_to_pay,
@@ -1140,7 +1198,7 @@ pub mod pallet {
 		/// - [`Event::LiquidationPenaltyAdded`]: Emitted with the calculated penalty amount.
 		/// - [`Event::InLiquidation`]: Emitted when the vault enters liquidation state.
 		/// - [`Event::AuctionStarted`]: Emitted with auction details.
-		/// - [`Event::InterestUpdated`]: Emitted if stability fees were accrued.
+		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::liquidate_vault())]
 		pub fn liquidate_vault(origin: OriginFor<T>, vault_owner: T::AccountId) -> DispatchResult {
@@ -1151,7 +1209,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &vault_owner, None);
+				Self::update_vault_fees(vault, &vault_owner, None)?;
 
 				let principal = vault.principal;
 				let accrued_interest = vault.accrued_interest;
@@ -1165,8 +1223,7 @@ pub mod pallet {
 				// A vault with no debt is always safe
 				ensure!(!total_obligation.is_zero(), Error::<T>::VaultIsSafe);
 				let ratio =
-					Self::calculate_collateralization_ratio(collateral_seized, total_obligation)?
-						.ok_or(Error::<T>::ArithmeticOverflow)?;
+					Self::calculate_collateralization_ratio(collateral_seized, total_obligation)?;
 				let min_ratio = MinimumCollateralizationRatio::<T>::get();
 				ensure!(ratio < min_ratio, Error::<T>::VaultIsSafe);
 
@@ -1179,11 +1236,12 @@ pub mod pallet {
 					.checked_add(&penalty_pusd)
 					.ok_or(Error::<T>::ArithmeticOverflow)?;
 
-				// Check if liquidation would exceed hard limit
+				// Check if liquidation would exceed hard limit.
+				// Track only principal - interest/penalty are protocol revenue, not solvency risk.
 				let current_liquidation = CurrentLiquidationAmount::<T>::get();
 				let max_liquidation = MaxLiquidationAmount::<T>::get();
 				let new_liquidation_amount = current_liquidation
-					.checked_add(&total_debt)
+					.checked_add(&principal)
 					.ok_or(Error::<T>::ArithmeticOverflow)?;
 				ensure!(
 					new_liquidation_amount <= max_liquidation,
@@ -1214,14 +1272,11 @@ pub mod pallet {
 				T::Currency::hold(&HoldReason::Seized.into(), &vault_owner, collateral_seized)?;
 
 				// Start the auction - collateral (native DOT) is held with Seized reason
-				// Pass separate Tab components: principal, accrued_interest, penalty
 				let auction_id = T::AuctionsHandler::start_auction(
-					&vault_owner,
+					vault_owner.clone(),
 					collateral_seized,
-					principal,
-					accrued_interest,
-					penalty_pusd,
-					&keeper,
+					DebtComponents::new(principal, accrued_interest, penalty_pusd),
+					keeper.clone(),
 				)?;
 
 				// Mark vault as in liquidation (will be removed when auction completes)
@@ -1274,7 +1329,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// - [`Event::InterestUpdated`]: Emitted if accrued interest was paid.
+		/// - [`Event::InterestAccrued`]: Emitted if accrued interest was paid.
 		/// - [`Event::CollateralWithdrawn`]: Emitted when collateral is released.
 		/// - [`Event::VaultClosed`]: Emitted when the vault is removed.
 		#[pallet::call_index(6)]
@@ -1287,7 +1342,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &who, None);
+				Self::update_vault_fees(vault, &who, None)?;
 				Self::do_close_vault(vault, &who)?;
 				*maybe_vault = None;
 
@@ -1306,10 +1361,13 @@ pub mod pallet {
 		///
 		/// Sets the [`MinimumCollateralizationRatio`] below which vaults become eligible
 		/// for liquidation. The ratio is expressed as [`FixedU128`] (e.g., 1.8 for 180%).
+		/// The new ratio cannot exceed [`InitialCollateralizationRatio`] to maintain the
+		/// safety buffer that prevents immediate liquidation after minting.
 		///
 		/// ## Errors
 		///
 		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		/// - [`Error::InitialRatioMustExceedMinimum`]: If ratio exceeds initial ratio.
 		///
 		/// ## Events
 		///
@@ -1322,6 +1380,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			// Minimum ratio cannot exceed initial ratio (would allow immediate-liquidation mints)
+			let initial_ratio = InitialCollateralizationRatio::<T>::get();
+			ensure!(ratio <= initial_ratio, Error::<T>::InitialRatioMustExceedMinimum);
 			let old_value = MinimumCollateralizationRatio::<T>::get();
 			MinimumCollateralizationRatio::<T>::put(ratio);
 			Self::deposit_event(Event::MinimumCollateralizationRatioUpdated {
@@ -1516,6 +1577,40 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set the maximum pUSD debt that a single vault can have.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`MaxPositionAmount`] which limits the maximum debt a single vault
+		/// can accumulate. Should be well below [`MaxLiquidationAmount`] to ensure
+		/// liquidations proceed smoothly without backlog.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MaxPositionAmountUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::set_max_position_amount())]
+		pub fn set_max_position_amount(
+			origin: OriginFor<T>,
+			new_value: BalanceOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			let old_value = MaxPositionAmount::<T>::get();
+			MaxPositionAmount::<T>::put(new_value);
+			Self::deposit_event(Event::MaxPositionAmountUpdated { old_value, new_value });
+			Ok(())
+		}
+
 		/// Force fee accrual on any vault.
 		///
 		/// ## Dispatch Origin
@@ -1536,7 +1631,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// - [`Event::InterestUpdated`]: Emitted if interest was accrued.
+		/// - [`Event::InterestAccrued`]: Emitted if interest was accrued.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::poke())]
 		pub fn poke(origin: OriginFor<T>, vault_owner: T::AccountId) -> DispatchResult {
@@ -1547,7 +1642,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				Self::update_vault_fees(vault, &vault_owner, None);
+				Self::update_vault_fees(vault, &vault_owner, None)?;
 
 				Ok(())
 			})
@@ -1577,7 +1672,7 @@ pub mod pallet {
 		/// - [`Event::MaximumIssuanceUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::set_maximum_issuance())]
-		pub fn set_maximum_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		pub fn set_max_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			let old_value = MaximumIssuance::<T>::get();
 
@@ -1595,24 +1690,29 @@ pub mod pallet {
 	// Implement CollateralManager for the Vaults pallet
 	impl<T: Config> CollateralManager<T::AccountId> for Pallet<T> {
 		type Balance = BalanceOf<T>;
-		/// Get current collateral price from oracle.
-		/// Returns `None` if the price is unavailable or zero.
+
 		fn get_dot_price() -> Option<FixedU128> {
 			T::Oracle::get_price(&T::CollateralLocation::get())
 				.map(|(price, _timestamp)| price)
 				.filter(|p| !p.is_zero())
 		}
 
-		fn execute_purchase(params: PurchaseParams<T::AccountId, BalanceOf<T>>) -> DispatchResult {
-			let PurchaseParams { vault_owner, buyer, recipient, collateral_amount, payment } =
-				params;
+		fn execute_purchase(
+			buyer: &T::AccountId,
+			collateral_amount: BalanceOf<T>,
+			payment: PaymentBreakdown<BalanceOf<T>>,
+			recipient: &T::AccountId,
+			vault_owner: &T::AccountId,
+		) -> DispatchResult {
+			let burn_amount = payment.burn();
+			let insurance_fund_amount = payment.insurance_fund();
 
 			// 1. Burn principal + interest pUSD from buyer
-			if !payment.burn.is_zero() {
+			if !burn_amount.is_zero() {
 				T::Asset::burn_from(
 					T::StablecoinAssetId::get(),
-					&buyer,
-					payment.burn,
+					buyer,
+					burn_amount,
 					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Force,
@@ -1621,56 +1721,46 @@ pub mod pallet {
 
 			// 2. Transfer penalty to Insurance Fund (includes keeper's share temporarily)
 			// Keeper will be paid from IF at auction completion.
-			if !payment.insurance_fund.is_zero() {
+			if !insurance_fund_amount.is_zero() {
 				T::Asset::transfer(
 					T::StablecoinAssetId::get(),
-					&buyer,
+					buyer,
 					&T::InsuranceFund::get(),
-					payment.insurance_fund,
+					insurance_fund_amount,
 					Preservation::Expendable,
 				)?;
 			}
 
-			// 3.Release collateral from Seized hold and transfer to recipient
+			// 3. Release collateral from Seized hold and transfer to recipient
 			if vault_owner != recipient {
-				// Atomic: release from hold and transfer to recipient in one operation
 				T::Currency::transfer_on_hold(
 					&HoldReason::Seized.into(),
-					&vault_owner,
-					&recipient,
+					vault_owner,
+					recipient,
 					collateral_amount,
 					Precision::Exact,
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
 			} else {
-				// Just release back to vault_owner
 				T::Currency::release(
 					&HoldReason::Seized.into(),
-					&vault_owner,
+					vault_owner,
 					collateral_amount,
 					Precision::Exact,
 				)?;
 			}
 
-			// Reduce CurrentLiquidationAmount as debt is collected
-			let total_collected = payment.burn.saturating_add(payment.insurance_fund);
+			// Reduce CurrentLiquidationAmount by principal paid (tracks solvency risk only)
 			CurrentLiquidationAmount::<T>::mutate(|current| {
-				*current = current.saturating_sub(total_collected);
+				*current = current.saturating_sub(payment.principal_paid);
 			});
 
-			Self::deposit_event(Event::AuctionDebtCollected { amount: total_collected });
+			Self::deposit_event(Event::AuctionDebtCollected { amount: payment.total() });
 
 			Ok(())
 		}
 
-		/// Complete an auction: pay keeper, return excess collateral, record any shortfall.
-		///
-		/// This function handles the end-of-auction operations:
-		/// - Pays keeper incentive from Insurance Fund
-		/// - Returns remaining collateral to vault owner (if any)
-		/// - Records shortfall as bad debt (if any)
-		/// - Removes the vault from storage
 		fn complete_auction(
 			vault_owner: &T::AccountId,
 			remaining_collateral: BalanceOf<T>,
@@ -1678,7 +1768,7 @@ pub mod pallet {
 			keeper: &T::AccountId,
 			keeper_incentive: BalanceOf<T>,
 		) -> DispatchResult {
-			// Pay keeper incentive from Insurance Fund (funded by penalty collected during takes)
+			// Pay keeper incentive from Insurance Fund
 			if !keeper_incentive.is_zero() {
 				T::Asset::transfer(
 					T::StablecoinAssetId::get(),
@@ -1691,7 +1781,6 @@ pub mod pallet {
 
 			// Return excess collateral to vault owner
 			if !remaining_collateral.is_zero() {
-				// Release from Seized hold - collateral goes back to vault owner
 				T::Currency::release(
 					&HoldReason::Seized.into(),
 					vault_owner,
@@ -1702,12 +1791,10 @@ pub mod pallet {
 
 			// Record shortfall as bad debt
 			if !shortfall.is_zero() {
-				// Reduce CurrentLiquidationAmount by shortfall (was never collected)
 				CurrentLiquidationAmount::<T>::mutate(|current| {
 					*current = current.saturating_sub(shortfall);
 				});
 
-				// Record as bad debt
 				BadDebt::<T>::mutate(|bad_debt| {
 					bad_debt.saturating_accrue(shortfall);
 				});
@@ -1748,16 +1835,11 @@ pub mod pallet {
 			T::Asset::total_issuance(T::StablecoinAssetId::get())
 		}
 
-		/// Execute a surplus auction purchase: buyer sends DOT, receives pUSD from IF.
-		///
-		/// Called during `take()` for surplus auctions. This function:
-		/// 1. Transfers `pusd_amount` pUSD from the Insurance Fund to the recipient
-		/// 2. Transfers `dot_amount` DOT from the buyer to the Treasury
 		fn execute_surplus_purchase(
 			buyer: &T::AccountId,
 			recipient: &T::AccountId,
 			pusd_amount: BalanceOf<T>,
-			dot_amount: BalanceOf<T>,
+			collateral_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			// 1. Transfer pUSD from Insurance Fund to recipient
 			if !pusd_amount.is_zero() {
@@ -1770,15 +1852,38 @@ pub mod pallet {
 				)?;
 			}
 
-			// 2. Transfer DOT from buyer to Treasury
-			if !dot_amount.is_zero() {
-				T::Currency::transfer(
+			// 2. Withdraw collateral from buyer and let FeeHandler decide what to do with it
+			if !collateral_amount.is_zero() {
+				let credit = T::Currency::withdraw(
 					buyer,
-					&T::Treasury::get(),
-					dot_amount,
+					collateral_amount,
+					Precision::Exact,
 					Preservation::Preserve,
+					Fortitude::Polite,
 				)?;
+				T::FeeHandler::on_unbalanced(credit);
 			}
+
+			Ok(())
+		}
+
+		/// Transfer surplus pUSD from Insurance Fund via SurplusHandler.
+		///
+		/// Used in DirectTransfer mode to send surplus directly to the configured
+		/// destination (typically Treasury) without going through an auction.
+		fn transfer_surplus(amount: BalanceOf<T>) -> DispatchResult {
+			// Withdraw pUSD from Insurance Fund creating a credit
+			let credit = T::Asset::withdraw(
+				T::StablecoinAssetId::get(),
+				&T::InsuranceFund::get(),
+				amount,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			)?;
+
+			// Let the SurplusHandler decide where to send it
+			T::SurplusHandler::on_unbalanced(credit);
 
 			Ok(())
 		}
@@ -1832,12 +1937,13 @@ pub mod pallet {
 		/// ```
 		///
 		/// Returns the ratio as FixedU128 (e.g., 150% = 1.5).
-		pub fn calculate_collateralization_ratio(
+		/// If debt is zero, returns `FixedU128::max_value()` (infinite CR = healthy).
+		pub(crate) fn calculate_collateralization_ratio(
 			collateral: BalanceOf<T>,
 			debt: BalanceOf<T>,
-		) -> Result<Option<FixedU128>, DispatchError> {
+		) -> Result<FixedU128, DispatchError> {
 			if debt.is_zero() {
-				return Ok(None);
+				return Ok(FixedU128::max_value());
 			}
 
 			// Get fresh normalized price.
@@ -1849,7 +1955,7 @@ pub mod pallet {
 			// Calculate ratio: collateral_value / debt (both in stablecoin smallest units)
 			let ratio = FixedU128::saturating_from_rational(collateral_value, debt);
 
-			Ok(Some(ratio))
+			Ok(ratio)
 		}
 
 		/// Get the collateralization ratio for a vault.
@@ -1860,16 +1966,13 @@ pub mod pallet {
 		/// collateralization_ratio = collateral × price / debt
 		/// ```
 		///
-		/// Returns `Ok(None)` if the vault has no principal and no accrued interest.
-		pub fn get_collateralization_ratio(
+		/// Returns `FixedU128::max_value()` if the vault has no debt (infinite CR = healthy).
+		pub(crate) fn get_collateralization_ratio(
 			vault: &Vault<T>,
 			who: &T::AccountId,
-		) -> Result<Option<FixedU128>, DispatchError> {
+		) -> Result<FixedU128, DispatchError> {
 			let held_collateral = vault.get_held_collateral(who);
-			let total_debt = vault
-				.principal
-				.checked_add(&vault.accrued_interest)
-				.ok_or(Error::<T>::ArithmeticOverflow)?;
+			let total_debt = vault.total_debt()?;
 			Self::calculate_collateralization_ratio(held_collateral, total_debt)
 		}
 
@@ -1908,22 +2011,28 @@ pub mod pallet {
 
 		/// Update the accrued interest for a vault based on elapsed time.
 		///
-		/// Calculates interest in pUSD and adds it to the vault's accrued_interest.
+		/// Calculates interest in pUSD, mints it to the Insurance Fund, and adds
+		/// the amount to the vault's accrued_interest. This "mint-on-accrual" model
+		/// ensures total pUSD supply reflects all outstanding obligations.
+		///
 		/// Uses actual timestamps for accurate time-based interest calculation.
-		/// Emits an `InterestUpdated` event if interest was accrued.
+		/// Emits an `InterestAccrued` event if interest was accrued.
 		///
 		/// # Parameters
 		/// - `vault`: The vault to update
 		/// - `who`: The vault owner (for event emission)
 		/// - `now`: Optional timestamp; if `None`, fetches current time
-		pub fn update_vault_fees(
+		///
+		/// # Errors
+		/// Returns an error if minting to the Insurance Fund fails.
+		pub(crate) fn update_vault_fees(
 			vault: &mut Vault<T>,
 			who: &T::AccountId,
 			now: Option<MomentOf<T>>,
-		) {
+		) -> DispatchResult {
 			let now = now.unwrap_or_else(T::TimeProvider::now);
 			if now <= vault.last_fee_update {
-				return;
+				return Ok(());
 			}
 
 			let millis_elapsed = now.saturating_sub(vault.last_fee_update);
@@ -1936,12 +2045,22 @@ pub mod pallet {
 			);
 			let accrued = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
 
+			if !accrued.is_zero() {
+				T::Asset::mint_into(
+					T::StablecoinAssetId::get(),
+					&T::InsuranceFund::get(),
+					accrued,
+				)?;
+			}
+
 			vault.accrued_interest.saturating_accrue(accrued);
 			vault.last_fee_update = now;
 
 			if !accrued.is_zero() {
-				Self::deposit_event(Event::InterestUpdated { owner: who.clone(), amount: accrued });
+				Self::deposit_event(Event::InterestAccrued { owner: who.clone(), amount: accrued });
 			}
+
+			Ok(())
 		}
 
 		/// Base weight for `on_idle` overhead.
@@ -1949,7 +2068,7 @@ pub mod pallet {
 		/// Includes:
 		/// - Reading the cursor (1 read)
 		/// - Writing cursor update (1 write, worst case)
-		pub fn on_idle_base_weight() -> Weight {
+		pub(crate) fn on_idle_base_weight() -> Weight {
 			T::DbWeight::get().reads_writes(1, 1)
 		}
 
@@ -1957,7 +2076,7 @@ pub mod pallet {
 		///
 		/// This is derived from the `on_idle_one_vault` benchmark which measures
 		/// the worst case: a stale vault with debt requiring fee calculation.
-		pub fn on_idle_per_vault_weight() -> Weight {
+		pub(crate) fn on_idle_per_vault_weight() -> Weight {
 			T::WeightInfo::on_idle_one_vault().saturating_sub(Self::on_idle_base_weight())
 		}
 
@@ -1968,7 +2087,7 @@ pub mod pallet {
 		/// # Errors
 		/// - `PriceNotAvailable`: Oracle returned None or zero price
 		/// - `OracleStale`: Price timestamp is older than `OracleStalenessThreshold`
-		pub fn get_fresh_price() -> Result<FixedU128, DispatchError> {
+		pub(crate) fn get_fresh_price() -> Result<FixedU128, DispatchError> {
 			let (price, price_timestamp) = T::Oracle::get_price(&T::CollateralLocation::get())
 				.filter(|(p, _)| !p.is_zero())
 				.ok_or(Error::<T>::PriceNotAvailable)?;
@@ -1990,7 +2109,7 @@ pub mod pallet {
 		/// By using `inc_providers`, the account can receive any amount including
 		/// those below the existential deposit (ED), preventing potential issues
 		/// where transfers to the Insurance Fund could fail if it was reaped.
-		pub fn ensure_insurance_fund_exists() {
+		pub(crate) fn ensure_insurance_fund_exists() {
 			let insurance_fund = T::InsuranceFund::get();
 			if !frame_system::Pallet::<T>::account_exists(&insurance_fund) {
 				frame_system::Pallet::<T>::inc_providers(&insurance_fund);

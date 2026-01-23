@@ -18,8 +18,12 @@
 use crate::{AuctionsHandler, Location, ProvidePrice};
 pub use frame_support::weights::Weight;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU128, EnsureOrigin, Hooks, Time},
+	derive_impl, parameter_types,
+	traits::{
+		fungibles::{Balanced as FungiblesBalanced, Credit as FungiblesCredit},
+		tokens::imbalance::{OnUnbalanced, ResolveTo},
+		AsEnsureOriginWithArg, ConstU128, EnsureOrigin, Hooks, Time,
+	},
 };
 use frame_system::{EnsureRoot, EnsureSigned, GenesisConfig, RawOrigin};
 use sp_io::TestExternalities as TestState;
@@ -34,7 +38,6 @@ pub const ALICE: u64 = 1;
 pub const BOB: u64 = 2;
 pub const CHARLIE: u64 = 3;
 pub const INSURANCE_FUND: u64 = 100;
-pub const TREASURY: u64 = 101;
 
 pub const STABLECOIN_ASSET_ID: u32 = 1; // pUSD
 
@@ -125,10 +128,9 @@ impl MockOracle {
 }
 
 impl ProvidePrice for MockOracle {
-	type Price = FixedU128;
 	type Moment = u64;
 
-	fn get_price(_asset: &Location) -> Option<(Self::Price, Self::Moment)> {
+	fn get_price(_asset: &Location) -> Option<(FixedU128, Self::Moment)> {
 		// For testing, we return the same price regardless of asset
 		// In production, this would look up the price for the specific asset
 		MOCK_RAW_PRICE.with(|p| {
@@ -147,14 +149,11 @@ pub struct MockAuctions;
 
 impl AuctionsHandler<u64, u128> for MockAuctions {
 	fn start_auction(
-		_vault_owner: &u64,
+		_vault_owner: u64,
 		_collateral_amount: u128,
-		_principal: u128,
-		_accrued_interest: u128,
-		_penalty: u128,
-		_keeper: &u64,
+		_debt: sp_pusd::DebtComponents<u128>,
+		_keeper: u64,
 	) -> Result<u32, DispatchError> {
-		// Return a new auction ID for testing
 		let auction_id = MOCK_AUCTION_ID.with(|id| {
 			let mut id = id.borrow_mut();
 			*id += 1;
@@ -165,20 +164,35 @@ impl AuctionsHandler<u64, u128> for MockAuctions {
 }
 
 // Configure a mock runtime to test the pallet.
-construct_runtime!(
-	pub enum Test {
-		System: frame_system,
-		Balances: pallet_balances,
-		Assets: pallet_assets,
-		Vaults: crate,
-	}
-);
+#[frame_support::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Test;
 
-type Block = frame_system::mocking::MockBlock<Test>;
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(2)]
+	pub type Assets = pallet_assets;
+	#[runtime::pallet_index(3)]
+	pub type Vaults = crate;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type Block = Block;
+	type Block = frame_system::mocking::MockBlock<Test>;
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
@@ -206,9 +220,25 @@ const DOT_UNIT: u128 = 10u128.pow(COLLATERAL_DECIMALS);
 // pUSD unit (6 decimals)
 const PUSD_UNIT: u128 = 1_000_000;
 
+/// FeeHandler account for surplus auction DOT proceeds
+pub const FEE_HANDLER: u64 = 101;
+
+/// Treasury account for surplus pUSD transfers
+pub const TREASURY: u64 = 102;
+
+/// Handler for surplus pUSD credits - deposits to Treasury account.
+pub struct SurplusPusdToTreasury;
+
+impl OnUnbalanced<FungiblesCredit<u64, Assets>> for SurplusPusdToTreasury {
+	fn on_nonzero_unbalanced(credit: FungiblesCredit<u64, Assets>) {
+		let _ = Assets::resolve(&TREASURY, credit);
+	}
+}
+
 parameter_types! {
 	pub const StablecoinAssetId: u32 = STABLECOIN_ASSET_ID;
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
+	pub const FeeHandlerAccount: u64 = FEE_HANDLER;
 	pub const TreasuryAccount: u64 = TREASURY;
 	pub const MinimumDeposit: u128 = 100 * DOT_UNIT;
 	/// Minimum mint: 5 pUSD (6 decimals)
@@ -217,6 +247,8 @@ parameter_types! {
 	pub const StaleVaultThreshold: u64 = 14_400_000;
 	/// Oracle staleness threshold: 1 hour = 3,600,000 ms
 	pub const OracleStalenessThreshold: u64 = 3_600_000;
+	/// Max items to process in on_idle (unlimited for tests)
+	pub const MaxOnIdleItems: u32 = u32::MAX;
 	// DOT from AH perspective is at Location::here()
 	pub CollateralLocation: Location = Location::here();
 }
@@ -247,7 +279,7 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureVaultsManagerMock {
 	}
 }
 
-/// Benchmark helper for mock tests.
+/// BenchmarkHelper implementation for tests.
 #[cfg(feature = "runtime-benchmarks")]
 pub struct MockBenchmarkHelper;
 
@@ -255,26 +287,41 @@ pub struct MockBenchmarkHelper;
 impl crate::BenchmarkHelper<u64, u32, u128> for MockBenchmarkHelper {
 	fn fund_account(account: &u64, amount: u128) {
 		use frame_support::traits::fungible::Mutate;
-		let _ = <Balances as Mutate<u64>>::set_balance(account, amount);
+		let _ = Balances::set_balance(account, amount);
 	}
 
-	fn create_stablecoin_asset(_asset_id: u32) {
-		// Asset is created in genesis for tests, nothing to do
+	fn create_stablecoin_asset(asset_id: u32) {
+		// Asset may already exist from genesis, ignore error
+		let _ = Assets::create(RawOrigin::Signed(ALICE).into(), asset_id, ALICE, 1);
 	}
 
 	fn mint_stablecoin_to(asset_id: u32, account: &u64, amount: u128) {
 		use frame_support::traits::fungibles::Mutate;
-		let _ = <Assets as Mutate<u64>>::mint_into(asset_id, account, amount);
-	}
-
-	fn set_price(price: FixedU128) {
-		set_mock_price(Some(price));
+		let _ = Assets::mint_into(asset_id, account, amount);
 	}
 
 	fn advance_time(millis: u64) {
-		advance_timestamp(millis);
-		let current_time = MockTimestamp::get();
-		set_mock_price_timestamp(current_time);
+		let current = MockTimestamp::get();
+		MockTimestamp::set_timestamp(current + millis);
+		// Keep oracle price fresh
+		set_mock_price_timestamp(current + millis);
+	}
+
+	fn set_price(price: FixedU128) {
+		// Convert from normalized format back to raw price for set_mock_price
+		// The set_mock_price function expects raw USD price (e.g., 4.21 for $4.21/DOT)
+		// But BenchmarkHelper::set_price receives normalized format
+		// We store it directly since MockOracle will normalize it anyway
+		MOCK_RAW_PRICE.with(|p| {
+			// Convert normalized price back to raw USD price
+			// normalized = raw × 10^6 / 10^10 = raw × 10^-4
+			// raw = normalized × 10^4 = normalized × 10000
+			let raw_price = price.saturating_mul(FixedU128::saturating_from_integer(10_000u128));
+			*p.borrow_mut() = Some(raw_price);
+		});
+		MOCK_PRICE_TIMESTAMP.with(|t| {
+			*t.borrow_mut() = MockTimestamp::get();
+		});
 	}
 }
 
@@ -286,16 +333,18 @@ impl crate::Config for Test {
 	type AssetId = u32;
 	type StablecoinAssetId = StablecoinAssetId;
 	type InsuranceFund = InsuranceFundAccount;
+	type FeeHandler = ResolveTo<FeeHandlerAccount, Balances>;
+	type SurplusHandler = SurplusPusdToTreasury;
 	type MinimumDeposit = MinimumDeposit;
 	type MinimumMint = MinimumMint;
 	type TimeProvider = MockTimestamp;
 	type StaleVaultThreshold = StaleVaultThreshold;
 	type OracleStalenessThreshold = OracleStalenessThreshold;
+	type MaxOnIdleItems = MaxOnIdleItems;
 	type Oracle = MockOracle;
 	type CollateralLocation = CollateralLocation;
 	type AuctionsHandler = MockAuctions;
 	type ManagerOrigin = EnsureVaultsManagerMock;
-	type Treasury = TreasuryAccount;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = MockBenchmarkHelper;
 }
@@ -328,9 +377,7 @@ pub fn new_test_ext() -> TestState {
 			// (asset_id, name, symbol, decimals)
 			(STABLECOIN_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
 		],
-		accounts: vec![],
-		next_asset_id: None,
-		reserves: vec![],
+		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
@@ -349,6 +396,8 @@ pub fn new_test_ext() -> TestState {
 		maximum_issuance: 20_000_000 * PUSD_UNIT,
 		// MaxLiquidationAmount: 20 million pUSD
 		max_liquidation_amount: 20_000_000 * PUSD_UNIT,
+		// MaxPositionAmount: 10 million pUSD
+		max_position_amount: 10_000_000 * PUSD_UNIT,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();
