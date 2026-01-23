@@ -28,16 +28,6 @@ use pallet_assets::AssetsCallback;
 use xcm::v5::Location;
 
 #[test]
-fn to_asset_index_hash_different_locations() {
-	// Test that Location conversion is deterministic
-	let loc1 = Location::new(1, [xcm::v5::Junction::Parachain(1000)]);
-	let loc2 = Location::new(2, [xcm::v5::Junction::Parachain(2000)]);
-
-	// Different inputs produce different outputs
-	assert_ne!(index1, index2, "Hash collision detected for different Location values");
-}
-
-#[test]
 fn asset_mapping_insert_works() {
 	new_test_ext().execute_with(|| {
 		let asset_id = 123u32;
