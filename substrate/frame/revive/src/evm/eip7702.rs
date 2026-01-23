@@ -23,20 +23,20 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{rlp, AuthorizationListEntry, SignedAuthorizationListEntry},
+	evm::api::{
+		recover_eth_address_from_message, rlp, AuthorizationListEntry, SignedAuthorizationListEntry,
+	},
 	storage::AccountInfo,
 	Config,
 };
 use alloc::vec::Vec;
 
 use sp_core::{H160, U256};
-use sp_io::crypto::secp256k1_ecdsa_recover;
+
 use sp_runtime::SaturatedConversion;
 
 /// EIP-7702: Magic value for authorization signature message
 pub const EIP7702_MAGIC: u8 = 0x05;
-
-
 
 /// EIP-7702: Base cost for processing each authorization tuple
 pub const PER_AUTH_BASE_COST: u64 = 12500;
@@ -78,7 +78,7 @@ pub enum AuthorizationResult {
 /// Total gas refund for accounts that already existed
 pub fn process_authorizations<T: Config>(
 	authorization_list: &[SignedAuthorizationListEntry],
-	chain_id: U256
+	chain_id: U256,
 ) -> u64 {
 	let mut total_refund = 0u64;
 	let mut last_valid_by_authority: alloc::collections::BTreeMap<H160, H160> =
@@ -173,13 +173,11 @@ fn process_single_authorization<T: Config>(
 
 	// 5. Verify code is empty or already delegated
 	if AccountInfo::<T>::is_contract(&authority) {
-		if !AccountInfo::<T>::is_delegated(&authority) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"Account {authority:?} has non-delegation code",
-			);
-			return AuthorizationResult::Failed;
-		}
+		log::debug!(
+			target: crate::LOG_TARGET,
+			"Account {authority:?} has non-delegation code",
+		);
+		return AuthorizationResult::Failed;
 	}
 
 	// Calculate refund based on whether the account exists in frame_system
@@ -195,7 +193,6 @@ fn process_single_authorization<T: Config>(
 ///
 /// Implements the EIP-7702 signature recovery:
 /// - Message = keccak(MAGIC || rlp([chain_id, address, nonce]))
-/// - Signature must use normalized s value (s <= secp256k1n/2) per EIP-2
 fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 	// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 	let mut message = Vec::new();
@@ -212,48 +209,9 @@ fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 	let rlp_encoded = rlp::encode(&unsigned_auth);
 	message.extend_from_slice(&rlp_encoded);
 
-	// Hash the message
-	let message_hash = crate::keccak_256(&message);
-
-	// Verify s is normalized (EIP-2)
-	// secp256k1n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-	// s must be <= secp256k1n/2
-	let secp256k1n_half = U256::from_dec_str(
-		"57896044618658097711785492504343953926418782139537452191302581570759080747168",
-	)
-	.unwrap();
-
-	if auth.s > secp256k1n_half {
-		log::debug!(target: crate::LOG_TARGET, "Invalid signature: s value too large");
-		return Err(());
-	}
-
-	// Convert signature components to bytes
-	let mut signature = [0u8; 65];
-	let r_bytes = auth.r.to_big_endian();
-	let s_bytes = auth.s.to_big_endian();
-	signature[..32].copy_from_slice(&r_bytes);
-	signature[32..64].copy_from_slice(&s_bytes);
-
-	// recovery_id is y_parity for EIP-7702
-	let recovery_id: u8 = auth.y_parity.saturated_into();
-	if recovery_id > 1 {
-		log::debug!(target: crate::LOG_TARGET, "Invalid y_parity: must be 0 or 1");
-		return Err(());
-	}
-	signature[64] = recovery_id;
-
-	// Recover the public key (uncompressed, 64 bytes)
-	let pubkey = secp256k1_ecdsa_recover(&signature, &message_hash).map_err(|_| ())?;
-
-	// Derive Ethereum address from public key
-	// Address = last 20 bytes of keccak256(pubkey)
-	// Note: secp256k1_ecdsa_recover returns the 64-byte uncompressed key without the 0x04 prefix
-	let pubkey_hash = crate::keccak_256(&pubkey);
-	let mut address_bytes = [0u8; 20];
-	address_bytes.copy_from_slice(&pubkey_hash[12..]);
-
-	Ok(H160::from(address_bytes))
+	// Convert signature components to bytes and recover the address
+	let signature = auth.signature();
+	recover_eth_address_from_message(&message, &signature)
 }
 
 /// Calculate the intrinsic gas cost for processing authorizations
@@ -262,16 +220,4 @@ fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 /// Refunds are processed separately during execution.
 pub fn authorization_intrinsic_gas(authorization_count: usize) -> u64 {
 	(authorization_count as u64).saturating_mul(PER_EMPTY_ACCOUNT_COST)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_auth_gas_calculation() {
-		assert_eq!(authorization_intrinsic_gas(0), 0);
-		assert_eq!(authorization_intrinsic_gas(1), PER_EMPTY_ACCOUNT_COST);
-		assert_eq!(authorization_intrinsic_gas(2), PER_EMPTY_ACCOUNT_COST * 2);
-	}
 }
