@@ -109,6 +109,8 @@ pub use self::{
 pub use alloc::vec::Vec;
 use sp_runtime::traits::BlockNumberProvider;
 
+const LOG_TARGET: &str = "runtime::referenda";
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -634,8 +636,12 @@ pub mod pallet {
 			}
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Killed { index, tally: status.tally });
-			Self::slash_deposit(Some(status.submission_deposit.clone()))?;
-			Self::slash_deposit(status.decision_deposit.clone())?;
+			let _ = Self::slash_deposit(Some(status.submission_deposit.clone())).inspect_err(|e| {
+				log::error!(target: LOG_TARGET, "Failed to slash submission deposit: {:?}", e);
+			});
+			let _ = Self::slash_deposit(status.decision_deposit.clone()).inspect_err(|e| {
+				log::error!(target: LOG_TARGET, "Failed to slash decision deposit: {:?}", e);
+			});
 			Self::do_clear_metadata(index);
 			let info = ReferendumInfo::Killed(T::BlockNumberProvider::current_block_number());
 			ReferendumInfoFor::<T, I>::insert(index, info);
