@@ -109,15 +109,6 @@ pub trait BlockPruningFilter: Send + Sync {
 	fn should_preserve(&self, justifications: &Justifications) -> bool;
 }
 
-impl<F> BlockPruningFilter for F
-where
-	F: Fn(&Justifications) -> bool + Send + Sync,
-{
-	fn should_preserve(&self, justifications: &Justifications) -> bool {
-		(self)(justifications)
-	}
-}
-
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.

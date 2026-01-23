@@ -157,7 +157,7 @@ use std::marker::PhantomData;
 /// Use this filter with `DatabaseSettings::block_pruning_filters` to ensure that blocks
 /// required for warp sync are not pruned. GRANDPA justifications at authority set change
 /// boundaries are needed to construct warp sync proofs.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone)]
 pub struct GrandpaBlockPruningFilter;
 
 impl sc_client_db::BlockPruningFilter for GrandpaBlockPruningFilter {
