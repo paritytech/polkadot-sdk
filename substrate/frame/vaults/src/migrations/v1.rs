@@ -56,10 +56,10 @@ pub trait InitialVaultsConfig<T: Config> {
 	/// Required when minting new debt. Must be >= minimum ratio.
 	fn initial_collateralization_ratio() -> FixedU128;
 
-	/// Annual stability fee as Permill (e.g., 5% = Permill::from_percent(5)).
+	/// Annual stability fee as Permill (e.g., 5% = `Permill::from_percent(5)`).
 	fn stability_fee() -> Permill;
 
-	/// Liquidation penalty as Permill (e.g., 13% = Permill::from_percent(13)).
+	/// Liquidation penalty as Permill (e.g., 13% = `Permill::from_percent(13)`).
 	fn liquidation_penalty() -> Permill;
 
 	/// Maximum total pUSD debt allowed in the system.

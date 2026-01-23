@@ -33,7 +33,7 @@
 //! ### Key Concepts
 //!
 //! * **[`Vault`]**: A per-account structure tracking collateralized debt. Each account can have at
-//!   most one vault. Stores principal, accrued_interest, status, and last_fee_update timestamp.
+//!   most one vault. Stores principal, `accrued_interest`, status, and `last_fee_update` timestamp.
 //!
 //! * **Collateral**: DOT held via [`MutateHold`](frame::traits::fungible::MutateHold) with the
 //!   [`HoldReason::VaultDeposit`] reason. The pallet does not transfer funds to a pallet account;
@@ -130,7 +130,7 @@
 //! ### Liquidation Limits
 //!
 //! [`MaxLiquidationAmount`] is a **hard limit** on pUSD at risk in active auctions.
-//! Liquidations are blocked when [`CurrentLiquidationAmount`] + new_debt >
+//! Liquidations are blocked when [`CurrentLiquidationAmount`] + `new_debt` >
 //! [`MaxLiquidationAmount`].
 //!
 //! ### Governance Model
@@ -204,7 +204,7 @@ pub trait ProvidePrice {
 	/// Get the current price and timestamp when it was last updated.
 	///
 	/// Returns `None` if the price is not available.
-	/// The tuple contains (price, last_update_timestamp).
+	/// The tuple contains (price, `last_update_timestamp`).
 	fn get_price(asset: &Location) -> Option<(FixedU128, Self::Moment)>;
 }
 
@@ -293,7 +293,7 @@ pub mod pallet {
 		InLiquidation,
 	}
 
-	/// Privilege level returned by ManagerOrigin.
+	/// Privilege level returned by `ManagerOrigin`.
 	///
 	/// This enables tiered authorization where different origins have different
 	/// capabilities for managing vault parameters.
@@ -301,11 +301,11 @@ pub mod pallet {
 		Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Copy, PartialEq, Eq, Debug, Default,
 	)]
 	pub enum VaultsManagerLevel {
-		/// Full administrative access via GeneralAdmin origin.
+		/// Full administrative access via `GeneralAdmin` origin.
 		/// Can modify all parameters, raise or lower debt ceiling.
 		#[default]
 		Full,
-		/// Emergency access via EmergencyAction origin.
+		/// Emergency access via `EmergencyAction` origin.
 		/// Can only lower the debt ceiling (defensive action).
 		Emergency,
 	}
@@ -320,7 +320,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency used for collateral (native DOT).
-		/// Collateral is managed via pallet_balances using holds.
+		/// Collateral is managed via `pallet_balances` using holds.
 		/// The Balance type is derived from this and must implement `FixedPointOperand`.
 		type Currency: FungibleMutate<Self::AccountId, Balance: FixedPointOperand>
 			+ FungibleBalanced<Self::AccountId>
@@ -335,7 +335,7 @@ pub mod pallet {
 		type Asset: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>
 			+ fungibles::Balanced<Self::AccountId>;
 
-		/// The AssetId type for pallet_assets (used for pUSD).
+		/// The `AssetId` type for `pallet_assets` (used for pUSD).
 		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen;
 
 		/// Time provider for fee accrual using UNIX timestamps.
@@ -363,7 +363,7 @@ pub mod pallet {
 		/// or implement custom `OnUnbalanced` logic for fee splitting.
 		type FeeHandler: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
 
-		/// Handler for surplus pUSD transfers in DirectTransfer mode.
+		/// Handler for surplus pUSD transfers in `DirectTransfer` mode.
 		///
 		/// Use `ResolveTo<TreasuryAccount, Assets>` for simple single-account deposit.
 		/// The credit is created from the Insurance Fund's pUSD.
@@ -387,7 +387,7 @@ pub mod pallet {
 			BalanceOf<Self>,
 		>;
 
-		/// The AssetId for the stablecoin (pUSD).
+		/// The `AssetId` for the stablecoin (pUSD).
 		#[pallet::constant]
 		type StablecoinAssetId: Get<Self::AssetId>;
 
@@ -403,7 +403,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MinimumMint: Get<BalanceOf<Self>>;
 
-		/// Duration (in milliseconds) before a vault is considered stale for on_idle fee accrual.
+		/// Duration (in milliseconds) before a vault is considered stale for `on_idle` fee accrual.
 		/// Suggested value: 14,400,000 ms (~4 hours).
 		#[pallet::constant]
 		type StaleVaultThreshold: Get<MomentOf<Self>>;
@@ -470,7 +470,7 @@ pub mod pallet {
 			T::Currency::balance_on_hold(&HoldReason::VaultDeposit.into(), who)
 		}
 
-		/// Returns total debt (principal + accrued_interest).
+		/// Returns total debt (principal + `accrued_interest`).
 		pub(crate) fn total_debt(&self) -> Result<BalanceOf<T>, Error<T>> {
 			self.principal
 				.checked_add(&self.accrued_interest)
@@ -478,7 +478,7 @@ pub mod pallet {
 		}
 	}
 
-	/// Map of AccountId -> Vault.
+	/// Map of `AccountId` -> Vault.
 	/// Each account can only have one vault.
 	#[pallet::storage]
 	pub type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vault<T>>;
@@ -538,7 +538,7 @@ pub mod pallet {
 
 	/// Cursor for `on_idle` pagination.
 	///
-	/// Stores the last processed vault owner's AccountId to continue iteration
+	/// Stores the last processed vault owner's `AccountId` to continue iteration
 	/// across blocks. This prevents restarting from the beginning each block
 	/// and ensures all vaults are eventually processed.
 	#[pallet::storage]
@@ -634,7 +634,7 @@ pub mod pallet {
 			/// Uncollectable principal amount in pUSD.
 			amount: BalanceOf<T>,
 		},
-		/// Bad debt was healed by burning pUSD from InsuranceFund.
+		/// Bad debt was healed by burning pUSD from `InsuranceFund`.
 		BadDebtRepaid { amount: BalanceOf<T> },
 		/// A Dutch auction was started for liquidated collateral.
 		AuctionStarted {
@@ -645,9 +645,9 @@ pub mod pallet {
 			/// Debt to raise from auction (tab).
 			tab: BalanceOf<T>,
 		},
-		/// pUSD collected from auction purchase; CurrentLiquidationAmount reduced.
+		/// pUSD collected from auction purchase; `CurrentLiquidationAmount` reduced.
 		AuctionDebtCollected { amount: BalanceOf<T> },
-		/// Auction completed with principal shortfall; recorded as BadDebt.
+		/// Auction completed with principal shortfall; recorded as `BadDebt`.
 		AuctionShortfall { shortfall: BalanceOf<T> },
 	}
 
@@ -739,7 +739,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Idle block housekeeping: update fees for stale vaults.
 		///
-		/// Vaults inactive for >= StaleVaultThreshold get their fees updated.
+		/// Vaults inactive for >= `StaleVaultThreshold` get their fees updated.
 		/// Uses cursor-based pagination to continue across blocks, ensuring all
 		/// vaults are eventually processed without unbounded iteration.
 		fn on_idle(_now: BlockNumberFor<T>, limit: Weight) -> Weight {
@@ -1355,7 +1355,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1397,7 +1397,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1427,7 +1427,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1469,7 +1469,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1496,7 +1496,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Repay accumulated bad debt by burning pUSD from the InsuranceFund.
+		/// Repay accumulated bad debt by burning pUSD from the `InsuranceFund`.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1548,7 +1548,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1582,7 +1582,7 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically GeneralAdmin). Emergency origin cannot modify this parameter.
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
 		///
 		/// ## Details
 		///
@@ -1654,8 +1654,8 @@ pub mod pallet {
 		///
 		/// Must be [`Config::ManagerOrigin`]. Both Full and Emergency privilege levels
 		/// are supported with different capabilities:
-		/// - **Full (GeneralAdmin)**: Can set any value (raise or lower).
-		/// - **Emergency (EmergencyAction)**: Can only lower the ceiling, enabling fast-track
+		/// - **Full (`GeneralAdmin`)**: Can set any value (raise or lower).
+		/// - **Emergency (`EmergencyAction`)**: Can only lower the ceiling, enabling fast-track
 		///   emergency response to oracle attacks without full governance approval.
 		///
 		/// ## Details
@@ -1732,7 +1732,14 @@ pub mod pallet {
 			}
 
 			// 3. Release collateral from Seized hold and transfer to recipient
-			if vault_owner != recipient {
+			if vault_owner == recipient {
+				T::Currency::release(
+					&HoldReason::Seized.into(),
+					vault_owner,
+					collateral_amount,
+					Precision::Exact,
+				)?;
+			} else {
 				T::Currency::transfer_on_hold(
 					&HoldReason::Seized.into(),
 					vault_owner,
@@ -1741,13 +1748,6 @@ pub mod pallet {
 					Precision::Exact,
 					Restriction::Free,
 					Fortitude::Polite,
-				)?;
-			} else {
-				T::Currency::release(
-					&HoldReason::Seized.into(),
-					vault_owner,
-					collateral_amount,
-					Precision::Exact,
 				)?;
 			}
 
@@ -1867,9 +1867,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Transfer surplus pUSD from Insurance Fund via SurplusHandler.
+		/// Transfer surplus pUSD from Insurance Fund via `SurplusHandler`.
 		///
-		/// Used in DirectTransfer mode to send surplus directly to the configured
+		/// Used in `DirectTransfer` mode to send surplus directly to the configured
 		/// destination (typically Treasury) without going through an auction.
 		fn transfer_surplus(amount: BalanceOf<T>) -> DispatchResult {
 			// Withdraw pUSD from Insurance Fund creating a credit
@@ -1936,7 +1936,7 @@ pub mod pallet {
 		/// ratio = collateral_value / debt
 		/// ```
 		///
-		/// Returns the ratio as FixedU128 (e.g., 150% = 1.5).
+		/// Returns the ratio as `FixedU128` (e.g., 150% = 1.5).
 		/// If debt is zero, returns `FixedU128::max_value()` (infinite CR = healthy).
 		pub(crate) fn calculate_collateralization_ratio(
 			collateral: BalanceOf<T>,
@@ -2012,7 +2012,7 @@ pub mod pallet {
 		/// Update the accrued interest for a vault based on elapsed time.
 		///
 		/// Calculates interest in pUSD, mints it to the Insurance Fund, and adds
-		/// the amount to the vault's accrued_interest. This "mint-on-accrual" model
+		/// the amount to the vault's `accrued_interest`. This "mint-on-accrual" model
 		/// ensures total pUSD supply reflects all outstanding obligations.
 		///
 		/// Uses actual timestamps for accurate time-based interest calculation.

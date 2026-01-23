@@ -22,7 +22,7 @@
 use frame_support::{traits::Get, weights::{constants::RocksDbWeight, Weight}};
 use core::marker::PhantomData;
 
-/// Weight functions needed for pallet_vaults.
+/// Weight functions needed for `pallet_vaults`.
 pub trait WeightInfo {
 	fn create_vault() -> Weight;
 	fn deposit_collateral() -> Weight;
