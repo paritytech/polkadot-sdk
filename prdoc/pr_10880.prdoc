@@ -2,9 +2,8 @@ title: Remove failing assertion related to VoterList count mismatch
 doc:
 - audience: Runtime Dev
   description: PR resolves the error that occurs when VoterList count does not align
-    with sum of Nominations & Validators in bags-list. This misalignment happens while
-    bags-list is locked & nominations/validations are received. Eventually this misalignment
-    evens out due `PendingRebag` implementation
+    with sum of Nominators & Validators in bags-list. This misalignment happens while
+    bags-list is locked & nominations/validations are received.
 crates:
 - name: pallet-staking-async
   bump: patch

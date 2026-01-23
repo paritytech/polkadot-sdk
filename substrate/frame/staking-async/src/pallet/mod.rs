@@ -1039,14 +1039,12 @@ pub mod pallet {
 				}
 			}
 
-			// When the bags list is locked, nominators and validators may be temporarily
-			// missing from the voter set. `PendingRebag` will later reconcile the mismatch.
-			crate::log!(
-				debug,
-				"VoterList count: {}, Nominators count: {}, Validators count: {}",
+			// all voters are reported to the `VoterList`.
+			assert_eq!(
 				T::VoterList::count(),
-				Nominators::<T>::count(),
-				Validators::<T>::count()
+				Nominators::<T>::count() + Validators::<T>::count(),
+				"not all genesis stakers were inserted into sorted list provider, something is
+			wrong."
 			);
 
 			// now generate the dev stakers, after all else is setup

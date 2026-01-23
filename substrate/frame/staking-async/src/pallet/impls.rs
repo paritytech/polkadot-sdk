@@ -1898,11 +1898,16 @@ impl<T: Config> Pallet<T> {
 	/// * Number of targets in `TargetList` matches the number of validators in the system.
 	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
-		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
-			"wrong external count"
+		// When the bags list is locked, nominators and validators may be temporarily
+		// missing from the voter set. `PendingRebag` will later reconcile the mismatch.
+		crate::log!(
+			debug,
+			"VoterList count: {}, Nominators count: {}, Validators count: {}",
+			<T as Config>::VoterList::count(),
+			Nominators::<T>::count(),
+			Validators::<T>::count()
 		);
+
 		ensure!(
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
 			"wrong external count"
