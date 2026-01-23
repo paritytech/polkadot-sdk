@@ -65,10 +65,30 @@ impl FloatJsonValueMetric {
 
 	/// Request value from HTTP service.
 	async fn request_value(&self) -> anyhow::Result<String> {
-		use isahc::{AsyncReadResponseExt, HttpClient, Request};
+		use http_body_util::{combinators::BoxBody, BodyExt};
+		use hyper_rustls::ConfigBuilderExt;
+		use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 
-		let request = Request::get(&self.url).header("Accept", "application/json").body(())?;
-		let raw_response = HttpClient::new()?.send_async(request).await?.text().await?;
+		type Body = BoxBody<hyper::body::Bytes, hyper::Error>;
+
+		let tls = rustls::ClientConfig::builder().with_native_roots()?.with_no_client_auth();
+
+		let connector = hyper_rustls::HttpsConnectorBuilder::new()
+			.with_tls_config(tls)
+			.https_or_http()
+			.enable_http1()
+			.build();
+
+		let client = Client::builder(TokioExecutor::new()).build::<_, Body>(connector);
+
+		let req = hyper::Request::get(&self.url)
+			.header("Accept", "application/json")
+			.header("User-Agent", "Hyper")
+			.body::<Body>(Body::default())?;
+
+		let resp = client.request(req).await?;
+		let raw_response = String::from_utf8(resp.collect().await?.to_bytes().to_vec())?;
+
 		Ok(raw_response)
 	}
 
