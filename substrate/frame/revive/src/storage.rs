@@ -192,8 +192,6 @@ impl<T: Config> AccountInfo<T> {
 		});
 	}
 
-
-
 	/// EIP-7702: Check if an account has a delegation indicator set
 	pub fn is_delegated(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };

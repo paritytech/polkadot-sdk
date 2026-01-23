@@ -877,6 +877,22 @@ pub struct SignedAuthorizationListEntry {
 	pub s: U256,
 }
 
+impl SignedAuthorizationListEntry {
+	/// Convert signature components (r, s, y_parity) into a 65-byte ECDSA signature.
+	///
+	/// # Returns
+	/// A 65-byte array containing: [r (32 bytes), s (32 bytes), recovery_id (1 byte)]
+	pub fn signature(&self) -> [u8; 65] {
+		let mut signature = [0u8; 65];
+		let r_bytes = self.r.to_big_endian();
+		let s_bytes = self.s.to_big_endian();
+		signature[..32].copy_from_slice(&r_bytes);
+		signature[32..64].copy_from_slice(&s_bytes);
+		signature[64] = self.y_parity.low_u32() as u8;
+		signature
+	}
+}
+
 #[derive(
 	Debug,
 	Clone,
