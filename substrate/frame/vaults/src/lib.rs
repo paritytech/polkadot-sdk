@@ -208,28 +208,6 @@ pub trait ProvidePrice {
 	fn get_price(asset: &Location) -> Option<(FixedU128, Self::Moment)>;
 }
 
-/// Helper trait for benchmarking setup.
-///
-/// Provides methods to set up the runtime state required for benchmarks,
-/// such as funding accounts, creating assets, manipulating time, and setting prices.
-#[cfg(feature = "runtime-benchmarks")]
-pub trait BenchmarkHelper<AccountId, AssetId, Balance> {
-	/// Fund an account with native currency (DOT).
-	fn fund_account(account: &AccountId, amount: Balance);
-
-	/// Create the stablecoin asset if it doesn't exist.
-	fn create_stablecoin_asset(asset_id: AssetId);
-
-	/// Mint stablecoin to an account.
-	fn mint_stablecoin_to(asset_id: AssetId, account: &AccountId, amount: Balance);
-
-	/// Advance the timestamp by the given number of milliseconds.
-	fn advance_time(millis: u64);
-
-	/// Set the oracle price for DOT/pUSD.
-	fn set_price(price: FixedU128);
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{
@@ -381,11 +359,7 @@ pub mod pallet {
 
 		/// Helper type for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::BenchmarkHelper<
-			Self::AccountId,
-			Self::AssetId,
-			BalanceOf<Self>,
-		>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::AssetId, BalanceOf<Self>>;
 
 		/// The `AssetId` for the stablecoin (pUSD).
 		#[pallet::constant]
@@ -433,6 +407,28 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	/// Helper trait for benchmarking setup.
+	///
+	/// Provides methods to set up the runtime state required for benchmarks,
+	/// such as funding accounts, creating assets, manipulating time, and setting prices.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<AccountId, AssetId, Balance> {
+		/// Fund an account with native currency (DOT).
+		fn fund_account(account: &AccountId, amount: Balance);
+
+		/// Create the stablecoin asset if it doesn't exist.
+		fn create_stablecoin_asset(asset_id: AssetId);
+
+		/// Mint stablecoin to an account.
+		fn mint_stablecoin_to(asset_id: AssetId, account: &AccountId, amount: Balance);
+
+		/// Advance the timestamp by the given number of milliseconds.
+		fn advance_time(millis: u64);
+
+		/// Set the oracle price for DOT/pUSD.
+		fn set_price(price: FixedU128);
+	}
 
 	/// A Vault struct representing a CDP.
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Debug)]
@@ -1671,7 +1667,7 @@ pub mod pallet {
 		///
 		/// - [`Event::MaximumIssuanceUpdated`]: Emitted with old and new values.
 		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::set_maximum_issuance())]
+		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			let old_value = MaximumIssuance::<T>::get();
