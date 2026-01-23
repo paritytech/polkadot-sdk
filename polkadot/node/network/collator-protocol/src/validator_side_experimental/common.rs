@@ -71,8 +71,9 @@ pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
 /// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
 pub const FAILED_FETCH_SLASH: Score = Score::new(140).expect("140 is less than MAX_SCORE");
 
-/// Slashing value for an invalid collation.
-pub const INVALID_COLLATION_SLASH: Score = Score::new(7_000).expect("7_000 is less than MAX_SCORE");
+/// Slashing value for an invalid collation (half of the ma).
+pub const INVALID_COLLATION_SLASH: Score =
+	Score::new(MAX_SCORE / 2).expect("1/2 MAX_SCORE is less than MAX_SCORE");
 
 /// The maximum acceptable delay which can be applied on an advertisement from a collator with score
 /// less than the maximum score for the parachain.
