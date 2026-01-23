@@ -115,6 +115,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
 )]
+#[benchmarks(where T: Config)]
 mod benchmarks {
 	use super::*;
 
@@ -125,6 +126,67 @@ mod benchmarks {
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
+	}
+
+	// Benchmark for EIP-7702 authorization processing
+	// Measures the weight of processing `a` authorization tuples
+	#[benchmark(pov_mode = Measured)]
+	fn process_authorizations(a: Linear<0, 16>) -> Result<(), BenchmarkError> {
+		use crate::evm::{
+			AuthorizationListEntry, SignedAuthorizationListEntry,
+			eip7702,
+		};
+		use k256::ecdsa::SigningKey;
+		use sp_core::keccak_256;
+
+		// Create authorization list with `a` entries
+		let mut authorization_list = Vec::new();
+
+		for i in 0..a {
+			// Generate a unique signing key for each authorization
+			let signing_key = SigningKey::from_slice(&keccak_256(&i.to_le_bytes()))
+				.expect("valid key");
+
+			// Create target address (use a deterministic address based on index)
+			let target_address = H160::from_low_u64_be(i as u64 + 1);
+
+			// Create unsigned authorization
+			let unsigned_auth = AuthorizationListEntry {
+				chain_id: U256::from(T::ChainId::get()),
+				address: target_address,
+				nonce: U256::zero(),
+			};
+
+			// Sign the authorization
+			let mut message = Vec::new();
+			message.push(eip7702::EIP7702_MAGIC);
+			message.extend_from_slice(&crate::evm::rlp::encode(&unsigned_auth));
+
+			let hash = keccak_256(&message);
+			let (signature, recovery_id) = signing_key
+				.sign_prehash_recoverable(&hash)
+				.expect("signing succeeds");
+
+			let signed_auth = SignedAuthorizationListEntry {
+				chain_id: unsigned_auth.chain_id,
+				address: unsigned_auth.address,
+				nonce: unsigned_auth.nonce,
+				y_parity: U256::from(recovery_id.to_byte()),
+				r: U256::from_big_endian(&signature.r().to_bytes()),
+				s: U256::from_big_endian(&signature.s().to_bytes()),
+			};
+
+			authorization_list.push(signed_auth);
+		}
+
+		let chain_id = U256::from(T::ChainId::get());
+
+		#[block]
+		{
+			eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+		}
+
+		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
@@ -460,6 +522,7 @@ mod benchmarks {
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
 			0,
+			vec![]
 		);
 
 		// contract should have received the value

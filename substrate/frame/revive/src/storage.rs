@@ -211,8 +211,7 @@ impl<T: Config> AccountInfo<T> {
 	/// Marks the account as delegated to the target address
 	pub fn set_delegation(
 		address: &H160,
-		target: H160,
-		_nonce: T::Nonce,
+		target: H160
 	) -> Result<(), DispatchError> {
 		// Update or create account info with Delegated type
 		AccountInfoOf::<T>::mutate(address, |account| {
