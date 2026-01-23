@@ -3023,7 +3023,7 @@ fn add_assignment_integration_with_workload() {
 		assert!(has_core_0_assignment, "Should have assignment for core 0 starting at block 8");
 	});
 }
-  
+
 #[test]
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {

@@ -1058,7 +1058,7 @@ pub mod pallet {
 		/// - `core`: Core which the target potential renewal record refers to.
 		/// - `when`: Timeslice which the target potential renewal record refers to.
 		#[pallet::call_index(27)]
-    #[pallet::weight(T::WeightInfo::remove_potential_renewal())]
+		#[pallet::weight(T::WeightInfo::remove_potential_renewal())]
 		pub fn remove_potential_renewal(
 			origin: OriginFor<T>,
 			core: CoreIndex,
@@ -1067,14 +1067,14 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_potential_renewal(core, when)
 		}
-      
-    /// Add an assignment to the Workplan.
+
+		/// Add an assignment to the Workplan.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `timeslice`: The timeslice at which the assignment should take effect.
 		/// - `core`: The core to which the assignment should be added.
 		/// - `assignment`: The workload schedule to assign to the core.
-    #[pallet::call_index(29)]
+		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::add_assignment())]
 		pub fn add_assignment(
 			origin: OriginFor<T>,

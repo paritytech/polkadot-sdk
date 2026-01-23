@@ -1149,4 +1149,5 @@ impl WeightInfo for () {
 		Weight::from_parts(22_584_000, 4698)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
