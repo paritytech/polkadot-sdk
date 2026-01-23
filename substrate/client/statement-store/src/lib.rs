@@ -318,81 +318,6 @@ impl Index {
 		purged
 	}
 
-	/// Enforces storage allowances for all accounts.
-	/// Returns the list of hashes that must be evicted.
-	fn enforce_allowances(
-		&mut self,
-		current_time: u64,
-		read_allowance: impl Fn(&AccountId) -> Option<ValidStatement>,
-	) -> Vec<Hash> {
-		let mut evicted = Vec::new();
-
-		let accounts: Vec<AccountId> = self.accounts.keys().cloned().collect();
-
-		for account in accounts {
-			// If no allowance found, treat as zero allowance (evict all statements).
-			let allowance = read_allowance(&account).unwrap_or_else(|| {
-				log::debug!(
-					target: LOG_TARGET,
-					"No allowance found for account {:?}, treating as zero allowance",
-					HexDisplay::from(&account)
-				);
-				ValidStatement { max_count: 0, max_size: 0 }
-			});
-
-			let to_evict: Vec<Hash> = {
-				let Some(account_rec) = self.accounts.get(&account) else {
-					continue;
-				};
-
-				let mut count = account_rec.by_priority.len();
-				let mut size = account_rec.data_size;
-
-				if count <= allowance.max_count as usize && size <= allowance.max_size as usize {
-					continue;
-				}
-
-				log::debug!(
-					target: LOG_TARGET,
-					"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
-					HexDisplay::from(&account),
-					count,
-					allowance.max_count,
-					size,
-					allowance.max_size
-				);
-
-				account_rec
-					.by_priority
-					.iter()
-					.take_while(|(_, (_, len))| {
-						if count <= allowance.max_count as usize &&
-							size <= allowance.max_size as usize
-						{
-							return false;
-						}
-						count -= 1;
-						size -= len;
-						true
-					})
-					.map(|(key, _)| key.hash)
-					.collect()
-			};
-
-			for hash in to_evict {
-				self.make_expired(&hash, current_time);
-				evicted.push(hash);
-				log::debug!(
-					target: LOG_TARGET,
-					"Evicted statement {:?} due to allowance enforcement",
-					HexDisplay::from(&hash)
-				);
-			}
-		}
-
-		evicted
-	}
-
 	fn take_recent(&mut self) -> HashSet<Hash> {
 		std::mem::take(&mut self.recent)
 	}
@@ -756,22 +681,8 @@ impl Store {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
 		let current_time = self.timestamp();
 
-		let (deleted, evicted, active_count, expired_count): (Vec<_>, Vec<_>, usize, usize) = {
-			let mut index = self.index.write();
-
-			let deleted = index.maintain(current_time);
-			let evicted = index.enforce_allowances(current_time, |account| {
-				match (self.read_allowance_fn)(account) {
-					Ok(allowance) => allowance,
-					Err(e) => {
-						log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
-						None
-					},
-				}
-			});
-
-			(deleted, evicted, index.entries.len(), index.expired.len())
-		};
+		let deleted = self.index.write().maintain(current_time);
+		let evicted = self.enforce_allowances(current_time);
 
 		let mut commit: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
@@ -789,6 +700,11 @@ impl Store {
 			self.metrics
 				.report(|metrics| metrics.statements_pruned.inc_by(deleted_count + evicted_count));
 		}
+
+		let (active_count, expired_count) = {
+			let index = self.index.read();
+			(index.entries.len(), index.expired.len())
+		};
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Evicted: {}, Active: {}, Expired: {}",
@@ -797,6 +713,82 @@ impl Store {
 			active_count,
 			expired_count
 		);
+	}
+
+	/// Enforces storage allowances for all accounts.
+	/// Returns the list of hashes that must be evicted.
+	fn enforce_allowances(&self, current_time: u64) -> Vec<Hash> {
+		let index = self.index.read();
+
+		// Collect all hashes to evict across all accounts
+		let evicted: Vec<Hash> = index
+			.accounts
+			.iter()
+			.flat_map(|(account, account_rec)| {
+				let allowance = match (self.read_allowance_fn)(account) {
+					Ok(Some(allowance)) => allowance,
+					Ok(None) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"No allowance found for account {:?}, treating as zero allowance",
+							HexDisplay::from(account)
+						);
+						ValidStatement { max_count: 0, max_size: 0 }
+					},
+					Err(e) => {
+						log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+						return vec![];
+					},
+				};
+
+				let mut count = account_rec.by_priority.len();
+				let mut size = account_rec.data_size;
+
+				if count <= allowance.max_count as usize && size <= allowance.max_size as usize {
+					return vec![];
+				}
+
+				log::debug!(
+					target: LOG_TARGET,
+					"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
+					HexDisplay::from(account),
+					count,
+					allowance.max_count,
+					size,
+					allowance.max_size
+				);
+
+				account_rec
+					.by_priority
+					.iter()
+					.take_while(|(_, (_, len))| {
+						if count <= allowance.max_count as usize &&
+							size <= allowance.max_size as usize
+						{
+							return false;
+						}
+						count -= 1;
+						size -= len;
+						true
+					})
+					.map(|(key, _)| key.hash)
+					.collect::<Vec<_>>()
+			})
+			.collect();
+
+		drop(index);
+		let mut index = self.index.write();
+		// Evict all collected hashes
+		for hash in &evicted {
+			index.make_expired(hash, current_time);
+			log::debug!(
+				target: LOG_TARGET,
+				"Evicted statement {:?} due to allowance enforcement",
+				HexDisplay::from(hash)
+			);
+		}
+
+		evicted
 	}
 
 	fn timestamp(&self) -> u64 {
@@ -1195,6 +1187,7 @@ mod tests {
 			let account_bytes = &key.0[21..53];
 			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
 			let allowance = match account_id {
+				0 => return Ok(None), // No allowance for account 0
 				1 => (1u32, 1000u32),
 				2 => (2u32, 1000u32),
 				3 => (3u32, 1000u32),
@@ -1406,7 +1399,7 @@ mod tests {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
-		let unsigned = statement(0, 1, None, 0);
+		let unsigned = statement(1, 1, None, 0);
 		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
 	}
 
@@ -1951,123 +1944,111 @@ mod tests {
 
 	#[test]
 	fn enforce_allowances_evicts_excess_statements() {
-		use crate::{Index, Options};
-		use std::{collections::HashMap, sync::RwLock};
+		// This test verifies that enforce_allowances correctly evicts statements
+		// when statements exceed the current allowance. We directly insert into
+		// the index (bypassing submit's validation) to simulate statements that
+		// existed before allowances were reduced.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
 
-		// Create an index with some statements
-		let mut index = Index::new(Options::default());
-
-		// Account A = 4 has 3 statements
-		let s1 = statement(4, 10, None, 100); // lowest priority
-		let s2 = statement(4, 20, None, 150);
-		let s3 = statement(4, 30, None, 50); // highest priority
+		// Account 4 has allowance (4 statements, 1000 bytes) from TestClient
+		let s1 = statement(4, 10, None, 100); // lowest priority - will be evicted
+		let s2 = statement(4, 20, None, 100);
+		let s3 = statement(4, 30, None, 100);
+		let s4 = statement(4, 40, None, 100);
+		let s5 = statement(4, 50, None, 100); // highest priority
 
 		let h1 = s1.hash();
-		let h2 = s2.hash();
-		let h3 = s3.hash();
+		let h5 = s5.hash();
 
-		// Insert statements into the index
-		index.insert_new(h1, account(4), &s1);
-		index.insert_new(h2, account(4), &s2);
-		index.insert_new(h3, account(4), &s3);
+		// Directly insert into index, bypassing `submit`'s allowance check
+		{
+			let mut index = store.index.write();
+			for s in [&s1, &s2, &s3, &s4, &s5] {
+				index.insert_new(s.hash(), account(4), s);
+			}
+		}
 
-		// Verify initial state
-		assert_eq!(index.entries.len(), 3);
-		assert_eq!(index.accounts.get(&account(4)).unwrap().by_priority.len(), 3);
-		assert_eq!(index.total_size, 300);
+		// Verify initial state - all 5 should be present
+		assert_eq!(store.index.read().entries.len(), 5);
+		assert_eq!(store.index.read().total_size, 500);
 
-		// Set up mock allowances - reduce account 4's allowance to max_count=1, max_size=100
-		let allowances: HashMap<AccountId, ValidStatement> =
-			[(account(4), ValidStatement { max_count: 1, max_size: 100 })]
-				.into_iter()
-				.collect();
-		let read_allowance = |acc: &AccountId| allowances.get(acc).cloned();
+		// Run maintenance which calls enforce_allowances
+		// Since account 4 has max_count=4, one statement should be evicted
+		store.maintain();
 
-		// Enforce allowances
-		let current_time = 1000;
-		let evicted = index.enforce_allowances(current_time, read_allowance);
+		// Should evict the lowest priority statement (s1)
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 4, "Should have 4 statements after eviction");
+		assert!(!index.entries.contains_key(&h1), "Lowest priority should be evicted");
+		assert!(index.entries.contains_key(&h5), "Highest priority should remain");
+		assert_eq!(index.total_size, 400);
 
-		// Should evict the two lowest priority statements (s1 and s2)
-		assert_eq!(evicted.len(), 2, "Should evict 2 statements");
-		assert!(evicted.contains(&h1), "Should evict lowest priority statement");
-		assert!(evicted.contains(&h2), "Should evict second lowest priority statement");
-
-		// Verify final state
-		assert_eq!(index.entries.len(), 1);
-		assert!(index.entries.contains_key(&h3), "Highest priority should remain");
-		assert_eq!(index.total_size, 50);
-
-		// Evicted statements should be marked as expired
+		// Evicted statement should be marked as expired
 		assert!(index.expired.contains_key(&h1));
-		assert!(index.expired.contains_key(&h2));
-		assert!(!index.expired.contains_key(&h3));
 	}
 
 	#[test]
 	fn enforce_allowances_evicts_all_when_no_allowance_found() {
-		use crate::{Index, Options};
-		use std::collections::HashMap;
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
 
-		let mut index = Index::new(Options::default());
-
-		// Account A = 4 has 2 statements
-		let s1 = statement(4, 10, None, 100);
-		let s2 = statement(4, 20, None, 150);
+		// Account 0 has NO allowance in TestClient
+		let s1 = statement(0, 10, None, 100);
+		let s2 = statement(0, 20, None, 150);
 
 		let h1 = s1.hash();
 		let h2 = s2.hash();
 
-		index.insert_new(h1, account(4), &s1);
-		index.insert_new(h2, account(4), &s2);
+		// Directly insert statements for account with no allowance
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(0), &s1);
+			index.insert_new(h2, account(0), &s2);
+		}
 
-		// No allowance set for account 4 - should be treated as zero allowance
-		let allowances: HashMap<AccountId, ValidStatement> = HashMap::new();
-		let read_allowance = |acc: &AccountId| allowances.get(acc).map(|s| s.clone());
+		assert_eq!(store.index.read().entries.len(), 2);
 
-		// Enforce allowances
-		let evicted = index.enforce_allowances(1000, read_allowance);
+		// Run maintenance - should evict ALL statements since no allowance exists
+		store.maintain();
 
-		// Should evict all statements since no allowance means zero allowance
-		assert_eq!(evicted.len(), 2, "Should evict all statements when no allowance");
-		assert!(evicted.contains(&h1));
-		assert!(evicted.contains(&h2));
-		assert_eq!(index.entries.len(), 0);
-		assert!(!index.accounts.contains_key(&account(4)), "Account should be removed");
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
+		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
+		assert!(index.expired.contains_key(&h1));
+		assert!(index.expired.contains_key(&h2));
 	}
 
 	#[test]
 	fn enforce_allowances_based_on_size() {
-		use crate::{Index, Options};
-		use std::collections::HashMap;
+		// This test verifies that enforce_allowances evicts based on size limits.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
 
-		let mut index = Index::new(Options::default());
-
-		// Account A = 4 has 3 small statements
-		let s1 = statement(4, 10, None, 100); // lowest priority
-		let s2 = statement(4, 20, None, 100);
-		let s3 = statement(4, 30, None, 100); // highest priority
+		// Account 2 has allowance (2, 1000) from TestClient
+		// Insert 2 statements that together exceed 1000 bytes
+		let s1 = statement(2, 10, None, 600); // lowest priority
+		let s2 = statement(2, 20, None, 600); // higher priority
 
 		let h1 = s1.hash();
 		let h2 = s2.hash();
-		let h3 = s3.hash();
 
-		index.insert_new(h1, account(4), &s1);
-		index.insert_new(h2, account(4), &s2);
-		index.insert_new(h3, account(4), &s3);
+		// Directly insert both statements (total 1200 bytes > 1000 limit)
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(2), &s1);
+			index.insert_new(h2, account(2), &s2);
+		}
 
-		// Set allowance to max_count=10 (high), max_size=200 (low)
-		// This should trigger eviction based on size, not count
-		let allowances: HashMap<AccountId, ValidStatement> =
-			[(account(4), ValidStatement { max_count: 10, max_size: 200 })]
-				.into_iter()
-				.collect();
-		let read_allowance = |acc: &AccountId| allowances.get(acc).cloned();
+		assert_eq!(store.index.read().total_size, 1200);
 
-		let evicted = index.enforce_allowances(1000, read_allowance);
+		// Run maintenance - should evict s1 to get under 1000 bytes
+		store.maintain();
 
-		// Should evict the lowest priority to get size under 200
-		assert_eq!(evicted.len(), 1, "Should evict 1 statement to meet size limit");
-		assert!(evicted.contains(&h1), "Should evict lowest priority");
-		assert_eq!(index.total_size, 200);
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 1);
+		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
+		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
+		assert_eq!(index.total_size, 600);
 	}
 }
