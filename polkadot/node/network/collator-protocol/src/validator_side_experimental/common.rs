@@ -27,14 +27,14 @@ use polkadot_primitives::{
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
 /// The following parameters (`MAX_SCORE`, `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY`)
-/// determine how fast collators build reputation, how fast they loose it due to inactivity and how
+/// determine how fast collators build reputation, how fast they lose it due to inactivity and how
 /// many collators we can have per parachain.
 ///
 /// The combination of `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY` determines the maximum
 /// number of collators for the parachain. We assume that each collator has got an equal chance in
 /// having its collation included (and therefore getting score for it). This means that for a set of
 /// N collators, for N blocks each collator will gain `VALID_INCLUDED_CANDIDATE_BUMP` points and
-/// loose (N-1)*INACTIVITY_DECAY points. With the values below (VALID_INCLUDED_CANDIDATE_BUMP=100
+/// lose (N-1)*INACTIVITY_DECAY points. With the values below (VALID_INCLUDED_CANDIDATE_BUMP=100
 /// and INACTIVITY_DECAY=1) with N=100 collators no longer gain any score.
 ///
 /// The time to reach max score is also controlled by these two parameters. With the values below
