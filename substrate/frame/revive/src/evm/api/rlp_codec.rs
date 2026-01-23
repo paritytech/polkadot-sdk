@@ -217,6 +217,25 @@ impl Decodable for AccessListEntry {
 
 impl Encodable for AuthorizationListEntry {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(3);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+	}
+}
+
+impl Decodable for AuthorizationListEntry {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(AuthorizationListEntry {
+			chain_id: rlp.val_at(0)?,
+			address: rlp.val_at(1)?,
+			nonce: rlp.val_at(2)?,
+		})
+	}
+}
+
+impl Encodable for SignedAuthorizationListEntry {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(6);
 		s.append(&self.chain_id);
 		s.append(&self.address);
@@ -227,9 +246,9 @@ impl Encodable for AuthorizationListEntry {
 	}
 }
 
-impl Decodable for AuthorizationListEntry {
+impl Decodable for SignedAuthorizationListEntry {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
-		Ok(AuthorizationListEntry {
+		Ok(SignedAuthorizationListEntry {
 			chain_id: rlp.val_at(0)?,
 			address: rlp.val_at(1)?,
 			nonce: rlp.val_at(2)?,

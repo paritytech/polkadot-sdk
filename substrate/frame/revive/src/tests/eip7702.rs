@@ -19,22 +19,17 @@
 
 use crate::{
 	evm::{
-		eip7702::{PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST}, fees::InfoT, AuthorizationListEntry,
+		eip7702::{PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST}, fees::InfoT, AuthorizationListEntry, SignedAuthorizationListEntry,
 	},
-	storage::{AccountInfo, AccountType},
+	storage::AccountInfo,
 	test_utils::builder::Contract,
 	tests::{builder, *},
-	AccountInfoOf, Code, Config,
+	Code, Config,
 };
 use frame_support::{assert_ok, traits::fungible::{Balanced, Mutate}};
 use revm::bytecode::opcode::*;
 use sp_core::{ecdsa, keccak_256, Pair, H160, H256, U256};
 
-/// Helper function to initialize an EOA account in pallet storage
-fn initialize_eoa_account(address: &H160) {
-	let account_info = AccountInfo::<Test> { account_type: AccountType::EOA, dust: 0 };
-	AccountInfoOf::<Test>::insert(address, account_info);
-}
 
 /// Helper function to generate a simple dummy EVM contract
 /// Returns bytecode that stores a value (42) in memory and returns it
@@ -79,17 +74,20 @@ impl TestSigner {
 		chain_id: U256,
 		address: H160,
 		nonce: U256,
-	) -> AuthorizationListEntry {
+	) -> SignedAuthorizationListEntry {
 		// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 		let mut message = Vec::new();
 		message.push(crate::evm::eip7702::EIP7702_MAGIC);
 
-		// RLP encode [chain_id, address, nonce]
-		let mut rlp_stream = crate::evm::rlp::RlpStream::new_list(3);
-		rlp_stream.append(&chain_id);
-		rlp_stream.append(&address);
-		rlp_stream.append(&nonce);
-		let rlp_encoded = rlp_stream.out();
+		// Create unsigned authorization tuple for RLP encoding
+		let unsigned_auth = AuthorizationListEntry {
+			chain_id,
+			address,
+			nonce,
+		};
+
+		// RLP encode the unsigned authorization tuple
+		let rlp_encoded = crate::evm::rlp::encode(&unsigned_auth);
 		message.extend_from_slice(&rlp_encoded);
 
 		// Hash the message
@@ -111,7 +109,7 @@ impl TestSigner {
 		let s = U256::from_big_endian(&s_bytes);
 		let y_parity = U256::from(recovery_id);
 
-		AuthorizationListEntry { chain_id, address, nonce, y_parity, r, s }
+		SignedAuthorizationListEntry { chain_id, address, nonce, y_parity, r, s }
 	}
 }
 
@@ -340,9 +338,6 @@ fn valid_signature_is_verified_correctly() {
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
-		// Initialize the account in pallet storage
-		initialize_eoa_account(&authority);
-
 		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
 
@@ -449,9 +444,6 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
-		// Initialize the account in pallet storage
-		initialize_eoa_account(&authority);
-
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
 
 		// Sign three authorizations with same nonce but different targets
@@ -521,9 +513,6 @@ fn chain_id_zero_accepts_any_chain() {
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
-		// Initialize the account in pallet storage
-		initialize_eoa_account(&authority);
-
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
 
 		// Sign with chain_id = 0 (should accept any chain)
@@ -588,9 +577,6 @@ fn clearing_delegation_with_zero_address() {
 		// Fund the account
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
-
-		// Initialize the account in pallet storage
-		initialize_eoa_account(&authority);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
 
@@ -674,9 +660,6 @@ fn test_runtime_set_authorization() {
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
 
-		// Initialize the authority as an EOA
-		initialize_eoa_account(&authority);
-
 		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
 
@@ -736,9 +719,6 @@ fn test_runtime_clear_authorization() {
 		// Fund the authority account
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
-
-		// Initialize the authority as an EOA
-		initialize_eoa_account(&authority);
 
 		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
@@ -812,9 +792,6 @@ fn test_runtime_delegation_resolution() {
 		// Fund the authority account
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
-
-		// Initialize the authority as an EOA
-		initialize_eoa_account(&authority);
 
 		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));

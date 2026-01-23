@@ -49,7 +49,7 @@ pub struct CallInfo<T: Config> {
 	/// The ethereum gas limit of the transaction.
 	pub eth_gas_limit: U256,
 	/// EIP-7702: List of authorization tuples to process
-	pub authorization_list: Vec<crate::evm::AuthorizationListEntry>,
+	pub authorization_list: Vec<crate::evm::SignedAuthorizationListEntry>,
 }
 
 /// Mode for creating a call from an ethereum transaction.

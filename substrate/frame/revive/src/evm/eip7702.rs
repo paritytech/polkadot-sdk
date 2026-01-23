@@ -23,9 +23,9 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{rlp, AuthorizationListEntry},
+	evm::api::{rlp, AuthorizationListEntry, SignedAuthorizationListEntry},
 	storage::AccountInfo,
-	AccountInfoOf, Config,
+	Config,
 };
 use alloc::vec::Vec;
 
@@ -78,7 +78,7 @@ pub enum AuthorizationResult {
 /// # Returns
 /// Total gas refund for accounts that already existed
 pub fn process_authorizations<T: Config>(
-	authorization_list: &[AuthorizationListEntry],
+	authorization_list: &[SignedAuthorizationListEntry],
 	chain_id: U256
 ) -> u64 {
 	let mut total_refund = 0u64;
@@ -131,7 +131,7 @@ pub fn process_authorizations<T: Config>(
 /// This validates the authorization and returns the authority address if successful.
 /// Failures result in AuthorizationResult::Failed and processing continues to the next tuple.
 fn process_single_authorization<T: Config>(
-	auth: &AuthorizationListEntry,
+	auth: &SignedAuthorizationListEntry,
 	chain_id: U256,
 ) -> AuthorizationResult {
 	// 1. Verify chain ID is 0 or current chain
@@ -183,8 +183,9 @@ fn process_single_authorization<T: Config>(
 		}
 	}
 
-	// Calculate refund
-	let account_exists = AccountInfoOf::<T>::contains_key(&authority);
+	// Calculate refund based on whether the account exists in frame_system
+	// An account exists if it has been initialized in the substrate account system
+	let account_exists = frame_system::Pallet::<T>::account_exists(&account_id);
 	let refund =
 		if account_exists { PER_EMPTY_ACCOUNT_COST.saturating_sub(PER_AUTH_BASE_COST) } else { 0 };
 
@@ -196,17 +197,20 @@ fn process_single_authorization<T: Config>(
 /// Implements the EIP-7702 signature recovery:
 /// - Message = keccak(MAGIC || rlp([chain_id, address, nonce]))
 /// - Signature must use normalized s value (s <= secp256k1n/2) per EIP-2
-fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
+fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 	// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 	let mut message = Vec::new();
 	message.push(EIP7702_MAGIC);
 
-	// RLP encode [chain_id, address, nonce]
-	let mut rlp_stream = rlp::RlpStream::new_list(3);
-	rlp_stream.append(&auth.chain_id);
-	rlp_stream.append(&auth.address);
-	rlp_stream.append(&auth.nonce);
-	let rlp_encoded = rlp_stream.out();
+	// Create unsigned authorization tuple for RLP encoding
+	let unsigned_auth = AuthorizationListEntry {
+		chain_id: auth.chain_id,
+		address: auth.address,
+		nonce: auth.nonce,
+	};
+
+	// RLP encode the unsigned authorization tuple
+	let rlp_encoded = rlp::encode(&unsigned_auth);
 	message.extend_from_slice(&rlp_encoded);
 
 	// Hash the message
