@@ -46,6 +46,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"xcm/std",
+	"log/std"
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
