@@ -1270,7 +1270,6 @@ pub mod pallet {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 			Self::ensure_non_contract_if_signed(&origin)?;
-
 			let mut call = Call::<T>::eth_instantiate_with_code {
 				value,
 				weight_limit,
@@ -1705,16 +1704,15 @@ impl<T: Config> Pallet<T> {
 					)?;
 					executable
 				},
-				Code::Upload(code) => {
+				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
 						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
 						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						executable
 					} else {
-						return Err(<Error<T>>::CodeRejected.into());
-					}
-				},
+						return Err(<Error<T>>::CodeRejected.into())
+					},
 				Code::Existing(code_hash) => {
 					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
@@ -2147,9 +2145,8 @@ impl<T: Config> Pallet<T> {
 	{
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(config.unwrap_or_default()).into(),
-			TracerType::PrestateTracer(config) => {
-				PrestateTracer::new(config.unwrap_or_default()).into()
-			},
+			TracerType::PrestateTracer(config) =>
+				PrestateTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
@@ -2167,7 +2164,7 @@ impl<T: Config> Pallet<T> {
 			BytecodeType::Pvm
 		} else {
 			if !T::AllowEVMBytecode::get() {
-				return Err(<Error<T>>::CodeRejected.into());
+				return Err(<Error<T>>::CodeRejected.into())
 			}
 			BytecodeType::Evm
 		};
@@ -2315,7 +2312,7 @@ impl<T: Config> Pallet<T> {
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
-			return code.into();
+			return code.into()
 		}
 		AccountInfo::<T>::load_contract(&address)
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
@@ -2526,7 +2523,6 @@ impl<T: Config> Pallet<T> {
 		else {
 			return Ok(())
 		};
-
 		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
 			<AccountInfo<T>>::is_contract(&address)
 		{
