@@ -263,6 +263,55 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Enable V3 scheduling validation for candidates.
+		///
+		/// When enabled, this changes how building on older relay parents is enforced:
+		/// - The old `relay_parent_descendants` validation in the inherent is disabled
+		/// - V3 scheduling validation is used instead, with the header chain provided
+		///   via PVF parameters
+		///
+		/// # Migration Guide
+		///
+		/// Before enabling this:
+		/// 1. Ensure all collators are updated to a version that supports V3 candidates
+		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled
+		/// 3. Enable this config option via a runtime upgrade
+		///
+		/// Once enabled, collators will:
+		/// - Stop providing `relay_parent_descendants` in the inherent (empty vec)
+		/// - Provide the header chain via V3 extension in PVF parameters
+		///
+		/// The `RelayParentOffset` config continues to define the header chain length.
+		type SchedulingV3Enabled: Get<bool>;
+
+		/// Maximum additional claim queue offset for async backing flexibility.
+		///
+		/// This determines how far "into the future" collators target when selecting cores
+		/// from the claim queue. The effective claim queue depth is:
+		/// `RelayParentOffset + MaxClaimQueueOffset`
+		///
+		/// Collators may use lower offsets (down to 0) for optimistic scenarios where
+		/// execution is fast or earlier slots are available (e.g., chain startup, previous
+		/// author missed their slot).
+		///
+		/// # Security Rationale
+		///
+		/// This constraint prevents collators from claiming cores too far in the future,
+		/// which could waste intermediate slots. With V3 scheduling and the scheduling_parent
+		/// architecture, larger offsets are rarely needed since the execution context
+		/// (relay_parent) is decoupled from the scheduling context (scheduling_parent).
+		///
+		/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
+		///
+		/// # Recommended Value
+		///
+		/// Default of 1 is recommended for almost all parachains. This provides:
+		/// - Offset 0: Synchronous opportunity (backing in next relay block)
+		/// - Offset 1: Asynchronous opportunity (backing in relay block after next)
+		///
+		/// There is rarely any reason to change this value.
+		type MaxClaimQueueOffset: Get<u8>;
 	}
 
 	#[pallet::hooks]
@@ -534,16 +583,31 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// We need to ensure that `CoreInfo` digest exists only once.
+			// We need to ensure that `CoreInfo` digest exists only once and validate claim_queue_offset.
+			//
+			// The claim_queue_offset determines how far "into the future" the collator is targeting
+			// in the claim queue. The maximum allowed offset is:
+			//   relay_parent_offset + max_claim_queue_offset
+			//
+			// Collators may use lower offsets for optimistic scenarios (fast execution, catching up
+			// after missed slots, chain startup). Higher offsets are not allowed to prevent
+			// collators from skipping slots.
+			//
+			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
 			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
-					assert_eq!(
+					let max_allowed_offset =
+						T::RelayParentOffset::get() as u8 + T::MaxClaimQueueOffset::get();
+					assert!(
+						core_info.claim_queue_offset.0 <= max_allowed_offset,
+						"claim_queue_offset {} exceeds maximum allowed {} (relay_parent_offset {} + max_claim_queue_offset {}). \
+						See: https://github.com/paritytech/polkadot-sdk/issues/8893",
 						core_info.claim_queue_offset.0,
-						T::RelayParentOffset::get() as u8,
-						"Only {} is supported as valid claim queue offset",
-						T::RelayParentOffset::get()
+						max_allowed_offset,
+						T::RelayParentOffset::get(),
+						T::MaxClaimQueueOffset::get()
 					);
 				},
 				CoreInfoExistsAtMaxOnce::NotFound => {},
@@ -611,9 +675,16 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
-			let expected_rp_descendants_num = T::RelayParentOffset::get();
 
-			if expected_rp_descendants_num > 0 {
+
+			// Relay parent offset validation:
+			// When SchedulingV3Enabled is false: validate relay_parent_descendants (old mechanism)
+			// When SchedulingV3Enabled is true: skip this validation, V3 scheduling validation
+			// happens in validate_block with header chain from PVF params
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+			let v3_enabled = T::SchedulingV3Enabled::get();
+
+			if expected_rp_descendants_num > 0 && !v3_enabled {
 				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
 					&relay_state_proof,
 					relay_parent_descendants,
@@ -627,6 +698,8 @@ pub mod pallet {
 					);
 				};
 			}
+
+
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
@@ -1025,6 +1098,13 @@ impl<T: Config> Pallet<T> {
 	pub fn unincluded_segment_size_after(included_hash: T::Hash) -> u32 {
 		let segment = UnincludedSegment::<T>::get();
 		crate::unincluded_segment::size_after_included(included_hash, &segment)
+	}
+
+	/// Returns the configured maximum claim queue offset.
+	///
+	/// This is used by the runtime API to expose the value to collators.
+	pub fn max_claim_queue_offset() -> u8 {
+		T::MaxClaimQueueOffset::get()
 	}
 }
 

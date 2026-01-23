@@ -1,0 +1,70 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add V3 scheduling validation for parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds support for V3 candidate descriptor scheduling validation in cumulus parachains.
+
+      This introduces a new SchedulingV3Enabled configuration option in the parachain-system
+      pallet that parachains must explicitly enable when ready to use V3 candidates.
+
+      V3 candidates use a dual-parent model where relay_parent provides execution context
+      and scheduling_parent (a recent relay tip) is used for scheduling. This enables
+      building on older relay parents while being scheduled based on current relay state.
+
+      ## Claim Queue Offset Handling
+
+      This PR also introduces proper claim_queue_offset handling with a new MaxClaimQueueOffset
+      configuration type in the parachain-system pallet (default: 1).
+
+      The runtime enforces: `claim_queue_offset <= relay_parent_offset + max_claim_queue_offset`
+
+      This addresses the security concern from https://github.com/paritytech/polkadot-sdk/issues/8893
+      where collators could skip scheduled slots by picking arbitrary claim queue offsets.
+      With scheduling_parent decoupling, offsets larger than 1 are no longer needed.
+
+      A new `max_claim_queue_offset()` method has been added to the RelayParentOffsetApi trait
+      with a default implementation returning 1 for backwards compatibility.
+
+      ## Migration steps
+
+      1. Update all collators to a version supporting V3 candidates
+      2. Verify relay chain has CandidateReceiptV3 node feature enabled
+      3. Enable via runtime upgrade: type SchedulingV3Enabled = ConstBool<true>
+      4. Optionally configure MaxClaimQueueOffset if a different value is needed
+
+      When enabled, the old relay_parent_descendants validation is disabled and V3
+      scheduling validation is used instead. The RelayParentOffset config defines
+      the header chain length.
+
+      Important: Do NOT enable until all collators are updated.
+
+  - audience: Node Dev
+    description: |
+      Collator nodes must support V3 candidate production before parachains enable
+      SchedulingV3Enabled. When V3 is enabled, provide header chain via V3 extension
+      instead of relay_parent_descendants in the inherent.
+
+      ## Claim Queue Offset Changes
+
+      The collator now respects the runtime-configured MaxClaimQueueOffset:
+
+      - For V3 (with scheduling_parent): looks up claim queue at scheduling_parent
+        (fresh tip), uses max_claim_queue_offset as the depth
+      - For V1/V2 (without scheduling_parent): looks up at relay_parent,
+        uses relay_parent_offset + max_claim_queue_offset as the depth
+
+      Collators may use lower offsets for optimistic scenarios. The runtime enforces
+      the maximum to prevent slot skipping attacks.
+
+      Backwards compatible: if the runtime doesn't implement max_claim_queue_offset(),
+      the collator falls back to a default of 1.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+  - name: cumulus-primitives-core
+  - name: cumulus-client-consensus-aura
+  - name: polkadot-parachain-primitives

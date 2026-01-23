@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -128,7 +128,7 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api:
-		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block>,
+		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block> + SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -209,6 +209,18 @@ where
 			let relay_parent_offset =
 				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
 
+			// Fetch max_claim_queue_offset from runtime API, defaulting to 1 for backwards
+			// compatibility with runtimes that don't implement this method yet.
+			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
+			let max_claim_queue_offset =
+				para_client.runtime_api().max_claim_queue_offset(best_hash).unwrap_or(1);
+
+			// Check if V3 scheduling is enabled
+			let v3_enabled = para_client
+				.runtime_api()
+				.scheduling_v3_enabled(best_hash)
+				.unwrap_or(false);
+
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 				continue;
@@ -235,6 +247,9 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
+			// Extract descendants for V3 scheduling proof before rp_data is moved
+			let rp_descendants: Vec<_> = rp_data.descendants().to_vec();
+
 			let Some((included_header, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
@@ -245,13 +260,40 @@ where
 			let parent_hash = parent.hash;
 			let parent_header = &parent.header;
 
+			// Determine claim queue lookup parameters based on V3 scheduling mode.
+			//
+			// For V3 (with scheduling_parent):
+			//   - Look up claim queue at scheduling_parent (relay_best_hash, the fresh tip)
+			//   - Use depth = max_claim_queue_offset (typically 1)
+			//   - claim_queue_offset = max_claim_queue_offset
+			//
+			// For V1/V2 (without scheduling_parent):
+			//   - Look up claim queue at relay_parent
+			//   - Use depth = relay_parent_offset + max_claim_queue_offset
+			//   - claim_queue_offset = relay_parent_offset + max_claim_queue_offset
+			//
+			// Collators may use lower offsets for optimistic scenarios. The runtime
+			// enforces: claim_queue_offset <= relay_parent_offset + max_claim_queue_offset
+			//
+			// See: https://github.com/paritytech/polkadot-sdk/issues/8893
+			let (claim_queue_relay_block, claim_queue_depth, claim_queue_offset) = if v3_enabled {
+				// V3: look up at scheduling_parent (fresh tip), use max_claim_queue_offset
+				(relay_best_hash, max_claim_queue_offset as u32, max_claim_queue_offset)
+			} else {
+				// V1/V2: look up at relay_parent, use relay_parent_offset + max_claim_queue_offset
+				let total_offset = relay_parent_offset as u8 + max_claim_queue_offset;
+				(relay_parent, total_offset as u32, total_offset)
+			};
+
 			// Retrieve the core.
 			let core = match determine_core(
 				&mut relay_chain_data_cache,
+				claim_queue_relay_block,
 				&relay_parent_header,
 				para_id,
 				parent_header,
-				relay_parent_offset,
+				claim_queue_depth,
+				claim_queue_offset,
 			)
 			.await
 			{
@@ -346,6 +388,8 @@ where
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
+				claim_queue_offset,
+				v3_enabled,
 				included_hash = %included_header_hash,
 				included_num = %included_header.number(),
 				parent = %parent_hash,
@@ -451,13 +495,56 @@ where
 
 			*last_claimed_core_selector = Some(core.core_selector());
 
+			// Check if V3 scheduling is enabled and build scheduling proof if so
+			let scheduling_proof = if para_client
+				.runtime_api()
+				.scheduling_v3_enabled(parent_hash)
+				.unwrap_or(false)
+			{
+				// For V3, build the scheduling proof (header chain from scheduling_parent back to relay_parent)
+				// - scheduling_parent = relay_best_hash (fresh leaf, used for scheduling/backing group)
+				// - relay_parent = older block (used for execution context)
+				// - header_chain contains headers from newest to oldest (scheduling_parent backward)
+				// - header_chain length = relay_parent_offset (number of blocks between them)
+				// - last header's parent_hash = relay_parent (internal scheduling parent)
+
+				// The descendants are ordered from oldest to newest, so reverse them
+				let header_chain: Vec<_> = rp_descendants.iter().rev().cloned().collect();
+
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?relay_best_hash,
+					header_chain_len = header_chain.len(),
+					"Building V3 collation with scheduling proof",
+				);
+
+				Some(SchedulingProof {
+					header_chain,
+					// Initial submission: no signature needed, core selection from UMP signals
+					signed_scheduling_info: None,
+				})
+			} else {
+				None
+			};
+
+			// For V3, scheduling_parent is the fresh relay chain tip (relay_best_hash)
+			// For V1/V2, scheduling_parent is None
+			let scheduling_parent = if scheduling_proof.is_some() {
+				Some(relay_best_hash)
+			} else {
+				None
+			};
+
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
+				scheduling_parent,
 				parent_header: parent_header.clone(),
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
+				scheduling_proof,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 				return
@@ -593,18 +680,45 @@ impl Core {
 }
 
 /// Determine the core for the given `para_id`.
+///
+/// # Parameters
+///
+/// - `relay_chain_data_cache`: Cache for relay chain data.
+/// - `claim_queue_relay_block`: The relay block hash to look up the claim queue at.
+///   For V3: this is the scheduling_parent (fresh tip).
+///   For V1/V2: this is the relay_parent.
+/// - `relay_parent`: The relay parent header (used for checking if relay parent changed).
+/// - `para_id`: The parachain ID.
+/// - `para_parent`: The parachain parent header.
+/// - `claim_queue_depth`: The depth in the claim queue to look up cores.
+///   For V3: this is max_claim_queue_offset.
+///   For V1/V2: this is relay_parent_offset + max_claim_queue_offset.
+/// - `claim_queue_offset`: The claim_queue_offset value to use in the result CoreInfo.
+///   This is what gets sent to the relay chain via UMP signals.
+///
+/// # Claim Queue Offset Design
+///
+/// The claim_queue_offset determines how far "into the future" the collator targets in the
+/// claim queue. The runtime enforces: `claim_queue_offset <= relay_parent_offset + max_claim_queue_offset`
+///
+/// Collators may use lower offsets for optimistic scenarios (fast execution, catching up after
+/// missed slots). Higher offsets are not allowed to prevent slot skipping.
+///
+/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
+	claim_queue_relay_block: RelayHash,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	para_parent: &H,
-	relay_parent_offset: u32,
+	claim_queue_depth: u32,
+	claim_queue_offset: u8,
 ) -> Result<Option<Core>, ()> {
 	let cores_at_offset = &relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_parent.hash())
+		.get_mut_relay_chain_data(claim_queue_relay_block)
 		.await?
 		.claim_queue
-		.iter_claims_at_depth_for_para(relay_parent_offset as usize, para_id)
+		.iter_claims_at_depth_for_para(claim_queue_depth as usize, para_id)
 		.collect::<Vec<_>>();
 
 	let is_new_relay_parent = if para_parent.number().is_zero() {
@@ -633,7 +747,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		(selector, *core_index)
 	} else {
 		let last_claimed_core_selector = relay_chain_data_cache
-			.get_mut_relay_chain_data(relay_parent.hash())
+			.get_mut_relay_chain_data(claim_queue_relay_block)
 			.await?
 			.last_claimed_core_selector;
 
@@ -646,7 +760,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	Ok(Some(Core {
 		selector: CoreSelector(selector as u8),
 		core_index,
-		claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
+		claim_queue_offset: ClaimQueueOffset(claim_queue_offset),
 		number_of_cores: cores_at_offset.len() as u16,
 	}))
 }

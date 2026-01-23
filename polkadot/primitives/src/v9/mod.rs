@@ -1828,6 +1828,12 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 /// A type representing the version of the candidate descriptor and internal version number.
 #[derive(PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, Debug, Copy)]
 pub struct InternalVersion(pub u8);
+
+/// Internal version byte for V2 candidate descriptors.
+pub const CANDIDATE_DESCRIPTOR_VERSION_V2: u8 = 0;
+/// Internal version byte for V3 candidate descriptors.
+pub const CANDIDATE_DESCRIPTOR_VERSION_V3: u8 = 1;
+
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum CandidateDescriptorVersion {
@@ -1969,7 +1975,7 @@ impl<H: AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 
 		match self.version {
-			0 => CandidateDescriptorVersion::V2,
+			CANDIDATE_DESCRIPTOR_VERSION_V2 => CandidateDescriptorVersion::V2,
 			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
@@ -1991,8 +1997,8 @@ impl<H> CandidateDescriptorV2<H> {
 			return CandidateDescriptorVersion::V1;
 		}
 		match self.version {
-			0 => CandidateDescriptorVersion::V2,
-			1 => CandidateDescriptorVersion::V3,
+			CANDIDATE_DESCRIPTOR_VERSION_V2 => CandidateDescriptorVersion::V2,
+			CANDIDATE_DESCRIPTOR_VERSION_V3 => CandidateDescriptorVersion::V3,
 			_ => CandidateDescriptorVersion::Unknown,
 		}
 	}
@@ -2179,7 +2185,7 @@ where
 }
 
 impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
-	/// Constructor for V2 candidate descriptor (scheduling_parent = zero).
+	/// Constructor
 	pub fn new(
 		para_id: Id,
 		relay_parent: H,
@@ -2197,7 +2203,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		Self {
 			para_id,
 			relay_parent,
-			version: 0,
+			version: CANDIDATE_DESCRIPTOR_VERSION_V2,
 			core_index: core_index.0 as u16,
 			session_index,
 			scheduling_session_offset: 0,
@@ -2212,14 +2218,14 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Constructor for V3 candidate descriptor with explicit scheduling_parent.
+	/// Constructor for V3 candidate descriptors with scheduling_parent.
 	///
-	/// V3 descriptors are identified by `version == 1` and have a non-zero scheduling_parent
-	/// field, which indicates the relay chain block that was used for scheduling (may differ
-	/// from relay_parent). V3 descriptors require UMP signals to be present.
+	/// V3 candidates separate the relay_parent (execution context) from
+	/// the scheduling_parent (scheduling context/recent relay chain tip).
 	pub fn new_v3(
 		para_id: Id,
 		relay_parent: H,
+		scheduling_parent: H,
 		core_index: CoreIndex,
 		session_index: SessionIndex,
 		persisted_validation_data_hash: Hash,
@@ -2227,12 +2233,11 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		erasure_root: Hash,
 		para_head: Hash,
 		validation_code_hash: ValidationCodeHash,
-		scheduling_parent: H,
 	) -> Self {
 		Self {
 			para_id,
 			relay_parent,
-			version: 1,
+			version: CANDIDATE_DESCRIPTOR_VERSION_V3,
 			core_index: core_index.0 as u16,
 			session_index,
 			scheduling_session_offset: 0,
