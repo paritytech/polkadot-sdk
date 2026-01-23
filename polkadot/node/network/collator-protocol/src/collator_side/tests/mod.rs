@@ -2050,8 +2050,7 @@ fn readvertise_collation_on_authority_id_update() {
 
 			let peer = test_state.current_group_validator_peer_ids()[0];
 			// Use an unrelated authority ID that doesn't match the validator group
-			let unrelated_authority_id: AuthorityDiscoveryId =
-				Sr25519Keyring::Eve.public().into();
+			let unrelated_authority_id: AuthorityDiscoveryId = Sr25519Keyring::Eve.public().into();
 			// The actual authority ID that matches the validator group
 			let matching_authority_id =
 				test_state.current_group_validator_authority_ids()[0].clone();
