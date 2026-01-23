@@ -370,13 +370,12 @@ impl<T: Config> ContractInfo<T> {
 			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) => {
+				(Some(old_len), Some(new_len)) =>
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					}
-				},
+					},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len.saturating_add(key_len);
 					diff.items_added = 1;
@@ -439,8 +438,8 @@ impl<T: Config> ContractInfo<T> {
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
 	pub fn deletion_budget(meter: &WeightMeter) -> (Weight, u32) {
 		let base_weight = T::WeightInfo::on_process_deletion_queue_batch();
-		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1)
-			- T::WeightInfo::on_initialize_per_trie_key(0);
+		let weight_per_key = T::WeightInfo::on_initialize_per_trie_key(1) -
+			T::WeightInfo::on_initialize_per_trie_key(0);
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
@@ -456,7 +455,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
-			return;
+			return
 		};
 
 		let mut queue = <DeletionQueueManager<T>>::load();
@@ -479,7 +478,7 @@ impl<T: Config> ContractInfo<T> {
 				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
 					remaining_key_budget.saturating_reduce(keys_removed);
-					break;
+					break
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
@@ -613,7 +612,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
 	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
-			return None;
+			return None
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);
