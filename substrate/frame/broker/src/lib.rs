@@ -505,6 +505,13 @@ pub mod pallet {
 			/// The schedule that could not be assigned.
 			schedule: Schedule,
 		},
+		/// Potential renewal was forcefully removed.
+		PotentialRenewalRemoved {
+			/// The core associated with the potential renewal that was removed.
+			core: CoreIndex,
+			/// The timeslice associated with the potential renewal that was removed.
+			timeslice: Timeslice,
+		},
 	}
 
 	#[pallet::error]
@@ -1031,6 +1038,24 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
+		}
+
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// Note that only the specified potential renewal will be removed while any related auto
+		/// renewals will stay intact and will fail.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: Core which the target potential renewal record refers to.
+		/// - `when`: Timeslice which the target potential renewal record refers to.
+		#[pallet::call_index(27)]
+		pub fn remove_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_potential_renewal(core, when)
 		}
 
 		#[pallet::call_index(99)]
