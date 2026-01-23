@@ -640,4 +640,16 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Broker::PotentialRenewals` (r:1 w:1)
+	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
+	fn remove_potential_renewal() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `312`
+		//  Estimated: `4698`
+		// Minimum execution time: 18_266_000 picoseconds.
+		Weight::from_parts(19_216_000, 0)
+			.saturating_add(Weight::from_parts(0, 4698))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
