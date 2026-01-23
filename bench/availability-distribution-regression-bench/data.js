@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769172608876,
+  "lastUpdate": 1769175888326,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5072bf9b93dc1c9dff0161ab6efe2799036045e9",
-          "message": "Scheduler `on_initialize` supports skipped blocks (#8723)\n\nScheduler `on_initialize` supports skipped blocks.\n\nScheduler correctly handles situations where `on_initialize` is invoked\nwith block numbers that:\n- increase but are not strictly consecutive (e.g., jump from 5 → 10), or\n- are repeated (e.g., multiple blocks are built at the same Relay Chain\nparent block, all reporting the same `BlockNumberProvider` value).\n\nThis situation may occur when the `BlockNumberProvider` is not local -\nfor example, on a parachain using the Relay Chain block number provider.\n\nImplementation notes:\n- The `IncompleteSince` value is always set to the next block `(now +\n1)`.\n- A scheduled task is considered permanently overweight only if it fails\nduring the first agenda processing;",
-          "timestamp": "2025-06-21T20:35:41Z",
-          "tree_id": "2cd75d8bd1acbb19ed31a2ae5344c840c8fd73cb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5072bf9b93dc1c9dff0161ab6efe2799036045e9"
-        },
-        "date": 1750542167848,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013021330179999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1576084023933334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008851809213333409,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02249008864,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.023027879586666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
+          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-23T12:33:22Z",
+          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
+        },
+        "date": 1769175864258,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0070119431533333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1435892524400001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02299898888666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009414698580000009,
             "unit": "seconds"
           }
         ]
