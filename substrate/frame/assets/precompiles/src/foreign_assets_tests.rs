@@ -22,10 +22,8 @@ use crate::{
 	foreign_assets::{pallet::Pallet as ForeignAssetsPallet, ForeignAssetId, ToAssetIndex},
 	mock::{new_test_ext, Test},
 };
-use codec::Encode;
 use frame_support::assert_ok;
 use pallet_assets::AssetsCallback;
-use xcm::v5::Location;
 
 #[test]
 fn asset_mapping_insert_works() {
