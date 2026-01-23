@@ -1383,9 +1383,9 @@ where
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
 			if let Some(precompile) = executable.as_precompile() {
-				if precompile.has_contract_info()
-					&& frame.delegate.is_none()
-					&& !<System<T>>::account_exists(account_id)
+				if precompile.has_contract_info() &&
+					frame.delegate.is_none() &&
+					!<System<T>>::account_exists(account_id)
 				{
 					// prefix matching pre-compiles cannot have a contract info
 					// hence we only mint once per pre-compile
@@ -1433,8 +1433,8 @@ where
 					// Only keep return data for tracing and for dry runs.
 					// When a dry-run simulates contract deployment, keep the execution result's
 					// data.
-					let data = if crate::tracing::if_tracing(|_| {}).is_none()
-						&& self.exec_config.is_dry_run.is_none()
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() &&
+						self.exec_config.is_dry_run.is_none()
 					{
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
@@ -1486,9 +1486,8 @@ where
 					do_transaction()
 				};
 				match &output {
-					Ok(result) if !result.did_revert() => {
-						TransactionOutcome::Commit(Ok((true, output)))
-					},
+					Ok(result) if !result.did_revert() =>
+						TransactionOutcome::Commit(Ok((true, output))),
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1677,7 +1676,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation);
+			return transfer_with_dust::<T>(from, to, value, preservation)
 		}
 
 		let origin = origin.account_id()?;
@@ -2257,7 +2256,7 @@ where
 
 	fn code_hash(&self, address: &H160) -> H256 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into();
+			return sp_io::hashing::keccak_256(code).into()
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2272,7 +2271,7 @@ where
 
 	fn code_size(&self, address: &H160) -> u64 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return code.len() as u64;
+			return code.len() as u64
 		}
 
 		<AccountInfo<T>>::load_contract(&address)

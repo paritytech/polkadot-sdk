@@ -2515,8 +2515,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Ensure that the origin is neither a pre-compile nor a contract.
 	///
-	/// This enforces EIP-3607, with modification per EIP-7702 to allow
-	/// EOAs with delegation indicators to originate transactions.
+	/// This enforces EIP-3607.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
 		if DebugSettings::bypass_eip_3607::<T>() {
 			return Ok(())
@@ -2529,31 +2528,17 @@ impl<T: Config> Pallet<T> {
 			return Ok(())
 		};
 
-		// EIP-7702: Allow EOAs with delegation indicators to originate transactions
-		if <AccountInfo<T>>::is_contract(&address) {
-			// Check if this is a delegation indicator (EIP-7702)
-			if <AccountInfo<T>>::is_delegated(&address) {
-				// Delegation indicators are allowed to originate transactions
-				return Ok(());
-			}
-			// Non-delegation contracts are not allowed
+		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||
+			<AccountInfo<T>>::is_contract(&address)
+		{
 			log::debug!(
 				target: crate::LOG_TARGET,
-				"EIP-3607: reject tx from non-delegation contract at {address:?}",
+				"EIP-3607: reject tx as pre-compile or account exist at {address:?}",
 			);
-			return Err(DispatchError::BadOrigin);
+			Err(DispatchError::BadOrigin)
+		} else {
+			Ok(())
 		}
-
-		// Precompiles are not allowed
-		if exec::is_precompile::<T, ContractBlob<T>>(&address) {
-			log::debug!(
-				target: crate::LOG_TARGET,
-				"EIP-3607: reject tx from pre-compile at {address:?}",
-			);
-			return Err(DispatchError::BadOrigin);
-		}
-
-		Ok(())
 	}
 }
 
