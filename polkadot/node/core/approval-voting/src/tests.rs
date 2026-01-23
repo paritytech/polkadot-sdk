@@ -653,17 +653,11 @@ fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
 struct ExpectApprovalsStatsCollected {
 	block_hash: Hash,
 	validators: Vec<ValidatorIndex>,
-	no_shows: Option<(SessionIndex, Vec<ValidatorIndex>)>,
 }
 
 impl ExpectApprovalsStatsCollected {
 	fn new(block_hash: Hash, validators: Vec<ValidatorIndex>) -> Self {
-		Self { block_hash, validators, no_shows: None }
-	}
-
-	fn with_no_shows(&mut self, no_shows: (SessionIndex, Vec<ValidatorIndex>)) -> &mut Self {
-		self.no_shows = Some(no_shows);
-		self
+		Self { block_hash, validators }
 	}
 }
 

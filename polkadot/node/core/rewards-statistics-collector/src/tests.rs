@@ -24,7 +24,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_primitives::{CandidateHash, Hash, Header, SessionIndex, SessionInfo};
+use polkadot_primitives::{Hash, SessionIndex, SessionInfo};
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
@@ -106,8 +106,8 @@ async fn candidate_approved(
 ) {
 	let msg = FromOrchestra::Communication {
 		msg: RewardsStatisticsCollectorMessage::CandidateApproved(
-			rb_hash.clone(),
-			rb_number.clone(),
+			rb_hash,
+			rb_number,
 			approvals,
 		),
 	};
@@ -122,8 +122,8 @@ async fn no_shows(
 ) {
 	let msg = FromOrchestra::Communication {
 		msg: RewardsStatisticsCollectorMessage::NoShows(
-			rb_hash.clone(),
-			rb_number.clone(),
+			rb_hash,
+			rb_number,
 			no_shows,
 		),
 	};
@@ -190,13 +190,13 @@ fn single_candidate_approved() {
 	let rb_hash = Hash::from_low_u64_be(132);
 	let rb_number: BlockNumber = 1;
 
-	let leaf = new_leaf(rb_hash.clone(), rb_number);
+	let leaf = new_leaf(rb_hash, rb_number);
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		activate_leaf(&mut virtual_overseer, leaf.clone(), 1, Some(default_session_info(1))).await;
+		activate_leaf(&mut virtual_overseer, leaf, 1, Some(default_session_info(1))).await;
 
-		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx.clone()])
+		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx])
 			.await;
 		virtual_overseer
 	});
@@ -217,13 +217,13 @@ fn candidate_approved_for_different_forks() {
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		let leaf0 = new_leaf(rb_hash_fork_0.clone(), rb_number);
+		let leaf0 = new_leaf(rb_hash_fork_0, rb_number);
 
-		let leaf1 = new_leaf(rb_hash_fork_1.clone(), rb_number);
+		let leaf1 = new_leaf(rb_hash_fork_1, rb_number);
 
-		activate_leaf(&mut virtual_overseer, leaf0.clone(), 1, Some(default_session_info(1))).await;
+		activate_leaf(&mut virtual_overseer, leaf0, 1, Some(default_session_info(1))).await;
 
-		activate_leaf(&mut virtual_overseer, leaf1.clone(), 1, None).await;
+		activate_leaf(&mut virtual_overseer, leaf1, 1, None).await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash_fork_0, rb_number, vec![validator_idx0])
 			.await;
@@ -251,8 +251,8 @@ fn candidate_approval_stats_with_no_shows() {
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		let leaf1 = new_leaf(rb_hash.clone(), rb_number);
-		activate_leaf(&mut virtual_overseer, leaf1.clone(), 1, Some(default_session_info(1))).await;
+		let leaf1 = new_leaf(rb_hash, rb_number);
+		activate_leaf(&mut virtual_overseer, leaf1, 1, Some(default_session_info(1))).await;
 
 		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, approvals_from).await;
 
@@ -342,7 +342,7 @@ fn default_session_info(session_idx: SessionIndex) -> SessionInfo {
 #[test]
 fn note_chunks_uploaded_to_active_validator() {
 	let activated_leaf_hash = Hash::from_low_u64_be(111);
-	let leaf1 = new_leaf(activated_leaf_hash.clone(), 1);
+	let leaf1 = new_leaf(activated_leaf_hash, 1);
 
 	let session_index: SessionIndex = 2;
 	let mut session_info: SessionInfo = default_session_info(session_index);
@@ -411,7 +411,7 @@ fn prune_unfinalized_forks() {
 
 	let mut view = View::new();
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		let leaf_a = new_leaf(hash_a.clone(), number_a);
+		let leaf_a = new_leaf(hash_a, number_a);
 
 		activate_leaf(
 			&mut virtual_overseer,
@@ -436,7 +436,7 @@ fn prune_unfinalized_forks() {
 		)
 		.await;
 
-		let leaf_b = new_leaf(hash_b.clone(), 2);
+		let leaf_b = new_leaf(hash_b, 2);
 		activate_leaf(&mut virtual_overseer, leaf_b, session_zero, None).await;
 
 		candidate_approved(
@@ -447,7 +447,7 @@ fn prune_unfinalized_forks() {
 		)
 		.await;
 
-		let leaf_c = new_leaf(hash_c.clone(), 2);
+		let leaf_c = new_leaf(hash_c, 2);
 		activate_leaf(&mut virtual_overseer, leaf_c, session_zero, None).await;
 
 		candidate_approved(
@@ -458,7 +458,7 @@ fn prune_unfinalized_forks() {
 		)
 		.await;
 
-		let leaf_d = new_leaf(hash_d.clone(), 3);
+		let leaf_d = new_leaf(hash_d, 3);
 		activate_leaf(&mut virtual_overseer, leaf_d, session_zero, None).await;
 
 		candidate_approved(
@@ -474,27 +474,27 @@ fn prune_unfinalized_forks() {
 
 	let expect = vec![
 		(
-			hash_a.clone(),
-			number_a.clone(),
+			hash_a,
+			number_a,
 			vec![(ValidatorIndex(2), 1), (ValidatorIndex(3), 1)],
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
 		),
 		(
-			hash_b.clone(),
-			number_b.clone(),
+			hash_b,
+			number_b,
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
 			vec![],
 		),
 		(
-			hash_c.clone(),
+			hash_c,
 			number_c,
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1), (ValidatorIndex(2), 1)],
 			vec![],
 		),
-		(hash_d.clone(), number_d, vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)], vec![]),
+		(hash_d, number_d, vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)], vec![]),
 	];
 
-	assert_relay_view_approval_stats(&view, expect.clone());
+	assert_relay_view_approval_stats(&view, expect);
 
 	// Finalizing block C should prune the current unfinalized mapping
 	// and aggregate data of the finalized chain on the per session view
@@ -502,7 +502,7 @@ fn prune_unfinalized_forks() {
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		finalize_block(
 			&mut virtual_overseer,
-			(hash_c.clone(), number_c),
+			(hash_c, number_c),
 			0 as BlockNumber,
 			// send the parent hash and the genesis hash (all zeroes)
 			vec![hash_a, Default::default()],
@@ -512,13 +512,13 @@ fn prune_unfinalized_forks() {
 	});
 
 	let expect = vec![(
-		hash_d.clone(),
+		hash_d,
 		number_d,
 		vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
 		vec![],
 	)];
 
-	assert_relay_view_approval_stats(&view, expect.clone());
+	assert_relay_view_approval_stats(&view, expect);
 
 	// check if the data was aggregated correctly for the session view
 	// it should aggregate approvals and no-shows collected on blocks
@@ -549,7 +549,7 @@ fn prune_unfinalized_forks() {
 	let session_one: SessionIndex = 1;
 
 	test_harness(&mut view, |mut virtual_overseer| async move {
-		let leaf_e = new_leaf(hash_e.clone(), 4);
+		let leaf_e = new_leaf(hash_e, 4);
 		activate_leaf(
 			&mut virtual_overseer,
 			leaf_e,
@@ -567,11 +567,11 @@ fn prune_unfinalized_forks() {
 		.await;
 		no_shows(&mut virtual_overseer, hash_e, number_e, vec![ValidatorIndex(2)]).await;
 
-		let leaf_f = new_leaf(hash_f.clone(), number_f);
+		let leaf_f = new_leaf(hash_f, number_f);
 		activate_leaf(&mut virtual_overseer, leaf_f, session_one, None).await;
 		candidate_approved(&mut virtual_overseer, hash_f, number_f, vec![ValidatorIndex(3)]).await;
 
-		let leaf_g = new_leaf(hash_g.clone(), number_g);
+		let leaf_g = new_leaf(hash_g, number_g);
 		activate_leaf(&mut virtual_overseer, leaf_g, session_one, None).await;
 		candidate_approved(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(0)]).await;
 		no_shows(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(1)]).await;
@@ -579,7 +579,7 @@ fn prune_unfinalized_forks() {
 		// finalizing relay block E
 		finalize_block(
 			&mut virtual_overseer,
-			(hash_e.clone(), number_e),
+			(hash_e, number_e),
 			number_c,
 			vec![hash_d, hash_c],
 		)
@@ -592,8 +592,8 @@ fn prune_unfinalized_forks() {
 	// now it should aggregate collected data from block D and E
 	// keeping only blocks F and G on the mapping
 	let expect = vec![
-		(hash_f.clone(), number_f, vec![(ValidatorIndex(3), 1)], vec![]),
-		(hash_g.clone(), number_g, vec![(ValidatorIndex(0), 1)], vec![(ValidatorIndex(1), 1)]),
+		(hash_f, number_f, vec![(ValidatorIndex(3), 1)], vec![]),
+		(hash_g, number_g, vec![(ValidatorIndex(0), 1)], vec![(ValidatorIndex(1), 1)]),
 	];
 
 	assert_relay_view_approval_stats(&view, expect);

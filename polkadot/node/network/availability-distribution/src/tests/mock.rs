@@ -172,12 +172,6 @@ pub fn get_valid_chunk_data(
 #[derive(Debug, Clone)]
 pub struct MockEmptyAuthorityDiscovery;
 
-impl MockEmptyAuthorityDiscovery {
-	pub fn new() -> Self {
-		MockEmptyAuthorityDiscovery {}
-	}
-}
-
 #[async_trait]
 impl AuthorityDiscovery for MockEmptyAuthorityDiscovery {
 	async fn get_addresses_by_authority_id(
