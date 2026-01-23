@@ -100,6 +100,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 			true,
+			Default::default(),
 		)?;
 	let client = Arc::new(client);
 

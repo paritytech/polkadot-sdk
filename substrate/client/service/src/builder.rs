@@ -143,12 +143,13 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts(config, telemetry, executor).map(|parts| parts.0)
+	new_full_parts(config, telemetry, executor, block_pruning_filters).map(|parts| parts.0)
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
@@ -189,19 +190,19 @@ where
 
 /// Create the initial parts of a full node with the default genesis block builder.
 ///
-/// This is a convenience wrapper around [`new_full_parts_record_import`] with no pruning filters
-/// and import proof recording disabled. For relay chains that need warp sync support,
-/// use [`new_full_parts_record_import`] with `GrandpaBlockPruningFilter` instead.
+/// The `block_pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false, Default::default())
+	new_full_parts_record_import(config, telemetry, executor, false, block_pruning_filters)
 }
 
 /// Create the initial parts of a full node.

@@ -124,14 +124,12 @@ pub(crate) fn new_partial_basics(
 
 	// Use GrandpaBlockPruningFilter to preserve blocks with GRANDPA justifications during
 	// pruning. This is required for warp sync to work on pruned nodes.
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_record_import(
-			&config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-			false,
-			vec![Arc::new(GrandpaBlockPruningFilter)],
-		)?;
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts(
+		&config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+		vec![Arc::new(GrandpaBlockPruningFilter)],
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {

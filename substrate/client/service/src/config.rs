@@ -229,10 +229,6 @@ impl Configuration {
 	}
 
 	/// Returns the database config for creating the backend.
-	///
-	/// Note: This returns settings with empty `block_pruning_filters`. To configure
-	/// block pruning filters (e.g., to preserve GRANDPA justifications for warp sync),
-	/// modify the returned settings before passing to `new_db_backend`.
 	pub fn db_config(&self) -> sc_client_db::DatabaseSettings {
 		sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: self.trie_cache_maximum_size,
