@@ -3033,6 +3033,7 @@ fn add_potential_renewal_integration() {
 	});
 }
 
+#[test]
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
