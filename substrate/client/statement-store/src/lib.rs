@@ -162,7 +162,6 @@ struct Index {
 	recent: HashSet<Hash>,
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
-	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
 	entries: HashMap<Hash, (AccountId, Priority, usize)>,
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
@@ -229,18 +228,13 @@ impl Index {
 	}
 
 	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
-		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
 			self.by_topic.entry(t).or_default().insert(hash);
-			all_topics[nt] = Some(t);
 			nt += 1;
 		}
 		let key = statement.decryption_key();
 		self.by_dec_key.entry(key).or_default().insert(hash);
-		if nt > 0 || key.is_some() {
-			self.topics_and_keys.insert(hash, (all_topics, key));
-		}
 		let priority = Priority(statement.priority().unwrap_or(0));
 		self.entries.insert(hash, (account, priority, statement.data_len()));
 		self.recent.insert(hash);
@@ -329,11 +323,20 @@ impl Index {
 		std::mem::take(&mut self.recent)
 	}
 
-	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
+	fn make_expired(&mut self, hash: &Hash, db: &parity_db::Db, current_time: u64) -> bool {
 		if let Some((account, priority, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
-			if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
-				for t in topics.into_iter().flatten() {
+			// Read statement from database to get topics and decryption key
+			let statement = db
+				.get(col::STATEMENTS, hash)
+				.ok()
+				.flatten()
+				.and_then(|data| Statement::decode(&mut data.as_slice()).ok());
+
+			if let Some(statement) = statement {
+				// Remove hash from topic indexes using statement data
+				let mut nt = 0;
+				while let Some(t) = statement.topic(nt) {
 					if let std::collections::hash_map::Entry::Occupied(mut set) =
 						self.by_topic.entry(t)
 					{
@@ -342,7 +345,10 @@ impl Index {
 							set.remove_entry();
 						}
 					}
+					nt += 1;
 				}
+				// Remove hash from decryption key index
+				let key = statement.decryption_key();
 				if let std::collections::hash_map::Entry::Occupied(mut set) =
 					self.by_dec_key.entry(key)
 				{
@@ -351,6 +357,21 @@ impl Index {
 						set.remove_entry();
 					}
 				}
+			} else {
+				// Fallback: iterate through all indexes if database read failed
+				log::warn!(
+					target: LOG_TARGET,
+					"Failed to read statement {:?} from database, falling back to full index scan",
+					HexDisplay::from(hash)
+				);
+				self.by_topic.retain(|_, hashes| {
+					hashes.remove(hash);
+					!hashes.is_empty()
+				});
+				self.by_dec_key.retain(|_, hashes| {
+					hashes.remove(hash);
+					!hashes.is_empty()
+				});
 			}
 			let _ = self.recent.remove(hash);
 			self.expired.insert(*hash, current_time);
@@ -381,6 +402,7 @@ impl Index {
 		statement: &Statement,
 		account: &AccountId,
 		validation: &ValidStatement,
+		db: &parity_db::Db,
 		current_time: u64,
 	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
@@ -486,7 +508,7 @@ impl Index {
 		}
 
 		for h in &evicted {
-			self.make_expired(h, current_time);
+			self.make_expired(h, db, current_time);
 		}
 		self.insert_new(hash, *account, statement);
 		Ok(evicted)
@@ -1006,11 +1028,17 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 
-			let evicted =
-				match index.insert(hash, &statement, &account_id, &validation, current_time) {
-					Ok(evicted) => evicted,
-					Err(reason) => return SubmitResult::Rejected(reason),
-				};
+			let evicted = match index.insert(
+				hash,
+				&statement,
+				&account_id,
+				&validation,
+				&self.db,
+				current_time,
+			) {
+				Ok(evicted) => evicted,
+				Err(reason) => return SubmitResult::Rejected(reason),
+			};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
@@ -1037,7 +1065,7 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		{
 			let mut index = self.index.write();
-			if index.make_expired(hash, current_time) {
+			if index.make_expired(hash, &self.db, current_time) {
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
@@ -1067,7 +1095,7 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		for hash in evicted {
-			index.make_expired(&hash, current_time);
+			index.make_expired(&hash, &self.db, current_time);
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
 			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
 		}
