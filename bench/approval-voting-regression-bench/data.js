@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769172641237,
+  "lastUpdate": 1769175922315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41160dce396fb98be6c2c4664bb2124a57e35a49",
-          "message": "[pallet-revive] Make Runtime call dispatchable as eth transaction (#8883)\n\nMake RuntimeCall dispatchable as eth transaction.\n\nBy sending a transaction to\n`0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime\ncall as input, the call will be executed by the origin indicated by the\nEthereum signature (0xEE account_id).\n\nsee https://github.com/paritytech/foundry-polkadot/issues/130\n\ne.g sending a remark_with_event\n```\ncast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133\ncast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435\n```\n\nalso merged in #8901 and #8920\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-21T09:32:23Z",
-          "tree_id": "52230c17ebc7b6edb9d1aedfb5b806f1fdc31439",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41160dce396fb98be6c2c4664bb2124a57e35a49"
-        },
-        "date": 1750502023847,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52948.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.96,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.2921920730025,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000017736080000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4494799923399933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8808556606899998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3518790530699993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002331207,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.3959670339899986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3364872478800005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.361096697229999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002331207,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000017736080000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.781378721689991,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0056130364900000024,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00002144179,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
+          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-23T12:33:22Z",
+          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
+        },
+        "date": 1769175897607,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63628.159999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002572939,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7023700377400015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.911858649109979,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.669569103179998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8294295260799878,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.695342803980001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.6859888155533795,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000025245919999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002572939,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005873709730000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.647343713319999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000025245919999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3619297550799923,
             "unit": "seconds"
           }
         ]
