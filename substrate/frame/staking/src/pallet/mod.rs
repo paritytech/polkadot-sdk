@@ -1401,21 +1401,26 @@ pub mod pallet {
 				Error::<T>::TooManyTargets
 			);
 
+			let mut targets = targets
+				.into_iter()
+				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
+				.collect::<Result<Vec<_>, _>>()?;
+
+			targets.sort();
+			targets.dedup();
+
 			let old = Nominators::<T>::get(stash).map_or_else(Vec::new, |x| x.targets.into_inner());
 
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
-				.map(|t| T::Lookup::lookup(t).map_err(DispatchError::from))
 				.map(|n| {
-					n.and_then(|n| {
-						if old.contains(&n) || !Validators::<T>::get(&n).blocked {
-							Ok(n)
-						} else {
-							Err(Error::<T>::BadTarget.into())
-						}
-					})
+					if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+						Ok(n)
+					} else {
+						Err(Error::<T>::BadTarget.into())
+					}
 				})
-				.collect::<Result<Vec<_>, _>>()?
+				.collect::<Result<Vec<_>, DispatchError>>()?
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
 
