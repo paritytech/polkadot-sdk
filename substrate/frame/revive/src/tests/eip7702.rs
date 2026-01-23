@@ -197,14 +197,14 @@ fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 		let target = H160::from([0x22; 20]);
 
 		// Create the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		// Set delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target));
 
 		// Should be allowed to originate transactions (EIP-7702 modification to EIP-3607)
-		let origin = RuntimeOrigin::signed(account_id.clone());
+		let origin = RuntimeOrigin::signed(authority_id.clone());
 		assert_ok!(Contracts::ensure_non_contract_if_signed(&origin));
 	});
 }
@@ -262,11 +262,11 @@ fn valid_signature_is_verified_correctly() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		// Get current nonce
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Sign authorization with correct nonce
 		let auth = signer.sign_authorization(chain_id, target, nonce);
@@ -296,10 +296,10 @@ fn invalid_chain_id_rejects_authorization() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Sign with wrong chain ID
 		let auth = signer.sign_authorization(wrong_chain_id, target, nonce);
@@ -327,10 +327,10 @@ fn nonce_mismatch_rejects_authorization() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let current_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let current_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let wrong_nonce = current_nonce.saturating_add(U256::from(1));
 
 		// Sign with wrong nonce
@@ -361,10 +361,10 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Sign three authorizations with same nonce but different targets
 		let auth1 = signer.sign_authorization(chain_id, target1, nonce);
@@ -395,13 +395,13 @@ fn authorization_increments_nonce() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let initial_nonce = frame_system::Pallet::<Test>::account_nonce(&account_id);
+		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&authority_id);
 
 		// Sign authorization with current nonce
-		let auth = signer.sign_authorization(chain_id, target, U256::from(initial_nonce));
+		let auth = signer.sign_authorization(chain_id, target, U256::from(nonce_before));
 
 		// Process authorization
 		crate::evm::eip7702::process_authorizations::<Test>(
@@ -410,8 +410,8 @@ fn authorization_increments_nonce() {
 		);
 
 		// Nonce should be incremented
-		let new_nonce = frame_system::Pallet::<Test>::account_nonce(&account_id);
-		assert_eq!(new_nonce, initial_nonce + 1);
+		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&authority_id);
+		assert_eq!(nonce_after, nonce_before + 1);
 	});
 }
 
@@ -427,10 +427,10 @@ fn chain_id_zero_accepts_any_chain() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Sign with chain_id = 0 (should accept any chain)
 		let auth = signer.sign_authorization(U256::zero(), target, nonce);
@@ -458,8 +458,8 @@ fn new_account_sets_delegation() {
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Sign authorization
 		let auth = signer.sign_authorization(chain_id, target, nonce);
@@ -488,10 +488,10 @@ fn clearing_delegation_with_zero_address() {
 		let authority = signer.address;
 
 		// Fund the account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target, nonce);
@@ -504,7 +504,7 @@ fn clearing_delegation_with_zero_address() {
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
 		// Get new nonce after first authorization
-		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
@@ -570,11 +570,11 @@ fn test_runtime_set_authorization() {
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		// Get current nonce
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Create authorization to delegate to target contract
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
@@ -596,7 +596,7 @@ fn test_runtime_set_authorization() {
 		);
 
 		// Verify nonce was incremented
-		let new_nonce = frame_system::Pallet::<Test>::account_nonce(&account_id);
+		let new_nonce = frame_system::Pallet::<Test>::account_nonce(&authority_id);
 		assert_eq!(new_nonce, 1);
 	});
 }
@@ -630,11 +630,11 @@ fn test_runtime_clear_authorization() {
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		// Get current nonce
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target_contract.addr, nonce);
@@ -648,7 +648,7 @@ fn test_runtime_clear_authorization() {
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
 		// Get new nonce
-		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
@@ -703,11 +703,11 @@ fn test_runtime_delegation_resolution() {
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
-		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
-		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 100_000_000);
+		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
 		// Get current nonce
-		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&account_id));
+		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		// Set delegation from authority to target contract
 		// We need to call some address with the authorization list to process it
