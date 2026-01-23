@@ -46,7 +46,6 @@ sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
-sp-test-primitives = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
@@ -54,5 +53,6 @@ sc-block-builder = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-test-primitives = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }
