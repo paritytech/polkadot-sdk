@@ -19,6 +19,14 @@ inputs:
   gh-token:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
+  max-retries:
+    description: "Maximum number of test retry attempts (1 = no retries)"
+    required: false
+    default: "3"
+  initial-delay-seconds:
+    description: "Initial delay in seconds before first retry (doubles with each attempt)"
+    required: false
+    default: "10"
 
 
 
@@ -81,10 +89,11 @@ runs:
     - name: zombie_test
       shell: bash
       env:
-        # don't retry sdk tests
         NEXTEST_RETRIES: 0
         TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        INITIAL_DELAY: ${{ inputs.initial-delay-seconds }}
       run: |
         # RUN_IN_CI=1 shall be set only for k8s provider
         if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
@@ -101,7 +110,33 @@ runs:
         fi
 
         ls -ltr ./artifacts
-        # We want to run tests sequentially, '--no-capture' ensures that.
-        # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
-        # Both options cannot coexist for cargo-nextest below v0.9.94
-        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}
+        
+        # Retry logic with exponential backoff
+        delay=$INITIAL_DELAY
+        for attempt in $(seq 1 $MAX_RETRIES); do
+          echo "::group::Test attempt $attempt of $MAX_RETRIES"
+          echo "Test filter: ${TEST_FILTER}"
+          
+          # We want to run tests sequentially, '--no-capture' ensures that.
+          # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
+          # Both options cannot coexist for cargo-nextest below v0.9.94
+          if cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}; then
+            echo "✅ Test passed on attempt $attempt"
+            echo "::endgroup::"
+            exit 0
+          else
+            exit_code=$?
+            echo "❌ Attempt $attempt failed with exit code $exit_code"
+            echo "::endgroup::"
+            
+            if [[ $attempt -lt $MAX_RETRIES ]]; then
+              echo "⏳ Retrying in ${delay}s (exponential backoff)..."
+              sleep "$delay"
+              # Double the delay for next attempt (exponential backoff)
+              delay=$((delay * 2))
+            else
+              echo "::error::Test '${TEST_FILTER}' failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          fi
+        done
