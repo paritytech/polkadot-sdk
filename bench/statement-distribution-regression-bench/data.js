@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769172674316,
+  "lastUpdate": 1769175956239,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "daaaf6b2f70f81eba57ad7a12d87aebc453ab5d0",
-          "message": "ParachainSystem: Do not emit the `SelectCore` digest (#8903)\n\nThis will be moved into an inherent digest.\n\nAs preparation for:\nhttps://github.com/paritytech/polkadot-sdk/issues/8893\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-20T08:56:51Z",
-          "tree_id": "b641c915158c9f5dcc84a803061e0b8b3cb69d43",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/daaaf6b2f70f81eba57ad7a12d87aebc453ab5d0"
-        },
-        "date": 1750413772903,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.92799999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04467269996999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034021946872000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038407526126,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f134881a56e7733a6b5171c81b05ce4df40dd695",
+          "message": "[Release|CI/CD] Bump Zepter version in post crates action (#10885)\n\nResolving following error lines:\n\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21254581447/job/61165383938#step:17:15\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
+          "timestamp": "2026-01-23T12:33:22Z",
+          "tree_id": "fe4c50d35ca79c55709258004dac104697c7fcd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f134881a56e7733a6b5171c81b05ce4df40dd695"
+        },
+        "date": 1769175931635,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.052,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038380801272000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06540606566999992,
             "unit": "seconds"
           }
         ]
