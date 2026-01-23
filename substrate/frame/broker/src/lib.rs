@@ -595,8 +595,6 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
-		/// A renewal record already exists for the given core and timeslice.
-		RenewalAlreadyExists,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -1059,8 +1057,8 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_potential_renewal(core, when)
 		}
-      
-    /// Directly add a potential renewal record.
+
+		/// Directly add or update a potential renewal record.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		/// - `core`: The core to which the renewal refers.

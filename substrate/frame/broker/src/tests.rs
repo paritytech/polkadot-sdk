@@ -3012,8 +3012,19 @@ fn add_potential_renewal_integration() {
 		let caller: u64 = 1;
 		assert_ok!(Broker::do_renew(caller, core));
 
-		// Verify the renewal happened
-		assert_eq!(balance(caller), 950); // 1000 - 50
+		// Verify the renewal happened by checking for the Renewed event
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: caller,
+				old_core: core,
+				core, // In this case it's the same core
+				price,
+				begin: when,
+				duration: 3, // Region length is 3 timeslices
+				workload: workload.clone(),
+			}
+			.into(),
+		);
 
 		// Check that a new potential renewal was created for the next period
 		let sale_info = SaleInfo::<Test>::get().unwrap();
@@ -3021,7 +3032,7 @@ fn add_potential_renewal_integration() {
 		assert!(PotentialRenewals::<Test>::contains_key(next_renewal_id));
 	});
 }
-  
+
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
