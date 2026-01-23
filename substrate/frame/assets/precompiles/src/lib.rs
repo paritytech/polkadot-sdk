@@ -39,6 +39,8 @@ use pallet_revive::precompiles::{
 pub mod foreign_assets;
 
 #[cfg(test)]
+mod foreign_assets_tests;
+#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;

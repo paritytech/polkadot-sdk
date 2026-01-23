@@ -2073,3 +2073,203 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 		None,
 	);
 }
+
+#[test]
+fn foreign_assets_callback_creates_mapping() {
+	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use frame_support::traits::fungibles::Inspect;
+	use pallet_assets_precompiles::ToAssetIndex;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let foreign_asset_location = Location::new(2, [GlobalConsensus(NetworkId::Polkadot)]);
+			let asset_owner = AccountId::from(ALICE);
+
+			// Create a foreign asset using root - this should trigger the callback
+			assert_ok!(ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				foreign_asset_location.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000
+			));
+
+			// Verify the mapping was created
+			let asset_index = foreign_asset_location.to_asset_index();
+			assert_eq!(
+				ForeignAssetsPallet::asset_id_of(asset_index),
+				Some(foreign_asset_location.clone())
+			);
+			assert_eq!(
+				ForeignAssetsPallet::asset_index_of(&foreign_asset_location),
+				Some(asset_index)
+			);
+
+			// Verify asset actually exists and is usable
+			assert_eq!(ForeignAssets::total_issuance(foreign_asset_location.clone()), 0);
+			assert!(ForeignAssets::asset_exists(foreign_asset_location));
+		});
+}
+
+#[test]
+fn foreign_assets_callback_removes_mapping_on_destroy() {
+	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use pallet_assets_precompiles::ToAssetIndex;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let foreign_asset_location =
+				Location::new(2, [GlobalConsensus(NetworkId::Polkadot), Parachain(1001)]);
+			let asset_owner = AccountId::from(ALICE);
+			let asset_index = foreign_asset_location.to_asset_index();
+
+			// Create a foreign asset using root
+			assert_ok!(ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				foreign_asset_location.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000
+			));
+
+			// Verify mapping exists
+			assert!(ForeignAssetsPallet::asset_id_of(asset_index).is_some());
+
+			// Start destroy process
+			assert_ok!(ForeignAssets::start_destroy(
+				RuntimeOrigin::signed(asset_owner.clone()),
+				foreign_asset_location.clone()
+			));
+
+			// Complete destroy
+			assert_ok!(ForeignAssets::destroy_accounts(
+				RuntimeOrigin::signed(asset_owner.clone()),
+				foreign_asset_location.clone()
+			));
+			assert_ok!(ForeignAssets::destroy_approvals(
+				RuntimeOrigin::signed(asset_owner.clone()),
+				foreign_asset_location.clone()
+			));
+			assert_ok!(ForeignAssets::finish_destroy(
+				RuntimeOrigin::signed(asset_owner.clone()),
+				foreign_asset_location.clone()
+			));
+
+			// Verify mapping was removed
+			assert_eq!(ForeignAssetsPallet::asset_id_of(asset_index), None);
+			assert_eq!(ForeignAssetsPallet::asset_index_of(&foreign_asset_location), None);
+		});
+}
+
+#[test]
+fn foreign_assets_rejects_unmapped_asset() {
+	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			// Use a non-existent asset index
+			let non_existent_index = 99999u32;
+
+			// Verify no mapping exists - this is the core check
+			assert_eq!(ForeignAssetsPallet::asset_id_of(non_existent_index), None);
+		});
+}
+
+#[test]
+fn foreign_assets_same_asset_different_parachain() {
+	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use pallet_assets_precompiles::ToAssetIndex;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let asset_location_1 =
+				Location::new(2, [GlobalConsensus(NetworkId::Polkadot), Parachain(1000)]);
+			let asset_location_2 =
+				Location::new(2, [GlobalConsensus(NetworkId::Polkadot), Parachain(2000)]);
+			let asset_owner = AccountId::from(ALICE);
+
+			// Create first asset
+			assert_ok!(ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset_location_1.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000
+			));
+
+			// Verify first mapping exists
+			let index1 = asset_location_1.to_asset_index();
+			assert_eq!(ForeignAssetsPallet::asset_id_of(index1), Some(asset_location_1.clone()));
+
+			// Create second asset - should succeed with different index
+			assert_ok!(ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset_location_2.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000
+			));
+
+			let index2 = asset_location_2.to_asset_index();
+			assert_eq!(ForeignAssetsPallet::asset_id_of(index2), Some(asset_location_2.clone()));
+
+			// Verify both assets have independent mappings
+			assert_ne!(index1, index2);
+			assert_eq!(ForeignAssetsPallet::asset_id_of(index1), Some(asset_location_1));
+			assert_eq!(ForeignAssetsPallet::asset_id_of(index2), Some(asset_location_2));
+		});
+}
+
+#[test]
+fn foreign_assets_prevents_duplicate_mapping() {
+	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use pallet_assets_precompiles::ToAssetIndex;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let asset_location =
+				Location::new(2, [GlobalConsensus(NetworkId::Polkadot), Parachain(1000)]);
+			let asset_owner = AccountId::from(ALICE);
+
+			// Create asset successfully
+			assert_ok!(ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset_location.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000
+			));
+
+			// Verify mapping was created
+			let asset_index = asset_location.to_asset_index();
+			assert_eq!(ForeignAssetsPallet::asset_id_of(asset_index), Some(asset_location.clone()));
+
+			// Attempt to create asset with identical location - should be rejected
+			let result = ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset_location.clone(),
+				asset_owner.clone().into(),
+				true,
+				1_000,
+			);
+			assert!(result.is_err(), "Expected duplicate asset creation to fail");
+
+			// Verify mapping still points to the original asset
+			assert_eq!(ForeignAssetsPallet::asset_id_of(asset_index), Some(asset_location.clone()));
+		});
+}
