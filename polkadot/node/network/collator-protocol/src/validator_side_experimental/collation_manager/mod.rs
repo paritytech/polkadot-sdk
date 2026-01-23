@@ -674,7 +674,7 @@ impl CollationManager {
 	// Calculates a linear amount of delay for collators with score less than the max score for the
 	// para:
 	//
-	// delay = MAX_ACCEPTABLE_DELAY * (1 - collator_score/max_score_for_para)
+	// delay = MAX_FETCH_DELAY * (1 - collator_score/max_score_for_para)
 	//
 	// which roughly looks like this:
 	//
