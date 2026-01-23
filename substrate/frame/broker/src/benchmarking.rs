@@ -1120,25 +1120,18 @@ mod benches {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		// Add a core.
-		let status = Status::<T>::get().unwrap();
-		Broker::<T>::do_request_core_count(status.core_count + 1).unwrap();
+		let core_count = Status::<T>::get().unwrap().core_count;
+		Broker::<T>::do_request_core_count(core_count + 1).unwrap();
 
 		advance_to::<T>(T::TimeslicePeriod::get().try_into().ok().unwrap());
+
 		let schedule = new_schedule();
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, schedule.clone(), status.core_count);
+		_(origin as T::RuntimeOrigin, schedule.clone(), core_count);
 
 		assert_eq!(Reservations::<T>::decode_len().unwrap(), T::MaxReservedCores::get() as usize);
-
-		let sale_info = SaleInfo::<T>::get().unwrap();
-		assert_eq!(
-			Workplan::<T>::get((sale_info.region_begin, status.core_count)),
-			Some(schedule.clone())
-		);
-		// We called at timeslice 1, therefore 2 was already processed and 3 is the next possible
-		// assignment point.
-		assert_eq!(Workplan::<T>::get((3, status.core_count)), Some(schedule));
+		assert_eq!(ForceReservations::<T>::get(), vec![schedule]);
 
 		Ok(())
 	}
@@ -1355,6 +1348,37 @@ mod benches {
 		let updated_workplan = Workplan::<T>::get((4, 0)).unwrap();
 		// Should have all new items except those that conflicted
 		assert!(updated_workplan.len() >= assignment.len() - 1);
+
+		Ok(())
+	}
+
+  #[benchmark]
+  fn remove_potential_renewal() -> Result<(), BenchmarkError> {
+		let sale_data = setup_and_start_sale::<T>()?;
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
+		);
+
+		let region_id = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+			.expect("Offer not high enough for configuration.");
+		let region = Regions::<T>::get(region_id).expect("Requested region not found");
+
+		Broker::<T>::do_assign(region_id, None, 1000, Final)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, region_id.core, region.end);
+
+		assert_last_event::<T>(
+			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
+		);
 
 		Ok(())
 	}

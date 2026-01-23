@@ -141,6 +141,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Reservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
 
+	/// Force reservations that need to be inserted into the workplan at the next sale rotation.
+	///
+	/// They are automatically freed at the next sale rotation.
+	#[pallet::storage]
+	pub type ForceReservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
+
 	/// The Polkadot Core legacy leases.
 	#[pallet::storage]
 	pub type Leases<T> = StorageValue<_, LeasesRecordOf<T>, ValueQuery>;
@@ -503,6 +509,18 @@ pub mod pallet {
 		/// This should never happen, given that enable_auto_renew checks for this before enabling
 		/// auto-renewal.
 		AutoRenewalLimitReached,
+		/// Failed to assign a force reservation due to no free cores available.
+		ForceReservationFailed {
+			/// The schedule that could not be assigned.
+			schedule: Schedule,
+		},
+		/// Potential renewal was forcefully removed.
+		PotentialRenewalRemoved {
+			/// The core associated with the potential renewal that was removed.
+			core: CoreIndex,
+			/// The timeslice associated with the potential renewal that was removed.
+			timeslice: Timeslice,
+		},
 	}
 
 	#[pallet::error]
@@ -1031,7 +1049,32 @@ pub mod pallet {
 			Self::do_remove_assignment(region_id)
 		}
 
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// Note that only the specified potential renewal will be removed while any related auto
+		/// renewals will stay intact and will fail.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: Core which the target potential renewal record refers to.
+		/// - `when`: Timeslice which the target potential renewal record refers to.
 		#[pallet::call_index(27)]
+    #[pallet::weight(T::WeightInfo::remove_potential_renewal())]
+		pub fn remove_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_potential_renewal(core, when)
+		}
+      
+    /// Add an assignment to the Workplan.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `timeslice`: The timeslice at which the assignment should take effect.
+		/// - `core`: The core to which the assignment should be added.
+		/// - `assignment`: The workload schedule to assign to the core.
+    #[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::add_assignment())]
 		pub fn add_assignment(
 			origin: OriginFor<T>,
