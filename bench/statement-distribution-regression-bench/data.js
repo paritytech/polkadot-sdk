@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769094642970,
+  "lastUpdate": 1769172674316,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dmitry@markin.tech",
-            "name": "Dmitry Markin",
-            "username": "dmitry-markin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "35d8868a9773cb560f00bd79f644228af6708d8f",
-          "message": "DHT bootnodes: rate limit the discovery attempts instead of limiting max retry count (#8792)\n\nInstead of giving up after 5 discovery attempts, keep retrying with a\ndelay of 30 seconds until the discovery succeeds.\n\nThis fixes a DHT bootnodes zombinet test execution on CI where\nindividual nodes may start with a significant delay. This will also help\nshould there be temporary connectivity issues leading to 5 failures in a\nrow.\n\n---------\n\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>",
-          "timestamp": "2025-06-19T15:38:11Z",
-          "tree_id": "6d51d118fa8225e4896ea6c39f2c73e1572894f8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/35d8868a9773cb560f00bd79f644228af6708d8f"
-        },
-        "date": 1750351301312,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.93999999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03467883202800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045768032299999956,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038249218589999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
+          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-23T11:30:58Z",
+          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
+        },
+        "date": 1769172650542,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.038,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06654415419799997,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038407526126,
             "unit": "seconds"
           }
         ]
