@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
@@ -2009,23 +2009,32 @@ impl<Block: BlockT> Backend<Block> {
 					// We need to check both the current transaction justifications (not yet in DB)
 					// and the DB itself (for justifications from previous transactions).
 					if !self.keep_predicates.is_empty() {
-						let should_keep = if let Some(justification) =
+						let (should_keep, engine_ids) = if let Some(justification) =
 							current_transaction_justifications.get(&hash)
 						{
 							// Justification was added in this transaction, convert to Justifications
 							let justifications = Justifications::from(justification.clone());
-							self.keep_predicates.iter().any(|p| p.should_keep(&justifications))
+							let dominated = self.keep_predicates.iter().any(|p| p.should_keep(&justifications));
+							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
+							(dominated, ids)
 						} else if let Some(justifications) = self.blockchain.justifications(hash)? {
 							// Check justifications from the database
-							self.keep_predicates.iter().any(|p| p.should_keep(&justifications))
+							let dominated = self.keep_predicates.iter().any(|p| p.should_keep(&justifications));
+							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
+							(dominated, ids)
 						} else {
-							false
+							(false, Vec::new())
 						};
 
 						if should_keep {
-							debug!(
+							let engine_names: Vec<_> = engine_ids
+								.iter()
+								.map(|id| std::str::from_utf8(id).unwrap_or("????"))
+								.collect();
+							info!(
 								target: "db",
-								"Preserving block #{number} ({hash}) due to keep predicate match"
+								"🔒 Preserving block #{} ({}) - has justification(s): {:?}",
+								number, hash, engine_names
 							);
 							return Ok(());
 						}
