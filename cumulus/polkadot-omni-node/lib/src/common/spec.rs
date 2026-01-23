@@ -413,6 +413,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						sync_service.clone(),
 						params.keystore_container.local_keystore(),
 						statement_handler_proto,
+						node_extra_args.statement_network_workers,
 					)
 				})
 				.transpose()?;

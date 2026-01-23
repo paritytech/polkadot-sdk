@@ -416,6 +416,8 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
+	// Nominators can unbond faster (2 eras) when not slashable.
+	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
@@ -441,6 +443,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -677,9 +680,7 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
+	use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 	use std::env::var;
 
 	fn weight_diff(block: Weight, op: Weight) {
@@ -814,8 +815,7 @@ mod tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport: Transport =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 
 		let mut ext = Builder::<Block>::default()
@@ -823,7 +823,7 @@ mod tests {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
 					OnlineConfig {
-						transport,
+						transport_uris: vec![transport_uri.clone()],
 						hashed_prefixes: vec![vec![]],
 						state_snapshot: Some(state_snapshot),
 						..Default::default()
@@ -832,7 +832,7 @@ mod tests {
 			} else {
 				Mode::Online(OnlineConfig {
 					hashed_prefixes: vec![vec![]],
-					transport,
+					transport_uris: vec![transport_uri],
 					..Default::default()
 				})
 			})

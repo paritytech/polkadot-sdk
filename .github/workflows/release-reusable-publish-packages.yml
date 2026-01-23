@@ -14,7 +14,7 @@ on:
       package_type:
         description: Type of package to publish (deb or rpm)
         required: true
-        type: string 
+        type: string
       aws_repo_base_path:
         description: Base S3 path for package repositories
         type: string
@@ -22,7 +22,7 @@ on:
         description: CloudFront Distribution ID for cache invalidation
         required: true
         type: string
- 
+
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
@@ -31,7 +31,7 @@ jobs:
 
   validate-inputs:
     needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
@@ -185,5 +185,9 @@ jobs:
           AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
+          if [[ "${{ inputs.distribution }}" == "release" ]]; then
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
+          else
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH"
+          fi
           aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
