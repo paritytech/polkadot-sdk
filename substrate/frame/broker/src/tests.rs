@@ -2801,6 +2801,7 @@ fn force_reserve_works() {
 	});
 }
 
+#[test]
 fn remove_potential_renewal_rejects_non_admin_origin() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(
