@@ -1245,7 +1245,7 @@ mod tests {
 
 		// collator score == 3/4 MAX_SCORE => 1/4 MAX_FETCH_DELAY.
 		assert_eq!(
-			CollationManager::calculate_delay(score(MAX_SCORE * 3 / 4), score(MAX_SCORE)),
+			CollationManager::calculate_delay(score(MAX_SCORE / 4 * 3), score(MAX_SCORE)),
 			MAX_FETCH_DELAY / 4
 		);
 
