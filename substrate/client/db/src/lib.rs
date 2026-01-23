@@ -1993,21 +1993,19 @@ impl<Block: BlockT> Backend<Block> {
 							current_transaction_justifications.get(&hash)
 						{
 							let justifications = Justifications::from(justification.clone());
-							self
-								.block_pruning_filters
+							self.block_pruning_filters
 								.iter()
 								.any(|f| f.should_preserve(&justifications))
 						} else if let Some(justifications) = self.blockchain.justifications(hash)? {
-							self
-								.block_pruning_filters
+							self.block_pruning_filters
 								.iter()
 								.any(|f| f.should_preserve(&justifications))
 						} else {
 							false
 						};
 
-						// We can just return here, pinning can be ignored since the block will remain
-						// in the DB.
+						// We can just return here, pinning can be ignored since the block will
+						// remain in the DB.
 						if should_preserve {
 							debug!(
 								target: "db",

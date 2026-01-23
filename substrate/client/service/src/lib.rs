@@ -79,11 +79,11 @@ pub use sc_chain_spec::{
 pub use config::{
 	BasePath, BlocksPruning, Configuration, DatabaseSource, PruningMode, Role, RpcMethods, TaskType,
 };
-pub use sc_client_db::BlockPruningFilter;
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,
 };
+pub use sc_client_db::BlockPruningFilter;
 
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;
