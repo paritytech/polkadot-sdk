@@ -11283,6 +11283,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-ahm-test"
+version = "1.0.0"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "log",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-dap",
+ "pallet-election-provider-multi-block",
+ "pallet-offences",
+ "pallet-root-offences",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-async",
+ "pallet-staking-async-ah-client",
+ "pallet-staking-async-rc-client",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-session",
+ "sp-staking",
+ "sp-tracing 16.0.0",
+]
+
+[[package]]
 name = "pallet-alliance"
 version = "27.0.0"
 dependencies = [
@@ -13537,34 +13565,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
-]
-
-[[package]]
-name = "pallet-staking-async-integration-tests"
-version = "1.0.0"
-dependencies = [
- "frame-election-provider-support",
- "frame-support",
- "log",
- "pallet-authorship",
- "pallet-balances",
- "pallet-dap",
- "pallet-election-provider-multi-block",
- "pallet-offences",
- "pallet-root-offences",
- "pallet-session",
- "pallet-staking",
- "pallet-staking-async",
- "pallet-staking-async-ah-client",
- "pallet-staking-async-rc-client",
- "pallet-timestamp",
- "parity-scale-codec",
- "polkadot-sdk-frame",
- "scale-info",
- "sp-core 28.0.0",
- "sp-session",
- "sp-staking",
- "sp-tracing 16.0.0",
 ]
 
 [[package]]
