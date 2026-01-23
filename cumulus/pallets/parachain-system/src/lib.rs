@@ -59,6 +59,7 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, Hash},
 	Debug, FixedU128, SaturatedConversion,
 };
+
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
@@ -263,6 +264,11 @@ pub mod pallet {
 		///
 		/// If set to 0, this config has no impact.
 		type RelayParentOffset: Get<u32>;
+
+		/// Optional prunes the relay chain state proof in [`Pallet::create_inherent`].
+		///
+		/// Set to `()` to disable.
+		type RelayChainProofPruner: RelayChainProofPruner;
 	}
 
 	#[pallet::hooks]
@@ -1130,7 +1136,7 @@ impl<T: Config> Pallet<T> {
 	/// This method doesn't check for mqc heads mismatch. If the MQC doesn't match after
 	/// dropping messages, the runtime will panic when executing the inherent.
 	fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
-		let (data, mut downward_messages, mut horizontal_messages) =
+		let (mut data, mut downward_messages, mut horizontal_messages) =
 			deconstruct_parachain_inherent_data(data);
 		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
 
@@ -1148,6 +1154,21 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages.drop_processed_messages(&last_processed_msg);
 		size_limit = size_limit.saturating_add(messages_collection_size_limit);
 		let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
+
+		// Prune relay chain state proof using remaining budget after messages.
+		let relay_chain_state =
+			core::mem::replace(&mut data.relay_chain_state, sp_trie::StorageProof::empty());
+		data.relay_chain_state = match RelayChainStateProof::new(
+			T::SelfParaId::get(),
+			data.validation_data.relay_parent_storage_root,
+			relay_chain_state,
+		) {
+			Ok(mut proof) => {
+				T::RelayChainProofPruner::prune_relay_proof(&mut proof, size_limit);
+				proof.into_storage_proof()
+			},
+			Err(error) => panic!("Invalid relay chain state proof: {error:?}"),
+		};
 
 		let inbound_messages_data =
 			InboundMessagesData::new(downward_messages, horizontal_messages);
@@ -1798,6 +1819,35 @@ impl OnSystemEvent for Tuple {
 		let mut weight = Weight::zero();
 		for_tuples!( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
 		weight
+	}
+}
+
+/// Prunes unnecessary data from the relay chain state proof.
+///
+/// Called inside `create_inherent` to reduce the proof size before block execution. This may be
+/// required because the proof will include everything requested by
+/// [`KeyToIncludeInRelayProof`](cumulus_primitives_core::KeyToIncludeInRelayProof) runtime api.
+/// Implementations can remove unneeded trie nodes, that are e.g. already cached on the parachain
+/// side or not required because the underlying data did not change.
+///
+/// When `target_proof_size` is 0, the pruner should remove everything that isn't strictly
+/// required.
+pub trait RelayChainProofPruner {
+	/// Prune the relay chain state proof to fit within the target size.
+	///
+	/// # Arguments
+	/// * `relay_state_proof` - Mutable reference to the relay chain state proof to prune
+	/// * `target_proof_size` - Target size in bytes. When 0, remove all non-essential data. Even if
+	///   the proof doesn't fit into `target_proof_size`, it may still be small enough to fit into a
+	///   block. The given target size should not be the ultimate limit of the block for this
+	///   inherent.
+	fn prune_relay_proof(relay_state_proof: &mut RelayChainStateProof, target_proof_size: usize);
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl RelayChainProofPruner for Tuple {
+	fn prune_relay_proof(relay_state_proof: &mut RelayChainStateProof, target_proof_size: usize) {
+		for_tuples!( #( Tuple::prune_relay_proof(relay_state_proof, target_proof_size); )* );
 	}
 }
 
