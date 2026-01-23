@@ -28,7 +28,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, PristineCode, RuntimeCosts, TrieId, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -82,27 +82,23 @@ const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None
 pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
-/// EIP-7702: Resolve delegation indicator to actual code hash
+/// EIP-7702: Resolve delegation to actual code hash
 ///
-/// If the code at the given hash is a delegation indicator (0xef0100 || address),
+/// If the account has delegated its code execution (AccountType::Delegated),
 /// this function returns the code hash of the delegated contract.
 /// According to EIP-7702, we only follow one level of delegation to prevent loops.
 ///
 /// # Parameters
-/// - `code_hash`: The code hash to check and potentially resolve
+/// - `address`: The address to check for delegation
+/// - `default_code_hash`: The code hash to return if not delegated
 ///
 /// # Returns
-/// The actual code hash to execute (either the original or the delegated one)
-fn resolve_delegation<T: Config>(code_hash: H256) -> H256 {
-	// Load the code
-	let Some(code) = PristineCode::<T>::get(code_hash) else {
-		return code_hash;
-	};
-
-	// Check if this is a delegation indicator
-	// Extract the delegation target address
-	let Some(target_address) = AccountInfo::<T>::extract_delegation_target(&code) else {
-		return code_hash;
+/// The actual code hash to execute (either the default or the delegated target's code hash)
+fn resolve_delegation<T: Config>(address: &H160, default_code_hash: H256) -> H256 {
+	// Check if the account is delegated
+	let Some(target_address) = AccountInfo::<T>::get_delegation_target(address) else {
+		// Not delegated, return the default code hash
+		return default_code_hash;
 	};
 
 	// Per EIP-7702: If delegation points to a precompile, return empty code hash
@@ -121,6 +117,7 @@ fn resolve_delegation<T: Config>(code_hash: H256) -> H256 {
 	// Return the delegated code hash (don't follow further delegations)
 	delegated_contract.code_hash
 }
+
 
 /// Combined key type for both fixed and variable sized storage keys.
 #[derive(Debug)]
@@ -1141,8 +1138,8 @@ where
 						else {
 							return Ok(None);
 						};
-						// EIP-7702: Resolve delegation if code is a delegation indicator
-						let actual_code_hash = resolve_delegation::<T>(info.code_hash);
+						// EIP-7702: Resolve delegation if account is delegated
+						let actual_code_hash = resolve_delegation::<T>(&delegated_call.callee, info.code_hash);
 						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1156,8 +1153,8 @@ where
 						let contract_info = contract
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed");
-						// EIP-7702: Resolve delegation if code is a delegation indicator
-						let actual_code_hash = resolve_delegation::<T>(contract_info.code_hash);
+						// EIP-7702: Resolve delegation if account is delegated
+						let actual_code_hash = resolve_delegation::<T>(&address, contract_info.code_hash);
 						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
