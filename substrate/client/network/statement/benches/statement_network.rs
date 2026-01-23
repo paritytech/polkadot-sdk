@@ -202,8 +202,10 @@ fn build_handler(
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
-		Statement,
-		futures::channel::oneshot::Sender<sp_statement_store::SubmitResult>,
+		Vec<Statement>,
+		futures::channel::oneshot::Sender<
+			Vec<(sp_statement_store::Hash, sp_statement_store::SubmitResult)>,
+		>,
 	)>(MAX_PENDING_STATEMENTS);
 
 	let network = TestNetwork::new();
@@ -224,9 +226,9 @@ fn build_handler(
 			loop {
 				let task = receiver.recv().await;
 				match task {
-					Ok((statement, completion)) => {
-						let result = store.submit(statement, StatementSource::Network);
-						let _ = completion.send(result);
+					Ok((statements, completion)) => {
+						let results = store.submit_batch(statements, StatementSource::Network);
+						let _ = completion.send(results);
 					},
 					Err(_) => return,
 				}

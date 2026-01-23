@@ -1157,6 +1157,15 @@ impl_runtime_apis! {
 				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
 			}
 		}
+		fn validate_statements(
+			source: StatementSource,
+			statements: Vec<Statement>,
+		) -> Vec<Result<ValidStatement, InvalidStatement>> {
+			statements
+				.into_iter()
+				.map(|statement| Self::validate_statement(source, statement))
+				.collect()
+		}
 	}
 }
 

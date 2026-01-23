@@ -33,6 +33,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{traits::CheckedDiv, SaturatedConversion},
@@ -197,6 +200,18 @@ where
 			.clamp(min_allowed_bytes, max_allowed_bytes);
 
 		Ok(ValidStatement { max_count, max_size })
+	}
+
+	/// Validate multiple statements. Returns a result for each statement in the same order as the
+	/// input.
+	pub fn validate_statements(
+		source: StatementSource,
+		statements: Vec<Statement>,
+	) -> Vec<Result<ValidStatement, InvalidStatement>> {
+		statements
+			.into_iter()
+			.map(|statement| Self::validate_statement(source, statement))
+			.collect()
 	}
 
 	/// Submit a statement event. The statement will be picked up by the offchain worker and

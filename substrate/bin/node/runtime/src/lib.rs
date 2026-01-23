@@ -3262,6 +3262,13 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
 			Statement::validate_statement(source, statement)
 		}
+
+		fn validate_statements(
+			source: sp_statement_store::runtime_api::StatementSource,
+			statements: Vec<sp_statement_store::Statement>,
+		) -> Vec<Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement>> {
+			Statement::validate_statements(source, statements)
+		}
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {

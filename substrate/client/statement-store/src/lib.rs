@@ -175,6 +175,12 @@ struct ClientWrapper<Block, Client> {
 	_block: std::marker::PhantomData<Block>,
 }
 
+impl<Block, Client> Clone for ClientWrapper<Block, Client> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _block: self._block }
+	}
+}
+
 impl<Block, Client> ClientWrapper<Block, Client>
 where
 	Block: BlockT,
@@ -196,6 +202,25 @@ where
 		api.validate_statement(block, source, statement)
 			.map_err(|_| InvalidStatement::InternalError)?
 	}
+
+	fn validate_statements(
+		&self,
+		block: Option<BlockHash>,
+		source: StatementSource,
+		statements: Vec<Statement>,
+	) -> Vec<std::result::Result<ValidStatement, InvalidStatement>> {
+		let api = self.client.runtime_api();
+		let block = block.map(Into::into).unwrap_or_else(|| {
+			// Validate against the finalized state.
+			self.client.info().finalized_hash
+		});
+
+		let statements_count = statements.len();
+		api.validate_statements(block, source, statements).unwrap_or_else(|_| {
+			// If runtime call fails, return internal error for all statements
+			vec![Err(InvalidStatement::InternalError); statements_count]
+		})
+	}
 }
 
 /// Statement store.
@@ -208,6 +233,15 @@ pub struct Store {
 				StatementSource,
 				Statement,
 			) -> std::result::Result<ValidStatement, InvalidStatement>
+			+ Send
+			+ Sync,
+	>,
+	batch_validate_fn: Box<
+		dyn Fn(
+				Option<BlockHash>,
+				StatementSource,
+				Vec<Statement>,
+			) -> Vec<std::result::Result<ValidStatement, InvalidStatement>>
 			+ Send
 			+ Sync,
 	>,
@@ -576,15 +610,20 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper { client, _block: Default::default() };
-		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
+		let validator = ClientWrapper { client: client.clone(), _block: Default::default() };
+		let validate_fn = Box::new({
+			let validator = validator.clone();
+			move |block, source, statement| validator.validate_statement(block, source, statement)
+		});
+		let batch_validate_fn = Box::new(move |block, source, statements| {
+			validator.validate_statements(block, source, statements)
 		});
 
 		let store = Store {
 			db,
 			index: RwLock::new(Index::new(options)),
 			validate_fn,
+			batch_validate_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -1030,6 +1069,169 @@ impl StatementStore for Store {
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
+	}
+
+	/// Submit a batch of statements. Uses batch validation for efficiency.
+	/// Returns a result for each statement. Order of results does not match order of submissions.
+	fn submit_batch(
+		&self,
+		statements: Vec<Statement>,
+		source: StatementSource,
+	) -> Vec<(Hash, SubmitResult)> {
+		if statements.is_empty() {
+			return Vec::new();
+		}
+
+		let statements_count = statements.len();
+		let mut results = Vec::with_capacity(statements_count);
+
+		// Pre-validation checks (size, duplicates, proof)
+		let mut to_validate: Vec<(Hash, Statement, AccountId)> = Vec::new();
+
+		for statement in statements {
+			let hash = statement.hash();
+			let encoded_size = statement.encoded_size();
+			if encoded_size > MAX_STATEMENT_SIZE {
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement is too big for propagation: {:?} ({}/{} bytes)",
+					HexDisplay::from(&hash),
+					statement.encoded_size(),
+					MAX_STATEMENT_SIZE
+				);
+				results.push((
+					hash,
+					SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+						submitted_size: encoded_size,
+						max_size: MAX_STATEMENT_SIZE,
+					}),
+				));
+				continue;
+			}
+
+			match self.index.read().query(&hash) {
+				IndexQuery::Expired =>
+					if !source.can_be_resubmitted() {
+						results.push((hash, SubmitResult::KnownExpired));
+						continue;
+					},
+				IndexQuery::Exists =>
+					if !source.can_be_resubmitted() {
+						results.push((hash, SubmitResult::Known));
+						continue;
+					},
+				IndexQuery::Unknown => {},
+			}
+
+			// Check account ID
+			let Some(account_id) = statement.account_id() else {
+				log::debug!(
+					target: LOG_TARGET,
+					"Statement validation failed: Missing proof ({:?})",
+					HexDisplay::from(&hash),
+				);
+				self.metrics.report(|metrics| metrics.validations_invalid.inc());
+				results.push((hash, SubmitResult::Invalid(InvalidReason::NoProof)));
+				continue;
+			};
+
+			to_validate.push((hash, statement, account_id));
+		}
+
+		if results.len() == statements_count {
+			// All statements were rejected before validation
+			return results;
+		}
+
+		debug_assert!(!to_validate.is_empty());
+
+		// Batch validate
+		let at_block = to_validate.first().and_then(|(_, s, _)| {
+			if let Some(Proof::OnChain { block_hash, .. }) = s.proof() {
+				Some(*block_hash)
+			} else {
+				None
+			}
+		});
+
+		let statements_to_validate: Vec<Statement> =
+			to_validate.iter().map(|(_, s, _)| s.clone()).collect();
+		let validation_results = (self.batch_validate_fn)(at_block, source, statements_to_validate);
+
+		// Process validation results and insert into store
+		// Results are in the same order as to_validate, so we can zip them
+		for ((hash, statement, account_id), validation_result) in
+			to_validate.into_iter().zip(validation_results)
+		{
+			let validation = match validation_result {
+				Ok(validation) => validation,
+				Err(InvalidStatement::BadProof) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement validation failed: BadProof, {:?}",
+						HexDisplay::from(&hash),
+					);
+					self.metrics.report(|metrics| metrics.validations_invalid.inc());
+					results.push((hash, SubmitResult::Invalid(InvalidReason::BadProof)));
+					continue;
+				},
+				Err(InvalidStatement::NoProof) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement validation failed: NoProof, {:?}",
+						HexDisplay::from(&hash),
+					);
+					self.metrics.report(|metrics| metrics.validations_invalid.inc());
+					results.push((hash, SubmitResult::Invalid(InvalidReason::NoProof)));
+					continue;
+				},
+				Err(InvalidStatement::InternalError) => {
+					results.push((hash, SubmitResult::InternalError(Error::Runtime)));
+					continue;
+				},
+			};
+
+			let current_time = self.timestamp();
+			let mut commit = Vec::new();
+			{
+				let mut index = self.index.write();
+
+				let evicted =
+					match index.insert(hash, &statement, &account_id, &validation, current_time) {
+						Ok(evicted) => evicted,
+						Err(reason) => {
+							results.push((hash, SubmitResult::Rejected(reason)));
+							continue;
+						},
+					};
+
+				commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+				for evicted_hash in evicted {
+					commit.push((col::STATEMENTS, evicted_hash.to_vec(), None));
+					commit.push((
+						col::EXPIRED,
+						evicted_hash.to_vec(),
+						Some((evicted_hash, current_time).encode()),
+					));
+				}
+
+				if let Err(e) = self.db.commit(commit) {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement submission failed: database error {}, {:?}",
+						e,
+						statement
+					);
+					results.push((hash, SubmitResult::InternalError(Error::Db(e.to_string()))));
+					continue;
+				}
+			} // Release index lock
+			self.metrics.report(|metrics| metrics.submitted_statements.inc());
+			log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
+			results.push((hash, SubmitResult::New));
+		}
+
+		results
 	}
 
 	/// Remove a statement by hash.

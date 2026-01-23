@@ -64,8 +64,8 @@ pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
-/// Future resolving to statement import result.
-pub type StatementImportFuture = oneshot::Receiver<SubmitResult>;
+/// Future resolving to batch statement import results.
+pub type StatementBatchImportFuture = oneshot::Receiver<Vec<(Hash, SubmitResult)>>;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -214,16 +214,16 @@ impl StatementHandlerPrototype {
 		executor(
 			async move {
 				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+					let task: Option<(Vec<Statement>, oneshot::Sender<Vec<(Hash, SubmitResult)>>)> =
 						queue_receiver.next().await;
 					match task {
 						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
+						Some((statements, completion)) => {
+							let results = store.submit_batch(statements, StatementSource::Network);
+							if completion.send(results).is_err() {
 								log::debug!(
 									target: LOG_TARGET,
-									"Error sending validation completion"
+									"Error sending batch validation completion"
 								);
 							}
 						},
@@ -269,9 +269,9 @@ pub struct StatementHandler<
 	protocol_name: ProtocolName,
 	/// Interval at which we call `propagate_statements`.
 	propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
-	/// Pending statements verification tasks.
+	/// Pending batch validation tasks.
 	pending_statements:
-		FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>,
+		FuturesUnordered<Pin<Box<dyn Future<Output = Vec<(Hash, SubmitResult)>> + Send>>>,
 	/// As multiple peers can send us the same statement, we group
 	/// these peers using the statement hash while the statement is
 	/// imported. This prevents that we import the same statement
@@ -288,7 +288,8 @@ pub struct StatementHandler<
 	// All connected peers
 	peers: HashMap<PeerId, Peer>,
 	statement_store: Arc<dyn StatementStore>,
-	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+	queue_sender:
+		async_channel::Sender<(Vec<Statement>, oneshot::Sender<Vec<(Hash, SubmitResult)>>)>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 	/// Timeout for sending next statement batch during initial sync.
@@ -405,7 +406,10 @@ where
 		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 		peers: HashMap<PeerId, Peer>,
 		statement_store: Arc<dyn StatementStore>,
-		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+		queue_sender: async_channel::Sender<(
+			Vec<Statement>,
+			oneshot::Sender<Vec<(Hash, SubmitResult)>>,
+		)>,
 	) -> Self {
 		Self {
 			protocol_name,
@@ -430,8 +434,7 @@ where
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn pending_statements_mut(
 		&mut self,
-	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
-	{
+	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = Vec<(Hash, SubmitResult)>> + Send>>> {
 		&mut self.pending_statements
 	}
 
@@ -446,13 +449,13 @@ where
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					});
 				},
-				(hash, result) = self.pending_statements.select_next_some() => {
-					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
-						if let Some(result) = result {
+				results = self.pending_statements.select_next_some() => {
+					for (hash, result) in results {
+						if let Some(peers) = self.pending_statements_peers.remove(&hash) {
 							peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
+						} else {
+							log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
 						}
-					} else {
-						log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
 					}
 				},
 				sync_event = self.sync_event_stream.next() => {
@@ -605,81 +608,88 @@ where
 	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
-		if let Some(ref mut peer) = self.peers.get_mut(&who) {
-			let mut statements_left = statements.len() as u64;
-			for s in statements {
-				if self.pending_statements.len() > MAX_PENDING_STATEMENTS {
+
+		let Some(ref mut peer) = self.peers.get_mut(&who) else {
+			return;
+		};
+
+		// Filter statements and collect those that need validation
+		let mut to_validate = Vec::new();
+		let mut statements_left = statements.len() as u64;
+
+		for s in statements {
+			if self.pending_statements.len() + to_validate.len() > MAX_PENDING_STATEMENTS {
+				log::debug!(
+					target: LOG_TARGET,
+					"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit",
+					statements_left,
+					MAX_PENDING_STATEMENTS,
+				);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.ignored_statements.inc_by(statements_left);
+				});
+				break;
+			}
+
+			let hash = s.hash();
+			peer.known_statements.insert(hash);
+			statements_left -= 1;
+			self.network.report_peer(who, rep::ANY_STATEMENT);
+
+			// Skip statements that are already in the store
+			if self.statement_store.has_statement(&hash) {
+				self.metrics.as_ref().map(|metrics| {
+					metrics.known_statements_received.inc();
+				});
+
+				if let Some(peers) = self.pending_statements_peers.get(&hash) {
+					if peers.contains(&who) {
+						log::trace!(
+							target: LOG_TARGET,
+							"Already received the statement from the same peer {who}.",
+						);
+						self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+					}
+				}
+				continue;
+			}
+
+			// Track pending statement
+			match self.pending_statements_peers.entry(hash) {
+				Entry::Vacant(entry) => {
+					entry.insert(HashSet::from_iter([who]));
+					to_validate.push(s);
+				},
+				Entry::Occupied(mut entry) => {
+					if !entry.get_mut().insert(who) {
+						// Already received this from the same peer.
+						self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
+					}
+				},
+			}
+		}
+
+		// Submit statements in batches
+		for batch in to_validate.chunks(BATCH_SIZE) {
+			let (completion_sender, completion_receiver) = oneshot::channel();
+			match self.queue_sender.try_send((batch.to_vec(), completion_sender)) {
+				Ok(()) => {
+					self.pending_statements.push(
+						async move { completion_receiver.await.unwrap_or_else(|_| Vec::new()) }
+							.boxed(),
+					);
+				},
+				Err(err) => {
 					log::debug!(
 						target: LOG_TARGET,
-						"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit",
-						statements_left,
-						MAX_PENDING_STATEMENTS,
+						"Dropped batch of {} statements because of the error with validation channel: {err}",
+						batch.len(),
 					);
-					self.metrics.as_ref().map(|metrics| {
-						metrics.ignored_statements.inc_by(statements_left);
-					});
-					break
-				}
-
-				let hash = s.hash();
-				peer.known_statements.insert(hash);
-
-				if self.statement_store.has_statement(&hash) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.known_statements_received.inc();
-					});
-
-					if let Some(peers) = self.pending_statements_peers.get(&hash) {
-						if peers.contains(&who) {
-							log::trace!(
-								target: LOG_TARGET,
-								"Already received the statement from the same peer {who}.",
-							);
-							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-						}
+					// Remove from pending as they won't be validated
+					for s in batch {
+						self.pending_statements_peers.remove(&s.hash());
 					}
-					continue;
-				}
-
-				self.network.report_peer(who, rep::ANY_STATEMENT);
-
-				match self.pending_statements_peers.entry(hash) {
-					Entry::Vacant(entry) => {
-						let (completion_sender, completion_receiver) = oneshot::channel();
-						match self.queue_sender.try_send((s, completion_sender)) {
-							Ok(()) => {
-								self.pending_statements.push(
-									async move {
-										let res = completion_receiver.await;
-										(hash, res.ok())
-									}
-									.boxed(),
-								);
-								entry.insert(HashSet::from_iter([who]));
-							},
-							Err(async_channel::TrySendError::Full(_)) => {
-								log::debug!(
-									target: LOG_TARGET,
-									"Dropped statement because validation channel is full",
-								);
-							},
-							Err(async_channel::TrySendError::Closed(_)) => {
-								log::trace!(
-									target: LOG_TARGET,
-									"Dropped statement because validation channel is closed",
-								);
-							},
-						}
-					},
-					Entry::Occupied(mut entry) => {
-						if !entry.get_mut().insert(who) {
-							// Already received this from the same peer.
-							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-						}
-					},
-				}
-
-				statements_left -= 1;
+				},
 			}
 		}
 	}
@@ -1189,6 +1199,21 @@ mod tests {
 			unimplemented!()
 		}
 
+		fn submit_batch(
+			&self,
+			statements: Vec<Statement>,
+			_source: StatementSource,
+		) -> Vec<(Hash, SubmitResult)> {
+			statements
+				.into_iter()
+				.map(|s| {
+					let hash = s.hash();
+					self.statements.lock().unwrap().insert(hash, s);
+					(hash, SubmitResult::New)
+				})
+				.collect()
+		}
+
 		fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
 			unimplemented!()
 		}
@@ -1203,7 +1228,7 @@ mod tests {
 		TestStatementStore,
 		TestNetwork,
 		TestNotificationService,
-		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		async_channel::Receiver<(Vec<Statement>, oneshot::Sender<Vec<(Hash, SubmitResult)>>)>,
 	) {
 		let statement_store = TestStatementStore::new();
 		let (queue_sender, queue_receiver) = async_channel::bounded(2);
@@ -1263,10 +1288,12 @@ mod tests {
 		handler.on_statements(peer_id, vec![statement1, statement2]);
 
 		let to_submit = queue_receiver.try_recv();
-		assert_eq!(to_submit.unwrap().0.hash(), hash2, "Expected only statement2 to be queued");
+		let batch = to_submit.unwrap().0;
+		assert_eq!(batch.len(), 1, "Expected only one statement in batch");
+		assert_eq!(batch[0].hash(), hash2, "Expected only statement2 to be queued");
 
 		let no_more = queue_receiver.try_recv();
-		assert!(no_more.is_err(), "Expected only one statement to be queued");
+		assert!(no_more.is_err(), "Expected only one batch to be queued");
 	}
 
 	#[tokio::test]
@@ -1281,9 +1308,11 @@ mod tests {
 
 		handler.on_statements(peer_id, vec![statement1.clone()]);
 		{
-			// Manually process statements submission
-			let (s, _) = queue_receiver.try_recv().unwrap();
-			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+			// Manually process statements batch submission
+			let (batch, _) = queue_receiver.try_recv().unwrap();
+			for s in batch {
+				let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
+			}
 			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
 		}
 

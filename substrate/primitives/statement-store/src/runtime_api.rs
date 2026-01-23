@@ -85,6 +85,12 @@ sp_api::decl_runtime_apis! {
 			source: StatementSource,
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement>;
+		/// Validate multiple statements in a batch.
+		/// Returns a result for each statement in the same order as the input.
+		fn validate_statements(
+			source: StatementSource,
+			statements: Vec<Statement>,
+		) -> Vec<Result<ValidStatement, InvalidStatement>>;
 	}
 }
 

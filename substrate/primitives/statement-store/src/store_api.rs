@@ -183,6 +183,14 @@ pub trait StatementStore: Send + Sync {
 	/// Submit a statement.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult;
 
+	/// Submit a batch of statements. Uses batch validation for efficiency.
+	/// Returns a result for each statement. Order of results does not match order of submissions.
+	fn submit_batch(
+		&self,
+		statements: Vec<Statement>,
+		source: StatementSource,
+	) -> Vec<(Hash, SubmitResult)>;
+
 	/// Remove a statement from the store.
 	fn remove(&self, hash: &Hash) -> Result<()>;
 
