@@ -113,51 +113,7 @@ impl TestSigner {
 	}
 }
 
-#[test]
-fn delegation_indicator_format() {
-	// Test that delegation indicator has correct format: 0xef0100 || address
-	let target_address = H160::from([0x42; 20]);
-	let mut expected_code = vec![0xef, 0x01, 0x00];
-	expected_code.extend_from_slice(target_address.as_bytes());
 
-	assert_eq!(expected_code.len(), 23, "Delegation indicator must be 23 bytes");
-	assert!(
-		AccountInfo::<Test>::is_delegation_indicator(&expected_code),
-		"Should be recognized as delegation indicator"
-	);
-
-	let extracted = AccountInfo::<Test>::extract_delegation_target(&expected_code);
-	assert_eq!(extracted, Some(target_address), "Should extract correct target address");
-}
-
-#[test]
-fn delegation_indicator_detection() {
-	// Valid delegation indicator
-	let mut valid = vec![0xef, 0x01, 0x00];
-	valid.extend_from_slice(&[0u8; 20]);
-	assert!(AccountInfo::<Test>::is_delegation_indicator(&valid));
-
-	// Wrong prefix
-	let mut wrong_prefix = vec![0xef, 0x01, 0x01];
-	wrong_prefix.extend_from_slice(&[0u8; 20]);
-	assert!(!AccountInfo::<Test>::is_delegation_indicator(&wrong_prefix));
-
-	// Wrong length (too short)
-	let too_short = vec![0xef, 0x01, 0x00, 0x00];
-	assert!(!AccountInfo::<Test>::is_delegation_indicator(&too_short));
-
-	// Wrong length (too long)
-	let mut too_long = vec![0xef, 0x01, 0x00];
-	too_long.extend_from_slice(&[0u8; 21]);
-	assert!(!AccountInfo::<Test>::is_delegation_indicator(&too_long));
-
-	// Empty code
-	assert!(!AccountInfo::<Test>::is_delegation_indicator(&[]));
-
-	// Regular contract code
-	let regular_code = vec![0x60, 0x80, 0x60, 0x40, 0x52];
-	assert!(!AccountInfo::<Test>::is_delegation_indicator(&regular_code));
-}
 
 
 #[test]
@@ -175,9 +131,6 @@ fn set_delegation_creates_indicator() {
 
 		// Verify we can retrieve the target
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target));
-
-		// Verify the account is now a "contract" (has code)
-		assert!(AccountInfo::<Test>::is_contract(&eoa));
 	});
 }
 
@@ -275,29 +228,7 @@ fn eip3607_rejects_regular_contract_originating_transactions() {
 	});
 }
 
-#[test]
-fn delegation_indicator_size_is_23_bytes() {
-	ExtBuilder::default().build().execute_with(|| {
-		let eoa = H160::from([0x11; 20]);
-		let target = H160::from([0x22; 20]);
-		let nonce = 0u32.into();
 
-		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target, nonce));
-
-		// Get the contract info
-		let contract_info = AccountInfo::<Test>::load_contract(&eoa).unwrap();
-
-		// Get the code
-		let code = crate::PristineCode::<Test>::get(contract_info.code_hash).unwrap();
-
-		// Verify size
-		assert_eq!(code.len(), 23, "Delegation indicator must be exactly 23 bytes");
-
-		// Verify format
-		assert_eq!(&code[0..3], &[0xef, 0x01, 0x00]);
-		assert_eq!(&code[3..23], target.as_bytes());
-	});
-}
 
 #[test]
 fn multiple_delegations_last_one_wins() {

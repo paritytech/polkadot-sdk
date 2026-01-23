@@ -36,8 +36,7 @@ use sp_runtime::SaturatedConversion;
 /// EIP-7702: Magic value for authorization signature message
 pub const EIP7702_MAGIC: u8 = 0x05;
 
-/// EIP-7702: Delegation indicator prefix (0xef0100)
-pub const DELEGATION_INDICATOR_PREFIX: [u8; 3] = [0xef, 0x01, 0x00];
+
 
 /// EIP-7702: Base cost for processing each authorization tuple
 pub const PER_AUTH_BASE_COST: u64 = 12500;
