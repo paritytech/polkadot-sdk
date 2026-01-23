@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769094576846,
+  "lastUpdate": 1769172608876,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41160dce396fb98be6c2c4664bb2124a57e35a49",
-          "message": "[pallet-revive] Make Runtime call dispatchable as eth transaction (#8883)\n\nMake RuntimeCall dispatchable as eth transaction.\n\nBy sending a transaction to\n`0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime\ncall as input, the call will be executed by the origin indicated by the\nEthereum signature (0xEE account_id).\n\nsee https://github.com/paritytech/foundry-polkadot/issues/130\n\ne.g sending a remark_with_event\n```\ncast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133\ncast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435\n```\n\nalso merged in #8901 and #8920\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-21T09:32:23Z",
-          "tree_id": "52230c17ebc7b6edb9d1aedfb5b806f1fdc31439",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41160dce396fb98be6c2c4664bb2124a57e35a49"
-        },
-        "date": 1750501997072,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008827381146666742,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01258404148,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022296907353333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15578292224000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0069972292933333305,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
+          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-23T11:30:58Z",
+          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
+        },
+        "date": 1769172584825,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006899433100000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009783365833333347,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14449894992666676,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023027879586666664,
             "unit": "seconds"
           }
         ]
