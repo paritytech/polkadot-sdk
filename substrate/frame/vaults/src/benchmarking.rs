@@ -79,6 +79,15 @@ fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
 	}
 }
 
+/// Ensure MaxPositionAmount is set high enough for the given mint amount
+fn ensure_max_position_amount<T: Config>(amount: BalanceOf<T>) {
+	let required = amount.saturating_mul(2u32.into());
+	let current_max = crate::MaxPositionAmount::<T>::get();
+	if current_max < required {
+		crate::MaxPositionAmount::<T>::put(required);
+	}
+}
+
 /// Mint pUSD to an account (for repay scenarios)
 fn mint_pusd_to<T: Config>(
 	account: &T::AccountId,
@@ -107,6 +116,7 @@ fn create_vault_with_debt<T: Config>(owner: &T::AccountId) -> Result<BalanceOf<T
 
 	ensure_stablecoin_asset::<T>();
 	ensure_can_mint::<T>(mint_amount);
+	ensure_max_position_amount::<T>(mint_amount);
 
 	create_vault_for::<T>(owner, deposit)?;
 
@@ -241,6 +251,7 @@ mod benchmarks {
 		let mint_amount = safe_mint_amount::<T>();
 		ensure_stablecoin_asset::<T>();
 		ensure_can_mint::<T>(mint_amount);
+		ensure_max_position_amount::<T>(mint_amount);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), mint_amount);
@@ -464,10 +475,10 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark: set_maximum_issuance
+	/// Benchmark: set_max_issuance
 	/// Tests with Full privilege level (can raise or lower).
 	#[benchmark]
-	fn set_maximum_issuance() -> Result<(), BenchmarkError> {
+	fn set_max_issuance() -> Result<(), BenchmarkError> {
 		let new_amount: BalanceOf<T> = safe_mint_amount::<T>().saturating_mul(10000u32.into());
 
 		#[extrinsic_call]
