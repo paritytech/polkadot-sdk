@@ -77,79 +77,6 @@ pub enum AdvertisementError {
 	V1AdvertisementForImplicitParent,
 }
 
-/// Fetched collation data.
-#[derive(Debug, Clone)]
-struct FetchedCollation {
-	/// Candidate receipt.
-	pub candidate_receipt: CandidateReceipt,
-	/// Proof of validity.
-	pub pov: PoV,
-	/// Optional parachain parent head data. This is needed for elastic scaling to work.
-	pub maybe_parent_head_data: Option<HeadData>,
-	/// Optional parent head data hash. This is needed for async backing to work (sent by v2
-	/// protocol).
-	pub maybe_parent_head_data_hash: Option<Hash>,
-	/// The peer that sent this collation.
-	pub peer_id: PeerId,
-}
-
-impl FetchedCollation {
-	/// Performs a sanity check between advertised and fetched collations.
-	fn ensure_matches_advertisement(
-		&self,
-		advertised: &Advertisement,
-	) -> std::result::Result<(), SecondingError> {
-		let candidate_receipt = &self.candidate_receipt;
-
-		match advertised.prospective_candidate {
-			// This implies a check on the declared para if this was a v2 advertisement
-			Some(ProspectiveCandidate { candidate_hash, .. }) => {
-				if candidate_hash != candidate_receipt.hash() {
-					return Err(SecondingError::CandidateHashMismatch)
-				}
-			},
-			// Otherwise, do the explicit check for the para_id.
-			None =>
-				if advertised.para_id != candidate_receipt.descriptor.para_id() {
-					return Err(SecondingError::ParaIdMismatch)
-				},
-		}
-
-		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {
-			return Err(SecondingError::RelayParentMismatch)
-		}
-
-		Ok(())
-	}
-}
-
-/// Represents an advertisement which we have accepted. Supports ordering of the advertisements.
-///
-/// Ordering priority: score (descending), then timestamp (ascending), then advertisement as
-/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best advertisement.
-#[derive(PartialEq, Eq)]
-struct AcceptedAdvertisement<'a> {
-	adv: &'a Advertisement,
-	score: Score,
-	timestamp: &'a Instant,
-}
-
-impl<'a> Ord for AcceptedAdvertisement<'a> {
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		other
-			.score
-			.cmp(&self.score) // Descending: higher score comes first
-			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
-			.then_with(|| self.adv.cmp(other.adv))
-	}
-}
-
-impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
 pub struct CollationManager {
 	// The backing implicit view, which is used to track the active leaves and their implicit
 	// ancestors.
@@ -937,6 +864,79 @@ impl CollationManager {
 					.flat_map(|peer_adv| peer_adv.advertisements.keys().cloned())
 			})
 			.collect()
+	}
+}
+
+/// Fetched collation data.
+#[derive(Debug, Clone)]
+struct FetchedCollation {
+	/// Candidate receipt.
+	pub candidate_receipt: CandidateReceipt,
+	/// Proof of validity.
+	pub pov: PoV,
+	/// Optional parachain parent head data. This is needed for elastic scaling to work.
+	pub maybe_parent_head_data: Option<HeadData>,
+	/// Optional parent head data hash. This is needed for async backing to work (sent by v2
+	/// protocol).
+	pub maybe_parent_head_data_hash: Option<Hash>,
+	/// The peer that sent this collation.
+	pub peer_id: PeerId,
+}
+
+impl FetchedCollation {
+	/// Performs a sanity check between advertised and fetched collations.
+	fn ensure_matches_advertisement(
+		&self,
+		advertised: &Advertisement,
+	) -> std::result::Result<(), SecondingError> {
+		let candidate_receipt = &self.candidate_receipt;
+
+		match advertised.prospective_candidate {
+			// This implies a check on the declared para if this was a v2 advertisement
+			Some(ProspectiveCandidate { candidate_hash, .. }) => {
+				if candidate_hash != candidate_receipt.hash() {
+					return Err(SecondingError::CandidateHashMismatch)
+				}
+			},
+			// Otherwise, do the explicit check for the para_id.
+			None =>
+				if advertised.para_id != candidate_receipt.descriptor.para_id() {
+					return Err(SecondingError::ParaIdMismatch)
+				},
+		}
+
+		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {
+			return Err(SecondingError::RelayParentMismatch)
+		}
+
+		Ok(())
+	}
+}
+
+/// Represents an advertisement which we have accepted. Supports ordering of the advertisements.
+///
+/// Ordering priority: score (descending), then timestamp (ascending), then advertisement as
+/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best advertisement.
+#[derive(PartialEq, Eq)]
+struct AcceptedAdvertisement<'a> {
+	adv: &'a Advertisement,
+	score: Score,
+	timestamp: &'a Instant,
+}
+
+impl<'a> Ord for AcceptedAdvertisement<'a> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		other
+			.score
+			.cmp(&self.score) // Descending: higher score comes first
+			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
+			.then_with(|| self.adv.cmp(other.adv))
+	}
+}
+
+impl<'a> PartialOrd for AcceptedAdvertisement<'a> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
 	}
 }
 
