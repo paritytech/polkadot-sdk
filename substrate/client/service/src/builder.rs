@@ -35,7 +35,7 @@ use sc_client_api::{
 	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
 	TrieCacheContext, UsageProvider,
 };
-use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode, ShouldKeepBlock};
+use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
 use sc_executor::{
 	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
@@ -152,43 +152,23 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `block_pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	enable_import_proof_recording: bool,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import_with_keep_predicates(
-		config,
-		telemetry,
-		executor,
-		enable_import_proof_recording,
-		vec![],
-	)
-}
-
-/// Create the initial parts of a full node with custom keep predicates for block pruning.
-///
-/// The `keep_predicates` parameter allows configuring which blocks should be preserved
-/// during pruning based on their justifications. For relay chains that need to support
-/// warp sync, pass `vec![Arc::new(sc_consensus_grandpa::KeepGrandpaJustifications)]`.
-/// For parachains, pass an empty `Vec` to use the default behavior (prune all blocks).
-pub fn new_full_parts_record_import_with_keep_predicates<TBl, TRtApi, TExec>(
-	config: &Configuration,
-	telemetry: Option<TelemetryHandle>,
-	executor: TExec,
-	enable_import_proof_recording: bool,
-	keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
-) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
-where
-	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
-{
-	let backend = new_db_backend(config.db_config(), keep_predicates)?;
+	let mut db_config = config.db_config();
+	db_config.block_pruning_filters = block_pruning_filters;
+	let backend = new_db_backend(db_config)?;
 
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
@@ -208,6 +188,10 @@ where
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// This is a convenience wrapper around [`new_full_parts_record_import`] with no pruning filters
+/// and import proof recording disabled. For relay chains that need warp sync support,
+/// use [`new_full_parts_record_import`] with `GrandpaBlockPruningFilter` instead.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
@@ -217,29 +201,7 @@ where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false)
-}
-
-/// Create the initial parts of a full node with custom keep predicates for block pruning.
-///
-/// See [`new_full_parts_record_import_with_keep_predicates`] for details on `keep_predicates`.
-pub fn new_full_parts_with_keep_predicates<TBl, TRtApi, TExec>(
-	config: &Configuration,
-	telemetry: Option<TelemetryHandle>,
-	executor: TExec,
-	keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
-) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
-where
-	TBl: BlockT,
-	TExec: CodeExecutor + RuntimeVersionOf + Clone,
-{
-	new_full_parts_record_import_with_keep_predicates(
-		config,
-		telemetry,
-		executor,
-		false,
-		keep_predicates,
-	)
+	new_full_parts_record_import(config, telemetry, executor, false, Default::default())
 }
 
 /// Create the initial parts of a full node.
@@ -423,22 +385,19 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.build()
 }
 
-/// Create an instance of default DB-backend backend.
+/// Create an instance of the default DB-backend.
 ///
-/// The `keep_predicates` parameter allows configuring which blocks should be preserved
-/// during pruning based on their justifications. If any predicate returns `true` for a
-/// block's justifications, the block will not be pruned. Pass an empty `Vec` to use the
-/// default behavior (prune all blocks outside the pruning window).
+/// Block pruning filters can be configured via `settings.block_pruning_filters`.
+/// If any filter returns `true` for a block's justifications, the block will not be pruned.
 pub fn new_db_backend<Block>(
 	settings: DatabaseSettings,
-	keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
 where
 	Block: BlockT,
 {
 	const CANONICALIZATION_DELAY: u64 = 4096;
 
-	Ok(Arc::new(Backend::new(settings, CANONICALIZATION_DELAY, keep_predicates)?))
+	Ok(Arc::new(Backend::new(settings, CANONICALIZATION_DELAY)?))
 }
 
 /// Create an instance of client backed by given backend.

@@ -19,12 +19,12 @@
 #![cfg(feature = "full-node")]
 
 use crate::{
-	fake_runtime_api::RuntimeApi, grandpa_support, relay_chain_selection, Error, FullBackend,
-	FullClient, IdentifyVariant, GRANDPA_JUSTIFICATION_PERIOD,
+	grandpa_support, relay_chain_selection, Error, FullBackend, FullClient, IdentifyVariant,
+	GRANDPA_JUSTIFICATION_PERIOD,
 };
 use polkadot_primitives::Block;
 use sc_consensus_grandpa::{
-	FinalityProofProvider as GrandpaFinalityProofProvider, KeepGrandpaJustifications,
+	FinalityProofProvider as GrandpaFinalityProofProvider, GrandpaBlockPruningFilter,
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::{Configuration, Error as SubstrateServiceError, KeystoreContainer, TaskManager};
@@ -122,14 +122,27 @@ pub(crate) fn new_partial_basics(
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
-	// Use KeepGrandpaJustifications to preserve blocks with GRANDPA justifications
-	// during pruning. This is required for warp sync to work on pruned nodes.
+	// Configure database with GrandpaBlockPruningFilter to preserve blocks with GRANDPA
+	// justifications during pruning. This is required for warp sync to work on pruned nodes.
+	let mut db_config = config.db_config();
+	db_config.block_pruning_filters = vec![Arc::new(GrandpaBlockPruningFilter)];
+	let backend = sc_service::new_db_backend(db_config)?;
+
+	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
+		config.chain_spec.as_storage_builder(),
+		!config.no_genesis(),
+		backend.clone(),
+		executor.clone(),
+	)?;
+
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_with_keep_predicates::<Block, RuntimeApi, _>(
+		sc_service::new_full_parts_with_genesis_builder(
 			&config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
-			vec![Arc::new(KeepGrandpaJustifications)],
+			backend,
+			genesis_block_builder,
+			false,
 		)?;
 	let client = Arc::new(client);
 

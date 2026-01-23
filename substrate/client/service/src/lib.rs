@@ -59,8 +59,7 @@ pub use self::{
 		build_default_block_downloader, build_default_syncing_engine, build_network,
 		build_network_advanced, build_polkadot_syncing_strategy, gen_rpc_module, init_telemetry,
 		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
-		new_full_parts_record_import_with_keep_predicates, new_full_parts_with_genesis_builder,
-		new_full_parts_with_keep_predicates, new_wasm_executor,
+		new_full_parts_with_genesis_builder, new_wasm_executor,
 		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
 		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
 		TFullBackend, TFullCallExecutor, TFullClient,
@@ -80,7 +79,7 @@ pub use sc_chain_spec::{
 pub use config::{
 	BasePath, BlocksPruning, Configuration, DatabaseSource, PruningMode, Role, RpcMethods, TaskType,
 };
-pub use sc_client_db::ShouldKeepBlock;
+pub use sc_client_db::BlockPruningFilter;
 pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,

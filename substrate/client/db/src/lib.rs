@@ -101,26 +101,25 @@ pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
 
-/// Predicate to determine if a block should be preserved during pruning.
+/// Filter to determine if a block should be excluded from pruning.
 ///
-/// When block pruning is enabled, blocks outside the pruning window are normally removed.
-/// Implementations of this trait can selectively preserve blocks based on their justifications.
+/// This filter only affects block body pruning, not header or state pruning.
+/// Returns `true` if the block should be preserved, `false` if it can be pruned.
 ///
-/// Returns `true` if the block SHOULD be kept, `false` if it can be pruned.
-///
-/// Predicate implementations are provided by consensus crates:
-/// - `sc_consensus_grandpa::KeepGrandpaJustifications` - preserves blocks with GRANDPA justifications
-/// - `sc_consensus_beefy::KeepBeefyJustifications` - preserves blocks with BEEFY justifications
-pub trait ShouldKeepBlock: Send + Sync {
+/// Use this to keep blocks that provide important data, such as blocks with
+/// GRANDPA justifications needed for warp sync.
+pub trait BlockPruningFilter: Send + Sync {
 	/// Check if a block with the given justifications should be preserved.
-	fn should_keep(&self, justifications: &Justifications) -> bool;
+	///
+	/// Returns `true` to preserve the block, `false` to allow pruning.
+	fn should_preserve(&self, justifications: &Justifications) -> bool;
 }
 
-impl<F> ShouldKeepBlock for F
+impl<F> BlockPruningFilter for F
 where
 	F: Fn(&Justifications) -> bool + Send + Sync,
 {
-	fn should_keep(&self, justifications: &Justifications) -> bool {
+	fn should_preserve(&self, justifications: &Justifications) -> bool {
 		(self)(justifications)
 	}
 }
@@ -337,7 +336,18 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
-
+	/// Filters to exclude blocks from pruning.
+	///
+	/// If any filter returns `true` for a block's justifications, the block body
+	/// will be preserved even when it falls outside the pruning window.
+	/// Pass an empty `Vec` to use default behavior (prune all blocks outside the window).
+	///
+	/// Example: To preserve blocks with GRANDPA justifications for warp sync:
+	/// ```ignore
+	/// use sc_consensus_grandpa::GrandpaBlockPruningFilter;
+	/// settings.block_pruning_filters = vec![Arc::new(GrandpaBlockPruningFilter)];
+	/// ```
+	pub block_pruning_filters: Vec<Arc<dyn BlockPruningFilter>>,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 }
@@ -1145,26 +1155,14 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
-	/// Predicates to determine if a block should be preserved during pruning.
-	/// If any predicate returns true, the block is kept.
-	/// Empty vec = prune all blocks (default/current behavior).
-	keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
+	block_pruning_filters: Vec<Arc<dyn BlockPruningFilter>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
 	/// Create a new instance of database backend.
 	///
 	/// The pruning window is how old a block must be before the state is pruned.
-	///
-	/// The `keep_predicates` parameter allows configuring which blocks should be preserved
-	/// during pruning based on their justifications. If any predicate returns `true` for a
-	/// block's justifications, the block will not be pruned. Pass an empty `Vec` to use the
-	/// default behavior (prune all blocks outside the pruning window).
-	pub fn new(
-		db_config: DatabaseSettings,
-		canonicalization_delay: u64,
-		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
-	) -> ClientResult<Self> {
+	pub fn new(db_config: DatabaseSettings, canonicalization_delay: u64) -> ClientResult<Self> {
 		use utils::OpenDbError;
 
 		let db_source = &db_config.source;
@@ -1180,7 +1178,7 @@ impl<Block: BlockT> Backend<Block> {
 				Err(as_is) => return Err(as_is.into()),
 			};
 
-		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init, keep_predicates)
+		Self::from_database(db as Arc<_>, canonicalization_delay, db_config, needs_init)
 	}
 
 	/// Reset the shared trie cache.
@@ -1196,17 +1194,17 @@ impl<Block: BlockT> Backend<Block> {
 		Self::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), canonicalization_delay)
 	}
 
-	/// Create new memory-backed client backend for tests with custom keep predicates.
+	/// Create new memory-backed client backend for tests with custom pruning filters.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_test_with_keep_predicates(
+	pub fn new_test_with_pruning_filters(
 		blocks_pruning: u32,
 		canonicalization_delay: u64,
-		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
+		block_pruning_filters: Vec<Arc<dyn BlockPruningFilter>>,
 	) -> Self {
-		Self::new_test_with_tx_storage_and_predicates(
+		Self::new_test_with_tx_storage_and_filters(
 			BlocksPruning::Some(blocks_pruning),
 			canonicalization_delay,
-			keep_predicates,
+			block_pruning_filters,
 		)
 	}
 
@@ -1216,15 +1214,19 @@ impl<Block: BlockT> Backend<Block> {
 		blocks_pruning: BlocksPruning,
 		canonicalization_delay: u64,
 	) -> Self {
-		Self::new_test_with_tx_storage_and_predicates(blocks_pruning, canonicalization_delay, vec![])
+		Self::new_test_with_tx_storage_and_filters(
+			blocks_pruning,
+			canonicalization_delay,
+			Default::default(),
+		)
 	}
 
-	/// Create new memory-backed client backend for tests with custom keep predicates.
+	/// Create new memory-backed client backend for tests with custom pruning filters.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_test_with_tx_storage_and_predicates(
+	pub fn new_test_with_tx_storage_and_filters(
 		blocks_pruning: BlocksPruning,
 		canonicalization_delay: u64,
-		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
+		block_pruning_filters: Vec<Arc<dyn BlockPruningFilter>>,
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
@@ -1238,10 +1240,11 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			block_pruning_filters,
 			metrics_registry: None,
 		};
 
-		Self::new(db_setting, canonicalization_delay, keep_predicates).expect("failed to create test-db")
+		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
 	}
 
 	/// Expose the Database that is used by this backend.
@@ -1274,9 +1277,8 @@ impl<Block: BlockT> Backend<Block> {
 	fn from_database(
 		db: Arc<dyn Database<DbHash>>,
 		canonicalization_delay: u64,
-		config: &DatabaseSettings,
+		config: DatabaseSettings,
 		should_init: bool,
-		keep_predicates: Vec<Arc<dyn ShouldKeepBlock>>,
 	) -> ClientResult<Self> {
 		let mut db_init_transaction = Transaction::new();
 
@@ -1331,7 +1333,7 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache,
-			keep_predicates,
+			block_pruning_filters: config.block_pruning_filters,
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -2005,28 +2007,35 @@ impl<Block: BlockT> Backend<Block> {
 
 				// Before we prune a block, check if it is pinned
 				if let Some(hash) = self.blockchain.hash(number)? {
-					// Check if any keep predicate wants to preserve this block.
+					// Check if any pruning filter wants to preserve this block.
 					// We need to check both the current transaction justifications (not yet in DB)
 					// and the DB itself (for justifications from previous transactions).
-					if !self.keep_predicates.is_empty() {
-						let (should_keep, engine_ids) = if let Some(justification) =
+					if !self.block_pruning_filters.is_empty() {
+						let (should_preserve, engine_ids) = if let Some(justification) =
 							current_transaction_justifications.get(&hash)
 						{
-							// Justification was added in this transaction, convert to Justifications
+							// Justification was added in this transaction, convert to
+							// Justifications
 							let justifications = Justifications::from(justification.clone());
-							let dominated = self.keep_predicates.iter().any(|p| p.should_keep(&justifications));
+							let dominated = self
+								.block_pruning_filters
+								.iter()
+								.any(|f| f.should_preserve(&justifications));
 							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
 							(dominated, ids)
 						} else if let Some(justifications) = self.blockchain.justifications(hash)? {
 							// Check justifications from the database
-							let dominated = self.keep_predicates.iter().any(|p| p.should_keep(&justifications));
+							let dominated = self
+								.block_pruning_filters
+								.iter()
+								.any(|f| f.should_preserve(&justifications));
 							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
 							(dominated, ids)
 						} else {
 							(false, Vec::new())
 						};
 
-						if should_keep {
+						if should_preserve {
 							let engine_names: Vec<_> = engine_ids
 								.iter()
 								.map(|id| std::str::from_utf8(id).unwrap_or("????"))
@@ -2957,10 +2966,10 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				block_pruning_filters: Default::default(),
 				metrics_registry: None,
 			},
 			0,
-			vec![],
 		)
 		.unwrap();
 		assert_eq!(backend.blockchain().info().best_number, 9);
@@ -5440,7 +5449,7 @@ pub(crate) mod tests {
 		let backend = Backend::<Block>::new_test_with_tx_storage_and_predicates(
 			BlocksPruning::Some(2),
 			0,
-			vec![Arc::new(|j: &Justifications| j.get(GRANDPA_ENGINE_ID).is_some())], // Only GRANDPA predicate
+			vec![Arc::new(|j: &Justifications| j.get(GRANDPA_ENGINE_ID).is_some())], /* Only GRANDPA predicate */
 		);
 
 		let mut blocks = Vec::new();

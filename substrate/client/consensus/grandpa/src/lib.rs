@@ -152,25 +152,16 @@ pub use sp_consensus_grandpa::{
 };
 use std::marker::PhantomData;
 
-/// Predicate that preserves blocks with GRANDPA justifications during pruning.
+/// Filter that preserves blocks with GRANDPA justifications during pruning.
 ///
-/// Use this predicate with `sc_client_db::Backend` to ensure that blocks required for
-/// warp sync are not pruned. GRANDPA justifications at authority set change boundaries
-/// are needed to construct warp sync proofs.
-///
-/// # Example
-///
-/// ```ignore
-/// use sc_consensus_grandpa::KeepGrandpaJustifications;
-/// use sc_service::new_db_backend;
-///
-/// let backend = new_db_backend(settings, vec![Arc::new(KeepGrandpaJustifications)])?;
-/// ```
+/// Use this filter with `DatabaseSettings::block_pruning_filters` to ensure that blocks
+/// required for warp sync are not pruned. GRANDPA justifications at authority set change
+/// boundaries are needed to construct warp sync proofs.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct KeepGrandpaJustifications;
+pub struct GrandpaBlockPruningFilter;
 
-impl sc_client_db::ShouldKeepBlock for KeepGrandpaJustifications {
-	fn should_keep(&self, justifications: &sp_runtime::Justifications) -> bool {
+impl sc_client_db::BlockPruningFilter for GrandpaBlockPruningFilter {
+	fn should_preserve(&self, justifications: &sp_runtime::Justifications) -> bool {
 		justifications.get(GRANDPA_ENGINE_ID).is_some()
 	}
 }
