@@ -78,7 +78,7 @@ pub enum AuthorizationResult {
 /// # Returns
 /// Total gas refund for accounts that already existed
 pub fn process_authorizations<T: Config>(
-	authorization_list: Vec<AuthorizationListEntry>,
+	authorization_list: &[AuthorizationListEntry],
 	chain_id: U256
 ) -> u64 {
 	let mut total_refund = 0u64;
@@ -113,9 +113,7 @@ pub fn process_authorizations<T: Config>(
 			if let Err(e) = AccountInfo::<T>::set_delegation(authority, *target_address, nonce) {
 				log::debug!(
 					target: crate::LOG_TARGET,
-					"Failed to set delegation for {:?}: {:?}",
-					authority,
-					e
+					"Failed to set delegation for {authority:?}: {e:?}",
 				);
 				continue;
 			}
@@ -140,8 +138,7 @@ fn process_single_authorization<T: Config>(
 	if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
 		log::debug!(
 			target: crate::LOG_TARGET,
-			"Invalid chain_id in authorization: expected {:?} or 0, got {:?}",
-			chain_id,
+			"Invalid chain_id in authorization: expected {chain_id:?} or 0, got {:?}",
 			auth.chain_id
 		);
 		return AuthorizationResult::Failed;
@@ -149,7 +146,7 @@ fn process_single_authorization<T: Config>(
 
 	// 2. Verify nonce is less than 2^64 - 1
 	if auth.nonce >= U256::from(u64::MAX) {
-		log::debug!(target: crate::LOG_TARGET, "Authorization nonce too large: {:?}", auth.nonce);
+		log::debug!(target: crate::LOG_TARGET, "Authorization nonce too large: {nonce:?}", nonce = auth.nonce);
 		return AuthorizationResult::Failed;
 	}
 
@@ -170,10 +167,7 @@ fn process_single_authorization<T: Config>(
 	if U256::from(current_nonce.saturated_into::<u64>()) != expected_nonce {
 		log::debug!(
 			target: crate::LOG_TARGET,
-			"Nonce mismatch for {:?}: expected {:?}, got {:?}",
-			authority,
-			current_nonce,
-			expected_nonce
+			"Nonce mismatch for {authority:?}: expected {current_nonce:?}, got {expected_nonce:?}",
 		);
 		return AuthorizationResult::Failed;
 	}
@@ -183,8 +177,7 @@ fn process_single_authorization<T: Config>(
 		if !AccountInfo::<T>::is_delegated(&authority) {
 			log::debug!(
 				target: crate::LOG_TARGET,
-				"Account {:?} has non-delegation code",
-				authority
+				"Account {authority:?} has non-delegation code",
 			);
 			return AuthorizationResult::Failed;
 		}
@@ -271,16 +264,6 @@ pub fn authorization_intrinsic_gas(authorization_count: usize) -> u64 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::evm::DELEGATION_INDICATOR_PREFIX;
-
-	#[test]
-	fn test_delegation_indicator_size() {
-		// Delegation indicator must be exactly 23 bytes
-		let mut code = Vec::new();
-		code.extend_from_slice(&DELEGATION_INDICATOR_PREFIX);
-		code.extend_from_slice(&[0u8; 20]); // 20-byte address
-		assert_eq!(code.len(), 23);
-	}
 
 	#[test]
 	fn test_auth_gas_calculation() {

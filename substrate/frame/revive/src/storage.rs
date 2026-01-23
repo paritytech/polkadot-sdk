@@ -19,7 +19,7 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::DELEGATION_INDICATOR_PREFIX,
+	evm::eip7702::DELEGATION_INDICATOR_PREFIX,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
 	tracing::if_tracing,
