@@ -91,23 +91,17 @@ impl CurveHooks for HostHooks {
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		host_calls::bls12_381_mul_affine_g1(
-			utils::encode(base.into_affine()),
-			utils::encode(scalar),
-		)
-		.and_then(|res| utils::decode::<G1Affine>(res))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::bls12_381_mul_g1(utils::encode(base.into_affine()), utils::encode(scalar))
+			.and_then(|res| utils::decode::<G1Affine>(res))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		host_calls::bls12_381_mul_affine_g2(
-			utils::encode(base.into_affine()),
-			utils::encode(scalar),
-		)
-		.and_then(|res| utils::decode::<G2Affine>(res))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::bls12_381_mul_g2(utils::encode(base.into_affine()), utils::encode(scalar))
+			.and_then(|res| utils::decode::<G2Affine>(res))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 }
 
@@ -175,11 +169,11 @@ pub trait HostCalls {
 	/// - `base`: `G1Affine`.
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `G1Affine`.
-	fn bls12_381_mul_affine_g1(
+	fn bls12_381_mul_g1(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_affine_sw::<ark_bls12_381::g1::Config>(base, scalar)
+		utils::mul_sw::<ark_bls12_381::g1::Config>(base, scalar)
 	}
 
 	/// Affine multiplication on *G2* for *BLS12-381*.
@@ -188,11 +182,11 @@ pub trait HostCalls {
 	/// - `base`: `G2Affine`.
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `G2Affine`.
-	fn bls12_381_mul_affine_g2(
+	fn bls12_381_mul_g2(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_affine_sw::<ark_bls12_381::g2::Config>(base, scalar)
+		utils::mul_sw::<ark_bls12_381::g2::Config>(base, scalar)
 	}
 }
 

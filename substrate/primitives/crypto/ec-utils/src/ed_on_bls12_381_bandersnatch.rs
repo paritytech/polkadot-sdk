@@ -52,17 +52,14 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn msm_te(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_te_msm(
-			utils::encode(bases),
-			utils::encode(scalars),
-		)
-		.and_then(|res| utils::decode::<EdwardsAffine>(res))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::ed_on_bls12_381_bandersnatch_msm(utils::encode(bases), utils::encode(scalars))
+			.and_then(|res| utils::decode::<EdwardsAffine>(res))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_te_mul_affine(
+		host_calls::ed_on_bls12_381_bandersnatch_mul(
 			utils::encode(base.into_affine()),
 			utils::encode(scalar),
 		)
@@ -72,7 +69,7 @@ impl CurveHooks for HostHooks {
 	}
 
 	fn msm_sw(bases: &[SWAffine], scalars: &[ScalarField]) -> SWProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_msm(
+		host_calls::ed_on_bls12_381_bandersnatch_msm_sw(
 			utils::encode(bases),
 			utils::encode(scalars),
 		)
@@ -82,7 +79,7 @@ impl CurveHooks for HostHooks {
 	}
 
 	fn mul_projective_sw(base: &SWProjective, scalar: &[u64]) -> SWProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_affine(
+		host_calls::ed_on_bls12_381_bandersnatch_mul_sw(
 			utils::encode(base.into_affine()),
 			utils::encode(scalar),
 		)
@@ -107,7 +104,7 @@ pub trait HostCalls {
 	/// - `bases`: `Vec<EdwardsAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `EdwardsAffine`.
-	fn ed_on_bls12_381_bandersnatch_te_msm(
+	fn ed_on_bls12_381_bandersnatch_msm(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -120,11 +117,11 @@ pub trait HostCalls {
 	/// - `base`: `EdwardsAffine`.
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `EdwardsAffine`.
-	fn ed_on_bls12_381_bandersnatch_te_mul_affine(
+	fn ed_on_bls12_381_bandersnatch_mul(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_affine_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
+		utils::mul_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
 	}
 
 	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
@@ -133,7 +130,7 @@ pub trait HostCalls {
 	/// - `bases`: `Vec<SWAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `SWAffine`.
-	fn ed_on_bls12_381_bandersnatch_sw_msm(
+	fn ed_on_bls12_381_bandersnatch_msm_sw(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -146,11 +143,11 @@ pub trait HostCalls {
 	/// - `base`: `SWAffine`.
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `SWAffine`.
-	fn ed_on_bls12_381_bandersnatch_sw_mul_affine(
+	fn ed_on_bls12_381_bandersnatch_mul_sw(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_affine_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+		utils::mul_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 }
 
@@ -160,22 +157,22 @@ mod tests {
 	use crate::utils::testing::*;
 
 	#[test]
-	fn te_mul_works() {
+	fn mul_works() {
 		mul_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
 	}
 
 	#[test]
-	fn te_msm_works() {
+	fn msm_works() {
 		msm_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
 	}
 
 	#[test]
-	fn sw_mul_works() {
+	fn mul_works_sw() {
 		mul_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
 	}
 
 	#[test]
-	fn sw_msm_works() {
+	fn msm_works_sw() {
 		msm_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
 	}
 }

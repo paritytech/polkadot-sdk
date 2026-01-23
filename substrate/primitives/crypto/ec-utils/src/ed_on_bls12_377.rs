@@ -42,20 +42,17 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn msm(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_377_te_msm(utils::encode(bases), utils::encode(scalars))
+		host_calls::ed_on_bls12_377_msm(utils::encode(bases), utils::encode(scalars))
 			.and_then(|res| utils::decode::<EdwardsAffine>(res))
 			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn mul_projective(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_377_te_mul_affine(
-			utils::encode(base.into_affine()),
-			utils::encode(scalar),
-		)
-		.and_then(|res| utils::decode::<EdwardsAffine>(res))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::ed_on_bls12_377_mul(utils::encode(base.into_affine()), utils::encode(scalar))
+			.and_then(|res| utils::decode::<EdwardsAffine>(res))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 }
 
@@ -74,7 +71,7 @@ pub trait HostCalls {
 	/// - `bases`: `Vec<EdwardsAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `EdwardsAffine`.
-	fn ed_on_bls12_377_te_msm(
+	fn ed_on_bls12_377_msm(
 		bases: PassFatPointerAndRead<Vec<u8>>,
 		scalars: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
@@ -87,11 +84,11 @@ pub trait HostCalls {
 	/// - `base`: `EdwardsAffine`.
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `EdwardsAffine`.
-	fn ed_on_bls12_377_te_mul_affine(
+	fn ed_on_bls12_377_mul(
 		base: PassFatPointerAndRead<Vec<u8>>,
 		scalar: PassFatPointerAndRead<Vec<u8>>,
 	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_affine_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
+		utils::mul_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
 	}
 }
 

@@ -102,7 +102,7 @@ pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 /// - `base`: `SWAffine<SWCurveConfig>`.
 /// - `scalar`: `BigInteger`.
 /// Returns encoded: `SWAffine<SWCurveConfig>`.
-pub fn mul_affine_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+pub fn mul_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode::<SWAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
@@ -128,7 +128,7 @@ pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
 /// Returns encoded: `TEAffine<TECurveConfig>`.
-pub fn mul_affine_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+pub fn mul_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
 	let base = decode::<TEAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
@@ -171,7 +171,7 @@ pub mod testing {
 		// This directly calls into arkworks
 		let p_enc = encode(p);
 		let s_enc = encode(s.into_bigint().as_ref());
-		let r2_enc = mul_affine_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
+		let r2_enc = mul_sw::<ArkAffine::Config>(p_enc, s_enc).unwrap();
 		let r2 = decode::<SubAffine>(r2_enc).unwrap();
 
 		assert_eq!(r1, r2);
@@ -211,7 +211,7 @@ pub mod testing {
 		// This directly calls into arkworks
 		let p_enc = encode(p);
 		let s_enc = encode(s.into_bigint().as_ref());
-		let r2_enc = mul_affine_te::<ArkAffine::Config>(p_enc, s_enc).unwrap();
+		let r2_enc = mul_te::<ArkAffine::Config>(p_enc, s_enc).unwrap();
 		let r2 = decode::<SubAffine>(r2_enc).unwrap();
 
 		assert_eq!(r1, r2);
