@@ -578,6 +578,11 @@ members = [
 	"templates/solochain/runtime",
 	"templates/zombienet",
 	"umbrella",
+
+	# Test crates for staging.crates.io validation (temporary)
+	"test-crates/parity-staging-test-a",
+	"test-crates/parity-staging-test-b",
+	"test-crates/parity-staging-test-c",
 ]
 
 default-members = [

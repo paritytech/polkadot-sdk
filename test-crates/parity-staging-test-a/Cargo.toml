@@ -1,0 +1,9 @@
+[package]
+name = "parity-staging-test-a"
+version = "0.1.0"
+edition = "2021"
+description = "Test crate A for staging.crates.io publishing validation"
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/polkadot-sdk"
+
+[dependencies]

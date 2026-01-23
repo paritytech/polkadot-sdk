@@ -1,0 +1,11 @@
+[package]
+name = "parity-staging-test-c"
+version = "0.1.0"
+edition = "2021"
+description = "Test crate C for staging.crates.io publishing validation - depends on A and B"
+license = "Apache-2.0"
+repository = "https://github.com/paritytech/polkadot-sdk"
+
+[dependencies]
+parity-staging-test-a = { path = "../parity-staging-test-a" }
+parity-staging-test-b = { path = "../parity-staging-test-b" }

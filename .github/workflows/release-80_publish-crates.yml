@@ -1,0 +1,214 @@
+name: Release - Publish Crates
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release name (e.g., stable2509-3). Base branch is derived by removing the last -N suffix.'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run - do not actually publish crates'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  set-image:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  publish-crates:
+    needs: set-image
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+
+    steps:
+      - name: Install pgpkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
+
+      - name: Derive stable branch from release name
+        id: derive_branch
+        run: |
+          RELEASE_NAME="${{ inputs.release_name }}"
+          echo "Release name: $RELEASE_NAME"
+
+          # Extract stable branch by removing the last -N suffix
+          # e.g., stable2509-3 -> stable2509
+          if [[ "$RELEASE_NAME" =~ ^(.+)-[0-9]+$ ]]; then
+            STABLE_BRANCH="${BASH_REMATCH[1]}"
+          else
+            # If no suffix, use the release name as-is (first release)
+            STABLE_BRANCH="$RELEASE_NAME"
+          fi
+
+          echo "Stable branch: $STABLE_BRANCH"
+          echo "STABLE_BRANCH=$STABLE_BRANCH" >> $GITHUB_OUTPUT
+
+          # I am calling it like this because we will call post crates workflow after on this one
+          echo "RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Checkout stable branch
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Import GPG keys
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+          import_gpg_keys
+
+      - name: Configure git
+        shell: bash
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git config --global commit.gpgsign true
+          PGPKMS_PATH=$(which pgpkms-git)
+          echo "Using pgpkms-git at: $PGPKMS_PATH"
+          git config --global gpg.program "$PGPKMS_PATH"
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+
+      - name: Create release branch
+        run: |
+          RELEASE_BRANCH="${{ steps.derive_branch.outputs.RELEASE_BRANCH }}"
+          echo "Creating branch: $RELEASE_BRANCH"
+
+          git checkout -b "$RELEASE_BRANCH"
+          echo "Successfully created branch $RELEASE_BRANCH"
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Install parity-publish
+        run: cargo install parity-publish --locked -q
+
+      - name: Run parity-publish plan
+        run: |
+          echo "Running parity-publish plan..."
+          parity-publish plan --prdoc prdoc
+
+      - name: Save Plan.toml diff
+        run: |
+          RELEASE_NAME="${{ inputs.release_name }}"
+          mkdir -p release-artifacts
+
+          echo "Saving Plan.toml diff..."
+          git diff Plan.toml > "release-artifacts/changed_crates_${RELEASE_NAME}.txt"
+
+          echo "Plan.toml changes:"
+          cat "release-artifacts/changed_crates_${RELEASE_NAME}.txt"
+
+      - name: Parse crate names for release notes
+        run: |
+          RELEASE_NAME="${{ inputs.release_name }}"
+
+          echo "Parsing crate names..."
+          python3 scripts/release/parse-crates-names.py \
+            "release-artifacts/changed_crates_${RELEASE_NAME}.txt" \
+            scripts/release/templates/crates_list.md.tera
+
+          echo "Crates list:"
+          cat scripts/release/templates/crates_list.md.tera
+
+      - name: Commit Plan.toml and crates list
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          git add Plan.toml scripts/release/templates/crates_list.md.tera
+
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "chore: update Plan.toml and crates list for ${{ inputs.release_name }}"
+            echo "Committed Plan.toml and crates list"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Run parity-publish apply
+        run: |
+          echo "Running parity-publish apply..."
+          parity-publish apply
+
+      - name: Update Cargo.lock
+        run: |
+          echo "Updating Cargo.lock..."
+          cargo update --workspace --offline || cargo update --workspace
+          echo "Cargo.lock updated"
+
+      - name: Commit version bumps
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          git add -A
+
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "chore: apply version bumps for ${{ inputs.release_name }}"
+            echo "Committed version bumps"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Push release branch
+        run: |
+          RELEASE_BRANCH="${{ steps.derive_branch.outputs.RELEASE_BRANCH }}"
+          echo "Pushing branch $RELEASE_BRANCH..."
+          git push origin "$RELEASE_BRANCH"
+          echo "Successfully pushed $RELEASE_BRANCH"
+
+      - name: Configure cargo for staging.crates.io
+        run: |
+          echo "Configuring cargo to use staging.crates.io..."
+          mkdir -p ~/.cargo
+
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [registries.crates-io]
+          index = "sparse+https://index.staging.crates.io/"
+          EOF
+
+          echo "Cargo config:"
+          cat ~/.cargo/config.toml
+
+      - name: Publish crates to staging.crates.io
+        env:
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATESIO_PUBLISH_TOKEN }}
+        run: |
+          DRY_RUN="${{ inputs.dry_run }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN - Not actually publishing crates"
+            echo "Would run: parity-publish apply -p --batch-delay 15 --max-concurrent 1 --batch-size 1"
+            echo ""
+            echo "Crates that would be published:"
+            parity-publish apply --print || true
+          else
+            echo "Publishing crates to staging.crates.io..."
+            parity-publish apply -p --batch-delay 15 --max-concurrent 1 --batch-size 1
+            echo "Crates published successfully!"
+          fi

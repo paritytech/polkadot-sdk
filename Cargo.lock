@@ -14458,6 +14458,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "parity-staging-test-a"
+version = "0.1.0"
+
+[[package]]
+name = "parity-staging-test-b"
+version = "0.1.0"
+dependencies = [
+ "parity-staging-test-a",
+]
+
+[[package]]
+name = "parity-staging-test-c"
+version = "0.1.0"
+dependencies = [
+ "parity-staging-test-a",
+ "parity-staging-test-b",
+]
+
+[[package]]
 name = "parity-wasm"
 version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
