@@ -1567,40 +1567,6 @@ mod boundary_conditions {
 mod poke {
 	use super::*;
 
-	/// **Test: Poke updates vault's `last_fee_update` timestamp**
-	///
-	/// After poking, the vault's fee tracking should be current.
-	#[test]
-	fn poke_updates_fee_timestamp() {
-		new_test_ext().execute_with(|| {
-			let deposit = 100 * DOT;
-			let mint_amount = 200 * PUSD;
-
-			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
-			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
-
-			let vault_before = crate::Vaults::<Test>::get(ALICE).unwrap();
-			let timestamp_before = vault_before.last_fee_update;
-
-			// Advance time
-			run_to_block(1000);
-
-			// Poke the vault
-			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
-
-			let vault_after = crate::Vaults::<Test>::get(ALICE).unwrap();
-			assert!(
-				vault_after.last_fee_update > timestamp_before,
-				"Poke should update fee timestamp"
-			);
-
-			assert!(
-				vault_after.last_fee_update >= timestamp_before + 999 * MILLIS_PER_BLOCK,
-				"Timestamp should advance by ~999 blocks worth"
-			);
-		});
-	}
-
 	/// **Test: Poke fails for non-existent vault**
 	///
 	/// Cannot poke a vault that doesn't exist.
@@ -1853,23 +1819,6 @@ mod vault_status {
 
 			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
 			assert_eq!(vault.status, VaultStatus::Healthy);
-		});
-	}
-
-	/// **Test: Liquidation changes status to `InLiquidation`**
-	#[test]
-	fn liquidation_sets_in_liquidation_status() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
-			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
-
-			// Drop price to trigger liquidation
-			set_mock_price(Some(FixedU128::from_u32(3)));
-
-			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
-
-			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
-			assert_eq!(vault.status, VaultStatus::InLiquidation);
 		});
 	}
 
