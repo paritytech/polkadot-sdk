@@ -1418,8 +1418,53 @@ async fn handle_network_msg<Context>(
 		UpdatedAuthorityIds(peer_id, authority_ids) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Updated authority ids");
 			if state.peer_data.contains_key(&peer_id) {
-				if state.peer_ids.insert(peer_id, authority_ids).is_none() {
+				let is_new_peer = state.peer_ids.insert(peer_id, authority_ids).is_none();
+
+				if is_new_peer {
 					declare(ctx, state, &peer_id).await;
+				} else {
+					// Authority IDs changed for an existing peer. Re-advertise collations
+					// for relay parents already in their view, as the previous authority IDs
+					// may not have matched our validator groups.
+					let relay_parents_in_view: Vec<_> = state
+						.peer_data
+						.get(&peer_id)
+						.map(|data| data.view.iter().cloned().collect())
+						.unwrap_or_default();
+
+					for relay_parent in relay_parents_in_view {
+						let block_hashes = match state.per_relay_parent.contains_key(&relay_parent)
+						{
+							true => state
+								.implicit_view
+								.as_ref()
+								.and_then(|implicit_view| {
+									implicit_view.known_allowed_relay_parents_under(
+										&relay_parent,
+										state.collating_on,
+									)
+								})
+								.unwrap_or_default(),
+							false => continue,
+						};
+
+						for block_hash in block_hashes {
+							if let Some(per_relay_parent) =
+								state.per_relay_parent.get_mut(block_hash)
+							{
+								advertise_collation(
+									ctx,
+									*block_hash,
+									per_relay_parent,
+									&peer_id,
+									&state.peer_ids,
+									&mut state.advertisement_timeouts,
+									&state.metrics,
+								)
+								.await;
+							}
+						}
+					}
 				}
 			}
 		},
