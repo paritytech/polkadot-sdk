@@ -300,9 +300,6 @@ jobs:
             BASE_RELEASE="$FULL_RELEASE"
           fi
 
-          BASE_RELEASE_UPPER=$(echo "$BASE_RELEASE" | tr '[:lower:]' '[:upper:]')
-          echo "Base release branch (upper): $BASE_RELEASE_UPPER"
-
           # Check if PR already exists
           EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$BASE_RELEASE" --json number --jq '.[0].number')
 
@@ -312,7 +309,7 @@ jobs:
           else
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
             gh pr create \
-              --title "[${BASE_RELEASE_UPPER}] Post crates release activities for $FULL_RELEASE" \
+              --title "[${BASE_RELEASE}] Post crates release activities for $FULL_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
           - NODE_VERSION bumps (if selected)
           - Path dependencies replacement
