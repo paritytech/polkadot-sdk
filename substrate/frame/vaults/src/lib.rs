@@ -591,8 +591,9 @@ pub mod pallet {
 		Repaid { owner: T::AccountId, amount: BalanceOf<T> },
 		/// Excess pUSD returned when repayment exceeded debt.
 		ReturnedExcess { owner: T::AccountId, amount: BalanceOf<T> },
-		/// A vault was liquidated due to undercollateralization.
+		/// A vault entered liquidation due to undercollateralization.
 		InLiquidation {
+			/// The vault owner whose position is being liquidated.
 			owner: T::AccountId,
 			/// Outstanding debt at time of liquidation.
 			debt: BalanceOf<T>,
@@ -601,10 +602,11 @@ pub mod pallet {
 		},
 		/// A vault was closed and all collateral returned to owner.
 		VaultClosed { owner: T::AccountId },
-		/// Interest accrued and minted to Insurance Fund.
+		/// Interest accrued on vault debt and minted to Insurance Fund.
 		InterestAccrued {
+			/// The vault owner whose debt accrued interest.
 			owner: T::AccountId,
-			/// Interest amount in pUSD.
+			/// Interest amount in pUSD minted to Insurance Fund.
 			amount: BalanceOf<T>,
 		},
 		/// Liquidation penalty applied to vault debt during liquidation.
@@ -626,15 +628,18 @@ pub mod pallet {
 		MaxPositionAmountUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
 		/// Bad debt accrued when auctions leave unbacked principal.
 		BadDebtAccrued {
+			/// The vault owner whose liquidation resulted in bad debt.
 			owner: T::AccountId,
-			/// Uncollectable principal amount in pUSD.
+			/// Uncollectable principal amount in pUSD added to system bad debt.
 			amount: BalanceOf<T>,
 		},
 		/// Bad debt was healed by burning pUSD from `InsuranceFund`.
 		BadDebtRepaid { amount: BalanceOf<T> },
 		/// A Dutch auction was started for liquidated collateral.
 		AuctionStarted {
+			/// The liquidated vault owner.
 			owner: T::AccountId,
+			/// Unique identifier for this auction.
 			auction_id: u32,
 			/// Collateral available for auction (lot).
 			collateral: BalanceOf<T>,
