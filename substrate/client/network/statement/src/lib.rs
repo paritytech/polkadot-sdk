@@ -206,20 +206,20 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
-		mut num_validation_workers: usize,
+		mut num_submission_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		if num_validation_workers == 0 {
+		if num_submission_workers == 0 {
 			log::warn!(
 				target: LOG_TARGET,
-				"num_validation_workers is 0, defaulting to 1"
+				"num_submission_workers is 0, defaulting to 1"
 			);
-			num_validation_workers = 1;
+			num_submission_workers = 1;
 		}
 
-		for _ in 0..num_validation_workers {
+		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
 			executor(
