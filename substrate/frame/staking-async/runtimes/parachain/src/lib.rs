@@ -43,6 +43,7 @@ use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
+use sp_core::Get;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -144,6 +145,16 @@ pub fn native_version() -> NativeVersion {
 
 type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
+// BastiBlocks configuration - 6 mini-blocks per PoV
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
+pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+
+type MaximumBlockWeight = cumulus_pallet_parachain_system::block_weight::MaxParachainBlockWeight<
+	Runtime,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
+>;
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub RuntimeBlockLength: BlockLength =
@@ -154,14 +165,14 @@ parameter_types! {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get());
 		})
 		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(MaximumBlockWeight::get());
 			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			// are included even if block reached `MaximumBlockWeight`.
 			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+				MaximumBlockWeight::get() - NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get()
 			);
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
@@ -189,6 +200,10 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
+	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
+		Runtime,
+		ConstU32<BLOCK_PROCESSING_VELOCITY>,
+	>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -797,8 +812,8 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
-	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub ReservedXcmpWeight: Weight = MaximumBlockWeight::get().saturating_div(4);
+	pub ReservedDmpWeight: Weight = MaximumBlockWeight::get().saturating_div(4);
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -1218,19 +1233,23 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight<
 	Runtime,
-	(
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-	),
+	cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+		Runtime,
+		(
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		),
+	>,
+	ConstU32<BLOCK_PROCESSING_VELOCITY>,
 >;
 
 pub type UncheckedExtrinsic =
