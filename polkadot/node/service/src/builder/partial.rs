@@ -122,27 +122,15 @@ pub(crate) fn new_partial_basics(
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
-	// Configure database with GrandpaBlockPruningFilter to preserve blocks with GRANDPA
-	// justifications during pruning. This is required for warp sync to work on pruned nodes.
-	let mut db_config = config.db_config();
-	db_config.block_pruning_filters = vec![Arc::new(GrandpaBlockPruningFilter)];
-	let backend = sc_service::new_db_backend(db_config)?;
-
-	let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
-		config.chain_spec.as_storage_builder(),
-		!config.no_genesis(),
-		backend.clone(),
-		executor.clone(),
-	)?;
-
+	// Use GrandpaBlockPruningFilter to preserve blocks with GRANDPA justifications during
+	// pruning. This is required for warp sync to work on pruned nodes.
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts_with_genesis_builder(
+		sc_service::new_full_parts_record_import(
 			&config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
-			backend,
-			genesis_block_builder,
 			false,
+			vec![Arc::new(GrandpaBlockPruningFilter)],
 		)?;
 	let client = Arc::new(client);
 

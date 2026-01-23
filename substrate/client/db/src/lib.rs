@@ -42,7 +42,7 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
@@ -2011,39 +2011,30 @@ impl<Block: BlockT> Backend<Block> {
 					// We need to check both the current transaction justifications (not yet in DB)
 					// and the DB itself (for justifications from previous transactions).
 					if !self.block_pruning_filters.is_empty() {
-						let (should_preserve, engine_ids) = if let Some(justification) =
+						let should_preserve = if let Some(justification) =
 							current_transaction_justifications.get(&hash)
 						{
 							// Justification was added in this transaction, convert to
 							// Justifications
 							let justifications = Justifications::from(justification.clone());
-							let dominated = self
+							self
 								.block_pruning_filters
 								.iter()
-								.any(|f| f.should_preserve(&justifications));
-							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
-							(dominated, ids)
+								.any(|f| f.should_preserve(&justifications))
 						} else if let Some(justifications) = self.blockchain.justifications(hash)? {
 							// Check justifications from the database
-							let dominated = self
+							self
 								.block_pruning_filters
 								.iter()
-								.any(|f| f.should_preserve(&justifications));
-							let ids: Vec<_> = justifications.iter().map(|(id, _)| *id).collect();
-							(dominated, ids)
+								.any(|f| f.should_preserve(&justifications))
 						} else {
-							(false, Vec::new())
+							false
 						};
 
 						if should_preserve {
-							let engine_names: Vec<_> = engine_ids
-								.iter()
-								.map(|id| std::str::from_utf8(id).unwrap_or("????"))
-								.collect();
-							info!(
+							debug!(
 								target: "db",
-								"🔒 Preserving block #{} ({}) - has justification(s): {:?}",
-								number, hash, engine_names
+								"Preserving block #{number} ({hash}) due to keep predicate match"
 							);
 							return Ok(());
 						}
