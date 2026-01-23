@@ -257,7 +257,7 @@ pub struct GenericTransaction {
 	/// authorizationList
 	/// List of account code authorizations (EIP-7702)
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
-	pub authorization_list: Vec<AuthorizationListEntry>,
+	pub authorization_list: Vec<SignedAuthorizationListEntry>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
 	#[serde(default)]
@@ -787,7 +787,7 @@ pub struct Transaction7702Unsigned {
 	pub access_list: AccessList,
 	/// authorizationList
 	/// List of account code authorizations
-	pub authorization_list: Vec<AuthorizationListEntry>,
+	pub authorization_list: Vec<SignedAuthorizationListEntry>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	pub chain_id: U256,
@@ -821,7 +821,8 @@ pub struct Transaction7702Unsigned {
 	pub value: U256,
 }
 
-/// Authorization list entry for EIP-7702
+/// Authorization list entry for EIP-7702 (unsigned)
+/// Contains the authorization tuple without signature components
 #[derive(
 	Debug,
 	Default,
@@ -837,6 +838,31 @@ pub struct Transaction7702Unsigned {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizationListEntry {
+	/// Chain ID that this authorization is valid on
+	pub chain_id: U256,
+	/// Address to authorize
+	pub address: Address,
+	/// Nonce of the authorization
+	pub nonce: U256,
+}
+
+/// Signed authorization list entry for EIP-7702
+/// Contains the authorization tuple with signature components
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct SignedAuthorizationListEntry {
 	/// Chain ID that this authorization is valid on
 	pub chain_id: U256,
 	/// Address to authorize
