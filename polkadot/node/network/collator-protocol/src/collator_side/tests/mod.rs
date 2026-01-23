@@ -2025,3 +2025,184 @@ fn connect_advertise_disconnect_three_backing_groups() {
 		},
 	);
 }
+
+/// Test that collations are re-advertised when a peer's authority IDs are updated
+/// to match the validator group (when they previously didn't match).
+///
+/// This tests the fix for a race condition where:
+/// 1. A peer connects with authority IDs that don't match the validator group
+/// 2. A collation is distributed but can't be advertised (no authority ID match)
+/// 3. The peer's view includes the relay parent
+/// 4. UpdatedAuthorityIds arrives with new authority IDs that DO match
+/// 5. The collation should now be advertised
+#[test]
+fn readvertise_collation_on_authority_id_update() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|mut test_harness| async move {
+			let virtual_overseer = &mut test_harness.virtual_overseer;
+
+			let peer = test_state.current_group_validator_peer_ids()[0];
+			// Use an unrelated authority ID that doesn't match the validator group
+			let unrelated_authority_id: AuthorityDiscoveryId =
+				Sr25519Keyring::Eve.public().into();
+			// The actual authority ID that matches the validator group
+			let matching_authority_id =
+				test_state.current_group_validator_authority_ids()[0].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
+				.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				virtual_overseer,
+				vec![(test_state.relay_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Connect peer with an authority ID that does NOT match the validator group
+			connect_peer(
+				virtual_overseer,
+				peer,
+				CollationVersion::V2,
+				Some(unrelated_authority_id),
+			)
+			.await;
+
+			// We still declare to the peer (declaration doesn't depend on validator group match)
+			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+
+			// Distribute a collation
+			let DistributeCollation { candidate, .. } = distribute_collation(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.relay_parent,
+				CoreIndex(0),
+			)
+			.await;
+
+			// Send peer view change - peer is interested in the relay parent
+			send_peer_view_change(virtual_overseer, &peer, vec![test_state.relay_parent]).await;
+
+			// No advertisement should happen because the peer's authority ID (Eve)
+			// doesn't match any validator in the group for this collation
+			assert!(
+				overseer_recv_with_timeout(virtual_overseer, TIMEOUT).await.is_none(),
+				"Should not advertise to peer with non-matching authority ID"
+			);
+
+			// Now send UpdatedAuthorityIds with the correct authority ID
+			overseer_send(
+				virtual_overseer,
+				CollatorProtocolMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::UpdatedAuthorityIds(
+						peer,
+						HashSet::from([matching_authority_id]),
+					),
+				),
+			)
+			.await;
+
+			// Now the collation should be advertised because the authority ID matches
+			expect_advertise_collation_msg(
+				virtual_overseer,
+				&[peer],
+				test_state.relay_parent,
+				vec![candidate.hash()],
+			)
+			.await;
+
+			test_harness
+		},
+	)
+}
+
+/// Test that UpdatedAuthorityIds for existing peers with unchanged matching authority IDs
+/// doesn't cause duplicate advertisements (idempotency check).
+#[test]
+fn no_duplicate_advertisement_on_authority_id_update() {
+	let test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|mut test_harness| async move {
+			let virtual_overseer = &mut test_harness.virtual_overseer;
+
+			let peer = test_state.current_group_validator_peer_ids()[0];
+			let validator_id = test_state.current_group_validator_authority_ids()[0].clone();
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::ConnectToBackingGroups).await;
+
+			overseer_send(virtual_overseer, CollatorProtocolMessage::CollateOn(test_state.para_id))
+				.await;
+
+			update_view(
+				Some(test_state.current_group_validator_authority_ids()),
+				&test_state,
+				virtual_overseer,
+				vec![(test_state.relay_parent, 10)],
+				1,
+			)
+			.await;
+
+			// Connect peer with matching authority ID
+			connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(validator_id.clone()))
+				.await;
+			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
+
+			// Distribute a collation
+			let DistributeCollation { candidate, .. } = distribute_collation(
+				virtual_overseer,
+				test_state.current_group_validator_authority_ids(),
+				&test_state,
+				test_state.relay_parent,
+				CoreIndex(0),
+			)
+			.await;
+
+			// Peer view change triggers advertisement
+			send_peer_view_change(virtual_overseer, &peer, vec![test_state.relay_parent]).await;
+
+			// First advertisement
+			expect_advertise_collation_msg(
+				virtual_overseer,
+				&[peer],
+				test_state.relay_parent,
+				vec![candidate.hash()],
+			)
+			.await;
+
+			// Send UpdatedAuthorityIds with the same authority ID
+			overseer_send(
+				virtual_overseer,
+				CollatorProtocolMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::UpdatedAuthorityIds(peer, HashSet::from([validator_id])),
+				),
+			)
+			.await;
+
+			// No duplicate advertisement should happen (already advertised to this validator)
+			assert!(
+				overseer_recv_with_timeout(virtual_overseer, TIMEOUT).await.is_none(),
+				"Should not re-advertise to peer that was already advertised to"
+			);
+
+			test_harness
+		},
+	)
+}
