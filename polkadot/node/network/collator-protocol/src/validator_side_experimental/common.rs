@@ -26,8 +26,29 @@ use polkadot_primitives::{
 };
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
-/// Maximum reputation score. Scores higher than this will be saturated to this value.
-pub const MAX_SCORE: u16 = 5000;
+/// The following parameters (`MAX_SCORE`, `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY`)
+/// determine how fast collators build reputation, how fast they loose it due to inactivity and how
+/// many collators we can have per parachain.
+///
+/// The combination of `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY` determines the maximum
+/// number of collators for the parachain. We assume that each collator has got an equal chance in
+/// having its collation included (and therefore getting score for it). This means that for a set of
+/// N collators, for N blocks each collator will gain `VALID_INCLUDED_CANDIDATE_BUMP` points and
+/// loose (N-1)*INACTIVITY_DECAY points. With the values below (VALID_INCLUDED_CANDIDATE_BUMP=100
+/// and INACTIVITY_DECAY=1) with N=100 collators no longer gain any score.
+///
+/// The time to reach max score is also controlled by these two parameters. With the values below
+/// (VALID_INCLUDED_CANDIDATE_BUMP=100 and INACTIVITY_DECAY=1) for N=50 a collator will reach
+/// `MAX_SCORE` for around 81 hours (69 days). For N=20 - ~20hrs.
+
+///  Maximum reputation score. Scores higher than this will be
+/// saturated to this value.
+pub const MAX_SCORE: u16 = 35_000;
+/// Reputation bump for getting a valid candidate included in a finalized block.
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 100;
+/// Reputation slash for peer inactivity (for each included candidate of the para that was not
+/// authored by the peer)
+pub const INACTIVITY_DECAY: u16 = 1;
 
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
@@ -43,22 +64,15 @@ pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 /// notifications.
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
-/// Reputation bump for getting a valid candidate included in a finalized block.
-pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 100;
-
-/// Reputation slash for peer inactivity (for each included candidate of the para that was not
-/// authored by the peer)
-pub const INACTIVITY_DECAY: u16 = 1;
-
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
 
 /// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
-pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");
+pub const FAILED_FETCH_SLASH: Score = Score::new(140).expect("140 is less than MAX_SCORE");
 
 /// Slashing value for an invalid collation.
-pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
+pub const INVALID_COLLATION_SLASH: Score = Score::new(7_000).expect("7_000 is less than MAX_SCORE");
 
 /// The maximum acceptable delay which can be applied on an advertisement from a collator with score
 /// less than the maximum score for the parachain.
