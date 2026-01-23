@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769094543667,
+  "lastUpdate": 1769172575972,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5072bf9b93dc1c9dff0161ab6efe2799036045e9",
-          "message": "Scheduler `on_initialize` supports skipped blocks (#8723)\n\nScheduler `on_initialize` supports skipped blocks.\n\nScheduler correctly handles situations where `on_initialize` is invoked\nwith block numbers that:\n- increase but are not strictly consecutive (e.g., jump from 5 → 10), or\n- are repeated (e.g., multiple blocks are built at the same Relay Chain\nparent block, all reporting the same `BlockNumberProvider` value).\n\nThis situation may occur when the `BlockNumberProvider` is not local -\nfor example, on a parachain using the Relay Chain block number provider.\n\nImplementation notes:\n- The `IncompleteSince` value is always set to the next block `(now +\n1)`.\n- A scheduled task is considered permanently overweight only if it fails\nduring the first agenda processing;",
-          "timestamp": "2025-06-21T20:35:41Z",
-          "tree_id": "2cd75d8bd1acbb19ed31a2ae5344c840c8fd73cb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5072bf9b93dc1c9dff0161ab6efe2799036045e9"
-        },
-        "date": 1750542141334,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.4600017771,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20006295583333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12083855020000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
+          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-23T11:30:58Z",
+          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
+        },
+        "date": 1769172551674,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.287485853966668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12973438553333333,
             "unit": "seconds"
           }
         ]
