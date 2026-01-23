@@ -13832,14 +13832,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-reward-fn"
-version = "19.0.0"
-dependencies = [
- "log",
- "sp-arithmetic",
-]
-
-[[package]]
 name = "pallet-staking-async-runtime-api"
 version = "14.0.0"
 dependencies = [
@@ -16462,7 +16454,6 @@ dependencies = [
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
- "pallet-staking-async-reward-fn",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
