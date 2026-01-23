@@ -1377,7 +1377,7 @@ pub mod pallet {
 				ensure!(eth_gas_limit >= U256::from(auth_intrinsic_gas), Error::<T>::OutOfGas);
 				// Process authorizations and get refund (steps 2-3)
 				let auth_refund = evm::eip7702::process_authorizations::<T>(
-					authorization_list.clone(),
+					&authorization_list,
 					chain_id
 				);
 

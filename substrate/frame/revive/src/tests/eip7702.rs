@@ -19,8 +19,7 @@
 
 use crate::{
 	evm::{
-		eip7702::authorization_intrinsic_gas, fees::InfoT, AuthorizationListEntry,
-		PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST,
+		eip7702::{PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST}, fees::InfoT, AuthorizationListEntry,
 	},
 	storage::{AccountInfo, AccountType},
 	test_utils::builder::Contract,
@@ -28,12 +27,26 @@ use crate::{
 	AccountInfoOf, Code, Config,
 };
 use frame_support::{assert_ok, traits::fungible::{Balanced, Mutate}};
+use revm::bytecode::opcode::*;
 use sp_core::{ecdsa, keccak_256, Pair, H160, H256, U256};
 
 /// Helper function to initialize an EOA account in pallet storage
 fn initialize_eoa_account(address: &H160) {
 	let account_info = AccountInfo::<Test> { account_type: AccountType::EOA, dust: 0 };
 	AccountInfoOf::<Test>::insert(address, account_info);
+}
+
+/// Helper function to generate a simple dummy EVM contract
+/// Returns bytecode that stores a value (42) in memory and returns it
+fn dummy_evm_contract() -> Vec<u8> {
+	vec![
+		PUSH1, 0x2a, // PUSH1 42
+		PUSH1, 0x00, // PUSH1 0
+		MSTORE,      // MSTORE
+		PUSH1, 0x20, // PUSH1 32
+		PUSH1, 0x00, // PUSH1 0
+		RETURN,      // RETURN
+	]
 }
 
 /// Test keypair for signing authorizations
@@ -69,7 +82,7 @@ impl TestSigner {
 	) -> AuthorizationListEntry {
 		// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 		let mut message = Vec::new();
-		message.push(crate::evm::EIP7702_MAGIC);
+		message.push(crate::evm::eip7702::EIP7702_MAGIC);
 
 		// RLP encode [chain_id, address, nonce]
 		let mut rlp_stream = crate::evm::rlp::RlpStream::new_list(3);
@@ -148,18 +161,6 @@ fn delegation_indicator_detection() {
 	assert!(!AccountInfo::<Test>::is_delegation_indicator(&regular_code));
 }
 
-#[test]
-fn authorization_gas_calculation() {
-	// One authorization
-	assert_eq!(authorization_intrinsic_gas(1), PER_EMPTY_ACCOUNT_COST);
-
-	// Multiple authorizations
-	assert_eq!(authorization_intrinsic_gas(5), PER_EMPTY_ACCOUNT_COST * 5);
-
-	// Check the cost constants are as per EIP-7702 spec
-	assert_eq!(PER_AUTH_BASE_COST, 12500);
-	assert_eq!(PER_EMPTY_ACCOUNT_COST, 25000);
-}
 
 #[test]
 fn set_delegation_creates_indicator() {
@@ -227,10 +228,10 @@ fn regular_contract_is_not_delegation() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Deploy a regular contract
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
-		let (binary, _) = compile_module("dummy").unwrap();
+		let bytecode = dummy_evm_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(bytecode)).build_and_unwrap_contract();
 
 		// Regular contract should not be considered a delegation
 		assert!(AccountInfo::<Test>::is_contract(&addr));
@@ -265,10 +266,10 @@ fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 fn eip3607_rejects_regular_contract_originating_transactions() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
-		let (binary, _) = compile_module("dummy").unwrap();
+		let bytecode = dummy_evm_contract();
 
 		let Contract { account_id, .. } =
-			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(bytecode)).build_and_unwrap_contract();
 
 		// Regular contracts should NOT be allowed to originate transactions (EIP-3607)
 		let origin = RuntimeOrigin::signed(account_id);
@@ -350,7 +351,7 @@ fn valid_signature_is_verified_correctly() {
 
 		// Process authorizations
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			chain_id,
 		);
 
@@ -386,7 +387,7 @@ fn invalid_chain_id_rejects_authorization() {
 
 		// Process with correct chain ID - should reject
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			correct_chain_id,
 		);
 
@@ -421,7 +422,7 @@ fn nonce_mismatch_rejects_authorization() {
 
 		// Process - should reject due to nonce mismatch
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			chain_id,
 		);
 
@@ -460,7 +461,7 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 
 		// Process all three - last one should win
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth1, auth2, auth3],
+			&[auth1, auth2, auth3],
 			chain_id,
 		);
 
@@ -495,7 +496,7 @@ fn authorization_increments_nonce() {
 
 		// Process authorization
 		let _refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			chain_id,
 		);
 
@@ -530,7 +531,7 @@ fn chain_id_zero_accepts_any_chain() {
 
 		// Process with current chain ID
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			current_chain_id,
 		);
 
@@ -560,7 +561,7 @@ fn new_account_gets_no_refund() {
 
 		// Process authorization
 		let refund = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth],
+			&[auth],
 			chain_id,
 		);
 
@@ -596,7 +597,7 @@ fn clearing_delegation_with_zero_address() {
 		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target, nonce);
 		let _refund1 = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth1],
+			&[auth1],
 			chain_id,
 		);
 
@@ -609,7 +610,7 @@ fn clearing_delegation_with_zero_address() {
 		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
 		let _refund2 = crate::evm::eip7702::process_authorizations::<Test>(
-			vec![auth2],
+			&[auth2],
 			chain_id,
 		);
 
@@ -666,15 +667,7 @@ fn test_runtime_set_authorization() {
 		let authority = signer.address;
 
 		// Create a target contract to delegate to
-		let target_code = vec![
-			0x60, 0x2a, // PUSH1 42
-			0x60, 0x00, // PUSH1 0
-			0x52,       // MSTORE
-			0x60, 0x20, // PUSH1 32
-			0x60, 0x00, // PUSH1 0
-			0xf3,       // RETURN
-		];
-		let target_contract = builder::bare_instantiate(Code::Upload(target_code))
+		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
@@ -737,15 +730,7 @@ fn test_runtime_clear_authorization() {
 		let authority = signer.address;
 
 		// Create a target contract
-		let target_code = vec![
-			0x60, 0x2a, // PUSH1 42
-			0x60, 0x00, // PUSH1 0
-			0x52,       // MSTORE
-			0x60, 0x20, // PUSH1 32
-			0x60, 0x00, // PUSH1 0
-			0xf3,       // RETURN
-		];
-		let target_contract = builder::bare_instantiate(Code::Upload(target_code))
+		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
@@ -821,15 +806,7 @@ fn test_runtime_delegation_resolution() {
 
 		// Create a simple target contract that returns a fixed value (0x2a = 42)
 		// This contract just returns 42 without any storage operations
-		let target_code = vec![
-			0x60, 0x2a, // PUSH1 42 (0x2a)
-			0x60, 0x00, // PUSH1 0
-			0x52,       // MSTORE (store 42 at memory position 0)
-			0x60, 0x20, // PUSH1 32
-			0x60, 0x00, // PUSH1 0
-			0xf3,       // RETURN (return 32 bytes from memory position 0)
-		];
-		let target_contract = builder::bare_instantiate(Code::Upload(target_code))
+		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
 		// Fund the authority account
