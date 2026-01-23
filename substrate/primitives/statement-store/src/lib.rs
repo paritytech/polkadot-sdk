@@ -722,7 +722,7 @@ mod test {
 	}
 
 	#[test]
-	fn measure_hash_2000_statements() {
+	fn measure_hash_30_000_statements() {
 		use std::time::Instant;
 		const NUM_STATEMENTS: usize = 30_000;
 		let (keyring, _) = sr25519::Pair::generate();
