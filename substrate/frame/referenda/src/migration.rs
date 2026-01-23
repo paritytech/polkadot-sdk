@@ -19,13 +19,31 @@
 
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
+use frame_support::{
+	pallet_prelude::*, storage_alias,
+	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+};
 use log;
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
+
+/// Exports for versioned migration `type`s for this pallet.
+pub mod versioned {
+	use super::*;
+
+	/// Migration V1 to V2 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
+	/// the migration is only performed when on-chain version is 1.
+	pub type MigrateV1ToV2<T, I, OldCurrency> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		v2::VersionUncheckedMigrateV1ToV2<T, I, OldCurrency>,
+		Pallet<T, I>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
 
 /// Initial version of storage types.
 pub mod v0 {
@@ -193,9 +211,11 @@ pub mod v2 {
 	/// 1. Iterates through all referenda with deposits
 	/// 2. Unreserves the old reserved balance
 	/// 3. Places a hold with the new `HoldReason::DecisionDeposit`
-	pub struct MigrateV1ToV2<T, I, OldCurrency>(PhantomData<(T, I, OldCurrency)>);
+	///
+	/// Use [`versioned::MigrateV1ToV2`] instead of this, for proper version checks.
+	pub struct VersionUncheckedMigrateV1ToV2<T, I, OldCurrency>(PhantomData<(T, I, OldCurrency)>);
 
-	impl<T, I, OldCurrency> OnRuntimeUpgrade for MigrateV1ToV2<T, I, OldCurrency>
+	impl<T, I, OldCurrency> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV1ToV2<T, I, OldCurrency>
 	where
 		T: Config<I>,
 		I: 'static,
@@ -253,28 +273,14 @@ pub mod v2 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let in_code_version = Pallet::<T, I>::in_code_storage_version();
-			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			let mut weight = T::DbWeight::get().reads(1);
-
-			log::info!(
-				target: TARGET,
-				"running migration with in-code storage version {:?} / onchain {:?}.",
-				in_code_version,
-				on_chain_version
-			);
-
-			if on_chain_version != 1 {
-				log::warn!(target: TARGET, "skipping migration from v1 to v2.");
-				return weight;
-			}
-
+			let mut weight = Weight::zero();
 			let mut migrated_deposits = 0u32;
 
 			for (index, info) in v1::ReferendumInfoFor::<T, I>::iter() {
 				weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-				let deposits_to_migrate = Self::collect_deposits(&info);
+				let deposits_to_migrate =
+					VersionUncheckedMigrateV1ToV2::<T, I, OldCurrency>::collect_deposits(&info);
 
 				for Deposit { who, amount } in deposits_to_migrate {
 					if amount.is_zero() {
@@ -325,9 +331,6 @@ pub mod v2 {
 				}
 			}
 
-			StorageVersion::new(2).put::<Pallet<T, I>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-
 			log::info!(
 				target: TARGET,
 				"migration complete. Migrated {} deposits.",
@@ -339,9 +342,6 @@ pub mod v2 {
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			ensure!(on_chain_version == 2, "must upgrade from version 1 to 2.");
-
 			let (pre_referendum_count, _pre_deposit_count): (u32, u32) =
 				Decode::decode(&mut &state[..])
 					.expect("failed to decode the state from pre-upgrade.");
@@ -357,7 +357,7 @@ pub mod v2 {
 		}
 	}
 
-	impl<T, I, OldCurrency> MigrateV1ToV2<T, I, OldCurrency>
+	impl<T, I, OldCurrency> VersionUncheckedMigrateV1ToV2<T, I, OldCurrency>
 	where
 		T: Config<I>,
 		I: 'static,
@@ -392,6 +392,9 @@ pub mod v2 {
 			deposits
 		}
 	}
+
+	#[deprecated(note = "Use `versioned::MigrateV1ToV2` instead")]
+	pub type MigrateV1ToV2<T, I, OldCurrency> = super::versioned::MigrateV1ToV2<T, I, OldCurrency>;
 }
 
 /// Migration for when changing the block number provider.
@@ -727,8 +730,8 @@ pub mod test {
 				0u64
 			);
 
-			// Run migration
-			v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+			// Run migration using versioned migration
+			versioned::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
 
 			// Verify storage version updated to 2
 			assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 2);
@@ -794,8 +797,8 @@ pub mod test {
 			// Set storage version to 0 (not 1)
 			StorageVersion::new(0).put::<Pallet<T, ()>>();
 
-			// Run migration - should skip
-			v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+			// Run migration - should skip since version is not 1
+			versioned::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
 
 			// Version should remain at 0
 			assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 0);
@@ -812,8 +815,8 @@ pub mod test {
 			v1::ReferendumInfoFor::<T, ()>::insert(0, killed);
 			StorageVersion::new(1).put::<Pallet<T, ()>>();
 
-			// Run migration
-			v2::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
+			// Run migration using versioned migration
+			versioned::MigrateV1ToV2::<T, (), Balances<T>>::on_runtime_upgrade();
 
 			// Should complete successfully
 			assert_eq!(Pallet::<T, ()>::on_chain_storage_version(), 2);
