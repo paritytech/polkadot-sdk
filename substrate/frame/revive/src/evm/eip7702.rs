@@ -38,12 +38,6 @@ use sp_runtime::SaturatedConversion;
 /// EIP-7702: Magic value for authorization signature message
 pub const EIP7702_MAGIC: u8 = 0x05;
 
-/// EIP-7702: Base cost for processing each authorization tuple
-pub const PER_AUTH_BASE_COST: u64 = 12500;
-
-/// EIP-7702: Cost for empty account creation
-pub const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
-
 /// Result of processing an authorization tuple
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthorizationResult {
@@ -51,8 +45,6 @@ pub enum AuthorizationResult {
 	Success {
 		/// The authority address that was authorized
 		authority: H160,
-		/// Gas refund amount for existing accounts
-		refund: u64,
 	},
 	/// Authorization failed validation (continue to next)
 	Failed,
@@ -67,30 +59,23 @@ pub enum AuthorizationResult {
 /// 4. Verifies the account code is empty or already delegated
 /// 5. Sets the delegation indicator (0xef0100 || address) or clears if address is 0x0
 /// 6. Increments the authority's nonce
-/// 7. Tracks accessed addresses
 ///
 /// # Parameters
 /// - `authorization_list`: List of authorization tuples to process
 /// - `chain_id`: Current chain ID
-/// - `accessed_addresses`: Set to track accessed addresses for gas accounting
-///
-/// # Returns
-/// Total gas refund for accounts that already existed
 pub fn process_authorizations<T: Config>(
 	authorization_list: &[SignedAuthorizationListEntry],
 	chain_id: U256,
-) -> u64 {
-	let mut total_refund = 0u64;
+) {
 	let mut last_valid_by_authority: alloc::collections::BTreeMap<H160, H160> =
 		alloc::collections::BTreeMap::new();
 
 	// First pass: collect all authorizations and track the last valid one per authority
 	for auth in authorization_list.iter() {
 		match process_single_authorization::<T>(auth, chain_id) {
-			AuthorizationResult::Success { authority, refund } => {
+			AuthorizationResult::Success { authority } => {
 				// Track the last valid authorization for this authority
 				last_valid_by_authority.insert(authority, auth.address);
-				total_refund = total_refund.saturating_add(refund);
 			},
 			AuthorizationResult::Failed => continue,
 		}
@@ -103,13 +88,8 @@ pub fn process_authorizations<T: Config>(
 			// Clear delegation (reset to EOA)
 			let _ = AccountInfo::<T>::clear_delegation(authority);
 		} else {
-			// Get current nonce
-			let nonce = frame_system::Pallet::<T>::account_nonce(&T::AddressMapper::to_account_id(
-				authority,
-			));
-
 			// Set delegation indicator
-			if let Err(e) = AccountInfo::<T>::set_delegation(authority, *target_address, nonce) {
+			if let Err(e) = AccountInfo::<T>::set_delegation(authority, *target_address) {
 				log::debug!(
 					target: crate::LOG_TARGET,
 					"Failed to set delegation for {authority:?}: {e:?}",
@@ -121,8 +101,6 @@ pub fn process_authorizations<T: Config>(
 		// Increment the nonce
 		frame_system::Pallet::<T>::inc_account_nonce(&T::AddressMapper::to_account_id(authority));
 	}
-
-	total_refund
 }
 
 /// Process a single authorization tuple
@@ -180,13 +158,7 @@ fn process_single_authorization<T: Config>(
 		return AuthorizationResult::Failed;
 	}
 
-	// Calculate refund based on whether the account exists in frame_system
-	// An account exists if it has been initialized in the substrate account system
-	let account_exists = frame_system::Pallet::<T>::account_exists(&account_id);
-	let refund =
-		if account_exists { PER_EMPTY_ACCOUNT_COST.saturating_sub(PER_AUTH_BASE_COST) } else { 0 };
-
-	AuthorizationResult::Success { authority, refund }
+	AuthorizationResult::Success { authority }
 }
 
 /// Recover the authority address from an authorization signature
@@ -212,12 +184,4 @@ fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 	// Convert signature components to bytes and recover the address
 	let signature = auth.signature();
 	recover_eth_address_from_message(&message, &signature)
-}
-
-/// Calculate the intrinsic gas cost for processing authorizations
-///
-/// Each authorization costs PER_EMPTY_ACCOUNT_COST regardless of validity.
-/// Refunds are processed separately during execution.
-pub fn authorization_intrinsic_gas(authorization_count: usize) -> u64 {
-	(authorization_count as u64).saturating_mul(PER_EMPTY_ACCOUNT_COST)
 }

@@ -1334,6 +1334,7 @@ pub mod pallet {
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(T::WeightInfo::process_authorizations(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1352,46 +1353,12 @@ pub mod pallet {
 
 			Self::ensure_non_contract_if_signed(&origin)?;
 
-			let auth_gas_cost = if !authorization_list.is_empty() {
-				// EIP-7702: Authorization Processing and Gas Accounting
-				// ======================================================
-				// Process authorization list and calculate gas costs according to EIP-7702.
-				//
-				// Gas Accounting Flow:
-				// 1. Calculate intrinsic gas: Each authorization costs PER_EMPTY_ACCOUNT_COST (25000 gas)
-				// 2. Process authorizations and apply delegation indicators to accounts
-				// 3. Calculate refund: For existing accounts, refund (PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST) = 12500 gas
-				// 4. Net cost per authorization:
-				//    - New account: 25000 gas (no refund)
-				//    - Existing account: 12500 gas (25000 - 12500 refund)
-				// 5. Deduct net authorization cost from the transaction's gas limit before execution
-				//
-
+			// EIP-7702: Process authorizations if present
+			// The weight cost is accounted for in the extrinsic weight attribute
+			if !authorization_list.is_empty() {
 				let chain_id = U256::from(T::ChainId::get());
-
-				// Calculate authorization intrinsic gas cost (step 1)
-				let auth_intrinsic_gas =
-					evm::eip7702::authorization_intrinsic_gas(authorization_list.len());
-
-				// Ensure sufficient gas for authorization processing (validation)
-				ensure!(eth_gas_limit >= U256::from(auth_intrinsic_gas), Error::<T>::OutOfGas);
-				// Process authorizations and get refund (steps 2-3)
-				let auth_refund = evm::eip7702::process_authorizations::<T>(
-					&authorization_list,
-					chain_id
-				);
-
-				// Calculate net authorization gas cost: intrinsic - refund (step 4)
-				let auth_gas_cost = auth_intrinsic_gas.saturating_sub(auth_refund);
-
-				auth_gas_cost
-			} else {
-				0
-			};
-
-			// Deduct authorization cost from available gas limit (step 5)
-			// The remaining gas is available for contract execution
-			let adjusted_eth_gas_limit = eth_gas_limit.saturating_sub(U256::from(auth_gas_cost));
+				evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+			}
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
@@ -1415,7 +1382,7 @@ pub mod pallet {
 					dest,
 					value,
 					TransactionLimits::EthereumGas {
-						eth_gas_limit: adjusted_eth_gas_limit.saturated_into(),
+						eth_gas_limit: eth_gas_limit.saturated_into(),
 						maybe_weight_limit: Some(weight_limit),
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},

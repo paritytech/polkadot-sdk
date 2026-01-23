@@ -19,7 +19,7 @@
 
 use crate::{
 	evm::{
-		eip7702::{PER_AUTH_BASE_COST, PER_EMPTY_ACCOUNT_COST}, fees::InfoT, AuthorizationListEntry, SignedAuthorizationListEntry,
+		fees::InfoT, AuthorizationListEntry, SignedAuthorizationListEntry,
 	},
 	storage::AccountInfo,
 	test_utils::builder::Contract,
@@ -121,10 +121,9 @@ fn set_delegation_creates_indicator() {
 	ExtBuilder::default().build().execute_with(|| {
 		let eoa = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
-		let nonce = 0u32.into();
 
 		// Set delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target, nonce));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target));
 
 		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&eoa));
@@ -139,10 +138,9 @@ fn clear_delegation_restores_eoa() {
 	ExtBuilder::default().build().execute_with(|| {
 		let authority = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
-		let nonce = 0u32.into();
 
 		// Set delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target, nonce));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target));
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
 		// Clear delegation
@@ -159,14 +157,13 @@ fn delegation_can_be_updated() {
 		let authority = H160::from([0x11; 20]);
 		let target1 = H160::from([0x22; 20]);
 		let target2 = H160::from([0x33; 20]);
-		let nonce = 0u32.into();
 
 		// Set first delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target1, nonce));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target1));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
 
 		// Update to second delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target2, nonce));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target2));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target2));
 
 		// Still delegated
@@ -198,14 +195,13 @@ fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 		// originate transactions (modification to EIP-3607)
 		let authority = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
-		let nonce = 0u32.into();
 
 		// Create the account
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&account_id, 1_000_000);
 
 		// Set delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target, nonce));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target));
 
 		// Should be allowed to originate transactions (EIP-7702 modification to EIP-3607)
 		let origin = RuntimeOrigin::signed(account_id.clone());
@@ -241,15 +237,15 @@ fn multiple_delegations_last_one_wins() {
 		let target3 = H160::from([0x44; 20]);
 
 		// Set first delegation
-		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target1, 0u32.into()));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target1));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target1));
 
 		// Set second delegation (should override)
-		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target2, 0u32.into()));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target2));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target2));
 
 		// Set third delegation (should override again)
-		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target3, 0u32.into()));
+		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target3));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target3));
 	});
 }
@@ -276,7 +272,7 @@ fn valid_signature_is_verified_correctly() {
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
 		// Process authorizations
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
@@ -284,9 +280,6 @@ fn valid_signature_is_verified_correctly() {
 		// Should succeed and set delegation
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
-
-		// Existing account should get refund
-		assert_eq!(refund, PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
 	});
 }
 
@@ -312,16 +305,13 @@ fn invalid_chain_id_rejects_authorization() {
 		let auth = signer.sign_authorization(wrong_chain_id, target, nonce);
 
 		// Process with correct chain ID - should reject
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			correct_chain_id,
 		);
 
 		// Should not set delegation
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
-
-		// No refund for failed authorization
-		assert_eq!(refund, 0);
 	});
 }
 
@@ -347,14 +337,13 @@ fn nonce_mismatch_rejects_authorization() {
 		let auth = signer.sign_authorization(chain_id, target, wrong_nonce);
 
 		// Process - should reject due to nonce mismatch
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
 		// Should not set delegation
 		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
-		assert_eq!(refund, 0);
 	});
 }
 
@@ -383,7 +372,7 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		let auth3 = signer.sign_authorization(chain_id, target3, nonce);
 
 		// Process all three - last one should win
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth1, auth2, auth3],
 			chain_id,
 		);
@@ -391,9 +380,6 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		// Should set delegation to target3 (last one)
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target3));
-
-		// Only one refund even though three authorizations processed
-		assert_eq!(refund, 3 * (PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST));
 	});
 }
 
@@ -418,7 +404,7 @@ fn authorization_increments_nonce() {
 		let auth = signer.sign_authorization(chain_id, target, U256::from(initial_nonce));
 
 		// Process authorization
-		let _refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
@@ -450,7 +436,7 @@ fn chain_id_zero_accepts_any_chain() {
 		let auth = signer.sign_authorization(U256::zero(), target, nonce);
 
 		// Process with current chain ID
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			current_chain_id,
 		);
@@ -458,12 +444,11 @@ fn chain_id_zero_accepts_any_chain() {
 		// Should succeed
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
-		assert_eq!(refund, PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
 	});
 }
 
 #[test]
-fn new_account_gets_no_refund() {
+fn new_account_sets_delegation() {
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
@@ -480,15 +465,12 @@ fn new_account_gets_no_refund() {
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
 		// Process authorization
-		let refund = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
-		// New account should get no refund
-		assert_eq!(refund, 0);
-
-		// But delegation should still be set
+		// Delegation should be set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
 	});
@@ -513,7 +495,7 @@ fn clearing_delegation_with_zero_address() {
 
 		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target, nonce);
-		let _refund1 = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth1],
 			chain_id,
 		);
@@ -526,7 +508,7 @@ fn clearing_delegation_with_zero_address() {
 
 		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		let _refund2 = crate::evm::eip7702::process_authorizations::<Test>(
+		crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth2],
 			chain_id,
 		);
