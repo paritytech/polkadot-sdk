@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769094675922,
+  "lastUpdate": 1769172706417,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -21951,6 +21951,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00268880311,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a27459b873aff925e52f7e54dbd78fc4cc42d18",
+          "message": "net/metrics: Add metrics for inbound/outbound traffic  (#10846)\n\nThis PR adds a new metric for inbound / outbound traffic for individual\nrequest-response protocols.\n\n- the PR is motivated by\nhttps://github.com/paritytech/polkadot-sdk/issues/10765 which shows a\nsignificant number of bytes as downloaded (4-5 MiB/s). This is\nsuspicious for a fully synced validator, 1-2 blocks to the tip of the\nchain.\n- It suggests a protocol is internally consuming too much bandwidth\nleading to network inefficiencies, wasted CPU, and in the case of the\nissue to OOM kills\n\ncc @paritytech/sdk-node\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-23T11:30:58Z",
+          "tree_id": "76c79c63d0dc92bddbaf9e7e3459f9e50eced7d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a27459b873aff925e52f7e54dbd78fc4cc42d18"
+        },
+        "date": 1769172682804,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026778798,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006518297539999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009162983229999979,
             "unit": "seconds"
           }
         ]
