@@ -245,8 +245,9 @@ impl WeightInfo for TestWeightInfo {
 parameter_types! {
 	pub storage MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
-	/// 60 seconds (1 minute) bucket resolution - tasks grouped by minute
-	pub const BucketResolution: u32 = 60_000;
+	/// Bucket resolution in milliseconds - default 60 seconds (1 minute)
+	/// Can be overridden per-test using BucketResolution::set()
+	pub storage BucketResolution: u32 = 60_000;
 }
 
 impl Config for Test {
@@ -275,10 +276,28 @@ pub fn root() -> OriginCaller {
 	system::RawOrigin::Root.into()
 }
 
-// Advance timestamp to the given time and run on_initialize.
-// This simulates time progression for the time-based scheduler.
+// Advance timestamp to the given time and run on_initialize for the next block.
+// This simulates production behavior where:
+// 1. Block N's on_initialize runs (sees block N-1's timestamp)
+// 2. Block N's timestamp inherent is applied
+// 3. Block N's on_finalize runs (sees block N's timestamp)
+// 4. Block N+1's on_initialize runs (sees block N's timestamp)
 pub fn run_to_time(time_ms: u64) {
-	use frame_support::traits::OnInitialize;
+	use frame_support::traits::{OnFinalize, OnInitialize};
+
+	let current_block = System::block_number();
+
+	// Set timestamp for current block (simulating inherent applied after on_initialize)
 	Timestamp::set_timestamp(time_ms);
-	Scheduler::on_initialize(0); // block number is unused in time-based scheduler
+
+	// Finalize current block (sees current timestamp)
+	<AllPalletsWithSystem as OnFinalize<u64>>::on_finalize(current_block);
+
+	// Move to next block
+	let next_block = current_block + 1;
+	System::set_block_number(next_block);
+	System::reset_events();
+
+	// Initialize next block - all pallets see the timestamp we just set
+	<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(next_block);
 }
