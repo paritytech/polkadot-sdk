@@ -79,7 +79,7 @@ use super::PALLET_MIGRATIONS_ID;
 use crate::{
 	pallet::{Accounts, Config, HoldReason},
 	weights::WeightInfo,
-	BalanceOf, Pallet,
+	BalanceOf,
 };
 
 use frame_support::{
@@ -149,11 +149,6 @@ where
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		//making sure we are migrating the correct version
-		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
-			return Ok(None);
-		}
-
 		// Check if we have minimal weight to proceed
 		// We need at least enough weight to migrate one account to make progress
 		let min_required = T::WeightInfo::migrate_account_step();
@@ -182,8 +177,6 @@ where
 				meter.consume(min_required);
 			} else {
 				// Migration complete
-				println!("Migration completed - no more accounts to migrate");
-				StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
 				return Ok(None);
 			}
 		}
@@ -328,7 +321,7 @@ mod tests {
 	use frame_support::{
 		assert_ok,
 		pallet_prelude::StorageVersion,
-		traits::{fungible::Mutate, GetStorageVersion},
+		traits::fungible::Mutate,
 	};
 
 	fn account_from_u8(byte: u8) -> <Test as frame_system::Config>::AccountId {
@@ -338,7 +331,8 @@ mod tests {
 	#[test]
 	fn migrate_to_v1() {
 		new_test_ext().execute_with(|| {
-			StorageVersion::new(1).put::<Pallet<Test>>();
+			// Set storage version to 0 (pre-migration state)
+			StorageVersion::new(0).put::<Pallet<Test>>();
 
 			// Insert some accounts into the OLD storage (v0) that need migration
 			// These accounts should have a non-zero deposit and not be frozen
@@ -390,7 +384,7 @@ mod tests {
 				}
 			}
 			println!("Migration completed after {} steps", step_count);
-			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 1);
+			// Note: Storage version is managed by the MBM framework, not the migration itself
 
 			// Post-upgrade check.
 			assert_ok!(MigrateCurrencyToFungibles::<Test, Balances>::do_post_upgrade(state));
