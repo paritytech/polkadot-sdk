@@ -470,8 +470,7 @@ pub mod v2_mbm {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			let (pre_referendum_count, pre_deposit_count): (u32, u32) =
-				Decode::decode(&mut &state[..])
-					.expect("failed to decode pre_upgrade state");
+				Decode::decode(&mut &state[..]).expect("failed to decode pre_upgrade state");
 
 			// Verify referendum count unchanged
 			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
@@ -866,7 +865,9 @@ pub mod test {
 				// Should return InsufficientWeight error
 				assert!(matches!(
 					result,
-					Err(frame_support::migrations::SteppedMigrationError::InsufficientWeight { .. })
+					Err(
+						frame_support::migrations::SteppedMigrationError::InsufficientWeight { .. }
+					)
 				));
 			});
 		}
