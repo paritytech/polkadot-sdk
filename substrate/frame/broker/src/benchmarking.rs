@@ -23,6 +23,7 @@ use crate::{CoreAssignment::Task, Pallet as Broker};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{
+	assert_ok,
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
