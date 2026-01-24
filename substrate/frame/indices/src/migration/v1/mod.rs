@@ -318,11 +318,7 @@ where
 mod tests {
 	use super::*;
 	use crate::{mock::*, Pallet};
-	use frame_support::{
-		assert_ok,
-		pallet_prelude::StorageVersion,
-		traits::fungible::Mutate,
-	};
+	use frame_support::{assert_ok, pallet_prelude::StorageVersion, traits::fungible::Mutate};
 
 	fn account_from_u8(byte: u8) -> <Test as frame_system::Config>::AccountId {
 		byte as u64
