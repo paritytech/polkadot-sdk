@@ -265,7 +265,7 @@ builder!(
 	}
 
 	/// Create a [`BareCallBuilder`] with default values.
-	pub fn bare_call<'a>(origin: OriginFor<T>, dest: H160) -> Self {
+	pub fn bare_call(origin: OriginFor<T>, dest: H160) -> Self {
 		Self {
 			origin,
 			dest,
