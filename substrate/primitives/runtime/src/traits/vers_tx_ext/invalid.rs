@@ -24,7 +24,7 @@ use crate::{
 		PipelineVersion, PipelineWeight,
 	},
 	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+		TransactionSource, TransactionValidityError, ValidTransaction,
 	},
 };
 use codec::Encode;
