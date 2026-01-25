@@ -148,6 +148,7 @@ builder!(
 );
 
 builder!(
+	false,
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
@@ -170,6 +171,18 @@ builder!(
 		}
 	}
 
+	/// Build the "bare_instantiate" call
+	pub fn build(self) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_instantiate(
+			self.origin,
+			self.evm_value,
+			self.transaction_limits,
+			self.code,
+			self.data,
+			self.salt,
+			&self.exec_config
+		)
+	}
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
 		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
@@ -242,6 +255,7 @@ builder!(
 		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
+	/// Build the "bare_call" call
 	pub fn build(self) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		Pallet::<T>::bare_call(
 			self.origin,

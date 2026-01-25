@@ -1150,7 +1150,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1218,7 +1218,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1300,7 +1300,7 @@ pub mod pallet {
 					Code::Upload(code),
 					data,
 					None,
-					ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -1671,7 +1671,7 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig<T>,
+		exec_config: &ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
@@ -1930,7 +1930,7 @@ impl<T: Config> Pallet<T> {
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					exec_config,
+					&exec_config,
 				);
 
 				let returned_data = match result.result {
@@ -2847,7 +2847,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 

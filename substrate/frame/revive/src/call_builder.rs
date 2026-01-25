@@ -268,7 +268,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let address = outcome.result?.addr;
