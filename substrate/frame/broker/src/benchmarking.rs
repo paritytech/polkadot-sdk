@@ -1319,7 +1319,7 @@ mod benches {
 		Configuration::<T>::put(config.clone());
 
 		// Setup a sale to get valid status
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::<T>::do_start_sales(100u32.into(), 1));
 		advance_to::<T>(2);
 
 		// Create a complex assignment for worst case scenario
@@ -1343,7 +1343,7 @@ mod benches {
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, 4, 0, assignment);
+		_(origin as T::RuntimeOrigin, 4, 0, assignment.clone());
 
 		// Verify the workplan was updated
 		let updated_workplan = Workplan::<T>::get((4, 0)).unwrap();
