@@ -77,8 +77,6 @@ fn precompile_transfer_works(asset_index: u16) {
 			asset_index,
 		));
 
-		println!("asset_addr: {:?}", asset_addr);
-
 		let from = 123456789;
 		let to = 987654321;
 

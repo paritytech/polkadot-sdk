@@ -1378,7 +1378,7 @@ construct_runtime!(
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
-		ForeignAssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
+		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
