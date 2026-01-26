@@ -167,7 +167,7 @@ pub struct FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends> {
 	pub inheritance_order: InheritanceOrder,
 	/// The delay since the last approval of an attempt before the attempt can be canceled.
 	///
-	/// It ensures that a malicious recoverer does not abuse the `cancel_attempt` call to doge an
+	/// It ensures that a malicious recoverer does not abuse the `cancel_attempt` call to dodge an
 	/// incoming slash from the lost account. They could otherwise monitor the TX pool and cancel
 	/// the attempt just in time for the slash transaction to fail. Now instead, the lost account
 	/// has at least `cancel_delay` provided blocks to slash the attempt.
