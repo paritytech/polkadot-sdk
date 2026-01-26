@@ -1047,6 +1047,10 @@ impl PalletCmd {
 			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
 		}
 
+		if self.external_repeat.is_some() {
+			log::warn!(target: LOG_TARGET, "The `--external-repeat` argument is deprecated and will be removed in a future release.");
+		}
+
 		if chain_spec.is_none() && self.runtime.is_none() && self.shared_params.chain.is_none() {
 			return Err((
 				ErrorKind::MissingRequiredArgument,

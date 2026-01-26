@@ -93,6 +93,10 @@ pub struct PalletCmd {
 	#[arg(short, long, default_value_t = 20)]
 	pub repeat: u32,
 
+	/// DEPRECATED: Please remove usage.
+	#[arg(long)]
+	pub external_repeat: Option<u32>,
+
 	/// Minimum duration in seconds for each benchmark.
 	///
 	/// Can be set to 0 to disable the feature and solely rely on the `repeat` parameter.
