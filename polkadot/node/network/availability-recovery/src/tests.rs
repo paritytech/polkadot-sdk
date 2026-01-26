@@ -1509,6 +1509,14 @@ fn recovers_from_only_chunks_if_pov_large(
 			)
 			.await;
 
+		// Consume the statistics message sent after successful recovery
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::RewardsStatisticsCollector(
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(_, _)
+			)
+		);
+
 		// Recovered data should match the original one.
 		assert_eq!(rx.await.unwrap().unwrap(), test_state.available_data);
 
