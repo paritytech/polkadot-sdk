@@ -241,7 +241,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 						})
 					)
 				);
-				break
+				break;
 			},
 			_ => panic!("Expected only one message in local queue, but got: {:?}", messages),
 		}
