@@ -21,7 +21,10 @@ use crate::mock::*;
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::tokens::fungibles::{Inspect, InspectHold, MutateHold, UnbalancedHold},
+	traits::tokens::{
+		fungibles::{Inspect, InspectHold, Mutate, MutateHold, UnbalancedHold},
+		IdAmount,
+	},
 };
 use pallet_assets::BalanceOnHold;
 
@@ -553,6 +556,58 @@ mod impl_hold_mutate {
 				}
 				.into(),
 			);
+		});
+	}
+
+	#[test]
+	fn transfer_and_hold_little_amount_to_tons_of_inexisting_addresses() {
+		// Account 1 (WHO) has 100 balance from genesis
+		const NUM_ACCOUNTS: u64 = 10_000;
+		const HOLD_AMOUNT: Balance = 1;
+
+		super::new_test_ext(|| {
+			// Mint enough tokens for WHO to spam thousands of accounts
+			assert_ok!(<Assets as Mutate<AccountId>>::mint_into(ASSET_ID, &WHO, NUM_ACCOUNTS));
+		})
+		.execute_with(|| {
+			// Verify initial state
+			let initial_balance = Assets::balance(ASSET_ID, &WHO);
+			println!("WHO initial balance: {}", initial_balance);
+
+			// Spam transfer_and_hold with amount 1 to thousands of non-existent accounts
+			for i in 0..NUM_ACCOUNTS {
+				// Generate non-existent account IDs starting from a high number
+				let target_account: AccountId = 1_000_000 + i;
+
+				// Verify target account doesn't exist
+				assert_eq!(Assets::balance(ASSET_ID, &target_account), 0);
+				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), 0);
+
+				// Transfer and hold amount 1 to this non-existent account
+				assert_ok!(AssetsHolder::transfer_and_hold(
+					ASSET_ID,
+					&DummyHoldReason::Governance,
+					&WHO,
+					&target_account,
+					HOLD_AMOUNT,
+					Precision::Exact,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				));
+
+				// Verify the target account now has 1 held
+				assert_eq!(Assets::balance(ASSET_ID, &target_account), 0);
+				assert_eq!(Assets::total_balance(ASSET_ID, &target_account), HOLD_AMOUNT);
+				assert_eq!(
+					AssetsHolder::total_balance_on_hold(ASSET_ID, &target_account),
+					HOLD_AMOUNT
+				);
+			}
+
+			// Check WHO's final balance
+			let final_balance = Assets::balance(ASSET_ID, &WHO);
+			println!("WHO final balance after {} transfers: {}", NUM_ACCOUNTS, final_balance);
+			assert_eq!(final_balance, initial_balance - NUM_ACCOUNTS as Balance * HOLD_AMOUNT);
 		});
 	}
 }
