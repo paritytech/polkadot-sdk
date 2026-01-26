@@ -45,11 +45,12 @@ pub enum Keyring<AuthorityId> {
 	_Marker(PhantomData<AuthorityId>),
 }
 
-/// Trait representing BEEFY specific generation and signing behavior of authority id
+/// Trait representing BEEFY specific generation and signing behavior of authority id.
 ///
-/// Accepts custom hashing fn for the message and custom convertor fn for the signer.
+/// The trait mimics `BeefyAuthorityId` signing, but uses the private key instead of a keystore.
+/// This is needed for testing purposes.
 pub trait BeefySignerAuthority: AppPair {
-	/// Generate and return signature for `message` using custom hashing `MsgHash`
+	/// Generate and return signature for `message`.
 	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
 }
 
