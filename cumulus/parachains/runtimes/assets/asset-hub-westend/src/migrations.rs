@@ -22,7 +22,12 @@ use assets_common::{
 	local_and_foreign_assets::ForeignAssetReserveData,
 	migrations::foreign_assets_reserves::ForeignAssetsReservesProvider,
 };
-use frame_support::traits::Contains;
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	traits::Contains,
+	weights::WeightMeter,
+};
 use testnet_parachains_constants::westend::snowbridge::EthereumLocation;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::v5::{Junction, Location};
@@ -118,6 +123,15 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 	}
 }
 
+const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
+
+/// Progressive states of the precompile mappings migration.
+#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
+pub enum PrecompileMappingsMigrationState {
+	Asset(Location),
+	Finished,
+}
+
 /// Migration to backfill foreign asset precompile mappings for existing assets.
 ///
 /// This migration populates the bidirectional mapping between XCM Locations and u32 indices
@@ -158,141 +172,95 @@ impl ForeignAssetsReservesProvider for AssetHubWestendForeignAssetsReservesProvi
 /// - Handles hash collisions gracefully (logs warning, doesn't panic)
 pub struct MigrateForeignAssetPrecompileMappings;
 
-impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMappings {
-	fn on_runtime_upgrade() -> frame_support::weights::Weight {
-		use pallet_assets_precompiles::ToAssetIndex;
+impl SteppedMigration for MigrateForeignAssetPrecompileMappings {
+	type Cursor = PrecompileMappingsMigrationState;
+	type Identifier = MigrationId<32>;
 
-		let mut reads = 0u64;
-		let mut writes = 0u64;
-		let mut migrated = 0u64;
-		let mut skipped = 0u64;
-		let mut failed = 0u64;
+	fn id() -> Self::Identifier {
+		MigrationId { pallet_id: *PRECOMPILE_MAPPINGS_MIGRATION_ID, version_from: 0, version_to: 1 }
+	}
 
-		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::on_runtime_upgrade",
-			"Starting migration of foreign asset precompile mappings..."
-		);
+	fn step(
+		mut cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		// Weight for one iteration: 2 reads (iter + check mapping) + potentially 2 writes + 2
+		// reads for insert
+		let required = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 2);
 
-		// Iterate through all existing foreign assets in the pallet-assets instance
-		for (asset_location, _asset_details) in
-			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::iter()
-		{
-			// Count read from iteration and from pallet_assets_precompiles storage (below)
-			reads = reads.saturating_add(2);
-
-			// Derive the precompile address index from the asset location
-			let asset_index = asset_location.to_asset_index();
-
-			// Check if mapping already exists (migration is idempotent)
-			if pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
-				.is_some()
-			{
-				log::debug!(
-					target: "runtime::MigrateForeignAssetPrecompileMappings::on_runtime_upgrade",
-					"Skipping asset index {:?} - mapping already exists",
-					asset_index
-				);
-				skipped = skipped.saturating_add(1);
-				continue;
-			}
-
-			// Two storage writes for bidirectional mapping
-			writes = writes.saturating_add(2);
-
-			// Count two storage reads for `contains_key` checks in `insert_asset_mapping`
-			reads = reads.saturating_add(2);
-
-			// Insert the bidirectional mapping
-			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::insert_asset_mapping(
-				asset_index,
-				&asset_location,
-			) {
-				Ok(()) => {
-					log::debug!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings::on_runtime_upgrade",
-						"Migrated asset index {:?} for location {:?}",
-						asset_index,
-						asset_location
-					);
-					migrated = migrated.saturating_add(1);
-				},
-				Err(()) => {
-					// Collision detected - extremely unlikely with blake2_256 hash
-					log::warn!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings::on_runtime_upgrade",
-						"Failed to migrate asset index {:?} for location {:?} - hash collision detected",
-						asset_index,
-						asset_location
-					);
-					failed = failed.saturating_add(1);
-				},
-			}
+		if !meter.can_consume(required) {
+			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		log::info!(
-			target: "runtime::MigrateForeignAssetPrecompileMappings::on_runtime_upgrade",
-			"Foreign asset precompile mapping migration completed: \
-				{} migrated, {} skipped, {} failed",
-			migrated,
-			skipped,
-			failed
-		);
+		loop {
+			if !meter.can_consume(required) {
+				break;
+			}
 
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(reads, writes)
+			let next = match &cursor {
+				None => Self::migrate_asset_step(None),
+				Some(PrecompileMappingsMigrationState::Asset(last_asset)) =>
+					Self::migrate_asset_step(Some(last_asset)),
+				Some(PrecompileMappingsMigrationState::Finished) => {
+					log::info!(
+						target: "runtime::MigrateForeignAssetPrecompileMappings",
+						"migration finished"
+					);
+					return Ok(None);
+				},
+			};
+
+			cursor = Some(next);
+			meter.consume(required);
+		}
+
+		Ok(cursor)
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
 		use pallet_assets_precompiles::ToAssetIndex;
 
-		// Count how many assets need migration
-		let mut count = 0u64;
-		let mut asset_indices = alloc::vec::Vec::new();
+		let mut asset_indices = Vec::new();
 
 		for (asset_location, _) in pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::iter() {
 			let asset_index = asset_location.to_asset_index();
-			// Only count assets that don't have mapping yet
 			if pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
 				.is_none()
 			{
-				count = count.saturating_add(1);
 				asset_indices.push((asset_location, asset_index));
 			}
 		}
 
 		log::info!(
 			target: "runtime::MigrateForeignAssetPrecompileMappings::pre_upgrade",
-			"pre_upgrade: Found {} foreign assets needing migration",
-			count
+			"Found {} foreign assets needing migration",
+			asset_indices.len()
 		);
 
-		Ok((count, asset_indices).encode())
+		Ok(asset_indices.encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
-		use pallet_assets_precompiles::ToAssetIndex;
 
-		let (expected_count, asset_indices): (u64, alloc::vec::Vec<(Location, u32)>) =
-			Decode::decode(&mut &state[..])
-				.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode state"))?;
+		let asset_indices: Vec<(Location, u32)> = Decode::decode(&mut &state[..])
+			.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode state"))?;
 
 		let mut migrated = 0u64;
 
-		// Verify all assets from pre_upgrade are now mapped
-		for (asset_location, expected_index) in asset_indices {
-			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(expected_index)
+		for (asset_location, expected_index) in &asset_indices {
+			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(*expected_index)
 			{
-				Some(stored_location) if stored_location == asset_location => {
+				Some(stored_location) if stored_location == *asset_location => {
 					migrated = migrated.saturating_add(1);
 
-					// Also verify reverse mapping
 					match pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_index_of(
-						&asset_location,
+						asset_location,
 					) {
-						Some(stored_index) if stored_index == expected_index => {},
+						Some(stored_index) if stored_index == *expected_index => {},
 						_ =>
 							return Err(sp_runtime::TryRuntimeError::Other(
 								"Reverse mapping mismatch",
@@ -300,10 +268,9 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 					}
 				},
 				_ => {
-					// This could be a hash collision case, which is acceptable
 					log::warn!(
 						target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
-						"post_upgrade: Asset at index {:?} not migrated (possible collision)",
+						"Asset at index {:?} not migrated (possible collision)",
 						expected_index
 					);
 				},
@@ -312,20 +279,76 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 
 		log::info!(
 			target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
-			"post_upgrade: Verified {} out of {} foreign asset mappings",
+			"Verified {} out of {} foreign asset mappings",
 			migrated,
-			expected_count
+			asset_indices.len()
 		);
 
-		// We don't fail on mismatches because hash collisions are possible (though extremely rare)
 		Ok(())
+	}
+}
+
+impl MigrateForeignAssetPrecompileMappings {
+	fn migrate_asset_step(maybe_last_key: Option<&Location>) -> PrecompileMappingsMigrationState {
+		use pallet_assets_precompiles::ToAssetIndex;
+
+		let mut iter = if let Some(last_key) = maybe_last_key {
+			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::iter_keys_from(
+				pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::hashed_key_for(last_key),
+			)
+		} else {
+			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::iter_keys()
+		};
+
+		if let Some(asset_location) = iter.next() {
+			let asset_index = asset_location.to_asset_index();
+
+			// Check if mapping already exists (idempotent)
+			if pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
+				.is_some()
+			{
+				log::debug!(
+					target: "runtime::MigrateForeignAssetPrecompileMappings",
+					"Skipping asset index {:?} - mapping already exists",
+					asset_index
+				);
+				return PrecompileMappingsMigrationState::Asset(asset_location);
+			}
+
+			// Insert the bidirectional mapping
+			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::insert_asset_mapping(
+				asset_index,
+				&asset_location,
+			) {
+				Ok(()) => {
+					log::debug!(
+						target: "runtime::MigrateForeignAssetPrecompileMappings",
+						"Migrated asset index {:?} for location {:?}",
+						asset_index,
+						asset_location
+					);
+				},
+				Err(()) => {
+					log::warn!(
+						target: "runtime::MigrateForeignAssetPrecompileMappings",
+						"Failed to migrate asset index {:?} for location {:?} - hash collision",
+						asset_index,
+						asset_location
+					);
+				},
+			}
+
+			PrecompileMappingsMigrationState::Asset(asset_location)
+		} else {
+			PrecompileMappingsMigrationState::Finished
+		}
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::{assert_ok, traits::OnRuntimeUpgrade};
+	use frame_support::{assert_ok, weights::Weight};
 	use pallet_assets::AssetDetails;
 	use pallet_assets_precompiles::ToAssetIndex;
 	use sp_runtime::BuildStorage;
@@ -345,6 +368,27 @@ mod tests {
 			frame_system::Pallet::<Runtime>::set_block_number(1);
 		});
 		ext
+	}
+
+	/// Helper to run the stepped migration to completion.
+	fn run_migration_to_completion() -> u32 {
+		let mut cursor = None;
+		let mut steps = 0u32;
+		loop {
+			let mut meter = WeightMeter::new();
+			meter.consume(Weight::zero()); // Start with empty meter but with max limit
+			// Create a meter with large limit
+			let mut meter = WeightMeter::with_limit(Weight::MAX);
+			match MigrateForeignAssetPrecompileMappings::step(cursor, &mut meter) {
+				Ok(None) => break,         // Migration complete
+				Ok(Some(new_cursor)) => {
+					cursor = Some(new_cursor);
+					steps = steps.saturating_add(1);
+				},
+				Err(e) => panic!("Migration failed: {:?}", e),
+			}
+		}
+		steps
 	}
 
 	/// Helper to create a minimal AssetDetails for testing.
@@ -439,10 +483,10 @@ mod tests {
 			}
 
 			// Run the migration
-			let weight = MigrateForeignAssetPrecompileMappings::on_runtime_upgrade();
+			let steps = run_migration_to_completion();
 
-			// Verify weight is non-zero (migration did work)
-			assert!(weight.ref_time() > 0, "Migration should consume some weight");
+			// Verify migration did work (processed assets)
+			assert!(steps > 0, "Migration should have processed some steps");
 
 			// Verify precompile mappings now exist after migration
 			// This assertion FAILS if the migration doesn't run
@@ -489,7 +533,7 @@ mod tests {
 			);
 
 			// Run migration first time
-			let weight_first = MigrateForeignAssetPrecompileMappings::on_runtime_upgrade();
+			let steps_first = run_migration_to_completion();
 
 			// Verify mapping was created
 			let asset_index = asset_location.to_asset_index();
@@ -500,14 +544,11 @@ mod tests {
 			);
 
 			// Run migration second time
-			let weight_second = MigrateForeignAssetPrecompileMappings::on_runtime_upgrade();
+			let steps_second = run_migration_to_completion();
 
-			// Second run should have less work (skips already-mapped assets)
-			// Weight should be lower because no writes are performed
-			assert!(
-				weight_second.ref_time() <= weight_first.ref_time(),
-				"Second migration run should do less work"
-			);
+			// Both runs should complete (idempotent)
+			assert!(steps_first > 0, "First migration should do work");
+			assert!(steps_second > 0, "Second migration should also run through assets");
 
 			// Verify mapping still exists and is correct
 			let stored_location =
@@ -526,15 +567,11 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			// Don't create any foreign assets
 
-			// Run migration on empty state
-			let weight = MigrateForeignAssetPrecompileMappings::on_runtime_upgrade();
+			// Run migration on empty state - should complete immediately
+			let steps = run_migration_to_completion();
 
-			// Should complete without panicking
-			// Weight should be minimal (just the base reads/writes overhead)
-			assert!(
-				weight.ref_time() == 0 || weight.proof_size() == 0,
-				"Empty migration should have minimal weight"
-			);
+			// Should complete without panicking, with minimal steps
+			assert_eq!(steps, 0, "Empty migration should have no steps");
 		});
 	}
 
@@ -567,7 +604,7 @@ mod tests {
 			));
 
 			// Run migration
-			MigrateForeignAssetPrecompileMappings::on_runtime_upgrade();
+			run_migration_to_completion();
 
 			// Verify both assets now have mappings
 			let index_1 = asset_with_mapping.to_asset_index();
