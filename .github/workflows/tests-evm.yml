@@ -48,7 +48,9 @@ jobs:
             -o resolc.zip
           unzip -q resolc.zip -d resolc
           chmod +x resolc/resolc-x86_64-unknown-linux-musl
-          mv resolc/resolc-x86_64-unknown-linux-musl resolc
+          mv resolc/resolc-x86_64-unknown-linux-musl .
+          rm -rf resolc
+          mv resolc-x86_64-unknown-linux-musl resolc
           echo "$(pwd)" >> "$GITHUB_PATH"
       - name: Printing Resolc Information
         run: |
