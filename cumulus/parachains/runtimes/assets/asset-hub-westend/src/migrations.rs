@@ -354,12 +354,6 @@ mod tests {
 	use sp_runtime::BuildStorage;
 	use xcm::v5::prelude::*;
 
-	#[test]
-	fn migration_struct_compiles() {
-		// Basic smoke test to ensure migration code compiles
-		let _ = MigrateForeignAssetPrecompileMappings;
-	}
-
 	/// Creates a minimal test externalities with frame_system genesis.
 	fn new_test_ext() -> sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
@@ -376,8 +370,11 @@ mod tests {
 		let mut steps = 0u32;
 		loop {
 			let mut meter = WeightMeter::new();
-			meter.consume(Weight::zero()); // Start with empty meter but with max limit
-								  // Create a meter with large limit
+
+			// Start with empty meter but with max limit
+			meter.consume(Weight::zero());
+
+			// Create a meter with large limit
 			let mut meter = WeightMeter::with_limit(Weight::MAX);
 			match MigrateForeignAssetPrecompileMappings::step(cursor, &mut meter) {
 				Ok(None) => break, // Migration complete
@@ -445,7 +442,7 @@ mod tests {
 			];
 
 			// Insert foreign assets directly into pallet_assets storage
-			// WITHOUT creating precompile mappings (simulating pre-migration state)
+			// without creating precompile mappings
 			for asset_location in &test_assets {
 				pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::insert(
 					asset_location.clone(),
@@ -482,7 +479,6 @@ mod tests {
 				);
 			}
 
-			// Run the migration
 			run_migration_to_completion();
 
 			// Verify precompile mappings now exist after migration
@@ -524,7 +520,6 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let owner: <Runtime as frame_system::Config>::AccountId = [1u8; 32].into();
 
-			// Create multiple foreign assets for more realistic testing
 			let asset_location_1 = Location::new(1, [Parachain(1234), GeneralIndex(999)]);
 			let asset_location_2 = Location::new(1, [Parachain(5678), GeneralIndex(111)]);
 
@@ -552,10 +547,9 @@ mod tests {
 				"Mapping 2 should NOT exist before migration"
 			);
 
-			// Run migration first time
 			run_migration_to_completion();
 
-			// Capture complete state after first run (both forward and reverse mappings)
+			// Capture complete state after first run
 			let state_after_first = (
 				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_1),
 				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_2),
@@ -589,7 +583,6 @@ mod tests {
 				"Reverse mapping 2 should exist after first run"
 			);
 
-			// Run migration second time (should be idempotent)
 			run_migration_to_completion();
 
 			// Capture complete state after second run
@@ -604,14 +597,12 @@ mod tests {
 				),
 			);
 
-			// CRITICAL IDEMPOTENCY CHECK: State must be identical after second run.
-			// This guarantees the migration doesn't modify existing mappings.
+			// State must be identical after second run.
 			assert_eq!(
 				state_after_first, state_after_second,
 				"Idempotency violation: migration modified mappings on second run"
 			);
 
-			// Verify the mappings are correct (not corrupted or lost)
 			assert_eq!(
 				state_after_second.0,
 				Some(asset_location_1),
@@ -629,12 +620,7 @@ mod tests {
 	#[test]
 	fn migration_handles_empty_foreign_assets() {
 		new_test_ext().execute_with(|| {
-			// Don't create any foreign assets
-
-			// Run migration on empty state - should complete immediately
 			let steps = run_migration_to_completion();
-
-			// Should complete without panicking, with minimal steps
 			assert_eq!(steps, 0, "Empty migration should have no steps");
 		});
 	}
@@ -645,11 +631,9 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let owner: <Runtime as frame_system::Config>::AccountId = [1u8; 32].into();
 
-			// Create two foreign assets
 			let asset_with_mapping = Location::new(1, [Parachain(1111), GeneralIndex(1)]);
 			let asset_without_mapping = Location::new(1, [Parachain(2222), GeneralIndex(2)]);
 
-			// Insert both assets into pallet_assets
 			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::insert(
 				asset_with_mapping.clone(),
 				create_asset_details(owner.clone()),
@@ -659,18 +643,14 @@ mod tests {
 				create_asset_details(owner),
 			);
 
-			// Pre-create mapping for the first asset (simulating it was created
-			// after the mapping feature was introduced)
 			let pre_mapped_index = asset_with_mapping.to_asset_index();
 			assert_ok!(pallet_assets_precompiles::pallet::Pallet::<Runtime>::insert_asset_mapping(
 				pre_mapped_index,
 				&asset_with_mapping,
 			));
 
-			// Run migration
 			run_migration_to_completion();
 
-			// Verify both assets now have mappings
 			let index_1 = asset_with_mapping.to_asset_index();
 			let index_2 = asset_without_mapping.to_asset_index();
 
