@@ -64,7 +64,6 @@ fn basic_flow_works() {
 
 		// Ferdie can control the lost account
 		// In order to withdraw everything, Ferdie has to first remove the friend group deposit
-		dbg!("Second time");
 		assert_ok!(Recovery::control_inherited_account(
 			signed(FERDIE),
 			ALICE,
