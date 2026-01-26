@@ -7,6 +7,14 @@ on:
         description: 'Release name (e.g., stable2509-3). Base branch is derived by removing the last -N suffix.'
         required: true
         type: string
+      registry:
+        description: 'Registry to publish crates to'
+        required: true
+        type: choice
+        options:
+          - staging.crates.io
+          - crates.io
+        default: staging.crates.io
       dry_run:
         description: 'Dry run - do not actually publish crates'
         required: true
@@ -182,33 +190,40 @@ jobs:
           git push origin "$RELEASE_BRANCH"
           echo "Successfully pushed $RELEASE_BRANCH"
 
-      - name: Configure cargo for staging.crates.io
+      - name: Configure cargo registry
         run: |
-          echo "Configuring cargo to use staging.crates.io..."
+          REGISTRY="${{ inputs.registry }}"
+          echo "Configuring cargo for $REGISTRY..."
           mkdir -p ~/.cargo
 
-          cat >> ~/.cargo/config.toml << 'EOF'
+          if [ "$REGISTRY" = "staging.crates.io" ]; then
+            cat >> ~/.cargo/config.toml << 'EOF'
           [registries.crates-io]
           index = "sparse+https://index.staging.crates.io/"
           EOF
+          else
+            echo "Using default crates.io registry"
+          fi
 
           echo "Cargo config:"
-          cat ~/.cargo/config.toml
+          cat ~/.cargo/config.toml || echo "(using defaults)"
 
-      - name: Publish crates to staging.crates.io
+      - name: Publish crates
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATESIO_PUBLISH_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATESIO_PUBLISH_TOKEN || secrets.CRATESIO_PUBLISH_TOKEN }}
         run: |
           DRY_RUN="${{ inputs.dry_run }}"
+          REGISTRY="${{ inputs.registry }}"
 
           if [ "$DRY_RUN" = "true" ]; then
             echo "DRY RUN - Not actually publishing crates"
+            echo "Target registry: $REGISTRY"
             echo "Would run: parity-publish apply -p --batch-delay 15 --max-concurrent 1 --batch-size 1"
             echo ""
             echo "Crates that would be published:"
             parity-publish apply --print || true
           else
-            echo "Publishing crates to staging.crates.io..."
+            echo "Publishing crates to $REGISTRY..."
             parity-publish apply -p --batch-delay 15 --max-concurrent 1 --batch-size 1
-            echo "Crates published successfully!"
+            echo "Crates published successfully to $REGISTRY!"
           fi

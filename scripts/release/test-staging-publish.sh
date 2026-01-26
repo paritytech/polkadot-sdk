@@ -107,7 +107,7 @@ fi
 # Set environment variables for staging.crates.io
 # This redirects cargo to use staging without modifying your config files
 export CARGO_REGISTRIES_CRATES_IO_INDEX="sparse+https://index.staging.crates.io/"
-export PARITY_PUBLISH_CRATESIO_TOKEN="$TOKEN"
+export CARGO_REGISTRY_TOKEN="$TOKEN"
 
 log_info "Configured to publish to: staging.crates.io"
 log_info "Crates to publish: $CRATES"
@@ -135,10 +135,11 @@ else
         log_info "Publishing $crate..."
 
         # Use cargo publish directly for individual crates
-        # This is simpler than using parity-publish for test crates
+        # Use --index to publish directly to staging (not --registry which still uploads to prod)
         cargo publish \
             -p "$crate" \
-            --registry crates-io \
+            --index "sparse+https://index.staging.crates.io/" \
+            --token "$TOKEN" \
             --allow-dirty \
             2>&1 || {
                 log_error "Failed to publish $crate"
