@@ -2076,7 +2076,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 
 #[test]
 fn foreign_assets_callback_creates_mapping() {
-	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use asset_hub_westend_runtime::AssetsPrecompiles as ForeignAssetsPallet;
 	use frame_support::traits::fungibles::Inspect;
 	use pallet_assets_precompiles::ToAssetIndex;
 
@@ -2116,7 +2116,7 @@ fn foreign_assets_callback_creates_mapping() {
 
 #[test]
 fn foreign_assets_callback_removes_mapping_on_destroy() {
-	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use asset_hub_westend_runtime::AssetsPrecompiles as ForeignAssetsPallet;
 	use pallet_assets_precompiles::ToAssetIndex;
 
 	ExtBuilder::<Runtime>::default()
@@ -2169,7 +2169,7 @@ fn foreign_assets_callback_removes_mapping_on_destroy() {
 
 #[test]
 fn foreign_assets_rejects_unmapped_asset() {
-	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use asset_hub_westend_runtime::AssetsPrecompiles as ForeignAssetsPallet;
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys().collators())
@@ -2186,7 +2186,7 @@ fn foreign_assets_rejects_unmapped_asset() {
 
 #[test]
 fn foreign_assets_same_asset_different_parachain() {
-	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use asset_hub_westend_runtime::AssetsPrecompiles as ForeignAssetsPallet;
 	use pallet_assets_precompiles::ToAssetIndex;
 
 	ExtBuilder::<Runtime>::default()
@@ -2234,7 +2234,7 @@ fn foreign_assets_same_asset_different_parachain() {
 
 #[test]
 fn foreign_assets_prevents_duplicate_mapping() {
-	use asset_hub_westend_runtime::ForeignAssetsPrecompiles as ForeignAssetsPallet;
+	use asset_hub_westend_runtime::AssetsPrecompiles as ForeignAssetsPallet;
 	use pallet_assets_precompiles::ToAssetIndex;
 
 	ExtBuilder::<Runtime>::default()
