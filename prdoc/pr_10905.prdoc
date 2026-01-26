@@ -1,0 +1,7 @@
+title: 'Bump pallet-staking-reward-fn'
+doc:
+- audience: Runtime Dev
+  description: Force to use local path and local sp-arithmetic dependency instead of registry while running parity-publish
+crates:
+- name: pallet-staking-reward-fn
+  bump: patch
