@@ -76,4 +76,5 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-bags-list/try-runtime"
 ]
