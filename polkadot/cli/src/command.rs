@@ -257,7 +257,7 @@ where
 	// Parse collator protocol hold off value and get the list of the invlunerable collators.
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
 	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
-	let experimental_collator_protocol = cli.run.experimental_collator_protocol;
+	let experimental_collator_protocol = true; // hack - always run the experimental protocol
 
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
