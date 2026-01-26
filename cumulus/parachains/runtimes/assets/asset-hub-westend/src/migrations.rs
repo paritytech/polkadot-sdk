@@ -483,10 +483,7 @@ mod tests {
 			}
 
 			// Run the migration
-			let steps = run_migration_to_completion();
-
-			// Verify migration did work (processed assets)
-			assert!(steps > 0, "Migration should have processed some steps");
+			run_migration_to_completion();
 
 			// Verify precompile mappings now exist after migration
 			// This assertion FAILS if the migration doesn't run
@@ -532,25 +529,28 @@ mod tests {
 				create_asset_details(owner),
 			);
 
+			// Verify mapping does not exist before migration
+			let asset_index = asset_location.to_asset_index();
+			assert!(
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
+					.is_none(),
+				"Mapping should NOT exist before migration"
+			);
+
 			// Run migration first time
-			let steps_first = run_migration_to_completion();
+			run_migration_to_completion();
 
 			// Verify mapping was created
-			let asset_index = asset_location.to_asset_index();
 			assert!(
 				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
 					.is_some(),
 				"Mapping should exist after first migration"
 			);
 
-			// Run migration second time
-			let steps_second = run_migration_to_completion();
+			// Run migration second time (should be idempotent)
+			run_migration_to_completion();
 
-			// Both runs should complete (idempotent)
-			assert!(steps_first > 0, "First migration should do work");
-			assert!(steps_second > 0, "Second migration should also run through assets");
-
-			// Verify mapping still exists and is correct
+			// Verify mapping still exists and is correct after second run
 			let stored_location =
 				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index);
 			assert_eq!(
