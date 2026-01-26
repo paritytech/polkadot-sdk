@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769175956239,
+  "lastUpdate": 1769423787346,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "40a005033bc1b67344cc4ac5e594956b583780f3",
-          "message": "More deterministic check for polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl (#8921)\n\n`polkadot/zombienet_tests/functional/0019-coretime-collation-fetching-fairness.zndsl`\nis flaky on CI. I suspect the reason for this is session changes\nhappening during the measurement step. To make this more predictable\nI've modified the checker to wait for a session change before counting\nthe `CandidateIncluded` events. Hopefully this will stabilize the test\non CI too.",
-          "timestamp": "2025-06-20T14:29:07Z",
-          "tree_id": "7eb5a00ab10abc5e6c965b171a4effeba046b8bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/40a005033bc1b67344cc4ac5e594956b583780f3"
-        },
-        "date": 1750434046546,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94399999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034028321529999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04483017904199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06540606566999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "claravanstaden64@gmail.com",
+            "name": "Clara van Staden",
+            "username": "claravanstaden"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
+          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T09:27:22Z",
+          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
+        },
+        "date": 1769423763142,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.054,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03807913108000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06293110345999993,
             "unit": "seconds"
           }
         ]
