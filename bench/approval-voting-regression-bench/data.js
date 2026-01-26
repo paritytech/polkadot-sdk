@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769446470712,
+  "lastUpdate": 1769458364696,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3288aa33b535e66578d93dc1bea6091c572854ad",
-          "message": "Add possibility of executing or mocking additional inherents in xcm-emulator (#8809)\n\nWith the addition of\nhttps://github.com/paritytech/polkadot-sdk/pull/8083 there is no\npossibility right now of making the xcm-executor work with custom\ninherents. Custom inherents are usually driven by killing a storage item\nof the form `wasInherentSet` `on_initialize` and asserting that such\ninherent was set `on_finalize`. Before the xcm-emulator worked as these\nhooks were running just for the ParachainSystem pallet, but now, they\nrun for all pallets.\n\nMy proposal is to add an item to the xcm-emulator parachain\nconfiguration of the form `AdditionalInherentCode`, which simply\nexecutes code that returns a `DispatchResult`. Whether users want to\nmock a storage item or run the inherent is up to them, this hook would\nallow them to do both.\n\nThis item is optional, meaning that if it is non-set then it would do\nnothing\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-23T11:13:33Z",
-          "tree_id": "9cc562b27e1fcb51414f72e2007720f4d48101c0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3288aa33b535e66578d93dc1bea6091c572854ad"
-        },
-        "date": 1750681672493,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.85,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.378236234120002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4418458723800005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.904242387149996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.967413762280007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.39307456976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43441618766001266,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.410003524149998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.326496113212676,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019739999999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005594987060000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020496589999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020496589999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019739999999999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7984606248199648,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
+          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-01-26T19:02:45Z",
+          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
+        },
+        "date": 1769458340485,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63622.87999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52936.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.341200724659996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.613775013083166,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6241261104200015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8390908686299932,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024046399999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023836470000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6385483549299997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6647977332600012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052384920900000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023836470000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024046399999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.714437302719992,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6014350187299984,
             "unit": "seconds"
           }
         ]
