@@ -118,15 +118,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_args(vec![("-lparachain=debug").into()])
 				})
 				.with_collator(|n| {
-					n.with_name("dave").validator(false).with_args(vec![(
-						"--reserved-nodes",
-						"{{ZOMBIE:charlie:multiaddr}}",
-					)
-						.into()])
-				})
-				.with_collator(|n| {
-					n.with_name("eve").validator(false).with_args(vec![
-						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
+					n.with_name("dave").validator(false).with_args(vec![
+						"-laura=debug".into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
 					])
 				})
@@ -134,12 +127,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					n.with_name("eve").validator(false).with_args(vec![
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
-						("--reserved-nodes", "{{ZOMBIE:dave:multiaddr}}").into(),
-						("--reserved-nodes", "{{ZOMBIE:eve:multiaddr}}").into(),
 					])
 				})
 				.with_collator(|n| {
 					n.with_name("ferdie").validator(false).with_args(vec![
+						"-laura=debug".into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
 						("--reserved-nodes", "{{ZOMBIE:dave:multiaddr}}").into(),
