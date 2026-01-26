@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 mod backend;
 mod connected;
-mod db;
+mod persistent_db;
 
 use futures::channel::oneshot;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -28,11 +28,12 @@ use crate::{
 		},
 		error::{Error, JfyiError, Result},
 	},
+	validator_side_metrics::Metrics,
 	LOG_TARGET,
 };
 pub use backend::Backend;
 use connected::ConnectedPeers;
-pub use db::Db;
+pub use persistent_db::{PersistentDb, ReputationConfig};
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
@@ -73,6 +74,7 @@ pub struct PeerManager<B> {
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
+	pub(crate) metrics: Metrics,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -82,6 +84,7 @@ impl<B: Backend> PeerManager<B> {
 		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
+		metrics: Metrics,
 	) -> Result<Self> {
 		let mut instance = Self {
 			db: backend,
@@ -91,6 +94,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
 			latest_finalized_session: None,
+			metrics,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -115,7 +119,21 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
-		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+		let updates = instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+
+		// Verify the DB actually updated the processed block number
+		let new_processed_finalized_block_number =
+			instance.db.processed_finalized_block_number().await.unwrap_or_default();
+
+		if new_processed_finalized_block_number > processed_finalized_block_number {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Reputation DB advanced from block {} to block {} with {} updates",
+				processed_finalized_block_number,
+				new_processed_finalized_block_number,
+				updates.len()
+			);
+		}
 
 		Ok(instance)
 	}
@@ -136,6 +154,7 @@ impl<B: Backend> PeerManager<B> {
 		)
 		.await?;
 
+		let _timer = self.metrics.time_db_process_bumps();
 		let updates = self
 			.db
 			.process_bumps(
@@ -316,6 +335,7 @@ impl<B: Backend> PeerManager<B> {
 			"Slashing peer's reputation",
 		);
 
+		let _timer = self.metrics.time_db_slash();
 		self.db.slash(peer_id, para_id, value).await;
 		self.connected.update_reputation(ReputationUpdate {
 			peer_id: *peer_id,
@@ -337,6 +357,7 @@ impl<B: Backend> PeerManager<B> {
 		peer_id: PeerId,
 		peer_info: PeerInfo,
 	) -> TryAcceptOutcome {
+		let _timer = self.metrics.time_db_connection_decision();
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
 			// Go straight to the DB. We only store in-memory the reputations of connected peers.

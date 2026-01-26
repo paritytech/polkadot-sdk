@@ -62,6 +62,7 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+use polkadot_collator_protocol::ReputationConfig;
 
 /// Polkadot node service initialization parameters.
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
@@ -424,6 +425,9 @@ where
 				stagnant_check_interval: Default::default(),
 				stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 			};
+			let reputation_config = ReputationConfig {
+				col_reputation_data: parachains_db::REAL_COLUMNS.col_collator_reputation_data,
+			};
 
 			// Kusama + testnets get a higher threshold, we are conservative on Polkadot for now.
 			let fetch_chunks_threshold =
@@ -456,6 +460,7 @@ where
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
+				reputation_config,
 			})
 		};
 

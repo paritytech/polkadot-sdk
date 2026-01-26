@@ -1,0 +1,9 @@
+title: Make reputation DB persistent
+doc:
+- audience: Node Dev
+  description: null
+crates:
+- name: polkadot-service
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major
