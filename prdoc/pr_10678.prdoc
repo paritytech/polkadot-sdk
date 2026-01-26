@@ -12,7 +12,12 @@ doc:
       `prove_child_read()` to relay chain interfaces for child trie proofs.
 
       `additional_relay_state_keys` parameter removed from parachain inherent data creation.
-      Extend `RelayProofRequest.keys` directly at collator level if needed.
+      If needed, extend `RelayProofRequest.keys` directly at collator level, for example:
+      ```rust
+      relay_proof_request.keys.extend(
+          my_additional_keys.into_iter().map(RelayStorageKey::Top)
+      );
+      ```
 crates:
   - name: cumulus-primitives-core
     bump: minor
