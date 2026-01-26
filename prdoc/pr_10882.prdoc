@@ -1,0 +1,13 @@
+title: "statement-store: make encode/hash faster"
+doc:
+- audience: Node Dev
+  description: |
+    Optimizes statement encoding and hashing by pre-allocating memory for the encoded buffer.
+    This reduces allocation overhead and improves performance, particularly when receiving
+    statements from multiple peers. Benchmarks show ~16% speedup when receiving statements
+    from 16 peers.
+crates:
+- name: sp-statement-store
+  bump: patch
+- name: sc-network-statement
+  bump: patch

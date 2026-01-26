@@ -495,7 +495,8 @@ impl Statement {
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
 
-		// Calculate capacity for preallocation using size_of for type sizes:
+		// Calculate capacity for preallocation as a close approximation of the SCALE-encoded
+		// size without actually performing the encoding. Uses size_of for type sizes:
 		// - Compact length prefix: 1-5 bytes (assume 5 for safety)
 		// - Proof field: 1 (tag) + 1 (enum discriminant) + size_of::<Proof>()
 		// - DecryptionKey: 1 (tag) + size_of::<DecryptionKey>()
