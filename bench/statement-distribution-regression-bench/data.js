@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769446502636,
+  "lastUpdate": 1769458398231,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "764976b5800df633b6ec5904f0ae856e16040524",
-          "message": "polkadot-omni-node: add `GetParachainInfo` runtime api  (#8651)\n\n# Description\n\nCloses #7384\nCloses #75\nCloses #8692\nCloses #8739 \n\n## Integration\n\nNode developers, node operators & runtime developers will not need to\ngenerate chain specs that contain a `para_id` field starting with this\nPR, but they'll have to implement the\n`cumulus_primitives_core::GetParachainInfo` runtime API once they drop\nthe `para_id` field, so that new nodes versions will be able to query\nthe runtime for the parachain id.\n\nStarting with `2512` the nodes will not support anymore reading the\nparachain id from chain specs `para_id` field, so it will be mandatory\nfor runtime to implement the `cumulus_primitives_core::GetParachainInfo`\ntrait and be upgraded.\n\n## Review Notes\n\nThis PR is based on prior work here:  #7546. It delivers the following:\n\n### Deprecated `para_id` chain spec extension\n\n- nodes like `polkadot-omni-node`/`polkadot-parachain`) will still\nsupport running chainspecs with `para_id` extension for a while (until\nstable2512)\n- nodes like `test-parachain`/`parachain-template-node` are supporting\nonly runtimes that implement the new runtime API.\n- `chain-spec-builder` will display that `para_id` is deprecated when\ncalling `help`, or when using the flag.\n\n### Additional cleanup/changes\n\n- fixed & renabled some omni-node/parachain-template-node tests from\n`polkadot-sdk-docs` & `templates/zombienet`, which rely on the newly\nadded runtime API as wellI. Tests based on the `para_id` chain spec\nextension are not present anymore, since omni-node will favour taking\nthe para id based on the runtime API if present.\n\n- removed the concept of running `minimal` with omni-node. I returned to\nan old idea of a few of us. At this moment we can't support it anymore\nwith omni-node since we'd need to add `parachain_info` to\n`minimal-template-runtime`, which doesn't make much sense.\n\n- most of the parachains runtimes (hope I haven't missed any relevant)\nthat run by using\n`polkadot-parachain/polkadot-omni-node/test-parachain/parachain-template-node`\nshould fail to work with the previous nodes (that support them) after\n`stable2512`. Probably that will be caught in the CI if I missed them\nduring this PR, but I doubt it.\n\n## Reviewers request\n\n- if there are other nodes used to run parachains runtimes, this is a\ngood moment to highlight them so that I can update them if needed in\nterms of picking up the `parachain_id` from the runtime.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Steven <stevenlawrence13e@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2025-06-22T18:31:15Z",
-          "tree_id": "b58e80b1292e6202f90085c779752e346ca3a764",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/764976b5800df633b6ec5904f0ae856e16040524"
-        },
-        "date": 1750621148645,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.94799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045408380215999945,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034519570842,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0644553332079999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
+          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-01-26T19:02:45Z",
+          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
+        },
+        "date": 1769458373556,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.046,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03877548520000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0671020578379999,
             "unit": "seconds"
           }
         ]
