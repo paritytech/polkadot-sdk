@@ -121,7 +121,8 @@ mod tests;
 pub mod types;
 pub mod weights;
 
-pub const MAX_GROUPS_PER_ACCOUNT: u32 = 16;
+/// Maximum number of friend groups that an account can have.
+pub const MAX_GROUPS_PER_ACCOUNT: u32 = 10;
 
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<AccountIdFor<T>>>::Balance;
