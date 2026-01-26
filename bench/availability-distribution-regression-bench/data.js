@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769446438004,
+  "lastUpdate": 1769458331244,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f3507ec02185e05c96f055d808d8d17d8b969e6",
-          "message": "make sure dispute_coordinator/approval-voting parallel can receive priority messages (#8948)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8834, changed\nrelay_chain_selection to send priority messages, but did not configured\nthe subsystems to tell they can receive priority messages, with\n`can_receive_priority_messages` flag.\n\nIf `can_receive_priority_messages` is not specified orchestra falls back\nwhen sending a priority message to the normal queue, so this resulted in\nthe messages not being processed ahead of the others in the queue.\n\nFix this configuration mistake and add a test to make sure priority\nmessages are consumed ahead of normal ones by the subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T07:28:49Z",
-          "tree_id": "f45b40cb1f5276f7774d77d87f057a36768fedbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f3507ec02185e05c96f055d808d8d17d8b969e6"
-        },
-        "date": 1750753797512,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00904781007333343,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15895175155333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02248567225333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013225328253333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14646747441333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
+          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-01-26T19:02:45Z",
+          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
+        },
+        "date": 1769458306128,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14568116943333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023327979246666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010410899213333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007287514200000001,
             "unit": "seconds"
           }
         ]
