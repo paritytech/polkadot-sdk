@@ -33,7 +33,7 @@ pub mod xcm_config;
 mod bag_thresholds;
 pub mod governance;
 #[cfg(not(feature = "runtime-benchmarks"))]
-mod migrations;
+pub mod migrations;
 mod staking;
 
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
