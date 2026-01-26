@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769446405596,
+  "lastUpdate": 1769458296991,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "28b7c7770e9e7abf5b561fc42cfe565baf076cb7",
-          "message": "remove enable_approval_voting_parallel cli flag (#8894)\n\nThis has been running on polkadot since\nhttps://github.com/paritytech/polkadot-sdk/pull/7504, so it is time to\nremove the flag that allowed us to run either with\napproval-voting-parallel or with approval-distribution and\napproval-voting subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T10:20:06Z",
-          "tree_id": "73626b2532ace72421a8a57f6cc1ebebd973a764",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/28b7c7770e9e7abf5b561fc42cfe565baf076cb7"
-        },
-        "date": 1750765851772,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.281818809666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2015196078333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12557869793333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5fd7bb53b86f381ea42c67cf3da04622aa3a9953",
+          "message": "Version bumps 2512-1 (#10904)\n\nThis PR backports regular version bumps and prdocs reordering from after\npatch release `stable2512-1`\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-01-26T19:02:45Z",
+          "tree_id": "56edc347f7e5e81eadd2f81fd240956c902b01b6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fd7bb53b86f381ea42c67cf3da04622aa3a9953"
+        },
+        "date": 1769458271968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.209655308633328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12627018796666667,
             "unit": "seconds"
           }
         ]
