@@ -713,54 +713,88 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
-			// first check we can at least read one storage.
-			if !weight_meter.can_consume(T::DbWeight::get().reads(1)) {
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			// Calculate the weight that on_poll will need
+			let current_phase = Self::current_phase();
+			let (self_weight, _) = Self::per_block_exec(current_phase);
+			let (verifier_weight, _) = T::Verifier::per_block_exec();
+
+			// Combined weight for phase transition
+			let combined_weight = self_weight
+				.saturating_add(verifier_weight)
+				.saturating_add(T::DbWeight::get().reads(1)); // Reading current phase
+
+			// Check if there's enough weight left in the block
+			let remaining_weight_meter = frame_system::Pallet::<T>::remaining_block_weight();
+			let remaining_weight = remaining_weight_meter.remaining();
+			let can_execute = remaining_weight.all_gte(combined_weight);
+
+			// TODO: the above doesn't work because the `remaining_block_weight` is already the
+			// mini-basti-block weight that is left, not the potential full-core weight that is
+			// left. We need a way to query the `full_core_weight`, subtract the
+			// `remaining_weight_meter.consumed()` from it, and then check if the result is greater
+			// than or equal to the `combined_weight`. For now, we yolo.
+
+			if true {
+				// We have enough weight - register it so BastiBlocks PreInherents hook knows
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					combined_weight,
+					frame_support::dispatch::DispatchClass::Mandatory,
+				);
+				CanExecuteOnPoll::<T>::put(true);
+				log!(debug, "registered {:?} weight for next poll execution", combined_weight);
+			} else {
+				// Not enough weight - emit event and don't execute on_poll
 				Self::deposit_event(Event::UnexpectedPhaseTransitionHalt {
-					required: T::DbWeight::get().reads(1),
-					had: weight_meter.remaining(),
+					required: combined_weight,
+					had: remaining_weight,
 				});
+				CanExecuteOnPoll::<T>::put(false);
+				log!(
+					warn,
+					"not enough weight for phase transition, required: {:?}, had: {:?}",
+					combined_weight,
+					remaining_weight
+				);
+			}
+
+			// Return the weight consumed by on_initialize itself (storage read + conditional write)
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+
+		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			// Check if on_initialize determined we have enough weight
+			if !CanExecuteOnPoll::<T>::take() {
+				// Not enough weight was available - on_initialize already emitted an event
 				return;
 			}
 
-			// if so, consume and prepare the next phase.
 			let current_phase = Self::current_phase();
-			weight_meter.consume(T::DbWeight::get().reads(1));
-
 			let (self_weight, self_exec) = Self::per_block_exec(current_phase);
 			let (verifier_weight, verifier_exc) = T::Verifier::per_block_exec();
 
 			// The following will combine `Self::per_block_exec` and `T::Verifier::per_block_exec`
 			// into a single tuple of `(Weight, Box<_>)`. Can be moved into a reusable combinator
 			// function if we have this pattern in more places.
-			let (combined_weight, combined_exec) = (
-				// pre-exec weight is simply addition.
-				self_weight.saturating_add(verifier_weight),
-				// our new exec is..
-				Box::new(move |meter: &mut WeightMeter| {
-					self_exec(meter);
-					verifier_exc(meter);
-				}),
-			);
+			let combined_weight = self_weight.saturating_add(verifier_weight);
+			let combined_exec = Box::new(move |meter: &mut WeightMeter| {
+				self_exec(meter);
+				verifier_exc(meter);
+			});
 
 			log!(
 				trace,
-				"worst-case required weight for transition from {:?} to {:?} is {:?}, has {:?}",
+				"executing phase transition from {:?} to {:?} with weight {:?}, meter has {:?}",
 				current_phase,
 				current_phase.next(),
 				combined_weight,
 				weight_meter.remaining()
 			);
-			if weight_meter.can_consume(combined_weight) {
-				combined_exec(weight_meter);
-			} else {
-				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
-					from: current_phase,
-					to: current_phase.next(),
-					required: combined_weight,
-					had: weight_meter.remaining(),
-				});
-			}
+
+			// NOTE: Weight was pre-registered in on_initialize for BastiBlocks support.
+			// We execute the work here but don't consume from weight_meter to avoid
+			// double-counting.
+			combined_exec(&mut WeightMeter::new());
 
 			// NOTE: why in here? because it is more accessible, for example `roll_to_with_ocw`.
 			#[cfg(test)]
@@ -866,7 +900,7 @@ pub mod pallet {
 			required: Weight,
 			had: Weight,
 		},
-		/// Phase transition could not even begin becaseu of being out of weight.
+		/// Phase transition could not even begin because of being out of weight.
 		UnexpectedPhaseTransitionHalt { required: Weight, had: Weight },
 	}
 
@@ -914,6 +948,11 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn current_phase)]
 	pub type CurrentPhase<T: Config> = StorageValue<_, Phase<T>, ValueQuery>;
+
+	/// Flag to indicate if on_poll should execute this block.
+	/// Set in on_initialize if there's enough weight available.
+	#[pallet::storage]
+	pub(crate) type CanExecuteOnPoll<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// Wrapper struct for working with snapshots.
 	///

@@ -27,5 +27,6 @@ command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [
+	"--authoring slot-based",
 	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug,xcm=debug,parachain-system=debug,runtime=info",
 ]

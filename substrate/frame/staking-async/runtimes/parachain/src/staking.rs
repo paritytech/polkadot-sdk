@@ -17,6 +17,7 @@
 
 ///! Staking, and election related pallet configurations.
 use super::*;
+use cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
@@ -627,17 +628,25 @@ where
 			// so the actual block number is `n`.
 			.saturating_sub(1);
 		let tip = 0;
-		let tx_ext = TxExtension::from((
-			frame_system::CheckNonZeroSender::<Runtime>::new(),
-			frame_system::CheckSpecVersion::<Runtime>::new(),
-			frame_system::CheckTxVersion::<Runtime>::new(),
-			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(period, current_block)),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
-			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
-			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
-		));
+		let tx_ext = DynamicMaxBlockWeight::new(
+			(
+				frame_system::CheckNonZeroSender::<Runtime>::new(),
+				frame_system::CheckSpecVersion::<Runtime>::new(),
+				frame_system::CheckTxVersion::<Runtime>::new(),
+				frame_system::CheckGenesis::<Runtime>::new(),
+				frame_system::CheckEra::<Runtime>::from(generic::Era::mortal(
+					period,
+					current_block,
+				)),
+				frame_system::CheckNonce::<Runtime>::from(nonce),
+				frame_system::CheckWeight::<Runtime>::new(),
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				),
+				frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+			)
+				.into(),
+		);
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
@@ -720,17 +729,19 @@ mod tests {
 
 	#[test]
 	fn signed_weight_ratios() {
-		sp_tracing::try_init_simple();
-		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		let polkadot_signed_submission =
-			mb::weights::polkadot::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
-		let kusama_signed_submission =
-			mb::weights::kusama::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
+		sp_io::TestExternalities::default().execute_with(|| {
+			sp_tracing::try_init_simple();
+			let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+			let polkadot_signed_submission =
+				mb::weights::polkadot::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
+			let kusama_signed_submission =
+				mb::weights::kusama::MultiBlockSignedWeightInfo::<Runtime>::submit_page();
 
-		log::info!(target: "runtime", "Polkadot:");
-		weight_diff(block_weight, polkadot_signed_submission);
-		log::info!(target: "runtime", "Kusama:");
-		weight_diff(block_weight, kusama_signed_submission);
+			log::info!(target: "runtime", "Polkadot:");
+			weight_diff(block_weight, polkadot_signed_submission);
+			log::info!(target: "runtime", "Kusama:");
+			weight_diff(block_weight, kusama_signed_submission);
+		})
 	}
 
 	#[test]

@@ -69,7 +69,7 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{weights::WeightMeter, DefaultNoBound};
+	use frame_support::{DefaultNoBound, weights::WeightMeter};
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -831,6 +831,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
+	/// Flag to indicate if on_poll should execute this block.
+	/// Set in on_initialize if there's enough weight available for election result fetching.
+	#[pallet::storage]
+	pub(crate) type CanExecuteOnPoll<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
 	pub type ElectableStashes<T: Config> =
@@ -1412,27 +1417,25 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			// Check if on_initialize determined we have enough weight
+			if !CanExecuteOnPoll::<T>::take() {
+				// Not enough weight was available - on_initialize already emitted an event
+				return;
+			}
+
 			let (weight, exec) = EraElectionPlanner::<T>::maybe_fetch_election_results();
 			crate::log!(
 				trace,
-				"weight of fetching next election page is {:?}, have {:?}",
+				"executing election result fetch with weight {:?}, meter has {:?}",
 				weight,
 				weight_meter.remaining()
 			);
 
-			if weight_meter.can_consume(weight) {
-				exec(weight_meter);
-			} else {
-				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::PagedElectionOutOfWeight {
-						page: NextElectionPage::<T>::get().unwrap_or(
-							EraElectionPlanner::<T>::election_pages().defensive_saturating_sub(1),
-						),
-						required: weight,
-						had: weight_meter.remaining(),
-					},
-				));
-			}
+			// NOTE: Weight was pre-registered in on_initialize for BastiBlocks support.
+			// We execute the work here but don't consume from weight_meter to avoid double-counting.
+			exec(&mut WeightMeter::new());
+
+			// Don't consume from weight_meter - the weight was already registered in on_initialize
 		}
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
@@ -1445,6 +1448,40 @@ pub mod pallet {
 				let slash_weight = Self::apply_unapplied_slashes(active_era.index);
 				consumed_weight.saturating_accrue(slash_weight);
 			}
+
+			// Calculate the weight that on_poll will need for election result fetching
+			let (election_weight, _) = EraElectionPlanner::<T>::maybe_fetch_election_results();
+
+			// Check if there's enough weight left in the block
+			let remaining_weight_meter = frame_system::Pallet::<T>::remaining_block_weight();
+			let remaining_weight = remaining_weight_meter.remaining();
+			let can_execute = remaining_weight.all_gte(election_weight);
+
+			// TODO: same comment as EPMB's on_init.
+
+			if true {
+				// We have enough weight - register it so BastiBlocks PreInherents hook knows
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					election_weight,
+					frame_support::dispatch::DispatchClass::Mandatory,
+				);
+				CanExecuteOnPoll::<T>::put(true);
+			} else {
+				// Not enough weight - emit event and don't execute on_poll
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::PagedElectionOutOfWeight {
+						page: NextElectionPage::<T>::get().unwrap_or(
+							EraElectionPlanner::<T>::election_pages().defensive_saturating_sub(1),
+						),
+						required: election_weight,
+						had: remaining_weight,
+					},
+				));
+				CanExecuteOnPoll::<T>::put(false);
+			}
+
+			// Account for the storage write for CanExecuteOnPoll
+			consumed_weight.saturating_accrue(T::DbWeight::get().writes(1));
 
 			consumed_weight
 		}
