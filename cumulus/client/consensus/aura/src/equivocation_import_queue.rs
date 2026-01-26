@@ -276,7 +276,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
 	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
-) -> Result<BasicQueue<Block>, String>
+) -> BasicQueue<Block>
 where
 	P: Pair + 'static + Clone,
 	P::Signature: Codec,
@@ -303,7 +303,7 @@ where
 		telemetry,
 		authorities_tracker,
 	};
-	Ok(BasicQueue::new(verifier, Box::new(block_import.clone()), None, spawner, registry))
+	BasicQueue::new(verifier, Box::new(block_import.clone()), None, spawner, registry)
 }
 
 #[cfg(test)]
