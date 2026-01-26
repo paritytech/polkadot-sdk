@@ -11290,6 +11290,7 @@ dependencies = [
  "frame-support",
  "log",
  "pallet-authorship",
+ "pallet-bags-list",
  "pallet-balances",
  "pallet-dap",
  "pallet-election-provider-multi-block",
