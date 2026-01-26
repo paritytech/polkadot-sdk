@@ -126,6 +126,7 @@ fn default_parachains_host_configuration(
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
 		async_backing_params: AsyncBackingParams {
+			// TODO: double check.
 			max_candidate_depth: 0,
 			allowed_ancestry_len: 0,
 		},
