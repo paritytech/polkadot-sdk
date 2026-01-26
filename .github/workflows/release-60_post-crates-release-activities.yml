@@ -1,9 +1,26 @@
 name: Release - Post Crates Release Activities
 
 on:
-  push:
-    branches:
-      - 'post-crates-release-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Full release version identifier (e.g., stable2512 or stable2512-2)'
+        required: true
+        type: string
+      bump_node_version:
+        description: 'Bump NODE_VERSION? Select "yes" if this is the first run for this post-crates PR, "no" if re-running or if you have another reason not to bump'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      bump_spec_version:
+        description: 'Bump spec_version? Select "yes" to bump spec version for all runtimes, "no" if re-running or if you have another reason not to bump'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
 
 permissions:
   contents: write
@@ -68,6 +85,7 @@ jobs:
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
       - name: Bump NODE_VERSION for polkadot
+        if: inputs.bump_node_version == 'yes'
         run: |
           echo "Bumping NODE_VERSION in polkadot..."
           FILE="polkadot/node/primitives/src/lib.rs"
@@ -87,6 +105,7 @@ jobs:
           echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Bump NODE_VERSION for polkadot-parachain and polkadot-omni-node
+        if: inputs.bump_node_version == 'yes'
         run: |
           echo "Bumping NODE_VERSION in cumulus..."
           FILE="cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
@@ -106,6 +125,7 @@ jobs:
           echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
 
       - name: Commit NODE_VERSION bumps
+        if: inputs.bump_node_version == 'yes'
         shell: bash
         run: |
           . ./.github/scripts/release/release_lib.sh
@@ -118,32 +138,49 @@ jobs:
           commit_with_message "Bump NODE_VERSION to $NODE_VERSION"
           echo "✅ Successfully committed NODE_VERSION bump"
 
+      - name: Bump spec_version
+        if: inputs.bump_spec_version == 'yes'
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          FILE="polkadot/node/primitives/src/lib.rs"
+          NODE_VERSION=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+
+          # Determine if this is a patch release or new stable release
+          patch=$(echo "$NODE_VERSION" | awk -F'[.-]' '{print $3}')
+          if [ "$patch" -gt 0 ]; then
+            IS_PATCH_RELEASE="true"
+            printf "📋 Patch release detected (patch=$patch) - bumping spec_version patch part\n"
+          else
+            IS_PATCH_RELEASE="false"
+            printf "📋 New stable release detected - bumping spec_version minor part\n"
+          fi
+
+          runtimes_list=$(get_filtered_runtimes_list)
+
+          for f in ${runtimes_list[@]}; do
+              new_version=$(bump_spec_version "$f" "$IS_PATCH_RELEASE")
+              printf " 🔄  $f → spec_version: $new_version\n"
+          done
+
+          commit_with_message "Bump spec_version for $([ \"$IS_PATCH_RELEASE\" = \"true\" ] && echo \"patch\" || echo \"stable\") release"
+
       - name: Move prdocs to release folder
         shell: bash
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          # Extract release name from branch name (everything after "post-crates-release-")
-          BRANCH_NAME="${{ github.ref_name }}"
-          echo "Branch name: $BRANCH_NAME"
+          VERSION="${{ inputs.version }}"
+          echo "Version: $VERSION"
 
-          if [[ "$BRANCH_NAME" =~ post-crates-release-(.+)$ ]]; then
-            RELEASE_FOLDER="${BASH_REMATCH[1]}"
-            echo "Release folder name: $RELEASE_FOLDER"
-
-            # Use the reorder_prdocs helper function
-            reorder_prdocs "$RELEASE_FOLDER"
-          else
-            echo "WARNING: Could not extract release name from branch name: $BRANCH_NAME"
-            echo "Expected format: post-crates-release-<release-name>"
-            exit 1
-          fi
+          reorder_prdocs "$VERSION"
 
       - name: Replace path dependencies
         run: |
           echo "Running replace-all-path-deps.sh..."
           bash scripts/release/replace-all-path-deps.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
 
@@ -151,7 +188,7 @@ jobs:
         run: |
           echo "Running delete-versions-if-path-is-present.sh..."
           bash scripts/release/delete-versions-if-path-is-present.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
 
@@ -159,9 +196,13 @@ jobs:
         run: |
           echo "Running delete-version-from-umbrella.sh..."
           bash scripts/release/delete-version-from-umbrella.sh
-          
+
           # Show git diff to see what changed
           git diff --stat
+
+      - name: Install newer Zepter
+        run: |
+          cargo install zepter@1.82.1 --locked -q && zepter --version
 
       - name: Run Zepter - check issues
         run: |
@@ -248,32 +289,36 @@ jobs:
         shell: bash
         run: |
           BRANCH_NAME="${{ github.ref_name }}"
+          FULL_RELEASE="${{ inputs.version }}"
           echo "Current branch: $BRANCH_NAME"
+          echo "Version: $FULL_RELEASE"
 
-          # Extract base release branch name
-          if [[ "$BRANCH_NAME" =~ ^post-crates-release-(.+)$ ]]; then
-            FULL_RELEASE="${BASH_REMATCH[1]}"
+          # Extract base release branch name by removing the last segment after dash
+          if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
+            BASE_RELEASE="${BASH_REMATCH[1]}"
+          else
+            BASE_RELEASE="$FULL_RELEASE"
+          fi
 
-            if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
-              BASE_RELEASE="${BASH_REMATCH[1]}"
-            else
-              BASE_RELEASE="$FULL_RELEASE"
-            fi
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$BASE_RELEASE" --json number --jq '.[0].number')
 
+          if [ -n "$EXISTING_PR" ]; then
+            echo "✅ PR #$EXISTING_PR already exists for this branch"
+            echo "PR URL: $(gh pr view $EXISTING_PR --json url --jq '.url')"
+          else
             echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
             gh pr create \
-              --title "Post crates release activities for $BASE_RELEASE" \
+              --title "[${BASE_RELEASE}] Post crates release activities for $FULL_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
-            - NODE_VERSION bumps
-            - Path dependencies replacement
-            - Zepter fixes
-            - Taplo formatting
-            - PRDocs reorganization" \
+          - NODE_VERSION bumps (if selected)
+          - Path dependencies replacement
+          - Zepter fixes
+          - Taplo formatting
+          - PRDocs reorganization (if prdocs exist)" \
               --base "$BASE_RELEASE" \
-              --head "$BRANCH_NAME" || echo "PR may already exist or there was an error creating it"
-          else
-            echo "ERROR: Could not extract base release branch from: $BRANCH_NAME, probably wrong format"
-            exit 1
+              --head "$BRANCH_NAME"
+            echo "✅ PR created successfully"
           fi
 
       - name: Add comment about spec_version
