@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
-      - name: Download artifact by ID
+      - name: Download Resolc
         run: |
           curl -L --fail --show-error \
             -H "Authorization: Bearer ${{ github.token }}" \
@@ -48,13 +48,19 @@ jobs:
             -o resolc.zip
           unzip -q resolc.zip -d resolc
           chmod +x resolc/resolc-x86_64-unknown-linux-musl
+          mv resolc/resolc-x86_64-unknown-linux-musl resolc
+          echo "$(pwd)" >> "$GITHUB_PATH"
+      - name: Printing Resolc Information
+        run: |
+          which resolc
+          resolc --version
       - name: Run revive differential tests
         uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
         with:
           platform: ${{ matrix.platform }}
           cargo-command: "forklift cargo"
           revive-differential-tests-ref: "0e41f054405c054c37d524e5172ef8c514852e6b"
-          resolc-path: "${{ github.workspace }}/resolc/resolc-x86_64-unknown-linux-musl"
+          resolc-path: "resolc"
           expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
   evm-test-suite:
