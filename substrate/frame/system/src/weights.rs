@@ -309,3 +309,46 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }
+
+
+/// A weight info implementation that panics if used.
+/// This is used as a default to force runtimes to provide their own weight implementations.
+pub struct MustOverrideWeightInfo;
+
+impl WeightInfo for MustOverrideWeightInfo {
+    fn remark(_len: u32) -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn set_heap_pages() -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn set_code() -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn set_storage(_items: u32) -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn kill_storage(_keys: u32) -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn kill_prefix(_num_items: u32) -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn remark_with_event(_len: u32) -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn authorize_upgrade() -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+    
+    fn apply_authorized_upgrade() -> Weight {
+        panic!("System weights must be overridden in runtime configuration. Use `type SystemWeightInfo = System;` or provide custom weights.")
+    }
+}
