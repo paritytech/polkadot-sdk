@@ -47,7 +47,8 @@ jobs:
             "https://api.github.com/repos/paritytech/revive/actions/artifacts/5198357315/zip" \
             -o resolc.zip
           unzip -q resolc.zip -d resolc
-          chmod +x resolc/resolc-x86_64-unknown-linux-musl
+          chmod +x ./resolc/resolc-x86_64-unknown-linux-musl
+          ./resolc/resolc-x86_64-unknown-linux-musl --version
           ${{ github.workspace }}/resolc/resolc-x86_64-unknown-linux-musl --version
       - name: Run revive differential tests
         uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
