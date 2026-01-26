@@ -206,32 +206,44 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		mut num_submission_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		let store = statement_store.clone();
-		executor(
-			async move {
-				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-						queue_receiver.next().await;
-					match task {
-						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
-								log::debug!(
-									target: LOG_TARGET,
-									"Error sending validation completion"
-								);
-							}
-						},
+		if num_submission_workers == 0 {
+			log::warn!(
+				target: LOG_TARGET,
+				"num_submission_workers is 0, defaulting to 1"
+			);
+			num_submission_workers = 1;
+		}
+
+		for _ in 0..num_submission_workers {
+			let store = statement_store.clone();
+			let mut queue_receiver = queue_receiver.clone();
+			executor(
+				async move {
+					loop {
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
+						match task {
+							None => return,
+							Some((statement, completion)) => {
+								let result = store.submit(statement, StatementSource::Network);
+								if completion.send(result).is_err() {
+									log::debug!(
+										target: LOG_TARGET,
+										"Error sending validation completion"
+									);
+								}
+							},
+						}
 					}
 				}
-			}
-			.boxed(),
-		);
+				.boxed(),
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -333,6 +345,14 @@ enum SendChunkResult {
 	Failed,
 }
 
+/// Returns the maximum payload size for statement notifications.
+///
+/// This reserves space for encoding the length of the vector (Compact<u32>),
+/// ensuring the final encoded message fits within MAX_STATEMENT_NOTIFICATION_SIZE.
+fn max_statement_payload_size() -> usize {
+	MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len()
+}
+
 /// Find the largest chunk of statements starting from the beginning that fits
 /// within MAX_STATEMENT_NOTIFICATION_SIZE.
 ///
@@ -343,8 +363,7 @@ fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 	if statements.is_empty() {
 		return ChunkResult::Send(0);
 	}
-	// Reserve some space for encoding the length of the vector.
-	let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
+	let max_size = max_statement_payload_size();
 
 	// Incrementally add statements until we exceed the limit.
 	// This is efficient because we only compute sizes for statements in this chunk.
@@ -787,14 +806,13 @@ where
 			return;
 		}
 
-		// Fetch statements up to MAX_STATEMENT_NOTIFICATION_SIZE
+		// Fetch statements up to max_statement_payload_size (reserves space for vec encoding)
+		let max_size = max_statement_payload_size();
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
-				if accumulated_size > 0 &&
-					accumulated_size + encoded.len() > MAX_STATEMENT_NOTIFICATION_SIZE as usize
-				{
+				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
 					return FilterDecision::Abort
 				}
 				accumulated_size += encoded.len();
@@ -1732,5 +1750,114 @@ mod tests {
 		expected_hashes.sort();
 		received_hashes.sort();
 		assert_eq!(expected_hashes, received_hashes, "All statement hashes should match");
+	}
+
+	#[tokio::test]
+	async fn test_initial_sync_burst_size_limit_consistency() {
+		// This test verifies that process_initial_sync_burst and find_sendable_chunk
+		// use the same size limit (max_statement_payload_size).
+		//
+		// Previously there was a bug where the filter in process_initial_sync_burst used
+		// MAX_STATEMENT_NOTIFICATION_SIZE, but find_sendable_chunk reserved extra space
+		// for Compact::<u32>::max_encoded_len(). This caused a debug_assert failure when
+		// statements fit the filter but not find_sendable_chunk.
+		//
+		// With the fix, both use max_statement_payload_size(), so the filter will reject
+		// statements that wouldn't fit in find_sendable_chunk.
+		let (mut handler, statement_store, network, notification_service) =
+			build_handler_no_peers();
+
+		let payload_limit = max_statement_payload_size();
+
+		// Create first statement that's just over half the payload limit
+		let first_stmt_data_size = payload_limit / 2 + 10;
+		let mut stmt1 = Statement::new();
+		stmt1.set_plain_data(vec![1u8; first_stmt_data_size]);
+		let stmt1_encoded_size = stmt1.encoded_size();
+
+		// Create second statement that, combined with the first, exceeds the payload limit.
+		// This means the filter will only accept the first statement.
+		let remaining = payload_limit.saturating_sub(stmt1_encoded_size);
+		let target_stmt2_encoded = remaining + 3; // 3 bytes over limit when combined
+		let stmt2_data_size = target_stmt2_encoded.saturating_sub(4); // ~4 bytes encoding overhead
+		let mut stmt2 = Statement::new();
+		stmt2.set_plain_data(vec![2u8; stmt2_data_size]);
+		let stmt2_encoded_size = stmt2.encoded_size();
+
+		let total_encoded = stmt1_encoded_size + stmt2_encoded_size;
+
+		// Verify our setup: total exceeds payload limit
+		assert!(
+			total_encoded > payload_limit,
+			"Total {} should exceed payload_limit {} so filter rejects second statement",
+			total_encoded,
+			payload_limit
+		);
+
+		let hash1 = stmt1.hash();
+		let hash2 = stmt2.hash();
+		statement_store.statements.lock().unwrap().insert(hash1, stmt1);
+		statement_store.statements.lock().unwrap().insert(hash2, stmt2);
+
+		// Setup peer and simulate connection
+		let peer_id = PeerId::random();
+		network.set_peer_role(peer_id, ObservedRole::Full);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		// Verify initial sync was queued with both hashes
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 2);
+
+		// Process first burst - should send only one statement (the other doesn't fit)
+		handler.process_initial_sync_burst().await;
+
+		// With the fix, the filter and find_sendable_chunk use the same limit,
+		// so no assertion failure occurs. Only one statement is fetched and sent.
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 1, "First burst should send one notification");
+
+		let decoded = <Statements as Decode>::decode(&mut sent[0].1.as_slice()).unwrap();
+		assert_eq!(decoded.len(), 1, "First notification should contain one statement");
+
+		// Verify one of the two statements was sent (order is non-deterministic due to HashMap)
+		let sent_hash = decoded[0].hash();
+		assert!(
+			sent_hash == hash1 || sent_hash == hash2,
+			"Sent statement should be one of the two created"
+		);
+
+		// Second statement should still be pending
+		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
+		assert_eq!(handler.pending_initial_syncs.get(&peer_id).unwrap().hashes.len(), 1);
+
+		// Process second burst - should send the remaining statement
+		handler.process_initial_sync_burst().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 2, "Second burst should send another notification");
+
+		// Both statements should now be sent
+		let mut sent_hashes: Vec<_> = sent
+			.iter()
+			.flat_map(|(_, notification)| {
+				<Statements as Decode>::decode(&mut notification.as_slice()).unwrap()
+			})
+			.map(|s| s.hash())
+			.collect();
+		sent_hashes.sort();
+		let mut expected_hashes = vec![hash1, hash2];
+		expected_hashes.sort();
+		assert_eq!(sent_hashes, expected_hashes, "Both statements should be sent");
+
+		// No more pending
+		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
 	}
 }
