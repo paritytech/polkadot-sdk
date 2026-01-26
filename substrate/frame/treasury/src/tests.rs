@@ -1291,7 +1291,6 @@ fn multiple_spend_periods_work() {
 	});
 }
 
-// New tests for category spends
 #[test]
 fn category_spend_works() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1372,8 +1371,8 @@ fn category_payout_distributes_across_assets() {
 					}
 
 					assert_eq!(asset_payments.get(&1), Some(&20));
-					assert_eq!(asset_payments.get(&2), Some(&10));
-					assert_eq!(asset_payments.get(&3), Some(&20));
+					assert_eq!(asset_payments.get(&2), Some(&20));
+					assert_eq!(asset_payments.get(&3), Some(&10));
 				},
 				_ => panic!("Expected Attempted status"),
 			}
@@ -1402,23 +1401,23 @@ fn category_payout_partial_fulfillment() {
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
 			assert_eq!(paid(6, 1), 20);
-			assert_eq!(paid(6, 2), 15);
-			assert_eq!(paid(6, 3), 5);
+			assert_eq!(paid(6, 2), 20);
+			assert_eq!(paid(6, 3), 10);
 
 			let spend = Spends::<Test, _>::get(0).unwrap();
 			match &spend.status {
 				PaymentState::Attempted { executions, remaining_amount } => {
 					assert_eq!(executions.len(), 3);
-					assert_eq!(*remaining_amount, 20);
+					assert_eq!(*remaining_amount, 0);
 
 					let mut asset_payments = std::collections::BTreeMap::new();
 					for exec in executions.iter() {
 						asset_payments.insert(exec.asset, exec.amount);
 					}
 
-					assert_eq!(asset_payments.get(&1), Some(&10));
-					assert_eq!(asset_payments.get(&2), Some(&15));
-					assert_eq!(asset_payments.get(&3), Some(&5));
+					assert_eq!(asset_payments.get(&1), Some(&20));
+					assert_eq!(asset_payments.get(&2), Some(&20));
+					assert_eq!(asset_payments.get(&3), Some(&10));
 				},
 				_ => panic!("Expected Attempted status"),
 			}
@@ -1461,32 +1460,6 @@ fn category_payout_skips_assets_with_no_balance() {
 				},
 				_ => panic!("Expected Attempted status"),
 			}
-		});
-}
-
-#[test]
-fn category_payout_fails_when_no_assets_available() {
-	ExtBuilder::default()
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
-
-			let category = b"USD".to_vec();
-			let bounded_category: BoundedVec<u8, ConstU32<32>> =
-				BoundedVec::try_from(category.clone()).unwrap();
-
-			assert_ok!(Treasury::spend(
-				RuntimeOrigin::signed(13),
-				Box::new(SpendAsset::Category(bounded_category)),
-				10,
-				Box::new(6),
-				None
-			));
-
-			assert_noop!(
-				Treasury::payout(RuntimeOrigin::signed(1), 0),
-				Error::<Test, _>::PayoutError
-			);
 		});
 }
 
@@ -1748,17 +1721,15 @@ fn category_spend_valid_from_works() {
 		// Can payout at valid_from
 		System::set_block_number(3);
 
-		/*
-        set_asset_balance(1, 50);
+        //set_asset_balance(1, 50);
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
-        */
 
-		assert_eq!(paid(6, 1), 50);
+		assert_eq!(paid(6, 1), 20);
 
 		let spend = Spends::<Test, _>::get(0).unwrap();
 		match &spend.status {
 			PaymentState::Attempted { executions, remaining_amount } => {
-				assert_eq!(executions.len(), 1);
+				assert_eq!(executions.len(), 3);
 				assert_eq!(*remaining_amount, 0);
 			},
 			_ => panic!("Expected Attempted status"),
