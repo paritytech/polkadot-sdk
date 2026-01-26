@@ -583,8 +583,7 @@ mod liquidate {
 
 			// Collateral should now be held with Seized reason (for auction)
 			// Check that ALICE has funds on hold with Seized reason
-			let seized_balance =
-				Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE);
+			let seized_balance = Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE);
 			assert_eq!(seized_balance, deposit, "All collateral should be seized");
 
 			// Check InLiquidation event
