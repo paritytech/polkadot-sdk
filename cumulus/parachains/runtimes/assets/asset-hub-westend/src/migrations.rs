@@ -516,47 +516,111 @@ mod tests {
 	}
 
 	/// Test that the migration is idempotent - running it twice produces the same result.
+	///
+	/// Idempotency is critical: the second run should not modify any existing mappings.
+	/// This test verifies that running the migration a second time leaves the state identical.
 	#[test]
 	fn migration_is_idempotent() {
 		new_test_ext().execute_with(|| {
 			let owner: <Runtime as frame_system::Config>::AccountId = [1u8; 32].into();
 
-			// Create a foreign asset
-			let asset_location = Location::new(1, [Parachain(1234), GeneralIndex(999)]);
+			// Create multiple foreign assets for more realistic testing
+			let asset_location_1 = Location::new(1, [Parachain(1234), GeneralIndex(999)]);
+			let asset_location_2 = Location::new(1, [Parachain(5678), GeneralIndex(111)]);
 
 			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::insert(
-				asset_location.clone(),
+				asset_location_1.clone(),
+				create_asset_details(owner.clone()),
+			);
+			pallet_assets::Asset::<Runtime, ForeignAssetsInstance>::insert(
+				asset_location_2.clone(),
 				create_asset_details(owner),
 			);
 
-			// Verify mapping does not exist before migration
-			let asset_index = asset_location.to_asset_index();
+			let asset_index_1 = asset_location_1.to_asset_index();
+			let asset_index_2 = asset_location_2.to_asset_index();
+
+			// Verify mappings do not exist before migration
 			assert!(
-				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_1)
 					.is_none(),
-				"Mapping should NOT exist before migration"
+				"Mapping 1 should NOT exist before migration"
+			);
+			assert!(
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_2)
+					.is_none(),
+				"Mapping 2 should NOT exist before migration"
 			);
 
 			// Run migration first time
 			run_migration_to_completion();
 
-			// Verify mapping was created
-			assert!(
-				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index)
-					.is_some(),
-				"Mapping should exist after first migration"
+			// Capture complete state after first run (both forward and reverse mappings)
+			let state_after_first = (
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_1),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_2),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_index_of(
+					&asset_location_1,
+				),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_index_of(
+					&asset_location_2,
+				),
+			);
+
+			// Verify mappings were created correctly after first run
+			assert_eq!(
+				state_after_first.0,
+				Some(asset_location_1.clone()),
+				"Forward mapping 1 should exist after first run"
+			);
+			assert_eq!(
+				state_after_first.1,
+				Some(asset_location_2.clone()),
+				"Forward mapping 2 should exist after first run"
+			);
+			assert_eq!(
+				state_after_first.2,
+				Some(asset_index_1),
+				"Reverse mapping 1 should exist after first run"
+			);
+			assert_eq!(
+				state_after_first.3,
+				Some(asset_index_2),
+				"Reverse mapping 2 should exist after first run"
 			);
 
 			// Run migration second time (should be idempotent)
 			run_migration_to_completion();
 
-			// Verify mapping still exists and is correct after second run
-			let stored_location =
-				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index);
+			// Capture complete state after second run
+			let state_after_second = (
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_1),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(asset_index_2),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_index_of(
+					&asset_location_1,
+				),
+				pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_index_of(
+					&asset_location_2,
+				),
+			);
+
+			// CRITICAL IDEMPOTENCY CHECK: State must be identical after second run.
+			// This guarantees the migration doesn't modify existing mappings.
 			assert_eq!(
-				stored_location,
-				Some(asset_location.clone()),
-				"Mapping should still be correct after second migration"
+				state_after_first, state_after_second,
+				"Idempotency violation: migration modified mappings on second run"
+			);
+
+			// Verify the mappings are correct (not corrupted or lost)
+			assert_eq!(
+				state_after_second.0,
+				Some(asset_location_1),
+				"Forward mapping 1 should remain after second run"
+			);
+			assert_eq!(
+				state_after_second.1,
+				Some(asset_location_2),
+				"Forward mapping 2 should remain after second run"
 			);
 		});
 	}
