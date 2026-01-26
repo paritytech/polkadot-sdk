@@ -367,7 +367,7 @@ impl PalletCmd {
 		// Run the benchmarks
 		let mut batches = Vec::new();
 		let mut batches_db = Vec::new();
-		let mut progress_timer = time::SystemTime::now();
+		let mut progress_timer = time::Instant::now();
 		// Maps (pallet, extrinsic) to its component ranges.
 		let mut component_ranges = HashMap::<(String, String), Vec<ComponentRange>>::new();
 		let pov_modes =
@@ -429,9 +429,8 @@ impl PalletCmd {
 				all_components
 			};
 
-			// Ensure each benchmark runs for at least 60 seconds.
+			// Ensure each benchmark runs for at least its minimum duration.
 			let start = time::Instant::now();
-			let deadline = start + Duration::from_secs(self.min_duration);
 			let mut first = true;
 
 			loop {
@@ -459,7 +458,7 @@ impl PalletCmd {
 						}
 					};
 
-					// First we run a verification
+					// Maybe run a verification if we are the first iteration.
 					if !self.no_verify && first {
 						let state = &state_without_tracking;
 						// Don't use these results since verification code will add overhead.
@@ -564,9 +563,8 @@ impl PalletCmd {
 					batches.extend(batch);
 
 					// Show progress information at most every 5 seconds.
-					let Ok(elapsed) = progress_timer.elapsed() else { continue };
-					if elapsed >= time::Duration::from_secs(5) {
-						progress_timer = time::SystemTime::now();
+					if progress_timer.elapsed() >= time::Duration::from_secs(5) {
+						progress_timer = time::Instant::now();
 
 						let msg = if first {
 							format!(
@@ -587,8 +585,7 @@ impl PalletCmd {
 				}
 
 				first = false;
-				let remaining = deadline.saturating_duration_since(time::Instant::now());
-				if remaining == Duration::ZERO {
+				if start.elapsed() >= Duration::from_secs(self.min_duration) {
 					break;
 				}
 			}
