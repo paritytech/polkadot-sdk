@@ -327,7 +327,11 @@ async fn test_transfer() -> anyhow::Result<()> {
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let tx = TransactionBuilder::new(client.clone()).value(value).to(ethan.address()).send().await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
 
 	let receipt = tx.wait_for_receipt().await?;
 	assert_eq!(
@@ -354,7 +358,11 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let tx = TransactionBuilder::new(client.clone()).value(value).to(ethan.address()).send().await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
 
 	let receipt = tx.wait_for_receipt().await?;
 	assert_eq!(
@@ -459,7 +467,14 @@ async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 		.await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
-	let res = node_client.runtime_api().at_latest().await?.call(payload).await?.result.unwrap();
+	let res = node_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(payload)
+		.await?
+		.result
+		.unwrap();
 
 	assert_eq!(res.addr, contract_address);
 	Ok(())
@@ -695,7 +710,8 @@ async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
 
 	// Prepare EVM transfer transactions
 	let transactions =
-		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_transactions).await?;
+		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_transactions)
+			.await?;
 
 	// Submit all transactions
 	let submitted_txs = submit_evm_transactions(transactions).await?;
@@ -723,7 +739,8 @@ async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
 	// Prepare EVM transactions
 	log::trace!(target: LOG_TARGET, "Creating {num_evm_txs} EVM transfer transactions");
 	let evm_transactions =
-		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_evm_txs).await?;
+		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_evm_txs)
+			.await?;
 
 	// Prepare substrate transactions (simple remarks)
 	log::trace!(target: LOG_TARGET, "Creating {num_substrate_txs} substrate remark transactions");
