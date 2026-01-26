@@ -957,7 +957,7 @@ impl pallet_treasury::Config for Runtime {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
-		crate::xcm_config::XcmRouter,
+		crate::xcm_config::XcmConfig,
 		crate::XcmPallet,
 		ConstU32<{ 6 * HOURS }>,
 		Self::Beneficiary,
@@ -2978,6 +2978,7 @@ sp_api::impl_runtime_apis! {
 				}
 			}
 			impl frame_system_benchmarking::Config for Runtime {}
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 			impl polkadot_runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
