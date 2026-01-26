@@ -171,3 +171,99 @@ pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::{new_test_ext, Test};
+	use frame_support::traits::StorageVersion;
+	use sp_runtime::FixedPointNumber;
+
+	/// Test implementation of InitialVaultsConfig
+	pub struct TestVaultsConfig;
+	impl InitialVaultsConfig<Test> for TestVaultsConfig {
+		fn minimum_collateralization_ratio() -> FixedU128 {
+			FixedU128::saturating_from_rational(180, 100) // 180%
+		}
+		fn initial_collateralization_ratio() -> FixedU128 {
+			FixedU128::saturating_from_rational(200, 100) // 200%
+		}
+		fn stability_fee() -> Permill {
+			Permill::from_percent(4)
+		}
+		fn liquidation_penalty() -> Permill {
+			Permill::from_percent(13)
+		}
+		fn maximum_issuance() -> BalanceOf<Test> {
+			20_000_000_000_000 // 20M with 6 decimals
+		}
+		fn max_liquidation_amount() -> BalanceOf<Test> {
+			20_000_000_000_000
+		}
+		fn max_position_amount() -> BalanceOf<Test> {
+			10_000_000_000_000
+		}
+		fn minimum_deposit() -> BalanceOf<Test> {
+			100_000_000_000_000 // 100 DOT with 10 decimals
+		}
+		fn minimum_mint() -> BalanceOf<Test> {
+			5_000_000 // 5 pUSD with 6 decimals
+		}
+		fn stale_vault_threshold() -> u64 {
+			14_400_000 // 4 hours in ms
+		}
+		fn oracle_staleness_threshold() -> u64 {
+			3_600_000 // 1 hour in ms
+		}
+	}
+
+	#[test]
+	fn migration_v0_to_v1_works() {
+		new_test_ext().execute_with(|| {
+			// Clear storage to simulate pre-migration state (v0)
+			StorageVersion::new(0).put::<Pallet<Test>>();
+			MinimumCollateralizationRatio::<Test>::kill();
+			InitialCollateralizationRatio::<Test>::kill();
+			StabilityFee::<Test>::kill();
+			LiquidationPenalty::<Test>::kill();
+			MaximumIssuance::<Test>::kill();
+			MaxLiquidationAmount::<Test>::kill();
+			MaxPositionAmount::<Test>::kill();
+			MinimumDeposit::<Test>::kill();
+			MinimumMint::<Test>::kill();
+			StaleVaultThreshold::<Test>::kill();
+			OracleStalenessThreshold::<Test>::kill();
+
+			// Verify storage is empty before migration
+			assert!(MinimumCollateralizationRatio::<Test>::get().is_zero());
+			assert!(InitialCollateralizationRatio::<Test>::get().is_zero());
+			assert!(MaximumIssuance::<Test>::get().is_zero());
+			assert!(MinimumDeposit::<Test>::get().is_zero());
+			assert!(MinimumMint::<Test>::get().is_zero());
+			assert!(StaleVaultThreshold::<Test>::get().is_zero());
+			assert!(OracleStalenessThreshold::<Test>::get().is_zero());
+
+			// Run migration
+			let _weight = InnerMigrateV0ToV1::<Test, TestVaultsConfig>::on_runtime_upgrade();
+
+			// Verify all parameters are set correctly
+			assert_eq!(
+				MinimumCollateralizationRatio::<Test>::get(),
+				FixedU128::saturating_from_rational(180, 100)
+			);
+			assert_eq!(
+				InitialCollateralizationRatio::<Test>::get(),
+				FixedU128::saturating_from_rational(200, 100)
+			);
+			assert_eq!(StabilityFee::<Test>::get(), Permill::from_percent(4));
+			assert_eq!(LiquidationPenalty::<Test>::get(), Permill::from_percent(13));
+			assert_eq!(MaximumIssuance::<Test>::get(), 20_000_000_000_000);
+			assert_eq!(MaxLiquidationAmount::<Test>::get(), 20_000_000_000_000);
+			assert_eq!(MaxPositionAmount::<Test>::get(), 10_000_000_000_000);
+			assert_eq!(MinimumDeposit::<Test>::get(), 100_000_000_000_000);
+			assert_eq!(MinimumMint::<Test>::get(), 5_000_000);
+			assert_eq!(StaleVaultThreshold::<Test>::get(), 14_400_000);
+			assert_eq!(OracleStalenessThreshold::<Test>::get(), 3_600_000);
+		});
+	}
+}
