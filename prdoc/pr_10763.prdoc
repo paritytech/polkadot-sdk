@@ -14,7 +14,7 @@ doc:
     Related to https://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834
 crates:
 - name: sp-consensus-beefy
-  bump: patch
+  bump: major
 - name: sc-consensus-beefy
   bump: patch
 - name: pallet-beefy
