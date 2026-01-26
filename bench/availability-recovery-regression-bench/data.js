@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769442303869,
+  "lastUpdate": 1769446405596,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f3507ec02185e05c96f055d808d8d17d8b969e6",
-          "message": "make sure dispute_coordinator/approval-voting parallel can receive priority messages (#8948)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8834, changed\nrelay_chain_selection to send priority messages, but did not configured\nthe subsystems to tell they can receive priority messages, with\n`can_receive_priority_messages` flag.\n\nIf `can_receive_priority_messages` is not specified orchestra falls back\nwhen sending a priority message to the normal queue, so this resulted in\nthe messages not being processed ahead of the others in the queue.\n\nFix this configuration mistake and add a test to make sure priority\nmessages are consumed ahead of normal ones by the subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T07:28:49Z",
-          "tree_id": "f45b40cb1f5276f7774d77d87f057a36768fedbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f3507ec02185e05c96f055d808d8d17d8b969e6"
-        },
-        "date": 1750753769399,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.2827100524,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1968236873666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.2037952483,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
+          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T15:39:44Z",
+          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
+        },
+        "date": 1769446381525,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.293012900633336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12557869793333332,
             "unit": "seconds"
           }
         ]
