@@ -6,3 +6,5 @@ doc:
 crates:
 - name: snowbridge-pallet-ethereum-client
   bump: patch
+- name: snowbridge-beacon-primitives
+  bump: patch
