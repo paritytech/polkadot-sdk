@@ -999,3 +999,60 @@ fn bitfield_all_bits_in_word_set() {
 		assert_err!(bitfield.set_if_not_set(i), ());
 	}
 }
+
+#[test]
+fn slash_handles_different_receivers() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+
+		let ti_before = <T as Config>::Currency::total_issuance();
+		let bob_balance_before = <T as Config>::Currency::total_balance(&BOB);
+
+		// Slash burns when no receiver
+		hypothetically!({
+			SlashReceiverAccount::set(&None);
+			assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+
+			assert_eq!(
+				<T as Config>::Currency::total_balance(&BOB),
+				bob_balance_before - SECURITY_DEPOSIT
+			);
+			assert_eq!(<T as Config>::Currency::total_issuance(), ti_before - SECURITY_DEPOSIT);
+		});
+
+		// Slash transfers to existing receiver
+		hypothetically!({
+			SlashReceiverAccount::set(&Some(EVE));
+			let eve_balance_before = <T as Config>::Currency::total_balance(&EVE);
+
+			assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+
+			assert_eq!(
+				<T as Config>::Currency::total_balance(&BOB),
+				bob_balance_before - SECURITY_DEPOSIT
+			);
+			assert_eq!(
+				<T as Config>::Currency::total_balance(&EVE),
+				eve_balance_before + SECURITY_DEPOSIT
+			);
+			assert_eq!(<T as Config>::Currency::total_issuance(), ti_before);
+		});
+
+		// Slash transfers to non-existing receiver, creating it
+		hypothetically!({
+			const TREASURY: u64 = 999;
+			SlashReceiverAccount::set(&Some(TREASURY));
+			assert_eq!(<T as Config>::Currency::total_balance(&TREASURY), 0);
+
+			assert_ok!(Recovery::slash_attempt(signed(ALICE), 0));
+
+			assert_eq!(
+				<T as Config>::Currency::total_balance(&BOB),
+				bob_balance_before - SECURITY_DEPOSIT
+			);
+			assert_eq!(<T as Config>::Currency::total_balance(&TREASURY), SECURITY_DEPOSIT);
+			assert_eq!(<T as Config>::Currency::total_issuance(), ti_before);
+		});
+	});
+}

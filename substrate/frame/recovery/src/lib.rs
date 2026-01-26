@@ -973,24 +973,24 @@ impl<T: Config> Pallet<T> {
 	/// Slash a security deposit by either burning or transferring to the slash receiver.
 	fn handle_slash(who: &T::AccountId, amount: SecurityDepositOf<T>) -> DispatchResult {
 		match T::SlashReceiver::get() {
-			Some(receiver) => {
-				T::Currency::transfer_on_hold(
-					&HoldReason::SecurityDeposit.into(),
-					who, &receiver, amount,
-					Precision::BestEffort,
-					frame::token::tokens::Restriction::Free,
-					Fortitude::Polite,
-				).map(|_| ())
-			}
-			None => {
-				T::Currency::burn_held(
-					&HoldReason::SecurityDeposit.into(),
-					who,
-					amount,
-					Precision::BestEffort,
-					Fortitude::Polite,
-				).map(|_| ())
-			}
+			Some(receiver) => T::Currency::transfer_on_hold(
+				&HoldReason::SecurityDeposit.into(),
+				who,
+				&receiver,
+				amount,
+				Precision::BestEffort,
+				frame::token::tokens::Restriction::Free,
+				Fortitude::Polite,
+			)
+			.map(|_| ()),
+			None => T::Currency::burn_held(
+				&HoldReason::SecurityDeposit.into(),
+				who,
+				amount,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)
+			.map(|_| ()),
 		}
 	}
 }
