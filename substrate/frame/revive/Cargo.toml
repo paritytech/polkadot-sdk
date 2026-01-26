@@ -44,6 +44,11 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 
+# Move dependencies
+polkavm_move_native = { git = "https://github.com/eigerco/polkavm-move", package = "polkavm-move-native", features = ["host"] }
+sha2 = { version = "0.10", default-features = false }
+sha3 = { version = "0.10", default-features = false }
+
 # Polkadot SDK Dependencies
 bn = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
@@ -120,6 +125,8 @@ std = [
 	"secp256k1/std",
 	"serde/std",
 	"serde_json/std",
+	"sha2/std",
+	"sha3/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-consensus-aura/std",

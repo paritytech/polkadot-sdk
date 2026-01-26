@@ -38,6 +38,9 @@ mod transient_storage;
 mod vm;
 mod weightinfo_extension;
 
+// move
+mod move_storage;
+
 pub mod evm;
 pub mod migrations;
 pub mod mock;
@@ -89,6 +92,9 @@ use sp_runtime::{
 	},
 	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
+
+// Move imports
+use crate::move_storage::{GlobalResourceEntry, MoveAddress, StructTagHash};
 
 pub use crate::{
 	address::{
@@ -755,6 +761,17 @@ pub mod pallet {
 			pub contract_data: Option<ContractData>,
 		}
 	}
+
+	/// Move global storage
+	#[pallet::storage]
+	pub type MoveGlobalStorage<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		MoveAddress,
+		Blake2_128Concat,
+		StructTagHash,
+		GlobalResourceEntry,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(Debug, PartialEq, frame_support::DefaultNoBound)]
