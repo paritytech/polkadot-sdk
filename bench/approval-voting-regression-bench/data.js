@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769442372071,
+  "lastUpdate": 1769446470712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e5ac83cd28610bd10a85638d90a8ee082ef2d908",
-          "message": "Multisig::as_multi_threshold_1: Send `MultisigExecuted` event (#8925)\n\nSo the behavior is the same as `as_multi` when it comes to sending an\nevent.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8924\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-23T07:18:44Z",
-          "tree_id": "ac0f0719a3eb1ef660b2957dd189143577780b43",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e5ac83cd28610bd10a85638d90a8ee082ef2d908"
-        },
-        "date": 1750667003809,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63633.35,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001806784,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.795604418819993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001852861,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3725238228099994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.35104327273,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.35651905641,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.43595662167000393,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3292271616726397,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8697806719199903,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001852861,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001806784,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005489052869999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4042919204100004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.6575919983900014,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
+          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T15:39:44Z",
+          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
+        },
+        "date": 1769446446894,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63624.030000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.51999666066306,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002379562,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000028919600000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00575851183,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000028919600000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002379562,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.668522023519997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6793892633999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.76096910171996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6401225666100023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3567062089999964,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6120099025399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7984606248199648,
             "unit": "seconds"
           }
         ]
