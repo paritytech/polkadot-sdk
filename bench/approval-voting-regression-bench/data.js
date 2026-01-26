@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769423754533,
+  "lastUpdate": 1769442372071,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "764976b5800df633b6ec5904f0ae856e16040524",
-          "message": "polkadot-omni-node: add `GetParachainInfo` runtime api  (#8651)\n\n# Description\n\nCloses #7384\nCloses #75\nCloses #8692\nCloses #8739 \n\n## Integration\n\nNode developers, node operators & runtime developers will not need to\ngenerate chain specs that contain a `para_id` field starting with this\nPR, but they'll have to implement the\n`cumulus_primitives_core::GetParachainInfo` runtime API once they drop\nthe `para_id` field, so that new nodes versions will be able to query\nthe runtime for the parachain id.\n\nStarting with `2512` the nodes will not support anymore reading the\nparachain id from chain specs `para_id` field, so it will be mandatory\nfor runtime to implement the `cumulus_primitives_core::GetParachainInfo`\ntrait and be upgraded.\n\n## Review Notes\n\nThis PR is based on prior work here:  #7546. It delivers the following:\n\n### Deprecated `para_id` chain spec extension\n\n- nodes like `polkadot-omni-node`/`polkadot-parachain`) will still\nsupport running chainspecs with `para_id` extension for a while (until\nstable2512)\n- nodes like `test-parachain`/`parachain-template-node` are supporting\nonly runtimes that implement the new runtime API.\n- `chain-spec-builder` will display that `para_id` is deprecated when\ncalling `help`, or when using the flag.\n\n### Additional cleanup/changes\n\n- fixed & renabled some omni-node/parachain-template-node tests from\n`polkadot-sdk-docs` & `templates/zombienet`, which rely on the newly\nadded runtime API as wellI. Tests based on the `para_id` chain spec\nextension are not present anymore, since omni-node will favour taking\nthe para id based on the runtime API if present.\n\n- removed the concept of running `minimal` with omni-node. I returned to\nan old idea of a few of us. At this moment we can't support it anymore\nwith omni-node since we'd need to add `parachain_info` to\n`minimal-template-runtime`, which doesn't make much sense.\n\n- most of the parachains runtimes (hope I haven't missed any relevant)\nthat run by using\n`polkadot-parachain/polkadot-omni-node/test-parachain/parachain-template-node`\nshould fail to work with the previous nodes (that support them) after\n`stable2512`. Probably that will be caught in the CI if I missed them\nduring this PR, but I doubt it.\n\n## Reviewers request\n\n- if there are other nodes used to run parachains runtimes, this is a\ngood moment to highlight them so that I can update them if needed in\nterms of picking up the `parachain_id` from the runtime.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Steven <stevenlawrence13e@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2025-06-22T18:31:15Z",
-          "tree_id": "b58e80b1292e6202f90085c779752e346ca3a764",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/764976b5800df633b6ec5904f0ae856e16040524"
-        },
-        "date": 1750621121089,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63623.670000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001732448,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001732448,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.397160898580001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3999619257999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.853602803349997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3578283835300007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.886107308259989,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001762142,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.44681268645000627,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3415334698226835,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005695608509999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001762142,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.360035992219999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.878387771199971,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "51d25debbc1b4ee0e81ceaf26d970fe93e089aa3",
+          "message": "[pallet-revive] Execution tracer (#9722)\n\nThis PR introduces a **Geth-compatible execution tracer**\n([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\nfor pallet-revive\n\nThe tracer can be used to capture both EVM opcode and PVM syscall.\nIt can be used with  the same RPC endpoint as Geth StructLogger.\n\n\nSince it can be quite resource intensive, It can only be queried from\nthe node when the **DebugSettings** are enabled (This is turned on now\nby default in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\n\nexample:\n\n```sh\n❯ cast rpc debug_traceTransaction \"<TX_HASH>\" | jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\n  ❯ cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\": true } } | jq\n```\n\nThe response includes additional fields compared to the original Geth\ndebug RPC endpoints:\n\nFor the trace:\n- `weight_consumed`: same as gas but expressed in Weight\n- `base_call_weight`: the base cost of the transaction\n\nFor each step:\n- `weight_cost`: same as gas_cost but expressed in Weight\n\nFor an EVM execution, the output will look like this\n\n```json\n{\n  \"gas\": 4208049,\n  \"weight_consumed\": { \"ref_time\": 126241470000, \"proof_size\": 4208 },\n  \"base_call_weight\": { \"ref_time\": 9000000000, \"proof_size\": 3000 },\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 4109533,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"stack\": []\n    },\n    {\n      \"gas\": 4109530,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\": [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 4109527,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\",\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n}\n```\n\nFor PVM execution, each step includes additional fields not present in\nGeth:\n\n- `args`: Array of syscall arguments (register values a0-a5) as hex\nstrings\n- `returned`: The syscall return value as hex string\n\nThese fields are enabled by default. To disable them, use\n`disableSyscallDetails: true`.\n\nExample output with syscall details:\n\n```json\n{\n  \"gas\": 97108,\n  \"gasCost\": 131,\n  \"weight_cost\": { \"ref_time\": 3930000, \"proof_size\": 0 },\n  \"depth\": 1,\n  \"op\": \"call_data_load\",\n  \"args\": [\"0x0\", \"0x4\"],\n  \"returned\": \"0x2a\"\n}\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
+          "timestamp": "2026-01-26T14:22:27Z",
+          "tree_id": "c696ec74b23b860d9b4c6e7b1f116ed00122a83a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/51d25debbc1b4ee0e81ceaf26d970fe93e089aa3"
+        },
+        "date": 1769442347186,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63624.47000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.735858863269973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023530749999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002392004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.616960068189999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7976142074999755,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.347704694079996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.6526267386729385,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023530749999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005413748749999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6510665646600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6595075817000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002392004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6575919983900014,
             "unit": "seconds"
           }
         ]
