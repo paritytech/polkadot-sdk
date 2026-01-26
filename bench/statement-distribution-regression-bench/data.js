@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769442406098,
+  "lastUpdate": 1769446502636,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5072bf9b93dc1c9dff0161ab6efe2799036045e9",
-          "message": "Scheduler `on_initialize` supports skipped blocks (#8723)\n\nScheduler `on_initialize` supports skipped blocks.\n\nScheduler correctly handles situations where `on_initialize` is invoked\nwith block numbers that:\n- increase but are not strictly consecutive (e.g., jump from 5 → 10), or\n- are repeated (e.g., multiple blocks are built at the same Relay Chain\nparent block, all reporting the same `BlockNumberProvider` value).\n\nThis situation may occur when the `BlockNumberProvider` is not local -\nfor example, on a parachain using the Relay Chain block number provider.\n\nImplementation notes:\n- The `IncompleteSince` value is always set to the next block `(now +\n1)`.\n- A scheduled task is considered permanently overweight only if it fails\nduring the first agenda processing;",
-          "timestamp": "2025-06-21T20:35:41Z",
-          "tree_id": "2cd75d8bd1acbb19ed31a2ae5344c840c8fd73cb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5072bf9b93dc1c9dff0161ab6efe2799036045e9"
-        },
-        "date": 1750542222204,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 127.95599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.045385166729999954,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03417556367600001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038497612198,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
+          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T15:39:44Z",
+          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
+        },
+        "date": 1769446479353,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.04199999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038147417108,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0644553332079999,
             "unit": "seconds"
           }
         ]
