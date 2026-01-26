@@ -88,6 +88,7 @@ impl Config for Test {
 		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
 	>;
 	type SecurityDeposit = ConstU128<SECURITY_DEPOSIT>;
+	type SlashReceiver = (); // burn
 	type WeightInfo = ();
 }
 

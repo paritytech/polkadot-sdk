@@ -167,6 +167,7 @@ impl<AccountId: Clone + Eq, Footprint, C: Consideration<AccountId, Footprint>>
 		Ok(Self { depositor: new_depositor.clone(), ticket, _phantom: Default::default() })
 	}
 
+	/// Try to drop the consideration and refund the deposit.
 	pub fn try_drop(self) -> Result<(), DispatchError> {
 		if let Some(ticket) = self.ticket {
 			ticket.drop(&self.depositor)?;

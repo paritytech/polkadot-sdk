@@ -330,6 +330,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type SecurityDeposit: Get<BalanceOf<Self>>;
 
+		/// Receiver of slashed security deposits.
+		///
+		/// Set to `None` to burn the slashed security deposit.
+		#[pallet::constant]
+		type SlashReceiver: Get<Option<Self::AccountId>>;
+
 		/// DO NOT REDUCE THIS VALUE. Maximum number of friends per account config.
 		///
 		/// Reducing this value can cause decoding errors in the bounded vectors.
@@ -868,14 +874,7 @@ pub mod pallet {
 				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
 
 			let _: Result<(), DispatchError> = ticket.try_drop().defensive();
-			let _: Result<BalanceOf<T>, DispatchError> = T::Currency::burn_held(
-				&HoldReason::SecurityDeposit.into(),
-				&attempt.initiator,
-				deposit,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)
-			.defensive();
+			let _ = Self::handle_slash(&attempt.initiator, deposit).defensive();
 
 			Self::deposit_event(Event::<T>::AttemptSlashed {
 				lost,
@@ -969,5 +968,29 @@ impl<T: Config> Pallet<T> {
 		}
 
 		friend_groups.try_into().map_err(|_| Error::<T>::TooManyFriendGroups)
+	}
+
+	/// Slash a security deposit by either burning or transferring to the slash receiver.
+	fn handle_slash(who: &T::AccountId, amount: SecurityDepositOf<T>) -> DispatchResult {
+		match T::SlashReceiver::get() {
+			Some(receiver) => {
+				T::Currency::transfer_on_hold(
+					&HoldReason::SecurityDeposit.into(),
+					who, &receiver, amount,
+					Precision::BestEffort,
+					frame::token::tokens::Restriction::Free,
+					Fortitude::Polite,
+				).map(|_| ())
+			}
+			None => {
+				T::Currency::burn_held(
+					&HoldReason::SecurityDeposit.into(),
+					who,
+					amount,
+					Precision::BestEffort,
+					Fortitude::Polite,
+				).map(|_| ())
+			}
+		}
 	}
 }
