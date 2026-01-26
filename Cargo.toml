@@ -364,6 +364,7 @@ members = [
 	"substrate/frame/examples",
 	"substrate/frame/examples/authorization-tx-extension",
 	"substrate/frame/examples/basic",
+	"substrate/frame/examples/custom-benchmarking-config",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",
 	"substrate/frame/examples/frame-crate",
@@ -988,6 +989,7 @@ pallet-election-provider-support-benchmarking = { path = "substrate/frame/electi
 pallet-elections-phragmen = { path = "substrate/frame/elections-phragmen", default-features = false }
 pallet-example-authorization-tx-extension = { path = "substrate/frame/examples/authorization-tx-extension", default-features = false }
 pallet-example-basic = { path = "substrate/frame/examples/basic", default-features = false }
+pallet-example-custom-benchmarking-config = { path = "substrate/frame/examples/custom-benchmarking-config", default-features = false }
 pallet-example-frame-crate = { path = "substrate/frame/examples/frame-crate", default-features = false }
 pallet-example-kitchensink = { path = "substrate/frame/examples/kitchensink", default-features = false }
 pallet-example-mbm = { path = "substrate/frame/examples/multi-block-migrations", default-features = false }
