@@ -1210,6 +1210,70 @@ mod fee_accrual {
 			assert_eq!(vault.principal, debt, "Principal should remain 10k pUSD");
 		});
 	}
+
+	/// **Test: Interest accrues even when debt ceiling is reached**
+	///
+	/// This test verifies that interest (representing existing debt obligations)
+	/// can still be minted to the Insurance Fund even after the system debt ceiling
+	/// (`MaximumIssuance`) has been reached. This is intentional because:
+	/// - Interest represents obligations already incurred, not new borrowing
+	/// - Blocking interest would leave debt untracked on-chain
+	/// - The Insurance Fund must receive revenue for system solvency
+	///
+	/// Principal mints are still blocked when the ceiling is reached.
+	#[test]
+	fn interest_accrues_even_at_debt_ceiling() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::Inspect;
+
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Set debt ceiling to current issuance (no room for new mints)
+			let current_issuance = Assets::total_issuance(StablecoinAssetId::get());
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::root(), current_issuance));
+
+			// Verify principal minting is now blocked
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 50 * DOT));
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::ExceedsMaxDebt
+			);
+
+			// Advance time to accrue interest
+			jump_to_block(5_256_000); // ~1 year
+
+			// Check that interest was still minted despite ceiling
+			let vault = crate::Vaults::<Test>::get(ALICE).unwrap();
+			let expected_interest = 8 * PUSD; // 4% of 200 pUSD
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				INTEREST_TOLERANCE,
+				"Interest should accrue despite debt ceiling",
+			);
+
+			// Insurance Fund should have received the interest
+			let insurance_fund = <Test as crate::Config>::InsuranceFund::get();
+			let fund_balance = Assets::balance(StablecoinAssetId::get(), &insurance_fund);
+			assert_approx_eq(
+				fund_balance,
+				expected_interest,
+				INTEREST_TOLERANCE,
+				"Insurance Fund should receive minted interest",
+			);
+
+			// Total issuance should now exceed the ceiling (interest was minted)
+			let new_issuance = Assets::total_issuance(StablecoinAssetId::get());
+			assert!(
+				new_issuance > current_issuance,
+				"Total issuance should exceed ceiling due to interest"
+			);
+		});
+	}
 }
 
 mod edge_cases {

@@ -288,6 +288,19 @@ pub mod pallet {
 		Emergency,
 	}
 
+	/// Purpose of a pUSD minting operation.
+	///
+	/// Used by [`Pallet::do_mint`] to determine which invariants to enforce.
+	#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+	pub(crate) enum MintPurpose {
+		/// Minting new principal debt.
+		/// Subject to strict `MaximumIssuance` enforcement.
+		Principal,
+		/// Minting accrued interest.
+		/// Represents existing obligations; allowed even if ceiling is reached.
+		Interest,
+	}
+
 	/// Unified balance type for both collateral (DOT) and stablecoin (pUSD).
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -1045,14 +1058,6 @@ pub mod pallet {
 				let new_principal =
 					vault.principal.checked_add(&amount).ok_or(Error::<T>::ArithmeticOverflow)?;
 
-				// Check max debt using total issuance of pUSD
-				// Total debt = Total pUSD in circulation
-				let total_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
-				ensure!(
-					total_issuance.saturating_add(amount) <= MaximumIssuance::<T>::get(),
-					Error::<T>::ExceedsMaxDebt
-				);
-
 				// Check vault's resulting debt does not exceed MaxPositionAmount
 				ensure!(
 					new_principal <= MaxPositionAmount::<T>::get(),
@@ -1067,7 +1072,7 @@ pub mod pallet {
 				let initial_ratio = InitialCollateralizationRatio::<T>::get();
 				ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
-				T::Asset::mint_into(T::StablecoinAssetId::get(), &who, amount)?;
+				Self::do_mint(&who, amount, MintPurpose::Principal)?;
 
 				Self::deposit_event(Event::Minted { owner: who.clone(), amount });
 				Ok(())
@@ -1928,6 +1933,40 @@ pub mod pallet {
 
 	// Helper functions
 	impl<T: Config> Pallet<T> {
+		/// Internal utility for all pUSD minting operations.
+		///
+		///
+		/// # Arguments
+		/// * `to` - Account to receive the minted pUSD
+		/// * `amount` - Amount of pUSD to mint
+		/// * `purpose` - The purpose of this mint (affects which checks are enforced)
+		///
+		/// # Errors
+		/// * [`Error::ExceedsMaxDebt`] - For `Principal` mints when ceiling would be exceeded
+		pub(crate) fn do_mint(
+			to: &T::AccountId,
+			amount: BalanceOf<T>,
+			purpose: MintPurpose,
+		) -> DispatchResult {
+			if amount.is_zero() {
+				return Ok(());
+			}
+
+			// For principal mints, strictly enforce the system debt ceiling
+			if matches!(purpose, MintPurpose::Principal) {
+				let total_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
+				ensure!(
+					total_issuance.saturating_add(amount) <= MaximumIssuance::<T>::get(),
+					Error::<T>::ExceedsMaxDebt
+				);
+			}
+
+			// Execute the mint
+			T::Asset::mint_into(T::StablecoinAssetId::get(), to, amount)?;
+
+			Ok(())
+		}
+
 		/// Calculate collateralization ratio from explicit collateral and debt values.
 		///
 		/// Formula:
@@ -2046,13 +2085,7 @@ pub mod pallet {
 			);
 			let accrued = elapsed_ratio.saturating_mul_int(annual_interest_pusd);
 
-			if !accrued.is_zero() {
-				T::Asset::mint_into(
-					T::StablecoinAssetId::get(),
-					&T::InsuranceFund::get(),
-					accrued,
-				)?;
-			}
+			Self::do_mint(&T::InsuranceFund::get(), accrued, MintPurpose::Interest)?;
 
 			vault.accrued_interest.saturating_accrue(accrued);
 			vault.last_fee_update = now;
