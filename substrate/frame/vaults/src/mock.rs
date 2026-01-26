@@ -240,13 +240,6 @@ parameter_types! {
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
 	pub const FeeHandlerAccount: u64 = FEE_HANDLER;
 	pub const TreasuryAccount: u64 = TREASURY;
-	pub const MinimumDeposit: u128 = 100 * DOT_UNIT;
-	/// Minimum mint: 5 pUSD (6 decimals)
-	pub const MinimumMint: u128 = 5 * PUSD_UNIT;
-	/// 4 hours in milliseconds (4 * 60 * 60 * 1000)
-	pub const StaleVaultThreshold: u64 = 14_400_000;
-	/// Oracle staleness threshold: 1 hour = 3,600,000 ms
-	pub const OracleStalenessThreshold: u64 = 3_600_000;
 	/// Max items to process in on_idle (unlimited for tests)
 	pub const MaxOnIdleItems: u32 = u32::MAX;
 	// DOT from AH perspective is at Location::here()
@@ -335,11 +328,7 @@ impl crate::Config for Test {
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<FeeHandlerAccount, Balances>;
 	type SurplusHandler = SurplusPusdToTreasury;
-	type MinimumDeposit = MinimumDeposit;
-	type MinimumMint = MinimumMint;
 	type TimeProvider = MockTimestamp;
-	type StaleVaultThreshold = StaleVaultThreshold;
-	type OracleStalenessThreshold = OracleStalenessThreshold;
 	type MaxOnIdleItems = MaxOnIdleItems;
 	type Oracle = MockOracle;
 	type CollateralLocation = CollateralLocation;
@@ -398,6 +387,14 @@ pub fn new_test_ext() -> TestState {
 		max_liquidation_amount: 20_000_000 * PUSD_UNIT,
 		// MaxPositionAmount: 10 million pUSD
 		max_position_amount: 10_000_000 * PUSD_UNIT,
+		// MinimumDeposit: 100 DOT
+		minimum_deposit: 100 * DOT_UNIT,
+		// MinimumMint: 5 pUSD
+		minimum_mint: 5 * PUSD_UNIT,
+		// StaleVaultThreshold: 4 hours (14,400,000 ms)
+		stale_vault_threshold: 14_400_000,
+		// OracleStalenessThreshold: 1 hour (3,600,000 ms)
+		oracle_staleness_threshold: 3_600_000,
 	}
 	.assimilate_storage(&mut storage)
 	.unwrap();

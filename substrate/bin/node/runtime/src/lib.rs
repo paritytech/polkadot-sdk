@@ -3046,16 +3046,6 @@ impl pallet_oracle::Config for Runtime {
 parameter_types! {
 	/// The pUSD stablecoin asset ID.
 	pub const VaultsStablecoinAssetId: u32 = 1;
-	/// Minimum collateral deposit to create a vault: 100 DOT.
-	pub const VaultsMinimumDeposit: Balance = 100 * DOLLARS;
-	/// Minimum mint amount: 5 pUSD (pUSD has 6 decimals, so 5_000_000).
-	pub const VaultsMinimumMint: Balance = 5_000_000;
-	/// Duration (milliseconds) before a vault is considered stale for on_idle fee accrual.
-	/// 4 hours = 4 × 60 × 60 × 1000 = 14,400,000 ms
-	pub const VaultsStaleThreshold: u64 = 14_400_000;
-	/// Maximum age (milliseconds) of oracle price before operations are paused.
-	/// 1 hour = 60 × 60 × 1000 = 3,600,000 ms
-	pub const VaultsOracleStalenessThreshold: u64 = 3_600_000;
 	/// DOT collateral location.
 	pub VaultsCollateralLocation: Location = Location::here();
 	/// Maximum vaults to process in on_idle per block.
@@ -3240,12 +3230,8 @@ impl pallet_vaults::Config for Runtime {
 	type InsuranceFund = InsuranceFundAccount;
 	type FeeHandler = ResolveTo<TreasuryAccount, Balances>;
 	type SurplusHandler = ResolveAssetTo<TreasuryAccount, Assets>;
-	type MinimumDeposit = VaultsMinimumDeposit;
-	type MinimumMint = VaultsMinimumMint;
 	type TimeProvider = Timestamp;
 	type ManagerOrigin = EnsureVaultsManager;
-	type StaleVaultThreshold = VaultsStaleThreshold;
-	type OracleStalenessThreshold = VaultsOracleStalenessThreshold;
 	type MaxOnIdleItems = VaultsMaxOnIdleItems;
 	type Oracle = MockOracleAdapter;
 	type CollateralLocation = VaultsCollateralLocation;

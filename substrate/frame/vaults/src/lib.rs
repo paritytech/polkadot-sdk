@@ -382,25 +382,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type InsuranceFund: Get<Self::AccountId>;
 
-		/// Minimum collateral deposit required to create a vault.
-		#[pallet::constant]
-		type MinimumDeposit: Get<BalanceOf<Self>>;
-
-		/// Minimum amount of stablecoin that can be minted in a single operation.
-		#[pallet::constant]
-		type MinimumMint: Get<BalanceOf<Self>>;
-
-		/// Duration (in milliseconds) before a vault is considered stale for `on_idle` fee accrual.
-		/// Suggested value: 14,400,000 ms (~4 hours).
-		#[pallet::constant]
-		type StaleVaultThreshold: Get<MomentOf<Self>>;
-
-		/// Maximum age (in milliseconds) of oracle price before operations are paused.
-		/// When the oracle price is older than this threshold, price-dependent operations
-		/// (mint, withdraw with debt, liquidate) will fail.
-		#[pallet::constant]
-		type OracleStalenessThreshold: Get<MomentOf<Self>>;
-
 		/// Maximum number of vaults to process per `on_idle` call.
 		///
 		/// This is a safety limit independent of weight to guard against benchmarking
@@ -553,6 +534,25 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type OnIdleCursor<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
+	/// Minimum collateral deposit required to create a vault.
+	#[pallet::storage]
+	pub type MinimumDeposit<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Minimum amount of stablecoin that can be minted in a single operation.
+	#[pallet::storage]
+	pub type MinimumMint<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Duration (in milliseconds) before a vault is considered stale for `on_idle` fee accrual.
+	/// Suggested value: 14,400,000 ms (~4 hours).
+	#[pallet::storage]
+	pub type StaleVaultThreshold<T: Config> = StorageValue<_, MomentOf<T>, ValueQuery>;
+
+	/// Maximum age (in milliseconds) of oracle price before operations are paused.
+	/// When the oracle price is older than this threshold, price-dependent operations
+	/// (mint, withdraw with debt, liquidate) will fail.
+	#[pallet::storage]
+	pub type OracleStalenessThreshold<T: Config> = StorageValue<_, MomentOf<T>, ValueQuery>;
+
 	/// Genesis configuration for the vaults pallet.
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -573,6 +573,14 @@ pub mod pallet {
 		pub max_liquidation_amount: BalanceOf<T>,
 		/// Maximum pUSD debt that a single vault can have.
 		pub max_position_amount: BalanceOf<T>,
+		/// Minimum DOT required to create a vault.
+		pub minimum_deposit: BalanceOf<T>,
+		/// Minimum pUSD amount that can be minted in a single operation.
+		pub minimum_mint: BalanceOf<T>,
+		/// Milliseconds before a vault is considered stale for on_idle processing.
+		pub stale_vault_threshold: u64,
+		/// Maximum age (milliseconds) of oracle price before operations pause.
+		pub oracle_staleness_threshold: u64,
 	}
 
 	#[pallet::genesis_build]
@@ -585,6 +593,14 @@ pub mod pallet {
 			MaximumIssuance::<T>::put(self.maximum_issuance);
 			MaxLiquidationAmount::<T>::put(self.max_liquidation_amount);
 			MaxPositionAmount::<T>::put(self.max_position_amount);
+			MinimumDeposit::<T>::put(self.minimum_deposit);
+			MinimumMint::<T>::put(self.minimum_mint);
+			StaleVaultThreshold::<T>::put(
+				self.stale_vault_threshold.saturated_into::<MomentOf<T>>(),
+			);
+			OracleStalenessThreshold::<T>::put(
+				self.oracle_staleness_threshold.saturated_into::<MomentOf<T>>(),
+			);
 			Pallet::<T>::ensure_insurance_fund_exists();
 		}
 	}
@@ -639,6 +655,14 @@ pub mod pallet {
 		MaxLiquidationAmountUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
 		/// Maximum single vault debt was updated by governance.
 		MaxPositionAmountUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
+		/// Minimum deposit amount was updated by governance.
+		MinimumDepositUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
+		/// Minimum mint amount was updated by governance.
+		MinimumMintUpdated { old_value: BalanceOf<T>, new_value: BalanceOf<T> },
+		/// Stale vault threshold was updated by governance.
+		StaleVaultThresholdUpdated { old_value: MomentOf<T>, new_value: MomentOf<T> },
+		/// Oracle staleness threshold was updated by governance.
+		OracleStalenessThresholdUpdated { old_value: MomentOf<T>, new_value: MomentOf<T> },
 		/// Bad debt accrued when auctions leave unbacked principal.
 		BadDebtAccrued {
 			/// The vault owner whose liquidation resulted in bad debt.
@@ -766,7 +790,7 @@ pub mod pallet {
 			}
 
 			let current_timestamp = T::TimeProvider::now();
-			let stale_threshold = T::StaleVaultThreshold::get();
+			let stale_threshold = StaleVaultThreshold::<T>::get();
 			let per_vault_weight = Self::on_idle_per_vault_weight();
 			let max_items = T::MaxOnIdleItems::get();
 
@@ -869,7 +893,7 @@ pub mod pallet {
 		pub fn create_vault(origin: OriginFor<T>, initial_deposit: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(initial_deposit >= T::MinimumDeposit::get(), Error::<T>::BelowMinimumDeposit);
+			ensure!(initial_deposit >= MinimumDeposit::<T>::get(), Error::<T>::BelowMinimumDeposit);
 
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				ensure!(maybe_vault.is_none(), Error::<T>::VaultAlreadyExists);
@@ -981,7 +1005,7 @@ pub mod pallet {
 				} else {
 					// Prevent dust vaults: remaining collateral must meet MinimumDeposit.
 					ensure!(
-						remaining_collateral >= T::MinimumDeposit::get(),
+						remaining_collateral >= MinimumDeposit::<T>::get(),
 						Error::<T>::BelowMinimumDeposit
 					);
 
@@ -1051,7 +1075,7 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				ensure!(amount >= T::MinimumMint::get(), Error::<T>::BelowMinimumMint);
+				ensure!(amount >= MinimumMint::<T>::get(), Error::<T>::BelowMinimumMint);
 
 				Self::update_vault_fees(vault, &who, None)?;
 
@@ -1691,6 +1715,148 @@ pub mod pallet {
 			Self::deposit_event(Event::MaximumIssuanceUpdated { old_value, new_value: amount });
 			Ok(())
 		}
+
+		/// Set the minimum deposit amount.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`MinimumDeposit`] which is the minimum amount of collateral (DOT)
+		/// required to create a vault. This prevents dust vaults and ensures vaults
+		/// have meaningful collateral.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MinimumDepositUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::set_minimum_deposit())]
+		pub fn set_minimum_deposit(
+			origin: OriginFor<T>,
+			new_value: BalanceOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+
+			let old_value = MinimumDeposit::<T>::get();
+			MinimumDeposit::<T>::put(new_value);
+
+			Self::deposit_event(Event::MinimumDepositUpdated { old_value, new_value });
+			Ok(())
+		}
+
+		/// Set the minimum mint amount.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`MinimumMint`] which is the minimum amount of pUSD that can be
+		/// minted in a single operation. This prevents dust debt positions.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MinimumMintUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::set_minimum_mint())]
+		pub fn set_minimum_mint(origin: OriginFor<T>, new_value: BalanceOf<T>) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+
+			let old_value = MinimumMint::<T>::get();
+			MinimumMint::<T>::put(new_value);
+
+			Self::deposit_event(Event::MinimumMintUpdated { old_value, new_value });
+			Ok(())
+		}
+
+		/// Set the stale vault threshold.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`StaleVaultThreshold`] which is the duration (in milliseconds)
+		/// before a vault is considered stale for `on_idle` fee accrual processing.
+		/// Vaults unchanged for this duration will have their fees updated during
+		/// idle block processing.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::StaleVaultThresholdUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(18)]
+		#[pallet::weight(T::WeightInfo::set_stale_vault_threshold())]
+		pub fn set_stale_vault_threshold(
+			origin: OriginFor<T>,
+			new_value: MomentOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+
+			let old_value = StaleVaultThreshold::<T>::get();
+			StaleVaultThreshold::<T>::put(new_value);
+
+			Self::deposit_event(Event::StaleVaultThresholdUpdated { old_value, new_value });
+			Ok(())
+		}
+
+		/// Set the oracle staleness threshold.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`OracleStalenessThreshold`] which is the maximum age (in milliseconds)
+		/// of the oracle price before price-dependent operations are paused. When the
+		/// oracle price is older than this threshold, operations like mint, withdraw
+		/// with debt, and liquidate will fail.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::OracleStalenessThresholdUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::set_oracle_staleness_threshold())]
+		pub fn set_oracle_staleness_threshold(
+			origin: OriginFor<T>,
+			new_value: MomentOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+
+			let old_value = OracleStalenessThreshold::<T>::get();
+			OracleStalenessThreshold::<T>::put(new_value);
+
+			Self::deposit_event(Event::OracleStalenessThresholdUpdated { old_value, new_value });
+			Ok(())
+		}
 	}
 
 	// Implement CollateralManager for the Vaults pallet
@@ -2127,7 +2293,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::PriceNotAvailable)?;
 
 			let current_time = T::TimeProvider::now();
-			let threshold = T::OracleStalenessThreshold::get();
+			let threshold = OracleStalenessThreshold::<T>::get();
 			let price_age = current_time.saturating_sub(price_timestamp);
 
 			ensure!(price_age <= threshold, Error::<T>::OracleStale);
@@ -2147,7 +2313,7 @@ pub mod pallet {
 			let insurance_fund = T::InsuranceFund::get();
 			if !frame_system::Pallet::<T>::account_exists(&insurance_fund) {
 				frame_system::Pallet::<T>::inc_providers(&insurance_fund);
-				log::info!(
+				log::debug!(
 					target: LOG_TARGET,
 					"Created Insurance Fund account: {:?}",
 					insurance_fund

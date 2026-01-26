@@ -111,6 +111,16 @@ pub fn kitchensink_genesis(
 			maximum_issuance: 20_000_000 * 1_000_000,
 			// 20M pUSD maximum concurrent liquidation exposure
 			max_liquidation_amount: 20_000_000 * 1_000_000,
+			// 10M pUSD maximum single vault debt
+			max_position_amount: 10_000_000 * 1_000_000,
+			// Minimum collateral deposit to create a vault: 100 DOT.
+			minimum_deposit: 100 * DOLLARS,
+			// Minimum mint amount: 5 pUSD.
+			minimum_mint: 5 * 1_000_000,
+			// 4 hours stale vault threshold (milliseconds)
+			stale_vault_threshold: 4 * 60 * 60 * 1000,
+			// 1 hour oracle staleness threshold (milliseconds)
+			oracle_staleness_threshold: 60 * 60 * 1000,
 		},
 	})
 }

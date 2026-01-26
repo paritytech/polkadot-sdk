@@ -18,25 +18,25 @@
 //! Benchmarking setup for pallet-vaults
 
 use super::*;
-use crate::Pallet as Vaults;
+use crate::{
+	BadDebt, InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount,
+	MaxPositionAmount, MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
+	OnIdleCursor, OracleStalenessThreshold, Pallet as Vaults, StabilityFee, StaleVaultThreshold,
+	VaultStatus, Vaults as VaultsStorage,
+};
 use frame_benchmarking::v2::*;
 use frame_support::{
-	traits::{Get, Hooks},
+	traits::{fungibles::Inspect, Get, Hooks},
 	weights::Weight,
 };
 use frame_system::RawOrigin;
-use pallet::BalanceOf;
+use pallet::{BalanceOf, MomentOf};
 use sp_runtime::{FixedU128, Permill, SaturatedConversion, Saturating};
-
-/// Minimum deposit amount for vault creation (must be >= T::MinimumDeposit)
-fn minimum_deposit<T: Config>() -> BalanceOf<T> {
-	T::MinimumDeposit::get()
-}
 
 /// A larger deposit for scenarios requiring extra collateral headroom
 fn large_deposit<T: Config>() -> BalanceOf<T> {
 	// 10x minimum to allow minting and withdrawals
-	T::MinimumDeposit::get().saturating_mul(10u32.into())
+	MinimumDeposit::<T>::get().saturating_mul(10u32.into())
 }
 
 /// Safe mint amount that maintains ICR with large_deposit
@@ -60,7 +60,7 @@ fn ensure_insurance_fund<T: Config>() {
 	if !frame_system::Pallet::<T>::account_exists(&insurance_fund) {
 		frame_system::Pallet::<T>::inc_providers(&insurance_fund);
 	}
-	fund_account::<T>(&insurance_fund, T::MinimumDeposit::get());
+	fund_account::<T>(&insurance_fund, MinimumDeposit::<T>::get());
 }
 
 /// Ensure the stablecoin asset exists
@@ -70,21 +70,20 @@ fn ensure_stablecoin_asset<T: Config>() {
 
 /// Set up the system for minting by ensuring MaximumIssuance is set high enough
 fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
-	use frame_support::traits::fungibles::Inspect;
 	let current_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
 	let required = current_issuance.saturating_add(amount).saturating_mul(2u32.into());
-	let current_max = crate::MaximumIssuance::<T>::get();
+	let current_max = MaximumIssuance::<T>::get();
 	if current_max < required {
-		crate::MaximumIssuance::<T>::put(required);
+		MaximumIssuance::<T>::put(required);
 	}
 }
 
 /// Ensure MaxPositionAmount is set high enough for the given mint amount
 fn ensure_max_position_amount<T: Config>(amount: BalanceOf<T>) {
 	let required = amount.saturating_mul(2u32.into());
-	let current_max = crate::MaxPositionAmount::<T>::get();
+	let current_max = MaxPositionAmount::<T>::get();
 	if current_max < required {
-		crate::MaxPositionAmount::<T>::put(required);
+		MaxPositionAmount::<T>::put(required);
 	}
 }
 
@@ -138,7 +137,7 @@ fn create_vault_with_debt<T: Config>(owner: &T::AccountId) -> Result<BalanceOf<T
 /// This represents the realistic maximum time a vault could go without
 /// fee updates, since `on_idle` processes vaults that exceed this threshold.
 fn advance_to_stale_threshold<T: Config>() {
-	let stale_threshold: u64 = T::StaleVaultThreshold::get().saturated_into();
+	let stale_threshold: u64 = StaleVaultThreshold::<T>::get().saturated_into();
 	T::BenchmarkHelper::advance_time(stale_threshold + 1);
 }
 
@@ -155,7 +154,7 @@ mod benchmarks {
 	#[benchmark]
 	fn create_vault() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let deposit = minimum_deposit::<T>();
+		let deposit = MinimumDeposit::<T>::get();
 
 		// Fund account with enough balance
 		fund_account::<T>(&caller, deposit.saturating_mul(2u32.into()));
@@ -164,7 +163,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), deposit);
 
 		// Verify vault was created
-		assert!(crate::Vaults::<T>::contains_key(&caller));
+		assert!(VaultsStorage::<T>::contains_key(&caller));
 		Ok(())
 	}
 
@@ -183,10 +182,10 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		// Fund additional collateral
-		let additional = minimum_deposit::<T>();
+		let additional = MinimumDeposit::<T>::get();
 		fund_account::<T>(&caller, additional.saturating_mul(2u32.into()));
 
-		let collateral_before = crate::Vaults::<T>::get(&caller)
+		let collateral_before = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
 			.get_held_collateral(&caller);
 
@@ -194,7 +193,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), additional);
 
 		// Verify collateral increased
-		let collateral_after = crate::Vaults::<T>::get(&caller)
+		let collateral_after = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
 			.get_held_collateral(&caller);
 		assert!(collateral_after > collateral_before);
@@ -216,9 +215,8 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		// Withdraw a small amount (must remain above minimum)
-		let withdraw_amount = minimum_deposit::<T>();
-
-		let collateral_before = crate::Vaults::<T>::get(&caller)
+		let withdraw_amount = MinimumDeposit::<T>::get();
+		let collateral_before = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
 			.get_held_collateral(&caller);
 
@@ -226,7 +224,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), withdraw_amount);
 
 		// Verify collateral decreased
-		let collateral_after = crate::Vaults::<T>::get(&caller)
+		let collateral_after = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
 			.get_held_collateral(&caller);
 		assert!(collateral_after < collateral_before);
@@ -258,7 +256,7 @@ mod benchmarks {
 
 		// Verify debt increased
 		let vault =
-			crate::Vaults::<T>::get(&caller).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&caller).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		assert_eq!(vault.principal, mint_amount);
 		Ok(())
 	}
@@ -286,7 +284,7 @@ mod benchmarks {
 
 		// Verify debt decreased
 		let vault =
-			crate::Vaults::<T>::get(&caller).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&caller).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		assert!(vault.principal < debt);
 		Ok(())
 	}
@@ -321,8 +319,8 @@ mod benchmarks {
 
 		// Verify vault is in liquidation
 		let vault =
-			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
-		assert_eq!(vault.status, crate::VaultStatus::InLiquidation);
+			VaultsStorage::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
+		assert_eq!(vault.status, VaultStatus::InLiquidation);
 
 		// Reset price for other tests (normalized $4.21)
 		T::BenchmarkHelper::set_price(FixedU128::from_inner(421_000_000_000_000));
@@ -349,7 +347,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()));
 
 		// Verify vault was removed
-		assert!(!crate::Vaults::<T>::contains_key(&caller));
+		assert!(!VaultsStorage::<T>::contains_key(&caller));
 		Ok(())
 	}
 
@@ -362,7 +360,7 @@ mod benchmarks {
 
 		// Set up bad debt
 		let bad_debt_amount: BalanceOf<T> = safe_mint_amount::<T>();
-		crate::BadDebt::<T>::put(bad_debt_amount);
+		BadDebt::<T>::put(bad_debt_amount);
 
 		// Mint pUSD to InsuranceFund so it can be burned
 		mint_pusd_to::<T>(&T::InsuranceFund::get(), bad_debt_amount)?;
@@ -373,7 +371,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), heal_amount);
 
 		// Verify bad debt reduced
-		let remaining_bad_debt = crate::BadDebt::<T>::get();
+		let remaining_bad_debt = BadDebt::<T>::get();
 		assert!(remaining_bad_debt < bad_debt_amount);
 		Ok(())
 	}
@@ -393,7 +391,7 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		let vault_before =
-			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		let last_update_before = vault_before.last_fee_update;
 
 		#[extrinsic_call]
@@ -401,7 +399,7 @@ mod benchmarks {
 
 		// Verify last_fee_update was updated
 		let vault_after =
-			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		assert!(vault_after.last_fee_update > last_update_before);
 		Ok(())
 	}
@@ -419,7 +417,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_ratio);
 
 		// Verify ratio was updated
-		assert_eq!(crate::MinimumCollateralizationRatio::<T>::get(), new_ratio);
+		assert_eq!(MinimumCollateralizationRatio::<T>::get(), new_ratio);
 		Ok(())
 	}
 
@@ -432,7 +430,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_ratio);
 
 		// Verify ratio was updated
-		assert_eq!(crate::InitialCollateralizationRatio::<T>::get(), new_ratio);
+		assert_eq!(InitialCollateralizationRatio::<T>::get(), new_ratio);
 		Ok(())
 	}
 
@@ -445,7 +443,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_fee);
 
 		// Verify fee was updated
-		assert_eq!(crate::StabilityFee::<T>::get(), new_fee);
+		assert_eq!(StabilityFee::<T>::get(), new_fee);
 		Ok(())
 	}
 
@@ -458,7 +456,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_penalty);
 
 		// Verify penalty was updated
-		assert_eq!(crate::LiquidationPenalty::<T>::get(), new_penalty);
+		assert_eq!(LiquidationPenalty::<T>::get(), new_penalty);
 		Ok(())
 	}
 
@@ -471,7 +469,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_amount);
 
 		// Verify amount was updated
-		assert_eq!(crate::MaxLiquidationAmount::<T>::get(), new_amount);
+		assert_eq!(MaxLiquidationAmount::<T>::get(), new_amount);
 		Ok(())
 	}
 
@@ -485,7 +483,61 @@ mod benchmarks {
 		_(RawOrigin::Root, new_amount);
 
 		// Verify amount was updated
-		assert_eq!(crate::MaximumIssuance::<T>::get(), new_amount);
+		assert_eq!(MaximumIssuance::<T>::get(), new_amount);
+		Ok(())
+	}
+
+	/// Benchmark: set_minimum_deposit
+	#[benchmark]
+	fn set_minimum_deposit() -> Result<(), BenchmarkError> {
+		let new_value: BalanceOf<T> = MinimumDeposit::<T>::get().saturating_mul(2u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_value);
+
+		// Verify value was updated
+		assert_eq!(MinimumDeposit::<T>::get(), new_value);
+		Ok(())
+	}
+
+	/// Benchmark: set_minimum_mint
+	#[benchmark]
+	fn set_minimum_mint() -> Result<(), BenchmarkError> {
+		let new_value: BalanceOf<T> = 10_000_000u128.try_into().unwrap_or_else(|_| 1u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_value);
+
+		// Verify value was updated
+		assert_eq!(MinimumMint::<T>::get(), new_value);
+		Ok(())
+	}
+
+	/// Benchmark: set_stale_vault_threshold
+	#[benchmark]
+	fn set_stale_vault_threshold() -> Result<(), BenchmarkError> {
+		// 8 hours in milliseconds
+		let new_value: MomentOf<T> = 28_800_000u64.try_into().unwrap_or_else(|_| 0u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_value);
+
+		// Verify value was updated
+		assert_eq!(StaleVaultThreshold::<T>::get(), new_value);
+		Ok(())
+	}
+
+	/// Benchmark: set_oracle_staleness_threshold
+	#[benchmark]
+	fn set_oracle_staleness_threshold() -> Result<(), BenchmarkError> {
+		// 2 hours in milliseconds
+		let new_value: MomentOf<T> = 7_200_000u64.try_into().unwrap_or_else(|_| 0u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_value);
+
+		// Verify value was updated
+		assert_eq!(OracleStalenessThreshold::<T>::get(), new_value);
 		Ok(())
 	}
 
@@ -513,10 +565,10 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		// Clear cursor to start fresh iteration
-		crate::OnIdleCursor::<T>::kill();
+		OnIdleCursor::<T>::kill();
 
 		let vault_before =
-			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		let last_update_before = vault_before.last_fee_update;
 
 		let current_block = frame_system::Pallet::<T>::block_number();
@@ -529,7 +581,7 @@ mod benchmarks {
 
 		// Verify vault was processed (last_fee_update timestamp changed)
 		let vault_after =
-			crate::Vaults::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
+			VaultsStorage::<T>::get(&vault_owner).ok_or(BenchmarkError::Stop("Vault not found"))?;
 		assert!(
 			vault_after.last_fee_update > last_update_before,
 			"last_fee_update should be updated"

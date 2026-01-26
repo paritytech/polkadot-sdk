@@ -41,6 +41,10 @@ pub trait WeightInfo {
 	fn set_max_issuance() -> Weight;
 	fn set_max_position_amount() -> Weight;
 	fn on_idle_one_vault() -> Weight;
+	fn set_minimum_deposit() -> Weight;
+	fn set_minimum_mint() -> Weight;
+	fn set_stale_vault_threshold() -> Weight;
+	fn set_oracle_staleness_threshold() -> Weight;
 }
 
 pub struct SubstrateWeight<T>(PhantomData<T>);
@@ -113,6 +117,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(15_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads_writes(4_u64, 2_u64))
 	}
+	fn set_minimum_deposit() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_minimum_mint() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_stale_vault_threshold() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_oracle_staleness_threshold() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -184,5 +204,21 @@ impl WeightInfo for () {
 	fn on_idle_one_vault() -> Weight {
 		Weight::from_parts(15_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads_writes(4_u64, 2_u64))
+	}
+	fn set_minimum_deposit() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_minimum_mint() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_stale_vault_threshold() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_oracle_staleness_threshold() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
