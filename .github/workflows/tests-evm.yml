@@ -48,6 +48,7 @@ jobs:
             -o resolc.zip
           unzip -q resolc.zip -d resolc
           ls -lah
+          ls -lah resolc
           chmod +x resolc/resolc
       - name: Run revive differential tests
         uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
