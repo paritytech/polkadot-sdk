@@ -355,7 +355,7 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type DebugEnabled = ConstBool<false>;
+	type DebugEnabled = ConstBool<true>;
 	type GasScale = ConstU32<50000>;
 }
 
