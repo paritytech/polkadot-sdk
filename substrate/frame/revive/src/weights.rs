@@ -204,22 +204,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
 	}
-	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
-	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `a` is `[0, 16]`.
 	fn process_authorizations(a: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `200 + a * (100 ±0)`
-		//  Estimated: `2722 + a * (2603 ±0)`
-		// Minimum execution time: 10_000 picoseconds.
-		Weight::from_parts(100_000, 2722)
-			// Standard Error: 5_000
-			.saturating_add(Weight::from_parts(50_000, 0).saturating_mul(a.into()))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(a.into())))
-			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(a.into())))
-			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(a.into()))
+		//  Measured:  `514 + a * (33 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 281_000 picoseconds.
+		Weight::from_parts(9_800_017, 0)
+			// Standard Error: 37_432
+			.saturating_add(Weight::from_parts(51_677_669, 0).saturating_mul(a.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1510,22 +1503,15 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
 	}
-	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
-	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `a` is `[0, 16]`.
 	fn process_authorizations(a: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `200 + a * (100 ±0)`
-		//  Estimated: `2722 + a * (2603 ±0)`
-		// Minimum execution time: 10_000 picoseconds.
-		Weight::from_parts(100_000, 2722)
-			// Standard Error: 5_000
-			.saturating_add(Weight::from_parts(50_000, 0).saturating_mul(a.into()))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(a.into())))
-			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(a.into())))
-			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(a.into()))
+		//  Measured:  `514 + a * (33 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 281_000 picoseconds.
+		Weight::from_parts(9_800_017, 0)
+			// Standard Error: 37_432
+			.saturating_add(Weight::from_parts(51_677_669, 0).saturating_mul(a.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
