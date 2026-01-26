@@ -377,10 +377,10 @@ mod tests {
 		loop {
 			let mut meter = WeightMeter::new();
 			meter.consume(Weight::zero()); // Start with empty meter but with max limit
-			// Create a meter with large limit
+								  // Create a meter with large limit
 			let mut meter = WeightMeter::with_limit(Weight::MAX);
 			match MigrateForeignAssetPrecompileMappings::step(cursor, &mut meter) {
-				Ok(None) => break,         // Migration complete
+				Ok(None) => break, // Migration complete
 				Ok(Some(new_cursor)) => {
 					cursor = Some(new_cursor);
 					steps = steps.saturating_add(1);
