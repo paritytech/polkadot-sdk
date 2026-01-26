@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769423689079,
+  "lastUpdate": 1769442303869,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3288aa33b535e66578d93dc1bea6091c572854ad",
-          "message": "Add possibility of executing or mocking additional inherents in xcm-emulator (#8809)\n\nWith the addition of\nhttps://github.com/paritytech/polkadot-sdk/pull/8083 there is no\npossibility right now of making the xcm-executor work with custom\ninherents. Custom inherents are usually driven by killing a storage item\nof the form `wasInherentSet` `on_initialize` and asserting that such\ninherent was set `on_finalize`. Before the xcm-emulator worked as these\nhooks were running just for the ParachainSystem pallet, but now, they\nrun for all pallets.\n\nMy proposal is to add an item to the xcm-emulator parachain\nconfiguration of the form `AdditionalInherentCode`, which simply\nexecutes code that returns a `DispatchResult`. Whether users want to\nmock a storage item or run the inherent is up to them, this hook would\nallow them to do both.\n\nThis item is optional, meaning that if it is non-set then it would do\nnothing\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-23T11:13:33Z",
-          "tree_id": "9cc562b27e1fcb51414f72e2007720f4d48101c0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3288aa33b535e66578d93dc1bea6091c572854ad"
-        },
-        "date": 1750681618207,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.315922673833334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19857581000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.275096616566668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "51d25debbc1b4ee0e81ceaf26d970fe93e089aa3",
+          "message": "[pallet-revive] Execution tracer (#9722)\n\nThis PR introduces a **Geth-compatible execution tracer**\n([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\nfor pallet-revive\n\nThe tracer can be used to capture both EVM opcode and PVM syscall.\nIt can be used with  the same RPC endpoint as Geth StructLogger.\n\n\nSince it can be quite resource intensive, It can only be queried from\nthe node when the **DebugSettings** are enabled (This is turned on now\nby default in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\n\nexample:\n\n```sh\n❯ cast rpc debug_traceTransaction \"<TX_HASH>\" | jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\n  ❯ cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\": true } } | jq\n```\n\nThe response includes additional fields compared to the original Geth\ndebug RPC endpoints:\n\nFor the trace:\n- `weight_consumed`: same as gas but expressed in Weight\n- `base_call_weight`: the base cost of the transaction\n\nFor each step:\n- `weight_cost`: same as gas_cost but expressed in Weight\n\nFor an EVM execution, the output will look like this\n\n```json\n{\n  \"gas\": 4208049,\n  \"weight_consumed\": { \"ref_time\": 126241470000, \"proof_size\": 4208 },\n  \"base_call_weight\": { \"ref_time\": 9000000000, \"proof_size\": 3000 },\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 4109533,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"stack\": []\n    },\n    {\n      \"gas\": 4109530,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\": [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 4109527,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\",\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n}\n```\n\nFor PVM execution, each step includes additional fields not present in\nGeth:\n\n- `args`: Array of syscall arguments (register values a0-a5) as hex\nstrings\n- `returned`: The syscall return value as hex string\n\nThese fields are enabled by default. To disable them, use\n`disableSyscallDetails: true`.\n\nExample output with syscall details:\n\n```json\n{\n  \"gas\": 97108,\n  \"gasCost\": 131,\n  \"weight_cost\": { \"ref_time\": 3930000, \"proof_size\": 0 },\n  \"depth\": 1,\n  \"op\": \"call_data_load\",\n  \"args\": [\"0x0\", \"0x4\"],\n  \"returned\": \"0x2a\"\n}\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
+          "timestamp": "2026-01-26T14:22:27Z",
+          "tree_id": "c696ec74b23b860d9b4c6e7b1f116ed00122a83a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/51d25debbc1b4ee0e81ceaf26d970fe93e089aa3"
+        },
+        "date": 1769442278979,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1259854295333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.2037952483,
             "unit": "seconds"
           }
         ]
