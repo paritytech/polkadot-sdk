@@ -52,7 +52,7 @@ use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::{
 	disabling::{DisablingDecision, DisablingStrategy},
-	historical as session_historical, SessionHandler,
+	historical as session_historical,
 };
 use pallet_staking_async_ah_client::{self as ah_client};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -575,27 +575,43 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 /// A testing type that implements SessionManager, it receives a new validator set from
 /// `StakingAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
-pub struct MaybeUsePreviousValidatorsElse<I>(core::marker::PhantomData<I>);
+pub struct MaybeTweakValidatorSet<I>(core::marker::PhantomData<I>);
 
 impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>
-	for MaybeUsePreviousValidatorsElse<I>
+	for MaybeTweakValidatorSet<I>
 {
 	fn end_session(end_index: SessionIndex) {
 		<I as pallet_session::SessionManager<_>>::end_session(end_index);
 	}
 	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
-		let force_use_previous = UsePreviousValidators::get();
+		// actual validators from our session manager.
 		let actual_session_manager =
 			<I as pallet_session::SessionManager<_>>::new_session(new_index);
-
-		match actual_session_manager {
-			Some(new_used) if !force_use_previous => Some(new_used),
-			Some(_new_ignored) => {
+		match TweakValidatorSet::get() {
+			TweakValidatorSetOption::Normal => actual_session_manager,
+			TweakValidatorSetOption::UsePreviousKickRandom => {
+				let mut current_validators = pallet_session::Validators::<Runtime>::get();
+				let index = frame_system::Pallet::<Runtime>::block_number() %
+					current_validators.len() as BlockNumber;
+				current_validators.remove(index as usize);
+				log::info!(
+					target: "runtime",
+					"[UsePreviousKickRandom] received {} validators, but kicking out 1 random validator, new set is {:?}",
+					current_validators.len(),
+					current_validators
+				);
+				Some(current_validators)
+			}
+			TweakValidatorSetOption::UsePrevious => {
 				let current_validators = pallet_session::Validators::<Runtime>::get();
-				log::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
+				log::info!(
+					target: "runtime",
+					"[UsePrevious] received {} validators, but overriding with {} old ones",
+					actual_session_manager.as_ref().map(|v| v.len()).unwrap_or(0),
+					current_validators.len()
+				);
 				Some(current_validators)
 			},
-			None => None,
 		}
 	}
 	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<AccountId>> {
@@ -606,9 +622,21 @@ impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManage
 	}
 }
 
+#[derive(Encode, Decode)]
+/// A type representing some tweaks that we do on the validator set before it is passed to the
+/// session pallet.
+pub enum TweakValidatorSetOption {
+	/// Don't interfere with anything, whatever the staking parachain says.
+	Normal,
+	/// Keep the old validator set.
+	UsePrevious,
+	/// Kick-out out 1 random validator.
+	UsePreviousKickRandom,
+}
+
 parameter_types! {
 	pub DisablingLimit: Perbill = Perbill::from_percent(25);
-	pub storage UsePreviousValidators: bool = false;
+	pub storage TweakValidatorSet: TweakValidatorSetOption = TweakValidatorSetOption::Normal;
 }
 
 /// A naive disabling strategy that always disables the offender for any slash more than `S`
@@ -716,9 +744,8 @@ impl pallet_session::Config for Runtime {
 	type ValidatorIdOf = IdentityValidatorIdeOf;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = MaybeUsePreviousValidatorsElse<
-		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
-	>;
+	type SessionManager =
+		MaybeTweakValidatorSet<session_historical::NoteHistoricalRoot<Self, StakingAhClient>>;
 	type SessionHandler = BroadcastAndLocal;
 	type Keys = SessionKeys;
 	type DisablingStrategy = AlwaysDisableForSlashGreaterThan<DisablingLimit>;
@@ -3070,7 +3097,15 @@ sp_api::impl_runtime_apis! {
 						pallet_session::Validators::<Runtime>::get().len(), 2,
 						"incorrect validator count for fake-s preset"
 					);
-					UsePreviousValidators::set(&true);
+					TweakValidatorSet::set(&TweakValidatorSetOption::UsePrevious);
+				},
+				"real-m-disable-random" => {
+					log::info!(target: "runtime", "detected real-m-disable-random preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 4,
+						"incorrect validator count for real-m-disable-random preset"
+					);
+					TweakValidatorSet::set(&TweakValidatorSetOption::UsePreviousKickRandom);
 				},
 				_ => {
 					panic!("unrecognized min nominator bond in genesis config: {}",

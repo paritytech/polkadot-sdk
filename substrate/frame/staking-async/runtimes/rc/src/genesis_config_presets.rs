@@ -208,7 +208,7 @@ fn westend_testnet_genesis(
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
-		"real-m" => westend_testnet_genesis(
+		"real-m" | "real-m-disable-random" => westend_testnet_genesis(
 			vec![
 				get_authority_keys_from_seed("Alice"),
 				get_authority_keys_from_seed("Bob"),

@@ -37,16 +37,19 @@ them in an existing session pallet, with a bit of gymnastics. It is explained in
 
 #### Limitation and Next Steps
 
-ZN atm is using the same session key as the stash keys. It should be altered to actually generate new session keys that
+- [ ] ZN atm is using the same session key as the stash keys. It should be altered to actually generate new session keys that
 are not the same as `derive("Alice")` etc and put them in the keystore and register them. Alternatively, we can write
 some scripts that at startup. Without this, our setup is not realistic
 
-lots of TODOs are left in the code. Notably:
+lots of other TODOs are left in the code. Notably:
 
 - [x] OCW RELIABILITY: OCWs are not running quite reliably on every block, it seems to be every other block
 - [x] PRIORITY INC: Not all transactions are being included, some fail with priority. Priority should only ever go up.
+  - [x] We will put the block number in the transaction, and upon validation set it as priority
+  - [ ] Transactions with older that are `MAX_AGE` away from the tip should be made invalid upon validation + rejected onchain.
 - [x] LONGEVITY: Bump transctions should have low lengivity.
 - [ ] OCWs should not overlap, add the lock mechanism from EPMB
+- [ ] Randomness: Where does the OCW randomness come from? We must be sure that validators don't all pick the same random endpoint for each block's OCW thread.
 - [x] Use some real HTTP endpoints
 - [x] TRANSACTION DROPPING: need to know when and why transactions get dropped.
    - run with txpool=trace
@@ -54,8 +57,10 @@ lots of TODOs are left in the code. Notably:
    - Conclusion: Happens because we are sending new txs before the previous one is included.
    - [ ] can I trace the transaction status from within the OCW?
 - [ ] TEST-VAL-SWAP: Test setup where RC swaps Bob with someone else.
+- [x] TEST-VAL-disable: test setup where RC removes one validator from the set
 - [ ] OPERATIONAL: Bump should be operational.
 - [ ] SEND-TO-AH: Mechanism to send update to AH
+- [ ] MORE-PARSERS + async Tests for them
 - [ ] UNIT-TEST-SETUP: Unit test setup, we can use ahm-test, but it would be very good to mimic the runtime level stuff like signed tx
   generation, so better write it in the runtime.
 - [ ] DESIGN: Who else should be able to transact on this chain? should we have a signed ext that will block all other origins
@@ -71,4 +76,4 @@ lots of TODOs are left in the code. Notably:
   - All validators can send at all blocks, but default OCW settings is such that they converge to one per block.
     - Or we can enforce this.
 - [ ] Confidence on endpoints should be dropped and reported.
-- [ ] How to represent price and bumps: FixedU128?
+- [x] How to represent price and bumps: FixedU128?

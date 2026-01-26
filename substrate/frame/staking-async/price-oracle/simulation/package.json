@@ -1,0 +1,14 @@
+{
+  "name": "simulation",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "chartjs-node-canvas": "^5.0.0",
+    "winston": "^3.19.0"
+  }
+}

@@ -70,28 +70,40 @@ two benefits:
 
 #### Optionally Ignoring New Validators
 
-The relay chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`.
-This type looks into `parameter_types! { pub storage UsePreviousValidators: bool = true }`, and
+The relay chain runtime contains an important hack. A type called `MaybeTweakValidatorSet`.
+This type looks into `pub storage TweakValidatorSet: TweakValidatorSetOption = TweakValidatorSetOption::Normal;`, and
 
-- If set to `true`, it will ignore the new validators coming from AH, and use the previous ones.
-  **Why is this needed**? Because in ZN, our test relay chain is running with usually a set of known
-  validators run by ZN (often alice and bob). If AH sends us back a validator set that contains a
-  large new validator set, the setup will break. As seen in the next section, a number of runtime
-  presets are designed to generate large validator/nominator sets to mimic the behavior of Polkadot
-  and Kusama. We thereofre must use this hack in such cases.
+- If set to `TweakValidatorSetOption::UsePrevious`, it will ignore the new validators coming from
+  AH, and use the previous ones. **Why is this needed**? Because in ZN, our test relay chain is
+  running with usually a set of known validators run by ZN (often alice and bob). If AH sends us
+  back a validator set that contains a large new validator set, the setup will break. As seen in the
+  next section, a number of runtime presets are designed to generate large validator/nominator sets
+  to mimic the behavior of Polkadot and Kusama. We thereofre must use this hack in such cases.
 - If set to `false`, it will use the new validator set.
+
+```rust
+/// A type representing some tweaks that we do on the validator set before it is passed to the session pallet.
+pub enum TweakValidatorSetOption {
+	/// Don't interfere with anything, whatever the staking parachain says.
+	Normal
+	/// Keep the old validator set.
+	UsePrevious,
+	/// Kick-out the validator at the said index.
+	NormalAndKick(u32)
+}
+```
 
 #### Presets
 
 The runtime presets are generally divided into few categories:
 
-- `real-s` / `real-m`: imply that the relay chain will not use `MaybeUsePreviousValidatorsElse`.
+- `real-s` / `real-m`: imply that the relay chain will not use `TweakValidatorSet`.
   Consequently, AH will NOT generate random validators, and instead use 2 or 4 well know keys
   (alice, bob, dave, eve) as validator candidates. This setup is useful for slashing testing.
   `real-s` uses 2 validators, while `real-m` uses 4 validators. The latter is useful for testing
   disabling. Note that we need at least 2 non-disabled validators to run a parachain.
 - `fake-x`: these presets instruct asset-hub to generate various number of fake validators and
-  nominators. Useful for testing large elections. `MaybeUsePreviousValidatorsElse` is used in the
+  nominators. Useful for testing large elections. `TweakValidatorSetOption::UsePrevious` is used in the
   relay runtime to ignore the new validators, and stick to alice and bob.
 
 More concretely, the presets are:
@@ -103,11 +115,11 @@ More concretely, the presets are:
     - `real-s`: 4 pages, alice and bob as validators, 500 fake nominators
     - `real-m`: 4 pages, alice, bob, dave, eve as validators, 2000 fake nominators.
 - Relay Chain
-    - `fake-s`: alice and bob as relay validators, `UsePreviousValidators` set to true. Should be
+    - `fake-s`: alice and bob as relay validators, `TweakValidatorSet` set to `UsePrevious`. Should be
       used with all 3 `fake-x` presets in the parachain.
-    - `real-s`: alice and bob as relay validators, `UsePreviousValidators` set to false. Should be
+    - `real-s`: alice and bob as relay validators, `TweakValidatorSet` set to `Normal`. Should be
       used with `real-s` presets in the parachain.
-    - `real-m`: alice, bob, dave, eve as relay validators, `UsePreviousValidators` set to false.
+    - `real-m`: alice, bob, dave, eve as relay validators, `TweakValidatorSet` set to `UsePrevious`.
       Should be used with `real-m` presets in the parachain.
 
 See `genesis_config_presets.rs`, and `fn build_state` in each runtime for more details.

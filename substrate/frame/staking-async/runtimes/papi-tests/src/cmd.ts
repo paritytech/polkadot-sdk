@@ -165,9 +165,9 @@ function prepPreset(paraPreset: Presets): void {
 	cmd("mv", ["chain_spec.json", "rc.json"]);
 }
 
-export function priceOracleSetup(): void {
-	const paraPreset = Presets.FakeDev
-	const RcPreset = rcPresetFor(paraPreset);
+export function priceOracleSetup(disableRandom: boolean): void {
+	const paraPreset = Presets.RealM
+	const RcPreset = disableRandom ? "real-m-disable-random" : "real-m";
 	const oraclePreset = "development";
 	cmd("cargo", [
 		"build",

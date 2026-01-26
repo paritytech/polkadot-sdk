@@ -8,16 +8,23 @@ use_stash_for_validators = false
 	validator = true
 	rpc_port = 9944
 	args = [
-		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug,xcm=trace",
+		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=debug,runtime::ah-client=debug,xcm=debug",
 	]
 
 	[[relaychain.nodes]]
 	name = "bob"
 	validator = true
 	rpc_port = 9945
-	args = [
-		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
-	]
+
+	[[relaychain.nodes]]
+	name = "eve"
+	validator = true
+	rpc_port = 9946
+
+	[[relaychain.nodes]]
+	name = "dave"
+	validator = true
+	rpc_port = 9947
 
 [[parachains]]
 id = 1100
@@ -25,7 +32,7 @@ chain_spec_path = "./parachain.json"
 
 	[[parachains.collators]]
 	name = "charlie"
-	rpc_port = 9946
+	rpc_port = 9948
 	args = [
 		"-lruntime=debug",
 	]
@@ -37,7 +44,7 @@ force_decorator = "oracle"
 
 	[[parachains.collators]]
 	name = "alice"
-	rpc_port = 9947
+	rpc_port = 9949
 	args = [
 		"-lruntime=info,runtime::price-oracle=debug",
 	]
@@ -45,7 +52,23 @@ force_decorator = "oracle"
 
 	[[parachains.collators]]
 	name = "bob"
-	rpc_port = 9948
+	rpc_port = 9950
+	args = [
+		"-lruntime=info,runtime::price-oracle=debug",
+	]
+	keystore_key_types = ["aura_sr", "orcl_sr"]
+
+	[[parachains.collators]]
+	name = "eve"
+	rpc_port = 9951
+	args = [
+		"-lruntime=info,runtime::price-oracle=debug",
+	]
+	keystore_key_types = ["aura_sr", "orcl_sr"]
+
+	[[parachains.collators]]
+	name = "dave"
+	rpc_port = 9952
 	args = [
 		"-lruntime=info,runtime::price-oracle=debug",
 	]

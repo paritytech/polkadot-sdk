@@ -121,8 +121,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			params.dev_stakers = Some((0, 500));
 			// set expected relay validators in genesis so they are elected
 			params.validators = vec![
-				Sr25519Keyring::AliceStash.to_account_id(),
-				Sr25519Keyring::BobStash.to_account_id(),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
 			];
 			staking_async_parachain_genesis(params, id.to_string())
 		},
@@ -132,10 +132,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			params.dev_stakers = Some((0, 2000));
 			// set expected relay validators in genesis so they are elected
 			params.validators = vec![
-				Sr25519Keyring::AliceStash.to_account_id(),
-				Sr25519Keyring::BobStash.to_account_id(),
-				Sr25519Keyring::EveStash.to_account_id(),
-				Sr25519Keyring::DaveStash.to_account_id(),
+				Sr25519Keyring::Alice.to_account_id(),
+				Sr25519Keyring::Bob.to_account_id(),
+				Sr25519Keyring::Eve.to_account_id(),
+				Sr25519Keyring::Dave.to_account_id(),
 			];
 			staking_async_parachain_genesis(params, id.to_string())
 		},

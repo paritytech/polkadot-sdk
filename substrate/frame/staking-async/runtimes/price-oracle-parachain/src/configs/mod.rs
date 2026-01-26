@@ -51,13 +51,14 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+use pallet_staking_async_price_oracle as price_oracle;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{
 	xcm_sender::ExponentialPrice, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_sdk::{
-	frame_support::traits::EstimateNextSessionRotation,
+	frame_support::traits::Get,
 	frame_system::offchain::{CreateBare, CreateTransaction, CreateTransactionBase},
 	sp_runtime::{
 		generic::SignedPayload,
@@ -71,7 +72,7 @@ use polkadot_sdk::{staging_xcm_builder as xcm_builder, staging_xcm_executor as x
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
-use xcm::latest::prelude::{AssetId, BodyId};
+use xcm::latest::prelude::AssetId;
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
 parameter_types! {
@@ -360,8 +361,9 @@ where
 		nonce: Self::Nonce,
 	) -> Option<Self::Extrinsic> {
 		use sp_runtime::traits::StaticLookup;
-		// Use the hardcoded longevity as period.
-		let period = pallet_staking_async_price_oracle::oracle::LONGEVITY;
+		// This is the max age of the transactions that the pallet will accept, we will set it as
+		// the period, to tx-pool can already mark old transactions as stale.
+		let period: BlockNumber = <Runtime as price_oracle::oracle::Config>::MaxVoteAge::get();
 
 		let current_block = System::block_number()
 			.saturated_into::<u64>()
@@ -376,15 +378,13 @@ where
 			frame_system::CheckTxVersion::<Runtime>::new(),
 			frame_system::CheckGenesis::<Runtime>::new(),
 			frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::mortal(
-				period,
+				period.into(),
 				current_block,
 			)),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip), // TODO
-			pallet_staking_async_price_oracle::extensions::SetPriorityFromProducedIn::<
-				Runtime,
-			>::default(),
+			price_oracle::extension::SetPriorityFromProducedIn::<Runtime>::default(),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		)
 			.into();
@@ -431,13 +431,25 @@ parameter_types! {
 	pub const MaxBump: FixedU128 = FixedU128::from_rational(1, 10);
 }
 
-impl pallet_staking_async_price_oracle::oracle::Config for Runtime {
+impl price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
 	type PriceUpdateInterval = ConstU32<3>;
 	type AssetId = u32;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type MaxAuthorities = ConstU32<8>;
+	type HistoryDepth = ConstU32<42>;
+	type MaxEndpointLength = ConstU32<128>;
+	type MaxEndpointsPerAsset = ConstU32<8>;
+	type MaxVoteAge = ConstU32<4>;
+	type MaxVotesPerBlock = Self::MaxAuthorities;
+	type RelayBlockNumberProvider =
+		cumulus_pallet_parachain_system::RelaychainBlockNumberProvider<Self>;
+	type TimeProvider = crate::Timestamp;
+	type TallyManager = price_oracle::tally::SimpleAverage<Self>;
+	type WeightInfo = price_oracle::oracle::weights::SubstrateWeight<Self>;
 }
 
-impl pallet_staking_async_price_oracle::rc_client::Config for Runtime {
+impl price_oracle::client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = price_oracle::client::weights::SubstrateWeight<Runtime>;
 }

@@ -1,7 +1,6 @@
 use crate::{
 	configs::OracleId, AccountId, BalancesConfig, ParachainInfoConfig, PolkadotXcmConfig,
 	PriceOracleConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig,
-	EXISTENTIAL_DEPOSIT,
 };
 use alloc::{string::ToString, vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
@@ -60,15 +59,8 @@ fn testnet_genesis(
 		price_oracle: PriceOracleConfig {
 			tracked_assets: vec![(
 				1,
-				pallet_staking_async_price_oracle::oracle::Asset {
-					endpoints: BoundedVec::try_from(vec![
-						"https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
-							.to_string()
-					])
-					.unwrap(),
-					price: FixedU128::from_rational(1, 1),
-					max_bump: FixedU128::from_rational(1, 10),
-				}
+				vec!["https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
+					.to_string().into_bytes()],
 			)]
 		}
 	})

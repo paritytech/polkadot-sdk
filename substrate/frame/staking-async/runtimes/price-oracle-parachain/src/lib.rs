@@ -89,7 +89,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		// pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-		pallet_staking_async_price_oracle::extensions::SetPriorityFromProducedIn<Runtime>,
+		pallet_staking_async_price_oracle::extension::SetPriorityFromProducedIn<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
@@ -311,7 +311,7 @@ mod runtime {
 	#[runtime::pallet_index(50)]
 	pub type PriceOracle = pallet_staking_async_price_oracle::oracle;
 	#[runtime::pallet_index(51)]
-	pub type OracleRcClient = pallet_staking_async_price_oracle::rc_client;
+	pub type OracleRcClient = pallet_staking_async_price_oracle::client;
 }
 
 #[docify::export(register_validate_block)]

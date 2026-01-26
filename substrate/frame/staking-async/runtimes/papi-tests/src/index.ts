@@ -20,8 +20,13 @@ if (require.main === module) {
 
 	program.command("price-oracle")
 		.description("Run the price oracle preset")
-		.action(async () => {
-			priceOracleSetup();
+		.option(
+			"-d, --disable-random",
+			"Disable random validator at each session change (if there are new validators from the AH chain)"
+		)
+		.action(async (options) => {
+			const { disableRandom } = options;
+			priceOracleSetup(disableRandom);
 			runZn("../zn-oracle.toml");
 		});
 
