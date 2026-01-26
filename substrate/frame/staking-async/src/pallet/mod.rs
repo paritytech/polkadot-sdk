@@ -69,7 +69,7 @@ pub mod pallet {
 	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-	use frame_support::{weights::WeightMeter, DefaultNoBound};
+	use frame_support::{DefaultNoBound, weights::WeightMeter};
 
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -1433,7 +1433,7 @@ pub mod pallet {
 
 			// NOTE: Weight was pre-registered in on_initialize for BastiBlocks support.
 			// We execute the work here but don't consume from weight_meter to avoid double-counting.
-			exec(&mut Default::default());
+			exec(&mut WeightMeter::new());
 
 			// Don't consume from weight_meter - the weight was already registered in on_initialize
 		}

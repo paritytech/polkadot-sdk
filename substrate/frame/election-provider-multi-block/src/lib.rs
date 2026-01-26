@@ -794,7 +794,7 @@ pub mod pallet {
 			// NOTE: Weight was pre-registered in on_initialize for BastiBlocks support.
 			// We execute the work here but don't consume from weight_meter to avoid
 			// double-counting.
-			combined_exec(&mut Default::default());
+			combined_exec(&mut WeightMeter::new());
 
 			// NOTE: why in here? because it is more accessible, for example `roll_to_with_ocw`.
 			#[cfg(test)]
