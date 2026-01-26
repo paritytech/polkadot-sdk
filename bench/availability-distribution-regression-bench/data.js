@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769442337858,
+  "lastUpdate": 1769446438004,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3288aa33b535e66578d93dc1bea6091c572854ad",
-          "message": "Add possibility of executing or mocking additional inherents in xcm-emulator (#8809)\n\nWith the addition of\nhttps://github.com/paritytech/polkadot-sdk/pull/8083 there is no\npossibility right now of making the xcm-executor work with custom\ninherents. Custom inherents are usually driven by killing a storage item\nof the form `wasInherentSet` `on_initialize` and asserting that such\ninherent was set `on_finalize`. Before the xcm-emulator worked as these\nhooks were running just for the ParachainSystem pallet, but now, they\nrun for all pallets.\n\nMy proposal is to add an item to the xcm-emulator parachain\nconfiguration of the form `AdditionalInherentCode`, which simply\nexecutes code that returns a `DispatchResult`. Whether users want to\nmock a storage item or run the inherent is up to them, this hook would\nallow them to do both.\n\nThis item is optional, meaning that if it is non-set then it would do\nnothing\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-23T11:13:33Z",
-          "tree_id": "9cc562b27e1fcb51414f72e2007720f4d48101c0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3288aa33b535e66578d93dc1bea6091c572854ad"
-        },
-        "date": 1750681644736,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022456465513333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00909483254666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15711827020000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013065656626666661,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02311110561333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340",
+          "message": "net: Spawn network backend as essential task (#10847)\n\nThis PR spawns the network backends as essential (libp2p / litep2p).\n\nWhen the network future exits, it will bring down the whole process.\n- there's no point in running a node without the core network backend as\nit will not be able to communicate with peers\n- while at it, have changed some logs from debug to warn\n- the network backend can be brought down unintentionally by the\n`import_notif_stream`\n\n\nDiscovered during:\n- https://github.com/paritytech/polkadot-sdk/issues/10821\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T15:39:44Z",
+          "tree_id": "63664732e2d31aac59b145d73bf121b6ac450c2e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa2d3ae725ea47d3e53f4c9e9cc8d0f3e3d0e340"
+        },
+        "date": 1769446414177,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023417161379999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007075592673333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010212647746666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14646747441333333,
             "unit": "seconds"
           }
         ]
