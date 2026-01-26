@@ -576,7 +576,7 @@ fn ext_builder_with_genesis_config_works() {
 		balance: U256::from(100_000_100),
 		nonce: 42,
 		contract_data: Some(ContractData {
-			code: compile_module("dummy").unwrap().0,
+			code: compile_module("dummy").unwrap().0.into(),
 			storage: [([1u8; 32].into(), [2u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -592,7 +592,8 @@ fn ext_builder_with_genesis_config_works() {
 				revm::bytecode::opcode::PUSH1,
 				0x00,
 				revm::bytecode::opcode::RETURN,
-			],
+			]
+			.into(),
 			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -628,7 +629,7 @@ fn ext_builder_with_genesis_config_works() {
 
 			assert_eq!(
 				PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
-				contract_data.code
+				contract_data.code.0
 			);
 			assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
 			assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);

@@ -141,7 +141,7 @@ async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	println!("-  balance: {balance:?}");
 
 	println!("\n\n=== Deploying dummy contract ===\n\n");
-	let tx = TransactionBuilder::new(&client).input(input).send().await?;
+	let tx = TransactionBuilder::new(client.clone()).input(input).send().await?;
 
 	println!("Hash: {:?}", tx.hash());
 	println!("Waiting for receipt...");
@@ -156,7 +156,7 @@ async fn test_eth_rpc(rpc_url: &str) -> anyhow::Result<()> {
 	println!("- Address:      {contract_address:?}");
 
 	println!("\n\n=== Calling dummy contract ===\n\n");
-	let tx = TransactionBuilder::new(&client).to(contract_address).send().await?;
+	let tx = TransactionBuilder::new(client.clone()).to(contract_address).send().await?;
 
 	println!("Hash: {:?}", tx.hash());
 	println!("Waiting for receipt...");
