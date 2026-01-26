@@ -13120,6 +13120,8 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-sdk-frame",
