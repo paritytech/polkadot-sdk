@@ -20,7 +20,8 @@ use crate::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
-			BaseNodeSpec, BuildImportQueue, DynNodeSpec, InitBlockImport, NodeSpec, StartConsensus,
+			AuraBlockImportInit, BaseNodeSpec, BuildImportQueue, DynNodeSpec, InitBlockImport,
+			NodeSpec, StartConsensus,
 		},
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
@@ -78,7 +79,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
-use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -106,93 +107,21 @@ where
 	}
 }
 
-/// Trait for auxiliary data that provides access to the authorities tracker.
-/// Either returns an existing tracker or creates a new one.
-pub(crate) trait AuraImportQueueAuxiliaryData<Block: BlockT, RuntimeApi, AuraId: AuraIdT> {
-	fn authorities_tracker_or_create(
-		&self,
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<
-		Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
-	>;
-}
-
-impl<Block: BlockT, RuntimeApi, AuraId: AuraIdT>
-	AuraImportQueueAuxiliaryData<Block, RuntimeApi, AuraId>
-	for (
-		SlotBasedBlockImportHandle<Block>,
-		Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
-	)
-{
-	fn authorities_tracker_or_create(
-		&self,
-		_client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<
-		Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
-	> {
-		Ok(self.1.clone())
-	}
-}
-
-impl<Block: BlockT, RuntimeApi, AuraId: AuraIdT>
-	AuraImportQueueAuxiliaryData<Block, RuntimeApi, AuraId>
-	for Arc<AuthoritiesTracker<<AuraId as AppCrypto>::Pair, Block, ParachainClient<Block, RuntimeApi>>>
-{
-	fn authorities_tracker_or_create(
-		&self,
-		_client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<
-		Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
-	> {
-		// For lookahead, return the shared authorities tracker
-		Ok(self.clone())
-	}
-}
-
 /// Build the import queue for parachain runtimes that started with relay chain consensus and
 /// switched to aura.
-pub(crate) struct BuildRelayToAuraImportQueue<
-	Block,
-	RuntimeApi,
-	AuraId,
-	BlockImport,
-	BlockImportAuxiliaryData,
->(PhantomData<(Block, RuntimeApi, AuraId, BlockImport, BlockImportAuxiliaryData)>);
+pub(crate) struct BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport>(
+	PhantomData<(Block, RuntimeApi, AuraId, BlockImport)>,
+);
 
-impl<Block: BlockT, RuntimeApi, AuraId, BlockImport, BlockImportAuxiliaryData>
-	BuildImportQueue<Block, RuntimeApi, BlockImport, BlockImportAuxiliaryData>
-	for BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport, BlockImportAuxiliaryData>
+impl<Block: BlockT, RuntimeApi, AuraId, BlockImport>
+	BuildImportQueue<Block, RuntimeApi, BlockImport, AuraId::BoundedPair>
+	for BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, BlockImport>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 	BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
-	BlockImportAuxiliaryData: AuraImportQueueAuxiliaryData<Block, RuntimeApi, AuraId>,
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -200,7 +129,9 @@ where
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-		block_import_auxiliary_data: &BlockImportAuxiliaryData,
+		authorities_tracker: Arc<
+			AuthoritiesTracker<AuraId::BoundedPair, Block, ParachainClient<Block, RuntimeApi>>,
+		>,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
 		let inherent_data_providers =
 			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
@@ -209,9 +140,6 @@ where
 
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
-
-		let authorities_tracker =
-			block_import_auxiliary_data.authorities_tracker_or_create(client.clone())?;
 
 		let equivocation_aura_verifier =
 			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
@@ -223,7 +151,7 @@ where
 			.map_err(|e| sc_service::Error::Other(e))?;
 
 		let verifier = Verifier {
-			client: client.clone(),
+			client,
 			aura_verifier: Box::new(equivocation_aura_verifier),
 			relay_chain_verifier,
 			_phantom: Default::default(),
@@ -257,21 +185,15 @@ where
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	AuraId: AuraIdT + Sync,
-	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send,
+	InitBlockImport: self::InitBlockImport<Block, RuntimeApi, AuraId::BoundedPair> + Send,
 	InitBlockImport::BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + 'static,
-	InitBlockImport::BlockImportAuxiliaryData:
-		AuraImportQueueAuxiliaryData<Block, RuntimeApi, AuraId>,
 {
 	type Block = Block;
 	type RuntimeApi = RuntimeApi;
-	type BuildImportQueue = BuildRelayToAuraImportQueue<
-		Block,
-		RuntimeApi,
-		AuraId,
-		InitBlockImport::BlockImport,
-		InitBlockImport::BlockImportAuxiliaryData,
-	>;
+	type BuildImportQueue =
+		BuildRelayToAuraImportQueue<Block, RuntimeApi, AuraId, InitBlockImport::BlockImport>;
+	type Pair = AuraId::BoundedPair;
 	type InitBlockImport = InitBlockImport;
 }
 
@@ -290,11 +212,9 @@ where
 			InitBlockImport::BlockImport,
 			InitBlockImport::BlockImportAuxiliaryData,
 		> + 'static,
-	InitBlockImport: self::InitBlockImport<Block, RuntimeApi> + Send + 'static,
+	InitBlockImport: self::InitBlockImport<Block, RuntimeApi, AuraId::BoundedPair> + Send + 'static,
 	InitBlockImport::BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + 'static,
-	InitBlockImport::BlockImportAuxiliaryData:
-		AuraImportQueueAuxiliaryData<Block, RuntimeApi, AuraId>,
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
@@ -501,16 +421,6 @@ where
 		>,
 	> + Send
 	       + Sync {
-		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
-
-		// Start 2 hours in the past to avoid timestamps immediately running into the future.
-		let initial_relay_slot = std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.expect("Current time is always after UNIX_EPOCH; qed")
-			.sub(Duration::from_secs(2 * 60 * 60))
-			.as_millis() as u64 /
-			RELAY_CHAIN_SLOT_DURATION_MILLIS;
-
 		move |block: Hash, ()| {
 			let current_para_head = client
 				.header(block)
@@ -532,23 +442,17 @@ where
 			let relay_parent_offset =
 				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
 
+			// Standard relay chain slot duration for all relay chain networks.
+			const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
 			let relay_blocks_per_para_block =
 				(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
-
-			// Each para block gets a unique relay slot: initial_relay_slot +
-			// relay_blocks_per_para_block * block_number
-			let target_relay_slot = initial_relay_slot +
-				u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
-
-			let relay_offset = (target_relay_slot as u32)
-				.saturating_sub(relay_blocks_per_para_block * current_block_number);
 
 			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 				current_para_block: current_block_number,
 				para_id,
 				current_para_block_head,
 				relay_blocks_per_para_block,
-				relay_offset,
 				relay_parent_offset,
 				para_blocks_per_relay_epoch: 10,
 				upgrade_go_ahead: should_send_go_ahead.then(|| {
@@ -558,9 +462,9 @@ where
 				..Default::default()
 			};
 
-			let timestamp = target_relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS;
-
-			let timestamp_provider = sp_timestamp::InherentDataProvider::new(timestamp.into());
+			let timestamp_provider = sp_timestamp::InherentDataProvider::new(
+				(slot_duration.as_millis() * current_block_number as u64).into(),
+			);
 
 			futures::future::ready(Ok((timestamp_provider, mocked_parachain)))
 		}
@@ -594,7 +498,7 @@ where
 			RuntimeApi,
 			AuraId,
 			StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
-			StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
+			AuraBlockImportInit<AuraId>,
 		>::default())
 	}
 }
@@ -666,16 +570,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
-		(
-			SlotBasedBlockImportHandle<Block>,
-			Arc<
-				AuthoritiesTracker<
-					<AuraId as AppCrypto>::Pair,
-					Block,
-					ParachainClient<Block, RuntimeApi>,
-				>,
-			>,
-		),
+		SlotBasedBlockImportHandle<Block>,
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
@@ -712,18 +607,8 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		block_import_auxiliary_data: (
-			SlotBasedBlockImportHandle<Block>,
-			Arc<
-				AuthoritiesTracker<
-					<AuraId as AppCrypto>::Pair,
-					Block,
-					ParachainClient<Block, RuntimeApi>,
-				>,
-			>,
-		),
+		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
-		let (block_import_handle, _authorities_tracker) = block_import_auxiliary_data;
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -793,7 +678,8 @@ where
 	}
 }
 
-impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId> InitBlockImport<Block, RuntimeApi>
+impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
+	InitBlockImport<Block, RuntimeApi, <AuraId as AppCrypto>::Pair>
 	for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
@@ -810,8 +696,13 @@ where
 			ParachainClient<Block, RuntimeApi>,
 		>,
 	>;
-	type BlockImportAuxiliaryData = (
-		SlotBasedBlockImportHandle<Block>,
+	type BlockImportAuxiliaryData = SlotBasedBlockImportHandle<Block>;
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(
+		Self::BlockImport,
+		Self::BlockImportAuxiliaryData,
 		Arc<
 			AuthoritiesTracker<
 				<AuraId as AppCrypto>::Pair,
@@ -819,11 +710,7 @@ where
 				ParachainClient<Block, RuntimeApi>,
 			>,
 		>,
-	);
-
-	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
+	)> {
 		let (slot_based_block_import, handle) =
 			SlotBasedBlockImport::new(client.clone(), client.clone());
 
@@ -831,7 +718,7 @@ where
 			AuraBlockImport::new(slot_based_block_import, client, &CompatibilityMode::None)
 				.map_err(|e| sc_service::Error::Other(e))?;
 
-		Ok((aura_block_import, (handle, authorities_tracker)))
+		Ok((aura_block_import, handle, authorities_tracker))
 	}
 }
 
@@ -863,55 +750,23 @@ pub(crate) struct StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>(
 	PhantomData<(Block, RuntimeApi, AuraId)>,
 );
 
-impl<Block: BlockT, RuntimeApi, AuraId> InitBlockImport<Block, RuntimeApi>
-	for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
-where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync + Send,
-	<AuraId as AppCrypto>::Pair: Send + Sync,
-{
-	type BlockImport = AuraBlockImport<
-		ParachainClient<Block, RuntimeApi>,
-		<AuraId as AppCrypto>::Pair,
-		Block,
-		Arc<ParachainClient<Block, RuntimeApi>>,
-	>;
-	type BlockImportAuxiliaryData = Arc<
-		AuthoritiesTracker<<AuraId as AppCrypto>::Pair, Block, ParachainClient<Block, RuntimeApi>>,
-	>;
-
-	fn init_block_import(
-		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
-		AuraBlockImport::new(client.clone(), client, &CompatibilityMode::None)
-			.map_err(|e| sc_service::Error::Other(e))
-	}
-}
-
 impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartConsensus<
 		Block,
 		RuntimeApi,
 		AuraBlockImport<
 			ParachainClient<Block, RuntimeApi>,
-			<AuraId as AppCrypto>::Pair,
+			AuraId::BoundedPair,
 			Block,
 			Arc<ParachainClient<Block, RuntimeApi>>,
 		>,
-		Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
+		(),
 	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync,
-	AuraId::BoundedPair: Send + Sync,
+	AuraId: AuraIdT + Sync + Send,
+	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
 	fn start_consensus(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -919,7 +774,7 @@ where
 			Block,
 			AuraBlockImport<
 				ParachainClient<Block, RuntimeApi>,
-				<AuraId as AppCrypto>::Pair,
+				AuraId::BoundedPair,
 				Block,
 				Arc<ParachainClient<Block, RuntimeApi>>,
 			>,
@@ -938,13 +793,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		_authorities_tracker: Arc<
-			AuthoritiesTracker<
-				<AuraId as AppCrypto>::Pair,
-				Block,
-				ParachainClient<Block, RuntimeApi>,
-			>,
-		>,
+		_: (),
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),

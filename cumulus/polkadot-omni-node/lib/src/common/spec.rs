@@ -45,6 +45,7 @@ use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
+use sc_consensus_aura::{AuraBlockImport, AuthoritiesTracker, CompatibilityMode};
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
 	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
@@ -58,8 +59,10 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::AccountIdConversion;
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use sp_runtime::{app_crypto::AppPair, traits::AccountIdConversion};
+use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc, time::Duration};
+
+use super::aura::{AuraIdT, AuraRuntimeApi};
 
 // Override default idle connection timeout of 10 seconds to give IPFS clients more
 // time to query data over Bitswap. This is needed when manually adding our node
@@ -72,7 +75,7 @@ pub(crate) trait BuildImportQueue<
 	Block: BlockT,
 	RuntimeApi,
 	BlockImport: sc_consensus::BlockImport<Block>,
-	BlockImportAuxiliaryData,
+	Pair: AppPair,
 >
 {
 	fn build_import_queue(
@@ -81,7 +84,9 @@ pub(crate) trait BuildImportQueue<
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-		block_import_auxiliary_data: &BlockImportAuxiliaryData,
+		authorities_tracker: Arc<
+			AuthoritiesTracker<Pair, Block, ParachainClient<Block, RuntimeApi>>,
+		>,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
@@ -125,13 +130,48 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
-pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
+pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi, Pair: AppPair> {
 	type BlockImport: sc_consensus::BlockImport<Block> + Clone + Send + Sync;
 	type BlockImportAuxiliaryData;
 
 	fn init_block_import(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)>;
+	) -> sc_service::error::Result<(
+		Self::BlockImport,
+		Self::BlockImportAuxiliaryData,
+		Arc<AuthoritiesTracker<Pair, Block, ParachainClient<Block, RuntimeApi>>>,
+	)>;
+}
+
+pub(crate) struct AuraBlockImportInit<AuraId>(PhantomData<AuraId>);
+
+impl<Block: BlockT, RuntimeApi, AuraId> InitBlockImport<Block, RuntimeApi, AuraId::BoundedPair> for AuraBlockImportInit<AuraId>
+where
+	AuraId: AuraIdT,
+	RuntimeApi: Send + ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	<RuntimeApi as ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>>::BoundedRuntimeApi:
+		AuraRuntimeApi<Block, AuraId>,
+{
+	type BlockImport = AuraBlockImport<
+		ParachainClient<Block, RuntimeApi>,
+		AuraId::BoundedPair,
+		Block,
+		Arc<ParachainClient<Block, RuntimeApi>>,
+	>;
+	type BlockImportAuxiliaryData = ();
+
+	fn init_block_import(
+		client: Arc<ParachainClient<Block, RuntimeApi>>,
+	) -> sc_service::error::Result<(
+		Self::BlockImport,
+		Self::BlockImportAuxiliaryData,
+		Arc<AuthoritiesTracker<AuraId::BoundedPair, Block, ParachainClient<Block, RuntimeApi>>>,
+	)> {
+		let (block_import, authorities_tracker) =
+			AuraBlockImport::new(client.clone(), client, &CompatibilityMode::None)
+				.map_err(|e| sc_service::Error::Other(e))?;
+		Ok((block_import, (), authorities_tracker))
+	}
 }
 
 pub(crate) trait BaseNodeSpec {
@@ -145,11 +185,13 @@ pub(crate) trait BaseNodeSpec {
 	type BuildImportQueue: BuildImportQueue<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>>::BlockImport,
+		Self::Pair,
 	>;
 
-	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
+	type Pair: AppPair;
+
+	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>;
 
 	/// Retrieves parachain id.
 	fn parachain_id(
@@ -201,8 +243,8 @@ pub(crate) trait BaseNodeSpec {
 		ParachainService<
 			Self::Block,
 			Self::RuntimeApi,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>>::BlockImport,
+			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>>::BlockImportAuxiliaryData
 		>
 	>{
 		let telemetry = config
@@ -256,7 +298,7 @@ pub(crate) trait BaseNodeSpec {
 			.build(),
 		);
 
-		let (block_import, block_import_auxiliary_data) =
+		let (block_import, block_import_auxiliary_data, authorities_tracker) =
 			Self::InitBlockImport::init_block_import(client.clone())?;
 
 		let block_import = ParachainBlockImport::new(block_import, backend.clone());
@@ -267,7 +309,7 @@ pub(crate) trait BaseNodeSpec {
 			config,
 			telemetry.as_ref().map(|telemetry| telemetry.handle()),
 			&task_manager,
-			&block_import_auxiliary_data,
+			authorities_tracker,
 		)?;
 
 		Ok(PartialComponents {
@@ -294,8 +336,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	type StartConsensus: StartConsensus<
 		Self::Block,
 		Self::RuntimeApi,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImportAuxiliaryData,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>>::BlockImport,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi, Self::Pair>>::BlockImportAuxiliaryData,
 	>;
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;

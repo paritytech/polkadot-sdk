@@ -146,8 +146,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
 		authorities_tracker,
-	)
-	.map_err(|e| sc_service::Error::Other(e))?;
+	);
 
 	Ok(PartialComponents {
 		backend,
@@ -171,7 +170,7 @@ fn build_import_queue(
 	authorities_tracker: Arc<
 		AuthoritiesTracker<sp_consensus_aura::sr25519::AuthorityPair, Block, ParachainClient>,
 	>,
-) -> Result<sc_consensus::DefaultImportQueue<Block>, String> {
+) -> sc_consensus::DefaultImportQueue<Block> {
 	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
 		_,
