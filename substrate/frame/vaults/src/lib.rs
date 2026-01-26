@@ -372,7 +372,7 @@ pub mod pallet {
 
 		/// Helper type for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::AssetId, BalanceOf<Self>>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AssetId>;
 
 		/// The `AssetId` for the stablecoin (pUSD).
 		#[pallet::constant]
@@ -404,18 +404,12 @@ pub mod pallet {
 
 	/// Helper trait for benchmarking setup.
 	///
-	/// Provides methods to set up the runtime state required for benchmarks,
-	/// such as funding accounts, creating assets, manipulating time, and setting prices.
+	/// Provides methods to set up runtime state that cannot be done via Config bounds,
+	/// such as creating assets, manipulating time, and setting prices.
 	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<AccountId, AssetId, Balance> {
-		/// Fund an account with native currency (DOT).
-		fn fund_account(account: &AccountId, amount: Balance);
-
+	pub trait BenchmarkHelper<AssetId> {
 		/// Create the stablecoin asset if it doesn't exist.
 		fn create_stablecoin_asset(asset_id: AssetId);
-
-		/// Mint stablecoin to an account.
-		fn mint_stablecoin_to(asset_id: AssetId, account: &AccountId, amount: Balance);
 
 		/// Advance the timestamp by the given number of milliseconds.
 		fn advance_time(millis: u64);

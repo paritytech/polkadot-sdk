@@ -51,7 +51,9 @@ fn safe_mint_amount<T: Config>() -> BalanceOf<T> {
 
 /// Fund an account with native currency (DOT)
 fn fund_account<T: Config>(account: &T::AccountId, amount: BalanceOf<T>) {
-	T::BenchmarkHelper::fund_account(account, amount);
+	use frame_support::traits::fungible::Mutate;
+	let _ = frame_system::Pallet::<T>::inc_providers(account);
+	let _ = <T::Currency as Mutate<T::AccountId>>::mint_into(account, amount);
 }
 
 /// Ensure the InsuranceFund account can receive funds
@@ -92,8 +94,10 @@ fn mint_pusd_to<T: Config>(
 	account: &T::AccountId,
 	amount: BalanceOf<T>,
 ) -> Result<(), BenchmarkError> {
+	use frame_support::traits::fungibles::Mutate;
 	ensure_stablecoin_asset::<T>();
-	T::BenchmarkHelper::mint_stablecoin_to(T::StablecoinAssetId::get(), account, amount);
+	let _ =
+		<T::Asset as Mutate<T::AccountId>>::mint_into(T::StablecoinAssetId::get(), account, amount);
 	Ok(())
 }
 

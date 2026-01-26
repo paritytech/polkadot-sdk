@@ -3166,22 +3166,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager 
 pub struct VaultsBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_vaults::BenchmarkHelper<AccountId, u32, Balance> for VaultsBenchmarkHelper {
-	fn fund_account(account: &AccountId, amount: Balance) {
-		use frame_support::traits::fungible::{Inspect, Mutate};
-
-		// Ensure account exists first by adding a provider reference
-		let _ = frame_system::Pallet::<Runtime>::inc_providers(account);
-
-		// Use mint_into which is more reliable than set_balance
-		let target_balance = amount.saturating_mul(2);
-		let current = <Balances as Inspect<AccountId>>::balance(account);
-		if current < target_balance {
-			let to_mint = target_balance.saturating_sub(current);
-			let _ = <Balances as Mutate<AccountId>>::mint_into(account, to_mint);
-		}
-	}
-
+impl pallet_vaults::BenchmarkHelper<u32> for VaultsBenchmarkHelper {
 	fn create_stablecoin_asset(asset_id: u32) {
 		use frame_support::traits::fungibles::Create;
 
@@ -3198,9 +3183,10 @@ impl pallet_vaults::BenchmarkHelper<AccountId, u32, Balance> for VaultsBenchmark
 		);
 	}
 
-	fn mint_stablecoin_to(asset_id: u32, account: &AccountId, amount: Balance) {
-		use frame_support::traits::fungibles::Mutate;
-		let _ = <Assets as Mutate<AccountId>>::mint_into(asset_id, account, amount);
+	fn advance_time(millis: u64) {
+		let current = pallet_timestamp::Now::<Runtime>::get();
+		let new_time = current.saturating_add(millis);
+		pallet_timestamp::Now::<Runtime>::put(new_time);
 	}
 
 	fn set_price(price: sp_runtime::FixedU128) {
@@ -3210,13 +3196,6 @@ impl pallet_vaults::BenchmarkHelper<AccountId, u32, Balance> for VaultsBenchmark
 			"set_price: {:?}",
 			price
 		);
-	}
-
-	fn advance_time(millis: u64) {
-		// Advance the timestamp pallet by the given milliseconds
-		let current = pallet_timestamp::Now::<Runtime>::get();
-		let new_time = current.saturating_add(millis);
-		pallet_timestamp::Now::<Runtime>::put(new_time);
 	}
 }
 

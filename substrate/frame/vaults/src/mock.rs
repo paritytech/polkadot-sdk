@@ -277,20 +277,10 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureVaultsManagerMock {
 pub struct MockBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl crate::BenchmarkHelper<u64, u32, u128> for MockBenchmarkHelper {
-	fn fund_account(account: &u64, amount: u128) {
-		use frame_support::traits::fungible::Mutate;
-		let _ = Balances::set_balance(account, amount);
-	}
-
+impl crate::BenchmarkHelper<u32> for MockBenchmarkHelper {
 	fn create_stablecoin_asset(asset_id: u32) {
 		// Asset may already exist from genesis, ignore error
 		let _ = Assets::create(RawOrigin::Signed(ALICE).into(), asset_id, ALICE, 1);
-	}
-
-	fn mint_stablecoin_to(asset_id: u32, account: &u64, amount: u128) {
-		use frame_support::traits::fungibles::Mutate;
-		let _ = Assets::mint_into(asset_id, account, amount);
 	}
 
 	fn advance_time(millis: u64) {
