@@ -180,7 +180,7 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 			// Count read from iteration and from pallet_assets_precompiles storage (below)
 			reads = reads.saturating_add(2);
 
-			// Derive the precompile address index from the asset location 
+			// Derive the precompile address index from the asset location
 			let asset_index = asset_location.to_asset_index();
 
 			// Check if mapping already exists (migration is idempotent)
@@ -283,9 +283,8 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 
 		// Verify all assets from pre_upgrade are now mapped
 		for (asset_location, expected_index) in asset_indices {
-			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(
-				expected_index,
-			) {
+			match pallet_assets_precompiles::pallet::Pallet::<Runtime>::asset_id_of(expected_index)
+			{
 				Some(stored_location) if stored_location == asset_location => {
 					migrated = migrated.saturating_add(1);
 
@@ -294,11 +293,10 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 						&asset_location,
 					) {
 						Some(stored_index) if stored_index == expected_index => {},
-						_ => {
+						_ =>
 							return Err(sp_runtime::TryRuntimeError::Other(
 								"Reverse mapping mismatch",
-							))
-						},
+							)),
 					}
 				},
 				_ => {
@@ -327,10 +325,7 @@ impl frame_support::traits::OnRuntimeUpgrade for MigrateForeignAssetPrecompileMa
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::{
-		assert_ok,
-		traits::OnRuntimeUpgrade,
-	};
+	use frame_support::{assert_ok, traits::OnRuntimeUpgrade};
 	use pallet_assets::AssetDetails;
 	use pallet_assets_precompiles::ToAssetIndex;
 	use sp_runtime::BuildStorage;
@@ -344,9 +339,7 @@ mod tests {
 
 	/// Creates a minimal test externalities with frame_system genesis.
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::<Runtime>::default()
-			.build_storage()
-			.unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			frame_system::Pallet::<Runtime>::set_block_number(1);
@@ -381,8 +374,8 @@ mod tests {
 	/// Test that the migration correctly populates precompile mappings for foreign assets.
 	///
 	/// This test:
-	/// 1. Creates foreign assets directly in storage WITHOUT precompile mappings
-	///    (simulating the pre-migration state)
+	/// 1. Creates foreign assets directly in storage WITHOUT precompile mappings (simulating the
+	///    pre-migration state)
 	/// 2. Verifies that precompile mappings do NOT exist before migration
 	/// 3. Runs the migration
 	/// 4. Verifies that precompile mappings exist after migration
@@ -396,18 +389,10 @@ mod tests {
 			let owner: <Runtime as frame_system::Config>::AccountId = [1u8; 32].into();
 
 			// Create foreign asset locations (simulating assets from sibling parachains)
-			let sibling_para_1000_asset = Location::new(
-				1,
-				[Parachain(1000), GeneralIndex(1)],
-			);
-			let sibling_para_2000_asset = Location::new(
-				1,
-				[Parachain(2000), GeneralIndex(42)],
-			);
-			let sibling_para_3000_asset = Location::new(
-				1,
-				[Parachain(3000), PalletInstance(50), GeneralIndex(100)],
-			);
+			let sibling_para_1000_asset = Location::new(1, [Parachain(1000), GeneralIndex(1)]);
+			let sibling_para_2000_asset = Location::new(1, [Parachain(2000), GeneralIndex(42)]);
+			let sibling_para_3000_asset =
+				Location::new(1, [Parachain(3000), PalletInstance(50), GeneralIndex(100)]);
 
 			let test_assets = vec![
 				sibling_para_1000_asset.clone(),
