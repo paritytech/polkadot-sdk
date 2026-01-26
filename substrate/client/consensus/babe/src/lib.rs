@@ -1014,7 +1014,7 @@ where
 
 		let number = block.header.number();
 
-		if is_state_sync_or_gap_sync_import(&*self.client, &block) {
+		if should_skip_verification(&*self.client, &block) {
 			return Ok(block)
 		}
 
@@ -1083,19 +1083,21 @@ where
 	}
 }
 
-/// Verification for imported blocks is skipped in two cases:
+/// Verification for imported blocks is skipped in three cases:
 /// 1. When importing blocks below the last finalized block during network initial synchronization.
 /// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
 ///    state after import. We also skip all verifications because there's no parent state and we
 ///    trust the sync module to verify that the state is correct and finalized.
-fn is_state_sync_or_gap_sync_import<B: BlockT>(
+/// 3. When importing warp sync blocks that have already been verified via warp sync proof.
+fn should_skip_verification<B: BlockT>(
 	client: &impl HeaderBackend<B>,
 	block: &BlockImportParams<B>,
 ) -> bool {
-	let number = *block.header.number();
-	let info = client.info();
-	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-		block.with_state()
+	block.origin == BlockOrigin::WarpSync || block.with_state() || {
+		let number = *block.header.number();
+		let info = client.info();
+		info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end)
+	}
 }
 
 /// A block-import handler for BABE.
@@ -1231,7 +1233,7 @@ where
 		&self,
 		block: &mut BlockImportParams<Block>,
 	) -> Result<(), ConsensusError> {
-		if is_state_sync_or_gap_sync_import(&*self.client, block) {
+		if should_skip_verification(&*self.client, block) {
 			return Ok(())
 		}
 
@@ -1248,10 +1250,6 @@ where
 		let babe_pre_digest = find_pre_digest::<Block>(&block.header)
 			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 		let slot = babe_pre_digest.slot();
-
-		if block.origin == BlockOrigin::WarpSync {
-			return Ok(());
-		}
 
 		// Check inherents.
 		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
