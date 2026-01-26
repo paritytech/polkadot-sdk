@@ -82,6 +82,8 @@ use xcm_builder::{
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
+use sp_runtime::traits::OpaqueKeys;
+
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -1962,3 +1964,130 @@ fn expensive_erc20_runs_out_of_gas() {
 		.is_err());
 	});
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn exchange_asset_success() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		500 * UNITS,
+		665 * UNITS,
+		None,
+	);
+}
+
+#[test]
+fn exchange_asset_insufficient_liquidity() {
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			1_000 * UNITS,
+			2_000 * UNITS,
+			Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+		);
+	});
+	assert!(log_capture.contains("NoDeal"));
+}
+
+#[test]
+fn exchange_asset_insufficient_balance() {
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			5_000 * UNITS, // This amount will be greater than initial balance
+			1_665 * UNITS,
+			Some(xcm::v5::InstructionError {
+				index: 0,
+				error: xcm::v5::Error::FailedToTransactAsset(""),
+			}),
+		);
+	});
+	assert!(log_capture.contains("Funds are unavailable"));
+}
+
+#[test]
+fn exchange_asset_pool_not_created() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		false, // Pool not created
+		500 * UNITS,
+		665 * UNITS,
+		Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+	);
+}
+
+#[test]
+fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		100_000_000_000u128,
+		1_000_000_000u128,
+		None,
+	);
+}
+
+/// Verify that AssetHub's `RelayChainSessionKeys` is compatible with Westend's `SessionKeys`.
+#[test]
+fn session_keys_are_compatible_between_ah_and_rc() {
+	use asset_hub_westend_runtime::staking::RelayChainSessionKeys;
+
+	// Verify the key type IDs match in order.
+	// This ensures that when keys are encoded on AssetHub and decoded on Westend (or vice versa),
+	// they map to the correct key types.
+	assert_eq!(
+		RelayChainSessionKeys::key_ids(),
+		westend_runtime::SessionKeys::key_ids(),
+		"Session key type IDs must match between AssetHub and Westend"
+	);
+}
+>>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
