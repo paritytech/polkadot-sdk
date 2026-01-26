@@ -220,6 +220,47 @@ fn timepoint_checking_works() {
 }
 
 #[test]
+fn approve_as_multi_requires_timepoint_after_first_approval() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First approval creates the multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Second approval without timepoint should fail with NoTimepoint
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 3],
+				None, // Missing timepoint
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::NoTimepoint,
+		);
+
+		// With correct timepoint, it should succeed
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+	});
+}
+
+#[test]
 fn multisig_2_of_3_works() {
 	new_test_ext().execute_with(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
@@ -240,6 +281,18 @@ fn multisig_2_of_3_works() {
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
+		// Verify that approve_as_multi does not execute even when threshold is reached
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+		assert_eq!(Balances::free_balance(6), 0);
+
+		// as_multi is required to execute the call
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
@@ -319,6 +372,151 @@ fn cancel_multisig_works() {
 			Error::<Test>::NotOwner,
 		);
 		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash),);
+	});
+}
+
+#[test]
+fn cancel_as_multi_not_found_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with signatories [1, 2, 3]
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to cancel with wrong signatories
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![2, 4], // Different signatories
+				now(),
+				hash
+			),
+			Error::<Test>::NotFound,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_not_found_with_wrong_call_hash() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to cancel with wrong call hash
+		let wrong_hash = [0u8; 32];
+		assert_noop!(
+			Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 2, vec![2, 3], now(), wrong_hash),
+			Error::<Test>::NotFound,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_unexpected_timepoint_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with signatories [1, 2, 3]
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to approve with wrong signatories [1, 3, 4] - will generate different multisig ID
+		// Since there's no multisig with this ID and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(3),
+				2,
+				vec![1, 4], // Different set of signatories
+				Some(now()),
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to approve with wrong call hash
+		// Since there's no multisig with this hash and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		let wrong_hash = [0u8; 32];
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 3],
+				Some(now()),
+				wrong_hash,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
+	});
+}
+
+#[test]
+fn as_multi_unexpected_timepoint_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to execute with non-existent multisig by using wrong signatories
+		// Since there's no multisig with this ID and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 4], // Different set - creates different multisig ID
+				Some(now()),
+				call,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
 	});
 }
 
@@ -512,10 +710,152 @@ fn too_many_signatories_fails() {
 }
 
 #[test]
-fn duplicate_approvals_are_ignored() {
+fn as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				call.clone(),
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_with_signatories_out_of_order_fails() {
 	new_test_ext().execute_with(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First create a multisig with proper ordering
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Try to cancel with signatories out of order
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				now(),
+				hash
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![1, 2], // Sender (1) is in the signatories list
+				None,
+				call.clone(),
+				Weight::zero()
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// First, create a valid multisig with account 1
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Now account 2 tries to approve but includes themselves in the signatories
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 2], // Sender (2) is in the signatories list
+				Some(now()),
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with account 1
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Account 1 tries to cancel but includes themselves in the signatories
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![1, 2], // Sender (1) is in the signatories list
+				now(),
+				hash
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn duplicate_approvals_are_ignored() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -531,6 +871,18 @@ fn duplicate_approvals_are_ignored() {
 				vec![2, 3],
 				Some(now()),
 				hash,
+				Weight::zero()
+			),
+			Error::<Test>::AlreadyApproved,
+		);
+		// Duplicate approval with `as_multi` also noop.
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![2, 3],
+				Some(now()),
+				call.clone(),
 				Weight::zero()
 			),
 			Error::<Test>::AlreadyApproved,
