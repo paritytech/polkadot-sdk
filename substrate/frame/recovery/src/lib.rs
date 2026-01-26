@@ -29,7 +29,7 @@
 //! - `inheritor`: An account that is inheriting access to a lost account after recovery.
 //! - `attempt`: An attempt to recover a lost account by an initiator.
 //! - `order`: The level of trust that an account has in a friend group.
-//! - `deposit`: The amount that a friends of this group needs to reserve to initiate an attempt.
+//! - `deposit`: The amount that friends of this group needs to reserve to initiate an attempt.
 //! - `threshold`: The number of friends that need to approve an attempt.
 //! - `inheritance delay`: How long an attempt will be delayed before it can succeed.
 //! - `provided block`: The blocks that are *provided* by the `T::BlockNumberProvider`.
