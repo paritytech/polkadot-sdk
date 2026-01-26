@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769423787346,
+  "lastUpdate": 1769442406098,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41160dce396fb98be6c2c4664bb2124a57e35a49",
-          "message": "[pallet-revive] Make Runtime call dispatchable as eth transaction (#8883)\n\nMake RuntimeCall dispatchable as eth transaction.\n\nBy sending a transaction to\n`0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime\ncall as input, the call will be executed by the origin indicated by the\nEthereum signature (0xEE account_id).\n\nsee https://github.com/paritytech/foundry-polkadot/issues/130\n\ne.g sending a remark_with_event\n```\ncast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133\ncast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435\n```\n\nalso merged in #8901 and #8920\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-21T09:32:23Z",
-          "tree_id": "52230c17ebc7b6edb9d1aedfb5b806f1fdc31439",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/41160dce396fb98be6c2c4664bb2124a57e35a49"
-        },
-        "date": 1750502051042,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96199999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033798922029999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04488223873599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06293110345999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "51d25debbc1b4ee0e81ceaf26d970fe93e089aa3",
+          "message": "[pallet-revive] Execution tracer (#9722)\n\nThis PR introduces a **Geth-compatible execution tracer**\n([StructLogger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger))\nfor pallet-revive\n\nThe tracer can be used to capture both EVM opcode and PVM syscall.\nIt can be used with  the same RPC endpoint as Geth StructLogger.\n\n\nSince it can be quite resource intensive, It can only be queried from\nthe node when the **DebugSettings** are enabled (This is turned on now\nby default in the dev-node)\n\nTested in https://github.com/paritytech/evm-test-suite/pull/138\n\n\nexample:\n\n```sh\n❯ cast rpc debug_traceTransaction \"<TX_HASH>\" | jq\n\n# or with options\n# See list of options https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger\n\n  ❯ cast rpc debug_traceTransaction \"<TX_HASH>\", { \"tracer\": { \"enableMemory\": true } } | jq\n```\n\nThe response includes additional fields compared to the original Geth\ndebug RPC endpoints:\n\nFor the trace:\n- `weight_consumed`: same as gas but expressed in Weight\n- `base_call_weight`: the base cost of the transaction\n\nFor each step:\n- `weight_cost`: same as gas_cost but expressed in Weight\n\nFor an EVM execution, the output will look like this\n\n```json\n{\n  \"gas\": 4208049,\n  \"weight_consumed\": { \"ref_time\": 126241470000, \"proof_size\": 4208 },\n  \"base_call_weight\": { \"ref_time\": 9000000000, \"proof_size\": 3000 },\n  \"failed\": false,\n  \"returnValue\": \"0x\",\n  \"structLogs\": [\n    {\n      \"gas\": 4109533,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 0,\n      \"op\": \"PUSH1\",\n      \"stack\": []\n    },\n    {\n      \"gas\": 4109530,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 2,\n      \"op\": \"PUSH1\",\n      \"stack\": [\n        \"0x80\"\n      ]\n    },\n    {\n      \"gas\": 4109527,\n      \"gasCost\": 3,\n      \"weight_cost\": { \"ref_time\": 90000, \"proof_size\": 0 },\n      \"depth\": 1,\n      \"pc\": 4,\n      \"op\": \"MSTORE\",\n      \"stack\": [\n        \"0x80\",\n        \"0x40\"\n      ]\n    }]\n}\n```\n\nFor PVM execution, each step includes additional fields not present in\nGeth:\n\n- `args`: Array of syscall arguments (register values a0-a5) as hex\nstrings\n- `returned`: The syscall return value as hex string\n\nThese fields are enabled by default. To disable them, use\n`disableSyscallDetails: true`.\n\nExample output with syscall details:\n\n```json\n{\n  \"gas\": 97108,\n  \"gasCost\": 131,\n  \"weight_cost\": { \"ref_time\": 3930000, \"proof_size\": 0 },\n  \"depth\": 1,\n  \"op\": \"call_data_load\",\n  \"args\": [\"0x0\", \"0x4\"],\n  \"returned\": \"0x2a\"\n}\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
+          "timestamp": "2026-01-26T14:22:27Z",
+          "tree_id": "c696ec74b23b860d9b4c6e7b1f116ed00122a83a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/51d25debbc1b4ee0e81ceaf26d970fe93e089aa3"
+        },
+        "date": 1769442381130,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0653603862659999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038497612198,
             "unit": "seconds"
           }
         ]
