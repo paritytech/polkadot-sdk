@@ -6,11 +6,13 @@ use tokio::time::Duration;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
+};
 use polkadot_primitives::Id as ParaId;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
-	subxt::{self, dynamic::Value, OnlineClient, PolkadotConfig, SubstrateConfig},
+	subxt::{self, dynamic::Value, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
@@ -59,14 +61,10 @@ async fn authorities_change() -> Result<(), anyhow::Error> {
 
 	log::info!("Submitting extrinsic to change authorities");
 	let call = subxt::dynamic::tx("TestPallet", "change_authorities", Vec::<Value>::new());
-	let charlie_client: OnlineClient<SubstrateConfig> =
+	let charlie_client: OnlineClient<PolkadotConfig> =
 		network.get_node("charlie")?.wait_client().await?;
-	let res = charlie_client
-		.tx()
-		.sign_and_submit_then_watch_default(&call, &dev::alice())
-		.await;
-	assert!(res.is_ok(), "Extrinsic failed to submit: {:?}", res.unwrap_err());
-	res.unwrap().wait_for_finalized_success().await.unwrap();
+	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
+		.await?;
 	log::info!("Extrinsic finalized");
 
 	for name in ["dave", "ferdie"] {
