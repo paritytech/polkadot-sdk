@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769175989957,
+  "lastUpdate": 1769423819382,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22049,6 +22049,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00909212482999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "claravanstaden64@gmail.com",
+            "name": "Clara van Staden",
+            "username": "claravanstaden"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
+          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T09:27:22Z",
+          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
+        },
+        "date": 1769423795785,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026412105100000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00905137533999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006373435699999997,
             "unit": "seconds"
           }
         ]
