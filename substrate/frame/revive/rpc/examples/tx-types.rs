@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
 	] {
 		println!("\n\n=== TransactionType {tx_type:?}  ===\n\n",);
 
-		let tx = TransactionBuilder::new(&client)
+		let tx = TransactionBuilder::new(client.clone())
 			.signer(alith.clone())
 			.value(value)
 			.to(ethan.address())
