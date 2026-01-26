@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769175888326,
+  "lastUpdate": 1769423721973,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "764976b5800df633b6ec5904f0ae856e16040524",
-          "message": "polkadot-omni-node: add `GetParachainInfo` runtime api  (#8651)\n\n# Description\n\nCloses #7384\nCloses #75\nCloses #8692\nCloses #8739 \n\n## Integration\n\nNode developers, node operators & runtime developers will not need to\ngenerate chain specs that contain a `para_id` field starting with this\nPR, but they'll have to implement the\n`cumulus_primitives_core::GetParachainInfo` runtime API once they drop\nthe `para_id` field, so that new nodes versions will be able to query\nthe runtime for the parachain id.\n\nStarting with `2512` the nodes will not support anymore reading the\nparachain id from chain specs `para_id` field, so it will be mandatory\nfor runtime to implement the `cumulus_primitives_core::GetParachainInfo`\ntrait and be upgraded.\n\n## Review Notes\n\nThis PR is based on prior work here:  #7546. It delivers the following:\n\n### Deprecated `para_id` chain spec extension\n\n- nodes like `polkadot-omni-node`/`polkadot-parachain`) will still\nsupport running chainspecs with `para_id` extension for a while (until\nstable2512)\n- nodes like `test-parachain`/`parachain-template-node` are supporting\nonly runtimes that implement the new runtime API.\n- `chain-spec-builder` will display that `para_id` is deprecated when\ncalling `help`, or when using the flag.\n\n### Additional cleanup/changes\n\n- fixed & renabled some omni-node/parachain-template-node tests from\n`polkadot-sdk-docs` & `templates/zombienet`, which rely on the newly\nadded runtime API as wellI. Tests based on the `para_id` chain spec\nextension are not present anymore, since omni-node will favour taking\nthe para id based on the runtime API if present.\n\n- removed the concept of running `minimal` with omni-node. I returned to\nan old idea of a few of us. At this moment we can't support it anymore\nwith omni-node since we'd need to add `parachain_info` to\n`minimal-template-runtime`, which doesn't make much sense.\n\n- most of the parachains runtimes (hope I haven't missed any relevant)\nthat run by using\n`polkadot-parachain/polkadot-omni-node/test-parachain/parachain-template-node`\nshould fail to work with the previous nodes (that support them) after\n`stable2512`. Probably that will be caught in the CI if I missed them\nduring this PR, but I doubt it.\n\n## Reviewers request\n\n- if there are other nodes used to run parachains runtimes, this is a\ngood moment to highlight them so that I can update them if needed in\nterms of picking up the `parachain_id` from the runtime.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Steven <stevenlawrence13e@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2025-06-22T18:31:15Z",
-          "tree_id": "b58e80b1292e6202f90085c779752e346ca3a764",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/764976b5800df633b6ec5904f0ae856e16040524"
-        },
-        "date": 1750621093694,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02233205753999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15579014186,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008955839093333424,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012741156699999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009414698580000009,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "claravanstaden64@gmail.com",
+            "name": "Clara van Staden",
+            "username": "claravanstaden"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
+          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T09:27:22Z",
+          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
+        },
+        "date": 1769423698081,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007046729326666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009404425993333364,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.0230973676,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14435421622,
             "unit": "seconds"
           }
         ]
