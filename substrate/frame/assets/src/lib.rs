@@ -215,6 +215,18 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	}
 }
 
+/// Trait for managing asset categories
+pub trait AssetCategoryManager<AccountId> {
+    type AssetKind;
+    type Balance: Zero + PartialOrd + Copy + Saturating + sp_runtime::traits::AtLeast32BitUnsigned;
+
+    /// Get all assets in a category
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind>;
+
+    /// Get available balance of a specific asset in treasury
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance>;
+}
+
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
@@ -486,6 +498,26 @@ pub mod pallet {
 		BoundedVec<T::ReserveData, ConstU32<MAX_RESERVES>>,
 		ValueQuery,
 	>;
+
+    #[pallet::storage]
+    pub type AssetCategories<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        BoundedVec<u8, ConstU32<32>>,  // Category name
+        BoundedVec<T::AssetId, ConstU32<32>>,  // Assets in this category
+        ValueQuery,
+    >;
+
+    /*
+    #[pallet::storage]
+    pub type AssetCategories<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        BoundedVec<u8, ConstU32<32>>,  // Category
+        BoundedVec<T::AssetKind, ConstU32<32>>,  // Assets in this category
+        ValueQuery,    
+    >;
+    */
 
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
@@ -1957,6 +1989,31 @@ pub mod pallet {
 			Reserves::<T, I>::get(id).into_inner()
 		}
 	}
+
+    impl<T: Config<I>, I: 'static> AssetCategoryManager<T::AccountId> for Pallet<T, I> { 
+        type AssetKind = T::AssetId;
+        type Balance = T::Balance;
+    
+        /// Get all assets in a category
+        // TODO: Refine or investigate
+        fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+            let bounded_category: BoundedVec<u8, ConstU32<32>> = category
+                .to_vec()
+                .try_into()
+                .unwrap_or_default();
+
+            AssetCategories::<T, I>::get(&bounded_category) 
+                .into_inner()
+                .into_iter()
+                .collect()
+        }
+
+    
+        /// Get available balance of a specific asset in treasury    
+        fn available_balance(asset: Self::AssetKind, owner: T::AccountId) -> Option<Self::Balance> {
+            Self::balance_of(owner, asset)
+        }
+    }
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

@@ -14196,6 +14196,7 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "pallet-utility",
  "parity-scale-codec",

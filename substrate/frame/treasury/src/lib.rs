@@ -98,9 +98,12 @@ use sp_runtime::{
 
 use sp_runtime::traits::ConstU32;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, print,
+	ensure,
+	pallet_prelude::DispatchError,
+	print,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
@@ -109,6 +112,7 @@ use frame_support::{
 	BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
+use pallet_assets::AssetCategoryManager;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -270,25 +274,13 @@ pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, Paymen
 	pub status: PaymentState<AssetKind, AssetBalance, PaymentId>,
 }
 
-// TODO: Move to primitivei
-/// Trait for managing asset categories
-pub trait AssetCategoryManager {
-	type AssetKind;
-	type Balance: Zero + PartialOrd + Copy + Saturating + sp_runtime::traits::AtLeast32BitUnsigned;
-
-	/// Get all assets in a category
-	fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind>;
-
-	/// Get available balance of a specific asset in treasury
-	fn available_balance(asset: &Self::AssetKind) -> Self::Balance;
-}
-
 /// Index of an approved treasury spend.
 pub type SpendIndex = u32;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec;
 	use frame_support::{
 		dispatch_context::with_context,
 		pallet_prelude::*,
@@ -380,6 +372,7 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 
 		type AssetCategories: AssetCategoryManager<
+			Self::AccountId,
 			AssetKind = Self::AssetKind,
 			Balance = AssetBalanceOf<Self, I>,
 		>;
@@ -542,13 +535,17 @@ pub mod pallet {
 		/// The payment has neither failed nor succeeded yet.
 		Inconclusive,
 
-        LowBalance,
+		LowBalance,
 
 		EmptyAssetCategory,
 
 		InvalidPaymentState,
 
-        ExecutionRateLimit,
+		ExecutionRateLimit,
+
+		TooManyFailedPayments,
+
+		AssetNotFound,
 	}
 
 	#[pallet::hooks]
@@ -766,12 +763,68 @@ pub mod pallet {
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
 
+			match *asset {
+				SpendAsset::Category(ref category) => {
+					let assets = Self::validate_category_spend(category, amount)?;
+
+					// This helps prevent issues where assets in the same category
+					// might have different conversion rates to native currency
+					if let Some(first_asset) = assets.first() {
+						let first_native =
+							T::BalanceConverter::from_asset_balance(amount, first_asset.clone())
+								.ok();
+
+						// Store first_native for comparison with others
+						if let Some(first_native) = first_native {
+							for asset_kind in assets.iter().skip(1) {
+								let current_native = T::BalanceConverter::from_asset_balance(
+									amount,
+									asset_kind.clone(),
+								)
+								.ok(); // Convert Result to Option
+
+								if let Some(current) = current_native {
+									// Convert to u128 for calculation
+									let first_u128: u128 = first_native.unique_saturated_into();
+									let current_u128: u128 = current.unique_saturated_into();
+
+									let max_diff = first_u128.max(current_u128);
+									let min_diff = first_u128.min(current_u128);
+
+									// Calculate percentage difference safely
+									if max_diff > 0 {
+										let diff = max_diff - min_diff;
+										// Multiply by 100 first to maintain precision
+										let diff_percent = (diff * 100) / max_diff;
+
+										if diff_percent > 5 {
+											log::warn!(
+                                    "Asset {:?} in category {:?} has significantly different conversion rate ({}% diff)",
+                                    asset_kind,
+                                    category,
+                                    diff_percent
+                                );
+
+											// TODO: return an error here, for now just log a
+											// warning return Err(Error::<T,
+											// I>::ConversionRateMismatch.into());
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				SpendAsset::Specific(ref asset_kind) => {
+					let _ =
+						Self::ensure_sufficient_balance(asset_kind, &Self::account_id(), amount)?;
+				},
+			}
+
 			let native_amount = match *asset {
 				SpendAsset::Specific(ref asset_kind) =>
 					T::BalanceConverter::from_asset_balance(amount, asset_kind.clone())
 						.map_err(|_| Error::<T, I>::BalanceConversionFailed)?,
-				// TODO: Add in runtime, assumes that assets in a category are of
-				// the same denomination(i.e. USD* to USDT, USDC, BUSD e.t.c.)
 				SpendAsset::Category(ref category) => {
 					let assets = T::AssetCategories::assets_in_category(&category);
 
@@ -862,11 +915,12 @@ pub mod pallet {
 
 			match spend.asset {
 				SpendAsset::Specific(ref asset_kind) => {
-                    // Validate asset has sufficient balance before attempting payment
-                    let available = T::AssetCategories::available_balance(asset_kind);
-                    if available < spend.amount {
-                        return Err(Error::<T, I>::LowBalance.into());
-                    }
+					// Validate asset has sufficient balance before attempting payment
+					let _ = Self::ensure_sufficient_balance(
+						asset_kind,
+						&Self::account_id(),
+						spend.amount,
+					)?;
 					match spend.status {
 						PaymentState::Pending | PaymentState::Failed(_) => {
 							let id = T::Paymaster::pay(
@@ -883,233 +937,72 @@ pub mod pallet {
 									payment_id: id,
 								}])
 								.map_err(|_| Error::<T, I>::ExecutionRateLimit)?,
-								
-                                remaining_amount: Zero::zero(),
+
+								remaining_amount: Zero::zero(),
 							};
 						},
 						_ => return Err(Error::<T, I>::AlreadyAttempted.into()),
 					}
 				},
-				SpendAsset::Category(ref category) => {
-					let assets = T::AssetCategories::assets_in_category(&category);
+				SpendAsset::Category(ref category) => match spend.status {
+					PaymentState::Pending => {
+						let (executions, remaining_amount) =
+							Self::pay_from_category(category, &spend.beneficiary, spend.amount)?;
 
-					if assets.is_empty() {
-						return Err(Error::<T, I>::EmptyAssetCategory.into());
-					}
+						if remaining_amount.is_zero() {
+							spend.status = PaymentState::Attempted {
+								executions,
+								remaining_amount: Zero::zero(),
+							};
+						} else {
+							spend.status = PaymentState::Partial(remaining_amount);
+						}
+					},
+					PaymentState::Failed(ref failed_payments) => {
+						let (executions, retry_amount) = Self::retry_failed_category_payments(
+							category,
+							&spend.beneficiary,
+							failed_payments,
+						)?;
 
-					match spend.status {
-						PaymentState::Pending => {
-							let mut executions = BoundedVec::<
-								PaymentExecution<
-									T::AssetKind,
-									AssetBalanceOf<T, I>,
-									<T::Paymaster as Pay>::Id,
-								>,
-								ConstU32<32>,
-							>::default();
-							let mut remaining_amount = spend.amount;
-
-							for asset_kind in assets {
-								if remaining_amount.is_zero() {
-									break;
-								}
-
-								let available = T::AssetCategories::available_balance(&asset_kind);
-
-								if available.is_zero() {
-									continue;
-								}
-
-								let pay_amount = if available >= remaining_amount {
-									remaining_amount
-								} else {
-									available
-								};
-
-								match T::Paymaster::pay(
-									&spend.beneficiary,
-									asset_kind.clone(),
-									pay_amount,
-								) {
-									Ok(payment_id) => {
-										// TODO: Test rate limit reached
-										executions
-											.try_push(PaymentExecution {
-												asset: asset_kind.clone(),
-												amount: pay_amount,
-												payment_id,
-											})
-											.map_err(|_| Error::<T, I>::ExecutionRateLimit)?;
-
-										remaining_amount =
-											remaining_amount.saturating_sub(pay_amount);
-									},
-									Err(_) => continue,
-								}
-							}
-
-							if remaining_amount.is_zero() {
-								spend.status = PaymentState::Attempted {
-									executions,
-									remaining_amount: Zero::zero(),
-								};
-							} else {
-								spend.status = PaymentState::Partial(remaining_amount);
-							}
-						},
-						PaymentState::Failed(prev) => {
-							let mut executions = BoundedVec::<
-								PaymentExecution<
-									T::AssetKind,
-									AssetBalanceOf<T, I>,
-									<T::Paymaster as Pay>::Id,
-								>,
-								ConstU32<32>,
-							>::default();
-							//let mut retry: AssetBalanceOf<T, I> =
-								//executions.iter().map(|exec| exec.amount).sum();
-
-							let mut retry: AssetBalanceOf<T, I> = prev.iter().fold(Zero::zero(), |acc, exec| acc.saturating_add(exec.amount));
-                            let used_assets: Vec<_> =
-								prev.iter().map(|exec| exec.asset.clone()).collect();
-
-							for exec in prev.iter() {
-								if retry.is_zero() {
-									break;
-								}
-
-								let mut available =
-									T::AssetCategories::available_balance(&exec.asset);
-
-								let asset_kind = if available.is_zero() {
-									match assets.iter().find(|&ak| {
-										!used_assets.contains(ak) &&
-											!T::AssetCategories::available_balance(ak).is_zero()
-									}) {
-										Some(ak) => {
-											available = T::AssetCategories::available_balance(ak);
-											ak.clone()
-										},
-										None => continue,
-									}
-								} else {
-									exec.asset.clone()
-								};
-
-								let pay_amount = if available >= retry { retry } else { available };
-
-								match T::Paymaster::pay(
-									&spend.beneficiary,
-									asset_kind.clone(),
-									pay_amount,
-								) {
-									Ok(payment_id) => {
-										executions
-											.try_push(PaymentExecution {
-												asset: asset_kind.clone(),
-
-												amount: pay_amount,
-
-												payment_id,
-											})
-											.map_err(|_| Error::<T, I>::ExecutionRateLimit)?;
-
-										retry = retry.saturating_sub(pay_amount);
-									},
-									Err(_) => continue,
-								}
-							}
-
-							if retry.is_zero() {
-								spend.status = PaymentState::Attempted {
-									executions,
-									remaining_amount: Zero::zero(),
-								};
-							} else {
-								spend.status = PaymentState::Partial(retry);
-							}
-						},
-						PaymentState::Partial(unpaid) => {
-							let mut executions = BoundedVec::<
-								PaymentExecution<
-									T::AssetKind,
-									AssetBalanceOf<T, I>,
-									<T::Paymaster as Pay>::Id,
-								>,
-								ConstU32<32>,
-							>::default();
-
-							let mut remaining_amount = unpaid;
-
-							for asset_kind in assets {
-								if remaining_amount.is_zero() {
-									break;
-								}
-
-                                let available = T::AssetCategories::available_balance(&asset_kind);
-
-								let pay_amount = if available >= remaining_amount {
-									remaining_amount
-								} else {
-									available
-								};
-
-								match T::Paymaster::pay(
-									&spend.beneficiary,
-									asset_kind.clone(),
-									pay_amount,
-								) {
-									Ok(payment_id) => {
-										executions
-											.try_push(PaymentExecution {
-												asset: asset_kind.clone(),
-												amount: pay_amount,
-												payment_id,
-											})
-											.map_err(|_| Error::<T, I>::ExecutionRateLimit)?;
-
-										remaining_amount =
-											remaining_amount.saturating_sub(pay_amount);
-									},
-									Err(_) => {
-										continue;
-									},
-								}
-							}
-
-							if remaining_amount.is_zero() {
-								spend.status = PaymentState::Attempted {
-									executions,
-									remaining_amount: Zero::zero(),
-								};
-							} else {
-								spend.status = PaymentState::Partial(remaining_amount);
-							}
-						},
-
-                        PaymentState::Attempted { .. } => {
-                            return Err(Error::<T, I>::AlreadyAttempted.into());
-                        },
-					}
+						if retry_amount.is_zero() {
+							spend.status = PaymentState::Attempted {
+								executions,
+								remaining_amount: Zero::zero(),
+							};
+						} else {
+							spend.status = PaymentState::Partial(retry_amount);
+						}
+					},
+					PaymentState::Partial(unpaid) => {
+						let (executions, remaining_amount) =
+							Self::pay_from_category(category, &spend.beneficiary, unpaid)?;
+						if remaining_amount.is_zero() {
+							spend.status = PaymentState::Attempted {
+								executions,
+								remaining_amount: Zero::zero(),
+							};
+						} else {
+							spend.status = PaymentState::Partial(remaining_amount);
+						}
+					},
+					PaymentState::Attempted { .. } => {
+						return Err(Error::<T, I>::AlreadyAttempted.into());
+					},
 				},
 			}
-
 			spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
-
 			Spends::<T, I>::insert(index, spend.clone());
 
 			// Emit events for each payment execution
-
 			if let PaymentState::Attempted { executions, .. } = &spend.status {
 				for execution in executions.iter() {
 					Self::deposit_event(Event::<T, I>::Paid {
 						index,
-
 						execution: execution.clone(),
 					});
 				}
 			}
-
 			Ok(())
 		}
 
@@ -1166,15 +1059,21 @@ pub mod pallet {
 					let failed: Vec<_> = results
 						.iter()
 						.filter(|(_, status)| matches!(status, Status::Failure))
-						.map(|(exec, _)| exec.payment_id.clone())
+						.map(|(exec, _)| (*exec).clone())
 						.collect();
 
 					if !failed.is_empty() {
-						spend.status = State::Failed;
+						let bounded = BoundedVec::try_from(failed.clone())
+							.map_err(|_| Error::<T, I>::TooManyFailedPayments)?;
+
+						spend.status = State::Failed(bounded);
 						Spends::<T, I>::insert(index, spend);
 
-						for payment_id in failed {
-							Self::deposit_event(Event::<T, I>::PaymentFailed { index, payment_id });
+						for exec in failed {
+							Self::deposit_event(Event::<T, I>::PaymentFailed {
+								index,
+								payment_id: exec.payment_id,
+							});
 						}
 						return Ok(Pays::Yes.into());
 					}
@@ -1190,8 +1089,14 @@ pub mod pallet {
 						return Ok(Pays::No.into());
 					}
 
-					// TODO: Partial success or unknown statuses
-					Ok(Pays::Yes.into())
+                    if all_succeeded && !remaining_amount.is_zero() {
+                        spend.status = State::Partial(*remaining_amount);
+                        spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
+                        Spends::<T, I>::insert(index, spend);
+                        return Ok(Pays::Yes.into())
+                    }
+
+                    Ok(Pays::Yes.into())
 				},
 				_ => return Err(Error::<T, I>::NotAttempted.into()),
 			}
@@ -1219,7 +1124,10 @@ pub mod pallet {
 			T::RejectOrigin::ensure_origin(origin)?;
 			let spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			ensure!(
-				matches!(spend.status, PaymentState::Pending | PaymentState::Failed),
+				matches!(
+					spend.status,
+					PaymentState::Pending | PaymentState::Failed(_) | PaymentState::Partial(_)
+				),
 				Error::<T, I>::AlreadyAttempted
 			);
 
@@ -1239,6 +1147,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// value and only call this once.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
+	}
+
+	fn ensure_sufficient_balance(
+		asset_kind: &T::AssetKind,
+		account: &T::AccountId,
+		required: AssetBalanceOf<T, I>,
+	) -> Result<AssetBalanceOf<T, I>, DispatchError> {
+		T::AssetCategories::available_balance(asset_kind.clone(), account.clone())
+			.ok_or(Error::<T, I>::AssetNotFound.into())
+			.and_then(|balance| {
+				if balance >= required {
+					Ok(balance)
+				} else {
+					Err(Error::<T, I>::LowBalance.into())
+				}
+			})
 	}
 
 	// Backfill the `LastSpendPeriod` storage, assuming that no configuration has changed
@@ -1384,6 +1308,170 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Currency::free_balance(&Self::account_id())
 			// Must never be less than 0 but better be safe.
 			.saturating_sub(T::Currency::minimum_balance())
+	}
+
+	fn pay_from_category(
+		category: &BoundedVec<u8, ConstU32<32>>,
+		beneficiary: &T::Beneficiary,
+		amount: AssetBalanceOf<T, I>,
+	) -> Result<
+		(
+			BoundedVec<
+				PaymentExecution<T::AssetKind, AssetBalanceOf<T, I>, <T::Paymaster as Pay>::Id>,
+				ConstU32<32>,
+			>,
+			AssetBalanceOf<T, I>,
+		),
+		DispatchError,
+	> {
+		let assets = T::AssetCategories::assets_in_category(category.as_slice());
+		ensure!(!assets.is_empty(), Error::<T, I>::EmptyAssetCategory);
+
+		let mut executions = BoundedVec::<
+			PaymentExecution<T::AssetKind, AssetBalanceOf<T, I>, <T::Paymaster as Pay>::Id>,
+			ConstU32<32>,
+		>::default();
+
+		let mut remaining_amount = amount;
+
+		for asset_kind in assets {
+			if remaining_amount.is_zero() {
+				break;
+			}
+
+			// let available =
+			// 	Self::ensure_sufficient_balance(&asset_kind, &Self::account_id(), amount)?;
+
+            let available = match T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id()) {
+                Some(balance) if balance > Zero::zero() => balance,
+                _ => continue,
+            };
+
+			// if available.is_zero() {
+			//	continue;
+			// }
+
+			let pay_amount =
+				if available >= remaining_amount { remaining_amount } else { available };
+
+			match T::Paymaster::pay(beneficiary, asset_kind.clone(), pay_amount) {
+				Ok(payment_id) => {
+					executions
+						.try_push(PaymentExecution {
+							asset: asset_kind.clone(),
+							amount: pay_amount,
+							payment_id,
+						})
+						.map_err(|_| Error::<T, I>::ExecutionRateLimit)?;
+					remaining_amount = remaining_amount.saturating_sub(pay_amount);
+				},
+				Err(_) => continue,
+			}
+		}
+		Ok((executions, remaining_amount))
+	}
+
+	fn retry_failed_category_payments(
+		category: &BoundedVec<u8, ConstU32<32>>,
+		beneficiary: &T::Beneficiary,
+		failed_payments: &BoundedVec<
+			PaymentExecution<T::AssetKind, AssetBalanceOf<T, I>, <T::Paymaster as Pay>::Id>,
+			ConstU32<32>,
+		>,
+	) -> Result<
+		(
+			BoundedVec<
+				PaymentExecution<T::AssetKind, AssetBalanceOf<T, I>, <T::Paymaster as Pay>::Id>,
+				ConstU32<32>,
+			>,
+			AssetBalanceOf<T, I>,
+		),
+		DispatchError,
+	> {
+		let assets = T::AssetCategories::assets_in_category(category.as_slice());
+		ensure!(!assets.is_empty(), Error::<T, I>::EmptyAssetCategory);
+
+		let mut executions = BoundedVec::<
+			PaymentExecution<T::AssetKind, AssetBalanceOf<T, I>, <T::Paymaster as Pay>::Id>,
+			ConstU32<32>,
+		>::default();
+
+		let mut retry_amount: AssetBalanceOf<T, I> = failed_payments
+			.iter()
+			.fold(Zero::zero(), |acc, exec| acc.saturating_add(exec.amount));
+		let used_assets: Vec<_> = failed_payments.iter().map(|exec| exec.asset.clone()).collect();
+
+		for exec in failed_payments.iter() {
+			if retry_amount.is_zero() {
+				break;
+			}
+
+			// let mut available =
+				// Self::ensure_sufficient_balance(&exec.asset, &Self::account_id(), exec.amount)?;
+
+            let mut available = match T::AssetCategories::available_balance(exec.asset.clone(), Self::account_id()) {
+                Some(balance) if balance >= exec.amount => balance,
+                _ => Zero::zero(),
+            };
+
+			let asset_kind = if available.is_zero() {
+				match assets.iter().find(|&ak| {
+					!used_assets.contains(ak)
+				}) {
+					Some(ak) => {
+						available =
+							Self::ensure_sufficient_balance(ak, &Self::account_id(), exec.amount)?;
+						ak.clone()
+					},
+					None => continue,
+				}
+			} else {
+				exec.asset.clone()
+			};
+
+			let pay_amount = if available >= retry_amount { retry_amount } else { available };
+			match T::Paymaster::pay(beneficiary, asset_kind.clone(), pay_amount) {
+				Ok(payment_id) => {
+					executions
+						.try_push(PaymentExecution {
+							asset: asset_kind.clone(),
+							amount: pay_amount,
+							payment_id,
+						})
+						.map_err(|_| Error::<T, I>::ExecutionRateLimit)?;
+					retry_amount = retry_amount.saturating_sub(pay_amount);
+				},
+				Err(_) => continue,
+			}
+		}
+		Ok((executions, retry_amount))
+	}
+
+	pub fn validate_category_spend(
+		category: &BoundedVec<u8, ConstU32<32>>,
+		amount: AssetBalanceOf<T, I>,
+	) -> Result<Vec<T::AssetKind>, DispatchError> {
+		// Just return assets
+		let assets = T::AssetCategories::assets_in_category(category.as_slice());
+		ensure!(!assets.is_empty(), Error::<T, I>::EmptyAssetCategory);
+
+		let mut accumulated: AssetBalanceOf<T, I> = Zero::zero();
+
+		for asset_kind in &assets {
+			if let Some(balance) =
+				T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id()) // TODO:
+                                                                                              // Investigate
+                                                                                              // returning
+                                                                                              // DispatchError
+			{
+				accumulated = accumulated.saturating_add(balance);
+				if accumulated >= amount {
+					return Ok(assets);
+				}
+			}
+		}
+
+		Err(Error::<T, I>::LowBalance.into())
 	}
 
 	/// Ensure the correctness of the state of this pallet.

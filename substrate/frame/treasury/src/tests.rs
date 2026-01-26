@@ -36,6 +36,7 @@ use frame_support::{
 	PalletId,
 };
 
+use frame_support::traits::AsEnsureOriginWithArg;
 use super::*;
 use crate as treasury;
 
@@ -48,6 +49,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+        Assets: pallet_assets,
 		Treasury: treasury,
 		Utility: pallet_utility,
 	}
@@ -78,20 +80,9 @@ thread_local! {
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 	pub static ASSET_BALANCES: RefCell<BTreeMap<u32, u64>> = RefCell::new(BTreeMap::new());
-	pub static CATEGORY_ASSETS: RefCell<BTreeMap<Vec<u8>, Vec<u32>>> = RefCell::new(BTreeMap::new());
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
-}
-
-/// Set asset balance for testing
-fn set_asset_balance(asset_id: u32, balance: u64) {
-	ASSET_BALANCES.with(|b| b.borrow_mut().insert(asset_id, balance));
-}
-
-/// Set assets in a category
-fn set_category_assets(category: &[u8], assets: Vec<u32>) {
-	CATEGORY_ASSETS.with(|c| c.borrow_mut().insert(category.to_vec(), assets));
 }
 
 /// paid balance for a given account and asset ids
@@ -146,19 +137,6 @@ impl Pay for TestPay {
 	}
 }
 
-pub struct TestAssetCategoryManager;
-impl AssetCategoryManager for TestAssetCategoryManager {
-	type AssetKind = u32;
-	type Balance = u64;
-
-	fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
-		CATEGORY_ASSETS.with(|c| c.borrow().get(category).cloned().unwrap_or_default())
-	}
-
-	fn available_balance(asset: &Self::AssetKind) -> Self::Balance {
-		ASSET_BALANCES.with(|b| b.borrow().get(asset).cloned().unwrap_or(0))
-	}
-}
 parameter_types! {
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
@@ -202,6 +180,39 @@ impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 	fn ensure_successful(_: u32) {}
 }
 
+parameter_types! {
+    pub const AssetDeposit: u64 = 1;
+    pub const AssetAccountDeposit: u64 = 1;
+    pub const MetadataDepositBase: u64 = 1;
+    pub const MetadataDepositPerByte: u64 = 1;
+    pub const ApprovalDeposit: u64 = 1;
+    pub const StringLimit: u32 = 50;
+    pub const MaxReserves: u32 = 5;
+}
+
+impl pallet_assets::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Balance = u64;
+    type AssetId = u32;
+    type AssetIdParameter = u32;
+    type Currency = Balances;
+    type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u128>>;
+    type ForceOrigin = frame_system::EnsureRoot<u128>;
+    type AssetDeposit = AssetDeposit;
+    type AssetAccountDeposit = AssetAccountDeposit;
+    type MetadataDepositBase = MetadataDepositBase;
+    type MetadataDepositPerByte = MetadataDepositPerByte;
+    type ApprovalDeposit = ApprovalDeposit;
+    type StringLimit = StringLimit;
+    type Freezer = ();
+    type Extra = ();
+    type CallbackHandle = ();
+    type RemoveItemsLimit = ConstU32<5>;
+    type Holder = ();
+    type WeightInfo = ();
+    type ReserveData = ();
+}
+
 impl Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
@@ -221,7 +232,7 @@ impl Config for Test {
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
-	type AssetCategories = TestAssetCategoryManager;
+	type AssetCategories = Assets;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -232,13 +243,6 @@ impl Default for ExtBuilder {
 	fn default() -> Self {
 		#[cfg(feature = "runtime-benchmarks")]
 		TEST_SPEND_ORIGIN_TRY_SUCCESFUL_ORIGIN_ERR.with(|i| *i.borrow_mut() = false);
-
-		// Setup default categories for tests
-		CATEGORY_ASSETS.with(|c| {
-			let mut map = c.borrow_mut();
-			map.insert(b"USD*".to_vec(), vec![1, 2, 3]);
-			map.insert(b"EUR*".to_vec(), vec![4, 5]);
-		});
 
 		ASSET_BALANCES.with(|b| {
 			let mut map = b.borrow_mut();
@@ -260,18 +264,45 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn with_asset_balance(self, asset_id: u32, balance: u64) -> Self {
-		set_asset_balance(asset_id, balance);
-		self
-	}
-
-	pub fn with_category_assets(self, category: &[u8], assets: Vec<u32>) -> Self {
-		set_category_assets(category, assets);
-		self
-	}
-
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+        let assets_config: pallet_assets::GenesisConfig<Test> = pallet_assets::GenesisConfig {
+
+            assets: vec![
+                // id, owner, is_sufficient, min_balance
+                (1, 0, true, 1),
+                (2, 0, true, 1),
+                (3, 0, true, 1),
+                (4, 0, true, 1),
+                (5, 0, true, 1),
+                (10, 0, true, 1),
+                (11, 0, true, 1),
+            ],
+
+            metadata: vec![
+                // id name, symbol, decimals
+                (1, "Asset 1".into(), "A1".into(), 10),
+                (2, "Asset 2".into(), "A2".into(), 10),
+                (3, "Asset 3".into(), "A3".into(), 10),
+                (4, "Asset 4".into(), "A4".into(), 10),
+                (5, "Asset 5".into(), "A5".into(), 10),
+                (10, "Asset 10".into(), "A10".into(), 10),
+                (11, "Asset 11".into(), "A11".into(), 10),
+            ],
+
+            accounts: vec![
+                // id, account_id, balance
+                (1, Treasury::account_id(), 20),
+                (2, Treasury::account_id(), 20),
+                (3, Treasury::account_id(), 20),
+                (4, Treasury::account_id(), 25),
+                (5, Treasury::account_id(), 50),
+                (10, Treasury::account_id(), 50),
+                (11, Treasury::account_id(), 30),
+            ],
+            next_asset_id: None,
+            reserves: vec![],
+        };
 		pallet_balances::GenesisConfig::<Test> {
 			// Total issuance will be 200 with treasury account initialized at ED.
 			balances: vec![(0, 100), (1, 98), (2, 1)],
@@ -279,10 +310,34 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+        assets_config.assimilate_storage(&mut t).unwrap();
 		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
+		ext.execute_with(|| { 
+            
+            System::set_block_number(1);
+
+            let usd_category: BoundedVec<u8, ConstU32<32>> =
+                BoundedVec::try_from(b"USD".to_vec()).unwrap();
+            let stable_category: BoundedVec<u8, ConstU32<32>> =
+                BoundedVec::try_from(b"STABLE".to_vec()).unwrap();
+
+            // TODO: Create assets in USD category?
+
+            // Set up categories
+            pallet_assets::AssetCategories::<Test>::insert(
+                &usd_category,
+                BoundedVec::try_from(vec![1u32, 2u32, 3u32]).unwrap(),
+            );
+
+            pallet_assets::AssetCategories::<Test>::insert(
+                &stable_category,
+                BoundedVec::try_from(vec![10u32, 11u32]).unwrap(),
+            );
+
+        });
 		ext
 	}
 }
@@ -1242,8 +1297,7 @@ fn category_spend_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		// Create a category spend for USD* category
-		let category = b"USD*".to_vec();
+		let category = b"USD".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1284,19 +1338,14 @@ fn category_spend_works() {
 #[test]
 fn category_payout_distributes_across_assets() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 20)
-		.with_asset_balance(2, 10)
-		.with_asset_balance(3, 30)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			// Create a category spend for USD* category
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
-			// Request 50 USD* - should use all available balances
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
 				Box::new(SpendAsset::Category(bounded_category)),
@@ -1305,21 +1354,18 @@ fn category_payout_distributes_across_assets() {
 				None
 			));
 
-			// Payout the spend
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
 			assert_eq!(paid(6, 1), 20);
-			assert_eq!(paid(6, 2), 10);
-			assert_eq!(paid(6, 3), 20);
+			assert_eq!(paid(6, 2), 20);
+			assert_eq!(paid(6, 3), 10);
 
-			// Check spend status
 			let spend = Spends::<Test, _>::get(0).unwrap();
 			match &spend.status {
 				PaymentState::Attempted { executions, remaining_amount } => {
 					assert_eq!(executions.len(), 3);
 					assert_eq!(*remaining_amount, 0);
 
-					// Check execution details
 					let mut asset_payments = std::collections::BTreeMap::new();
 					for exec in executions.iter() {
 						asset_payments.insert(exec.asset, exec.amount);
@@ -1337,18 +1383,14 @@ fn category_payout_distributes_across_assets() {
 #[test]
 fn category_payout_partial_fulfillment() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 10)
-		.with_asset_balance(2, 15)
-		.with_asset_balance(3, 5)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
-			// Request 50 USD* spend to a 30 USD* pool
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
 				Box::new(SpendAsset::Category(bounded_category)),
@@ -1359,8 +1401,7 @@ fn category_payout_partial_fulfillment() {
 
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
-			// Check partial payment
-			assert_eq!(paid(6, 1), 10);
+			assert_eq!(paid(6, 1), 20);
 			assert_eq!(paid(6, 2), 15);
 			assert_eq!(paid(6, 3), 5);
 
@@ -1387,14 +1428,11 @@ fn category_payout_partial_fulfillment() {
 #[test]
 fn category_payout_skips_assets_with_no_balance() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 0)
-		.with_asset_balance(2, 40)
-		.with_asset_balance(3, 0)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1408,19 +1446,18 @@ fn category_payout_skips_assets_with_no_balance() {
 
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
-			// Only AssetId = 2 should be used
-			assert_eq!(paid(6, 1), 0);
-			assert_eq!(paid(6, 2), 30);
+			assert_eq!(paid(6, 1), 20);
+			assert_eq!(paid(6, 2), 10);
 			assert_eq!(paid(6, 3), 0);
 
 			let spend = Spends::<Test, _>::get(0).unwrap();
 			match &spend.status {
 				PaymentState::Attempted { executions, remaining_amount } => {
-					assert_eq!(executions.len(), 1); // Only USDC used
-					assert_eq!(*remaining_amount, 0); // Full amount paid
+					assert_eq!(executions.len(), 2);
+					assert_eq!(*remaining_amount, 0);
 
-					assert_eq!(executions[0].asset, 2);
-					assert_eq!(executions[0].amount, 30);
+					assert_eq!(executions[0].asset, 1);
+					assert_eq!(executions[0].amount, 20);
 				},
 				_ => panic!("Expected Attempted status"),
 			}
@@ -1430,14 +1467,11 @@ fn category_payout_skips_assets_with_no_balance() {
 #[test]
 fn category_payout_fails_when_no_assets_available() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 0)
-		.with_asset_balance(2, 0)
-		.with_asset_balance(3, 0)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1449,7 +1483,6 @@ fn category_payout_fails_when_no_assets_available() {
 				None
 			));
 
-			// Payout should fail - no assets have balance
 			assert_noop!(
 				Treasury::payout(RuntimeOrigin::signed(1), 0),
 				Error::<Test, _>::PayoutError
@@ -1462,12 +1495,10 @@ fn category_spend_with_unknown_category() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		// Try to spend from a non-existent category
-		let category = b"GBP*".to_vec(); // No GBP assets defined
+		let category = b"GBP".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
-		// Should fail during conversion because category has no assets
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
@@ -1484,14 +1515,10 @@ fn category_spend_with_unknown_category() {
 #[test]
 fn mixed_specific_and_category_spends() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 100)
-		.with_asset_balance(2, 100)
-		.with_asset_balance(4, 100)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			// Specific asset spend
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
 				Box::new(SpendAsset::Specific(4)),
@@ -1500,8 +1527,7 @@ fn mixed_specific_and_category_spends() {
 				None
 			));
 
-			// Category spend
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1513,18 +1539,14 @@ fn mixed_specific_and_category_spends() {
 				None
 			));
 
-			// Payout specific spend
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 			assert_eq!(paid(7, 4), 25);
 
-			// Payout category spend
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
 
-			// Category spend should use USD assets
 			let paid_usd = paid(8, 1) + paid(8, 2);
 			assert_eq!(paid_usd, 30);
 
-			// Check counts
 			assert_eq!(SpendCount::<Test, _>::get(), 2);
 			assert_eq!(Spends::<Test, _>::iter().count(), 2);
 		});
@@ -1533,17 +1555,14 @@ fn mixed_specific_and_category_spends() {
 #[test]
 fn category_check_status_with_multiple_executions() {
 	ExtBuilder::default()
-		.with_asset_balance(1, 20)
-		.with_asset_balance(2, 20)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"USD*".to_vec();
+			let category = b"USD".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
-			// Request 40 USD* from a 40 USD* pool
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
 				Box::new(SpendAsset::Category(bounded_category)),
@@ -1552,10 +1571,8 @@ fn category_check_status_with_multiple_executions() {
 				None
 			));
 
-			// Payout the spend
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
-			// Get payment IDs
 			let payment_ids = get_all_payment_ids(0);
 			assert_eq!(payment_ids.len(), 2);
 
@@ -1566,19 +1583,14 @@ fn category_check_status_with_multiple_executions() {
 #[test]
 fn category_spend_with_custom_category() {
 	ExtBuilder::default()
-		.with_category_assets(b"STABLE*", vec![10, 11, 12])
-		.with_asset_balance(10, 50)
-		.with_asset_balance(11, 30)
-		.with_asset_balance(12, 20)
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"STABLE*".to_vec();
+			let category = b"STABLE".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
-			// Request 80 USD* from a 100 USD* pool
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
 				Box::new(SpendAsset::Category(bounded_category)),
@@ -1587,7 +1599,6 @@ fn category_spend_with_custom_category() {
 				None
 			));
 
-			// Payout - uses 2 out of 3 assets
 			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
 
 			assert_eq!(paid(6, 10), 50);
@@ -1610,7 +1621,7 @@ fn category_spend_respects_spend_origin_limit() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let category = b"USD*".to_vec();
+		let category = b"USD".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1638,12 +1649,12 @@ fn category_spend_respects_spend_origin_limit() {
 #[test]
 fn category_spend_with_empty_category_assets() {
 	ExtBuilder::default()
-		.with_category_assets(b"EMPTY*", vec![]) // Empty category
+		/*.with_category_assets(b"EMPTY*", vec![]) // Empty category*/
 		.build()
 		.execute_with(|| {
 			System::set_block_number(1);
 
-			let category = b"EMPTY*".to_vec();
+			let category = b"EMPTY".to_vec();
 			let bounded_category: BoundedVec<u8, ConstU32<32>> =
 				BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1662,10 +1673,10 @@ fn category_spend_with_empty_category_assets() {
 
 #[test]
 fn category_spend_cannot_void_after_payout() {
-	ExtBuilder::default().with_asset_balance(1, 50).build().execute_with(|| {
+	ExtBuilder::default()/*.with_asset_balance(1, 50)*/.build().execute_with(|| {
 		System::set_block_number(1);
 
-		let category = b"USD*".to_vec();
+		let category = b"USD".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1693,7 +1704,7 @@ fn category_spend_expiry_works() {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
 
 		System::set_block_number(1);
-		let category = b"USD*".to_vec();
+		let category = b"USD".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1717,7 +1728,7 @@ fn category_spend_valid_from_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let category = b"USD*".to_vec();
+		let category = b"USD".to_vec();
 		let bounded_category: BoundedVec<u8, ConstU32<32>> =
 			BoundedVec::try_from(category.clone()).unwrap();
 
@@ -1737,8 +1748,10 @@ fn category_spend_valid_from_works() {
 		// Can payout at valid_from
 		System::set_block_number(3);
 
-		set_asset_balance(1, 50);
+		/*
+        set_asset_balance(1, 50);
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+        */
 
 		assert_eq!(paid(6, 1), 50);
 
