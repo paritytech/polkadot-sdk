@@ -33,12 +33,13 @@
 use crate::{
 	pallet::{
 		InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount, MaxPositionAmount,
-		MaximumIssuance, MinimumCollateralizationRatio, StabilityFee,
+		MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
+		OracleStalenessThreshold, StabilityFee, StaleVaultThreshold,
 	},
-	Config, Pallet,
+	BalanceOf, Config, MomentOf, Pallet,
 };
 use frame_support::{pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade};
-use sp_runtime::{FixedU128, Permill};
+use sp_runtime::{traits::SaturatedConversion, FixedU128, Permill};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -63,13 +64,25 @@ pub trait InitialVaultsConfig<T: Config> {
 	fn liquidation_penalty() -> Permill;
 
 	/// Maximum total pUSD debt allowed in the system.
-	fn maximum_issuance() -> crate::BalanceOf<T>;
+	fn maximum_issuance() -> BalanceOf<T>;
 
 	/// Maximum pUSD at risk in active auctions.
-	fn max_liquidation_amount() -> crate::BalanceOf<T>;
+	fn max_liquidation_amount() -> BalanceOf<T>;
 
 	/// Maximum pUSD debt for a single vault.
-	fn max_position_amount() -> crate::BalanceOf<T>;
+	fn max_position_amount() -> BalanceOf<T>;
+
+	/// Minimum DOT required to create a vault.
+	fn minimum_deposit() -> BalanceOf<T>;
+
+	/// Minimum pUSD amount that can be minted in a single operation.
+	fn minimum_mint() -> BalanceOf<T>;
+
+	/// Milliseconds before a vault is considered stale for on_idle processing.
+	fn stale_vault_threshold() -> u64;
+
+	/// Maximum age (milliseconds) of oracle price before operations pause.
+	fn oracle_staleness_threshold() -> u64;
 }
 
 /// Migration logic for V0 -> V1.
@@ -94,6 +107,12 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMi
 		MaximumIssuance::<T>::put(I::maximum_issuance());
 		MaxLiquidationAmount::<T>::put(I::max_liquidation_amount());
 		MaxPositionAmount::<T>::put(I::max_position_amount());
+		MinimumDeposit::<T>::put(I::minimum_deposit());
+		MinimumMint::<T>::put(I::minimum_mint());
+		StaleVaultThreshold::<T>::put(I::stale_vault_threshold().saturated_into::<MomentOf<T>>());
+		OracleStalenessThreshold::<T>::put(
+			I::oracle_staleness_threshold().saturated_into::<MomentOf<T>>(),
+		);
 
 		// Ensure Insurance Fund account exists (1 read + potentially 1 write)
 		Pallet::<T>::ensure_insurance_fund_exists();
@@ -103,8 +122,8 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMi
 			"MigrateToV1 complete"
 		);
 
-		// 7 writes (parameters) + 1 read + 1 write (insurance fund account check/creation)
-		T::DbWeight::get().reads_writes(1, 8)
+		// 11 writes (parameters) + 1 read + 1 write (insurance fund account check/creation)
+		T::DbWeight::get().reads_writes(1, 12)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -128,6 +147,13 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMi
 		ensure!(!MaximumIssuance::<T>::get().is_zero(), "MaximumIssuance not set");
 		ensure!(!MaxLiquidationAmount::<T>::get().is_zero(), "MaxLiquidationAmount not set");
 		ensure!(!MaxPositionAmount::<T>::get().is_zero(), "MaxPositionAmount not set");
+		ensure!(!MinimumDeposit::<T>::get().is_zero(), "MinimumDeposit not set");
+		ensure!(!MinimumMint::<T>::get().is_zero(), "MinimumMint not set");
+		ensure!(!StaleVaultThreshold::<T>::get().is_zero(), "StaleVaultThreshold not set");
+		ensure!(
+			!OracleStalenessThreshold::<T>::get().is_zero(),
+			"OracleStalenessThreshold not set"
+		);
 
 		Ok(())
 	}
