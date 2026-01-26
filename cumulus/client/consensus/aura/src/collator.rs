@@ -178,17 +178,9 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-		mut relay_proof_request: RelayProofRequest,
+		relay_proof_request: RelayProofRequest,
 		collator_peer_id: PeerId,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
-		// Add additional_relay_state_keys
-		let additional_relay_state_keys: Vec<Vec<u8>> = Vec::new();
-
-		// Merge collator-side keys with runtime-requested keys
-		relay_proof_request
-			.keys
-			.extend(additional_relay_state_keys.into_iter().map(RelayStorageKey::Top));
-
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,

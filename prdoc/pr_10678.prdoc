@@ -10,6 +10,9 @@ doc:
     description: |
       Collators now query the runtime for additional relay chain keys to prove. Adds
       `prove_child_read()` to relay chain interfaces for child trie proofs.
+
+      `additional_relay_state_keys` parameter removed from parachain inherent data creation.
+      Extend `RelayProofRequest.keys` directly at collator level if needed.
 crates:
   - name: cumulus-primitives-core
     bump: minor
