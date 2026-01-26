@@ -675,8 +675,8 @@ pub mod pallet {
 			validators_root: H256,
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
-			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot - 1.
-			// See: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot -
+			// 1. See: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 			// In validate_light_client_update: fork_version_slot = max(signature_slot, 1) - 1
 			let fork_version = Self::compute_fork_version(compute_epoch(
 				signature_slot.saturating_sub(1),
