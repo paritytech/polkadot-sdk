@@ -60,6 +60,7 @@ use sp_runtime::{
 	OpaqueValue,
 };
 use sp_weights::Weight;
+use KEY_TYPE as BEEFY_KEY_TYPE;
 
 /// Trait representing BEEFY authority id, including custom signature verification.
 pub trait BeefyAuthorityId: RuntimeAppPublic {
@@ -105,7 +106,7 @@ pub trait AuthorityIdBound:
 pub mod ecdsa_crypto {
 	#[cfg(feature = "std")]
 	use super::Vec;
-	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, BEEFY_KEY_TYPE};
 	#[cfg(feature = "std")]
 	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, ecdsa};
@@ -116,7 +117,7 @@ pub mod ecdsa_crypto {
 	#[cfg(feature = "std")]
 	use sp_keystore::KeystorePtr;
 
-	app_crypto!(ecdsa, KEY_TYPE);
+	app_crypto!(ecdsa, BEEFY_KEY_TYPE);
 
 	/// Identity of a BEEFY authority using ECDSA as its crypto.
 	pub type AuthorityId = Public;
@@ -127,7 +128,7 @@ pub mod ecdsa_crypto {
 	impl BeefyAuthorityId for AuthorityId {
 		#[cfg(feature = "std")]
 		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
-			store.ecdsa_public_keys(KEY_TYPE)
+			store.ecdsa_public_keys(BEEFY_KEY_TYPE)
 		}
 
 		#[cfg(feature = "std")]
@@ -138,7 +139,7 @@ pub mod ecdsa_crypto {
 		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let msg_hash = keccak_256(msg);
 			let public = ecdsa::Public::try_from(self.as_slice()).unwrap();
-			store.ecdsa_sign_prehashed(KEY_TYPE, &public, &msg_hash)
+			store.ecdsa_sign_prehashed(BEEFY_KEY_TYPE, &public, &msg_hash)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
@@ -172,7 +173,7 @@ pub mod ecdsa_crypto {
 pub mod bls_crypto {
 	#[cfg(feature = "std")]
 	use super::Vec;
-	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, BEEFY_KEY_TYPE};
 	#[cfg(feature = "std")]
 	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, bls381};
@@ -180,7 +181,7 @@ pub mod bls_crypto {
 	#[cfg(feature = "std")]
 	use sp_keystore::KeystorePtr;
 
-	app_crypto!(bls381, KEY_TYPE);
+	app_crypto!(bls381, BEEFY_KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
 	pub type AuthorityId = Public;
@@ -191,7 +192,7 @@ pub mod bls_crypto {
 	impl BeefyAuthorityId for AuthorityId {
 		#[cfg(feature = "std")]
 		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
-			store.bls381_public_keys(KEY_TYPE)
+			store.bls381_public_keys(BEEFY_KEY_TYPE)
 		}
 
 		#[cfg(feature = "std")]
@@ -201,7 +202,7 @@ pub mod bls_crypto {
 			msg: &[u8],
 		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let public = bls381::Public::try_from(self.as_slice()).unwrap();
-			store.bls381_sign(KEY_TYPE, &public, msg)
+			store.bls381_sign(BEEFY_KEY_TYPE, &public, msg)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
@@ -232,7 +233,7 @@ pub mod bls_crypto {
 pub mod ecdsa_bls_crypto {
 	#[cfg(feature = "std")]
 	use super::Vec;
-	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, KEY_TYPE};
+	use super::{AuthorityIdBound, BeefyAuthorityId, RuntimeAppPublic, BEEFY_KEY_TYPE};
 	#[cfg(feature = "std")]
 	use core::fmt::Debug;
 	use sp_application_crypto::{app_crypto, ecdsa_bls381};
@@ -241,7 +242,7 @@ pub mod ecdsa_bls_crypto {
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::traits::Keccak256;
 
-	app_crypto!(ecdsa_bls381, KEY_TYPE);
+	app_crypto!(ecdsa_bls381, BEEFY_KEY_TYPE);
 
 	/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
 	pub type AuthorityId = Public;
@@ -252,7 +253,7 @@ pub mod ecdsa_bls_crypto {
 	impl BeefyAuthorityId for AuthorityId {
 		#[cfg(feature = "std")]
 		fn get_all_public_keys_from_store(store: KeystorePtr) -> Vec<impl AsRef<[u8]>> {
-			store.ecdsa_bls381_public_keys(KEY_TYPE)
+			store.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
 		}
 
 		#[cfg(feature = "std")]
@@ -262,7 +263,7 @@ pub mod ecdsa_bls_crypto {
 			msg: &[u8],
 		) -> Result<Option<impl AsRef<[u8]> + Debug>, sp_keystore::Error> {
 			let public = ecdsa_bls381::Public::try_from(self.as_slice()).unwrap();
-			store.ecdsa_bls381_sign_with_keccak256(KEY_TYPE, &public, &msg)
+			store.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &msg)
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
