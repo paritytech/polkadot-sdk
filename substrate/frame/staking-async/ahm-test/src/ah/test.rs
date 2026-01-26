@@ -1088,7 +1088,7 @@ fn era_lifecycle_test() {
 fn vote_nominate_while_bagslist_is_locked() {
 	ExtBuilder::default().build().execute_with(|| {
 		VoterBagsList::lock();
-	
+
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![3]));
 		assert!(pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
 		roll_next();
@@ -1101,7 +1101,10 @@ fn vote_nominate_while_bagslist_is_locked() {
 
 		VoterBagsList::lock();
 
-		assert_ok!(Staking::validate(RuntimeOrigin::signed(2), pallet_staking_async::ValidatorPrefs::default()));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(2),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
 		assert!(pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
 
 		VoterBagsList::unlock();
