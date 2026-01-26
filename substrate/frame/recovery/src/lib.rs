@@ -436,7 +436,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// The friend groups of an that can conduct recovery attempts.
+	/// The friend groups of an account that can conduct recovery attempts.
 	///
 	/// Modifying this storage does not impact ongoing recovery attempts.
 	#[pallet::storage]
