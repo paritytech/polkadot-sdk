@@ -82,6 +82,26 @@ async fn authorities_change() -> Result<(), anyhow::Error> {
 		assert!(result.success(), "Consensus import did not happen for {name}: {result:?}");
 	}
 
+	for name in ["dave", "eve", "ferdie"] {
+		log::info!("Ensuring {name} continues to sync after authorities change");
+		let current_best_block = network
+			.get_node(name)
+			.unwrap()
+			.wait_client::<PolkadotConfig>()
+			.await
+			.unwrap()
+			.blocks()
+			.at_latest()
+			.await
+			.unwrap()
+			.number() as f64;
+		assert!(network
+			.get_node(name)?
+			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b > current_best_block, 30u64)
+			.await
+			.is_ok());
+	}
+
 	Ok(())
 }
 
@@ -130,7 +150,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					])
 				})
 				.with_collator(|n| {
-					n.with_name("ferdie").validator(false).with_args(vec![
+					n.with_name("ferdie").validator(true).with_args(vec![
 						"-laura=debug".into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
