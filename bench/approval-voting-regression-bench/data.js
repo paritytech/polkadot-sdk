@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769175922315,
+  "lastUpdate": 1769423754533,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5072bf9b93dc1c9dff0161ab6efe2799036045e9",
-          "message": "Scheduler `on_initialize` supports skipped blocks (#8723)\n\nScheduler `on_initialize` supports skipped blocks.\n\nScheduler correctly handles situations where `on_initialize` is invoked\nwith block numbers that:\n- increase but are not strictly consecutive (e.g., jump from 5 → 10), or\n- are repeated (e.g., multiple blocks are built at the same Relay Chain\nparent block, all reporting the same `BlockNumberProvider` value).\n\nThis situation may occur when the `BlockNumberProvider` is not local -\nfor example, on a parachain using the Relay Chain block number provider.\n\nImplementation notes:\n- The `IncompleteSince` value is always set to the next block `(now +\n1)`.\n- A scheduled task is considered permanently overweight only if it fails\nduring the first agenda processing;",
-          "timestamp": "2025-06-21T20:35:41Z",
-          "tree_id": "2cd75d8bd1acbb19ed31a2ae5344c840c8fd73cb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5072bf9b93dc1c9dff0161ab6efe2799036045e9"
-        },
-        "date": 1750542194744,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.40216661561227,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002021086,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.4139632853,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002021086,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001959889,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.966390126890008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001959889,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4180730309600014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8944324593400022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4575609167300037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005980111000000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.37854302373,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3978372998299995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.3619297550799923,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "claravanstaden64@gmail.com",
+            "name": "Clara van Staden",
+            "username": "claravanstaden"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2da3987489a7c4bfcaddd48e99498e0759d30356",
+          "message": "Snowbridge Ethereum client spec fix (#10793)\n\nThis PR fixes a minor discrepancy in the Snowbridge Ethereum cient\npallet where the fork version for sync committee signature verification\nwas derived from `signature_slot` instead of `signature_slot - 1` as\nrequired by the\nhttps://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update.\nThis caused valid light client updates to be rejected at Ethereum\nhard-fork boundaries. The impact is low severity - only affecting\nliveness once or twice a year for a few minutes. Origin: bug bounty\nreport.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-26T09:27:22Z",
+          "tree_id": "efbf89a0b09597677c7b6e45ba05562e50d2fcd6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2da3987489a7c4bfcaddd48e99498e0759d30356"
+        },
+        "date": 1769423730939,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63622.19,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0051684459200000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.692453936519997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6590165260799985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002557705,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3603509511899894,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.5158937887928605,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.687278657659998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002557705,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022036389999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.652462565420001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8216566884099883,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022036389999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.878387771199971,
             "unit": "seconds"
           }
         ]
