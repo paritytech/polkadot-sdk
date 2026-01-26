@@ -7,3 +7,5 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: patch
+- name: pallet-bags-list
+  bump: patch
