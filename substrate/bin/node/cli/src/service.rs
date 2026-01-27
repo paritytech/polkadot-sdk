@@ -533,6 +533,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
