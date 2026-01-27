@@ -1,0 +1,8 @@
+title: 'staking-async: improve benchmarking'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Avoid bulk deletion of validators and nominators when not needed.
+crates:
+- name: pallet-staking-async
+  bump: none
