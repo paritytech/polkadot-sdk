@@ -1749,7 +1749,7 @@ where
 				t.terminate(
 					contract_address,
 					T::AddressMapper::to_address(&args.beneficiary),
-					0, // gas is tracked separately; termination happens at end of call stack
+					transaction_meter.eth_gas_left().unwrap_or_default().saturated_into::<u64>(),
 					balance,
 				);
 			});
