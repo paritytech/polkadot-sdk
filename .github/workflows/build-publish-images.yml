@@ -46,7 +46,8 @@ jobs:
       - name: build
         id: required
         run: |
-          forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker --bin statement-latency-bench
+          forklift cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+          forklift cargo build --locked --profile testnet -p statement-latency-bench
           ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
           ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
           ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
