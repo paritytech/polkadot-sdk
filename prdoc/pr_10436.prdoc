@@ -1,0 +1,33 @@
+title: Add multi-block migration `ClearStorage` to clear storage items by pallet/storage name.
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduces a new generic migration utility `ClearStorage` that enables
+    safe removal of storage items using the multi-block migration framework.
+
+    The migration accepts a pallet name and an optional storage name:
+    - When `Some(storage_name)` is provided, only that specific storage is cleared
+    - When `None` is provided, all storage for the pallet is cleared
+
+    This is the recommended replacement for the now-deprecated
+    `frame_support::migrations::RemoveStorage`, which could brick chains if
+    the storage removal exceeded block weight limits.
+
+    Example usage:
+    ```rust
+    parameter_types! {
+        pub const PalletName: &'static str = "MyPallet";
+        pub const StorageName: Option<&'static str> = Some("MyStorage");
+    }
+
+    type Migration = pallet_migrations::ClearStorage<Runtime, PalletName, StorageName>;
+    ```
+crates:
+- name: pallet-migrations
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch

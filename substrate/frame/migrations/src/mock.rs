@@ -27,6 +27,102 @@ use sp_core::H256;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
+pub mod runtime_a {
+	use frame_support::{derive_impl, migrations::MultiStepMigrator, weights::Weight};
+
+	type Block = frame_system::mocking::MockBlock<RuntimeA>;
+
+	// Configure a mock runtime to test the pallet.
+	frame_support::construct_runtime!(
+		pub enum RuntimeA {
+			System: frame_system,
+			Glutton: pallet_glutton,
+			Migrations: crate,
+		}
+	);
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+	impl frame_system::Config for RuntimeA {
+		type Block = Block;
+		type PalletInfo = PalletInfo;
+		type MultiBlockMigrator = Migrations;
+	}
+
+	impl pallet_glutton::Config for RuntimeA {
+		type RuntimeEvent = RuntimeEvent;
+		type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+		type WeightInfo = ();
+	}
+
+	frame_support::parameter_types! {
+		pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
+		// For ClearStorage with Some (specific storage)
+		pub const SystemPalletName: &'static str = "System";
+		pub const AccountStorageName: Option<&'static str> = Some("Account");
+		// For ClearStorage with None (all pallet storage)
+		pub const GluttonPalletName: &'static str = "Glutton";
+		pub const NoStorageName: Option<&'static str> = None;
+	}
+
+	/// Migration to clear a specific storage item (System::Account)
+	pub type ClearSystemAccountStorage =
+		crate::migrations::ClearStorage<RuntimeA, SystemPalletName, AccountStorageName>;
+
+	/// Migration to clear all storage for the Glutton pallet (using None for storage name)
+	pub type ClearAllGluttonStorage =
+		crate::migrations::ClearStorage<RuntimeA, GluttonPalletName, NoStorageName>;
+
+	#[derive_impl(crate::config_preludes::TestDefaultConfig)]
+	impl crate::Config for RuntimeA {
+		#[cfg(feature = "runtime-benchmarks")]
+		type Migrations = crate::mock_helpers::MockedMigrations;
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Migrations = (ClearSystemAccountStorage, ClearAllGluttonStorage);
+		type MigrationStatusHandler = ();
+		type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	}
+
+	pub fn run_to_block(n: u64) {
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default()
+				.before_initialize(|bn| {
+					log::debug!("Block {bn}");
+				})
+				.after_initialize(|_| {
+					// Executive calls this:
+					<Migrations as MultiStepMigrator>::step();
+				}),
+		);
+	}
+
+	pub fn assert_events(events: Vec<RuntimeEvent>) {
+		pretty_assertions::assert_eq!(
+			events,
+			System::events()
+				.into_iter()
+				.filter_map(|e| {
+					if let RuntimeEvent::Migrations(..) = e.event {
+						Some(e.event)
+					} else {
+						None
+					}
+				})
+				.collect::<Vec<_>>()
+		);
+		System::reset_events();
+	}
+
+	/// Check if Glutton has any storage set.
+	pub fn glutton_storage_exists() -> bool {
+		use frame_support::traits::PalletInfoAccess;
+
+		let storage_key = sp_core::twox_128(Glutton::name().as_bytes()).to_vec();
+
+		sp_io::storage::next_key(&storage_key).is_some()
+	}
+}
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -48,9 +144,6 @@ frame_support::parameter_types! {
 
 #[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = crate::mock_helpers::MockedMigrations;
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = MockedMigrations;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;

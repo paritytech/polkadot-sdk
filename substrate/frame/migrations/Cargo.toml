@@ -27,6 +27,8 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 frame-executive = { workspace = true, default-features = true }
+pallet-glutton = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
 sp-tracing = { features = ["std"], workspace = true, default-features = true }
 
 pretty_assertions = { workspace = true }
@@ -51,6 +53,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"frame/runtime-benchmarks",
+	"pallet-glutton/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
@@ -59,5 +62,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame/try-runtime",
+	"pallet-glutton/try-runtime",
 	"sp-runtime/try-runtime",
 ]
