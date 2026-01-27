@@ -17968,6 +17968,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "pvq-executor"
+version = "0.1.0"
+dependencies = [
+ "polkavm",
+ "pvq-primitives",
+ "thiserror 1.0.65",
+ "tracing",
+]
+
+[[package]]
+name = "pvq-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "pvq-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "pvq-primitives",
+ "sp-api",
+]
+
+[[package]]
 name = "pyroscope"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
