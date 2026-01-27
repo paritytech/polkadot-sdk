@@ -351,7 +351,7 @@ where
 				);
 			},
 		}
-
+		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
@@ -363,6 +363,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					None,
+					spawn_handle.clone(),
 				)?;
 				Ok(module)
 			})

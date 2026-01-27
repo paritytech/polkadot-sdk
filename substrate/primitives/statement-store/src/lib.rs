@@ -44,11 +44,14 @@ pub type Channel = [u8; 32];
 
 /// Total number of topic fields allowed.
 pub const MAX_TOPICS: usize = 4;
+/// `MatchAny` allows to provide a list of topics match against. This is the maximum number of
+/// topics allowed.
+pub const MAX_ANY_TOPICS: usize = 128;
 
 #[cfg(feature = "std")]
 pub use store_api::{
-	Error, FilterDecision, InvalidReason, RejectionReason, Result, StatementSource, StatementStore,
-	SubmitResult,
+	CheckedTopicFilter, Error, FilterDecision, InvalidReason, RejectionReason, Result,
+	StatementSource, StatementStore, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]
@@ -149,8 +152,8 @@ pub enum Field {
 	AuthenticityProof(Proof) = 0,
 	/// An identifier for the key that `Data` field may be decrypted with.
 	DecryptionKey(DecryptionKey) = 1,
-	/// Priority when competing with other messages from the same sender.
-	Priority(u32) = 2,
+	/// Expiry of the statement. See [`Statement::expiry`] for details on the format.
+	Expiry(u64) = 2,
 	/// Account channel to use. Only one message per `(account, channel)` pair is allowed.
 	Channel(Channel) = 3,
 	/// First statement topic.
@@ -176,12 +179,42 @@ impl Field {
 /// Statement structure.
 #[derive(DecodeWithMemTracking, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
+	/// Proof used for authorizing the statement.
 	proof: Option<Proof>,
+	/// An identifier for the key that `Data` field may be decrypted with.
+	#[deprecated(note = "Experimental feature, may be removed/changed in future releases")]
 	decryption_key: Option<DecryptionKey>,
+	/// Used for identifying a distinct communication channel, only a message per channel is
+	/// stored.
+	///
+	/// This can be used to implement message replacement, submitting a new message with a
+	/// different topic/data on the same channel and a greater expiry replaces the previous one.
+	///
+	/// If the new statement data is bigger than the old one, submitting a statement with the same
+	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
+	/// in the account quota. In that case, other statements from the same account with the lowest
+	/// expiry will be removed.
 	channel: Option<Channel>,
-	priority: Option<u32>,
+	/// Message expiry, used for determining which statements to keep.
+	///
+	/// The most significant 32 bits represents the expiration timestamp (in seconds since
+	/// UNIX epoch) after which the statement gets removed. These ensure that statements with a
+	/// higher expiration time have a higher priority.
+	/// The lower 32 bits represents an arbitrary sequence number used to order statements with the
+	/// same expiration time.
+	///
+	/// Higher values indicate a higher priority.
+	/// This is used in two cases:
+	/// 1) When an account exceeds its quota and some statements need to be removed. Statements
+	///    with the lowest `expiry` are removed first.
+	/// 2) When multiple statements are submitted on the same channel, the one with the highest
+	///    expiry replaces the one with the same channel.
+	expiry: u64,
+	/// Number of topics present.
 	num_topics: u8,
+	/// Topics, used for querying and filtering statements.
 	topics: [Topic; MAX_TOPICS],
+	/// Statement data.
 	data: Option<Vec<u8>>,
 }
 
@@ -215,7 +248,7 @@ impl Decode for Statement {
 			match field {
 				Field::AuthenticityProof(p) => statement.set_proof(p),
 				Field::DecryptionKey(key) => statement.set_decryption_key(key),
-				Field::Priority(p) => statement.set_priority(p),
+				Field::Expiry(p) => statement.set_expiry(p),
 				Field::Channel(c) => statement.set_channel(c),
 				Field::Topic1(t) => statement.set_topic(0, t),
 				Field::Topic2(t) => statement.set_topic(1, t),
@@ -275,6 +308,11 @@ impl Statement {
 		} else {
 			false
 		}
+	}
+
+	/// Returns slice of all topics set in the statement.
+	pub fn topics(&self) -> &[Topic] {
+		&self.topics[..self.num_topics as usize]
 	}
 
 	/// Sign with a given private key and add the signature proof field.
@@ -403,6 +441,7 @@ impl Statement {
 	}
 
 	/// Returns decryption key if any.
+	#[allow(deprecated)]
 	pub fn decryption_key(&self) -> Option<DecryptionKey> {
 		self.decryption_key
 	}
@@ -437,9 +476,17 @@ impl Statement {
 		self.channel
 	}
 
-	/// Get priority, if any.
-	pub fn priority(&self) -> Option<u32> {
-		self.priority
+	/// Get expiry.
+	pub fn expiry(&self) -> u64 {
+		self.expiry
+	}
+
+	/// Get expiration timestamp in seconds.
+	///
+	/// The expiration timestamp in seconds is stored in the most significant 32 bits of the expiry
+	/// field.
+	pub fn get_expiration_timestamp_secs(&self) -> u32 {
+		(self.expiry >> 32) as u32
 	}
 
 	/// Return encoded fields that can be signed to construct or verify a proof
@@ -457,9 +504,14 @@ impl Statement {
 		self.proof = Some(proof)
 	}
 
-	/// Set statement priority.
-	pub fn set_priority(&mut self, priority: u32) {
-		self.priority = Some(priority)
+	/// Set statement expiry.
+	pub fn set_expiry(&mut self, expiry: u64) {
+		self.expiry = expiry;
+	}
+
+	/// Set statement expiry from its parts. See [`Statement::expiry`] for details on the format.
+	pub fn set_expiry_from_parts(&mut self, expiration_timestamp_secs: u32, sequence_number: u32) {
+		self.expiry = (expiration_timestamp_secs as u64) << 32 | sequence_number as u64;
 	}
 
 	/// Set statement channel.
@@ -476,6 +528,7 @@ impl Statement {
 	}
 
 	/// Set decryption key.
+	#[allow(deprecated)]
 	pub fn set_decryption_key(&mut self, key: DecryptionKey) {
 		self.decryption_key = Some(key);
 	}
@@ -485,12 +538,13 @@ impl Statement {
 		self.data = Some(data)
 	}
 
+	#[allow(deprecated)]
 	fn encoded(&self, for_signing: bool) -> Vec<u8> {
 		// Encoding matches that of Vec<Field>. Basically this just means accepting that there
 		// will be a prefix of vector length.
-		let num_fields = if !for_signing && self.proof.is_some() { 1 } else { 0 } +
+		// Expiry field is always present.
+		let num_fields = if !for_signing && self.proof.is_some() { 2 } else { 1 } +
 			if self.decryption_key.is_some() { 1 } else { 0 } +
-			if self.priority.is_some() { 1 } else { 0 } +
 			if self.channel.is_some() { 1 } else { 0 } +
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
@@ -512,10 +566,10 @@ impl Statement {
 			1u8.encode_to(&mut output);
 			decryption_key.encode_to(&mut output);
 		}
-		if let Some(priority) = &self.priority {
-			2u8.encode_to(&mut output);
-			priority.encode_to(&mut output);
-		}
+
+		2u8.encode_to(&mut output);
+		self.expiry().encode_to(&mut output);
+
 		if let Some(channel) = &self.channel {
 			3u8.encode_to(&mut output);
 			channel.encode_to(&mut output);
@@ -532,6 +586,7 @@ impl Statement {
 	}
 
 	/// Encrypt give data with given key and store both in the statements.
+	#[allow(deprecated)]
 	#[cfg(feature = "std")]
 	pub fn encrypt(
 		&mut self,
@@ -571,12 +626,12 @@ mod test {
 		let topic1 = [0x01; 32];
 		let topic2 = [0x02; 32];
 		let data = vec![55, 99];
-		let priority = 999;
+		let expiry = 999;
 		let channel = [0xcc; 32];
 
 		statement.set_proof(proof.clone());
 		statement.set_decryption_key(decryption_key);
-		statement.set_priority(priority);
+		statement.set_expiry(expiry);
 		statement.set_channel(channel);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
@@ -588,7 +643,7 @@ mod test {
 		let fields = vec![
 			Field::AuthenticityProof(proof.clone()),
 			Field::DecryptionKey(decryption_key),
-			Field::Priority(priority),
+			Field::Expiry(expiry),
 			Field::Channel(channel),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -610,7 +665,7 @@ mod test {
 		let priority = 999;
 
 		let fields = vec![
-			Field::Priority(priority),
+			Field::Expiry(priority),
 			Field::Topic1(topic1),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
@@ -620,7 +675,7 @@ mod test {
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 
 		let fields =
-			vec![Field::Topic1(topic1), Field::Priority(priority), Field::Topic2(topic2)].encode();
+			vec![Field::Topic1(topic1), Field::Expiry(priority), Field::Topic2(topic2)].encode();
 
 		assert!(Statement::decode(&mut fields.as_slice()).is_err());
 	}
@@ -674,6 +729,36 @@ mod test {
 
 		let decrypted = statement.decrypt_private(&pair).unwrap();
 		assert_eq!(decrypted, Some(plain));
+	}
+
+	#[test]
+	fn check_matches() {
+		let mut statement = Statement::new();
+		let topic1 = [0x01; 32];
+		let topic2 = [0x02; 32];
+		let topic3 = [0x03; 32];
+
+		statement.set_topic(0, topic1);
+		statement.set_topic(1, topic2);
+
+		let filter_any = crate::CheckedTopicFilter::Any;
+		assert!(filter_any.matches(&statement));
+
+		let filter_all =
+			crate::CheckedTopicFilter::MatchAll([topic1, topic2].iter().cloned().collect());
+		assert!(filter_all.matches(&statement));
+
+		let filter_all_fail =
+			crate::CheckedTopicFilter::MatchAll([topic1, topic3].iter().cloned().collect());
+		assert!(!filter_all_fail.matches(&statement));
+
+		let filter_any_match =
+			crate::CheckedTopicFilter::MatchAny([topic2, topic3].iter().cloned().collect());
+		assert!(filter_any_match.matches(&statement));
+
+		let filter_any_fail =
+			crate::CheckedTopicFilter::MatchAny([topic3].iter().cloned().collect());
+		assert!(!filter_any_fail.matches(&statement));
 	}
 
 	#[test]
