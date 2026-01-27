@@ -23,7 +23,7 @@ use crate::{
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
-		peer_manager::Backend,
+		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
 	LOG_TARGET,
@@ -616,5 +616,20 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
 		self.collation_manager.advertisements()
+	}
+}
+
+// Specific implementation for PersistentDb to support disk persistence.
+impl State<PersistentDb> {
+	/// Persist the reputation database to disk.
+	/// Called periodically by the main loop timer.
+	pub fn persist_to_disk(&self) {
+		if let Err(e) = self.peer_manager.db.persist() {
+			gum::error!(
+				target: LOG_TARGET,
+				error = ?e,
+				"Failed to persist reputation DB to disk"
+			);
+		}
 	}
 }

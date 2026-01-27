@@ -43,12 +43,12 @@ impl Db {
 	}
 }
 
-type Timestamp = u128;
+pub(crate) type Timestamp = u128;
 
-#[derive(Clone, Debug)]
-struct ScoreEntry {
-	score: Score,
-	last_bumped: Timestamp,
+#[derive(Clone, Copy, Debug, codec::Encode, codec::Decode)]
+pub(crate) struct ScoreEntry {
+	pub(crate) score: Score,
+	pub(crate) last_bumped: Timestamp,
 }
 
 #[async_trait]
@@ -220,6 +220,40 @@ impl Db {
 				kind: ReputationUpdateKind::Slash,
 			});
 		}
+	}
+
+	/// Get the last finalized block number (for persistence).
+	pub(crate) fn get_last_finalized(&self) -> Option<BlockNumber> {
+		self.last_finalized
+	}
+
+	/// Set the last finalized block number (for loading from disk).
+	pub(crate) fn set_last_finalized(&mut self, last_finalized: Option<BlockNumber>) {
+		self.last_finalized = last_finalized;
+	}
+
+	/// Get reputations for a specific para (for persistence).
+	pub(crate) fn get_para_reputations(
+		&self,
+		para_id: &ParaId,
+	) -> Option<HashMap<PeerId, ScoreEntry>> {
+		self.db.get(para_id).cloned()
+	}
+
+	/// Set reputations for a specific para (for loading from disk).
+	pub(crate) fn set_para_reputations(
+		&mut self,
+		para_id: ParaId,
+		reputations: HashMap<PeerId, ScoreEntry>,
+	) {
+		self.db.insert(para_id, reputations);
+	}
+
+	/// Get all reputations (for persistence).
+	pub(crate) fn all_reputations(
+		&self,
+	) -> impl Iterator<Item = (&ParaId, &HashMap<PeerId, ScoreEntry>)> {
+		self.db.iter()
 	}
 
 	#[cfg(test)]

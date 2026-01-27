@@ -97,6 +97,7 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
 try-runtime = ["polkadot-cli/try-runtime"]
 fast-runtime = ["polkadot-cli/fast-runtime"]
+test-persistence = ["polkadot-cli/test-persistence"]
 runtime-metrics = ["polkadot-cli/runtime-metrics"]
 pyroscope = ["polkadot-cli/pyroscope"]
 jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]

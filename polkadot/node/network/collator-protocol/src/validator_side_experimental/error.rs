@@ -44,6 +44,9 @@ pub enum Error {
 	#[fatal]
 	#[error("Receiving message from overseer failed: {0}")]
 	SubsystemReceive(#[source] SubsystemError),
+	#[fatal]
+	#[error("Failed to initialize reputation database: {0}")]
+	ReputationDbInit(String),
 	#[error("Unable to retrieve block number for {0:?} from implicit view")]
 	BlockNumberNotFoundInImplicitView(Hash),
 	#[fatal(forward)]
