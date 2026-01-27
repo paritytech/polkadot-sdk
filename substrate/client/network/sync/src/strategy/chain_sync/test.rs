@@ -1360,10 +1360,9 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 fn gap_sync_body_request_depends_on_pruning_mode() {
 	sp_tracing::try_init_simple();
 
-	// Test data: (mode_name, archive_blocks, should_request_bodies)
-	let test_cases = vec![("archive", true, true), ("non-archive", false, false)];
-
-	for (mode_name, archive_blocks, should_request_bodies) in test_cases {
+	for archive_blocks in [true, false] {
+		// Bodies only needed for archive mode
+		let should_request_bodies = archive_blocks;
 		log::info!("Testing gap sync with archive_blocks: {}", archive_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
@@ -1395,7 +1394,10 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 		sync.add_peer(peer_id, blocks[9].hash(), 10);
 
 		let requests = sync.block_requests();
-		assert!(!requests.is_empty(), "[{}] Should generate gap sync request", mode_name);
+		assert!(
+			!requests.is_empty(),
+			"[archive_blocks={archive_blocks}] Should generate gap sync request"
+		);
 
 		let (_peer, request) = &requests[0];
 
@@ -1408,8 +1410,8 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 
 		assert_eq!(
 			request.fields, expected_fields,
-			"[{}] Gap sync fields mismatch: expected {:?}, got {:?}",
-			mode_name, expected_fields, request.fields
+			"[archive_blocks={archive_blocks}] Gap sync fields mismatch: expected {expected_fields:?}, got {:?}",
+			request.fields
 		);
 	}
 }
@@ -1420,10 +1422,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 	// Verify that regular (non-gap) sync always requests bodies,
 	// regardless of pruning mode - our optimization only applies to gap sync
-
-	let test_cases = vec![("archive", true), ("non-archive", false)];
-
-	for (mode_name, archive_blocks) in test_cases {
+	for archive_blocks in [true, false] {
 		log::info!("Testing regular sync with archive_blocks: {}", archive_blocks);
 
 		let client = Arc::new(TestClientBuilder::new().build());
@@ -1445,7 +1444,10 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 		let peer_id = PeerId::random();
 
 		// Ensure we're NOT in gap sync mode
-		assert!(sync.gap_sync.is_none(), "[{}] Should not have gap sync active", mode_name);
+		assert!(
+			sync.gap_sync.is_none(),
+			"[archive_blocks={archive_blocks}] Should not have gap sync active"
+		);
 
 		// Add peer ahead of us to trigger regular sync
 		sync.add_peer(peer_id, blocks[4].hash(), 5);
@@ -1463,8 +1465,8 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 			assert_eq!(
 				request.fields, expected_fields,
-				"[{}] Regular sync fields mismatch: expected {:?}, got {:?}",
-				mode_name, expected_fields, request.fields
+				"[archive_blocks={archive_blocks}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
+				request.fields
 			);
 		}
 	}

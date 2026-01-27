@@ -222,7 +222,7 @@ impl GapSyncStats {
 		self.header_bytes + self.body_bytes + self.justification_bytes
 	}
 
-	fn bytes_to_mb(bytes: usize) -> f64 {
+	fn bytes_to_mib(bytes: usize) -> f64 {
 		bytes as f64 / (1024.0 * 1024.0)
 	}
 }
@@ -232,15 +232,15 @@ impl fmt::Display for GapSyncStats {
 		let total = self.total_bytes();
 		write!(
 			f,
-			"hdr: {} B ({:.2} MB), body: {} B ({:.2} MB), just: {} B ({:.2} MB) | total: {} B ({:.2} MB)",
+			"hdr: {} B ({:.2} MiB), body: {} B ({:.2} MiB), just: {} B ({:.2} MiB) | total: {} B ({:.2} MiB)",
 			self.header_bytes,
-			Self::bytes_to_mb(self.header_bytes),
+			Self::bytes_to_mib(self.header_bytes),
 			self.body_bytes,
-			Self::bytes_to_mb(self.body_bytes),
+			Self::bytes_to_mib(self.body_bytes),
 			self.justification_bytes,
-			Self::bytes_to_mb(self.justification_bytes),
+			Self::bytes_to_mib(self.justification_bytes),
 			total,
-			Self::bytes_to_mb(total),
+			Self::bytes_to_mib(total),
 		)
 	}
 }
@@ -1080,8 +1080,7 @@ where
 
 		info!(
 			target: LOG_TARGET,
-			"Block history download is complete. Total downloaded - {}",
-			gap_sync.stats
+			"Block history download is complete.",
 		);
 		self.gap_sync = None;
 	}

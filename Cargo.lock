@@ -20333,7 +20333,6 @@ dependencies = [
  "quickcheck",
  "sc-block-builder",
  "sc-client-api",
- "sc-client-db",
  "sc-consensus",
  "sc-network",
  "sc-network-common",
