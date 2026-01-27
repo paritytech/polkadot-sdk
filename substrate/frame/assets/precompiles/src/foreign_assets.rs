@@ -50,15 +50,6 @@ impl ToAssetIndex for u32 {
 	}
 }
 
-/// Implemented for trust-backed assets and pool assets.
-impl ToAssetIndex for u128 {
-	fn to_asset_index(&self) -> u32 {
-		use codec::Encode;
-		let h = sp_core::hashing::blake2_256(&self.encode());
-		u32::from_le_bytes([h[0], h[1], h[2], h[3]])
-	}
-}
-
 /// Implemented for foreign assets.
 impl ToAssetIndex for xcm::v5::Location {
 	fn to_asset_index(&self) -> u32 {
