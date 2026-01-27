@@ -46,52 +46,140 @@ Each publisher gets a dedicated child trie under key `(b"pubsub", para_id).encod
 - Efficient cleanup on deregistration
 - Child trie roots enable change detection
 
-### Decision 3: On-Chain Trie Node Caching
+### Decision 3: Maximum Trie Depth
 
-Subscriber parachain caches all trie nodes needed to access subscribed keys. There is no upper bound on cache size - we cache exactly what we need.
+A `MaxTrieDepth` parameter limits how deep trie traversal can go. Tries deeper than this limit are not supported.
 
-**Block building process:**
+**Rationale:**
+- Bounds the maximum cache size per key (at most `MaxTrieDepth` nodes per key path)
+- Prevents unbounded storage growth from pathologically deep tries
+- Provides predictable worst-case resource usage
+- With 32-byte keys and radix-16 trie, typical depth is ~8-10 nodes
 
-1. **Skip unchanged child tries:** For child tries where the root hasn't changed, remove them entirely from the relay chain proof.
+**Recommended value:** 16 (sufficient for any reasonable trie structure with 32-byte keys)
 
-2. **Prune changed child tries:** For child tries that have changed:
+**Behavior when exceeded:**
+- Proof processing fails with `TrieDepthExceeded` error
+- The entire publisher is disabled (added to `DisabledPublishers` storage)
+- Disabled publishers are skipped in subsequent blocks
+- Manual re-enabling required via `enable_publisher()` call
+- This is a configuration/pathological case, not expected in normal operation
+
+### Decision 4: On-Chain Trie Node Caching
+
+Subscriber parachain caches trie nodes (structure only) needed to access subscribed keys in `CachedTrieNodes` storage (keyed by ParaId + H256 node hash). Cache size is bounded by `MaxTrieDepth * num_subscribed_keys`.
+
+**V1 Trie Format:**
+- Data larger than 32 bytes is stored externally (hash reference in trie node)
+- Data 32 bytes or smaller may be inlined in the trie node
+- Cache stores only trie structure nodes, NOT the external data
+- This keeps cache entries small and predictable
+
+**Storage:**
+```rust
+#[pallet::storage]
+pub type CachedTrieNodes<T: Config> = StorageDoubleMap<
+    _,
+    Blake2_128Concat, ParaId,
+    Blake2_128Concat, H256,
+    BoundedVec<u8, ConstU32<512>>,  // Trie nodes are small without external data
+>;
+```
+
+**Rationale:**
+- Trie nodes without external data are bounded in size
+- External data is always fetched fresh from the proof (not cached)
+- Reduces on-chain storage requirements significantly
+- Cache only accelerates trie traversal, not data retrieval
+
+**Block building process (in `provide_inherent`):**
+
+Call `RelayProofPruner::prune_relay_proofs(proof, root, &mut size_limit)` which handles all pruning logic internally:
+
+1. **Detect unchanged child tries:** Compare child trie roots against `PreviousPublishedDataRoots`. Remove unchanged child tries entirely from the proof.
+
+2. **Prune changed child tries:**
+   - Use `CachedHashDB` custom HashDB that checks cache before including nodes
    - Remove nodes already cached on-chain
    - Remove nodes leading to keys we haven't subscribed to
    - Include only new/changed nodes for subscribed keys
+   - Stop traversal if depth exceeds `MaxTrieDepth`
 
-3. **Enforce size limit:** Ensure total proof size stays within budget. Nodes that don't fit are removed from the proof.
+3. **Enforce size limit:** Decrement `size_limit` as nodes are included. Nodes that don't fit are removed from the proof.
 
-4. **Cursor for partial processing:** On-chain logic sets a cursor if the previous block couldn't include all nodes to access a subscribed key. This indicates the limit was hit.
+4. **Cache synchronization via dual-trie traversal:**
+   - New nodes found → Add to `CachedTrieNodes`
+   - Cached nodes not in new trie → Remove from cache (outdated)
+   - Node in cache matches new trie → Stop traversal (subtree unchanged)
+   - Traversal aborts if depth exceeds `MaxTrieDepth`
 
-5. **Malicious collator protection:** On-chain verification must ensure that when a trie node is missing, the proof is at the upper limit. If not at limit but nodes are missing, panic (collator is cheating).
+5. **Cursor for partial processing:** Sets `RelayProofProcessingCursor` if budget exhausted before all keys processed.
 
-6. **Resume from cursor:** Next block starts pruning from the cursor position. Child trie nodes that don't fit are removed from the proof.
+6. **Resume from cursor:** If `RelayProofProcessingCursor` was set in previous block, start from that position.
+
+**On-chain verification (in `set_validation_data`):**
+
+7. **Malicious collator protection:** When a trie node is missing, verify proof is at the budget limit. If not at limit but nodes are missing, panic (collator is cheating).
 
 ### Decision 4: Budget Allocation
 
-Pub-sub uses remaining PoV space after messages, with a minimum guaranteed budget.
+Pub-sub uses remaining PoV space after message filtering. No minimum budget is guaranteed - pub-sub gets whatever space remains.
 
 **Formula:**
 ```
-messages_budget = calculated per existing logic
-remaining = allowed_pov - messages_used
-pubsub_budget = max(remaining, 1 MiB)
+allowed_pov_size = validation_data.max_pov_size * 85%  // Existing HRMP limit
+size_limit = messages_collection_size_limit            // Initial budget for DMQ
+downward_messages.into_abridged(&mut size_limit)       // DMQ consumes from budget
+size_limit += messages_collection_size_limit           // Add HRMP budget
+horizontal_messages.into_abridged(&mut size_limit)     // HRMP consumes from budget
+// size_limit now contains remaining budget for pub-sub
+RelayProofPruner::prune_relay_proofs(proof, root, &mut size_limit)
 ```
 
-If remaining space after messages is below 1 MiB, pub-sub still gets 1 MiB minimum.
+**Rationale:**
+- Follows same pattern as message filtering with `into_abridged(&mut size_limit)`
+- No custom constants needed - pub-sub simply uses remaining space
+- If block is full, pub-sub gracefully skips (retry next block)
+- Integrates naturally with existing `provide_inherent` flow
 
 ### Decision 5: TTL with on_idle Cleanup
 
-Keys can have finite TTL (expire after N blocks) or infinite TTL (0 = never expires).
+Keys can have finite TTL (expire after N blocks) or infinite TTL (0 = never expires). TTL is capped at `MaxTTL` (432,000 blocks ≈ 30 days).
+
+**Storage structures:**
+
+```rust
+/// Entry stored in child trie (includes TTL for subscribers)
+pub struct PublishedEntry<BlockNumber> {
+    pub value: BoundedVec<u8, MaxValueLength>,
+    pub ttl: u32,              // 0 = infinite, N = expire after N blocks
+    pub when_inserted: BlockNumber,
+}
+
+/// TTL metadata for efficient on_idle scanning (only finite TTL keys)
+#[pallet::storage]
+pub type TtlData<T: Config> = StorageDoubleMap<
+    _, Twox64Concat, ParaId,
+    Blake2_128Concat, [u8; 32],
+    (u32, BlockNumberFor<T>),  // (ttl, when_inserted)
+>;
+
+/// Cursor for incremental TTL scanning
+#[pallet::storage]
+pub type TtlScanCursor<T: Config> = StorageValue<_, (ParaId, [u8; 32])>;
+```
 
 **Rationale:**
 - Prevents relay chain storage bloat
 - Publishers control data lifecycle
-- Subscribers receive TTL metadata for freshness decisions
+- Subscribers receive TTL metadata for freshness decisions via `TtlState` enum
+- Duplicate TTL data: `TtlData` for efficient scanning, child trie for subscriber proofs
 
 **Cleanup mechanism:**
-- `on_idle` scans `TtlData` storage
-- Uses cursor for incremental processing across blocks
+- `on_idle` scans `TtlData` storage for keys where `current_block >= when_inserted + ttl`
+- Deletes up to `MaxTtlScansPerIdle` (500) keys per block
+- Uses `TtlScanCursor` for incremental processing across blocks
+- Best-effort expiration (may be delayed 1-2 blocks if weight exhausted)
 
 ### Decision 6: Single-Key Publish Instruction
 
