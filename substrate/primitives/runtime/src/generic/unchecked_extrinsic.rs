@@ -22,8 +22,8 @@ use crate::{
 	traits::{
 		self, Checkable, DecodeWithVersion, DecodeWithVersionWithMemTracking, Dispatchable,
 		ExtensionVariant, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount,
-		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension, PipelineVersion, PipelineWeight,
+		InvalidVersion, LazyExtrinsic, MaybeDisplay, Member, PipelineVersion, PipelineWeight,
+		SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,

@@ -22,9 +22,9 @@ use crate::{
 	generic::ExtensionVersion,
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
-		DispatchInfoOf, DispatchTransaction, Dispatchable, PipelineAtVers, PostDispatchInfoOf,
-		TransactionExtension, Pipeline, PipelineMetadataBuilder, PipelineVersion,
-		PipelineWeight,
+		DispatchInfoOf, DispatchTransaction, Dispatchable, Pipeline, PipelineAtVers,
+		PipelineMetadataBuilder, PipelineVersion, PipelineWeight, PostDispatchInfoOf,
+		TransactionExtension,
 	},
 	transaction_validity::TransactionSource,
 };
@@ -182,7 +182,7 @@ mod tests {
 	use crate::{
 		traits::{
 			AsTransactionAuthorizedOrigin, DispatchInfoOf, Dispatchable, Implication,
-			TransactionExtension, TransactionSource, PipelineAtVers, ValidateResult,
+			PipelineAtVers, TransactionExtension, TransactionSource, ValidateResult,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,

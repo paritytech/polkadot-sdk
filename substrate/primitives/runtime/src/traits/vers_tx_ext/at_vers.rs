@@ -20,9 +20,9 @@
 use crate::{
 	traits::{
 		AsTransactionAuthorizedOrigin, DecodeWithVersion, DecodeWithVersionWithMemTracking,
-		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, PostDispatchInfoOf,
-		TransactionExtension, Pipeline, PipelineMetadataBuilder, PipelineVersion,
-		PipelineWeight,
+		DispatchInfoOf, DispatchOriginOf, DispatchTransaction, Dispatchable, Pipeline,
+		PipelineMetadataBuilder, PipelineVersion, PipelineWeight, PostDispatchInfoOf,
+		TransactionExtension,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };

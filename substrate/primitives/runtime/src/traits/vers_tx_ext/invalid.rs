@@ -20,12 +20,10 @@
 use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
-		Dispatchable, PostDispatchInfoOf, Pipeline, PipelineMetadataBuilder,
-		PipelineVersion, PipelineWeight,
+		Dispatchable, Pipeline, PipelineMetadataBuilder, PipelineVersion, PipelineWeight,
+		PostDispatchInfoOf,
 	},
-	transaction_validity::{
-		TransactionSource, TransactionValidityError, ValidTransaction,
-	},
+	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
 use codec::Encode;
 use core::fmt::Debug;

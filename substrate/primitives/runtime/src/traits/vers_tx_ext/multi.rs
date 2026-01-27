@@ -20,8 +20,8 @@
 use crate::{
 	traits::{
 		DecodeWithVersion, DecodeWithVersionWithMemTracking, DispatchInfoOf, DispatchOriginOf,
-		Dispatchable, InvalidVersion, PipelineAtVers, PostDispatchInfoOf, Pipeline,
-		PipelineMetadataBuilder, PipelineVersion, PipelineWeight,
+		Dispatchable, InvalidVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder,
+		PipelineVersion, PipelineWeight, PostDispatchInfoOf,
 	},
 	transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
 };
@@ -227,8 +227,8 @@ mod tests {
 	use crate::{
 		traits::{
 			AsTransactionAuthorizedOrigin, DecodeWithVersion, DispatchInfoOf, Dispatchable,
-			Implication, TransactionExtension, TransactionSource, ValidateResult, Pipeline,
-			PipelineVersion, PipelineWeight,
+			Implication, Pipeline, PipelineVersion, PipelineWeight, TransactionExtension,
+			TransactionSource, ValidateResult,
 		},
 		transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 		DispatchError,

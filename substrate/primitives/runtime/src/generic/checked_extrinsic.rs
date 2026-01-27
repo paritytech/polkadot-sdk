@@ -22,8 +22,8 @@ use super::unchecked_extrinsic::ExtensionVersion;
 use crate::{
 	traits::{
 		self, AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
-		ExtensionVariant, InvalidVersion, MaybeDisplay, Member, PostDispatchInfoOf,
-		TransactionExtension, ValidateUnsigned, Pipeline, PipelineWeight,
+		ExtensionVariant, InvalidVersion, MaybeDisplay, Member, Pipeline, PipelineWeight,
+		PostDispatchInfoOf, TransactionExtension, ValidateUnsigned,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };

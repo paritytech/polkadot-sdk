@@ -63,7 +63,7 @@ pub use transaction_extension::{
 };
 pub use vers_tx_ext::{
 	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
-	MultiVersion, PipelineAtVers, Pipeline, PipelineMetadataBuilder, PipelineVersion,
+	MultiVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder, PipelineVersion,
 	PipelineWeight,
 };
 
