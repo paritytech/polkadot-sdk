@@ -223,6 +223,9 @@ fast-runtime = [
 	"rococo-runtime?/fast-runtime",
 	"westend-runtime?/fast-runtime",
 ]
+test-persistence = [
+	"polkadot-collator-protocol?/test-persistence",
+]
 
 malus = ["full-node"]
 runtime-metrics = [

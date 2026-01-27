@@ -71,6 +71,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 fast-runtime = ["polkadot-service/fast-runtime"]
+test-persistence = ["polkadot-service/test-persistence"]
 pyroscope = ["dep:pyroscope", "pyroscope_pprofrs"]
 
 # Configure the native runtimes to use.

@@ -16,6 +16,8 @@
 mod backend;
 mod connected;
 mod db;
+mod persistence;
+mod persistent_db;
 
 use futures::channel::oneshot;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -32,7 +34,9 @@ use crate::{
 };
 pub use backend::Backend;
 use connected::ConnectedPeers;
+#[cfg(test)]
 pub use db::Db;
+pub use persistent_db::PersistentDb;
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
@@ -69,7 +73,7 @@ enum DeclarationOutcome {
 }
 
 pub struct PeerManager<B> {
-	db: B,
+	pub(crate) db: B,
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
@@ -116,6 +120,17 @@ impl<B: Backend> PeerManager<B> {
 		.await?;
 
 		instance.db.process_bumps(latest_finalized_block_number, bumps, None).await;
+
+		if latest_finalized_block_number != processed_finalized_block_number {
+			gum::trace!(
+				target: LOG_TARGET,
+				blocks_processed = std::cmp::min(
+					latest_finalized_block_number.saturating_sub(processed_finalized_block_number),
+					MAX_STARTUP_ANCESTRY_LOOKBACK
+				),
+				"Startup lookback completed"
+			);
+		}
 
 		Ok(instance)
 	}

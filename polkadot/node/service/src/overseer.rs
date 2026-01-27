@@ -312,7 +312,7 @@ where
 							keystore: keystore.clone(),
 							metrics: Metrics::register(registry)?,
 							db: parachains_db.clone(),
-							reputation_col: reputation_config.col_reputation_data,
+							reputation_config,
 						}
 					} else {
 						ProtocolSide::Validator {

@@ -94,8 +94,8 @@ pub enum ProtocolSide {
 		metrics: validator_side_experimental::Metrics,
 		/// Database used for reputation house keeping.
 		db: Arc<dyn Database>,
-		/// Reputation data column number.
-		reputation_col: u32,
+		/// Reputation configuration (column number and persist interval).
+		reputation_config: validator_side_experimental::ReputationConfig,
 	},
 	/// Collators operate on a parachain.
 	Collator {
@@ -153,8 +153,8 @@ impl<Context> CollatorProtocolSubsystem {
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_col } =>
-				validator_side_experimental::run(ctx, keystore, metrics, db, reputation_col)
+			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_config } =>
+				validator_side_experimental::run(ctx, keystore, metrics, db, reputation_config)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
 			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
