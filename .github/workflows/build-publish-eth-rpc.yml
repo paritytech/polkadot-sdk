@@ -6,6 +6,7 @@ on:
       - master
       - stable*
       - unstable*
+      - pg/add-eth-rpc-pub-2
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -60,7 +61,7 @@ jobs:
   build_push_docker:
     name: Build and push docker images
     runs-on: parity-large
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/stable') || startsWith(github.ref, 'refs/heads/unstable') 
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/stable') || startsWith(github.ref, 'refs/heads/unstable') || github.ref == 'refs/heads/pg/add-eth-rpc-pub-2'
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}
