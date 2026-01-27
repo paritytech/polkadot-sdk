@@ -166,8 +166,12 @@ pub fn execute(
 	);
 
 	if block_data.experimental_send_approved_peer {
+		// Create a valid PeerId in multihash format: [hash_code, digest_size, ...digest_bytes]
+		// Using multihash code 0x0 (identity hash) with 32 bytes of data
+		let mut peer_id_bytes = alloc::vec![0x0, 32]; // hash code 0x0, size 32
+		peer_id_bytes.extend_from_slice(&[1u8; 32]); // 32 bytes of data
 		upward_messages
-			.force_push(UMPSignal::ApprovedPeer(alloc::vec![1, 2, 3].try_into().unwrap()).encode());
+			.force_push(UMPSignal::ApprovedPeer(peer_id_bytes.try_into().unwrap()).encode());
 	}
 
 	// We need to clone the block data as the fn will mutate it's state.
