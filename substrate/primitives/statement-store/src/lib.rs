@@ -152,7 +152,7 @@ pub enum Field {
 	AuthenticityProof(Proof) = 0,
 	/// An identifier for the key that `Data` field may be decrypted with.
 	DecryptionKey(DecryptionKey) = 1,
-	/// Expiry of the statement.
+	/// Expiry of the statement. See [`Statement::expiry`] for details on the format.
 	Expiry(u64) = 2,
 	/// Account channel to use. Only one message per `(account, channel)` pair is allowed.
 	Channel(Channel) = 3,
@@ -509,11 +509,7 @@ impl Statement {
 		self.expiry = expiry;
 	}
 
-	/// Set statement expiry from its parts.
-	/// The expiration timestamp in seconds is stored in the most significant 32 bits of the expiry
-	/// field.
-	/// The lower 32 bits represents an arbitrary sequence number used to order statements with the
-	/// same expiration time.
+	/// Set statement expiry from its parts. See [`Statement::expiry`] for details on the format.
 	pub fn set_expiry_from_parts(&mut self, expiration_timestamp_secs: u32, sequence_number: u32) {
 		self.expiry = (expiration_timestamp_secs as u64) << 32 | sequence_number as u64;
 	}

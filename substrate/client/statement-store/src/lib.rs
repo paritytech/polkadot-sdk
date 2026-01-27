@@ -1298,17 +1298,16 @@ impl StatementStoreSubscriptionApi for Store {
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)> {
 		// Keep the index read lock until after we have subscribed to avoid missing statements.
 		let mut existing_statements = Vec::new();
-		let (subscription_sender, subscription_stream) = {
-			let index = self.index.read();
-			self.collect_statements_locked(
-				None,
-				&topic_filter,
-				&index,
-				&mut existing_statements,
-				|statement| Some(statement.encode()),
-			)?;
-			self.subscription_manager.subscribe(topic_filter)
-		};
+		let index = self.index.read();
+		self.collect_statements_locked(
+			None,
+			&topic_filter,
+			&index,
+			&mut existing_statements,
+			|statement| Some(statement.encode()),
+		)?;
+		let (subscription_sender, subscription_stream) =
+			self.subscription_manager.subscribe(topic_filter);
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}
 }

@@ -45,7 +45,7 @@ use sp_core::{traits::SpawnNamed, Bytes, Encode};
 pub use sp_statement_store::StatementStore;
 use sp_statement_store::{CheckedTopicFilter, Result, Statement, Topic, MAX_TOPICS};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::atomic::AtomicU64,
 };
 
@@ -98,7 +98,7 @@ impl SubscriptionsHandle {
 				Some("statement-store"),
 				Box::pin(async move {
 					let mut subscriptions = SubscriptionsInfo::new();
-					log::info!(
+					log::debug!(
 						target: LOG_TARGET,
 						"Started statement subscription matcher task"
 					);
@@ -172,6 +172,13 @@ impl SubscriptionsHandle {
 // Each matcher task will have its own instance of this struct.
 struct SubscriptionsInfo {
 	// Subscriptions organized by topic for MatchAll filters.
+	//
+	// Maps each topic to an array of HashMaps, where the array is indexed by
+	// `(number_of_topics_in_filter - 1)`. For example, a subscription requiring
+	// topics [A, B] (2 topics) will be stored at index 1 under both topic A and B.
+	//
+	// This structure allows efficient matching: when a statement arrives with N topics,
+	// we only need to check subscriptions that require exactly N or fewer topics.
 	subscriptions_match_all_by_topic:
 		HashMap<Topic, [HashMap<SeqID, SubscriptionInfo>; MAX_TOPICS]>,
 	// Subscriptions organized by topic for MatchAny filters.
@@ -211,20 +218,18 @@ impl SubscriptionsInfo {
 			CheckedTopicFilter::Any => {
 				self.subscriptions_any
 					.insert(subscription_info.seq_id, subscription_info.clone());
-				return;
 			},
 			CheckedTopicFilter::MatchAll(topics) =>
 				for topic in topics {
-					self.subscriptions_match_all_by_topic
-						.entry(*topic)
-						.or_insert_with(Default::default)[topics.len() - 1]
+					self.subscriptions_match_all_by_topic.entry(*topic).or_default()
+						[topics.len() - 1]
 						.insert(subscription_info.seq_id, subscription_info.clone());
 				},
 			CheckedTopicFilter::MatchAny(topics) =>
 				for topic in topics {
 					self.subscriptions_match_any_by_topic
 						.entry(*topic)
-						.or_insert_with(Default::default)
+						.or_default()
 						.insert(subscription_info.seq_id, subscription_info.clone());
 				},
 		};
@@ -238,7 +243,7 @@ impl SubscriptionsInfo {
 		needs_unsubscribing: &mut HashSet<SeqID>,
 	) {
 		if let Err(err) = subscription.tx.try_send(bytes_to_send) {
-			log::warn!(
+			log::debug!(
 				target: LOG_TARGET,
 				"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", subscription.seq_id, err
 			);
@@ -292,18 +297,18 @@ impl SubscriptionsInfo {
 		// Check all combinations of topics in the statement to find matching subscriptions.
 		// This works well because the maximum allowed topics is small (MAX_TOPICS = 4).
 		for num_topics_to_check in 1..=num_topics {
-			for combo in statement.topics().iter().combinations(num_topics_to_check) {
+			for topics_combination in statement.topics().iter().combinations(num_topics_to_check) {
 				// Find the topic with the fewest subscriptions to minimize the number of checks.
-				let Some(Some(topic_with_fewest)) = combo
+				let Some(Some(topic_with_fewest)) = topics_combination
 					.iter()
 					.map(|topic| self.subscriptions_match_all_by_topic.get(*topic))
 					.min_by_key(|subscriptions| {
-						subscriptions.map_or(0, |subscryptions_by_length| {
-							subscryptions_by_length[num_topics_to_check - 1].len()
+						subscriptions.map_or(0, |subscriptions_by_length| {
+							subscriptions_by_length[num_topics_to_check - 1].len()
 						})
 					})
 				else {
-					return;
+					continue;
 				};
 
 				for subscription in topic_with_fewest[num_topics_to_check - 1]
@@ -331,11 +336,7 @@ impl SubscriptionsInfo {
 
 		let bytes_to_send: Bytes = statement.encode().into();
 		for subscription in self.subscriptions_any.values() {
-			let _ = self.notify_subscriber(
-				subscription,
-				bytes_to_send.clone(),
-				&mut needs_unsubscribing,
-			);
+			self.notify_subscriber(subscription, bytes_to_send.clone(), &mut needs_unsubscribing);
 		}
 
 		// Unsubscribe any subscriptions that failed to receive messages, to give them a chance to
@@ -347,9 +348,8 @@ impl SubscriptionsInfo {
 
 	// Unsubscribe a subscription by its ID.
 	fn unsubscribe(&mut self, id: SeqID) {
-		let entry = match self.by_sub_id.remove(&id) {
-			Some(e) => e,
-			None => return,
+		let Some(entry) = self.by_sub_id.remove(&id) else {
+			return;
 		};
 
 		let topics = match &entry {
@@ -363,22 +363,24 @@ impl SubscriptionsInfo {
 
 		// Remove subscription from relevant maps.
 		for topic in topics {
-			// Check both MatchAny and MatchAll maps.
-			if let Some(subscriptions) = self.subscriptions_match_any_by_topic.get_mut(topic) {
-				subscriptions.remove(&id);
-				if subscriptions.is_empty() {
-					self.subscriptions_match_any_by_topic.remove(topic);
+			// Check MatchAny map.
+			if let Entry::Occupied(mut entry) = self.subscriptions_match_any_by_topic.entry(*topic)
+			{
+				entry.get_mut().remove(&id);
+				if entry.get().is_empty() {
+					entry.remove();
 				}
 			}
-			if let Some(subscriptions) = self.subscriptions_match_all_by_topic.get_mut(topic) {
-				for subscriptions in subscriptions.iter_mut() {
+			// Check MatchAll map.
+			if let Entry::Occupied(mut entry) = self.subscriptions_match_all_by_topic.entry(*topic)
+			{
+				for subscriptions in entry.get_mut().iter_mut() {
 					if subscriptions.remove(&id).is_some() {
 						break;
 					}
 				}
-
-				if subscriptions.iter().all(|s| s.is_empty()) {
-					self.subscriptions_match_all_by_topic.remove(topic);
+				if entry.get().iter().all(|s| s.is_empty()) {
+					entry.remove();
 				}
 			}
 		}
@@ -936,6 +938,49 @@ mod tests {
 
 		// Should not receive anything.
 		assert!(rx1.try_recv().is_err());
+	}
+
+	#[test]
+	fn test_match_all_with_unsubscribed_topic_first_in_statement() {
+		// This test exposes a bug where `return` is used instead of `continue` in
+		// `notify_match_all_subscribers_best`. When a statement has a topic that has no
+		// subscriptions (not in the map), the function returns early instead of checking
+		// subsequent topic combinations.
+		let mut subscriptions = SubscriptionsInfo::new();
+
+		let (tx1, rx1) = async_channel::bounded::<Bytes>(10);
+		// topic1 will have NO subscriptions
+		let topic1 = [1u8; 32];
+		// topic2 WILL have a subscription
+		let topic2 = [2u8; 32];
+
+		// Subscribe only to topic2 with MatchAll filter.
+		let sub_info1 = SubscriptionInfo {
+			topic_filter: CheckedTopicFilter::MatchAll(vec![topic2].iter().cloned().collect()),
+			seq_id: SeqID::from(1),
+			tx: tx1,
+		};
+		subscriptions.subscribe(sub_info1);
+
+		// Create a statement with BOTH topics. topic1 comes first (lower bytes).
+		// When iterating combinations(1), [topic1] is checked before [topic2].
+		// Since topic1 has no subscriptions, the buggy `return` exits early,
+		// preventing the [topic2] combination from being checked.
+		let mut statement = signed_statement(1);
+		statement.set_topic(0, Topic::from(topic1));
+		statement.set_topic(1, Topic::from(topic2));
+
+		subscriptions.notify_match_all_subscribers_best(&statement);
+
+		// With the bug: rx1.try_recv() fails because the function returned early.
+		// With the fix: rx1.try_recv() succeeds because [topic2] combination is checked.
+		let received = rx1.try_recv().expect(
+			"Should receive statement - if this fails, the `return` bug in \
+			 notify_match_all_subscribers_best is present (should be `continue`)",
+		);
+		let decoded_statement: Statement =
+			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
+		assert_eq!(decoded_statement, statement);
 	}
 
 	#[tokio::test]
