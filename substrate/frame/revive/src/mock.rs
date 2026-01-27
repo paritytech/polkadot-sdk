@@ -63,4 +63,17 @@ pub trait MockHandler<T: pallet::Config> {
 	fn mock_delegated_caller(&self, _dest: H160, _input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		None
 	}
+
+	/// Returns dummy code for mocked addresses.
+	///
+	/// This method serves two purposes:
+	/// 1. Indicates whether an address has mocked calls (Some = mocked, None = not mocked)
+	/// 2. Provides the dummy bytecode for `EXTCODESIZE` and `EXTCODEHASH` opcodes
+	///
+	/// # Returns
+	/// - `Some(&MOCK_CODE)` if the address has mocked calls
+	/// - `None` if the address is not mocked
+	fn mocked_code(&self, _address: H160) -> Option<&'static [u8]> {
+		None
+	}
 }

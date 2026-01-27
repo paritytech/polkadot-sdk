@@ -566,6 +566,16 @@ impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
 	}
+
+	fn mocked_code(&self, address: H160) -> Option<&'static [u8]> {
+		// Return dummy code if address has mocked calls
+		if self.mock_call.contains_key(&address) {
+			// Same bytecode as precompiles: PUSH1 0 PUSH1 0 REVERT
+			Some(&[0x60, 0x00, 0x60, 0x00, 0xfd])
+		} else {
+			None
+		}
+	}
 }
 
 #[test]
