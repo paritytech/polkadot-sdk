@@ -44,6 +44,7 @@ use crate::{
 	LOG_TARGET,
 };
 
+use codec::Encode;
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
@@ -68,7 +69,8 @@ use sp_runtime::{
 use std::{
 	any::Any,
 	collections::{HashMap, HashSet},
-	ops::Range,
+	fmt,
+	ops::{AddAssign, Range},
 	sync::Arc,
 };
 
@@ -200,10 +202,62 @@ impl Default for AllowedRequests {
 	}
 }
 
+/// Statistics for gap sync operations.
+#[derive(Debug, Default, Clone)]
+struct GapSyncStats {
+	/// Size of headers downloaded during gap sync
+	header_bytes: usize,
+	/// Size of bodies downloaded during gap sync
+	body_bytes: usize,
+	/// Size of justifications downloaded during gap sync
+	justification_bytes: usize,
+}
+
+impl GapSyncStats {
+	fn new() -> Self {
+		Self::default()
+	}
+
+	fn total_bytes(&self) -> usize {
+		self.header_bytes + self.body_bytes + self.justification_bytes
+	}
+
+	fn bytes_to_mib(bytes: usize) -> f64 {
+		bytes as f64 / (1024.0 * 1024.0)
+	}
+}
+
+impl fmt::Display for GapSyncStats {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let total = self.total_bytes();
+		write!(
+			f,
+			"hdr: {} B ({:.2} MiB), body: {} B ({:.2} MiB), just: {} B ({:.2} MiB) | total: {} B ({:.2} MiB)",
+			self.header_bytes,
+			Self::bytes_to_mib(self.header_bytes),
+			self.body_bytes,
+			Self::bytes_to_mib(self.body_bytes),
+			self.justification_bytes,
+			Self::bytes_to_mib(self.justification_bytes),
+			total,
+			Self::bytes_to_mib(total),
+		)
+	}
+}
+
+impl AddAssign for GapSyncStats {
+	fn add_assign(&mut self, other: Self) {
+		self.header_bytes += other.header_bytes;
+		self.body_bytes += other.body_bytes;
+		self.justification_bytes += other.justification_bytes;
+	}
+}
+
 struct GapSync<B: BlockT> {
 	blocks: BlockCollection<B>,
 	best_queued_number: NumberFor<B>,
 	target: NumberFor<B>,
+	stats: GapSyncStats,
 }
 
 /// Sync operation mode.
@@ -218,6 +272,29 @@ pub enum ChainSyncMode {
 		/// Download indexed transactions for recent blocks.
 		storage_chain_mode: bool,
 	},
+}
+
+impl ChainSyncMode {
+	/// Returns the base block attributes required for this sync mode.
+	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
+		let attrs = match self {
+			ChainSyncMode::Full =>
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
+			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
+			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
+				BlockAttributes::HEADER |
+					BlockAttributes::JUSTIFICATION |
+					BlockAttributes::INDEXED_BODY,
+		};
+		// Skip body requests for gap sync only if not in archive mode.
+		// Archive nodes need bodies to maintain complete block history.
+		if is_gap && !is_archive {
+			attrs & !BlockAttributes::BODY
+		} else {
+			attrs
+		}
+	}
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -337,6 +414,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	archive_blocks: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -943,6 +1023,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
+		archive_blocks: bool,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -966,6 +1047,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			archive_blocks,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -990,14 +1072,17 @@ where
 
 	/// Complete the gap sync if the target number is reached and there is a gap.
 	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
-		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
-		if gap_sync_complete {
-			info!(
-				target: LOG_TARGET,
-				"Block history download is complete."
-			);
-			self.gap_sync = None;
+		let Some(gap_sync) = &self.gap_sync else { return };
+
+		if gap_sync.target != number {
+			return
 		}
+
+		info!(
+			target: LOG_TARGET,
+			"Block history download is complete.",
+		);
+		self.gap_sync = None;
 	}
 
 	#[must_use]
@@ -1184,6 +1269,7 @@ where
 								gap_sync.blocks.insert(start_block, blocks, *peer_id);
 							}
 							gap = true;
+							let mut batch_gap_sync_stats = GapSyncStats::new();
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
@@ -1195,6 +1281,26 @@ where
 												block_data.block.justification,
 											)
 										});
+									let gap_sync_stats = GapSyncStats {
+										header_bytes: block_data
+											.block
+											.header
+											.as_ref()
+											.map(|h| h.encoded_size())
+											.unwrap_or(0),
+										body_bytes: block_data
+											.block
+											.body
+											.as_ref()
+											.map(|b| b.encoded_size())
+											.unwrap_or(0),
+										justification_bytes: justifications
+											.as_ref()
+											.map(|j| j.encoded_size())
+											.unwrap_or(0),
+									};
+									batch_gap_sync_stats += gap_sync_stats;
+
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
@@ -1209,12 +1315,23 @@ where
 									}
 								})
 								.collect();
+
 							debug!(
 								target: LOG_TARGET,
 								"Drained {} gap blocks from {}",
 								blocks.len(),
 								gap_sync.best_queued_number,
 							);
+
+							gap_sync.stats += batch_gap_sync_stats;
+
+							if blocks.len() > 0 {
+								trace!(
+									target: LOG_TARGET,
+									"Gap sync cumulative stats: {}",
+									gap_sync.stats
+								);
+							}
 							blocks
 						} else {
 							debug!(target: LOG_TARGET, "Unexpected gap block response from {peer_id}");
@@ -1428,6 +1545,7 @@ where
 			(Some(first), Some(_)) => format!(" ({})", first),
 			_ => Default::default(),
 		};
+
 		trace!(
 			target: LOG_TARGET,
 			"BlockResponse {} from {} with {} blocks {}",
@@ -1519,19 +1637,6 @@ where
 
 			// Not the "perfect median" when we have an even number of peers.
 			Some(*best_seens.select_nth_unstable(middle).1)
-		}
-	}
-
-	fn required_block_attributes(&self) -> BlockAttributes {
-		match self.mode {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
 		}
 	}
 
@@ -1726,6 +1831,7 @@ where
 				best_queued_number: start - One::one(),
 				target: end,
 				blocks: BlockCollection::new(),
+				stats: GapSyncStats::new(),
 			});
 		}
 		trace!(
@@ -1821,7 +1927,8 @@ where
 			return Vec::new();
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
-		let attrs = self.required_block_attributes();
+		let mode = self.mode;
+		let is_archive = self.archive_blocks;
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized =
@@ -1875,7 +1982,7 @@ where
 					&id,
 					peer,
 					blocks,
-					attrs,
+					mode.required_block_attributes(false, is_archive),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -1896,7 +2003,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					attrs,
+					mode.required_block_attributes(false, is_archive),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
@@ -1915,7 +2022,7 @@ where
 						&id,
 						peer,
 						&mut sync.blocks,
-						attrs,
+						mode.required_block_attributes(true, is_archive),
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
