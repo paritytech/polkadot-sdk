@@ -9,20 +9,26 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-frame-support.workspace = true
-frame-system.workspace = true
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-xcm.workspace = true
+# XCM dependencies are only needed for the optional XCMSender helper struct.
+# They can be removed entirely once XCMSender is moved to a separate crate.
+xcm = { optional = true, workspace = true }
+xcm-builder = { optional = true, workspace = true }
+xcm-executor = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -30,13 +36,24 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"xcm/std",
+	"xcm-builder?/std",
+	"xcm-executor?/std",
+	"xcm?/std",
 ]
+# Enables the XCMSender helper struct for runtimes that want to use XCM transport.
+xcm-sender = ["xcm"]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	# Benchmarks require XCM for delivery fee setup
+	"xcm",
+	"xcm-builder",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor",
+	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [

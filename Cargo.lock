@@ -1446,6 +1446,7 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-common",
  "primitive-types 0.13.1",
  "scale-info",
@@ -1455,8 +1456,12 @@ dependencies = [
  "snowbridge-runtime-common",
  "sp-api",
  "sp-arithmetic",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core 39.0.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -1479,6 +1484,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tracing",
+ "westend-runtime",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -11434,6 +11440,7 @@ dependencies = [
  "pallet-dap",
  "pallet-election-provider-multi-block",
  "pallet-offences",
+ "pallet-proxy",
  "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
@@ -11448,6 +11455,9 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-tracing 19.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -13786,14 +13796,19 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-common",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
  "sp-api",
  "sp-arithmetic",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core 39.0.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -13834,6 +13849,7 @@ dependencies = [
 name = "pallet-staking-async-rc-client"
 version = "0.7.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
@@ -13844,6 +13860,8 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]

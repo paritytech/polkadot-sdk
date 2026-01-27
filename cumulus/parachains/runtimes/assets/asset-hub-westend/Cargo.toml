@@ -75,7 +75,7 @@ pallet-scheduler.workspace = true
 pallet-session.workspace = true
 pallet-staking.workspace = true
 pallet-staking-async.workspace = true
-pallet-staking-async-rc-client.workspace = true
+pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-runtime-api.workspace = true
 pallet-state-trie-migration.workspace = true
 pallet-sudo.workspace = true
@@ -94,6 +94,7 @@ pallet-xcm-precompiles.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 polkadot-parachain-primitives.workspace = true
+polkadot-primitives.workspace = true
 polkadot-runtime-common.workspace = true
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -103,8 +104,12 @@ snowbridge-pallet-system-frontend.workspace = true
 snowbridge-runtime-common.workspace = true
 sp-api.workspace = true
 sp-arithmetic.workspace = true
+sp-authority-discovery.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-beefy.workspace = true
+sp-consensus-grandpa.workspace = true
 sp-core.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
@@ -120,7 +125,7 @@ sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
-tracing = { workspace = true }
+tracing.workspace = true
 westend-runtime-constants.workspace = true
 xcm.workspace = true
 xcm-builder.workspace = true
@@ -133,6 +138,7 @@ asset-test-utils = { default-features = true, workspace = true }
 pallet-revive-fixtures = { default-features = true, workspace = true }
 parachains-runtimes-test-utils = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
+westend-runtime = { default-features = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -201,12 +207,14 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"snowbridge-pallet-system-frontend/runtime-benchmarks",
 	"snowbridge-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
@@ -279,6 +287,7 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"westend-runtime/try-runtime",
 ]
 std = [
 	"alloy-core/std",
@@ -363,6 +372,7 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
@@ -372,8 +382,12 @@ std = [
 	"snowbridge-runtime-common/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",

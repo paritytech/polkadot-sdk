@@ -54,7 +54,7 @@ pallet-scheduler.workspace = true
 pallet-session.workspace = true
 pallet-staking-async.workspace = true
 pallet-staking-async-preset-store.workspace = true
-pallet-staking-async-rc-client.workspace = true
+pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-async-runtime-api.workspace = true
 pallet-state-trie-migration.workspace = true
 pallet-sudo.workspace = true
@@ -66,12 +66,17 @@ pallet-uniques.workspace = true
 pallet-utility.workspace = true
 pallet-vesting.workspace = true
 pallet-whitelist.workspace = true
+polkadot-primitives.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 sp-api.workspace = true
 sp-arithmetic.workspace = true
+sp-authority-discovery.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
+sp-consensus-babe.workspace = true
+sp-consensus-beefy.workspace = true
+sp-consensus-grandpa.workspace = true
 sp-core.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
@@ -192,6 +197,7 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -336,14 +342,19 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
