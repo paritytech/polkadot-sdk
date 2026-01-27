@@ -18,8 +18,6 @@
 //! Utilities related to VRF input, pre-output and signatures.
 
 use crate::{Randomness, TicketBody, TicketId};
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use codec::Encode;
 use sp_consensus_slots::Slot;
 
