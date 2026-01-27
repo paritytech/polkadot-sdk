@@ -326,7 +326,6 @@ impl Collations {
 	}
 
 	/// Remove all pending collations for a specific peer from the waiting queue.
-	/// Called when a peer disconnects to prevent stale entries.
 	pub(super) fn remove_pending_for_peer(&mut self, peer_id: &PeerId) {
 		for queue in self.waiting_queue.values_mut() {
 			queue.retain(|(pending, _)| &pending.peer_id != peer_id);
