@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let tx = TransactionBuilder::new(&client)
+	let tx = TransactionBuilder::new(client.clone())
 		.signer(alith)
 		.value(value)
 		.to(ethan.address())
