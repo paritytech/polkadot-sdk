@@ -3415,7 +3415,7 @@ where
 		let to_collect = min((n_validators / 3) + 1, approvals_to_import.len());
 		let validators_collected = approvals_to_import[0..to_collect]
 			.iter()
-			.map(|vidx| ValidatorIndex(vidx.clone()))
+			.map(|validator_index| ValidatorIndex(*validator_index))
 			.collect::<Vec<ValidatorIndex>>();
 
 		for (i, &validator_index) in approvals_to_import.iter().enumerate() {

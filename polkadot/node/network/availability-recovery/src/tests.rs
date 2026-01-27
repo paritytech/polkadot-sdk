@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 use crate::task::{REGULAR_CHUNKS_REQ_RETRY_LIMIT, SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT};
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 
 use super::*;
 use std::{result::Result, sync::Arc, time::Duration};

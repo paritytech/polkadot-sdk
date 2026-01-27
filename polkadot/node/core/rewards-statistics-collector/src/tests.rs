@@ -105,11 +105,7 @@ async fn candidate_approved(
 	approvals: Vec<ValidatorIndex>,
 ) {
 	let msg = FromOrchestra::Communication {
-		msg: RewardsStatisticsCollectorMessage::CandidateApproved(
-			rb_hash,
-			rb_number,
-			approvals,
-		),
+		msg: RewardsStatisticsCollectorMessage::CandidateApproved(rb_hash, rb_number, approvals),
 	};
 	virtual_overseer.send(msg).await;
 }
@@ -121,11 +117,7 @@ async fn no_shows(
 	no_shows: Vec<ValidatorIndex>,
 ) {
 	let msg = FromOrchestra::Communication {
-		msg: RewardsStatisticsCollectorMessage::NoShows(
-			rb_hash,
-			rb_number,
-			no_shows,
-		),
+		msg: RewardsStatisticsCollectorMessage::NoShows(rb_hash, rb_number, no_shows),
 	};
 	virtual_overseer.send(msg).await;
 }
@@ -196,8 +188,7 @@ fn single_candidate_approved() {
 	test_harness(&mut view, |mut virtual_overseer| async move {
 		activate_leaf(&mut virtual_overseer, leaf, 1, Some(default_session_info(1))).await;
 
-		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx])
-			.await;
+		candidate_approved(&mut virtual_overseer, rb_hash, rb_number, vec![validator_idx]).await;
 		virtual_overseer
 	});
 
@@ -479,12 +470,7 @@ fn prune_unfinalized_forks() {
 			vec![(ValidatorIndex(2), 1), (ValidatorIndex(3), 1)],
 			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
 		),
-		(
-			hash_b,
-			number_b,
-			vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
-			vec![],
-		),
+		(hash_b, number_b, vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)], vec![]),
 		(
 			hash_c,
 			number_c,
@@ -511,12 +497,8 @@ fn prune_unfinalized_forks() {
 		virtual_overseer
 	});
 
-	let expect = vec![(
-		hash_d,
-		number_d,
-		vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)],
-		vec![],
-	)];
+	let expect =
+		vec![(hash_d, number_d, vec![(ValidatorIndex(0), 1), (ValidatorIndex(1), 1)], vec![])];
 
 	assert_relay_view_approval_stats(&view, expect);
 
@@ -577,13 +559,8 @@ fn prune_unfinalized_forks() {
 		no_shows(&mut virtual_overseer, hash_g, number_g, vec![ValidatorIndex(1)]).await;
 
 		// finalizing relay block E
-		finalize_block(
-			&mut virtual_overseer,
-			(hash_e, number_e),
-			number_c,
-			vec![hash_d, hash_c],
-		)
-		.await;
+		finalize_block(&mut virtual_overseer, (hash_e, number_e), number_c, vec![hash_d, hash_c])
+			.await;
 
 		virtual_overseer
 	});
