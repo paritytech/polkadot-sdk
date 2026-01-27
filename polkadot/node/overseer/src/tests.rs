@@ -980,6 +980,14 @@ fn test_prospective_parachains_msg() -> ProspectiveParachainsMessage {
 	)
 }
 
+fn test_rewards_statistics_collector_msg() -> RewardsStatisticsCollectorMessage {
+	RewardsStatisticsCollectorMessage::CandidateApproved(
+		Hash::zero(),
+		1,
+		vec![ValidatorIndex(1), ValidatorIndex(2)],
+	)
+}
+
 // Checks that `stop`, `broadcast_signal` and `broadcast_message` are implemented correctly.
 #[test]
 fn overseer_all_subsystems_receive_signals_and_messages() {
@@ -1080,6 +1088,8 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 			.await;
 		handle
 			.send_msg_anon(AllMessages::ProspectiveParachains(test_prospective_parachains_msg()))
+			.await;
+		handle.send_msg_anon(AllMessages::RewardsStatisticsCollector(test_rewards_statistics_collector_msg()))
 			.await;
 		// handle.send_msg_anon(AllMessages::PvfChecker(test_pvf_checker_msg())).await;
 
