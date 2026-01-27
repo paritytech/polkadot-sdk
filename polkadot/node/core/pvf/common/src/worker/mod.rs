@@ -43,7 +43,7 @@ use std::{
 /// spawning the desired worker.
 #[macro_export]
 macro_rules! decl_worker_main {
-	($expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
+	($worker_kind:expr, $expected_command:expr, $entrypoint:expr, $worker_version:expr, $worker_version_hash:expr $(,)*) => {
 		fn get_full_version() -> String {
 			format!("{}-{}", $worker_version, $worker_version_hash)
 		}
@@ -67,6 +67,7 @@ macro_rules! decl_worker_main {
 				return
 			}
 
+			let mut do_security_checks = false;
 			match args[1].as_ref() {
 				"--help" | "-h" => {
 					print_help($expected_command);
@@ -81,7 +82,9 @@ macro_rules! decl_worker_main {
 					println!("{}", get_full_version());
 					return
 				},
-
+				"--check-security-features" => {
+					do_security_checks = true;
+				},
 				"--check-can-enable-landlock" => {
 					#[cfg(target_os = "linux")]
 					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
@@ -186,6 +189,18 @@ macro_rules! decl_worker_main {
 
 			let socket_path = std::path::Path::new(socket_path).to_owned();
 			let worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
+
+			if do_security_checks {
+				$crate::worker::do_security_checks(
+					$worker_kind,
+					socket_path.clone(),
+					worker_dir_path.clone(),
+					node_version,
+					None,
+				);
+
+				return;
+			}
 
 			$entrypoint(socket_path, worker_dir_path, node_version, Some($worker_version));
 		}
@@ -317,6 +332,29 @@ pub fn run_worker<F>(
 ) where
 	F: FnMut(UnixStream, &WorkerInfo, SecurityStatus) -> io::Result<Never>,
 {
+	let (stream, worker_info, security_status) = do_security_checks(
+		worker_kind,
+		socket_path,
+		worker_dir_path.clone(),
+		node_version,
+		worker_version,
+	);
+
+	// Run the main worker loop.
+	let err = event_loop(stream, &worker_info, security_status)
+		// It's never `Ok` because it's `Ok(Never)`.
+		.unwrap_err();
+
+	worker_shutdown(worker_info, &err.to_string());
+}
+
+pub fn do_security_checks(
+	worker_kind: WorkerKind,
+	socket_path: PathBuf,
+	worker_dir_path: PathBuf,
+	node_version: Option<&str>,
+	worker_version: Option<&str>,
+) -> (UnixStream, WorkerInfo, SecurityStatus) {
 	#[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 	let mut worker_info = WorkerInfo {
 		pid: std::process::id(),
@@ -449,12 +487,7 @@ pub fn run_worker<F>(
 		}
 	}
 
-	// Run the main worker loop.
-	let err = event_loop(stream, &worker_info, security_status)
-		// It's never `Ok` because it's `Ok(Never)`.
-		.unwrap_err();
-
-	worker_shutdown(worker_info, &err.to_string());
+	(stream, worker_info, security_status)
 }
 
 /// Provide a consistent message on unexpected worker shutdown.

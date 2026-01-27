@@ -30,6 +30,7 @@ thiserror = { workspace = true }
 polkadot-service = { optional = true, workspace = true }
 
 frame-benchmarking-cli = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 sc-cli = { optional = true, workspace = true, default-features = true }
