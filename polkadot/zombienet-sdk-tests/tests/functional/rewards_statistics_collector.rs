@@ -7,13 +7,12 @@
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, report_label_with_attributes,
-	wait_for_nth_session_change,
 };
 use polkadot_primitives::{Id as ParaId, SessionIndex};
 use serde_json::json;
 use std::{collections::HashMap, ops::Range};
-use subxt::{blocks::Block, OnlineClient, PolkadotConfig};
-use zombienet_orchestrator::network::{node::NetworkNode, Network};
+use subxt::{OnlineClient, PolkadotConfig};
+use zombienet_orchestrator::network::Network;
 use zombienet_sdk::{LocalFileSystem, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -79,8 +78,6 @@ async fn rewards_statistics_collector_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-
 	assert_para_throughput(
 		&relay_client,
 		15,
@@ -107,7 +104,7 @@ async fn assert_approval_usages_medians(
 	let mut medians = vec![];
 
 	for idx in validators_range.clone() {
-		let validator_identifier = format!("validator-{}", idx);
+		let validator_identifier = format!("validator-{idx}");
 		let relay_node = network.get_node(validator_identifier.clone())?;
 
 		let approvals_per_session = report_label_with_attributes(

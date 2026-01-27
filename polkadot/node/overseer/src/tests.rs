@@ -1089,7 +1089,10 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 		handle
 			.send_msg_anon(AllMessages::ProspectiveParachains(test_prospective_parachains_msg()))
 			.await;
-		handle.send_msg_anon(AllMessages::RewardsStatisticsCollector(test_rewards_statistics_collector_msg()))
+		handle
+			.send_msg_anon(AllMessages::RewardsStatisticsCollector(
+				test_rewards_statistics_collector_msg(),
+			))
 			.await;
 		// handle.send_msg_anon(AllMessages::PvfChecker(test_pvf_checker_msg())).await;
 

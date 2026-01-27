@@ -6,15 +6,15 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, find_event_and_decode_fields,
-	report_label_with_attributes, wait_for_first_session_change, wait_for_nth_session_change,
+	assert_finality_lag, find_event_and_decode_fields, report_label_with_attributes,
+	wait_for_first_session_change,
 };
 use pallet_revive::H256;
 use polkadot_primitives::{CandidateReceiptV2, Id as ParaId, SessionIndex};
 use serde_json::json;
 use std::{collections::HashMap, ops::Range};
-use subxt::{blocks::Block, OnlineClient, PolkadotConfig};
-use zombienet_orchestrator::network::{node::NetworkNode, Network};
+use subxt::{OnlineClient, PolkadotConfig};
+use zombienet_orchestrator::network::Network;
 use zombienet_sdk::{LocalFileSystem, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -98,7 +98,6 @@ async fn rewards_statistics_mixed_validators_test() -> Result<(), anyhow::Error>
 
 	assert_approval_usages_medians(
 		1,
-		12,
 		[("validator", 0..9), ("malus", 9..12)].into_iter().collect(),
 		&network,
 	)
@@ -207,13 +206,12 @@ pub async fn assert_para_throughput_for_included_parablocks(
 
 async fn assert_approval_usages_medians(
 	session: SessionIndex,
-	num_validators: usize,
 	validators_kind_and_range: Vec<(&str, Range<usize>)>,
 	network: &Network<LocalFileSystem>,
 ) -> Result<(), anyhow::Error> {
 	for (kind, validators_range) in validators_kind_and_range {
 		for idx in validators_range {
-			let validator_identifier = format!("{}-{}", kind, idx);
+			let validator_identifier = format!("{kind}-{idx}");
 			let relay_node = network.get_node(validator_identifier)?;
 
 			let approvals_per_session = report_label_with_attributes(
