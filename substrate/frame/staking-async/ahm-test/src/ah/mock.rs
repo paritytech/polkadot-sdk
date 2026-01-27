@@ -21,14 +21,7 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	SequentialPhragmen,
 };
-<<<<<<< HEAD
 use frame_support::sp_runtime::testing::TestXt;
-=======
-use frame_support::{
-	sp_runtime::testing::TestXt,
-	weights::{Weight, WeightMeter},
-};
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
@@ -489,7 +482,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainSessionKeys = RCSessionKeys;
 	type Balance = Balance;
 	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();
 }
 
@@ -1045,24 +1037,6 @@ fn end_session_and_assert_election(activate: bool, expect_export: bool) {
 		});
 	}
 }
-<<<<<<< HEAD
-=======
-
-pub(crate) fn verifier_events_since_last_call() -> Vec<multi_block::verifier::Event<T>> {
-	let all: Vec<_> = System::events()
-		.into_iter()
-		.filter_map(|r| {
-			if let RuntimeEvent::MultiBlockVerifier(inner) = r.event {
-				Some(inner)
-			} else {
-				None
-			}
-		})
-		.collect();
-	let seen = VerifierEventsIndex::get();
-	VerifierEventsIndex::set(all.len());
-	all.into_iter().skip(seen).collect()
-}
 
 // Proxy
 #[derive(
@@ -1129,4 +1103,3 @@ impl pallet_proxy::Config for Runtime {
 	type WeightInfo = ();
 	type BlockNumberProvider = System;
 }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))

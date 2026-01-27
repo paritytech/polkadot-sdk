@@ -1488,7 +1488,7 @@ mod session_keys {
 
 				// THEN: Keys are registered.
 				assert_eq!(
-					pallet_session::NextKeys::<Runtime>::get(stash).unwrap(),
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
 					frame::deps::sp_runtime::testing::UintAuthorityId(42)
 				);
 
@@ -1502,7 +1502,7 @@ mod session_keys {
 
 				// THEN: Keys are updated.
 				assert_eq!(
-					pallet_session::NextKeys::<Runtime>::get(stash).unwrap(),
+					pallet_session::NextKeys::<Runtime>::get(stash).unwrap().other,
 					frame::deps::sp_runtime::testing::UintAuthorityId(99)
 				);
 
@@ -1616,7 +1616,7 @@ mod session_keys {
 				// AND: Keys are stored correctly.
 				let next_keys = pallet_session::NextKeys::<Runtime>::get(stash);
 				assert!(next_keys.is_some());
-				assert_eq!(next_keys.unwrap(), keys.into());
+				assert_eq!(next_keys.unwrap().other, keys);
 			})
 	}
 }

@@ -1058,10 +1058,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxSessionKeysLength: Get<u32>;
 
-		/// Maximum length of the session keys ownership proof.
-		#[pallet::constant]
-		type MaxSessionKeysProofLength: Get<u32>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -1078,8 +1074,6 @@ pub mod pallet {
 		NotValidator,
 		/// The session keys could not be decoded as the expected RelayChainSessionKeys type.
 		InvalidKeys,
-		/// Invalid ownership proof for the session keys.
-		InvalidProof,
 		/// Delivery fees exceeded the specified maximum.
 		FeesExceededMax,
 	}
@@ -1259,16 +1253,15 @@ pub mod pallet {
 		/// Set session keys for a validator. Keys are validated on AssetHub and forwarded to RC.
 		///
 		/// **Validation on AssetHub:**
-		/// - Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
-		///   format.
-		/// - Ownership proof is validated using `OpaqueKeys::ownership_proof_is_valid`.
-		///
-		/// If validation passes, only the validated keys are sent to RC (with empty proof),
-		/// since RC trusts AH's validation. This prevents malicious validators from bloating
-		/// the XCM queue with garbage data.
+		/// Keys are decoded as `T::RelayChainSessionKeys` to ensure they match RC's expected
+		/// format. This prevents malicious validators from bloating the XCM queue with garbage
+		/// data.
 		///
 		/// This, combined with the enforcement of a high minimum validator bond, makes it
 		/// reasonable not to require a deposit.
+		///
+		/// Note: Ownership proof validation requires PR #1739 which is not backported to
+		/// stable2512. The proof parameter will be added when that PR is backported.
 		///
 		/// **Fees:**
 		/// The actual cost of this call is higher than what the weight-based fee estimate shows.
@@ -1293,7 +1286,6 @@ pub mod pallet {
 		pub fn set_keys(
 			origin: OriginFor<T>,
 			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
-			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
@@ -1302,16 +1294,10 @@ pub mod pallet {
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
 			// Validate keys: decode as RelayChainSessionKeys to ensure correct format
-			let session_keys = T::RelayChainSessionKeys::decode(&mut &keys[..])
+			let _ = T::RelayChainSessionKeys::decode(&mut &keys[..])
 				.map_err(|_| Error::<T>::InvalidKeys)?;
 
-			// Validate ownership proof
-			ensure!(
-				session_keys.ownership_proof_is_valid(&stash.encode(), &proof),
-				Error::<T>::InvalidProof
-			);
-
-			// Forward validated keys to RC (no proof needed, already validated)
+			// Forward validated keys to RC
 			let fees = T::SendToRelayChain::set_keys(
 				stash.clone(),
 				keys.into_inner(),

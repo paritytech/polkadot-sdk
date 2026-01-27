@@ -41,10 +41,6 @@ impl OpaqueKeys for MockSessionKeys {
 	fn get_raw(&self, _: KeyTypeId) -> &[u8] {
 		&self.dummy
 	}
-
-	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
-		true
-	}
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;

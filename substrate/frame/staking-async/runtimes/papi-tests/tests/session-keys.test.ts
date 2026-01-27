@@ -4,8 +4,6 @@ import { runPresetUntilLaunched } from "../src/cmd";
 import { Chain, EventOutcome, Observe, runTest, TestCase } from "../src/test-case";
 import {
 	aliceStashSigner,
-	accountIdBytes,
-	createOwnershipProof,
 	encodeSessionKeys,
 	generateSessionKeys,
 	getApis,
@@ -26,19 +24,12 @@ test(
 		const sessionKeys = await generateSessionKeys("//Alice//stash");
 		logger.info("Generated session keys for alice");
 
-		const aliceStashBytes = accountIdBytes("//Alice//stash");
-		logger.info(`Alice stash account: ${Buffer.from(aliceStashBytes).toString("hex")}`);
-
 		const encodedKeys = encodeSessionKeys(sessionKeys);
 		logger.info(`Encoded session keys: ${encodedKeys.length} bytes`);
-
-		const proof = createOwnershipProof(sessionKeys, aliceStashBytes);
-		logger.info(`Ownership proof: ${proof.length} bytes`);
 
 		logger.info("Submitting set_keys for alice");
 		const setKeysResult = await apis.paraApi.tx.StakingRcClient.set_keys({
 			keys: Binary.fromBytes(encodedKeys),
-			proof: Binary.fromBytes(proof),
 			max_delivery_and_remote_execution_fee: undefined,
 		}).signAndSubmit(aliceStashSigner);
 		if (!setKeysResult.ok) {

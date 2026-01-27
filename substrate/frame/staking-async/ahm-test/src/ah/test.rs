@@ -17,17 +17,8 @@
 
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
-<<<<<<< HEAD
-use frame_support::assert_ok;
-use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-=======
-use frame_election_provider_support::Weight;
 use frame_support::{assert_ok, hypothetically};
-use pallet_election_provider_multi_block::{
-	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
-	ElectionScore, Event as ElectionEvent, Phase,
-};
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
+use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	Event as StakingEvent,
@@ -1087,337 +1078,6 @@ fn era_lifecycle_test() {
 		}
 	});
 }
-<<<<<<< HEAD
-=======
-mod poll_operations {
-	use super::*;
-	use pallet_election_provider_multi_block::verifier::{Status, Verifier};
-
-	#[test]
-	fn full_election_cycle_with_occasional_out_of_weight_completes() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// given initial state of AH
-			assert_eq!(System::block_number(), 1);
-			assert_eq!(CurrentEra::<T>::get(), Some(0));
-			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
-			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
-			assert!(OutgoingValidatorSet::<T>::get().is_none());
-
-			// receive session 1 which causes election to start
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: 0,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: 1,
-					active_era: 0,
-					// planned era 1 indicates election start signal is sent.
-					planned_era: 1
-				}]
-			);
-
-			assert_eq!(
-				election_events_since_last_call(),
-				// Snapshot phase has started which will run for 3 blocks
-				vec![ElectionEvent::PhaseTransitioned { from: Phase::Off, to: Phase::Snapshot(3) }]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(3));
-
-			// create 1 snapshot page normally
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(2));
-
-			// next block won't have enough weight
-			NextPollWeight::set(Some(crate::ah::weights::SMALL));
-			roll_next();
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
-					from: Phase::Snapshot(2),
-					to: Phase::Snapshot(1),
-					required: Weight::from_parts(100, 0),
-					had: Weight::from_parts(10, 0)
-				}]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(2));
-
-			// next 2 blocks happen fine
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(1));
-
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
-
-			// transition to signed
-			roll_next();
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::PhaseTransitioned {
-					from: Phase::Snapshot(0),
-					to: Phase::Signed(3)
-				}]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(3));
-
-			// roll 1
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(2));
-
-			// unlikely: we have zero weight, we won't progress
-			NextPollWeight::set(Some(Weight::default()));
-			roll_next();
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
-					from: Phase::Signed(2),
-					to: Phase::Signed(1),
-					required: Weight::from_parts(10, 0),
-					had: Weight::from_parts(0, 0)
-				}]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Signed(2));
-
-			// submit a signed solution
-			let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
-			assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
-			for (index, page) in solution.solution_pages.into_iter().enumerate() {
-				assert_ok!(MultiBlockSigned::submit_page(
-					RuntimeOrigin::signed(1),
-					index as u32,
-					Some(Box::new(page))
-				));
-			}
-
-			// go to signed validation
-			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::SignedValidation(6), false);
-			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(2));
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::PhaseTransitioned {
-					from: Phase::Signed(0),
-					to: Phase::SignedValidation(6)
-				}]
-			);
-
-			// first block rolls okay
-			roll_next();
-			assert_eq!(verifier_events_since_last_call(), vec![VerifierEvent::Verified(2, 4)]);
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
-			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(1));
-
-			// next block has not enough weight left for verification (verification of non-terminal
-			// pages requires MEDIUM)
-			NextPollWeight::set(Some(crate::ah::weights::SMALL));
-			roll_next();
-			assert_eq!(verifier_events_since_last_call(), vec![]);
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::UnexpectedPhaseTransitionOutOfWeight {
-					from: Phase::SignedValidation(5),
-					to: Phase::SignedValidation(4),
-					required: Weight::from_parts(1010, 0),
-					had: Weight::from_parts(10, 0)
-				}]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::SignedValidation(5));
-			assert_eq!(MultiBlockVerifier::status_storage(), Status::Ongoing(1));
-
-			// rest go by fine, roll until done
-			roll_until_matches(|| CurrentPhase::<T>::get() == Phase::Done, false);
-			assert_eq!(
-				verifier_events_since_last_call(),
-				vec![
-					VerifierEvent::Verified(1, 0),
-					VerifierEvent::Verified(0, 3),
-					VerifierEvent::Queued(
-						ElectionScore {
-							minimal_stake: 100,
-							sum_stake: 800,
-							sum_stake_squared: 180000
-						},
-						None
-					)
-				]
-			);
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![
-					ElectionEvent::PhaseTransitioned {
-						from: Phase::SignedValidation(0),
-						to: Phase::Unsigned(3)
-					},
-					ElectionEvent::PhaseTransitioned { from: Phase::Unsigned(0), to: Phase::Done },
-				]
-			);
-
-			// first export page goes by fine
-			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), None);
-			roll_next();
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::PhaseTransitioned { from: Phase::Done, to: Phase::Export(1) }]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(1));
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) }]
-			);
-			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(1));
-
-			// second page goes by fine
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) }]
-			);
-			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(0));
-
-			// last (LARGE page) runs out of weight
-			NextPollWeight::set(Some(crate::ah::weights::MEDIUM));
-			roll_next();
-			assert_eq!(election_events_since_last_call(), vec![]);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::Unexpected(
-					pallet_staking_async::UnexpectedKind::PagedElectionOutOfWeight {
-						page: 0,
-						required: Weight::from_parts(1000, 0),
-						had: Weight::from_parts(100, 0)
-					}
-				)]
-			);
-			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), Some(0));
-
-			// next time it goes by fine
-			roll_next();
-			assert_eq!(
-				election_events_since_last_call(),
-				vec![ElectionEvent::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }]
-			);
-			assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) }]
-			);
-			assert_eq!(pallet_staking_async::NextElectionPage::<T>::get(), None);
-
-			// outgoing message is queued
-			assert!(OutgoingValidatorSet::<T>::get().is_some());
-		})
-	}
-
-	#[test]
-	fn slashing_processing_while_election() {
-		// This is merely a more realistic example of the above. As staking is ready to receive the
-		// election result, an ongoing slash will cause too much weight to be consumed
-		// on-initialize, causing not enough weight in the on-poll to process. Everything works as
-		// expected, but we get a bit slow.
-		//
-		// The only other meaningful difference is here that we see in action that first on-init
-		// runs, and then the leftover weight is given to on-poll. This is done through the mock
-		// setup of this test.
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// first, we roll 1 era so have some validators to slash
-			let active_validators = roll_until_next_active(0);
-			let _ = staking_events_since_last_call();
-
-			// given initial state of AH
-			assert_eq!(System::block_number(), 28);
-			// active era is 1
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
-			// election for era 2 has started
-			assert_eq!(CurrentEra::<T>::get(), Some(2));
-			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
-			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
-			assert!(OutgoingValidatorSet::<T>::get().is_none());
-
-			// roll until signed and submit a solution.
-			roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
-			let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
-			assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
-			for (index, page) in solution.solution_pages.into_iter().enumerate() {
-				assert_ok!(MultiBlockSigned::submit_page(
-					RuntimeOrigin::signed(1),
-					index as u32,
-					Some(Box::new(page))
-				));
-			}
-
-			// then roll to done, waiting for staking to start processing it. Indeed, something is
-			// queued for export now.
-			roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
-			assert!(MultiBlockVerifier::queued_score().is_some());
-
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
-				RuntimeOrigin::root(),
-				vec![(
-					// index of the last received session report
-					8,
-					rc_client::Offence {
-						offender: active_validators[0],
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(10),
-					}
-				)]
-			));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::OffenceReported {
-					offence_era: 1,
-					validator: active_validators[0],
-					fraction: Perbill::from_percent(10)
-				}]
-			);
-
-			assert!(pallet_staking_async::NextElectionPage::<T>::get().is_none());
-
-			// now as we roll-next, because weight of `process_offence_queue` is max block...
-			roll_next();
-			// staking has not moved forward in terms of fetching election pages
-			assert!(pallet_staking_async::NextElectionPage::<T>::get().is_none());
-			// same with our EPMB
-			assert!(MultiBlock::current_phase().is_done());
-			// and for tracking we have
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					// slash processing happened..
-					StakingEvent::SlashComputed {
-						offence_era: 1,
-						slash_era: 3,
-						offender: active_validators[0],
-						page: 0
-					},
-					// but not this.
-					StakingEvent::Unexpected(
-						pallet_staking_async::UnexpectedKind::PagedElectionOutOfWeight {
-							page: 2,
-							required: Weight::from_parts(100, 0),
-							had: Weight::from_parts(0, 0)
-						}
-					)
-				]
-			);
-		});
-	}
-}
 
 mod session_keys {
 	use super::*;
@@ -1425,17 +1085,16 @@ mod session_keys {
 		Balances, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
 		SetKeysExecutionCost,
 	};
-	use codec::Encode;
 	use frame_support::{assert_noop, BoundedVec};
 	use rc_client::AHStakingInterface;
 
 	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
-	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
 
-	/// Helper to create properly encoded session keys and ownership proof.
-	fn make_session_keys_and_proof(owner: AccountId) -> (Keys, Proof) {
-		let generated = RCSessionKeys::generate(&owner.encode(), None);
-		(generated.keys.encode().try_into().unwrap(), generated.proof.encode().try_into().unwrap())
+	/// Helper to create properly encoded session keys.
+	///
+	/// Note: Ownership proof validation requires PR #1739 which is not backported to stable2512.
+	fn make_session_keys() -> Keys {
+		RCSessionKeys::generate(None).try_into().unwrap()
 	}
 
 	#[test]
@@ -1443,7 +1102,7 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			let keys_raw: Vec<u8> = keys.clone().into_inner();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
@@ -1456,7 +1115,6 @@ mod session_keys {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
-				proof,
 				None,
 			));
 
@@ -1484,17 +1142,12 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Account 100 is a nominator, not a validator
 			let nominator: AccountId = 100;
-			let (keys, proof) = make_session_keys_and_proof(nominator);
+			let keys = make_session_keys();
 
 			// WHEN: Nominator tries to set keys
 			// THEN: NotValidator error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(nominator),
-					keys,
-					proof,
-					None,
-				),
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(nominator), keys, None,),
 				rc_client::Error::<T>::NotValidator
 			);
 		});
@@ -1505,19 +1158,14 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator with sufficient balance and XCM delivery set to fail
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			XcmDeliveryFee::set(100);
 			NextRelayDeliveryFails::set(true);
 
 			// WHEN: set_keys fails due to delivery failure
 			// THEN: XcmSendFailed error is returned
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys,
-					proof,
-					None,
-				),
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1530,7 +1178,6 @@ mod session_keys {
 			let validator: AccountId = 1;
 			// Cannot be decoded as RCSessionKeys
 			let invalid_keys: Keys = vec![0xff, 0xfe, 0xfd].try_into().unwrap();
-			let proof: Proof = vec![].try_into().unwrap();
 
 			// WHEN: Validator tries to set invalid keys
 			// THEN: InvalidKeys error is returned
@@ -1538,76 +1185,9 @@ mod session_keys {
 				rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					invalid_keys,
-					proof,
 					None,
 				),
 				rc_client::Error::<T>::InvalidKeys
-			);
-		});
-	}
-
-	#[test]
-	fn set_keys_invalid_proof() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator with valid keys but wrong proof
-			let validator: AccountId = 1;
-			// Generate keys for a different account (2) so the proof is invalid for validator (1)
-			let (keys, wrong_proof) = make_session_keys_and_proof(2);
-
-			// WHEN: Validator tries to set keys with invalid proof
-			// THEN: InvalidProof error is returned
-			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys,
-					wrong_proof,
-					None,
-				),
-				rc_client::Error::<T>::InvalidProof
-			);
-		});
-	}
-
-	#[test]
-	fn set_keys_empty_proof() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator with valid keys but empty proof
-			let validator: AccountId = 1;
-			let (keys, _) = make_session_keys_and_proof(validator);
-			let empty_proof: Proof = vec![].try_into().unwrap();
-
-			// WHEN: Validator tries to set keys with empty proof
-			// THEN: InvalidProof error is returned
-			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys,
-					empty_proof,
-					None,
-				),
-				rc_client::Error::<T>::InvalidProof
-			);
-		});
-	}
-
-	#[test]
-	fn set_keys_malformed_proof() {
-		ExtBuilder::default().local_queue().build().execute_with(|| {
-			// GIVEN: Account 1 is a validator with valid keys but malformed proof
-			let validator: AccountId = 1;
-			let (keys, _) = make_session_keys_and_proof(validator);
-			let malformed_proof: Proof = vec![0xde, 0xad, 0xbe, 0xef].try_into().unwrap();
-
-			// WHEN: Validator tries to set keys with malformed proof
-			// THEN: InvalidProof error is returned
-			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys,
-					malformed_proof,
-					None,
-				),
-				rc_client::Error::<T>::InvalidProof
 			);
 		});
 	}
@@ -1618,7 +1198,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
 			let stash: AccountId = 1;
 			let proxy: AccountId = 99;
-			let (keys, proof) = make_session_keys_and_proof(stash);
+			let keys = make_session_keys();
 
 			// Fund the proxy account so it can pay for proxy deposit
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
@@ -1634,7 +1214,6 @@ mod session_keys {
 			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
 			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys {
 				keys: keys.clone(),
-				proof,
 				max_delivery_and_remote_execution_fee: None,
 			});
 
@@ -1666,18 +1245,13 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: Validator with insufficient balance to pay total fees
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			XcmDeliveryFee::set(Balances::free_balance(validator) + 1);
 
 			// WHEN: Validator tries to set keys
 			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
 			assert_noop!(
-				rc_client::Pallet::<T>::set_keys(
-					RuntimeOrigin::signed(validator),
-					keys,
-					proof,
-					None,
-				),
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
 				rc_client::Error::<T>::XcmSendFailed
 			);
 		});
@@ -1687,7 +1261,7 @@ mod session_keys {
 	fn set_keys_max_fee_scenarios() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
@@ -1699,7 +1273,6 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
-					proof.clone(),
 					Some(total_fee + 100),
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
@@ -1710,7 +1283,6 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
-					proof.clone(),
 					Some(total_fee),
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
@@ -1722,7 +1294,6 @@ mod session_keys {
 					rc_client::Pallet::<T>::set_keys(
 						RuntimeOrigin::signed(validator),
 						keys.clone(),
-						proof.clone(),
 						Some(total_fee - 1),
 					),
 					rc_client::Error::<T>::FeesExceededMax
@@ -1736,7 +1307,6 @@ mod session_keys {
 				assert_ok!(rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
-					proof.clone(),
 					Some(0),
 				));
 				assert_eq!(Balances::free_balance(validator), balance_before);
@@ -1897,15 +1467,14 @@ mod session_keys {
 
 		let validator: AccountId = 1;
 
-		// Generate valid keys and proof for AH validation (must match AHSessionKeys structure)
-		let (encoded_keys, proof) = make_session_keys_and_proof(validator);
+		// Generate valid keys for AH validation (must match AHSessionKeys structure)
+		let encoded_keys = make_session_keys();
 
 		// WHEN: Validator sets keys on AH
 		shared::in_ah(|| {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				encoded_keys.clone(),
-				proof.clone(),
 				None,
 			));
 		});
@@ -1928,4 +1497,3 @@ mod session_keys {
 		});
 	}
 }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))

@@ -21,15 +21,6 @@ frame = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-<<<<<<< HEAD
-sp-core = { default-features = true, workspace = true }
-sp-session = { default-features = true, workspace = true }
-sp-staking = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-
-# pallets we need in both
-pallet-balances = { default-features = true, workspace = true }
-=======
 sp-core = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
@@ -41,7 +32,6 @@ xcm-executor = { workspace = true, default-features = true }
 # pallets we need in both
 pallet-balances = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 
 # pallets that we need in AH
 frame-election-provider-support = { default-features = true, workspace = true }
@@ -65,19 +55,6 @@ std = [
 	"log/std",
 ]
 try-runtime = [
-<<<<<<< HEAD
-=======
-	"pallet-balances/try-runtime",
-	"pallet-proxy/try-runtime",
-
-	"pallet-dap/try-runtime",
-
-	"pallet-staking/try-runtime",
-
-	"pallet-staking-async-rc-client/try-runtime",
-	"pallet-staking-async/try-runtime",
-
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame/try-runtime",
@@ -86,6 +63,7 @@ try-runtime = [
 	"pallet-dap/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-root-offences/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",

@@ -2237,22 +2237,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-<<<<<<< HEAD
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
-
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-=======
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {
-				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
-					let keys = SessionKeys::generate(&owner.encode(), None);
-					(keys.keys, keys.proof.encode())
-				}
-			}
-
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
 
-			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -2274,10 +2261,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					[AccountId32 { network: None, id: account.into() }].into()
 				}
 
-				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>) {
+				fn generate_session_keys() -> Vec<u8> {
 					use staking::RelayChainSessionKeys;
-					let keys = RelayChainSessionKeys::generate(&owner.encode(), None);
-					(keys.keys.encode(), keys.proof.encode())
+					// Note: Proof generation requires PR #1739 which is not backported to stable2512.
+					RelayChainSessionKeys::generate(None)
 				}
 
 				fn setup_validator() -> Self::AccountId {

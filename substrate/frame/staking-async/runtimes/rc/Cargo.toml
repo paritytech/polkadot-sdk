@@ -83,7 +83,6 @@ serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
 smallvec = { workspace = true, default-features = true }
-<<<<<<< HEAD
 sp-api.workspace = true
 sp-application-crypto.workspace = true
 sp-arithmetic.workspace = true
@@ -110,100 +109,6 @@ xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
-=======
-
-binary-merkle-tree = { workspace = true }
-sp-api = { workspace = true }
-sp-application-crypto = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-authority-discovery = { workspace = true }
-sp-block-builder = { workspace = true }
-sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-core = { workspace = true }
-sp-genesis-builder = { workspace = true }
-sp-inherents = { workspace = true }
-sp-io = { workspace = true }
-sp-keyring = { workspace = true }
-sp-mmr-primitives = { workspace = true }
-sp-npos-elections = { workspace = true }
-sp-offchain = { workspace = true }
-sp-runtime = { workspace = true }
-sp-session = { workspace = true }
-sp-staking = { workspace = true }
-sp-storage = { workspace = true }
-sp-transaction-pool = { workspace = true }
-sp-version = { workspace = true }
-
-frame-election-provider-support = { workspace = true }
-frame-executive = { workspace = true }
-frame-metadata-hash-extension = { workspace = true }
-frame-support = { features = ["experimental", "tuples-96"], workspace = true }
-frame-system = { workspace = true }
-frame-system-rpc-runtime-api = { workspace = true }
-pallet-asset-rate = { workspace = true }
-pallet-authority-discovery = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-babe = { workspace = true }
-pallet-bags-list = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-beefy = { workspace = true }
-pallet-beefy-mmr = { workspace = true }
-pallet-conviction-voting = { workspace = true }
-pallet-election-provider-multi-phase = { workspace = true }
-pallet-fast-unstake = { workspace = true }
-pallet-grandpa = { workspace = true }
-pallet-identity = { workspace = true }
-pallet-indices = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-migrations = { workspace = true }
-pallet-mmr = { workspace = true }
-pallet-multisig = { workspace = true }
-pallet-offences = { workspace = true }
-pallet-parameters = { workspace = true }
-pallet-preimage = { workspace = true }
-pallet-proxy = { workspace = true }
-pallet-recovery = { workspace = true }
-pallet-referenda = { workspace = true }
-pallet-root-offences = { workspace = true }
-pallet-root-testing = { workspace = true }
-pallet-scheduler = { workspace = true }
-pallet-session = { workspace = true }
-pallet-staking = { workspace = true }
-pallet-staking-async-ah-client = { workspace = true }
-pallet-staking-async-preset-store = { workspace = true }
-pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
-pallet-staking-async-rc-runtime-constants = { workspace = true }
-pallet-sudo = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-treasury = { workspace = true }
-pallet-utility = { workspace = true }
-pallet-vesting = { workspace = true }
-pallet-whitelist = { workspace = true }
-pallet-xcm = { workspace = true }
-pallet-xcm-benchmarks = { optional = true, workspace = true }
-
-frame-benchmarking = { optional = true, workspace = true }
-frame-system-benchmarking = { optional = true, workspace = true }
-frame-try-runtime = { optional = true, workspace = true }
-hex-literal = { workspace = true, default-features = true }
-pallet-election-provider-support-benchmarking = { optional = true, workspace = true }
-pallet-offences-benchmarking = { optional = true, workspace = true }
-pallet-session-benchmarking = { optional = true, workspace = true }
-
-polkadot-parachain-primitives = { workspace = true }
-polkadot-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-polkadot-runtime-parachains = { workspace = true }
-
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
-xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 
 [dev-dependencies]
 approx = { workspace = true }

@@ -9,29 +9,20 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-<<<<<<< HEAD
-frame-support.workspace = true
-frame-system.workspace = true
-=======
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core.workspace = true
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
-<<<<<<< HEAD
-xcm.workspace = true
-=======
 # XCM dependencies are only needed for the optional XCMSender helper struct.
 # They can be removed entirely once XCMSender is moved to a separate crate.
 xcm = { optional = true, workspace = true }
 xcm-builder = { optional = true, workspace = true }
 xcm-executor = { optional = true, workspace = true }
->>>>>>> f154a346 (staking-async: allow  session keys handling on AssetHub (#10666))
 
 [features]
 default = ["std"]
