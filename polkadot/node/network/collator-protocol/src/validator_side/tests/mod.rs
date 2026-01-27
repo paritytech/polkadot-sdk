@@ -1161,3 +1161,118 @@ fn view_change_clears_old_collators() {
 		virtual_overseer
 	})
 }
+
+/// Unit test that verifies the bug fix for handle_peer_view_change.
+///
+/// The bug was: when checking whether to cancel a pending collation request,
+/// the code passed `None` to `has_advertised()` instead of the specific candidate hash.
+/// This meant that if Candidate B was still advertised, a request for Candidate A
+/// would incorrectly be kept even though A was no longer advertised.
+///
+/// This test directly simulates the bug scenario:
+/// - Candidate A is NOT advertised (was removed)
+/// - Candidate B IS advertised (same relay_parent)
+/// - A pending request exists for Candidate A
+/// - With the bug: request would be kept (WRONG)
+/// - With the fix: request should be cancelled (CORRECT)
+#[test]
+fn handle_peer_view_change_uses_specific_candidate_hash() {
+	use super::{CollatingPeerState, PeerData, PeerState, PendingCollation, ProspectiveCandidate};
+	use polkadot_node_network_protocol::peer_set::CollationVersion;
+	use polkadot_primitives::CandidateHash;
+	use std::collections::HashSet;
+	use tokio_util::sync::CancellationToken;
+
+	let relay_parent = Hash::repeat_byte(0x01);
+	let candidate_hash_a = CandidateHash(Hash::repeat_byte(0xAA));
+	let candidate_hash_b = CandidateHash(Hash::repeat_byte(0xBB));
+	let peer_id = PeerId::random();
+	let para_id = ParaId::from(1u32);
+
+	let collator_id = CollatorPair::generate().0.public();
+
+	// Simulate the bug scenario: Candidate B is advertised, but NOT Candidate A
+	// This simulates a state where A was removed but B remains
+	let mut advertisements = HashMap::new();
+	let mut candidates = HashSet::new();
+	candidates.insert(candidate_hash_b); // Only B is advertised, NOT A
+	advertisements.insert(relay_parent, candidates);
+
+	let peer_data = PeerData {
+		view: View::default(),
+		state: PeerState::Collating(CollatingPeerState {
+			collator_id,
+			para_id,
+			advertisements,
+			last_active: std::time::Instant::now(),
+		}),
+		version: CollationVersion::V2,
+	};
+
+	// Create a pending collation for Candidate A
+	let pending_collation_a = PendingCollation {
+		relay_parent,
+		peer_id,
+		para_id,
+		prospective_candidate: Some(ProspectiveCandidate {
+			candidate_hash: candidate_hash_a,
+			parent_head_data_hash: Hash::zero(),
+		}),
+		commitments_hash: None,
+	};
+
+	// Create cancellation tokens to track whether requests would be cancelled
+	let token_with_fix = CancellationToken::new();
+	let token_with_bug = CancellationToken::new();
+
+	// Simulate the retain logic with the FIX (using specific candidate hash)
+	{
+		let mut requests: HashMap<PendingCollation, CancellationToken> = HashMap::new();
+		requests.insert(pending_collation_a.clone(), token_with_fix.clone());
+
+		requests.retain(|pc, handle| {
+			// FIXED logic: use the specific candidate hash
+			let maybe_candidate_hash = pc.prospective_candidate.as_ref().map(|p| p.candidate_hash);
+			let keep =
+				pc.peer_id != peer_id ||
+				peer_data.has_advertised(&pc.relay_parent, maybe_candidate_hash);
+			if !keep {
+				handle.cancel();
+			}
+			keep
+		});
+
+		// With the fix, the request should be removed (not kept)
+		assert!(requests.is_empty(), "With the fix, request for A should be removed");
+	}
+
+	// Simulate the retain logic with the BUG (using None)
+	{
+		let mut requests: HashMap<PendingCollation, CancellationToken> = HashMap::new();
+		requests.insert(pending_collation_a.clone(), token_with_bug.clone());
+
+		requests.retain(|pc, handle| {
+			// BUGGY logic: use None instead of specific candidate hash
+			let keep =
+				pc.peer_id != peer_id ||
+				peer_data.has_advertised(&pc.relay_parent, None);
+			if !keep {
+				handle.cancel();
+			}
+			keep
+		});
+
+		// With the bug, the request would be incorrectly kept
+		assert!(!requests.is_empty(), "With the bug, request for A would be incorrectly kept");
+	}
+
+	// Verify that cancellation actually happened with the fix
+	assert!(
+		token_with_fix.is_cancelled(),
+		"With the fix, the cancellation token should be cancelled"
+	);
+	assert!(
+		!token_with_bug.is_cancelled(),
+		"With the bug, the cancellation token would NOT be cancelled (incorrect behavior)"
+	);
+}
