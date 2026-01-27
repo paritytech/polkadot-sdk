@@ -772,7 +772,9 @@ fn handle_peer_view_change(state: &mut State, peer_id: PeerId, view: View) {
 
 	peer_data.update_view(&state.implicit_view, &state.active_leaves, view);
 	state.collation_requests_cancel_handles.retain(|pc, handle| {
-		let keep = pc.peer_id != peer_id || peer_data.has_advertised(&pc.relay_parent, None);
+		let maybe_candidate_hash = pc.prospective_candidate.as_ref().map(|p| p.candidate_hash());
+		let keep = pc.peer_id != peer_id ||
+			peer_data.has_advertised(&pc.relay_parent, maybe_candidate_hash);
 		if !keep {
 			handle.cancel();
 		}
