@@ -209,11 +209,15 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
 ) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
 {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
+		.max_request_size(max_request_size)
+		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
 	let rpc_client = RpcClient::new(rpc_client);
