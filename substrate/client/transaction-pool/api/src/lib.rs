@@ -317,6 +317,25 @@ pub trait TransactionPool: Send + Sync {
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>>;
 
+	/// Removes transactions from the pool without banning them.
+	///
+	/// Removed transactions can be resubmitted to the pool. Dependent transactions
+	/// (e.g., transactions with higher nonces from the same sender) are also removed.
+	/// This method emits [`TransactionStatus::Dropped`] events to watchers for all
+	/// removed transactions, including dependents.
+	///
+	/// Useful for scenarios like chain reverts where transactions need to be removed
+	/// but may be valid for resubmission. This method is decoupled from chain revert
+	/// handling to give node builders flexibility in their transaction management.
+	///
+	/// Transactions not present in the pool are silently ignored. Returns only the
+	/// explicitly requested transactions that were actually removed from the pool
+	/// (dependents are not included in the return value).
+	async fn remove_transactions(
+		&self,
+		hashes: &[TxHash<Self>],
+	) -> Vec<Arc<Self::InPoolTransaction>>;
+
 	// *** logging
 	/// Get futures transaction list.
 	fn futures(&self) -> Vec<Self::InPoolTransaction>;
@@ -390,6 +409,18 @@ pub enum ChainEvent<B: BlockT> {
 		tree_route: Arc<[B::Hash]>,
 	},
 	/// The chain has been reverted to an earlier state.
+	///
+	/// When this event is processed by the transaction pool:
+	/// - Views beyond the revert point are removed
+	/// - A fresh view is created at the new head, populated from the current mempool
+	/// - Transactions in the mempool are revalidated against the new head's state
+	///
+	/// **Important**: Transactions are NOT automatically removed from the mempool.
+	/// To remove transactions (e.g., those included in reverted blocks), use
+	/// `remove_transactions()` separately. This gives node builders flexibility to:
+	/// - Remove only transactions from reverted blocks
+	/// - Remove all transactions and require resubmission
+	/// - Keep all transactions and let revalidation filter them
 	///
 	/// This event is expected to be used in development and testing environments only.
 	Reverted {

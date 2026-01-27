@@ -370,7 +370,12 @@ where
 					};
 				},
 				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
-					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+					view_store.remove_transaction_subtree(tx_hash, true, |_, _| {});
+				},
+				DroppedReason::Removed => {
+					// This case is not expected to be reached through dropped_stream. However, we
+					// handle it defensively without banning to maintain correct semantics.
+					view_store.remove_transaction_subtree(tx_hash, false, |_, _| {});
 				},
 			};
 
@@ -1143,6 +1148,57 @@ where
 	) -> ReadyIteratorFor<ChainApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
+
+	async fn remove_transactions(
+		&self,
+		hashes: &[ExtrinsicHash<ChainApi>],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		debug!(target: LOG_TARGET, len = ?hashes.len(), "fatp::remove_transactions");
+		log_xt_debug!(target: LOG_TARGET, hashes, "fatp::remove_transactions");
+
+		// Remove from all views. This also removes dependent transactions.
+		// Do not ban transactions to allow resubmission after removal.
+		let hashes_set: HashSet<_> = hashes.iter().copied().collect();
+		let mut removed = Vec::new();
+		let mut all_removed_hashes = Vec::new();
+		let mut seen = HashSet::new();
+
+		for tx_hash in hashes {
+			let removed_from_views =
+				self.view_store.remove_transaction_subtree(*tx_hash, false, |_, _| {});
+
+			// If tx wasn't in any view, still track it for mempool removal
+			if removed_from_views.is_empty() {
+				if seen.insert(*tx_hash) {
+					all_removed_hashes.push(*tx_hash);
+				}
+				continue;
+			}
+
+			for tx in removed_from_views {
+				if seen.insert(tx.hash) {
+					all_removed_hashes.push(tx.hash);
+					// Only return explicitly requested transactions
+					if hashes_set.contains(&tx.hash) {
+						removed.push(tx);
+					}
+				}
+			}
+		}
+
+		self.mempool.remove_transactions(&all_removed_hashes).await;
+		self.import_notification_sink.clean_notified_items(&all_removed_hashes);
+
+		// Notify watchers for all removed transactions (including dependents)
+		for tx_hash in &all_removed_hashes {
+			self.view_store.listener.transaction_dropped(DroppedTransaction {
+				tx_hash: *tx_hash,
+				reason: DroppedReason::Removed,
+			});
+		}
+
+		removed
+	}
 }
 
 impl<ChainApi, Block> sc_transaction_pool_api::LocalTransactionPool
@@ -1849,28 +1905,26 @@ where
 
 	/// Handles a blockchain revert to a previous block.
 	///
-	/// This method is responsible for cleaning up the transaction pool state when the blockchain
-	/// is reverted to an earlier block. This situation occurs in development/testing environments
-	/// when using testing RPCs like `evm_revert` or `anvil_reset`.
+	/// This method is responsible for cleaning up the transaction pool view state when the
+	/// blockchain is reverted to an earlier block. This situation occurs in development/testing
+	/// environments when using testing RPCs like `evm_revert` or `anvil_reset`.
 	///
 	/// The cleanup process involves:
 	/// 1. Identifying all views (active and inactive) that point to blocks beyond the revert point
-	/// 2. Collecting transactions that were included in the blocks being removed
-	/// 3. Removing those transactions from the mempool (they may be re-submitted if valid)
-	/// 4. Creating a fresh view at the new head, populated from the current mempool state
-	/// 5. Atomically removing zombie views and updating `most_recent_view` to the new head
-	/// 6. Cleaning up listener references to removed views
+	/// 2. Creating a fresh view at the new head, populated from the current mempool state
+	/// 3. Atomically removing zombie views and updating `most_recent_view` to the new head
+	/// 4. Cleaning up listener references to removed views
 	///
-	/// Step 4 always creates a fresh view rather than reusing stale views, ensuring the view
-	/// reflects the current mempool state. Pending transactions will appear in the new view
-	/// only if they pass revalidation against the new head's state.
+	/// **Important**: This method only handles view cleanup. It does NOT remove transactions
+	/// from the mempool. To remove transactions (e.g., those included in reverted blocks),
+	/// use [`Self::remove_transactions`] separately. This decoupling gives node builders
+	/// flexibility to implement their desired behavior.
 	///
-	/// If no view exists at the new head (e.g., view creation failed), step 5 aborts the view
-	/// removal to avoid leaving the pool in an inconsistent state. In this case, stale views
-	/// may remain but `most_recent_view` stays valid.
+	/// Transactions in the mempool will be revalidated against the new head's state when
+	/// the fresh view is created. Transactions that fail revalidation will not appear in
+	/// the new view's ready queue.
 	///
-	/// After this method completes successfully, the transaction pool state should be consistent
-	/// with a node that was always at the new head block height.
+	/// Primarily used in development and testing environments.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_reverted")]
 	async fn handle_reverted(&self, new_head_hash: Block::Hash) {
 		let start = Instant::now();
@@ -1909,47 +1963,13 @@ where
 			"handle_reverted: discovered views beyond revert point"
 		);
 
-		// Step 2: Collect transactions from all blocks being removed.
-		let mut reverted_transactions = Vec::new();
-
+		// Clean up included_transactions cache for removed views.
 		for (view_hash, view_number) in &views_to_remove {
 			let block_hash_and_number = HashAndNumber { hash: *view_hash, number: *view_number };
-
-			// For efficiency reasons, we first check the included_transactions cache.
-			let cached = self.included_transactions.lock().remove(&block_hash_and_number);
-
-			if let Some(transactions) = cached {
-				trace!(
-					target: LOG_TARGET,
-					block = ?view_hash,
-					tx_count = transactions.len(),
-					"handle_reverted: collected transactions from cache"
-				);
-				reverted_transactions.extend(transactions);
-			} else {
-				// If not found, we fetch them from the blockchain API.
-				let transactions = self.fetch_block_transactions(&block_hash_and_number).await;
-				trace!(
-					target: LOG_TARGET,
-					block = ?view_hash,
-					tx_count = transactions.len(),
-					"handle_reverted: fetched transactions from block"
-				);
-				reverted_transactions.extend(transactions);
-			}
+			self.included_transactions.lock().remove(&block_hash_and_number);
 		}
 
-		debug!(
-			target: LOG_TARGET,
-			total_reverted_txs = reverted_transactions.len(),
-			"handle_reverted: collected all transactions from reverted blocks"
-		);
-
-		// Step 3: Remove collected transactions from mempool and notification tracking.
-		self.mempool.remove_transactions(&reverted_transactions).await;
-		self.import_notification_sink.clean_notified_items(&reverted_transactions);
-
-		// Step 4: Create a fresh view at the new head.
+		// Step 2: Create a fresh view at the new head.
 		//
 		// We always create a fresh view rather than reusing any existing stale view because:
 		// - Old views may contain transactions that were included in now-reverted blocks
@@ -1972,7 +1992,7 @@ where
 			);
 		}
 
-		// Step 5: Atomically remove zombie views AND update most_recent_view.
+		// Step 3: Atomically remove zombie views AND update most_recent_view.
 		//
 		// We only proceed with view removal if we can confirm a view exists at the new head.
 		let views_removed = {
@@ -2010,8 +2030,8 @@ where
 			}
 		};
 
-		// Step 6: Cleanup listener and watcher references to removed views.
-		// Only perform cleanup if views were actually removed in step 5.
+		// Step 4: Cleanup listener and watcher references to removed views.
+		// Only perform cleanup if views were actually removed in step 3.
 		if views_removed {
 			self.view_store.listener.remove_stale_controllers();
 			for (view_hash, _) in &views_to_remove {
@@ -2028,7 +2048,6 @@ where
 			?new_head_number,
 			views_removed,
 			removed_views_count = if views_removed { views_to_remove.len() } else { 0 },
-			removed_transactions = reverted_transactions.len(),
 			duration = ?start.elapsed(),
 			"handle_reverted: completed"
 		);
@@ -2138,10 +2157,13 @@ where
 				.listener
 				.transaction_dropped(DroppedTransaction::new_enforced_by_limts(*worst_hash));
 
-			self.view_store
-				.remove_transaction_subtree(*worst_hash, |listener, removed_tx_hash| {
+			self.view_store.remove_transaction_subtree(
+				*worst_hash,
+				true,
+				|listener, removed_tx_hash| {
 					listener.limits_enforced(&removed_tx_hash);
-				});
+				},
+			);
 		}
 
 		return Ok(insertion_info)

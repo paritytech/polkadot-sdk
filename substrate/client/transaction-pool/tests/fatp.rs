@@ -2724,6 +2724,12 @@ fn fatp_revert_multiple_blocks_does_not_resubmit() {
 	let event = new_revert_event(header01.hash());
 	block_on(pool.maintain(event));
 
+	// Explicitly remove transactions that were included in reverted blocks.
+	// This is now the caller's responsibility (decoupled from revert handling).
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+	let xt1_hash = pool.api().hash_and_length(&xt1).0;
+	block_on(pool.remove_transactions(&[xt0_hash, xt1_hash]));
+
 	// After revert, verify view state:
 	// - Pool should have a view at the reverted-to block
 	// - Views at reverted blocks should be removed
@@ -2838,7 +2844,16 @@ fn fatp_revert_removes_transactions_from_all_forks() {
 	// Revert to B (before the fork point C)
 	let event = new_revert_event(header_b.hash());
 	block_on(pool.maintain(event));
-	// After revert:
+
+	// Explicitly remove transactions that were included in reverted blocks.
+	// This is now the caller's responsibility (decoupled from revert handling).
+	let tx_hashes: Vec<_> = [&xt0, &xt1, &xt2, &xt3, &xt4, &xt5, &xt6, &xt7, &xt8]
+		.iter()
+		.map(|xt| pool.api().hash_and_length(xt).0)
+		.collect();
+	block_on(pool.remove_transactions(&tx_hashes));
+
+	// After revert + explicit removal:
 	// - All transactions from all three forks (xt0-xt8) should be removed from mempool
 	// - xt_pending (pending) should survive
 	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
@@ -2897,4 +2912,52 @@ fn fatp_revert_removes_transactions_from_all_forks() {
 
 	// Should only have one view now (at B)
 	assert_eq!(pool.active_views_count(), 1, "Should only have one view after revert");
+}
+
+#[test]
+fn fatp_remove_transactions_notifies_watcher() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+
+	// Submit transactions with watchers
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	// Remove the transactions
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+	let xt1_hash = pool.api().hash_and_length(&xt1).0;
+	let removed = block_on(pool.remove_transactions(&[xt0_hash, xt1_hash]));
+
+	// Verify returned transactions match the removed ones
+	assert_eq!(removed.len(), 2);
+	let removed_hashes: Vec<_> = removed.iter().map(|tx| tx.hash).collect();
+	assert!(removed_hashes.contains(&xt0_hash));
+	assert!(removed_hashes.contains(&xt1_hash));
+
+	// Collect watcher events
+	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_events = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+
+	// Both watchers should receive Ready followed by Dropped
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
+	assert_eq!(xt1_events, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
+
+	// Verify transactions are removed from the pool
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
+	assert!(!ready.contains(&xt0), "xt0 should be removed");
+	assert!(!ready.contains(&xt1), "xt1 should be removed");
+
+	// Verify transactions can be resubmitted (not banned)
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone()))
+		.expect("Should be able to resubmit xt0 after remove_transactions");
+	assert_pool_status!(header01.hash(), &pool, 1, 0);
 }

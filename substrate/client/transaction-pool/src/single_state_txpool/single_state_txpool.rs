@@ -416,6 +416,16 @@ where
 	) -> ReadyIteratorFor<PoolApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
+
+	async fn remove_transactions(
+		&self,
+		hashes: &[TxHash<Self>],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		// Remove from pool without banning, triggering Dropped events for watchers
+		self.pool.validated_pool().remove_subtree(hashes, false, |dispatcher, hash| {
+			dispatcher.dropped(&hash);
+		})
+	}
 }
 
 impl<Block, Client> BasicPool<FullChainApi<Client, Block>, Block>

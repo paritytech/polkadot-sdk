@@ -8,22 +8,35 @@ doc:
 
     ## Changes
 
+    ### Chain Revert Handling
+
     - Add `ChainEvent::Reverted` variant to represent backward blockchain progression
     - Add `EnactmentAction::HandleReversion` to route revert events appropriately
     - Implement `handle_reverted()` method that:
-      - identifies and removes all views beyond the revert point (both active and inactive)
-      - collects transactions from retracted blocks via `included_transactions` cache or API
-      - removes those transactions from mempool (they can be resubmitted later)
-      - creates a fresh view at the new head populated from the current mempool state
-      - atomically updates `most_recent_view` and cleans up listener references
+      - Identifies and removes all views beyond the revert point (both active and inactive)
+      - Creates a fresh view at the new head populated from the current mempool state
+      - Atomically updates `most_recent_view` and cleans up listener references
+
+    `ChainEvent::Reverted` does NOT automatically remove transactions from the mempool. 
+    Node builders should call `remove_transactions()` separately if they want to remove specific transactions (e.g., those from reverted blocks).
+
+    ### New `remove_transactions` API
+
+    Added `remove_transactions` method to the `TransactionPool` trait that:
+    - Removes transactions from the pool **without banning** them (unlike `report_invalid`)
+    - Allows removed transactions to be resubmitted immediately
+    - Also removes dependent transactions (e.g., higher nonces from the same sender)
+    - Emits `TransactionStatus::Dropped` events to watchers for all removed transactions, including dependents
+    - Returns only the explicitly requested transactions that were actually removed (dependents not included in return value)
+
+    This API is decoupled from chain revert handling, giving node builders flexibility to decide which transactions to remove after a revert.
 
     ## Review Notes
 
-    -  We always create a fresh view at the revert target block rather than reusing stale views, ensuring the view reflects the current mempool state
+    - We always create a fresh view at the revert target block rather than reusing stale views, ensuring the view reflects the current mempool state
     - Pending transactions will appear in the new view only if they pass revalidation against the new head's state
-    - Transactions from reverted blocks are removed without banning, allowing resubmission
-    - View removal and most_recent_view update are performed atomically by holding all three locks (`most_recent_view`,
-      `active_views`, `inactive_views`) simultaneously, following the same pattern as `ViewStore::insert_new_view_sync` to prevent race conditions.
+    - `remove_transactions` mirrors `report_invalid` behavior but without banning, allowing resubmission
+    - View removal and most_recent_view update are performed atomically by holding all three locks (`most_recent_view`, `active_views`, `inactive_views`) simultaneously
 crates:
 - name: sc-transaction-pool-api
   bump: major

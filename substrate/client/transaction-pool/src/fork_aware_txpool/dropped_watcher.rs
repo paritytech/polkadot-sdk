@@ -78,6 +78,9 @@ pub enum DroppedReason<Hash> {
 	LimitsEnforced,
 	/// Transaction was dropped because of being invalid.
 	Invalid,
+	/// Transaction was explicitly removed via the `remove_transactions` API.
+	/// This allows removal without banning, so transactions can be resubmitted.
+	Removed,
 }
 
 /// Dropped-logic related event from the single view.
