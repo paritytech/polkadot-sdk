@@ -1744,6 +1744,16 @@ where
 			// we do this last as we cannot roll this back
 			transaction_meter.terminate(contract_account.clone(), refund);
 
+			// emit selfdestruct trace
+			if_tracing(|t| {
+				t.terminate(
+					contract_address,
+					T::AddressMapper::to_address(&args.beneficiary),
+					0, // gas is tracked separately; termination happens at end of call stack
+					balance,
+				);
+			});
+
 			Ok(())
 		};
 
@@ -1753,7 +1763,6 @@ where
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match delete_contract(&args.trie_id, &args.code_hash) {
 				Ok(()) => {
-					// TODO: emit sucicide trace
 					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 					TransactionOutcome::Commit(Ok(()))
 				},
