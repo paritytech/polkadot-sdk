@@ -244,7 +244,12 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			post_digests: Vec::new(),
 			body: None,
 			indexed_body: None,
-			state_action: StateAction::Execute,
+			// Warp sync blocks are already verified, skip execution.
+			state_action: if origin == BlockOrigin::WarpSync {
+				StateAction::Skip
+			} else {
+				StateAction::Execute
+			},
 			finalized: false,
 			intermediates: HashMap::new(),
 			auxiliary: Vec::new(),

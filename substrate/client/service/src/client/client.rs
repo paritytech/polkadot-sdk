@@ -837,12 +837,6 @@ where
 			import_block.with_state()
 		);
 
-		// For warp sync blocks, we skip preparing storage changes since these blocks
-		// are already verified and we don't need to re-execute them.
-		if import_block.origin == BlockOrigin::WarpSync {
-			return Ok(PrepareStorageChangesResult::Import(None))
-		}
-
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (parent_status, state_action) {
 			(BlockStatus::KnownBad, _) =>
@@ -852,9 +846,9 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
+			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
-			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
