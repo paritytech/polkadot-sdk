@@ -323,16 +323,14 @@ impl Index {
 		std::mem::take(&mut self.recent)
 	}
 
-	fn make_expired(&mut self, hash: &Hash, db: &parity_db::Db, current_time: u64) -> bool {
+	fn make_expired(
+		&mut self,
+		hash: &Hash,
+		statement: Option<&Statement>,
+		current_time: u64,
+	) -> bool {
 		if let Some((account, priority, len)) = self.entries.remove(hash) {
 			self.total_size -= len;
-			// Read statement from database to get topics and decryption key
-			let statement = db
-				.get(col::STATEMENTS, hash)
-				.ok()
-				.flatten()
-				.and_then(|data| Statement::decode(&mut data.as_slice()).ok());
-
 			if let Some(statement) = statement {
 				// Remove hash from topic indexes using statement data
 				let mut nt = 0;
@@ -508,7 +506,12 @@ impl Index {
 		}
 
 		for h in &evicted {
-			self.make_expired(h, db, current_time);
+			let statement = db
+				.get(col::STATEMENTS, h)
+				.ok()
+				.flatten()
+				.and_then(|data| Statement::decode(&mut data.as_slice()).ok());
+			self.make_expired(h, statement.as_ref(), current_time);
 		}
 		self.insert_new(hash, *account, statement);
 		Ok(evicted)
@@ -1063,9 +1066,15 @@ impl StatementStore for Store {
 	/// Remove a statement by hash.
 	fn remove(&self, hash: &Hash) -> Result<()> {
 		let current_time = self.timestamp();
+		let statement = self
+			.db
+			.get(col::STATEMENTS, hash)
+			.ok()
+			.flatten()
+			.and_then(|data| Statement::decode(&mut data.as_slice()).ok());
 		{
 			let mut index = self.index.write();
-			if index.make_expired(hash, &self.db, current_time) {
+			if index.make_expired(hash, statement.as_ref(), current_time) {
 				let commit = [
 					(col::STATEMENTS, hash.to_vec(), None),
 					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
@@ -1095,7 +1104,13 @@ impl StatementStore for Store {
 		let current_time = self.timestamp();
 		let mut commit = Vec::new();
 		for hash in evicted {
-			index.make_expired(&hash, &self.db, current_time);
+			let statement = self
+				.db
+				.get(col::STATEMENTS, &hash)
+				.ok()
+				.flatten()
+				.and_then(|data| Statement::decode(&mut data.as_slice()).ok());
+			index.make_expired(&hash, statement.as_ref(), current_time);
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
 			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
 		}
