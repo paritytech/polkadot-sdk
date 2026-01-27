@@ -990,13 +990,6 @@ where
 
 	/// Complete the gap sync if the target number is reached and there is a gap.
 	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
-		if let Some(gap_sync) = &self.gap_sync {
-			debug!(
-				target: LOG_TARGET,
-				"complete_gap_if_target: block #{number} imported, gap target=#{}, best_queued=#{}",
-				gap_sync.target, gap_sync.best_queued_number
-			);
-		}
 		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
 		if gap_sync_complete {
 			info!(
@@ -1613,11 +1606,6 @@ where
 		}
 		if let Some(gap_sync) = &mut self.gap_sync {
 			if number > gap_sync.best_queued_number && number <= gap_sync.target {
-				debug!(
-					target: LOG_TARGET,
-					"Gap sync: block #{number} queued, advancing best_queued_number: {} -> {number} (target=#{})",
-					gap_sync.best_queued_number, gap_sync.target
-				);
 				gap_sync.best_queued_number = number;
 			}
 		}

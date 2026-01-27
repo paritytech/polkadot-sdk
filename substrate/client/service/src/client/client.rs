@@ -572,22 +572,14 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let number = *import_headers.post().number();
 		let gap_block = info.block_gap.map_or(false, |gap| {
-			let is_gap_block = number == gap.start ||
+			let number = *import_headers.post().number();
+			number == gap.start ||
 				// Gap start advances as blocks are imported during gap sync.
 				// If we're importing gap.start + 1 and its parent already exists, then the import of
 				// parent block was skipped during gap sync (because it was already imported during warp sync),
 				// so gap.start wasn't advanced.
-				(number == gap.start + One::one() && parent_exists);
-			if is_gap_block {
-				debug!(
-					target: "client",
-					"Gap block detected: #{number}, gap.start=#{}, gap.end=#{}, parent_exists={parent_exists}",
-					gap.start, gap.end
-				);
-			}
-			is_gap_block
+				(number == gap.start + One::one() && parent_exists)
 		});
 
 		// the block is lower than our last finalized block so it must revert
@@ -816,29 +808,10 @@ where
 		Self: ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
 	{
-		let parent_hash = *import_block.header.parent_hash();
-		let parent_status = self.block_status(parent_hash)?;
-		let state_action_desc = match &import_block.state_action {
-			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)) =>
-				"ApplyChanges(Changes)",
-			StateAction::ApplyChanges(sc_consensus::StorageChanges::Import(_)) =>
-				"ApplyChanges(Import)",
-			StateAction::Execute => "Execute",
-			StateAction::ExecuteIfPossible => "ExecuteIfPossible",
-			StateAction::Skip => "Skip",
-		};
-		debug!(
-			target: "client",
-			"prepare_block_storage_changes: block #{}, origin={:?}, parent_status={:?}, state_action={}, with_state={}",
-			import_block.header.number(),
-			import_block.origin,
-			parent_status,
-			state_action_desc,
-			import_block.with_state()
-		);
-
+		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
-		let (enact_state, storage_changes) = match (parent_status, state_action) {
+		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
+		{
 			(BlockStatus::KnownBad, _) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::KnownBad)),
 			(
@@ -876,13 +849,13 @@ where
 				}
 
 				runtime_api.execute_block(
-					parent_hash,
+					*parent_hash,
 					Block::new(import_block.header.clone(), body.clone()).into(),
 				)?;
 
-				let state = self.backend.state_at(parent_hash, call_context.into())?;
+				let state = self.backend.state_at(*parent_hash, call_context.into())?;
 				let gen_storage_changes = runtime_api
-					.into_storage_changes(&state, parent_hash)
+					.into_storage_changes(&state, *parent_hash)
 					.map_err(sp_blockchain::Error::Storage)?;
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
