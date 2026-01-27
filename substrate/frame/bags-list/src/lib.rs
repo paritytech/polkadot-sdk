@@ -708,7 +708,7 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		if let Err(_) = Pallet::<T, I>::ensure_unlocked() {
+		if Pallet::<T, I>::ensure_unlocked().is_err() {
 			// Pallet is locked - store in PendingRebag for later processing
 			// Only queue if auto-rebagging is enabled
 			if T::MaxAutoRebagPerBlock::get() > 0u32 {
