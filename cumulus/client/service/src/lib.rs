@@ -43,7 +43,9 @@ use sc_network::{
 };
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
-use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
+use sc_service::{
+	Configuration, SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, WarpSyncConfig,
+};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_tracing::block::TracingExecuteBlock;
 use sc_utils::mpsc::TracingUnboundedSender;
@@ -291,6 +293,7 @@ pub struct BuildNetworkParams<
 	pub para_id: ParaId,
 	pub relay_chain_interface: RCInterface,
 	pub spawn_handle: SpawnTaskHandle,
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
 	pub metrics: sc_network::NotificationMetrics,
@@ -305,6 +308,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		transaction_pool,
 		para_id,
 		spawn_handle,
+		spawn_essential_handle,
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
@@ -374,6 +378,7 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		block_announce_validator_builder: Some(Box::new(move |_| block_announce_validator)),
 		warp_sync_config,
