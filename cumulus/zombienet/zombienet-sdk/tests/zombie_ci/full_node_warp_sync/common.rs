@@ -96,7 +96,7 @@ pub(crate) async fn build_network_config(
 				})
 				.with_node(|node| {
 					node.with_name("dave").with_args(vec![
-						("-lparachain=debug,sync=trace").into(),
+						("-lparachain=debug,sync=trace,db=debug,client=debug").into(),
 						("--no-beefy").into(),
 						("--reserved-only").into(),
 						(

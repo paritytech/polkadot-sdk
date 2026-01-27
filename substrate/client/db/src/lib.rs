@@ -1743,8 +1743,19 @@ impl<Block: BlockT> Backend<Block> {
 							// Handle blocks at gap start or immediately following (possibly
 							// indicating blocks already imported during warp sync where
 							// start was not updated).
+							debug!(
+								target: "db",
+								"MissingHeaderAndBody: importing block #{number}, gap.start=#{}, gap.end=#{}",
+								gap.start, gap.end
+							);
 							if number == gap.start || number == gap.start + One::one() {
+								let old_start = gap.start;
 								gap.start = number + One::one();
+								debug!(
+									target: "db",
+									"Gap start advanced: #{old_start} -> #{} (imported block #{number})",
+									gap.start
+								);
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
 									columns::KEY_LOOKUP,
@@ -1757,6 +1768,12 @@ impl<Block: BlockT> Backend<Block> {
 									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
+							} else {
+								debug!(
+									target: "db",
+									"Block #{number} not at gap boundary (gap.start=#{}), skipping gap update",
+									gap.start
+								);
 							}
 						},
 						BlockGapType::MissingBody => {
@@ -1784,6 +1801,11 @@ impl<Block: BlockT> Backend<Block> {
 						},
 					}
 				} else if operation.create_gap {
+					debug!(
+						target: "db",
+						"create_gap=true: importing block #{number}, best_num=#{best_num}, parent_exists={}",
+						self.blockchain.header(parent_hash)?.is_some()
+					);
 					if number > best_num + One::one() &&
 						self.blockchain.header(parent_hash)?.is_none()
 					{
@@ -1794,7 +1816,11 @@ impl<Block: BlockT> Backend<Block> {
 						};
 						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
-						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
+						debug!(
+							target: "db",
+							"Created block gap (warp sync): start=#{}, end=#{} (importing block #{number}, best_num=#{best_num})",
+							gap.start, gap.end
+						);
 					} else if number == best_num + One::one() &&
 						self.blockchain.header(parent_hash)?.is_some() &&
 						!existing_body

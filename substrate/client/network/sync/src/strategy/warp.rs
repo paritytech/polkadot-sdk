@@ -425,7 +425,14 @@ where
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
 			Ok(VerificationResult::Partial(proofs)) => {
-				debug!(target: LOG_TARGET, "Verified partial proof");
+				let block_numbers: Vec<_> =
+					proofs.iter().map(|(header, _)| *header.number()).collect();
+				debug!(
+					target: LOG_TARGET,
+					"Verified partial proof, importing {} warp proof blocks: {:?}",
+					proofs.len(),
+					block_numbers
+				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
 					origin: BlockOrigin::WarpSync,
@@ -433,11 +440,13 @@ where
 				});
 			},
 			Ok(VerificationResult::Complete(header, proofs)) => {
+				let block_numbers: Vec<_> = proofs.iter().map(|(h, _)| *h.number()).collect();
 				debug!(
 					target: LOG_TARGET,
-					"Verified complete proof. Continuing with target block download: {} ({}).",
+					"Verified complete proof. Target block: {} (#{}). Warp proof blocks: {:?}",
 					header.hash(),
 					header.number(),
+					block_numbers
 				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header.clone());
@@ -462,6 +471,11 @@ where
 						}
 					})
 					.collect();
+				debug!(
+					target: LOG_TARGET,
+					"Importing {} warp proof blocks (excluding target)",
+					incoming_blocks.len()
+				);
 				self.actions.push(SyncingAction::ImportBlocks {
 					origin: BlockOrigin::WarpSync,
 					blocks: incoming_blocks,
