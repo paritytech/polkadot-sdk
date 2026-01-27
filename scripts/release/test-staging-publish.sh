@@ -104,18 +104,56 @@ if [[ -z "$TOKEN" ]] && [[ "$DRY_RUN" == "false" ]]; then
     exit 1
 fi
 
-# Set environment variables for staging.crates.io
-# This redirects cargo to use staging without modifying your config files
-export CARGO_REGISTRIES_CRATES_IO_INDEX="sparse+https://index.staging.crates.io/"
-export CARGO_REGISTRY_TOKEN="$TOKEN"
+# Create a temporary mini-workspace with only the test crates.
+# This avoids the full polkadot-sdk workspace resolution, which would try to
+# resolve all 500+ crates (scale-info, etc.) against staging and fail.
+REPO_ROOT="$(pwd)"
+TEMP_WORKSPACE=$(mktemp -d)
 
+cleanup_temp() {
+    rm -rf "$TEMP_WORKSPACE"
+    log_info "Cleaned up temporary workspace"
+}
+trap cleanup_temp EXIT
+
+# Copy ALL test crates into the temp workspace (not just the ones being published)
+# so that path dependencies between them resolve correctly.
+IFS=',' read -ra CRATE_ARRAY <<< "$CRATES"
+
+MEMBERS=""
+for crate_dir in "$REPO_ROOT"/test-crates/*/; do
+    crate_name=$(basename "$crate_dir")
+    cp -r "$crate_dir" "$TEMP_WORKSPACE/$crate_name"
+    MEMBERS="$MEMBERS\"$crate_name\","
+done
+
+# Create temp workspace Cargo.toml
+cat > "$TEMP_WORKSPACE/Cargo.toml" << EOF
+[workspace]
+members = [${MEMBERS}]
+resolver = "2"
+EOF
+
+# Create .cargo/config.toml:
+# - [source] replacement so dependency resolution uses staging
+# - [registries] so cargo publish uploads to staging
+mkdir -p "$TEMP_WORKSPACE/.cargo"
+cat > "$TEMP_WORKSPACE/.cargo/config.toml" << EOF
+[source.crates-io]
+replace-with = "staging"
+
+[source.staging]
+registry = "sparse+https://index.staging.crates.io/"
+
+[registries.staging]
+index = "sparse+https://index.staging.crates.io/"
+EOF
+
+log_info "Created temporary workspace at: $TEMP_WORKSPACE"
 log_info "Configured to publish to: staging.crates.io"
 log_info "Crates to publish: $CRATES"
 log_info "Dry run: $DRY_RUN"
 echo ""
-
-# Convert comma-separated crates to array
-IFS=',' read -ra CRATE_ARRAY <<< "$CRATES"
 
 if [[ "$DRY_RUN" == "true" ]]; then
     log_info "=== DRY RUN MODE ==="
@@ -130,19 +168,34 @@ else
     log_info "=== PUBLISHING TO STAGING.CRATES.IO ==="
     echo ""
 
+    # Fix path dependencies to be relative within the temp workspace
+    for crate in "${CRATE_ARRAY[@]}"; do
+        TOML="$TEMP_WORKSPACE/$crate/Cargo.toml"
+        # Rewrite path deps to point within the temp workspace
+        for dep_crate in "${CRATE_ARRAY[@]}"; do
+            if [[ "$crate" != "$dep_crate" ]]; then
+                sed -i.bak "s|path = \"../[^\"]*$dep_crate\"|path = \"../$dep_crate\"|g" "$TOML"
+                rm -f "${TOML}.bak"
+            fi
+        done
+    done
+
+    # Publish from the temp workspace so cargo picks up its .cargo/config.toml
+    pushd "$TEMP_WORKSPACE" > /dev/null
+
     # Publish each crate in order (respecting dependencies)
     for crate in "${CRATE_ARRAY[@]}"; do
         log_info "Publishing $crate..."
 
-        # Use cargo publish directly for individual crates
-        # Use --index to publish directly to staging (not --registry which still uploads to prod)
         cargo publish \
             -p "$crate" \
-            --index "sparse+https://index.staging.crates.io/" \
+            --registry staging \
             --token "$TOKEN" \
             --allow-dirty \
+            --no-verify \
             2>&1 || {
                 log_error "Failed to publish $crate"
+                popd > /dev/null
                 exit 1
             }
 
@@ -152,6 +205,8 @@ else
         log_info "Waiting 30 seconds before next publish..."
         sleep 30
     done
+
+    popd > /dev/null
 
     echo ""
     log_info "=== ALL CRATES PUBLISHED SUCCESSFULLY ==="

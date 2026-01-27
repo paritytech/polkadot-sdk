@@ -7,4 +7,4 @@ license = "Apache-2.0"
 repository = "https://github.com/paritytech/polkadot-sdk"
 
 [dependencies]
-parity-staging-test-a = { path = "../parity-staging-test-a" }
+parity-staging-test-a = { path = "../parity-staging-test-a", version = "0.2.0" }
