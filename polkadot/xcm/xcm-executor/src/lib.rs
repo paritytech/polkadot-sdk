@@ -283,10 +283,12 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				"Barrier blocked execution",
 			);
 
-			return Outcome::Incomplete {
-				used: xcm_weight, // Weight consumed before the error
-				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
-			};
+			// Weight consumed before the error
+			let used = Config::Weigher::barrier_check_weight().unwrap_or(xcm_weight);
+			// The error that occurred
+			let error = InstructionError { index: 0, error: XcmError::Barrier };
+
+			return Outcome::Incomplete { used, error };
 		}
 
 		*id = properties.message_id.unwrap_or(*id);

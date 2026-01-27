@@ -19,7 +19,9 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	derive_impl, parameter_types,
+	derive_impl,
+	pallet_prelude::ConstU32,
+	parameter_types,
 	traits::{Contains, Everything, OriginTrait},
 };
 use sp_runtime::traits::TrailingZeroInput;
@@ -28,8 +30,10 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
-	FrameTransactionalProcessor,
+	AliasForeignAccountId32, AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses,
+	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyRecursively,
+	DenyReserveTransferToRelayChain, DenyThenTry, EnsureDecodableXcm, FrameTransactionalProcessor,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -89,7 +93,24 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
-	type Barrier = AllowUnpaidExecutionFrom<Everything>;
+	type Barrier = TrailingSetTopicAsId<
+		DenyThenTry<
+			DenyRecursively<DenyReserveTransferToRelayChain>,
+			(
+				TakeWeightCredit,
+				AllowKnownQueryResponses<DevNull>,
+				WithComputedOrigin<
+					(
+						AllowTopLevelPaidExecutionFrom<Everything>,
+						AllowSubscriptionsFrom<Everything>,
+						AllowHrmpNotificationsFromRelayChain,
+					),
+					UniversalLocation,
+					ConstU32<8>,
+				>,
+			),
+		>,
+	>;
 	type Weigher = xcm_builder::FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
 	type Trader = xcm_builder::FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = DevNull;
@@ -192,6 +213,30 @@ impl generic::Config for Test {
 		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
+	}
+
+	fn worst_case_xcm_failing_barrier() -> Result<Xcm<Instruction<Self>>, BenchmarkError> {
+		use xcm::latest::prelude::{Here, Parent, SetAppendix, SetTopic, TransferReserveAsset};
+
+		let nested_limit = xcm_executor::RECURSION_LIMIT as usize - 2;
+
+		// Nested reserve-transfer to Relay Chain; rejected by `DenyReserveTransferToRelayChain`.
+		let leaf = Xcm(vec![TransferReserveAsset {
+			assets: (Here, 1_000_000_000u128).into(),
+			dest: Parent.into(),
+			xcm: Xcm::new(),
+		}]);
+
+		// Within the recursion limit, this just makes the barrier scan heavy.
+		let mut nested = leaf;
+		for _ in 0..nested_limit {
+			nested = Xcm(vec![SetAppendix(nested)]);
+		}
+
+		// Add a topic so `TrailingSetTopicAsId` also runs.
+		let xcm = Xcm(vec![SetTopic([42; 32]), SetAppendix(nested)]);
+
+		Ok(xcm)
 	}
 }
 

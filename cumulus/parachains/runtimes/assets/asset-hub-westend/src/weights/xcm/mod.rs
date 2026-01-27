@@ -17,8 +17,8 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::{
-	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
-	Runtime,
+	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding, MaxInstructions},
+	Runtime, RuntimeCall,
 };
 use alloc::vec::Vec;
 use assets_common::IsLocalAccountKey20;
@@ -30,6 +30,8 @@ use xcm::{
 	latest::{prelude::*, AssetTransferFilter},
 	DoubleEncoded,
 };
+use xcm_builder::WeightInfoBounds;
+use xcm_executor::traits::WeightBounds;
 
 trait WeighAssets {
 	fn weigh_assets(&self, weight: Weight) -> Weight;
@@ -301,5 +303,28 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
+	}
+}
+
+pub struct AssetHubWestendXcmWeightInfoBounds;
+impl WeightBounds<RuntimeCall> for AssetHubWestendXcmWeightInfoBounds {
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::weight(
+			message,
+			weight_limit,
+		)
+	}
+
+	fn instr_weight(instruction: &mut Instruction<RuntimeCall>) -> Result<Weight, XcmError> {
+		WeightInfoBounds::<AssetHubWestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>::instr_weight(
+			instruction,
+		)
+	}
+
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(XcmGeneric::<Runtime>::barrier_check())
 	}
 }
