@@ -25,6 +25,7 @@ mod benchmarking;
 mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+mod market;
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -45,6 +46,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+pub use market::*;
 pub use types::*;
 
 extern crate alloc;
@@ -96,6 +98,9 @@ pub mod pallet {
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
+
+		/// The bulk coretime market algorithm implementation.
+		type Market: Market<BalanceOf<Self>, RelayBlockNumberOf<Self>, Self::AccountId>;
 
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
