@@ -10,3 +10,9 @@ doc:
 crates:
 - name: pallet-revive
   bump: major
+- name: pallet-xcm-precompiles
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor 
+- name: assets-common
+  bump: minor
