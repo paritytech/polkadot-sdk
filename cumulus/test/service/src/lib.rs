@@ -225,21 +225,25 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+	let cidp_client = client.clone();
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			create_inherent_data_providers: move |_, ()| {
+				let client = cidp_client.clone();
+				async move {
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
+					let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+					let slot =
 					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 						*timestamp,
 						slot_duration,
 					);
 
-				Ok((slot, timestamp))
+					Ok((slot, timestamp))
+				}
 			},
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,
