@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769616936071,
+  "lastUpdate": 1769621892623,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a9df491b9717d40dd3a2288d7c9687390433a1f3",
-          "message": "Decrease too wide line in markdown (#8965)\n\nIn https://github.com/paritytech/polkadot-sdk/pull/8827 I wrote a line\nwhich was longer than CI markdown linter allowed (max 120 chars, width\nwas 126)\n\nThis causes CI failure:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/15850370092/job/44682093959?pr=8939",
-          "timestamp": "2025-06-24T15:51:27+02:00",
-          "tree_id": "f99546f969fd7fde316fc74dffccba669d5b9b7a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9df491b9717d40dd3a2288d7c9687390433a1f3"
-        },
-        "date": 1750775729594,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2012663434,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.29427266543333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1300137601,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
+          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-01-28T16:22:18Z",
+          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
+        },
+        "date": 1769621868128,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.336336759933332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12430905623333335,
             "unit": "seconds"
           }
         ]
