@@ -753,3 +753,84 @@ fn catch_constructor_test() {
 		assert_eq!("revert: invalid address", gas_trace.calls[0].revert_reason.as_ref().unwrap());
 	});
 }
+
+/// Regression test for proxy contract delegatecall with large deposit limits.
+///
+/// When deposit_left is very large (u128::MAX in production), remaining_gas becomes huge,
+/// causing ratio = gas_limit / remaining_gas ≈ 0. This resulted in nested calls receiving
+/// almost no weight. The fix caps remaining_gas to u64::MAX since Ethereum gas is u64.
+///
+/// Note: This test uses Balance = u64, so the bug doesn't fully manifest here.
+/// The fix is a no-op in u64 configs but critical for u128 production configs.
+#[test]
+fn substrate_nesting_with_large_deposit_and_max_gas_request() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit = u64::MAX;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+			root_meter.charge_deposit(&StorageDeposit::Charge(1000)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+
+			let gas_scale: u64 = <Test as Config>::GasScale::get().into();
+			let max_eth_gas = u64::MAX / gas_scale;
+
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: max_eth_gas, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+
+			assert!(
+				nested_weight_left.ref_time() >= weight_left_before.ref_time() / 2,
+				"Nested meter should get at least 50% of remaining weight. \
+				Got ref_time: {}, expected at least: {}",
+				nested_weight_left.ref_time(),
+				weight_left_before.ref_time() / 2
+			);
+
+			assert!(nested.deposit_left().unwrap() > 0);
+		});
+}
+
+/// Test ratio-based weight scaling for partial gas requests in substrate execution.
+#[test]
+fn substrate_nesting_with_partial_gas_request_scales_weight() {
+	use super::math::substrate_execution;
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let weight_limit = Weight::from_parts(1_000_000_000, 10_000);
+			let deposit_limit = 1_000_000_000u64;
+
+			let mut root_meter =
+				substrate_execution::new_root::<Test>(weight_limit, deposit_limit).unwrap();
+
+			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
+
+			let weight_left_before = root_meter.weight_left().unwrap();
+
+			let gas_scale: u64 = <Test as Config>::GasScale::get().into();
+			let partial_gas = (u64::MAX / gas_scale) / 10;
+
+			let nested = root_meter
+				.new_nested(&CallResources::Ethereum { gas: partial_gas, add_stipend: false })
+				.unwrap();
+
+			let nested_weight_left = nested.weight_left().unwrap();
+
+			assert!(nested_weight_left.ref_time() > 0);
+			assert!(nested_weight_left.ref_time() <= weight_left_before.ref_time());
+		});
+}
