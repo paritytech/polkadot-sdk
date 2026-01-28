@@ -120,6 +120,12 @@ pub mod substrate_execution {
 						return Err(<Error<T>>::OutOfGas.into());
 					};
 
+					// Cap remaining_gas to u64::MAX since Ethereum gas is a u64 value.
+					// Without this cap, when deposit_left is very large (e.g., u128::MAX),
+					// the ratio calculation would produce a near-zero value, causing the
+					// nested call to receive almost no weight even when requesting all gas.
+					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
+
 					let gas_limit = remaining_gas.min(*gas);
 
 					let ratio = if remaining_gas.is_zero() {
