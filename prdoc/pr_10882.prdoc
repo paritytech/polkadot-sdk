@@ -8,6 +8,6 @@ doc:
     from 16 peers.
 crates:
 - name: sp-statement-store
-  bump: patch
+  bump: minor
 - name: sc-network-statement
   bump: patch
