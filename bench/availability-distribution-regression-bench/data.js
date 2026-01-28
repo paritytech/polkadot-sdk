@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769458331244,
+  "lastUpdate": 1769616969236,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "28b7c7770e9e7abf5b561fc42cfe565baf076cb7",
-          "message": "remove enable_approval_voting_parallel cli flag (#8894)\n\nThis has been running on polkadot since\nhttps://github.com/paritytech/polkadot-sdk/pull/7504, so it is time to\nremove the flag that allowed us to run either with\napproval-voting-parallel or with approval-distribution and\napproval-voting subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T10:20:06Z",
-          "tree_id": "73626b2532ace72421a8a57f6cc1ebebd973a764",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/28b7c7770e9e7abf5b561fc42cfe565baf076cb7"
-        },
-        "date": 1750765878844,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022481227246666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15708508226666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008795164746666757,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013000009693333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007287514200000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c7b9c08825acc61f1adde54535a41855c04962a2",
+          "message": "[Release| CI/CD] Add missing permissions to the docker publishing jobs (#10925)\n\nThis PR fixes the issue with missing permissions in the Combined Publish\nRelease flow.\n[Example](https://github.com/paritytech-release/polkadot-sdk/actions/runs/21358125800)",
+          "timestamp": "2026-01-28T15:07:39Z",
+          "tree_id": "fc1a9ed61121b7f7e0cdacf395847ed44767e900",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7b9c08825acc61f1adde54535a41855c04962a2"
+        },
+        "date": 1769616944902,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009719292406666639,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023011421953333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14499091020000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0067031862,
             "unit": "seconds"
           }
         ]
