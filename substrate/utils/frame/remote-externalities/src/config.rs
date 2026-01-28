@@ -26,7 +26,7 @@ use std::{
 
 use crate::Result;
 
-pub(crate) const DEFAULT_HTTP_ENDPOINT: &str = "https://try-runtime.polkadot.io:443";
+pub(crate) const DEFAULT_WS_ENDPOINT: &str = "wss://try-runtime.polkadot.io:443";
 pub(crate) type SnapshotVersion = Compact<u16>;
 pub(crate) const SNAPSHOT_VERSION: SnapshotVersion = Compact(4);
 
@@ -88,7 +88,7 @@ impl<H: Clone> OnlineConfig<H> {
 impl<H> Default for OnlineConfig<H> {
 	fn default() -> Self {
 		Self {
-			transport_uris: vec![DEFAULT_HTTP_ENDPOINT.to_owned()],
+			transport_uris: vec![DEFAULT_WS_ENDPOINT.to_owned()],
 			child_trie: true,
 			at: None,
 			state_snapshot: None,
