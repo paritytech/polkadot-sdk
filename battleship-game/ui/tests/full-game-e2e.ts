@@ -19,7 +19,7 @@ import {
   getCellLeafHash,
 } from "../src/chain/merkle.ts";
 
-const WS_URL = "ws://localhost:37359";
+const WS_URL = "ws://localhost:36647";
 
 function createSigner(path: string): PolkadotSigner {
   const entropy = mnemonicToEntropy(DEV_PHRASE);

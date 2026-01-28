@@ -12,7 +12,7 @@ import { getPolkadotSigner } from "polkadot-api/signer";
 import { blake2b } from "@noble/hashes/blake2b";
 import { compact } from "scale-ts";
 
-const WS_URL = "ws://localhost:37359";
+const WS_URL = "ws://localhost:36647";
 
 interface GameAnnouncement {
   creator: string;
