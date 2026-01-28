@@ -51,7 +51,9 @@ pallet-root-offences = { workspace = true, default-features = true }
 pallet-staking = { workspace = true, default-features = true }
 
 [features]
-std = ["log/std"]
+std = [
+	"log/std",
+]
 try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-proxy/try-runtime",

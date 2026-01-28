@@ -54,7 +54,7 @@ construct_runtime! {
 		MultiBlockVerifier: multi_block::verifier,
 		MultiBlockSigned: multi_block::signed,
 		MultiBlockUnsigned: multi_block::unsigned,
-		
+
 		Dap: pallet_dap,
 	}
 }
