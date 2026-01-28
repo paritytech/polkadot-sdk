@@ -16,4 +16,8 @@ crates:
 - name: pallet-statement
   bump: major
 - name: people-westend-runtime
-  bump: major
+  bump: patch
+- name: sc-rpc
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
