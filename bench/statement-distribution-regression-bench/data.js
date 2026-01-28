@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769617035846,
+  "lastUpdate": 1769621989606,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gorka.irazoki@gmail.com",
-            "name": "girazoki",
-            "username": "girazoki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3288aa33b535e66578d93dc1bea6091c572854ad",
-          "message": "Add possibility of executing or mocking additional inherents in xcm-emulator (#8809)\n\nWith the addition of\nhttps://github.com/paritytech/polkadot-sdk/pull/8083 there is no\npossibility right now of making the xcm-executor work with custom\ninherents. Custom inherents are usually driven by killing a storage item\nof the form `wasInherentSet` `on_initialize` and asserting that such\ninherent was set `on_finalize`. Before the xcm-emulator worked as these\nhooks were running just for the ParachainSystem pallet, but now, they\nrun for all pallets.\n\nMy proposal is to add an item to the xcm-emulator parachain\nconfiguration of the form `AdditionalInherentCode`, which simply\nexecutes code that returns a `DispatchResult`. Whether users want to\nmock a storage item or run the inherent is up to them, this hook would\nallow them to do both.\n\nThis item is optional, meaning that if it is non-set then it would do\nnothing\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-23T11:13:33Z",
-          "tree_id": "9cc562b27e1fcb51414f72e2007720f4d48101c0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3288aa33b535e66578d93dc1bea6091c572854ad"
-        },
-        "date": 1750681699746,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.96600000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03450821159,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04656453657799992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03853587961000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
+          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-01-28T16:22:18Z",
+          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
+        },
+        "date": 1769621965890,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.03799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038801697771999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06716456801799993,
             "unit": "seconds"
           }
         ]
