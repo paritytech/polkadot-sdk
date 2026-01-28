@@ -41,4 +41,6 @@ crates:
 - name: sc-transaction-pool-api
   bump: major
 - name: sc-transaction-pool
+  bump: minor
+- name: sc-rpc-spec-v2
   bump: patch
