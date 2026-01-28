@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769621957467,
+  "lastUpdate": 1769625197371,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38d3c3074935b9353519a39abdf8f4912c86b196",
-          "message": "Link to dev setup guide from README and CONTRIBUTING (#8827)\n\n# Description\nToday the README does not link to how to get started making `cargo\nbuild` succeed. I've made some minor edits making the repo a bit more\n\"welcoming\" to devs who wanna get started building the repo.\n\n## Changes\n* Update `README.md` on how to get started with development (making\n`cargo build` succeed) by linking to [this\nguide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/)\n* Update `CONTRIBUTING.md` with the same guide\n* Generalize `DOCUMENTATION_GUIDELINES.md` to not only be about\nSubstrate.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-24T14:20:25+02:00",
-          "tree_id": "fd0dab29639ec766763f212ab00a2a1fd5db92ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38d3c3074935b9353519a39abdf8f4912c86b196"
-        },
-        "date": 1750769195256,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.63999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52936.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.753837345410032,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019976040000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001888422,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0058997691200000065,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3451344158000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.332133882290001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.34546052605,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.46867410576002105,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.271099018612616,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001888422,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.389337387460001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.867197258930009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019976040000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 13.839720294460005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "21df44e5de8ed530e0a8c6832e66cb51ea3db7af",
+          "message": "statement-store: make encode/hash faster (#10882)\n\nBy reserving the memory in advance we halve the encoding speed which\nultimately speeds up the statement.hash() function which gets called in\na lot of places.\n\nMore importantly, when we start being connected to more nodes the hash\nfunction gets called a lot for the same statement because we might\nreceive the same statement from all peers we are connected to.\n\nFor example on versi on_statements ate a lot of time when running with\n15 nodes, see\nhttps://github.com/paritytech/polkadot-sdk/issues/10814#issuecomment-3773797276.\n\nModified the statement_network benchmark to also be parameterizable by\nthe number of times we might receive a statement and if we receive it\nfrom 16 peers, we notice a speed up with this PR of ~16%, which I\nconsider not negligible, so I consider this an worthy improvement.\n```\non_statements/statements_2000/peers_16/threads_8/blocking\n                        time:   [22.099 ms 22.641 ms 23.175 ms]\n                        change: [-18.841% -16.637% -14.429%] (p = 0.00 < 0.05)\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
+          "timestamp": "2026-01-28T17:12:42Z",
+          "tree_id": "ded5c3e49741efffb9e31f40b3b4bb9308c30d90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21df44e5de8ed530e0a8c6832e66cb51ea3db7af"
+        },
+        "date": 1769625173241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63636.280000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.801081906259989,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000021301089999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.611736429470001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.608825159462889,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005183443400000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000021301089999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6238687245300003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6554229951500012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022243600000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3182191317500096,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022243600000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.66813370045,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6526210698899986,
             "unit": "seconds"
           }
         ]
