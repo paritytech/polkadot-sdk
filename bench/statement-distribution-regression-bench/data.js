@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769621989606,
+  "lastUpdate": 1769625229898,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f3507ec02185e05c96f055d808d8d17d8b969e6",
-          "message": "make sure dispute_coordinator/approval-voting parallel can receive priority messages (#8948)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8834, changed\nrelay_chain_selection to send priority messages, but did not configured\nthe subsystems to tell they can receive priority messages, with\n`can_receive_priority_messages` flag.\n\nIf `can_receive_priority_messages` is not specified orchestra falls back\nwhen sending a priority message to the normal queue, so this resulted in\nthe messages not being processed ahead of the others in the queue.\n\nFix this configuration mistake and add a test to make sure priority\nmessages are consumed ahead of normal ones by the subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T07:28:49Z",
-          "tree_id": "f45b40cb1f5276f7774d77d87f057a36768fedbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f3507ec02185e05c96f055d808d8d17d8b969e6"
-        },
-        "date": 1750753852314,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94999999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.034283813748000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.044943350527999956,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.06716456801799993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "21df44e5de8ed530e0a8c6832e66cb51ea3db7af",
+          "message": "statement-store: make encode/hash faster (#10882)\n\nBy reserving the memory in advance we halve the encoding speed which\nultimately speeds up the statement.hash() function which gets called in\na lot of places.\n\nMore importantly, when we start being connected to more nodes the hash\nfunction gets called a lot for the same statement because we might\nreceive the same statement from all peers we are connected to.\n\nFor example on versi on_statements ate a lot of time when running with\n15 nodes, see\nhttps://github.com/paritytech/polkadot-sdk/issues/10814#issuecomment-3773797276.\n\nModified the statement_network benchmark to also be parameterizable by\nthe number of times we might receive a statement and if we receive it\nfrom 16 peers, we notice a speed up with this PR of ~16%, which I\nconsider not negligible, so I consider this an worthy improvement.\n```\non_statements/statements_2000/peers_16/threads_8/blocking\n                        time:   [22.099 ms 22.641 ms 23.175 ms]\n                        change: [-18.841% -16.637% -14.429%] (p = 0.00 < 0.05)\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
+          "timestamp": "2026-01-28T17:12:42Z",
+          "tree_id": "ded5c3e49741efffb9e31f40b3b4bb9308c30d90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21df44e5de8ed530e0a8c6832e66cb51ea3db7af"
+        },
+        "date": 1769625206179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.034,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06651162863199998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03862525972400001,
             "unit": "seconds"
           }
         ]
