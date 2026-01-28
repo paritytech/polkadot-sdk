@@ -21,13 +21,17 @@ frame = { default-features = true, workspace = true }
 frame-support = { default-features = true, workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
-sp-core = { default-features = true, workspace = true }
-sp-session = { default-features = true, workspace = true }
-sp-staking = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-session = { workspace = true, default-features = true }
+sp-staking = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
 
 # pallets we need in both
-pallet-balances = { default-features = true, workspace = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
 
 # pallets that we need in AH
 frame-election-provider-support = { default-features = true, workspace = true }
@@ -59,6 +63,7 @@ try-runtime = [
 	"pallet-dap/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-root-offences/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking-async-ah-client/try-runtime",

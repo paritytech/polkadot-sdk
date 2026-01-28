@@ -25,14 +25,20 @@ use frame_support::sp_runtime::testing::TestXt;
 use pallet_election_provider_multi_block as multi_block;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
-use pallet_staking_async_rc_client::{OutgoingValidatorSet, SessionReport, ValidatorSetReport};
+use pallet_staking_async_rc_client::{
+	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
+};
 use sp_staking::SessionIndex;
+use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
+use xcm_builder::{FungibleAdapter, IsConcrete};
+use xcm_executor::traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset};
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
+		Proxy: pallet_proxy,
 
 		// NOTE: the validator set is given by pallet-staking to rc-client on-init, and rc-client
 		// will not send it immediately, but rather store it and sends it over on its own next
@@ -458,12 +464,25 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// Session keys type that must match RC's SessionKeys.
+// This ensures that keys validated on AH can be decoded on RC.
+// Uses the same OtherSessionHandler as rc::SessionKeys.
+frame::deps::sp_runtime::impl_opaque_keys! {
+	pub struct RCSessionKeys {
+		pub other: frame::deps::sp_runtime::testing::UintAuthorityId,
+	}
+}
+
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
+	type RelayChainSessionKeys = RCSessionKeys;
+	type Balance = Balance;
+	type MaxSessionKeysLength = ConstU32<256>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -477,6 +496,69 @@ impl pallet_dap::Config for Runtime {
 
 parameter_types! {
 	pub static NextRelayDeliveryFails: bool = false;
+	/// XCM delivery fees charged for set_keys/purge_keys.
+	pub static XcmDeliveryFee: u128 = 10;
+	/// Execution cost for set_keys on relay chain.
+	/// This is charged on AH even though RC uses UnpaidExecution.
+	pub static SetKeysExecutionCost: u128 = 5;
+	/// Execution cost for purge_keys on relay chain.
+	/// This is charged on AH even though RC uses UnpaidExecution.
+	pub static PurgeKeysExecutionCost: u128 = 3;
+}
+
+/// Converts an AccountId to an XCM Location.
+pub struct AccountIdToLocation;
+impl AccountIdToLocation {
+	pub fn convert(account: AccountId) -> Location {
+		Junction::AccountIndex64 { network: None, index: account }.into()
+	}
+}
+
+/// Converts an XCM Location back to an AccountId.
+pub struct LocationToAccountId;
+impl ConvertLocation<AccountId> for LocationToAccountId {
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(0, [Junction::AccountIndex64 { index, .. }]) => Some(*index),
+			_ => None,
+		}
+	}
+}
+
+parameter_types! {
+	/// The native asset location (here).
+	pub Here: Location = Location::here();
+}
+
+/// Asset transactor that uses pallet_balances for the native asset.
+pub type LocalAssetTransactor =
+	FungibleAdapter<Balances, IsConcrete<Here>, LocationToAccountId, AccountId, ()>;
+
+/// Fee manager that never waives fees and burns them.
+pub struct BurnFees;
+impl FeeManager for BurnFees {
+	fn is_waived(_origin: Option<&Location>, _reason: FeeReason) -> bool {
+		false
+	}
+	fn handle_fee(_fee: Assets, _context: Option<&XcmContext>, _reason: FeeReason) {
+		// Fees are burned (withdrawn but not deposited anywhere)
+	}
+}
+
+/// Mock XCM executor that performs real fee charging using pallet_balances.
+pub struct MockXcmExecutor;
+
+impl MockXcmExecutor {
+	/// Charge fees from the given origin location.
+	pub fn charge_fees(origin: Location, fees: Assets) -> XcmResult {
+		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
+			for asset in fees.inner() {
+				LocalAssetTransactor::withdraw_asset(asset, &origin, None)?;
+			}
+			BurnFees::handle_fee(fees, None, FeeReason::ChargeFees);
+		}
+		Ok(())
+	}
 }
 
 pub struct DeliverToRelay;
@@ -490,10 +572,37 @@ impl DeliverToRelay {
 			Ok(())
 		}
 	}
+
+	/// Calculates and charges XCM fees for a keys operation.
+	fn charge_keys_fees(
+		stash: AccountId,
+		execution_cost: Balance,
+		max_fee: Option<Balance>,
+	) -> Result<Balance, SendKeysError<Balance>> {
+		let delivery_fee = XcmDeliveryFee::get();
+		let total_fee = delivery_fee.saturating_add(execution_cost);
+
+		if let Some(max) = max_fee {
+			if total_fee > max {
+				return Err(SendKeysError::FeesExceededMax { required: total_fee, max });
+			}
+		}
+
+		let fees = Assets::from(Asset {
+			id: AssetId(Location::here()),
+			fun: Fungibility::Fungible(total_fee),
+		});
+		let payer_location = AccountIdToLocation::convert(stash);
+		MockXcmExecutor::charge_fees(payer_location, fees)
+			.map_err(|_| SendKeysError::Send(SendOperationError::ChargeFeesFailed))?;
+
+		Ok(total_fee)
+	}
 }
 
 impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
+	type Balance = Balance;
 
 	fn validator_set(
 		report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>,
@@ -515,6 +624,69 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 		}
 		Ok(())
 	}
+
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
+		Self::ensure_delivery_guard()
+			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
+
+		let total_fee = Self::charge_keys_fees(
+			stash,
+			SetKeysExecutionCost::get(),
+			max_delivery_and_remote_execution_fee,
+		)?;
+
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue.push((System::block_number(), OutgoingMessages::SetKeys { stash, keys }));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			// Forward to RC (uses UnpaidExecution, so no fees charged there)
+			shared::in_rc(|| {
+				let origin = crate::rc::RuntimeOrigin::root();
+				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::set_keys_from_ah(
+					origin,
+					stash,
+					keys.clone(),
+				)
+				.unwrap();
+			});
+		}
+
+		Ok(total_fee)
+	}
+
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, SendKeysError<Self::Balance>> {
+		Self::ensure_delivery_guard()
+			.map_err(|()| SendKeysError::Send(SendOperationError::DeliveryFailed))?;
+
+		let total_fee = Self::charge_keys_fees(
+			stash,
+			PurgeKeysExecutionCost::get(),
+			max_delivery_and_remote_execution_fee,
+		)?;
+
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue.push((System::block_number(), OutgoingMessages::PurgeKeys { stash }));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			// Forward to RC (uses UnpaidExecution, so no fees charged there)
+			shared::in_rc(|| {
+				let origin = crate::rc::RuntimeOrigin::root();
+				pallet_staking_async_ah_client::Pallet::<crate::rc::Runtime>::purge_keys_from_ah(
+					origin, stash,
+				)
+				.unwrap();
+			});
+		}
+
+		Ok(total_fee)
+	}
 }
 
 const INITIAL_BALANCE: Balance = 1000;
@@ -523,6 +695,8 @@ const INITIAL_STAKE: Balance = 100;
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	ValidatorSet(pallet_staking_async_rc_client::ValidatorSetReport<AccountId>),
+	SetKeys { stash: AccountId, keys: Vec<u8> },
+	PurgeKeys { stash: AccountId },
 }
 
 parameter_types! {
@@ -862,4 +1036,70 @@ fn end_session_and_assert_election(activate: bool, expect_export: bool) {
 			assert!(OutgoingValidatorSet::<T>::exists());
 		});
 	}
+}
+
+// Proxy
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	Debug,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+	Any,
+	Staking,
+}
+
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::Staking => matches!(
+				c,
+				RuntimeCall::Staking(..) |
+					RuntimeCall::RcClient(
+						pallet_staking_async_rc_client::Call::set_keys { .. } |
+							pallet_staking_async_rc_client::Call::purge_keys { .. }
+					)
+			),
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			_ => false,
+		}
+	}
+}
+
+impl pallet_proxy::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type ProxyDepositBase = ConstU128<1>;
+	type ProxyDepositFactor = ConstU128<1>;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type CallHasher = frame::deps::sp_runtime::traits::BlakeTwo256;
+	type AnnouncementDepositBase = ConstU128<1>;
+	type AnnouncementDepositFactor = ConstU128<1>;
+	type WeightInfo = ();
+	type BlockNumberProvider = System;
 }

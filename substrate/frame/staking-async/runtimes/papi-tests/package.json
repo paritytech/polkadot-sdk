@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@polkadot-labs/hdkd": "^0.0.16",
+    "@polkadot/keyring": "^14.0.1",
+    "@polkadot/util-crypto": "^14.0.1",
     "commander": "^14.0.0",
     "polkadot-api": "^1.13.1",
     "strip-ansi": "^7.1.0",
