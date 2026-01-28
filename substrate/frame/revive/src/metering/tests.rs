@@ -149,6 +149,10 @@ fn nested_call_refund_matches_direct_refund(fixture_type: FixtureType, fixture_n
 			direct_result.storage_deposit, nested_result.storage_deposit,
 			"Nested call should produce same storage deposit as direct call"
 		);
+		assert_eq!(
+			direct_result.max_storage_deposit, nested_result.max_storage_deposit,
+			"Nested call should produce same storage deposit as direct call"
+		);
 	});
 }
 
