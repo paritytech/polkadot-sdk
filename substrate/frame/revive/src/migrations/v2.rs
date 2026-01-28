@@ -250,7 +250,7 @@ impl<T: Config> Migration<T> {
 				behaviour_version: old_code_info.behaviour_version,
 				code_type: BytecodeType::Pvm,
 			},
-			"Migration failed: deposit mismatch for key {code_hash:?}",
+			"Migration failed: CodeInfo mismatch for key {code_hash:?}",
 		);
 	}
 }
