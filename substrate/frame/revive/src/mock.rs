@@ -71,7 +71,7 @@ pub trait MockHandler<T: pallet::Config> {
 	/// 2. Provides the dummy bytecode for `EXTCODESIZE` and `EXTCODEHASH` opcodes
 	///
 	/// # Returns
-	/// - `Some(&MOCK_CODE)` if the address has mocked calls
+	/// - `Some(bytecode)` containing dummy bytecode if the address has mocked calls
 	/// - `None` if the address is not mocked
 	fn mocked_code(&self, _address: H160) -> Option<&'static [u8]> {
 		None
