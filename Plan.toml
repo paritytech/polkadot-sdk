@@ -159,7 +159,9 @@ to = "11.0.1"
 # substrate/primitives/metadata-ir
 name = "sp-metadata-ir"
 from = "0.12.0"
-to = "0.12.0"
+to = "0.12.2"
+bump = "patch"
+reason = "changed"
 
 [[crate]]
 # substrate/primitives/panic-handler
@@ -792,9 +794,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/support
 name = "frame-support"
-from = "42.0.0"
-to = "43.0.0"
-bump = "major"
+from = "43.0.0"
+to = "43.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -870,9 +872,9 @@ to = "0.3.4"
 [[crate]]
 # substrate/utils/wasm-builder
 name = "substrate-wasm-builder"
-from = "28.0.0"
-to = "29.0.0"
-bump = "major"
+from = "29.0.0"
+to = "29.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1116,9 +1118,9 @@ to = "28.0.0"
 [[crate]]
 # substrate/frame/examples/view-functions
 name = "pallet-example-view-functions"
-from = "0.4.0"
-to = "0.5.0"
-bump = "major"
+from = "0.5.0"
+to = "0.5.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
