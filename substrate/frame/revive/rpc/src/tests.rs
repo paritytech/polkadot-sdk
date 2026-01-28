@@ -793,7 +793,7 @@ async fn test_runtime_pallets_address_upload_code(client: Arc<WsClient>) -> anyh
 }
 
 /// Test that deploys and calls the Fibonacci contract via Substrate APIs works
-async fn test_fibonacci_call_via_runtime_api(_client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
 	use pallet_revive_fixtures::Fibonacci;
 
