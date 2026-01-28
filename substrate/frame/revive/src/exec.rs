@@ -1232,9 +1232,22 @@ where
 		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
+			// For DELEGATECALL, `from` is the contract making the delegatecall and
+			// `to` is the target contract whose code is being executed.
+			let (from, to) = match frame.delegate.as_ref() {
+				Some(delegate) =>
+					(T::AddressMapper::to_address(&frame.account_id), delegate.callee),
+				None => (
+					self.caller()
+						.account_id()
+						.map(T::AddressMapper::to_address)
+						.unwrap_or_default(),
+					T::AddressMapper::to_address(&frame.account_id),
+				),
+			};
 			tracer.enter_child_span(
-				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
-				T::AddressMapper::to_address(&frame.account_id),
+				from,
+				to,
 				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
