@@ -730,58 +730,83 @@ fn execution_tracing_works_for_evm() {
 }
 
 /// Test that execution tracing correctly tracks gas costs for nested calls.
-#[test]
-fn execution_tracing_nested_calls_gas_evm() {
+///
+/// For EVM: gas - gas_cost == return_step.gas (exact, every opcode is traced)
+/// For PVM: gas - gas_cost >= return_step.gas (inequality, PVM instructions between syscalls
+///          consume additional gas that isn't individually traced)
+#[test_case(FixtureType::Solc; "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 	use crate::{
 		evm::{ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
 		tracing::trace,
+		vm::pvm::env::lookup_syscall_index,
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
 
-	/// Verifies gas tracking for a call opcode (CALL, DELEGATECALL, etc.):
-	/// 1. The opcode has non-zero gas_cost
-	/// 2. gas - gas_cost equals the gas of the first step after returning to parent depth
-	fn verify_call_opcode_gas(trace: &ExecutionTrace, opcode: u8, opcode_name: &str) {
-		let steps = &trace.struct_logs;
-
-		// Find all instances of the call opcode at depth 1
-		for (i, step) in steps.iter().enumerate() {
-			if let ExecutionStepKind::EVMOpcode { op, .. } = &step.kind {
-				if *op == opcode && step.depth == 1 {
-					// Verify non-zero gas_cost
-					assert!(
-						step.gas_cost > 0,
-						"{} should have non-zero gas_cost",
-						opcode_name
-					);
-
-					// Find the first step after returning from depth 2 to depth 1
-					let first_step_after_return = steps[i + 1..].iter().find(|s| s.depth == 1);
-
-					if let Some(return_step) = first_step_after_return {
-						let expected_gas = step.gas.saturating_sub(step.gas_cost);
-						assert_eq!(
-							expected_gas, return_step.gas,
-							"{}: gas - gas_cost should equal first step after return",
-							opcode_name
-						);
-					}
-					return;
-				}
-			}
-		}
-		panic!("No {} opcode found at depth 1", opcode_name);
+	/// Identifier for a call operation, either an EVM opcode or a PVM syscall index.
+	#[derive(Clone, Copy)]
+	enum CallOp {
+		EVMOpcode(u8),
+		PVMSyscall(u8),
 	}
 
-	/// Traces a call to the Caller contract and returns the execution trace.
-	fn trace_call<F>(
+	/// Verifies gas tracking for a call operation (CALL/DELEGATECALL opcode or syscall):
+	/// 1. The operation has non-zero gas_cost
+	/// 2. For EVM: gas - gas_cost == return_step.gas
+	/// 3. For PVM: gas - gas_cost >= return_step.gas
+	fn verify_call_gas(trace: &ExecutionTrace, call_op: CallOp, op_name: &str) {
+		let steps = &trace.struct_logs;
+
+		for (i, step) in steps.iter().enumerate() {
+			let matches = match (&step.kind, call_op) {
+				(ExecutionStepKind::EVMOpcode { op, .. }, CallOp::EVMOpcode(expected)) =>
+					*op == expected,
+				(ExecutionStepKind::PVMSyscall { op, .. }, CallOp::PVMSyscall(expected)) =>
+					*op == expected,
+				_ => false,
+			};
+
+			if matches && step.depth == 1 {
+				assert!(step.gas_cost > 0, "{} should have non-zero gas_cost", op_name);
+
+				let first_step_after_return = steps[i + 1..].iter().find(|s| s.depth == 1);
+
+				if let Some(return_step) = first_step_after_return {
+					let expected_gas = step.gas.saturating_sub(step.gas_cost);
+
+					match call_op {
+						CallOp::EVMOpcode(_) => {
+							// EVM: exact equality (every opcode is traced)
+							assert_eq!(
+								expected_gas, return_step.gas,
+								"{}: gas - gas_cost should equal return step gas",
+								op_name
+							);
+						},
+						CallOp::PVMSyscall(_) => {
+							// PVM: inequality (instructions between syscalls consume gas)
+							assert!(
+								return_step.gas <= expected_gas,
+								"{}: return gas ({}) should be <= gas - gas_cost ({})",
+								op_name,
+								return_step.gas,
+								expected_gas
+							);
+						},
+					}
+				}
+				return;
+			}
+		}
+		panic!("No {} found at depth 1", op_name);
+	}
+
+	fn trace_call(
 		config: &ExecutionTracerConfig,
 		caller_addr: sp_core::H160,
 		call_data: Vec<u8>,
-	) -> ExecutionTrace
-	where
-		F: FnOnce(),
-	{
+	) -> ExecutionTrace {
 		let mut tracer = ExecutionTracer::new(config.clone());
 		let _ = trace(&mut tracer, || {
 			builder::bare_call(caller_addr).data(call_data).build_and_unwrap_result()
@@ -789,8 +814,9 @@ fn execution_tracing_nested_calls_gas_evm() {
 		tracer.collect_trace()
 	}
 
-	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
-	let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+	let is_evm = fixture_type == FixtureType::Solc;
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -810,8 +836,8 @@ fn execution_tracing_nested_calls_gas_evm() {
 			memory_word_limit: 0,
 		};
 
-		// Test CALL opcode
-		let call_trace = trace_call::<fn()>(
+		// Test CALL / call_evm
+		let call_trace = trace_call(
 			&config,
 			caller_addr,
 			Caller::normalCall {
@@ -827,10 +853,16 @@ fn execution_tracing_nested_calls_gas_evm() {
 			call_trace.struct_logs.iter().any(|s| s.depth > 1),
 			"Should have nested call steps"
 		);
-		verify_call_opcode_gas(&call_trace, revm::bytecode::opcode::CALL, "CALL");
 
-		// Test DELEGATECALL opcode
-		let delegate_trace = trace_call::<fn()>(
+		let (call_op, call_name) = if is_evm {
+			(CallOp::EVMOpcode(revm::bytecode::opcode::CALL), "CALL")
+		} else {
+			(CallOp::PVMSyscall(lookup_syscall_index("call_evm").unwrap()), "call_evm")
+		};
+		verify_call_gas(&call_trace, call_op, call_name);
+
+		// Test DELEGATECALL / delegate_call_evm
+		let delegate_trace = trace_call(
 			&config,
 			caller_addr,
 			Caller::delegateCall {
@@ -841,7 +873,15 @@ fn execution_tracing_nested_calls_gas_evm() {
 			.abi_encode(),
 		);
 
-		verify_call_opcode_gas(&delegate_trace, revm::bytecode::opcode::DELEGATECALL, "DELEGATECALL");
+		let (delegate_op, delegate_name) = if is_evm {
+			(CallOp::EVMOpcode(revm::bytecode::opcode::DELEGATECALL), "DELEGATECALL")
+		} else {
+			(
+				CallOp::PVMSyscall(lookup_syscall_index("delegate_call_evm").unwrap()),
+				"delegate_call_evm",
+			)
+		};
+		verify_call_gas(&delegate_trace, delegate_op, delegate_name);
 	});
 }
 
