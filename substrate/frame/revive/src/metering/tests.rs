@@ -83,7 +83,6 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 	});
 }
 
-#[ignore = "TODO: Does not work yet, see https://github.com/paritytech/contract-issues/issues/213"]
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
