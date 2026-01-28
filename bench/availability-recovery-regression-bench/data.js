@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769621892623,
+  "lastUpdate": 1769625131091,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "koute@users.noreply.github.com",
-            "name": "Koute",
-            "username": "koute"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8339a0f402b520eb39944f9f8b008c4d71629883",
-          "message": "Bump PolkaVM to 0.25.0 (#8962)\n\nBump to the newest PolkaVM version. This contains *mostly* many linker\nimprovements/bugfixes, with no real functional changes.",
-          "timestamp": "2025-06-24T13:51:44Z",
-          "tree_id": "274544f161edeb2b54060a7c36dcdf2191a5e779",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8339a0f402b520eb39944f9f8b008c4d71629883"
-        },
-        "date": 1750778827872,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.302245728366668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.20052540509999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12430905623333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "21df44e5de8ed530e0a8c6832e66cb51ea3db7af",
+          "message": "statement-store: make encode/hash faster (#10882)\n\nBy reserving the memory in advance we halve the encoding speed which\nultimately speeds up the statement.hash() function which gets called in\na lot of places.\n\nMore importantly, when we start being connected to more nodes the hash\nfunction gets called a lot for the same statement because we might\nreceive the same statement from all peers we are connected to.\n\nFor example on versi on_statements ate a lot of time when running with\n15 nodes, see\nhttps://github.com/paritytech/polkadot-sdk/issues/10814#issuecomment-3773797276.\n\nModified the statement_network benchmark to also be parameterizable by\nthe number of times we might receive a statement and if we receive it\nfrom 16 peers, we notice a speed up with this PR of ~16%, which I\nconsider not negligible, so I consider this an worthy improvement.\n```\non_statements/statements_2000/peers_16/threads_8/blocking\n                        time:   [22.099 ms 22.641 ms 23.175 ms]\n                        change: [-18.841% -16.637% -14.429%] (p = 0.00 < 0.05)\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
+          "timestamp": "2026-01-28T17:12:42Z",
+          "tree_id": "ded5c3e49741efffb9e31f40b3b4bb9308c30d90",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/21df44e5de8ed530e0a8c6832e66cb51ea3db7af"
+        },
+        "date": 1769625106701,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.239373117733331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12381112413333337,
             "unit": "seconds"
           }
         ]
