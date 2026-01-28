@@ -428,7 +428,7 @@ where
 				debug!(target: LOG_TARGET, "Verified partial proof");
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
+					origin: BlockOrigin::WarpSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},
@@ -442,7 +442,7 @@ where
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
+					origin: BlockOrigin::WarpSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},
@@ -1325,7 +1325,7 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
@@ -1405,7 +1405,7 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
