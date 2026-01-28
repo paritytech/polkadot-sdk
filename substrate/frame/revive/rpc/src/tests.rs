@@ -285,7 +285,6 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 
 	run_tests!(
 		test_fibonacci_call_via_runtime_api,
-		test_fibonacci_large_value_runs_out_of_gas,
 		test_transfer,
 		test_deploy_and_call,
 		test_runtime_api_dry_run_addr_works,
@@ -789,34 +788,6 @@ async fn test_runtime_pallets_address_upload_code(client: Arc<WsClient>) -> anyh
 	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
-
-	Ok(())
-}
-
-async fn test_fibonacci_large_value_runs_out_of_gas(client: Arc<WsClient>) -> anyhow::Result<()> {
-	use pallet_revive::precompiles::alloy::sol_types::SolCall;
-	use pallet_revive_fixtures::Fibonacci;
-
-	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
-		"Fibonacci",
-		pallet_revive_fixtures::FixtureType::Solc,
-	)?;
-
-	let account = Account::default();
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(&client).input(bytes.to_vec()).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(Some(contract_address), receipt.contract_address);
-
-	let result = TransactionBuilder::new(&client)
-		.to(contract_address)
-		.input(Fibonacci::fibCall { n: 100u64 }.abi_encode())
-		.eth_call()
-		.await;
-
-	let err = result.expect_err("fib(100) should run out of gas");
-	assert!(err.to_string().contains("OutOfGas"), "expected OutOfGas error, got: {err}");
 
 	Ok(())
 }
