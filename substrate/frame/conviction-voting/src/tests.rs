@@ -1064,3 +1064,78 @@ fn voting_hooks_are_called_correctly() {
 		assert_eq!(Balances::usable_balance(1), 5);
 	});
 }
+
+#[test]
+fn cleanup_empty_storage_works() {
+	new_test_ext().execute_with(|| {
+		// Create an empty vote by voting and then removing it immediately
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 3));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), class(3), 1));
+
+		// Verify the entry has been automatically cleaned up by unlock
+		assert!(!VotingFor::<Test>::contains_key(&1, &class(3)));
+
+		// Try to clean it up again
+		assert_noop!(
+			Voting::cleanup_empty_storage(RuntimeOrigin::signed(2), 1, class(3)),
+			Error::<Test>::NotVoter
+		);
+	});
+}
+
+#[test]
+fn cleanup_rejects_non_empty_storage() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+
+		// Should fail because there's an active vote
+		assert_noop!(
+			Voting::cleanup_empty_storage(RuntimeOrigin::signed(2), 1, class(3)),
+			Error::<Test>::NotVoter
+		);
+	});
+}
+
+#[test]
+fn automatic_cleanup_on_undelegate() {
+	new_test_ext().execute_with(|| {
+		// Delegate and then undelegate
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 5));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+
+		// After unlock with no lock remaining, storage should be cleaned
+		let voting = VotingFor::<Test>::get(&1, &0);
+		// Should be default (empty) or not exist
+		assert!(pallet_conviction_voting::Pallet::<Test>::is_empty_voting(&voting));
+	});
+}
+
+#[test]
+fn class_locks_cleanup_works() {
+	new_test_ext().execute_with(|| {
+		Polls::set(
+			vec![(0, Ongoing(Tally::new(0), 0)), (1, Ongoing(Tally::new(0), 1))]
+				.into_iter()
+				.collect(),
+		);
+
+		// Vote on multiple classes
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 1)));
+
+		// Remove all votes
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(1), 1));
+
+		// Unlock all
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+
+		// ClassLocksFor should be cleaned up if all locks are zero
+		Pallet::<Test>::maybe_clean_class_locks(&1);
+		let locks = ClassLocksFor::<Test>::get(&1);
+		assert!(locks.iter().all(|(_, balance)| !balance.is_zero()));
+	});
+}
