@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769458364696,
+  "lastUpdate": 1769617002215,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5f3507ec02185e05c96f055d808d8d17d8b969e6",
-          "message": "make sure dispute_coordinator/approval-voting parallel can receive priority messages (#8948)\n\nhttps://github.com/paritytech/polkadot-sdk/pull/8834, changed\nrelay_chain_selection to send priority messages, but did not configured\nthe subsystems to tell they can receive priority messages, with\n`can_receive_priority_messages` flag.\n\nIf `can_receive_priority_messages` is not specified orchestra falls back\nwhen sending a priority message to the normal queue, so this resulted in\nthe messages not being processed ahead of the others in the queue.\n\nFix this configuration mistake and add a test to make sure priority\nmessages are consumed ahead of normal ones by the subsystems.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T07:28:49Z",
-          "tree_id": "f45b40cb1f5276f7774d77d87f057a36768fedbe",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f3507ec02185e05c96f055d808d8d17d8b969e6"
-        },
-        "date": 1750753825111,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63624.13999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001875161,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.4149618945499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005597994340000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.405991167459999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001875161,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.106193967050043,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.462675402759999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.412839921640001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.912484779570006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4916428067300364,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000018869550000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3818224066724314,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000018869550000000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6014350187299984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c7b9c08825acc61f1adde54535a41855c04962a2",
+          "message": "[Release| CI/CD] Add missing permissions to the docker publishing jobs (#10925)\n\nThis PR fixes the issue with missing permissions in the Combined Publish\nRelease flow.\n[Example](https://github.com/paritytech-release/polkadot-sdk/actions/runs/21358125800)",
+          "timestamp": "2026-01-28T15:07:39Z",
+          "tree_id": "fc1a9ed61121b7f7e0cdacf395847ed44767e900",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7b9c08825acc61f1adde54535a41855c04962a2"
+        },
+        "date": 1769616978361,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63623.380000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8348551073599662,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001952961,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.490272153992968,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001952961,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002124561,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002124561,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6137608835400004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0053780342299999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.61773972179,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3037592596399934,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.696804359229962,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6511929970599994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6701183556099997,
             "unit": "seconds"
           }
         ]
