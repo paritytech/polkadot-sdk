@@ -1193,7 +1193,7 @@ where
 		//
 		// Additionally, we need to apply pending storage changes to the ContractInfo before
 		// saving it, so that child frames can correctly calculate storage deposit refunds.
-		// See: https://github.com/paritytech/contract-issues/issues/213
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
 		let frame = self.top_frame();
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
@@ -1872,7 +1872,7 @@ where
 		let top_frame = self.top_frame_mut();
 		// Clone the contract info and apply pending storage changes so that
 		// the child frame can correctly calculate storage deposit refunds.
-		// See: https://github.com/paritytech/contract-issues/issues/213
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
 		let mut contract_info = top_frame.contract_info().clone();
 		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
 		let account_id = top_frame.account_id.clone();
@@ -2087,7 +2087,7 @@ where
 			//
 			// When cloning the cached contract, we apply pending storage changes so that
 			// the child frame can correctly calculate storage deposit refunds.
-			// See: https://github.com/paritytech/contract-issues/issues/213
+			// See: <https://github.com/paritytech/contract-issues/issues/213>
 			let cached_info = self
 				.frames()
 				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)

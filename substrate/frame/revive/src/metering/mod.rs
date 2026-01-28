@@ -620,7 +620,7 @@ impl<T: Config> FrameMeter<T> {
 	/// where storage deposit refunds fail in subframes because the parent's pending
 	/// charges haven't been committed to ContractInfo yet.
 	///
-	/// See: https://github.com/paritytech/contract-issues/issues/213
+	/// See: <https://github.com/paritytech/contract-issues/issues/213>
 	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
 		self.deposit.apply_pending_changes_to_contract(info);
 	}

@@ -100,7 +100,7 @@ fn max_consumed_deposit_integration_refunds_subframes(
 /// Test that storage deposit refunds work correctly when parent allocates storage
 /// and a nested call clears it.
 ///
-/// This test validates the fix for https://github.com/paritytech/contract-issues/issues/213
+/// This test validates the fix for <https://github.com/paritytech/contract-issues/issues/213>
 /// where storage deposit refunds failed in subframes because child frames couldn't see
 /// the parent frame's pending storage changes.
 ///
