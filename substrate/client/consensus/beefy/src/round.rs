@@ -34,12 +34,16 @@ use std::collections::BTreeMap;
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
+	/// Map of votes already committed in this round.
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	/// Total accumulated weight from authorities that have already voted.
+	/// This value is incremented based on the voting weight of each unique vote received.
+	accumulated_votes_weight: VoteWeight,
 }
 
 impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
 	fn default() -> Self {
-		Self { votes: Default::default() }
+		Self { votes: Default::default(), accumulated_votes_weight: Default::default() }
 	}
 }
 
@@ -47,17 +51,26 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 	fn add_vote(
 		&mut self,
 		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
+		vote_weight: VoteWeight,
 	) -> bool {
 		if self.votes.contains_key(&vote.0) {
 			return false;
 		}
 
+		match self.accumulated_votes_weight.checked_add(vote_weight) {
+			Some(aggregated_vote) => self.accumulated_votes_weight = aggregated_vote,
+			None => {
+				return false;
+			},
+		}
+
 		self.votes.insert(vote.0, vote.1);
+
 		true
 	}
 
 	fn is_done(&self, threshold: usize) -> bool {
-		self.votes.len() >= threshold
+		self.accumulated_votes_weight as usize >= threshold
 	}
 }
 
@@ -78,6 +91,8 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 	Stale,
 }
 
+pub(crate) type VoteWeight = u32;
+
 /// Keeps track of all voting rounds (block numbers) within a session.
 /// Only round numbers > `best_done` are of interest, all others are considered stale.
 ///
@@ -91,6 +106,7 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
+	voting_weights: BTreeMap<AuthorityId, VoteWeight>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
@@ -104,10 +120,17 @@ where
 		session_start: NumberFor<B>,
 		validator_set: ValidatorSet<AuthorityId>,
 	) -> Self {
+		let voting_weights =
+			validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, authority| {
+				*acc.entry(authority.to_owned()).or_insert(0) += 1;
+				acc
+			});
+
 		Rounds {
 			rounds: BTreeMap::new(),
 			previous_votes: BTreeMap::new(),
 			session_start,
+			voting_weights,
 			validator_set,
 			mandatory_done: false,
 			best_done: None,
@@ -161,6 +184,15 @@ where
 			return VoteImportResult::Invalid;
 		}
 
+		let Some(vote_weight) = self.voting_weights.get(&vote.id).copied() else {
+			debug!(
+				target: LOG_TARGET,
+				"🥩 invalid validator.id (missing vote weight), ignoring vote {:?}",
+				vote
+			);
+			return VoteImportResult::Invalid;
+		};
+
 		if let Some(previous_vote) = self.previous_votes.get(&vote_key) {
 			// is the same public key voting for a different payload?
 			if previous_vote.commitment.payload != vote.commitment.payload {
@@ -180,7 +212,7 @@ where
 
 		// add valid vote
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
-		if round.add_vote((vote.id, vote.signature)) &&
+		if round.add_vote((vote.id, vote.signature), vote_weight) &&
 			round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
@@ -248,9 +280,9 @@ mod tests {
 		let threshold = 2;
 
 		// adding new vote allowed
-		assert!(rt.add_vote(bob_vote.clone()));
+		assert!(rt.add_vote(bob_vote.clone(), 1));
 		// adding existing vote not allowed
-		assert!(!rt.add_vote(bob_vote));
+		assert!(!rt.add_vote(bob_vote, 1));
 
 		// vote is not done
 		assert!(!rt.is_done(threshold));
@@ -260,10 +292,40 @@ mod tests {
 			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		);
 		// adding new vote (self vote this time) allowed
-		assert!(rt.add_vote(alice_vote));
+		assert!(rt.add_vote(alice_vote, 1));
 
 		// vote is now done
 		assert!(rt.is_done(threshold));
+	}
+
+	#[test]
+	fn round_tracker_with_duplicated_authorities() {
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
+
+		let bob_vote = (
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
+		);
+		assert!(rt.add_vote(bob_vote, 1));
+
+		let threshold = 3;
+
+		// vote is not done
+		assert!(!rt.is_done(threshold));
+
+		let charlie_vote = (
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
+		);
+
+		// Charlie has more voting power than the others
+		assert!(rt.add_vote(charlie_vote.clone(), 2));
+
+		// vote is now done
+		assert!(rt.is_done(threshold));
+
+		// Charlie can not vote twice, even he has more voting power
+		assert!(!rt.add_vote(charlie_vote, 2));
 	}
 
 	#[test]
@@ -298,6 +360,74 @@ mod tests {
 				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()
 			],
 			rounds.validators()
+		);
+
+		// Ensure that by default all authorities have equal weight
+		for authority in rounds.validators() {
+			assert_eq!(rounds.voting_weights.get(authority), Some(&1));
+		}
+	}
+
+	#[test]
+	fn new_rounds_with_duplicated_authorities() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Bob.public(),
+				Keyring::Charlie.public(),
+				Keyring::Charlie.public(),
+				Keyring::Dave.public(),
+			],
+			42,
+		)
+		.unwrap();
+
+		let session_start = 1u64.into();
+		let rounds =
+			Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators.clone());
+
+		assert_eq!(42, rounds.validator_set_id());
+		assert_eq!(1, rounds.session_start());
+		assert_eq!(rounds.validator_set(), &validators);
+		assert_eq!(
+			&vec![
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Dave.public(),
+			],
+			rounds.validators()
+		);
+
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()),
+			Some(&3)
+		);
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Bob.public()),
+			Some(&1)
+		);
+		assert_eq!(
+			rounds
+				.voting_weights
+				.get(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()),
+			Some(&2)
+		);
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()),
+			Some(&1)
+		);
+		// Eve is not part of the committee, should have no weight
+		assert_eq!(
+			rounds.voting_weights.get(&Keyring::<ecdsa_crypto::AuthorityId>::Eve.public()),
+			None
 		);
 	}
 
@@ -356,6 +486,78 @@ mod tests {
 					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
 					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
 					None,
+				]
+			})
+		);
+		rounds.conclude(block_number);
+
+		vote.id = Keyring::Eve.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Eve.sign(b"I am committed");
+		// Eve is a validator, but round was concluded, adding vote disallowed
+		assert_eq!(rounds.add_vote(vote), VoteImportResult::Stale);
+	}
+
+	#[test]
+	fn add_and_conclude_votes_with_duplicated_authorities() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Bob.public(),
+				Keyring::Charlie.public(),
+				Keyring::Eve.public(),
+				Keyring::Charlie.public(),
+			],
+			Default::default(),
+		)
+		.unwrap();
+		let validator_set_id = validators.id();
+
+		let session_start = 1u64.into();
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
+		let block_number = 1;
+		let commitment = Commitment { block_number, payload, validator_set_id };
+		let mut vote = VoteMessage {
+			id: Keyring::Alice.public(),
+			commitment: commitment.clone(),
+			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+		};
+		// add 1st good vote
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		// double voting (same vote), ok, no effect
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		vote.id = Keyring::Dave.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Dave.sign(b"I am committed");
+		// invalid vote (Dave is not a validator)
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
+
+		vote.id = Keyring::Bob.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed");
+		// add 2nd good vote
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		vote.id = Keyring::Charlie.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed");
+		// add 3rd good vote -> round concluded -> signatures present
+		assert_eq!(
+			rounds.add_vote(vote.clone()),
+			VoteImportResult::RoundConcluded(SignedCommitment {
+				commitment,
+				signatures: vec![
+					// SignedCommitment threats authorities as independent entities, in order to
+					// keep the same order and length as in the validator set
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+					None,
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
 				]
 			})
 		);
@@ -524,5 +726,34 @@ mod tests {
 
 		// vote on _another_ commitment/payload -> expected equivocation proof
 		assert_eq!(rounds.add_vote(alice_vote2), expected_result);
+	}
+
+	#[test]
+	fn add_vote_with_missing_weight_is_invalid() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			Default::default(),
+		)
+		.unwrap();
+		let validator_set_id = validators.id();
+
+		let session_start = 1u64.into();
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+
+		// Force a state where the validator exists in the set, but has no vote weight entry.
+		rounds.voting_weights.remove(&Keyring::Alice.public());
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
+		let block_number = 1;
+		let commitment = Commitment { block_number, payload, validator_set_id };
+		let vote = VoteMessage {
+			id: Keyring::Alice.public(),
+			commitment,
+			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+		};
+
+		assert_eq!(rounds.add_vote(vote), VoteImportResult::Invalid);
 	}
 }
