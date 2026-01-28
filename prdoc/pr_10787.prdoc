@@ -13,3 +13,7 @@ crates:
   bump: major
 - name: polkadot-omni-node-lib
   bump: patch
+- name: pallet-statement
+  bump: major
+- name: people-westend-runtime
+  bump: major
