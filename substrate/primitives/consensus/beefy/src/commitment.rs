@@ -353,6 +353,7 @@ mod tests {
 
 	// Types for commitment supporting aggregatable bls signature
 	#[cfg(feature = "bls-experimental")]
+	#[allow(dead_code)]
 	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
 	struct BlsAggregatableSignature(BlsSignature);
 

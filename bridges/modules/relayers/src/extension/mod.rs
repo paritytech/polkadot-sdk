@@ -1781,8 +1781,8 @@ mod tests {
 		run_test(|| {
 			initialize_environment(200, 200, 200);
 
-			let mut dispatch_info = dispatch_info();
-			dispatch_info.call_weight = Weight::from_parts(
+			let mut _dispatch_info = dispatch_info();
+			_dispatch_info.call_weight = Weight::from_parts(
 				frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND * 2,
 				0,
 			);

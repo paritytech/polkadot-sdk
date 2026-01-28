@@ -25,6 +25,10 @@ use frame_support_procedural::pallet_section;
 
 #[pallet_section]
 mod tasks_example {
+	// The pallet::tasks_experimental macro generates code that assigns to task parameters
+	// before passing them to the task function, triggering the unused_assignments lint.
+	#![allow(unused_assignments)]
+
 	#[docify::export(tasks_example)]
 	#[pallet::tasks_experimental]
 	impl<T: Config> Pallet<T> {
@@ -33,6 +37,7 @@ mod tasks_example {
 		#[pallet::task_condition(|i| Numbers::<T>::contains_key(i))]
 		#[pallet::task_weight(0.into())]
 		#[pallet::task_index(0)]
+		#[allow(unused_assignments)]
 		pub fn add_number_into_total(i: u32) -> DispatchResult {
 			let v = Numbers::<T>::take(i).ok_or(Error::<T>::NotFound)?;
 			Total::<T>::mutate(|(total_keys, total_values)| {

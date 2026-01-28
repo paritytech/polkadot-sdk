@@ -1325,8 +1325,6 @@ mod tests {
 // can access the sp_core crate.
 #[cfg(test)]
 mod sp_core_tests {
-	use super::*;
-
 	sp_core::generate_feature_enabled_macro!(if_test, test, $);
 	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 

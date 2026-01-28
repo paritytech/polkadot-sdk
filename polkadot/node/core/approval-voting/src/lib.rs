@@ -2564,7 +2564,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			let mut s = String::with_capacity(bits.len());
 			for (i, bit) in bits.iter().enumerate().take(MAX_TRACING_WINDOW) {
 				s.push(if *bit { '1' } else { '0' });
-				if (target_number - i as u32) % 10 == 0 && i != bits.len() - 1 {
+				if (target_number - i as u32).is_multiple_of(10) && i != bits.len() - 1 {
 					s.push(' ');
 				}
 			}

@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::log;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 

@@ -25,7 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -1005,6 +1005,7 @@ mod benchmarking {
 
 	mod benchmarks {
 		use super::*;
+		use alloc::vec;
 
 		#[benchmark]
 		fn force_lease() -> Result<(), BenchmarkError> {

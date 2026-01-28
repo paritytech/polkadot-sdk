@@ -501,11 +501,11 @@ impl Curve {
 				let minutes = p * (hours * 60);
 				if minutes < 60 {
 					format!("{} minutes", minutes)
-				} else if minutes < 8 * 60 && minutes % 60 != 0 {
+				} else if minutes < 8 * 60 && !minutes.is_multiple_of(60) {
 					format!("{} hours {} minutes", minutes / 60, minutes % 60)
 				} else if minutes < 72 * 60 {
 					format!("{} hours", minutes / 60)
-				} else if minutes / 60 % 24 == 0 {
+				} else if (minutes / 60).is_multiple_of(24) {
 					format!("{} days", minutes / 60 / 24)
 				} else {
 					format!("{} days {} hours", minutes / 60 / 24, minutes / 60 % 24)

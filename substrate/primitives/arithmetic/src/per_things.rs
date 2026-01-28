@@ -1629,7 +1629,7 @@ macro_rules! implement_per_thing {
 						<$type>::max_value(),
 						super::Rounding::NearestPrefDown,
 					),
-					<$upper_type>::from((<$type>::max_value() - 1)),
+					<$upper_type>::from(<$type>::max_value() - 1),
 				);
 				// (max % 2) * max / 2 == max / 2
 				assert_eq!(

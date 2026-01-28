@@ -322,7 +322,7 @@ pub mod session_mock {
 		fn maybe_rotate_session_now() {
 			let now = System::block_number();
 			let period = Period::get();
-			if now % period == 0 {
+			if now.is_multiple_of(period) {
 				Self::advance_session();
 			}
 		}

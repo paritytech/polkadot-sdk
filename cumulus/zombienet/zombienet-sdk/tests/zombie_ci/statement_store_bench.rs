@@ -487,7 +487,7 @@ impl Participant {
 		}
 
 		self.retry_count += 1;
-		if self.retry_count % 10 == 0 {
+		if self.retry_count.is_multiple_of(10) {
 			debug!(target: &self.log_target(), "Retry attempt {}", self.retry_count);
 		}
 		tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;

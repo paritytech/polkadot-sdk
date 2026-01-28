@@ -211,7 +211,7 @@ impl WsServer {
 							Some((ret, (receiver, buf)))
 						});
 
-						Box::pin(socket_packets.map(move |msg| (msg)))
+						Box::pin(socket_packets.map(move |msg| msg))
 					});
 				},
 

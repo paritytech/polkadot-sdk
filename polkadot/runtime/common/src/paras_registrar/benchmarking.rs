@@ -70,6 +70,7 @@ fn next_scheduled_session<T: Config>() {
 	)]
 mod benchmarks {
 	use super::*;
+	use alloc::vec;
 
 	#[benchmark]
 	fn reserve() -> Result<(), BenchmarkError> {

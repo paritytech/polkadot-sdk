@@ -23,12 +23,14 @@ pub mod benchmarks {
 	};
 
 	/// Trait for setting up any prerequisites for successful execution of benchmarks.
+	#[allow(dead_code)]
 	pub trait EnsureSuccessful {
 		fn ensure_successful();
 	}
 
 	/// Implementation of the [`EnsureSuccessful`] trait which opens an HRMP channel between
 	/// the Collectives and a parachain with a given ID.
+	#[allow(dead_code)]
 	pub struct OpenHrmpChannel<I>(PhantomData<I>);
 	impl<I: Get<u32>> EnsureSuccessful for OpenHrmpChannel<I> {
 		fn ensure_successful() {
@@ -41,6 +43,7 @@ pub mod benchmarks {
 	/// Type that wraps a type implementing the [`Pay`] trait to decorate its
 	/// [`Pay::ensure_successful`] function with a provided implementation of the
 	/// [`EnsureSuccessful`] trait.
+	#[allow(dead_code)]
 	pub struct PayWithEnsure<O, E>(PhantomData<(O, E)>);
 	impl<O, E> Pay for PayWithEnsure<O, E>
 	where

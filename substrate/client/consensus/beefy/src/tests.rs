@@ -100,6 +100,7 @@ type BeefyBlockImport = crate::BeefyBlockImport<
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 struct Genesis(std::collections::BTreeMap<String, String>);
 impl BuildStorage for Genesis {
@@ -190,7 +191,7 @@ impl BeefyTestNet {
 				add_mmr_digest(&mut builder, mmr_root);
 			}
 
-			if block_num % session_length == 0 {
+			if block_num.is_multiple_of(session_length) {
 				add_auth_change_digest(&mut builder, validator_set.clone());
 			}
 

@@ -16,6 +16,9 @@
 // limitations under the License.
 
 #![cfg(feature = "experimental")]
+// The pallet::tasks_experimental macro generates code that assigns to task parameters
+// before passing them to the task function, triggering this lint.
+#![allow(unused_assignments)]
 
 #[frame_support::pallet(dev_mode)]
 mod my_pallet {
@@ -31,11 +34,13 @@ mod my_pallet {
 	pub type SomeStorage<T, I = ()> = StorageValue<_, (u32, u64), ValueQuery>;
 
 	#[pallet::tasks_experimental]
+	#[allow(unused_assignments)]
 	impl<T: Config<I>, I> Pallet<T, I> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
 		#[pallet::task_list(vec![(0u32, 2u64), (2u32, 4u64)].iter())]
 		#[pallet::task_weight(0.into())]
+		#[allow(unused_assignments)]
 		fn foo(i: u32, j: u64) -> frame_support::pallet_prelude::DispatchResult {
 			<SomeStorage<T, I>>::put((i, j));
 			Ok(())
@@ -58,11 +63,13 @@ mod my_pallet_2 {
 	pub type SomeStorage<T, I = ()> = StorageValue<_, (u32, u64), ValueQuery>;
 
 	#[pallet::tasks_experimental]
+	#[allow(unused_assignments)]
 	impl<T: Config<I>, I> Pallet<T, I> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
 		#[pallet::task_list(vec![(0u32, 2u64), (2u32, 4u64)].iter())]
 		#[pallet::task_weight(0.into())]
+		#[allow(unused_assignments)]
 		fn foo(i: u32, j: u64) -> frame_support::pallet_prelude::DispatchResult {
 			<SomeStorage<T, I>>::put((i, j));
 			Ok(())

@@ -2083,12 +2083,6 @@ mod enter {
 			// Make last 2 candidates v1
 			for index in candidate_count - 2..candidate_count {
 				let encoded = inherent_data.backed_candidates[index].descriptor().encode();
-
-				let mut decoded: CandidateDescriptor =
-					Decode::decode(&mut encoded.as_slice()).unwrap();
-				decoded.collator = junk_collator();
-				decoded.signature = junk_collator_signature();
-
 				*inherent_data.backed_candidates[index].descriptor_mut() =
 					Decode::decode(&mut encoded.as_slice()).unwrap();
 			}

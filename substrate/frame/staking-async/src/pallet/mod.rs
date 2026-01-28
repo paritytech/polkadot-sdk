@@ -2512,7 +2512,7 @@ pub mod pallet {
 		///
 		/// If a validator has more than [`Config::MaxExposurePageSize`] nominators backing
 		/// them, then the list of nominators is paged, with each page being capped at
-		/// [`Config::MaxExposurePageSize`.] If a validator has more than one page of nominators,
+		/// [`Config::MaxExposurePageSize`]. If a validator has more than one page of nominators,
 		/// the call needs to be made for each page separately in order for all the nominators
 		/// backing a validator to receive the reward. The nominators are not sorted across pages
 		/// and so it should not be assumed the highest staker would be on the topmost page and vice

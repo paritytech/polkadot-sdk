@@ -193,6 +193,7 @@ parameter_types! {
 }
 
 /// Message processor to handle any messages that were enqueued into the `MessageQueue` pallet.
+#[allow(dead_code)]
 pub struct MessageProcessor;
 impl ProcessMessage for MessageProcessor {
 	type Origin = AggregateMessageOrigin;

@@ -297,6 +297,7 @@ mod tests {
 	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
 
+	#[allow(dead_code)]
 	#[derive(
 		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
 	)]
