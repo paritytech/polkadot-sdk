@@ -29,7 +29,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
+use sc_consensus_aura::{standalone as aura_internal, AuraTrackers};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
@@ -79,7 +79,7 @@ pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	trackers: AuraTrackers<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -103,14 +103,14 @@ where
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
 		telemetry: Option<TelemetryHandle>,
-		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+		trackers: AuraTrackers<P, Block, Client>,
 	) -> Result<Self, String> {
 		Ok(Self {
 			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			authorities_tracker,
+			trackers,
 		})
 	}
 }
@@ -150,15 +150,16 @@ where
 		// check seal and update pre-hash/post-hash
 		{
 			let authorities = self
+				.trackers
 				.authorities_tracker
 				.fetch(&block_params.header)
 				.map_err(|e| format!("Could not fetch authorities: {e}"))?;
 
 			let slot_duration = self
-				.client
-				.runtime_api()
-				.slot_duration(parent_hash)
-				.map_err(|e| e.to_string())?;
+				.trackers
+				.slot_duration_tracker
+				.fetch(&block_params.header)?
+				.ok_or_else(|| "Could not fetch slot duration".to_string())?;
 
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
@@ -275,7 +276,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	trackers: AuraTrackers<P, Block, Client>,
 ) -> BasicQueue<Block>
 where
 	P: Pair + 'static + Clone,
@@ -301,7 +302,7 @@ where
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker,
+		trackers,
 	};
 	BasicQueue::new(verifier, Box::new(block_import.clone()), None, spawner, registry)
 }
@@ -329,7 +330,7 @@ mod test {
 
 		let client = Arc::new(TestClientBuilder::default().build());
 
-		let (_, authorities_tracker) =
+		let (_, trackers) =
 			AuraBlockImport::new(client.clone(), client.clone(), &CompatibilityMode::None).unwrap();
 		let verifier = Verifier::<sr25519::AuthorityPair, Client, Block, _> {
 			client: client.clone(),
@@ -338,7 +339,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			authorities_tracker,
+			trackers,
 		};
 
 		let genesis = client.info().best_hash;

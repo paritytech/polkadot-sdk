@@ -52,12 +52,11 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header, Member, NumberFor};
 
-mod authorities_tracker;
 mod import_queue;
 pub mod standalone;
+mod trackers;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
-pub use authorities_tracker::AuthoritiesTracker;
 pub use import_queue::{
 	build_verifier, import_queue, AuraBlockImport, AuraVerifier, BuildVerifierParams,
 	CheckForEquivocation, ImportQueueParams,
@@ -69,6 +68,7 @@ pub use sp_consensus_aura::{
 	inherents::{InherentDataProvider, InherentType as AuraInherent, INHERENT_IDENTIFIER},
 	AuraApi, ConsensusLog, SlotDuration, AURA_ENGINE_ID,
 };
+pub use trackers::{AuraTrackers, AuthoritiesTracker, SlotDurationImport, SlotDurationTracker};
 
 const LOG_TARGET: &str = "aura";
 
@@ -616,7 +616,7 @@ mod tests {
 		Box<
 			dyn CreateInherentDataProviders<
 				TestBlock,
-				(),
+				Header,
 				InherentDataProviders = (InherentDataProvider,),
 			>,
 		>,
@@ -639,6 +639,7 @@ mod tests {
 			let slot_duration = slot_duration(&*client).expect("slot duration available");
 
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
+			let trackers = AuraTrackers::new(client.clone(), &CompatibilityMode::None).unwrap();
 			AuraVerifier::new(
 				client.clone(),
 				Box::new(|_, _| async {
@@ -650,7 +651,7 @@ mod tests {
 				}),
 				CheckForEquivocation::Yes,
 				None,
-				Arc::new(AuthoritiesTracker::new(client, &CompatibilityMode::None).unwrap()),
+				trackers.authorities_tracker,
 			)
 			.unwrap()
 		}
@@ -877,7 +878,7 @@ mod tests {
 		let mut net = AuraTestNet::new(3);
 		let peer = net.peer(0);
 		let client = peer.client().as_client();
-		let tracker = AuthoritiesTracker::<AuthorityPair, _, _>::new_empty(client);
+		let tracker = AuraTrackers::<AuthorityPair, _, _>::new_empty(client).authorities_tracker;
 		let parent_header = TestHeader {
 			parent_hash: Default::default(),
 			number: 0,

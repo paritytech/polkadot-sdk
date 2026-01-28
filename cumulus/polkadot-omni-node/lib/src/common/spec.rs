@@ -45,7 +45,7 @@ use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
-use sc_consensus_aura::{AuraBlockImport, AuthoritiesTracker, CompatibilityMode};
+use sc_consensus_aura::{AuraBlockImport, AuraTrackers, CompatibilityMode};
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
 	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
@@ -84,9 +84,7 @@ pub(crate) trait BuildImportQueue<
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-		authorities_tracker: Arc<
-			AuthoritiesTracker<Pair, Block, ParachainClient<Block, RuntimeApi>>,
-		>,
+		trackers: AuraTrackers<Pair, Block, ParachainClient<Block, RuntimeApi>>,
 	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
 }
 
@@ -139,7 +137,7 @@ pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi, Pair: AppPair> {
 	) -> sc_service::error::Result<(
 		Self::BlockImport,
 		Self::BlockImportAuxiliaryData,
-		Arc<AuthoritiesTracker<Pair, Block, ParachainClient<Block, RuntimeApi>>>,
+		AuraTrackers<Pair, Block, ParachainClient<Block, RuntimeApi>>,
 	)>;
 }
 
@@ -165,12 +163,12 @@ where
 	) -> sc_service::error::Result<(
 		Self::BlockImport,
 		Self::BlockImportAuxiliaryData,
-		Arc<AuthoritiesTracker<AuraId::BoundedPair, Block, ParachainClient<Block, RuntimeApi>>>,
+		AuraTrackers<AuraId::BoundedPair, Block, ParachainClient<Block, RuntimeApi>>,
 	)> {
-		let (block_import, authorities_tracker) =
+		let (block_import, trackers) =
 			AuraBlockImport::new(client.clone(), client, &CompatibilityMode::None)
 				.map_err(|e| sc_service::Error::Other(e))?;
-		Ok((block_import, (), authorities_tracker))
+		Ok((block_import, (), trackers))
 	}
 }
 

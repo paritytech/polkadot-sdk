@@ -76,7 +76,7 @@ impl BackingGroupConnectionHelper {
 	/// Update the current slot and initiate connections to backing groups if needed.
 	pub async fn update<P>(&mut self, current_slot: Slot, authorities: &[P::Public])
 	where
-		P: sp_core::Pair + Send + Sync,
+		P: sp_core::Pair,
 		P::Public: Codec,
 	{
 		if Some(current_slot) <= self.our_slot {

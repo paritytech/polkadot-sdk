@@ -12,7 +12,7 @@ use parachain_template_runtime::{
 use codec::Encode;
 use polkadot_sdk::{
 	cumulus_client_service::ParachainTracingExecuteBlock,
-	sc_consensus_aura::{AuraBlockImport, AuthoritiesTracker, CompatibilityMode},
+	sc_consensus_aura::{AuraBlockImport, AuraTrackers, CompatibilityMode},
 	*,
 };
 
@@ -134,7 +134,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.build(),
 	);
 
-	let (block_import, authorities_tracker) =
+	let (block_import, trackers) =
 		AuraBlockImport::new(client.clone(), client.clone(), &CompatibilityMode::None)
 			.map_err(sc_service::Error::Other)?;
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
@@ -145,7 +145,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		config,
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
-		authorities_tracker,
+		trackers,
 	);
 
 	Ok(PartialComponents {
@@ -167,9 +167,7 @@ fn build_import_queue(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
-	authorities_tracker: Arc<
-		AuthoritiesTracker<sp_consensus_aura::sr25519::AuthorityPair, Block, ParachainClient>,
-	>,
+	trackers: AuraTrackers<sp_consensus_aura::sr25519::AuthorityPair, Block, ParachainClient>,
 ) -> sc_consensus::DefaultImportQueue<Block> {
 	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
 		sp_consensus_aura::sr25519::AuthorityPair,
@@ -187,7 +185,7 @@ fn build_import_queue(
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 		telemetry,
-		authorities_tracker,
+		trackers,
 	)
 }
 
