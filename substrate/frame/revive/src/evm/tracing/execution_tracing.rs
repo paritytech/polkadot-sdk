@@ -40,6 +40,11 @@ pub struct ExecutionTracer {
 	/// The collected trace steps.
 	steps: Vec<ExecutionStep>,
 
+	/// Stack of pending step indices awaiting their exit_step call.
+	/// When entering an opcode/syscall, we push the step index here.
+	/// When exit_step is called, we pop to find the correct step to update.
+	pending_steps: Vec<usize>,
+
 	/// Current call depth.
 	depth: u16,
 
@@ -71,6 +76,7 @@ impl ExecutionTracer {
 		Self {
 			config,
 			steps: Vec::new(),
+			pending_steps: Vec::new(),
 			depth: 0,
 			step_count: 0,
 			total_gas_used: 0,
@@ -153,7 +159,10 @@ impl Tracing for ExecutionTracer {
 			},
 		};
 
+		// Track this step's index so exit_step can find it even after nested steps are added
+		let step_index = self.steps.len();
 		self.steps.push(step);
+		self.pending_steps.push(step_index);
 		self.step_count += 1;
 	}
 
@@ -187,17 +196,21 @@ impl Tracing for ExecutionTracer {
 			},
 		};
 
+		let step_index = self.steps.len();
 		self.steps.push(step);
+		self.pending_steps.push(step_index);
 		self.step_count += 1;
 	}
 
 	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo, returned: Option<u64>) {
-		if let Some(step) = self.steps.last_mut() {
-			step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
-			step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
-			if !self.config.disable_syscall_details {
-				if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
-					*ret = returned;
+		if let Some(step_index) = self.pending_steps.pop() {
+			if let Some(step) = self.steps.get_mut(step_index) {
+				step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
+				step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
+				if !self.config.disable_syscall_details {
+					if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
+						*ret = returned;
+					}
 				}
 			}
 		}

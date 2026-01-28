@@ -729,6 +729,122 @@ fn execution_tracing_works_for_evm() {
 	});
 }
 
+/// Test that execution tracing correctly tracks gas costs for nested calls.
+#[test]
+fn execution_tracing_nested_calls_gas_evm() {
+	use crate::{
+		evm::{ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
+		tracing::trace,
+	};
+	use pallet_revive_fixtures::{Callee, Caller};
+
+	/// Verifies gas tracking for a call opcode (CALL, DELEGATECALL, etc.):
+	/// 1. The opcode has non-zero gas_cost
+	/// 2. gas - gas_cost equals the gas of the first step after returning to parent depth
+	fn verify_call_opcode_gas(trace: &ExecutionTrace, opcode: u8, opcode_name: &str) {
+		let steps = &trace.struct_logs;
+
+		// Find all instances of the call opcode at depth 1
+		for (i, step) in steps.iter().enumerate() {
+			if let ExecutionStepKind::EVMOpcode { op, .. } = &step.kind {
+				if *op == opcode && step.depth == 1 {
+					// Verify non-zero gas_cost
+					assert!(
+						step.gas_cost > 0,
+						"{} should have non-zero gas_cost",
+						opcode_name
+					);
+
+					// Find the first step after returning from depth 2 to depth 1
+					let first_step_after_return = steps[i + 1..].iter().find(|s| s.depth == 1);
+
+					if let Some(return_step) = first_step_after_return {
+						let expected_gas = step.gas.saturating_sub(step.gas_cost);
+						assert_eq!(
+							expected_gas, return_step.gas,
+							"{}: gas - gas_cost should equal first step after return",
+							opcode_name
+						);
+					}
+					return;
+				}
+			}
+		}
+		panic!("No {} opcode found at depth 1", opcode_name);
+	}
+
+	/// Traces a call to the Caller contract and returns the execution trace.
+	fn trace_call<F>(
+		config: &ExecutionTracerConfig,
+		caller_addr: sp_core::H160,
+		call_data: Vec<u8>,
+	) -> ExecutionTrace
+	where
+		F: FnOnce(),
+	{
+		let mut tracer = ExecutionTracer::new(config.clone());
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(caller_addr).data(call_data).build_and_unwrap_result()
+		});
+		tracer.collect_trace()
+	}
+
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let config = ExecutionTracerConfig {
+			enable_memory: false,
+			disable_stack: true,
+			disable_storage: true,
+			enable_return_data: false,
+			disable_syscall_details: true,
+			limit: None,
+			memory_word_limit: 0,
+		};
+
+		// Test CALL opcode
+		let call_trace = trace_call::<fn()>(
+			&config,
+			caller_addr,
+			Caller::normalCall {
+				_callee: callee_addr.0.into(),
+				_value: 0,
+				_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
+		);
+
+		assert!(
+			call_trace.struct_logs.iter().any(|s| s.depth > 1),
+			"Should have nested call steps"
+		);
+		verify_call_opcode_gas(&call_trace, revm::bytecode::opcode::CALL, "CALL");
+
+		// Test DELEGATECALL opcode
+		let delegate_trace = trace_call::<fn()>(
+			&config,
+			caller_addr,
+			Caller::delegateCall {
+				_callee: callee_addr.0.into(),
+				_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
+		);
+
+		verify_call_opcode_gas(&delegate_trace, revm::bytecode::opcode::DELEGATECALL, "DELEGATECALL");
+	});
+}
+
 #[test]
 fn execution_tracing_works_for_pvm() {
 	use crate::{
