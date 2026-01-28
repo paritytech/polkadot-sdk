@@ -23,7 +23,7 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
+	use crate::{test_pallet::TEST_RUNTIME_UPGRADE_KEY, HALVE_SLOT_DURATION_KEY};
 	use alloc::vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
@@ -118,6 +118,13 @@ pub mod pallet {
 			pallet_aura::Pallet::<T>::change_authorities(BoundedVec::truncate_from(vec![
 				T::AuthorityId::decode(&mut &key[..]).unwrap(),
 			]));
+			Ok(())
+		}
+
+		/// Halves the slot duration for the test runtime.
+		#[pallet::weight(0)]
+		pub fn halve_slot_duration(_: OriginFor<T>) -> DispatchResult {
+			sp_io::storage::set(HALVE_SLOT_DURATION_KEY, &vec![0u8; 1]);
 			Ok(())
 		}
 	}

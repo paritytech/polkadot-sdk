@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	standalone::SealVerificationError, AuthoritiesTracker, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	standalone::SealVerificationError, AuraTrackers, AuthoritiesTracker, AuthorityId,
+	CompatibilityMode, Error, SlotDurationImport, LOG_TARGET,
 };
 use codec::Codec;
 use log::{debug, info, trace};
@@ -146,7 +146,7 @@ where
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
+	CIDP: CreateInherentDataProviders<B, B::Header> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
@@ -175,7 +175,7 @@ where
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
+			.create_inherent_data_providers(parent_hash, block.header.clone())
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
 
@@ -339,7 +339,7 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
+	CIDP: CreateInherentDataProviders<Block, Block::Header> + Sync + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
@@ -362,7 +362,7 @@ where
 /// AURA block import.
 pub struct AuraBlockImport<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> {
 	block_import: BI,
-	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	trackers: AuraTrackers<P, Block, Client>,
 }
 
 impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone>
@@ -379,12 +379,9 @@ where
 		block_import: BI,
 		client: Arc<Client>,
 		compatibility_mode: &CompatibilityMode<NumberFor<Block>>,
-	) -> Result<(Self, Arc<AuthoritiesTracker<P, Block, Client>>), String> {
-		let authorities_tracker = Arc::new(AuthoritiesTracker::new(client, compatibility_mode)?);
-		Ok((
-			Self { block_import, authorities_tracker: authorities_tracker.clone() },
-			authorities_tracker,
-		))
+	) -> Result<(Self, AuraTrackers<P, Block, Client>), String> {
+		let trackers = AuraTrackers::new(client, compatibility_mode)?;
+		Ok((Self { block_import, trackers: trackers.clone() }, trackers))
 	}
 
 	/// Create a new AURA block import with an empty authorities tracker.
@@ -393,12 +390,9 @@ where
 	pub fn new_empty(
 		block_import: BI,
 		client: Arc<Client>,
-	) -> (Self, Arc<AuthoritiesTracker<P, Block, Client>>) {
-		let authorities_tracker = Arc::new(AuthoritiesTracker::new_empty(client));
-		(
-			Self { block_import, authorities_tracker: authorities_tracker.clone() },
-			authorities_tracker,
-		)
+	) -> (Self, AuraTrackers<P, Block, Client>) {
+		let trackers = AuraTrackers::new_empty(client);
+		(Self { block_import, trackers: trackers.clone() }, trackers)
 	}
 }
 
@@ -406,17 +400,14 @@ impl<Client, P: Pair + Clone, Block: BlockT, BI: BlockImport<Block> + Clone> Clo
 	for AuraBlockImport<Client, P, Block, BI>
 {
 	fn clone(&self) -> Self {
-		Self {
-			block_import: self.block_import.clone(),
-			authorities_tracker: self.authorities_tracker.clone(),
-		}
+		Self { block_import: self.block_import.clone(), trackers: self.trackers.clone() }
 	}
 }
 
 #[async_trait::async_trait]
 impl<
 		Client: Sync + Send,
-		P: Pair + Clone,
+		P: Pair + Clone + Sync + Send,
 		Block: BlockT,
 		BI: BlockImport<Block> + Send + Sync + Clone,
 	> BlockImport<Block> for AuraBlockImport<Client, P, Block, BI>
@@ -450,10 +441,19 @@ where
 			if with_state {
 				// First block being imported from warp sync needs to update the authorities tracker
 				// from the runtime.
-				self.authorities_tracker.import_from_runtime(&post_header)?;
+				self.trackers.authorities_tracker.import_from_runtime(&post_header)?;
 			} else {
-				self.authorities_tracker.import_from_header(&post_header)?;
+				self.trackers.authorities_tracker.import_from_header(&post_header)?;
 			};
+			self.trackers.slot_duration_tracker.import(
+				&post_header,
+				if with_state {
+					// If this is a state import, the header may not be imported yet.
+					SlotDurationImport::WithoutParent
+				} else {
+					SlotDurationImport::WithParent
+				},
+			)?;
 		}
 		Ok(res)
 	}

@@ -3,7 +3,8 @@
 use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{
-	AuraBlockImport, CompatibilityMode, ImportQueueParams, SlotProportion, StartAuraParams,
+	AuraBlockImport, AuraTrackers, CompatibilityMode, ImportQueueParams, SlotProportion,
+	StartAuraParams,
 };
 use sc_consensus_grandpa::SharedVoterState;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
@@ -95,25 +96,24 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let (block_import, authorities_tracker) = AuraBlockImport::new(
-		grandpa_block_import.clone(),
-		client.clone(),
-		&CompatibilityMode::None,
-	)?;
+	let (block_import, AuraTrackers { authorities_tracker, slot_duration_tracker }) =
+		AuraBlockImport::new(
+			grandpa_block_import.clone(),
+			client.clone(),
+			&CompatibilityMode::None,
+		)?;
 
-	let cidp_client = client.clone();
 	let import_queue =
 		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
 			block_import: grandpa_block_import.clone(),
 			justification_import: Some(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = cidp_client.clone();
+			create_inherent_data_providers: move |_, header| {
+				let slot_duration_tracker = slot_duration_tracker.clone();
 				async move {
-					let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
+					let slot_duration = slot_duration_tracker
+						.fetch(&header)?
+						.ok_or_else(|| "Slot duration not found".to_string())?;
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
 					let slot =

@@ -826,7 +826,7 @@ impl alloc::str::FromStr for SecretUri {
 /// Trait suitable for typical cryptographic PKI key pair type.
 ///
 /// For now it just specifies how to create a key from a phrase and derivation path.
-pub trait Pair: CryptoType + Sized {
+pub trait Pair: CryptoType + Sized + Send + Sync {
 	/// The type which is used to encode a public key.
 	type Public: Public + Hash;
 

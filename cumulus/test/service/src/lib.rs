@@ -36,7 +36,7 @@ use cumulus_client_consensus_aura::{
 };
 use prometheus::Registry;
 use runtime::AccountId;
-use sc_consensus_aura::{AuraBlockImport, CompatibilityMode};
+use sc_consensus_aura::{AuraBlockImport, AuraTrackers, CompatibilityMode};
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
 use std::{
@@ -210,7 +210,7 @@ pub fn new_partial(
 
 	let (block_import, slot_based_handle) =
 		SlotBasedBlockImport::new(client.clone(), client.clone());
-	let (block_import, authorities_tracker) =
+	let (block_import, AuraTrackers { authorities_tracker, slot_duration_tracker }) =
 		AuraBlockImport::new(block_import, client.clone(), &CompatibilityMode::None)?;
 	let block_import = TParachainBlockImport::new(block_import, backend.clone());
 
@@ -225,21 +225,25 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			create_inherent_data_providers: move |_, header| {
+				let slot_duration_tracker = slot_duration_tracker.clone();
+				async move {
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					let slot_duration = slot_duration_tracker.fetch(&header)?.ok_or_else(|| {
+						"Failed to fetch slot duration for inherent data provider".to_string()
+					})?;
+					let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
 						*timestamp,
 						slot_duration,
 					);
 
-				Ok((slot, timestamp))
+					Ok((slot, timestamp))
+				}
 			},
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,

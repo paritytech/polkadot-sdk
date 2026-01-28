@@ -61,7 +61,7 @@ where
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
 	/// Create a new `AuthoritiesTracker`.
-	pub(crate) fn new(
+	pub(super) fn new(
 		client: Arc<C>,
 		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
 	) -> Result<Self, String> {
