@@ -218,7 +218,7 @@ impl<B: BlockT> StateStrategy<B> {
 
 		match self.state_sync.import(response) {
 			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
+				let origin = BlockOrigin::StateSync { is_verified: false };
 				let block = IncomingBlock {
 					hash,
 					header: Some(header),
@@ -726,7 +726,7 @@ mod test {
 		state_sync_provider.expect_import().return_once(move |_| import);
 
 		// Reference values to check against.
-		let expected_origin = BlockOrigin::NetworkInitialSync;
+		let expected_origin = BlockOrigin::StateSync { is_verified: false };
 		let expected_block = IncomingBlock {
 			hash,
 			header: Some(header),
