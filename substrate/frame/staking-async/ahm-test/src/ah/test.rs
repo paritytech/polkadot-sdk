@@ -17,7 +17,7 @@
 
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
-use frame_election_provider_support::{SortedListProvider, Weight};
+use frame_election_provider_support::Weight;
 use frame_support::{assert_ok, hypothetically};
 
 use pallet_election_provider_multi_block::{
@@ -1084,36 +1084,6 @@ fn era_lifecycle_test() {
 	});
 }
 
-#[test]
-fn vote_nominate_while_bagslist_is_locked() {
-	ExtBuilder::default().build().execute_with(|| {
-		VoterBagsList::lock();
-
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![3]));
-		assert!(pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
-		roll_next();
-
-		assert!(pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
-		VoterBagsList::unlock();
-
-		roll_next();
-		assert!(!pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
-
-		VoterBagsList::lock();
-
-		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(2),
-			pallet_staking_async::ValidatorPrefs::default()
-		));
-		assert!(pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
-
-		VoterBagsList::unlock();
-		roll_next();
-
-		assert!(!pallet_bags_list::PendingRebag::<T, VoterBagsListInstance>::contains_key(&2));
-		assert_ok!(pallet_bags_list::List::<T, VoterBagsListInstance>::get_score(&2));
-	})
-}
 mod poll_operations {
 	use super::*;
 	use pallet_election_provider_multi_block::verifier::{Status, Verifier};

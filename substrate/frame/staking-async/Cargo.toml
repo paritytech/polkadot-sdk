@@ -40,7 +40,9 @@ pallet-dap = { optional = true, workspace = true }
 anyhow = { workspace = true }
 env_logger = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
+frame-support = { features = [
+	"experimental",
+], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-dap = { workspace = true, default-features = true }

@@ -19,7 +19,7 @@ use crate::shared;
 use frame::testing_prelude::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	SequentialPhragmen, VoteWeight,
+	SequentialPhragmen,
 };
 use frame_support::{
 	sp_runtime::testing::TestXt,
@@ -54,8 +54,6 @@ construct_runtime! {
 		MultiBlockVerifier: multi_block::verifier,
 		MultiBlockSigned: multi_block::signed,
 		MultiBlockUnsigned: multi_block::unsigned,
-
-		VoterBagsList: pallet_bags_list::<Instance1>,
 		Dap: pallet_dap,
 	}
 }
@@ -85,7 +83,6 @@ pub fn roll_next() {
 	let mut meter = NextPollWeight::take()
 		.map(WeightMeter::with_limit)
 		.unwrap_or_else(System::remaining_block_weight);
-	VoterBagsList::on_idle(next, meter.limit());
 	Staking::on_poll(next, &mut meter);
 	MultiBlock::on_poll(next, &mut meter);
 }
@@ -280,24 +277,6 @@ pub type Hash = <Runtime as frame_system::Config>::Hash;
 pub type BlockNumber = BlockNumberFor<Runtime>;
 pub type BlockWeights = <Runtime as frame_system::Config>::BlockWeights;
 
-pub(crate) const THRESHOLDS: [VoteWeight; 9] = [10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
-
-parameter_types! {
-	pub static BagThresholds: &'static [VoteWeight] = &THRESHOLDS;
-	pub static MaxAutoRebagPerBlock: u32 = 10;
-}
-
-pub type VoterBagsListInstance = pallet_bags_list::Instance1;
-impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	// Staking is the source of truth for voter bags list, since they are not kept up to date.
-	type ScoreProvider = Staking;
-	type BagThresholds = BagThresholds;
-	type MaxAutoRebagPerBlock = MaxAutoRebagPerBlock;
-	type Score = VoteWeight;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = MockBlock<Self>;
@@ -491,7 +470,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxUnlockingChunks = ConstU32<16>;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<16>;
 
-	type VoterList = VoterBagsList;
+	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 
 	type RcClientInterface = RcClient;

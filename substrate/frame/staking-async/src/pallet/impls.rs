@@ -1897,13 +1897,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
-	/// the system (validator is both voter and target).
 	/// * Number of targets in `TargetList` matches the number of validators in the system.
 	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		// When the bags list is locked, nominators and validators may be temporarily
-		// missing from the voter set. `PendingRebag` will later reconcile the mismatch.
+		// missing from the voter set. If `PendingRebag` is enabled, it will later
+		// reconcile the mismatch.
 		crate::log!(
 			debug,
 			"VoterList count: {}, Nominators count: {}, Validators count: {}",
