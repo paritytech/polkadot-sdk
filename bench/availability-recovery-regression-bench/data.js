@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769458296991,
+  "lastUpdate": 1769616936071,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38d3c3074935b9353519a39abdf8f4912c86b196",
-          "message": "Link to dev setup guide from README and CONTRIBUTING (#8827)\n\n# Description\nToday the README does not link to how to get started making `cargo\nbuild` succeed. I've made some minor edits making the repo a bit more\n\"welcoming\" to devs who wanna get started building the repo.\n\n## Changes\n* Update `README.md` on how to get started with development (making\n`cargo build` succeed) by linking to [this\nguide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/)\n* Update `CONTRIBUTING.md` with the same guide\n* Generalize `DOCUMENTATION_GUIDELINES.md` to not only be about\nSubstrate.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-24T14:20:25+02:00",
-          "tree_id": "fd0dab29639ec766763f212ab00a2a1fd5db92ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38d3c3074935b9353519a39abdf8f4912c86b196"
-        },
-        "date": 1750769140360,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.332405656066669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19753073623333325,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12627018796666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c7b9c08825acc61f1adde54535a41855c04962a2",
+          "message": "[Release| CI/CD] Add missing permissions to the docker publishing jobs (#10925)\n\nThis PR fixes the issue with missing permissions in the Combined Publish\nRelease flow.\n[Example](https://github.com/paritytech-release/polkadot-sdk/actions/runs/21358125800)",
+          "timestamp": "2026-01-28T15:07:39Z",
+          "tree_id": "fc1a9ed61121b7f7e0cdacf395847ed44767e900",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7b9c08825acc61f1adde54535a41855c04962a2"
+        },
+        "date": 1769616911675,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.189965734566666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1300137601,
             "unit": "seconds"
           }
         ]
