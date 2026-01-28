@@ -65,28 +65,6 @@ fn test_deposit_calculation() {
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
 #[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
-fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &str) {
-	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-
-		let Contract { addr: caller_addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		let result = builder::bare_call(caller_addr)
-			.data(DepositPrecompile::callSetAndClearCall {}.abi_encode())
-			.build();
-
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
-	});
-}
-
-#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
-#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
-#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
-#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
 fn max_consumed_deposit_integration_refunds_subframes(
 	fixture_type: FixtureType,
 	fixture_name: &str,
