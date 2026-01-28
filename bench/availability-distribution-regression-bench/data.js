@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769616969236,
+  "lastUpdate": 1769621924953,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38d3c3074935b9353519a39abdf8f4912c86b196",
-          "message": "Link to dev setup guide from README and CONTRIBUTING (#8827)\n\n# Description\nToday the README does not link to how to get started making `cargo\nbuild` succeed. I've made some minor edits making the repo a bit more\n\"welcoming\" to devs who wanna get started building the repo.\n\n## Changes\n* Update `README.md` on how to get started with development (making\n`cargo build` succeed) by linking to [this\nguide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/)\n* Update `CONTRIBUTING.md` with the same guide\n* Generalize `DOCUMENTATION_GUIDELINES.md` to not only be about\nSubstrate.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-24T14:20:25+02:00",
-          "tree_id": "fd0dab29639ec766763f212ab00a2a1fd5db92ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38d3c3074935b9353519a39abdf8f4912c86b196"
-        },
-        "date": 1750769168019,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02243470601999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012902254406666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008826469620000096,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1567553736266667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.0067031862,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df0500abc53f46111071ee3a1075f0da4f5541c0",
+          "message": "Remove failing assertion related to VoterList count mismatch (#10880)\n\nUpdated bags-list so that on_insert queues items into PendingRebag\ninstead of failing, and removed the invariant that required VoterList's\ncount to equal the combined number of Nominators and Validators. This is\nsafe while bags-list is locked. After unlocking, on_idle drains\nPendingRebag, and the counts converge back to consistency over time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-01-28T16:22:18Z",
+          "tree_id": "ca2ebf68f7dc48ff1cb353f693263fc115392586",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df0500abc53f46111071ee3a1075f0da4f5541c0"
+        },
+        "date": 1769621900941,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023322346386666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14688019528666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007069043966666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010064186139999992,
             "unit": "seconds"
           }
         ]
