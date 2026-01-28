@@ -589,7 +589,7 @@ where
 		let make_notifications = match origin {
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
 				true,
-			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
+			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File | BlockOrigin::WarpSync | BlockOrigin::StateSync { .. } | BlockOrigin::GapSync => false,
 		};
 
 		let storage_changes = match storage_changes {
