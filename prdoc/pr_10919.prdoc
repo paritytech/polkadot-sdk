@@ -1,0 +1,22 @@
+title: Add revive substrate runtime-api integration tests for call & instantiate
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    - Add integration tests for revive runtime API
+    - Test Fibonacci contract deployment and execution via substrate APIs
+
+    ## Changes
+    - Add test for Fibonacci contract call via runtime API
+    - Add test to verify large Fibonacci values run out of gas as expected
+    - Update dev-node runtime configuration for testing
+
+    ## Test plan
+    - Run new integration tests
+    - Verify runtime API correctly handles contract deployment
+    - Verify gas limits are enforced correctly
+crates:
+- name: revive-dev-runtime
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
