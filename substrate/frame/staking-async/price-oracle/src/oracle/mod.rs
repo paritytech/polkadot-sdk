@@ -22,7 +22,7 @@ pub mod pallet {
 		dispatch::DispatchResult,
 		pallet_prelude::*,
 		traits::{Defensive, DefensiveTruncateInto, EnsureOrigin, OneSessionHandler, Time},
-		DefaultNoBound, Parameter,
+		Parameter,
 	};
 	use frame_system::{
 		offchain::{AppCrypto, CreateBare, CreateSignedTransaction},
@@ -37,14 +37,32 @@ pub mod pallet {
 
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
+		/// The asset-id type.
 		type AssetId;
+		/// The account-id type.
 		type AccountId;
+		/// The error type.
 		type Error: Debug + Eq + PartialEq + Clone;
 
+		/// Tally the votes for a given asset.
 		fn tally(
 			asset_id: Self::AssetId,
 			votes: Vec<(Self::AccountId, FixedU128)>,
 		) -> Result<(FixedU128, Percent), Self::Error>;
+	}
+
+	pub trait OnPriceUpdate {
+		/// The asset-id type.
+		type AssetId;
+		/// The block number type.
+		type BlockNumber;
+		/// The moment type.
+		type Moment;
+
+		fn on_price_update(
+			asset_id: Self::AssetId,
+			new: PriceData<Self::BlockNumber, Self::Moment>,
+		);
 	}
 
 	#[pallet::config]
@@ -102,6 +120,15 @@ pub mod pallet {
 
 		/// Type providing a secure notion of timestamp.
 		type TimeProvider: Time;
+
+		/// Hook to inform other systems that the price has been updated.
+		///
+		/// Is essentially a listener for [`Price`] storage item.
+		type OnPriceUpdate: OnPriceUpdate<
+			AssetId = Self::AssetId,
+			BlockNumber = BlockNumberFor<Self>,
+			Moment = MomentOf<Self>,
+		>;
 
 		/// Every `PriceUpdateInterval` blocks, the offchain worker will submit a price update
 		/// transaction.
@@ -161,7 +188,9 @@ pub mod pallet {
 
 	impl<T: Config> StorageManager<T> {
 		/// Current best price of an asset.
-		pub(crate) fn current_price(asset_id: T::AssetId) -> Option<PriceData<T>> {
+		pub(crate) fn current_price(
+			asset_id: T::AssetId,
+		) -> Option<PriceData<BlockNumberFor<T>, MomentOf<T>>> {
 			Price::<T>::get(&asset_id)
 		}
 
@@ -244,7 +273,12 @@ pub mod pallet {
 		/// * Append the current price to the price history in [`PriceHistory`], removing stale ones
 		///   if necessary.
 		/// * Removes stale votes from [`BlockVotes`] if necessary.
-		fn update(asset_id: T::AssetId, price: FixedU128, confidence: Percent) -> DispatchResult {
+		/// * Returns the new price.
+		fn update(
+			asset_id: T::AssetId,
+			price: FixedU128,
+			confidence: Percent,
+		) -> Result<PriceData<BlockNumberFor<T>, MomentOf<T>>, Error<T>> {
 			// ensure this asset is tracked at this point.
 			ensure!(Self::is_tracked(asset_id), Error::<T>::AssetNotTracked);
 
@@ -258,14 +292,14 @@ pub mod pallet {
 			let new_price = PriceData { price, confidence, updated_in };
 
 			// Update price related data.
-			Price::<T>::insert(asset_id, new_price);
+			Price::<T>::insert(asset_id, &new_price);
 			if let Some(yanked_price) = maybe_yanked_price {
 				if T::HistoryDepth::get() > 0 {
 					let mut price_history = PriceHistory::<T>::get(asset_id);
 					if price_history.is_full() {
 						price_history.remove(0);
 					}
-					price_history
+					let _ = price_history
 						.try_push(yanked_price)
 						.defensive_proof("is not full; try_push will not fail; qed");
 					PriceHistory::<T>::insert(asset_id, price_history);
@@ -283,7 +317,7 @@ pub mod pallet {
 				BlockVotes::<T>::remove(&asset_id, to_remove);
 			}
 
-			Ok(())
+			Ok(new_price)
 		}
 	}
 
@@ -365,22 +399,20 @@ pub mod pallet {
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
-		DebugNoBound,
-		CloneNoBound,
-		EqNoBound,
-		PartialEqNoBound,
-		DefaultNoBound,
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		Default,
 		MaxEncodedLen,
 	)]
-	#[codec(mel_bound(T: Config))]
-	#[scale_info(skip_type_params(T))]
-	struct TimePoint<T: Config> {
+	pub struct TimePoint<BlockNumber, Moment> {
 		/// The local block number.
-		local: BlockNumberFor<T>,
+		local: BlockNumber,
 		/// The relay block number.
-		relay: BlockNumberFor<T>,
+		relay: BlockNumber,
 		/// The canonical timestamp.
-		timestamp: MomentOf<T>,
+		timestamp: Moment,
 	}
 
 	/// A single price data-point.
@@ -389,22 +421,20 @@ pub mod pallet {
 		Encode,
 		Decode,
 		DecodeWithMemTracking,
-		DebugNoBound,
-		CloneNoBound,
-		EqNoBound,
-		PartialEqNoBound,
-		DefaultNoBound,
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		Default,
 		MaxEncodedLen,
 	)]
-	#[codec(mel_bound(T: Config))]
-	#[scale_info(skip_type_params(T))]
-	pub(crate) struct PriceData<T: Config> {
+	pub struct PriceData<BlockNumber, Moment> {
 		/// The price of the asset.
 		price: FixedU128,
-		/// The time point at which the price was updated.
-		updated_in: TimePoint<T>,
 		/// The confidence in the price.
 		confidence: Percent,
+		/// The time point at which the price was updated.
+		updated_in: TimePoint<BlockNumber, Moment>,
 	}
 
 	#[pallet::storage]
@@ -417,7 +447,13 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	type Price<T: Config> = StorageMap<_, Twox64Concat, T::AssetId, PriceData<T>, OptionQuery>;
+	type Price<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AssetId,
+		PriceData<BlockNumberFor<T>, MomentOf<T>>,
+		OptionQuery,
+	>;
 
 	/// Historical prices stored for assets.
 	///
@@ -427,7 +463,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AssetId,
-		BoundedVec<PriceData<T>, T::HistoryDepth>,
+		BoundedVec<PriceData<BlockNumberFor<T>, MomentOf<T>>, T::HistoryDepth>,
 		ValueQuery,
 	>;
 
@@ -486,7 +522,25 @@ pub mod pallet {
 				match T::TallyManager::tally(asset_id, votes) {
 					Ok((price, confidence)) => {
 						// will store the new price, and prune old voting data
-						let res = StorageManager::<T>::update(asset_id, price, confidence);
+						match StorageManager::<T>::update(asset_id, price, confidence) {
+							Ok(new_price) => {
+								log!(
+									info,
+									"updated price for asset {:?}: {:?}",
+									asset_id,
+									new_price
+								);
+								T::OnPriceUpdate::on_price_update(asset_id, new_price);
+							},
+							Err(e) => {
+								log!(
+									warn,
+									"failed to update price for asset {:?}: {:?}",
+									asset_id,
+									e
+								);
+							},
+						}
 					},
 					Err(e) => {
 						log!(error, "error tallying votes for asset {:?}: {:?}", asset_id, e);
@@ -503,7 +557,8 @@ pub mod pallet {
 		}
 
 		fn offchain_worker(block_number: BlockNumberFor<T>) {
-			offchain::OracleOffchainWorker::<T>::offchain_worker(block_number);
+			let res = offchain::OracleOffchainWorker::<T>::offchain_worker(block_number);
+			log!(debug, "offchain worker result: {:?}", res);
 		}
 	}
 
@@ -519,11 +574,9 @@ pub mod pallet {
 			produced_in: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin).and_then(|who| {
-				// TODO: not efficient to read all to check if person is part of. Need a
-				// btreeSet
 				Authorities::<T>::get()
 					.into_iter()
-					.find_map(|(a, _)| if a.encode() == who.encode() { Some(who.clone()) } else { None }) // TODO: bit too hacky, can improve
+					.find_map(|(a, _c)| if a == who { Some(a) } else { None })
 					.ok_or(sp_runtime::traits::BadOrigin)
 			})?;
 
@@ -551,10 +604,14 @@ pub mod pallet {
 		}
 	}
 
+	/// Helper functions.
 	impl<T: Config> Pallet<T> {
+		/// Get the local block number.
 		pub(crate) fn local_block_number() -> BlockNumberFor<T> {
 			frame_system::Pallet::<T>::block_number()
 		}
+
+		/// Get the relay block number.
 		pub(crate) fn relay_block_number() -> BlockNumberFor<T> {
 			T::RelayBlockNumberProvider::current_block_number()
 		}
@@ -571,7 +628,8 @@ pub mod pallet {
 		where
 			I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 		{
-			let authorities = validators.map(|(who, _keys)| (who.clone(), Percent::one())).collect::<Vec<_>>();
+			let authorities =
+				validators.map(|(who, _keys)| (who.clone(), Percent::one())).collect::<Vec<_>>();
 			let bounded: BoundedVec<_, _> = authorities.defensive_truncate_into();
 			Authorities::<T>::put(bounded);
 		}
@@ -580,9 +638,10 @@ pub mod pallet {
 		where
 			I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 		{
-			// instant changes
 			if changed {
-				let authorities = validators.map(|(who, _keys)| (who.clone(), Percent::one())).collect::<Vec<_>>();
+				let authorities = validators
+					.map(|(who, _keys)| (who.clone(), Percent::one()))
+					.collect::<Vec<_>>();
 				let count = authorities.len() as u32;
 				let bounded: BoundedVec<_, _> = authorities.defensive_truncate_into();
 				Authorities::<T>::put(bounded);
@@ -591,7 +650,7 @@ pub mod pallet {
 		}
 
 		fn on_disabled(_: u32) {
-			todo!();
+			// TODO
 		}
 	}
 }
