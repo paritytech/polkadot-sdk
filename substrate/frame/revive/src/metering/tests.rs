@@ -119,6 +119,65 @@ fn max_consumed_deposit_integration_refunds_subframes(
 	});
 }
 
+/// Test that storage deposit refunds work correctly when parent allocates storage
+/// and a nested call clears it.
+///
+/// This test validates the fix for https://github.com/paritytech/contract-issues/issues/213
+/// where storage deposit refunds failed in subframes because child frames couldn't see
+/// the parent frame's pending storage changes.
+///
+/// The test compares two scenarios:
+/// 1. `setAndClear()`: Sets storage and clears it directly (no nested call)
+/// 2. `setAndCallClear()`: Sets storage and clears it via nested call
+///
+/// Both should produce identical storage deposit results because the net storage
+/// change is the same. Before the fix, the nested call variant would fail because
+/// the child frame couldn't see the parent's pending storage allocation when
+/// calculating the refund.
+#[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
+#[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
+#[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
+#[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
+fn nested_call_refund_matches_direct_refund(fixture_type: FixtureType, fixture_name: &str) {
+	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// First, get the result when setting and clearing storage directly (no nested call)
+		let direct_result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+			.build();
+
+		// Clear storage to reset state
+		builder::bare_call(caller_addr)
+			.data(DepositPrecompile::clearAllCall {}.abi_encode())
+			.build();
+
+		// Now get the result when clearing via nested call
+		// The parent sets storage (a=2, b=3), then calls this.clear() to clear it
+		// The child frame must see the parent's pending storage to calculate refunds correctly
+		let nested_result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndCallClearCall {}.abi_encode())
+			.build();
+
+		// Both approaches should produce the same storage deposit result
+		// This assertion would fail before the fix because the nested call variant
+		// couldn't correctly see the parent's pending storage for refund calculation
+		assert_eq!(
+			direct_result.storage_deposit, nested_result.storage_deposit,
+			"Nested call should produce same storage deposit as direct call"
+		);
+		assert_eq!(
+			direct_result.max_storage_deposit, nested_result.max_storage_deposit,
+			"Nested call should produce same max storage deposit as direct call"
+		);
+	});
+}
+
 #[test]
 fn substrate_metering_initialization_works() {
 	let gas_scale = <Test as Config>::GasScale::get().into();
