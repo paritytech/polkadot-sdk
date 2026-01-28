@@ -1043,7 +1043,7 @@ pub mod pallet {
 			assert_eq!(
 				T::VoterList::count(),
 				Nominators::<T>::count() + Validators::<T>::count(),
-				"not all genesis stakers were inserted into sorted list provider, something is wrong." 
+				"not all genesis stakers were inserted into sorted list provider, something is wrong."
 			);
 
 			// now generate the dev stakers, after all else is setup

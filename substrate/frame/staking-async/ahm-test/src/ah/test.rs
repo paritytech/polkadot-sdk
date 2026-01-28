@@ -19,7 +19,6 @@ use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::{assert_ok, hypothetically};
-
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
@@ -1083,7 +1082,6 @@ fn era_lifecycle_test() {
 		}
 	});
 }
-
 mod poll_operations {
 	use super::*;
 	use pallet_election_provider_multi_block::verifier::{Status, Verifier};

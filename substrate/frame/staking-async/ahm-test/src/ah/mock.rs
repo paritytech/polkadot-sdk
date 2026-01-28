@@ -54,6 +54,7 @@ construct_runtime! {
 		MultiBlockVerifier: multi_block::verifier,
 		MultiBlockSigned: multi_block::signed,
 		MultiBlockUnsigned: multi_block::unsigned,
+		
 		Dap: pallet_dap,
 	}
 }
@@ -238,7 +239,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 						})
 					)
 				);
-				break;
+				break
 			},
 			_ => panic!("Expected only one message in local queue, but got: {:?}", messages),
 		}
