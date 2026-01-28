@@ -67,7 +67,7 @@ pub mod async_backing {
 }
 
 mod genesis_config_presets;
-mod test_pallet;
+pub mod test_pallet;
 
 extern crate alloc;
 

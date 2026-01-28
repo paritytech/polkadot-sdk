@@ -164,6 +164,10 @@ fn init_block_builder(
 		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 		.expect("Put timestamp failed");
 
+	let alice_key = cumulus_test_runtime::test_pallet::relay_alice_account_key();
+	let alice_data = (0u32, 0u32, 1u32, 0u32, 25_000_000_000_000u128, 0u128, 0u128, 0u128).encode();
+	relay_sproof_builder.additional_key_values.push((alice_key, alice_data));
+
 	let (relay_parent_storage_root, relay_chain_state) =
 		relay_sproof_builder.into_state_root_and_proof();
 
