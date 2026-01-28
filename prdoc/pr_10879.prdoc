@@ -1,0 +1,16 @@
+title: 'feat: aura slot duration tracker'
+doc:
+- audience: Todo
+  description: |-
+    Similar to https://github.com/paritytech/polkadot-sdk/pull/9707, but for slot duration tracking rather than authorities. The point is to avoid runtime calls in the verifier. Adds a test which changes the aura slot duration dynamically.
+
+    This PR supersedes https://github.com/paritytech/polkadot-sdk/pull/9964.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: sc-consensus-aura
+  bump: major
+- name: sp-core
+  bump: major
