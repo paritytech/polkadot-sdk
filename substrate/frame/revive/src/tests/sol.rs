@@ -745,10 +745,10 @@ fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 	use pallet_revive_fixtures::{Callee, Caller};
 
 	/// Identifier for a call operation, either an EVM opcode or a PVM syscall index.
-	#[derive(Clone, Copy)]
+	#[derive(Clone, Copy, Debug)]
 	enum CallOp {
-		EVMOpcode(u8),
-		PVMSyscall(u8),
+		Evm(u8),
+		Pvm(u8),
 	}
 
 	/// Verifies gas tracking for a call operation (CALL/DELEGATECALL opcode or syscall):
@@ -760,41 +760,40 @@ fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 
 		for (i, step) in steps.iter().enumerate() {
 			let matches = match (&step.kind, call_op) {
-				(ExecutionStepKind::EVMOpcode { op, .. }, CallOp::EVMOpcode(expected)) =>
-					*op == expected,
-				(ExecutionStepKind::PVMSyscall { op, .. }, CallOp::PVMSyscall(expected)) =>
-					*op == expected,
+				(ExecutionStepKind::EVMOpcode { op, .. }, CallOp::Evm(expected)) => *op == expected,
+				(ExecutionStepKind::PVMSyscall { op, .. }, CallOp::Pvm(expected)) => *op == expected,
 				_ => false,
 			};
 
 			if matches && step.depth == 1 {
 				assert!(step.gas_cost > 0, "{} should have non-zero gas_cost", op_name);
 
-				let first_step_after_return = steps[i + 1..].iter().find(|s| s.depth == 1);
+				let return_step = steps[i + 1..]
+					.iter()
+					.find(|s| s.depth == 1)
+					.expect("Should have a step after returning from nested call");
 
-				if let Some(return_step) = first_step_after_return {
-					let expected_gas = step.gas.saturating_sub(step.gas_cost);
+				let expected_gas = step.gas.saturating_sub(step.gas_cost);
 
-					match call_op {
-						CallOp::EVMOpcode(_) => {
-							// EVM: exact equality (every opcode is traced)
-							assert_eq!(
-								expected_gas, return_step.gas,
-								"{}: gas - gas_cost should equal return step gas",
-								op_name
-							);
-						},
-						CallOp::PVMSyscall(_) => {
-							// PVM: inequality (instructions between syscalls consume gas)
-							assert!(
-								return_step.gas <= expected_gas,
-								"{}: return gas ({}) should be <= gas - gas_cost ({})",
-								op_name,
-								return_step.gas,
-								expected_gas
-							);
-						},
-					}
+				match call_op {
+					CallOp::Evm(_) => {
+						// EVM: exact equality (every opcode is traced)
+						assert_eq!(
+							expected_gas, return_step.gas,
+							"{}: gas - gas_cost should equal return step gas",
+							op_name
+						);
+					},
+					CallOp::Pvm(_) => {
+						// PVM: inequality (instructions between syscalls consume gas)
+						assert!(
+							return_step.gas <= expected_gas,
+							"{}: return gas ({}) should be <= gas - gas_cost ({})",
+							op_name,
+							return_step.gas,
+							expected_gas
+						);
+					},
 				}
 				return;
 			}
@@ -814,7 +813,6 @@ fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 		tracer.collect_trace()
 	}
 
-	let is_evm = fixture_type == FixtureType::Solc;
 	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 	let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
@@ -854,10 +852,11 @@ fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 			"Should have nested call steps"
 		);
 
-		let (call_op, call_name) = if is_evm {
-			(CallOp::EVMOpcode(revm::bytecode::opcode::CALL), "CALL")
-		} else {
-			(CallOp::PVMSyscall(lookup_syscall_index("call_evm").unwrap()), "call_evm")
+		let (call_op, call_name) = match fixture_type {
+			FixtureType::Solc | FixtureType::SolcRuntime =>
+				(CallOp::Evm(revm::bytecode::opcode::CALL), "CALL"),
+			FixtureType::Resolc | FixtureType::Rust =>
+				(CallOp::Pvm(lookup_syscall_index("call_evm").unwrap()), "call_evm"),
 		};
 		verify_call_gas(&call_trace, call_op, call_name);
 
@@ -873,13 +872,13 @@ fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
 			.abi_encode(),
 		);
 
-		let (delegate_op, delegate_name) = if is_evm {
-			(CallOp::EVMOpcode(revm::bytecode::opcode::DELEGATECALL), "DELEGATECALL")
-		} else {
-			(
-				CallOp::PVMSyscall(lookup_syscall_index("delegate_call_evm").unwrap()),
+		let (delegate_op, delegate_name) = match fixture_type {
+			FixtureType::Solc | FixtureType::SolcRuntime =>
+				(CallOp::Evm(revm::bytecode::opcode::DELEGATECALL), "DELEGATECALL"),
+			FixtureType::Resolc | FixtureType::Rust => (
+				CallOp::Pvm(lookup_syscall_index("delegate_call_evm").unwrap()),
 				"delegate_call_evm",
-			)
+			),
 		};
 		verify_call_gas(&delegate_trace, delegate_op, delegate_name);
 	});
