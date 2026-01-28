@@ -18,7 +18,7 @@
 //! Benchmarking for pallet-price-oracle
 
 use super::*;
-use crate::oracle::{pallet::Config, Asset, Pallet, TrackedAssets};
+use crate::oracle::{pallet::Config, Pallet};
 use frame_benchmarking::v2::*;
 use frame_support::BoundedVec;
 use frame_system::RawOrigin;
