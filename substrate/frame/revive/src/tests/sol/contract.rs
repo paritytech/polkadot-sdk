@@ -24,7 +24,7 @@ use crate::{
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
 	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT},
-	tests::{builder, ExtBuilder, MockHandlerImpl, Test},
+	tests::{builder, ExtBuilder, MockHandlerImpl, Test, MOCK_CODE},
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
 };
@@ -558,7 +558,6 @@ fn mocked_code_works() {
 
 		let mocked_addr = H160::from_slice(&[0x42; 20]);
 
-		const MOCK_CODE: [u8; 5] = [0x60, 0x00, 0x60, 0x00, 0xfd];
 		let expected_size = MOCK_CODE.len() as u64;
 		let expected_hash = sp_io::hashing::keccak_256(&MOCK_CODE);
 
