@@ -17,28 +17,47 @@
 
 //! Test utilities for pallet-price-oracle
 
-use crate::oracle as pallet_price_oracle;
-use frame_support::{derive_impl, parameter_types};
-use frame_system::EnsureRoot;
+use crate::{oracle::{self as pallet_price_oracle, MomentOf}, tally::SimpleAverage};
+use frame_support::{derive_impl, parameter_types, traits::Time};
+use frame_system::{EnsureRoot, pallet_prelude::BlockNumberFor};
 use sp_core::sr25519::Signature;
 use sp_runtime::{
 	impl_opaque_keys,
 	testing::UintAuthorityId,
-	traits::{IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlockNumberProvider, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type Block = frame_system::mocking::MockBlock<Runtime>;
+pub type T = Runtime;
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
 
 frame_support::construct_runtime!(
-	pub enum Test {
+	pub enum Runtime {
 		System: frame_system,
 		PriceOracle: pallet_price_oracle,
 	}
 );
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
+impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
@@ -52,19 +71,58 @@ impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub const PriceUpdateInterval: u64 = 5;
+	pub static PriceUpdates: Vec<(u32, pallet_price_oracle::PriceDataOf<T>)> = Default::default();
 }
 
-impl pallet_price_oracle::Config for Test {
+pub struct OnPriceUpdate;
+impl pallet_price_oracle::OnPriceUpdate for OnPriceUpdate {
+	type AssetId = <Runtime as pallet_price_oracle::Config>::AssetId;
+	type BlockNumber = BlockNumberFor<Runtime>;
+	type Moment = MomentOf<T>;
+	fn on_price_update(
+				asset_id: Self::AssetId,
+				new: pallet_price_oracle::PriceData<Self::BlockNumber, Self::Moment>,
+			) {
+		PriceUpdates::mutate(|updates| updates.push((asset_id, new)));
+	}
+}
+
+parameter_types! {
+	pub static PriceUpdateInterval: u64 = 5;
+	pub static HistoryDepth: u32 = 4;
+	pub static MaxVotesPerBlock: u32 = 8;
+	pub static MaxVoteAge: u64 = 4;
+}
+
+pub struct TimeProvider;
+impl Time for TimeProvider {
+	type Moment = u64;
+	fn now() -> Self::Moment {
+		(System::block_number() * 1000) as u64
+	}
+}
+
+impl pallet_price_oracle::Config for Runtime {
 	type AuthorityId = UintAuthorityId;
 	type PriceUpdateInterval = PriceUpdateInterval;
 	type AssetId = u32;
 	type AdminOrigin = EnsureRoot<Self::AccountId>;
+	type HistoryDepth = HistoryDepth;
+	type MaxAuthorities = ConstU32<8>;
+	type MaxEndpointsPerAsset = ConstU32<8>;
+	type MaxEndpointLength = ConstU32<128>;
+	type MaxVotesPerBlock = MaxVotesPerBlock;
+	type MaxVoteAge = MaxVoteAge;
+	type TallyManager = SimpleAverage<Self>;
+	// Note: relay and para-block is the same in tests.
+	type RelayBlockNumberProvider = System;
+	type TimeProvider = TimeProvider;
+	type OnPriceUpdate = ();
 	type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::from(storage);
 	ext.execute_with(|| System::set_block_number(1));
 	ext

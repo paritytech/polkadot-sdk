@@ -33,7 +33,11 @@ pub mod pallet {
 		FixedU128, Percent, RuntimeAppPublic, Saturating,
 	};
 
-	pub(crate) type MomentOf<T> = <<T as Config>::TimeProvider as Time>::Moment;
+	/// Alias for the moment type.
+	pub type MomentOf<T> = <<T as Config>::TimeProvider as Time>::Moment;
+
+	/// Alias for the price data type.
+	pub type PriceDataOf<T> = PriceData<BlockNumberFor<T>, MomentOf<T>>;
 
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
@@ -51,6 +55,8 @@ pub mod pallet {
 		) -> Result<(FixedU128, Percent), Self::Error>;
 	}
 
+	/// Listener hook to be implemented by entities that wish to be informed of price updates.
+	#[impl_trait_for_tuples::impl_for_tuples(8)]
 	pub trait OnPriceUpdate {
 		/// The asset-id type.
 		type AssetId;
