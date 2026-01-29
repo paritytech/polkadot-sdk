@@ -53,6 +53,16 @@ fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 	Ok(())
 }
 
+/// Return the lottery account and amount of money in the pot.
+/// The existential deposit is not part of the pot so lottery account never gets deleted.
+fn get_lottery_balance<T: Config>() -> BalanceOf<T> {
+	T::Currency::reducible_balance(
+		&Lottery::<T>::account_id(),
+		Preservation::Preserve,
+		Fortitude::Polite,
+	)
+}
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -60,7 +70,7 @@ mod benchmarks {
 	#[benchmark]
 	fn buy_ticket() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10u32.into());
 		setup_lottery::<T>(false)?;
 		// force user to have a long vec of calls participating
 		let set_code_index: CallIndex = Lottery::<T>::call_to_index(
@@ -140,21 +150,18 @@ mod benchmarks {
 		setup_lottery::<T>(false)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::make_free_balance_be(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::make_free_balance_be(
-			&lottery_account,
-			T::Currency::minimum_balance() * 10u32.into(),
-		);
+		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
-		assert!(!Lottery::<T>::pot().1.is_zero());
+		assert!(!get_lottery_balance::<T>().is_zero());
 
 		#[block]
 		{
@@ -168,8 +175,13 @@ mod benchmarks {
 
 		assert!(crate::Lottery::<T>::get().is_none());
 		assert_eq!(TicketsCount::<T>::get(), 0);
-		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::free_balance(&winner).is_zero());
+		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
+		assert!(!T::Currency::reducible_balance(
+			&winner,
+			Preservation::Expendable,
+			Fortitude::Polite
+		)
+		.is_zero());
 
 		Ok(())
 	}
@@ -179,21 +191,18 @@ mod benchmarks {
 		setup_lottery::<T>(true)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::make_free_balance_be(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::make_free_balance_be(
-			&lottery_account,
-			T::Currency::minimum_balance() * 10u32.into(),
-		);
+		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::make_free_balance_be(&winner, 0u32.into());
+		T::Currency::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
-		assert!(!Lottery::<T>::pot().1.is_zero());
+		assert!(!get_lottery_balance::<T>().is_zero());
 
 		#[block]
 		{
@@ -208,8 +217,13 @@ mod benchmarks {
 		assert!(crate::Lottery::<T>::get().is_some());
 		assert_eq!(LotteryIndex::<T>::get(), 2);
 		assert_eq!(TicketsCount::<T>::get(), 0);
-		assert_eq!(Lottery::<T>::pot().1, 0u32.into());
-		assert!(!T::Currency::free_balance(&winner).is_zero());
+		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
+		assert!(!T::Currency::reducible_balance(
+			&winner,
+			Preservation::Expendable,
+			Fortitude::Polite
+		)
+		.is_zero());
 
 		Ok(())
 	}
