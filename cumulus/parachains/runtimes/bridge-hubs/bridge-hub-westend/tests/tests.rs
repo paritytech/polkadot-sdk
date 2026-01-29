@@ -860,6 +860,7 @@ fn burn_redirects_to_dap_satellite() {
 		let dap_satellite = DapSatellite::satellite_account();
 		let initial_satellite_balance = <Balances as Inspect<_>>::balance(&dap_satellite);
 		let initial_issuance = <Balances as Inspect<_>>::total_issuance();
+		let initial_active_issuance = <Balances as Inspect<_>>::active_issuance();
 
 		// When: user burns some tokens.
 		assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
@@ -875,5 +876,11 @@ fn burn_redirects_to_dap_satellite() {
 
 		// And: total issuance is unchanged (funds redirected, not destroyed).
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_issuance);
+
+		// And: active issuance is reduced (funds deactivated, excluded from governance).
+		assert_eq!(
+			<Balances as Inspect<_>>::active_issuance(),
+			initial_active_issuance - burn_amount
+		);
 	});
 }

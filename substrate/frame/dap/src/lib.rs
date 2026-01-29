@@ -74,6 +74,7 @@ pub mod pallet {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
@@ -120,6 +121,8 @@ pub mod pallet {
 
 			match T::Currency::mint_into(&buffer, ed) {
 				Ok(_) => {
+					// Mark ED as inactive so it doesn't participate in governance.
+					T::Currency::deactivate(ed);
 					log::info!(
 						target: LOG_TARGET,
 						"🏦 Created DAP buffer account: {buffer:?}"
@@ -213,6 +216,9 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		T::Currency::deactivate(numeric_amount);
 	}
 }
 
@@ -233,5 +239,8 @@ impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				defensive!("Failed to credit DAP buffer - Loss of funds due to overflow");
 			},
 		);
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		T::Currency::deactivate(amount);
 	}
 }

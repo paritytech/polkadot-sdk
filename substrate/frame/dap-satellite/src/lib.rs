@@ -156,6 +156,8 @@ pub mod pallet {
 
 			match T::Currency::mint_into(&satellite, ed) {
 				Ok(_) => {
+					// Mark ED as inactive so it doesn't participate in governance.
+					T::Currency::deactivate(ed);
 					log::info!(
 						target: LOG_TARGET,
 						"🛰️ Created DAP satellite account: {satellite:?}"
@@ -293,6 +295,11 @@ impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
 					"Failed to credit DAP satellite - Loss of funds due to overflow"
 				);
 			});
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		// TODO: When implementing XCM transfer to AssetHub, call `reactivate(amount)` before
+		// sending.
+		T::Currency::deactivate(amount);
 	}
 }
 
@@ -328,5 +335,10 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 			target: LOG_TARGET,
 			"💸 Deposited {numeric_amount:?} to DAP satellite"
 		);
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		// TODO: When implementing XCM transfer to AssetHub, call `reactivate(amount)` before
+		// sending.
+		T::Currency::deactivate(numeric_amount);
 	}
 }

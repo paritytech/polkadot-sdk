@@ -34,6 +34,7 @@ fn on_burned_credits_satellite_and_accumulates() {
 
 		// Given: satellite has ED (funded at genesis).
 		assert_eq!(Balances::free_balance(satellite), ed);
+		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
 		// When: multiple burns occur (including zero amount which is a no-op).
 		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&1u64, 0);
@@ -43,6 +44,9 @@ fn on_burned_credits_satellite_and_accumulates() {
 
 		// Then: satellite has ED + 600 (zero amount ignored, others accumulated).
 		assert_eq!(Balances::free_balance(satellite), ed + 600);
+
+		// And: active issuance decreased by 600 (funds deactivated).
+		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 600);
 	});
 }
 

@@ -2104,6 +2104,7 @@ fn burn_redirects_to_dap_buffer() {
 			let dap_buffer = Dap::buffer_account();
 			let initial_dap_balance = Balances::free_balance(&dap_buffer);
 			let initial_issuance = Balances::total_issuance();
+			let initial_active_issuance = Balances::active_issuance();
 
 			// When: user burns some tokens.
 			assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
@@ -2116,5 +2117,8 @@ fn burn_redirects_to_dap_buffer() {
 
 			// And: total issuance is unchanged (funds redirected, not destroyed).
 			assert_eq!(Balances::total_issuance(), initial_issuance);
+
+			// And: active issuance is reduced (funds deactivated, excluded from governance).
+			assert_eq!(Balances::active_issuance(), initial_active_issuance - burn_amount);
 		});
 }

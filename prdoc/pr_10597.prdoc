@@ -10,7 +10,7 @@ doc:
 
     - **pallet-dap-satellite**: New pallet that implements `BurnHandler` and `OnUnbalanced`
       by accumulating funds in a satellite account.
-
+    - DAP and DAP satellite funds are excluded from `active_issuance`.
     - **[breaking change] pallet-balances**: `BurnDestination` is now a required config item
       that must implement `BurnHandler`. The `BurnHandler::on_burned` method is called after
       `decrease_balance` removes funds from an account, allowing each runtime to choose whether
