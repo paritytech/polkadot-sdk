@@ -167,11 +167,11 @@ mod benchmarks {
 		let authority_id = T::AddressMapper::to_account_id(&authority);
 
 		if n == 0 {
-			// Create existing account by incrementing nonce
-			frame_system::Pallet::<T>::inc_account_nonce(&authority_id);
+			// Create existing account by giving it the existential deposit
+			T::Currency::set_balance(&authority_id, Pallet::<T>::min_balance());
 			assert!(
 				frame_system::Account::<T>::contains_key(&authority_id),
-				"Account should exist after incrementing nonce"
+				"Account should exist after setting balance"
 			);
 		} else {
 			assert!(!frame_system::Account::<T>::contains_key(&authority_id));
