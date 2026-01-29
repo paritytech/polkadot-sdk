@@ -548,10 +548,10 @@ impl Participant {
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
-					vec![topic_public_key().to_vec().into(), topic_idx(*idx).to_vec().into()]
-						.try_into()
-						.expect("Two topics")
-				)],
+						vec![topic_public_key().to_vec().into(), topic_idx(*idx).to_vec().into()]
+							.try_into()
+							.expect("Two topics")
+					)],
 					"statement_unsubscribeStatement",
 				)
 				.await?;
@@ -622,13 +622,13 @@ impl Participant {
 				.subscribe::<Bytes>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
-					vec![
-						topic_message().to_vec().into(),
-						topic_pair(&sender_session_key, &own_session_key).to_vec().into()
-					]
-					.try_into()
-					.expect("Two topics")
-				)],
+						vec![
+							topic_message().to_vec().into(),
+							topic_pair(&sender_session_key, &own_session_key).to_vec().into()
+						]
+						.try_into()
+						.expect("Two topics")
+					)],
 					"statement_unsubscribeStatement",
 				)
 				.await?;
@@ -866,8 +866,8 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							.subscribe::<Bytes>(
 								"statement_subscribeStatement",
 								rpc_params![TopicFilter::MatchAll(
-								vec![topic.to_vec().into()].try_into().expect("Single topic")
-							)],
+									vec![topic.to_vec().into()].try_into().expect("Single topic")
+								)],
 								"statement_unsubscribeStatement",
 							)
 							.await

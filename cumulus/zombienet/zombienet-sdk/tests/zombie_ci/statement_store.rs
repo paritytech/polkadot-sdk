@@ -79,7 +79,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let mut subscription = dave_rpc
 		.subscribe::<Bytes>(
 			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(vec![topic.to_vec().into()].try_into().expect("Single topic"))],
+			rpc_params![TopicFilter::MatchAll(
+				vec![topic.to_vec().into()].try_into().expect("Single topic")
+			)],
 			"statement_unsubscribeStatement",
 		)
 		.await?;
