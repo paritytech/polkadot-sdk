@@ -269,7 +269,13 @@ pub type LoggerCall = logger::Call<Test>;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| {
+		// Set a default initial timestamp so tests don't need to set it manually.
+		// Tests that need a different starting time can override with Timestamp::set_timestamp().
+		Timestamp::set_timestamp(60_000);
+	});
+	ext
 }
 
 pub fn root() -> OriginCaller {

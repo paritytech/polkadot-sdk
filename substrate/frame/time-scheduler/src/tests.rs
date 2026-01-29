@@ -47,9 +47,6 @@ fn bucket_is_empty(bucket: u64) -> bool {
 #[docify::export]
 fn basic_scheduling_works() {
 	new_test_ext().execute_with(|| {
-		// Set the initial timestamp (e.g., 60_000ms = 1 minute from epoch)
-		Timestamp::set_timestamp(60_000);
-
 		// Create a call to schedule
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -92,9 +89,6 @@ fn scheduling_with_preimages_works() {
 	use sp_runtime::traits::Hash;
 
 	new_test_ext().execute_with(|| {
-		// Set the initial timestamp
-		Timestamp::set_timestamp(60_000);
-
 		// Create a call to schedule
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -191,9 +185,6 @@ fn schedule_after_zero_works() {
 #[test]
 fn periodic_scheduling_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to minute 1 (60_000ms)
-		Timestamp::set_timestamp(60_000);
-
 		// Schedule at minute 2, every 2 minutes, 3 times
 		// Period: 120_000ms (2 minutes)
 		assert_ok!(Scheduler::do_schedule(
@@ -240,9 +231,6 @@ fn periodic_scheduling_works() {
 #[test]
 fn cancel_named_scheduling_works_with_normal_cancel() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Schedule named task at minute 2
 		Scheduler::do_schedule_named(
 			[1u8; 32],
@@ -291,9 +279,6 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 #[test]
 fn cancel_named_periodic_scheduling_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Schedule named periodic task: at minute 2, every 2 minutes, 3 times
 		Scheduler::do_schedule_named(
 			[1u8; 32],
@@ -355,9 +340,6 @@ fn cancel_named_periodic_scheduling_works() {
 #[test]
 fn reschedule_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -396,9 +378,6 @@ fn reschedule_works() {
 #[test]
 fn reschedule_named_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -439,9 +418,6 @@ fn reschedule_named_works() {
 #[test]
 fn reschedule_named_periodic_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -507,9 +483,6 @@ fn retry_scheduling_works() {
 	new_test_ext().execute_with(|| {
 		// Task fails until we reach minute 8 (480_000ms)
 		logger::set_time_threshold(480_000, 6_000_000);
-
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
 
 		// Task 42 at minute 4 (240_000ms)
 		assert_ok!(Scheduler::do_schedule(
@@ -580,9 +553,6 @@ fn named_retry_scheduling_works() {
 		// Task fails until we reach minute 8 (480_000ms)
 		logger::set_time_threshold(480_000, 6_000_000);
 
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
-
 		// Named task 42 at minute 4 (240_000ms)
 		let call = RuntimeCall::Logger(LoggerCall::timed_log {
 			i: 42,
@@ -637,9 +607,6 @@ fn retry_scheduling_expires() {
 	new_test_ext().execute_with(|| {
 		// Task will always fail (threshold is in the past)
 		logger::set_time_threshold(1, 60_000);
-
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
 
 		// Task 42 at minute 4 (240_000ms)
 		assert_ok!(Scheduler::do_schedule(
@@ -698,9 +665,6 @@ fn retry_scheduling_expires() {
 #[test]
 fn set_retry_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Task 42 at minute 4
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(240_000),
@@ -727,9 +691,6 @@ fn set_retry_works() {
 #[test]
 fn set_named_retry_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Named task 42 at minute 4
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
@@ -758,9 +719,6 @@ fn set_named_retry_works() {
 #[test]
 fn set_retry_bad_origin() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Task 42 at minute 4 with account 101 as origin
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(240_000),
@@ -785,9 +743,6 @@ fn set_retry_bad_origin() {
 #[test]
 fn set_retry_rejects_duration_too_small() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Task 42 at minute 4
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(240_000),
@@ -818,9 +773,6 @@ fn set_retry_rejects_duration_too_small() {
 #[test]
 fn set_retry_named_rejects_duration_too_small() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Named task 42 at minute 4
 		assert_ok!(Scheduler::do_schedule_named(
 			[1u8; 32],
@@ -853,9 +805,6 @@ fn cancel_removes_retry_entry() {
 	new_test_ext().execute_with(|| {
 		// Task fails until minute 99
 		logger::set_time_threshold(99 * 60_000, 100 * 60_000);
-
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
 
 		// Task 20 at minute 4
 		assert_ok!(Scheduler::do_schedule(
@@ -939,9 +888,6 @@ fn cancel_retries_works() {
 		// Task fails until minute 99
 		logger::set_time_threshold(99 * 60_000, 100 * 60_000);
 
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Task 20 at minute 4
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(240_000),
@@ -999,9 +945,6 @@ fn cancel_retries_works() {
 #[test]
 fn scheduler_respects_weight_limits() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3u64 * 2u64 });
@@ -1035,9 +978,6 @@ fn scheduler_respects_weight_limits() {
 #[test]
 fn scheduler_respects_priority_ordering() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 
 		// Task with lower priority (higher number = lower priority)
@@ -1108,9 +1048,6 @@ fn fails_to_schedule_task_in_the_past() {
 #[test]
 fn cancel_last_task_removes_agenda() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -1146,9 +1083,6 @@ fn cancel_last_task_removes_agenda() {
 #[test]
 fn cancel_named_last_task_removes_agenda() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -1186,9 +1120,6 @@ fn cancel_named_last_task_removes_agenda() {
 #[test]
 fn reschedule_last_task_removes_agenda() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let when = 4u64; // minute 4
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -1227,9 +1158,6 @@ fn reschedule_last_task_removes_agenda() {
 #[test]
 fn root_calls_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1272,9 +1200,6 @@ fn root_calls_works() {
 #[test]
 fn should_use_origin() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1320,9 +1245,6 @@ fn should_use_origin() {
 #[test]
 fn should_check_origin() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1360,9 +1282,6 @@ fn should_check_origin() {
 #[test]
 fn should_check_origin_for_cancel() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call = Box::new(RuntimeCall::Logger(LoggerCall::log_without_filter {
 			i: 69,
 			weight: Weight::from_parts(10, 0),
@@ -1425,9 +1344,6 @@ fn should_check_origin_for_cancel() {
 fn time_scheduler_v1_anon_basic_works() {
 	use frame_support::traits::time_schedule::v1::Anon;
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
@@ -1459,9 +1375,6 @@ fn time_scheduler_v1_anon_basic_works() {
 fn time_scheduler_v1_anon_cancel_works() {
 	use frame_support::traits::time_schedule::v1::Anon;
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -1492,9 +1405,6 @@ fn time_scheduler_v1_anon_cancel_works() {
 fn time_scheduler_v1_named_basic_works() {
 	use frame_support::traits::time_schedule::v1::Named;
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let name = [1u8; 32];
@@ -1528,9 +1438,6 @@ fn time_scheduler_v1_named_basic_works() {
 fn time_scheduler_v1_named_cancel_works() {
 	use frame_support::traits::time_schedule::v1::Named;
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let bound = Preimage::bound(call).unwrap();
@@ -1566,9 +1473,6 @@ fn time_scheduler_v1_named_cancel_works() {
 fn time_scheduler_v1_named_reschedule_works() {
 	use frame_support::traits::time_schedule::v1::Named;
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		let name = [1u8; 32];
@@ -1693,9 +1597,6 @@ fn tasks_not_skipped_when_time_jumps() {
 #[test]
 fn set_named_retry_bad_origin() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		// Named task 42 at minute 4 with account 101 as origin
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
@@ -1724,9 +1625,6 @@ fn retry_scheduling_with_period_works() {
 		// Tasks succeed in buckets 4-8, fail outside that range
 		// In minutes: succeed from 240_000ms to 480_000ms
 		logger::set_time_threshold(240_000, 480_000);
-
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
 
 		// Task 42 at minute 4, every 3 minutes, 6 times
 		assert_ok!(Scheduler::do_schedule(
@@ -1882,9 +1780,6 @@ fn named_retry_scheduling_with_period_works() {
 		// Tasks succeed in buckets 4-8, fail outside that range
 		logger::set_time_threshold(240_000, 480_000);
 
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
-
 		// Named task 42 at minute 4, every 3 minutes, 6 times
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
@@ -1957,9 +1852,6 @@ fn retry_periodic_full_cycle() {
 	new_test_ext().execute_with(|| {
 		// Tasks succeed until we pass minute 1000
 		logger::set_time_threshold(60_000, 60_000_000);
-
-		// Set initial time to minute 1
-		Timestamp::set_timestamp(60_000);
 
 		// Named task 42 at minute 10, every 100 minutes, 4 times
 		assert_ok!(Scheduler::do_schedule_named(
@@ -2080,8 +1972,6 @@ fn retry_periodic_full_cycle() {
 #[test]
 fn scheduler_handles_periodic_failure() {
 	new_test_ext().execute_with(|| {
-		// Set initial time and initialize scheduler
-		Timestamp::set_timestamp(60_000);
 		run_to_time(60_000); // Initialize IncompleteSince
 
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
@@ -2142,9 +2032,6 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 	use sp_runtime::traits::Hash;
 
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3u64) * 2u64 });
@@ -2196,8 +2083,6 @@ fn unavailable_call_is_detected() {
 	use sp_runtime::traits::Hash;
 
 	new_test_ext().execute_with(|| {
-		// Set initial time and initialize scheduler
-		Timestamp::set_timestamp(60_000);
 		run_to_time(60_000); // Initialize IncompleteSince
 
 		let call =
@@ -2417,9 +2302,6 @@ fn reschedule_named_last_task_removes_agenda() {
 #[test]
 fn retry_scheduling_multiple_tasks_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to bucket 1
-		Timestamp::set_timestamp(60_000);
-
 		// task fails until time 480_000ms (bucket 8) is reached
 		logger::set_time_threshold(480_000, 999_999);
 
@@ -2507,9 +2389,6 @@ fn retry_scheduling_multiple_tasks_works() {
 #[test]
 fn retry_scheduling_multiple_named_tasks_works() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to bucket 1
-		Timestamp::set_timestamp(60_000);
-
 		// task fails until time 480_000ms (bucket 8) is reached
 		logger::set_time_threshold(480_000, 999_999);
 
@@ -2599,9 +2478,6 @@ fn retry_scheduling_multiple_named_tasks_works() {
 #[test]
 fn retry_respects_weight_limits() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to bucket 1
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 
 		// schedule 42 at bucket 8 (480_000ms) - this will take 2/3 of max weight
@@ -2661,9 +2537,6 @@ fn retry_respects_weight_limits() {
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to bucket 1
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
 		assert_ok!(Scheduler::do_schedule(
@@ -2741,9 +2614,6 @@ fn postponed_named_task_cannot_be_rescheduled() {
 	use sp_runtime::traits::Hash;
 
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(1000, 0) });
 		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
@@ -2817,9 +2687,6 @@ fn timestamp_to_bucket_determinism() {
 		assert_eq!(Scheduler::timestamp_to_bucket(600_000), 10);
 		assert_eq!(Scheduler::timestamp_to_bucket(3_600_000), 60); // 1 hour = 60 buckets
 
-		// Tasks scheduled at different timestamps within same bucket go to same agenda
-		Timestamp::set_timestamp(60_000);
-
 		let call1 =
 			RuntimeCall::Logger(LoggerCall::log { i: 1, weight: Weight::from_parts(10, 0) });
 		let call2 =
@@ -2854,9 +2721,6 @@ fn timestamp_to_bucket_determinism() {
 #[test]
 fn postponed_task_is_still_available() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight = MaximumSchedulerWeight::get();
 
 		// Schedule a call that fits in normal weight but not when reduced
@@ -2906,8 +2770,6 @@ fn postponed_task_is_still_available() {
 #[test]
 fn overweight_task_is_permanently_overweight_when_first_in_catchup() {
 	new_test_ext().execute_with(|| {
-		// Set initial time to bucket 1 and run to establish IncompleteSince
-		Timestamp::set_timestamp(60_000);
 		run_to_time(120_000); // bucket 2 - establishes IncompleteSince
 
 		let schedule_at: u64 = 6; // bucket 6 = 360_000ms
@@ -2949,9 +2811,6 @@ fn overweight_task_is_permanently_overweight_when_first_in_catchup() {
 #[test]
 fn try_schedule_retry_respects_weight_limits() {
 	new_test_ext().execute_with(|| {
-		// Set initial time
-		Timestamp::set_timestamp(60_000);
-
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
 		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(1);
