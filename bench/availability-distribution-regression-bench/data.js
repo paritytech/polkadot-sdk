@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769625164564,
+  "lastUpdate": 1769701195567,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "koute@users.noreply.github.com",
-            "name": "Koute",
-            "username": "koute"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8339a0f402b520eb39944f9f8b008c4d71629883",
-          "message": "Bump PolkaVM to 0.25.0 (#8962)\n\nBump to the newest PolkaVM version. This contains *mostly* many linker\nimprovements/bugfixes, with no real functional changes.",
-          "timestamp": "2025-06-24T13:51:44Z",
-          "tree_id": "274544f161edeb2b54060a7c36dcdf2191a5e779",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8339a0f402b520eb39944f9f8b008c4d71629883"
-        },
-        "date": 1750778855052,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1585348959866667,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022604286399999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.013252646613333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00897658229333341,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14552817172666674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ed9375f1c0462eb5cd24d7ed78732faa17af931b",
+          "message": "Update the resolc and retester versions (#10907)\n\n## Summary\n\nThis PR allows us to use nightly versions of the resolc compiler in the\ndifferential tests CI which include fixes not yet available in the\npublished version of the compiler. It also bumps the commit hash of\ndifferential tests used to a version that allows for gas limits to be\nspecified manually to circumvent the issue observed in\nhttps://github.com/paritytech/contract-issues/issues/259\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-29T14:26:44Z",
+          "tree_id": "6f78399931e3a9e257d74e1063e907544d44f23c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ed9375f1c0462eb5cd24d7ed78732faa17af931b"
+        },
+        "date": 1769701171609,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007047915046666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14474428622000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023037110946666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009664551833333306,
             "unit": "seconds"
           }
         ]
