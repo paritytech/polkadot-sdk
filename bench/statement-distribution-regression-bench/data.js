@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769701261259,
+  "lastUpdate": 1769708824148,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "Sajjon@users.noreply.github.com",
-            "name": "Alexander Cyon",
-            "username": "Sajjon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "38d3c3074935b9353519a39abdf8f4912c86b196",
-          "message": "Link to dev setup guide from README and CONTRIBUTING (#8827)\n\n# Description\nToday the README does not link to how to get started making `cargo\nbuild` succeed. I've made some minor edits making the repo a bit more\n\"welcoming\" to devs who wanna get started building the repo.\n\n## Changes\n* Update `README.md` on how to get started with development (making\n`cargo build` succeed) by linking to [this\nguide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/)\n* Update `CONTRIBUTING.md` with the same guide\n* Generalize `DOCUMENTATION_GUIDELINES.md` to not only be about\nSubstrate.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-24T14:20:25+02:00",
-          "tree_id": "fd0dab29639ec766763f212ab00a2a1fd5db92ee",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/38d3c3074935b9353519a39abdf8f4912c86b196"
-        },
-        "date": 1750769222540,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.94199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.033741694942000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04499172975799993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.037938603304,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f87563a37d5ef6ad6153d9462e2aa70a027584f0",
+          "message": "[Release|CI/CD] Add `eth-rpc` binary to release draft artifacts (#10934)\n\nAddress: https://github.com/paritytech/release-engineering/issues/281",
+          "timestamp": "2026-01-29T16:39:29Z",
+          "tree_id": "be3a5043a67e8b7b2589056a48eada95cb8c472f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f87563a37d5ef6ad6153d9462e2aa70a027584f0"
+        },
+        "date": 1769708800396,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.056,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03848324696399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06528105040599998,
             "unit": "seconds"
           }
         ]
