@@ -27,21 +27,41 @@ use sp_wasm_interface::{Pointer, WordSize};
 use wasmtime::{AsContext, AsContextMut, Engine, Instance, InstancePre, Memory};
 
 /// Wasm blob entry point.
-pub struct EntryPoint(wasmtime::TypedFunc<(u32, u32), u64>);
+pub enum EntryPoint {
+	V1(wasmtime::TypedFunc<(u32, u32), u64>),
+	V2(wasmtime::TypedFunc<(u32,), u64>),
+}
 
 impl EntryPoint {
 	/// Call this entry point.
-	pub(crate) fn call(
-		&self,
-		store: &mut Store,
-		data_ptr: Pointer<u8>,
-		data_len: WordSize,
-	) -> Result<u64> {
-		let data_ptr = u32::from(data_ptr);
-		let data_len = u32::from(data_len);
+	pub(crate) fn call(&self, instance: &mut InstanceWrapper) -> Result<u64> {
+		let result =
+			match self {
+				Self::V1(func) => {
+					// SAFETY: Entry point signature has been checked statically and represents a
+					// V1 entry point. The V1 code is known to use the host-side allocator.
+					let (data_ptr, data_len) = unsafe { instance.inject_input_data()? };
+					let data_ptr = u32::from(data_ptr);
+					let data_len = u32::from(data_len);
+					func.call(instance.store_mut(), (data_ptr, data_len))
+				},
+				Self::V2(func) => {
+					let host_state =
+						instance.store().data().host_state.as_ref().expect(
+							"host state cannot be empty while a function is being called; qed",
+						);
+					let data_len = host_state
+						.input_data
+						.as_ref()
+						.expect("input data cannot be empty while a function is being called; qed")
+						.len() as u32;
+					func.call(instance.store_mut(), (data_len,))
+				},
+			};
 
-		self.0.call(&mut *store, (data_ptr, data_len)).map_err(|trap| {
-			let host_state = store
+		result.map_err(|trap| {
+			let host_state = instance
+				.store_mut()
 				.data_mut()
 				.host_state
 				.as_mut()
@@ -66,10 +86,18 @@ impl EntryPoint {
 		func: wasmtime::Func,
 		ctx: impl AsContext,
 	) -> std::result::Result<Self, &'static str> {
-		let entrypoint = func
-			.typed::<(u32, u32), u64>(ctx)
-			.map_err(|_| "Invalid signature for direct entry point")?;
-		Ok(Self(entrypoint))
+		let ty = func.ty(ctx.as_context());
+		if ty.params().len() == 1 {
+			let entrypoint = func
+				.typed::<(u32,), u64>(ctx)
+				.map_err(|_| "Invalid signature for direct V2 entry point")?;
+			Ok(Self::V2(entrypoint))
+		} else {
+			let entrypoint = func
+				.typed::<(u32, u32), u64>(ctx)
+				.map_err(|_| "Invalid signature for direct V1 entry point")?;
+			Ok(Self::V1(entrypoint))
+		}
 	}
 }
 
@@ -180,6 +208,52 @@ impl InstanceWrapper {
 			.ok_or_else(|| Error::from("__heap_base is not a i32"))?;
 
 		Ok(heap_base as u32)
+	}
+
+	/// Injects the input data into the guest's memory.
+	///
+	/// Should only be used for code using the host-side allocator. Otherwise will corrupt
+	/// guest's memory
+	pub(crate) unsafe fn inject_input_data(&mut self) -> Result<(Pointer<u8>, WordSize)> {
+		let store = self.store_mut();
+		let mut allocator = store
+			.data_mut()
+			.host_state
+			.as_mut()
+			.expect("host state cannot be empty while a function is being called; qed")
+			.allocator
+			.take()
+			.expect("allocator cannot be empty while a function is being called; qed");
+
+		let result = {
+			let mut ctx = store.as_context_mut();
+			let host_data = ctx.data_mut();
+			let memory = host_data.memory();
+			let data = host_data
+				.host_state
+				.as_mut()
+				.expect("host state cannot be empty while a function is being called; qed")
+				.input_data
+				.take()
+				.expect("input data cannot be empty while a function is being called; qed");
+
+			let data_len = data.len() as WordSize;
+			match allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len) {
+				Ok(data_ptr) => crate::util::write_memory_from(&mut ctx, data_ptr, &data[..])
+					.map(|_| (data_ptr, data_len))
+					.map_err(Into::into),
+				Err(e) => Err(e.into()),
+			}
+		};
+
+		store
+			.data_mut()
+			.host_state
+			.as_mut()
+			.expect("host state cannot be empty while a function is being called; qed")
+			.allocator = Some(allocator);
+
+		result
 	}
 }
 

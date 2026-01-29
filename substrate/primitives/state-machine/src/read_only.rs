@@ -60,12 +60,13 @@ where
 #[derive(Debug)]
 pub struct ReadOnlyExternalities<'a, H: Hasher, B: 'a + Backend<H>> {
 	backend: &'a B,
+	last_cursor: Option<Vec<u8>>,
 	_phantom: PhantomData<H>,
 }
 
 impl<'a, H: Hasher, B: 'a + Backend<H>> From<&'a B> for ReadOnlyExternalities<'a, H, B> {
 	fn from(backend: &'a B) -> Self {
-		ReadOnlyExternalities { backend, _phantom: PhantomData }
+		ReadOnlyExternalities { backend, last_cursor: None, _phantom: PhantomData }
 	}
 }
 
@@ -194,6 +195,14 @@ where
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
 		unimplemented!("Transactions are not supported by ReadOnlyExternalities");
+	}
+
+	fn store_last_cursor(&mut self, cursor: &[u8]) {
+		self.last_cursor = Some(cursor.to_vec());
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		self.last_cursor.take()
 	}
 
 	fn wipe(&mut self) {}

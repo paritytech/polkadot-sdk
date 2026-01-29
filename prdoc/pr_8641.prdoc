@@ -1,0 +1,20 @@
+title: RFC-145 (former RFC-4) host functions implementation
+doc:
+- audience: Runtime Dev
+  description: |-
+    This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
+crates:
+- name: sp-io
+  bump: major
+- name: sp-runtime-interface
+  bump: major
+- name: sp-externalities
+  bump: major
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: sc-executor-polkavm
+  bump: major
+- name: sc-executor-wasmtime
+  bump: major
+- name: sp-wasm-interface
+  bump: major
