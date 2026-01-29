@@ -23,7 +23,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::{build::Fields, Path, Type, TypeInfo};
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
@@ -93,7 +93,9 @@ pub fn hash_encoded(data: &[u8]) -> [u8; 32] {
 }
 
 /// Statement proof.
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, Clone, PartialEq, Eq,
+)]
 pub enum Proof {
 	/// Sr25519 Signature.
 	Sr25519 {
@@ -485,6 +487,40 @@ impl Statement {
 		self.data = Some(data)
 	}
 
+	/// Estimate the encoded size for preallocation.
+	///
+	/// Returns a close approximation of the SCALE-encoded size without actually performing the
+	/// encoding. Uses max_encoded_len() for type sizes:
+	/// - Compact length prefix: max_encoded_len() bytes
+	/// - Proof field: 1 (tag) + max_encoded_len()
+	/// - DecryptionKey: 1 (tag) + max_encoded_len()
+	/// - Priority: 1 (tag) + max_encoded_len()
+	/// - Channel: 1 (tag) + max_encoded_len()
+	/// - Each topic: 1 (tag) + max_encoded_len()
+	/// - Data: 1 (tag) + max_encoded_len() (compact len) + data.len()
+	fn estimated_encoded_size(&self, for_signing: bool) -> usize {
+		let proof_size =
+			if !for_signing && self.proof.is_some() { 1 + Proof::max_encoded_len() } else { 0 };
+		let decryption_key_size =
+			if self.decryption_key.is_some() { 1 + DecryptionKey::max_encoded_len() } else { 0 };
+		let priority_size = if self.priority.is_some() { 1 + u32::max_encoded_len() } else { 0 };
+		let channel_size = if self.channel.is_some() { 1 + Channel::max_encoded_len() } else { 0 };
+		let topics_size = self.num_topics as usize * (1 + Topic::max_encoded_len());
+		let data_size = self
+			.data
+			.as_ref()
+			.map_or(0, |d| 1 + Compact::<u32>::max_encoded_len() + d.len());
+		let compact_prefix_size = if !for_signing { Compact::<u32>::max_encoded_len() } else { 0 };
+
+		compact_prefix_size +
+			proof_size +
+			decryption_key_size +
+			priority_size +
+			channel_size +
+			topics_size +
+			data_size
+	}
+
 	fn encoded(&self, for_signing: bool) -> Vec<u8> {
 		// Encoding matches that of Vec<Field>. Basically this just means accepting that there
 		// will be a prefix of vector length.
@@ -495,7 +531,7 @@ impl Statement {
 			if self.data.is_some() { 1 } else { 0 } +
 			self.num_topics as u32;
 
-		let mut output = Vec::new();
+		let mut output = Vec::with_capacity(self.estimated_encoded_size(for_signing));
 		// When encoding signature payload, the length prefix is omitted.
 		// This is so that the signature for encoded statement can potentially be derived without
 		// needing to re-encode the statement.
@@ -556,10 +592,11 @@ impl Statement {
 
 #[cfg(test)]
 mod test {
-	use crate::{hash_encoded, Field, Proof, SignatureVerificationResult, Statement};
+	use crate::{hash_encoded, Field, Proof, SignatureVerificationResult, Statement, MAX_TOPICS};
 	use codec::{Decode, Encode};
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
+	use sp_core::sr25519;
 
 	#[test]
 	fn statement_encoding_matches_vec() {
@@ -693,5 +730,113 @@ mod test {
 			},
 			_ => panic!("Statement TypeInfo should be a Composite"),
 		}
+	}
+
+	#[test]
+	fn measure_hash_30_000_statements() {
+		use std::time::Instant;
+		const NUM_STATEMENTS: usize = 30_000;
+		let (keyring, _) = sr25519::Pair::generate();
+
+		// Create 2000 statements with varying data
+		let statements: Vec<Statement> = (0..NUM_STATEMENTS)
+			.map(|i| {
+				let mut statement = Statement::new();
+
+				statement.set_priority(i as u32);
+				statement.set_topic(0, [(i % 256) as u8; 32]);
+				statement.set_plain_data(vec![i as u8; 512]);
+				statement.sign_sr25519_private(&keyring);
+
+				statement.sign_sr25519_private(&keyring);
+				statement
+			})
+			.collect();
+		// Measure time to hash all statements
+		let start = Instant::now();
+		let hashes: Vec<[u8; 32]> = statements.iter().map(|s| s.hash()).collect();
+		let elapsed = start.elapsed();
+		println!("Time to hash {} statements: {:?}", NUM_STATEMENTS, elapsed);
+		println!("Average time per statement: {:?}", elapsed / NUM_STATEMENTS as u32);
+		// Verify hashes are unique
+		let unique_hashes: std::collections::HashSet<_> = hashes.iter().collect();
+		assert_eq!(unique_hashes.len(), NUM_STATEMENTS);
+	}
+
+	#[test]
+	fn estimated_encoded_size_is_sufficient() {
+		// Allow some overhead due to using max_encoded_len() approximations.
+		const MAX_ACCEPTED_OVERHEAD: usize = 33;
+
+		let proof = Proof::OnChain { who: [42u8; 32], block_hash: [24u8; 32], event_index: 66 };
+		let decryption_key = [0xde; 32];
+		let data = vec![55; 1000];
+		let priority = 999;
+		let channel = [0xcc; 32];
+
+		// Test with all fields populated
+		let mut statement = Statement::new();
+		statement.set_proof(proof);
+		statement.set_decryption_key(decryption_key);
+		statement.set_priority(priority);
+		statement.set_channel(channel);
+		for i in 0..MAX_TOPICS {
+			statement.set_topic(i, [i as u8; 32]);
+		}
+		statement.set_plain_data(data);
+
+		let encoded = statement.encode();
+		let estimated = statement.estimated_encoded_size(false);
+		assert!(
+			estimated >= encoded.len(),
+			"estimated_encoded_size ({}) should be >= actual encoded length ({})",
+			estimated,
+			encoded.len()
+		);
+		let overhead = estimated - encoded.len();
+		assert!(
+			overhead <= MAX_ACCEPTED_OVERHEAD,
+			"estimated overhead ({}) should be small, estimated: {}, actual: {}",
+			overhead,
+			estimated,
+			encoded.len()
+		);
+
+		// Test for_signing = true (no proof, no compact prefix)
+		let signing_payload = statement.encoded(true);
+		let signing_estimated = statement.estimated_encoded_size(true);
+		assert!(
+			signing_estimated >= signing_payload.len(),
+			"estimated_encoded_size for signing ({}) should be >= actual signing payload length ({})",
+			signing_estimated,
+			signing_payload.len()
+		);
+		let signing_overhead = signing_estimated - signing_payload.len();
+		assert!(
+			signing_overhead <= MAX_ACCEPTED_OVERHEAD,
+			"signing overhead ({}) should be small, estimated: {}, actual: {}",
+			signing_overhead,
+			signing_estimated,
+			signing_payload.len()
+		);
+
+		// Test with minimal statement (empty)
+		let empty_statement = Statement::new();
+		let empty_encoded = empty_statement.encode();
+		let empty_estimated = empty_statement.estimated_encoded_size(false);
+		assert!(
+			empty_estimated >= empty_encoded.len(),
+			"estimated_encoded_size for empty ({}) should be >= actual encoded length ({})",
+			empty_estimated,
+			empty_encoded.len()
+		);
+		let empty_overhead = empty_estimated - empty_encoded.len();
+		assert!(
+			empty_overhead <= MAX_ACCEPTED_OVERHEAD,
+			"empty overhead ({}) should be minimal, estimated: {}, actual: {}",
+			empty_overhead,
+			empty_estimated,
+			empty_encoded.len()
+		);
 	}
 }
