@@ -135,7 +135,7 @@ pub mod pallet {
 		MoveMade { game_id: u32, player: T::AccountId, position: u8 },
 		/// Game ended [game_id, state_u8]
 		GameEnded { game_id: u32, state_u8: u8 },
-		/// A player joined the matchmaking queue [player]
+		/// A player joined the matchmaking queue player
 		PlayerJoinedQueue { player: T::AccountId },
 		/// A player left the matchmaking queue [player]
 		PlayerLeftQueue { player: T::AccountId },
