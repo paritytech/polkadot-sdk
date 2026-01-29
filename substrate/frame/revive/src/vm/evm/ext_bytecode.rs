@@ -66,6 +66,10 @@ impl ExtBytecode {
 	/// from jump table.
 	pub fn absolute_jump(&mut self, offset: usize) {
 		// SAFETY: The offset is validated by the caller to ensure it points within the bytecode
+		debug_assert!(
+			offset <= self.base.bytes_ref().len(),
+			"absolute_jump would move instruction pointer out of bounds"
+		);
 		self.instruction_pointer = unsafe { self.base.bytes_ref().as_ptr().add(offset) };
 	}
 

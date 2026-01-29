@@ -1744,7 +1744,27 @@ where
 			// we do this last as we cannot roll this back
 			transaction_meter.terminate(contract_account.clone(), refund);
 
-			// emit selfdestruct trace
+			Ok(balance)
+		};
+
+		// we cannot fail here as the contract that called `SELFDESTRUCT`
+		// is no longer on the call stack. hence we simply roll back the
+		// termination so that nothing happened.
+		let result = with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+			match delete_contract(&args.trie_id, &args.code_hash) {
+				Ok(balance) => {
+					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
+					TransactionOutcome::Commit(Ok(balance))
+				},
+				Err(e) => {
+					log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} failed to terminate: {e:?}");
+					TransactionOutcome::Rollback(Err(e))
+				},
+			}
+		});
+
+		// emit selfdestruct trace only after the transaction successfully commits
+		if let Ok(balance) = result {
 			if_tracing(|t| {
 				t.terminate(
 					contract_address,
@@ -1753,25 +1773,9 @@ where
 					balance,
 				);
 			});
+		}
 
-			Ok(())
-		};
-
-		// we cannot fail here as the contract that called `SELFDESTRUCT`
-		// is no longer on the call stack. hence we simply roll back the
-		// termination so that nothing happened.
-		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			match delete_contract(&args.trie_id, &args.code_hash) {
-				Ok(()) => {
-					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
-					TransactionOutcome::Commit(Ok(()))
-				},
-				Err(e) => {
-					log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} failed to terminate: {e:?}");
-					TransactionOutcome::Rollback(Err(e))
-				},
-			}
-		})
+		result.map(|_| ())
 	}
 
 	/// Reference to the current (top) frame.
