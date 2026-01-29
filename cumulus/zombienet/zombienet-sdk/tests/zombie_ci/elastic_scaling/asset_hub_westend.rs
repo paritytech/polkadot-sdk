@@ -86,24 +86,14 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 3..18)]
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 3..18)]).await?;
 
 	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
 	assign_cores(&relay_client, PARA_ID, vec![1]).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 
-	assert_para_throughput(
-		&relay_client,
-		20,
-		[(ParaId::from(PARA_ID), 50..61)],
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 50..61)]).await?;
 
 	log::info!("Test finished successfully.");
 
