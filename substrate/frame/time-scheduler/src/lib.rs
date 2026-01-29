@@ -1037,7 +1037,6 @@ impl<T: Config> Pallet<T> {
 			&& bucket <= now_bucket
 			&& weight.can_consume(service_agenda_base_weight)
 		{
-			// Skip buckets with no agenda in storage - cheaper than reading empty agendas
 			if Agenda::<T>::contains_key(bucket) {
 				if !Self::service_agenda(weight, is_first, bucket, u32::MAX) {
 					// Track the earliest bucket with incomplete tasks
