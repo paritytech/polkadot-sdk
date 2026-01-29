@@ -62,6 +62,7 @@ fn test_harness<T: Future<Output = ()>>(
 		IncomingRequestReceivers { pov_req_receiver, chunk_req_v1_receiver, chunk_req_v2_receiver },
 		req_protocol_names,
 		Default::default(),
+		false,
 	);
 	let subsystem = subsystem.run(context);
 

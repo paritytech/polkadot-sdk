@@ -520,6 +520,8 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
+		CandidateBackingMessage
 	])]
 	availability_distribution: AvailabilityDistribution,
 

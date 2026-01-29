@@ -292,6 +292,7 @@ where
 				keep_finalized_for: cli.run.keep_finalized_for,
 				invulnerable_ah_collators,
 				collator_protocol_hold_off,
+				speculative_availability: cli.run.speculative_availability,
 			},
 		)
 		.map(|full| full.task_manager)?;

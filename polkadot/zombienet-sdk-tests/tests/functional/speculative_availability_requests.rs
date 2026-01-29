@@ -1,7 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test we are producing 12-second parachain blocks if using an old collator, pre async-backing.
+// Test we are producing 12-second parachain blocks if using 2x async-backing parachains,
+// ensure that chunk fetch requests are being made speculatively.
 
 use anyhow::anyhow;
 
@@ -14,7 +15,7 @@ use zombienet_sdk::{
 };
 
 #[tokio::test(flavor = "multi_thread")]
-async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
+async fn speculative_availability_requests_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -27,7 +28,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![("-lparachain=debug", "--speculative-availability").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -44,15 +45,10 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
-				.with_default_command("adder-collator")
-				.with_default_image(
-					std::env::var("COL_IMAGE")
-						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
-						.as_str(),
-				)
-				.cumulus_based(false)
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| n.with_name("collator-adder-2000"))
+				.with_default_command("polkadot-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
+				.with_collator(|n| n.with_name("collator-2000"))
 		})
 		.with_parachain(|p| {
 			p.with_id(2001)
@@ -84,15 +80,21 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 
 	let scheduled_metric_name =
 		"polkadot_parachain_fetched_chunks_total{origin=\"scheduled\",success=\"succeeded\"}";
-	// scheduled chunk fetches should be 0 since speculative availability is disabled
-	assert!(relay_node.assert_with(scheduled_metric_name, |v| { v == 0.0 }).await?);
+	// Scheduled chunk fetches should be more than the asserted para throughput given blocks are
+	// still produced.
+	assert!(
+		relay_node
+			.assert_with(scheduled_metric_name, |v| (22.0..=40.0).contains(&v))
+			.await?
+	);
 
 	let occupied_metric_name =
 		"polkadot_parachain_fetched_chunks_total{origin=\"occupied\",success=\"succeeded\"}";
-	// all requests should be occupied since speculative availability is disabled
+	// Given when speculative availability is requested on active leaves update, there may not be
+	// any backable candidates from Prospective Parachains at that the time.
 	assert!(
 		relay_node
-			.assert_with(occupied_metric_name, |v| (22.0..=40.0).contains(&v))
+			.assert_with(occupied_metric_name, |v| (2.0..=10.0).contains(&v))
 			.await?
 	);
 

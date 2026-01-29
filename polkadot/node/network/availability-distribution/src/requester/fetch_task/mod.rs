@@ -36,14 +36,17 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
-	OccupiedCore, SessionIndex,
+	SessionIndex,
 };
 use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
 	metrics::{Metrics, FAILED, SUCCEEDED},
-	requester::session_cache::{BadValidators, SessionInfo},
+	requester::{
+		session_cache::{BadValidators, SessionInfo},
+		CoreInfo, CoreInfoOrigin,
+	},
 	LOG_TARGET,
 };
 
@@ -137,6 +140,9 @@ struct RunningTask {
 
 	/// Full protocol name for ChunkFetchingV2.
 	req_v2_protocol_name: ProtocolName,
+
+	/// The origin of the `CoreInfo` that was used to create this running task.
+	origin: CoreInfoOrigin,
 }
 
 impl FetchTaskConfig {
@@ -145,7 +151,7 @@ impl FetchTaskConfig {
 	/// The result of this function can be passed into [`FetchTask::start`].
 	pub fn new(
 		leaf: Hash,
-		core: &OccupiedCore,
+		core: &CoreInfo,
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
@@ -170,13 +176,14 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root(),
-			relay_parent: core.candidate_descriptor.relay_parent(),
+			erasure_root: core.erasure_root,
+			relay_parent: core.relay_parent,
 			metrics,
 			sender,
 			chunk_index,
 			req_v1_protocol_name,
-			req_v2_protocol_name
+			req_v2_protocol_name,
+			origin: core.origin,
 		};
 		FetchTaskConfig { live_in, prepared_running: Some(prepared_running) }
 	}
@@ -188,7 +195,7 @@ impl FetchTask {
 	///
 	/// A task handling the fetching of the configured chunk will be spawned.
 	pub async fn start<Context>(config: FetchTaskConfig, ctx: &mut Context) -> Result<Self> {
-		let FetchTaskConfig { prepared_running, live_in } = config;
+		let FetchTaskConfig { prepared_running, live_in, .. } = config;
 
 		if let Some(running) = prepared_running {
 			let (handle, kill) = oneshot::channel();
@@ -283,7 +290,7 @@ impl RunningTask {
 						target: LOG_TARGET,
 						"Node seems to be shutting down, canceling fetch task"
 					);
-					self.metrics.on_fetch(FAILED);
+					self.metrics.on_fetch(FAILED, self.origin.to_metric_name());
 					return
 				},
 				Err(TaskError::PeerError) => {
@@ -303,6 +310,7 @@ impl RunningTask {
 						session_index = ?self.session_index,
 						chunk_index = ?self.request.index,
 						candidate_hash = ?self.request.candidate_hash,
+						origin = ?self.origin,
 						"Validator did not have our chunk"
 					);
 					bad_validators.push(validator);
@@ -322,10 +330,10 @@ impl RunningTask {
 			break
 		}
 		if succeeded {
-			self.metrics.on_fetch(SUCCEEDED);
+			self.metrics.on_fetch(SUCCEEDED, self.origin.to_metric_name());
 			self.conclude(bad_validators).await;
 		} else {
-			self.metrics.on_fetch(FAILED);
+			self.metrics.on_fetch(FAILED, self.origin.to_metric_name());
 			self.conclude_fail().await
 		}
 	}
