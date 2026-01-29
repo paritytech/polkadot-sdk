@@ -2093,15 +2093,7 @@ fn session_keys_are_compatible_between_ah_and_rc() {
 
 #[test]
 fn burn_redirects_to_dap_buffer() {
-	ExtBuilder::<Runtime>::default()
-		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
-		.build()
-		.execute_with(|| {
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 			let user: AccountId = BOB.into();
 			let initial_balance = 100 * UNITS;
 			let burn_amount = 10 * UNITS;
