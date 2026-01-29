@@ -103,17 +103,18 @@ pub(crate) fn validate_authorization<T: Config>(
 		return None;
 	}
 
-	// Validate nonce is within bounds
-	if auth.nonce >= U256::from(u64::MAX) {
-		log::debug!(
-			target: crate::LOG_TARGET,
-			"Authorization nonce too large: {:?}",
-			auth.nonce
-		);
-		return None;
-	}
+	let expected_nonce: u64 = match auth.nonce.try_into() {
+		Ok(nonce) => nonce,
+		Err(_) => {
+			log::debug!(
+				target: crate::LOG_TARGET,
+				"Authorization nonce too large: {:?}",
+				auth.nonce
+			);
+			return None;
+		},
+	};
 
-	// Recover authority address from signature
 	let authority = match recover_authority(auth) {
 		Ok(addr) => addr,
 		Err(_) => {
@@ -122,16 +123,14 @@ pub(crate) fn validate_authorization<T: Config>(
 		},
 	};
 
-	// Verify nonce matches and check if account exists
 	let account_id = T::AddressMapper::to_account_id(&authority);
 	let is_new_account = !frame_system::Account::<T>::contains_key(&account_id);
-	let current_nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
-	let expected_nonce = auth.nonce;
+	let current_nonce: u64 = frame_system::Pallet::<T>::account_nonce(&account_id).saturated_into();
 
-	if U256::from(current_nonce.saturated_into::<u64>()) != expected_nonce {
+	if current_nonce != expected_nonce {
 		log::debug!(
 			target: crate::LOG_TARGET,
-			"Nonce mismatch for {authority:?}: expected {current_nonce:?}, got {expected_nonce:?}",
+			"Nonce mismatch for {authority:?}: expected {expected_nonce:?}, got {current_nonce:?}",
 		);
 		return None;
 	}
