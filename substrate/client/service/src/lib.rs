@@ -380,16 +380,14 @@ pub async fn build_system_rpc_future<
 }
 
 /// Starts RPC servers.
-pub fn start_rpc_servers<R>(
+pub fn start_rpc_servers(
 	rpc_configuration: &RpcConfiguration,
 	registry: Option<&Registry>,
 	tokio_handle: &Handle,
-	gen_rpc_module: R,
+	rpc_api: RpcModule<()>,
+	rpc_runtime: tokio::runtime::Runtime,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<Server, error::Error>
-where
-	R: Fn() -> Result<RpcModule<()>, Error>,
-{
+) -> Result<Server, error::Error> {
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		rpc_configuration.addr.as_ref()
 	{
@@ -436,15 +434,14 @@ where
 	};
 
 	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
-	let rpc_api = gen_rpc_module()?;
 
 	let server_config = sc_rpc_server::Config {
 		endpoints,
-		rpc_api,
 		metrics,
+		rpc_api,
 		id_provider: rpc_id_provider,
-		tokio_handle: tokio_handle.clone(),
 		request_logger_limit: rpc_configuration.request_logger_limit,
+		rpc_runtime,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
