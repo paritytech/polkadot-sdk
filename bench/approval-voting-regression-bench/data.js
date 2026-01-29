@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769708791451,
+  "lastUpdate": 1769711191406,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6efe9f5c2032140930061c98ca323c71f53958b6",
-          "message": "`fatxpool`: limits handling optimizations and fixes (#8596)\n\nThis PR adds some optimization and fixes in handling limits in\nfork-aware transaction pool.\n\n#### Notes for reviewers\n\nChanges made (random order):\n- debug levels adjusted in numerous places places ( `debug -> trace` for\ntx, `trace -> debug` for general flow) for better readablity,\n- internal TxMemPool\n[storage](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L268-L272)\nis now\n[sorted](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool/tx_mem_pool_map.rs#L123-L132).\nA new helper exposes methods to reduce number of transaction clones\n(e.g.\n[here](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1404-L1410),\nsee [previous\nverions](https://github.com/paritytech/polkadot-sdk/blob/2863b7a9a879935ff16987d0e95065d088dad9f8/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1352-L1359)).\nThis new structure eliminates the necessity of sorting transactions on\nthe fly which was a not efficient, naive,\n[first](https://github.com/paritytech/polkadot-sdk/blob/e44b89fb7ca3385f314803c733ad97b26cd14e9f/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L384-L400)\nimplementation.\n- some _mutexes_ were migrated to `tokio::sync::Mutex` to avoid tokio\nthreads locking,\n- `sync` to `async`\n_[message](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L743)\nbased_ bridge was implemented. It's purpose is mainly to support\n`LocalTransactionPool / OffchainTransactionPool` infrastucture. `sync`\nmethods can be called from both non-tokio and tokio context. This\nrequires one additional\n[blocking](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L398-L402)\ntask for transaction pool.\n- `ViewStore::most_recent_view` is now a\n[reference](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L171)\nto `View`.\n- `TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER` removed, there is no point\nfor buffering more. Initially intended to work as buffer accommodating\ntransactions from two different full views (which could have different\nset of transactions), turned out to be a bottleneck in maintain function\n(it still is but aligning sizes reduced the impact),\n-\n[bug](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L769)\n:see_no_evil: fixed in pre-insert actions removal\n-\n[`ValidateTransactionPriority`](https://github.com/paritytech/polkadot-sdk/blob/045bc6d342620a02ee9b28d8de51f72ae680f06f/substrate/client/transaction-pool/src/graph/pool.rs#L64-L71)\nwas added. The goal is to allow faster processing of validation requests\nthat were made from the `maintain` context. Otherwise all requests were\nlanding in the same queue and maintain requests could be delayed. Now\nthe processing power is evenly 50/50 split between _maintain_ and\n_submit+revalidate_ context.\n\n\nRelated work:\n- https://github.com/michalkucharczyk/tx-test-tool/pull/42,\n- https://github.com/paritytech/polkadot-sdk/pull/8152,\n\nTodo:\n- [x] some run should be done also for parachain,\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T16:06:37Z",
-          "tree_id": "af50442b60ceb8c007b5ac7d4eaab7eaaa5a00e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6efe9f5c2032140930061c98ca323c71f53958b6"
-        },
-        "date": 1750784981421,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.87000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 12.016668999560016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001848617,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001848617,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4368699622800003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005722789920000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000019139429999999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.386021453420002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.9105920351999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.403137117870001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4828184474100169,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.333945003482512,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000019139429999999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3915071934599985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.495369573823011,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
+          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-29T17:10:38Z",
+          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
+        },
+        "date": 1769711167414,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63623.040000000015,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.693480070580001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.789096274559963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6626023735099986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3806319286499926,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023727050000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002239738,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005268552910000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023727050000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002239738,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6330875210499984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7763881137899709,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.566512111902991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6376377140700016,
             "unit": "seconds"
           }
         ]
