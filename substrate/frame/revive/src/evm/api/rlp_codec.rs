@@ -62,8 +62,9 @@ impl TransactionSigned {
 			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
 			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
 			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
-			TransactionLegacySigned(tx) =>
-				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
+			TransactionLegacySigned(tx) => {
+				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned)
+			},
 		}
 	}
 
@@ -215,31 +216,12 @@ impl Decodable for AccessListEntry {
 	}
 }
 
-impl Encodable for UnsignedAuthorizationListEntry {
-	fn rlp_append(&self, s: &mut rlp::RlpStream) {
-		s.begin_list(3);
-		s.append(&self.chain_id);
-		s.append(&self.address);
-		s.append(&self.nonce);
-	}
-}
-
-impl Decodable for UnsignedAuthorizationListEntry {
-	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
-		Ok(UnsignedAuthorizationListEntry {
-			chain_id: rlp.val_at(0)?,
-			address: rlp.val_at(1)?,
-			nonce: rlp.val_at(2)?,
-		})
-	}
-}
-
 impl Encodable for AuthorizationListEntry {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(6);
-		s.append(&self.authorization_unsigned.chain_id);
-		s.append(&self.authorization_unsigned.address);
-		s.append(&self.authorization_unsigned.nonce);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
 		s.append(&self.y_parity);
 		s.append(&self.r);
 		s.append(&self.s);
@@ -249,15 +231,24 @@ impl Encodable for AuthorizationListEntry {
 impl Decodable for AuthorizationListEntry {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
 		Ok(AuthorizationListEntry {
-			authorization_unsigned: UnsignedAuthorizationListEntry {
-				chain_id: rlp.val_at(0)?,
-				address: rlp.val_at(1)?,
-				nonce: rlp.val_at(2)?,
-			},
+			chain_id: rlp.val_at(0)?,
+			address: rlp.val_at(1)?,
+			nonce: rlp.val_at(2)?,
 			y_parity: rlp.val_at(3)?,
 			r: rlp.val_at(4)?,
 			s: rlp.val_at(5)?,
 		})
+	}
+}
+
+impl AuthorizationListEntry {
+	/// RLP encode only the unsigned part (chain_id, address, nonce) for signing
+	pub fn rlp_encode_unsigned(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new_list(3);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+		s.out().to_vec()
 	}
 }
 

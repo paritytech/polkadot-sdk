@@ -460,11 +460,9 @@ fn from_unsigned_works_for_7702() {
 		max_fee_per_gas: U256::from(20),
 		max_priority_fee_per_gas: U256::from(1),
 		authorization_list: vec![AuthorizationListEntry {
-			authorization_unsigned: UnsignedAuthorizationListEntry {
-				chain_id: U256::from(1),
-				address: H160::from_low_u64_be(42),
-				nonce: U256::from(0),
-			},
+			chain_id: U256::from(1),
+			address: H160::from_low_u64_be(42),
+			nonce: U256::from(0),
 			y_parity: U256::from(1),
 			r: U256::from(1),
 			s: U256::from(2),

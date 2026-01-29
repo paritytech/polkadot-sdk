@@ -200,11 +200,13 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 				BlockNumberOrTagOrHash::BlockNumber(val.into())
 			},
 
-			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } =>
-				BlockNumberOrTagOrHash::BlockNumber(val),
-			BlockNumberOrTagOrHashWithAlias::BlockHash(val) |
-			BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } =>
-				BlockNumberOrTagOrHash::BlockHash(val),
+			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } => {
+				BlockNumberOrTagOrHash::BlockNumber(val)
+			},
+			BlockNumberOrTagOrHashWithAlias::BlockHash(val)
+			| BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } => {
+				BlockNumberOrTagOrHash::BlockHash(val)
+			},
 		})
 	}
 }
@@ -544,8 +546,9 @@ impl HashesOrTransactionInfos {
 	pub fn contains_tx(&self, hash: H256) -> bool {
 		match self {
 			HashesOrTransactionInfos::Hashes(hashes) => hashes.iter().any(|h256| *h256 == hash),
-			HashesOrTransactionInfos::TransactionInfos(transaction_infos) =>
-				transaction_infos.iter().any(|ti| ti.hash == hash),
+			HashesOrTransactionInfos::TransactionInfos(transaction_infos) => {
+				transaction_infos.iter().any(|ti| ti.hash == hash)
+			},
 		}
 	}
 }
@@ -821,32 +824,7 @@ pub struct Transaction7702Unsigned {
 	pub value: U256,
 }
 
-/// Authorization list entry for EIP-7702 (unsigned)
-/// Contains the authorization tuple without signature components
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct UnsignedAuthorizationListEntry {
-	/// Chain ID that this authorization is valid on
-	pub chain_id: U256,
-	/// Address to authorize
-	pub address: Address,
-	/// Nonce of the authorization
-	pub nonce: U256,
-}
-
-/// Signed authorization list entry for EIP-7702
+/// Authorization list entry for EIP-7702
 /// Contains the authorization tuple with signature components
 #[derive(
 	Debug,
@@ -863,9 +841,12 @@ pub struct UnsignedAuthorizationListEntry {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizationListEntry {
-	/// The unsigned authorization entry
-	#[serde(flatten)]
-	pub authorization_unsigned: UnsignedAuthorizationListEntry,
+	/// Chain ID that this authorization is valid on
+	pub chain_id: U256,
+	/// Address to authorize
+	pub address: Address,
+	/// Nonce of the authorization
+	pub nonce: U256,
 	/// y-parity of the signature
 	pub y_parity: U256,
 	/// r component of signature

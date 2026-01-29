@@ -132,20 +132,19 @@ mod benchmarks {
 	// Measures the weight of validating a single authorization tuple
 	#[benchmark(pov_mode = Measured)]
 	fn validate_authorization() -> Result<(), BenchmarkError> {
-		use crate::evm::{eip7702, UnsignedAuthorizationListEntry};
+		use crate::evm::eip7702;
 		use k256::ecdsa::SigningKey;
 		use sp_core::keccak_256;
 
 		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32])).expect("valid key");
 		let chain_id = U256::from(T::ChainId::get());
 
-		let authorization_unsigned = UnsignedAuthorizationListEntry {
+		let signed_auth = eip7702::sign_authorization(
+			&signing_key,
 			chain_id,
-			address: H160::from_low_u64_be(1),
-			nonce: U256::zero(),
-		};
-
-		let signed_auth = eip7702::sign_authorization(&signing_key, authorization_unsigned);
+			H160::from_low_u64_be(1),
+			U256::zero(),
+		);
 
 		let result;
 		#[block]
@@ -323,10 +322,11 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
 			T::Currency::balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -428,10 +428,11 @@ mod benchmarks {
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -471,10 +472,11 @@ mod benchmarks {
 		// value and value transferred via call should be removed from the caller
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance()
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance()
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);

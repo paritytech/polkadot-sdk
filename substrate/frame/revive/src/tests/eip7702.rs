@@ -18,7 +18,7 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	evm::{fees::InfoT, AuthorizationListEntry, UnsignedAuthorizationListEntry},
+	evm::{fees::InfoT, AuthorizationListEntry},
 	storage::AccountInfo,
 	test_utils::builder::Contract,
 	tests::{builder, *},
@@ -75,16 +75,21 @@ impl TestSigner {
 		address: H160,
 		nonce: U256,
 	) -> AuthorizationListEntry {
+		// Build unsigned entry for RLP encoding
+		let unsigned = AuthorizationListEntry {
+			chain_id,
+			address,
+			nonce,
+			y_parity: U256::zero(),
+			r: U256::zero(),
+			s: U256::zero(),
+		};
+
 		let mut message = Vec::new();
 		message.push(crate::evm::eip7702::EIP7702_MAGIC);
-
-		let authorization_unsigned = UnsignedAuthorizationListEntry { chain_id, address, nonce };
-
-		let rlp_encoded = crate::evm::rlp::encode(&authorization_unsigned);
-		message.extend_from_slice(&rlp_encoded);
+		message.extend_from_slice(&unsigned.rlp_encode_unsigned());
 
 		let message_hash = keccak_256(&message);
-
 		let signature = self.keypair.sign_prehashed(&message_hash);
 		let sig_bytes = signature.0;
 
@@ -94,11 +99,14 @@ impl TestSigner {
 		s_bytes.copy_from_slice(&sig_bytes[32..64]);
 		let recovery_id = sig_bytes[64];
 
-		let r = U256::from_big_endian(&r_bytes);
-		let s = U256::from_big_endian(&s_bytes);
-		let y_parity = U256::from(recovery_id);
-
-		AuthorizationListEntry { authorization_unsigned, y_parity, r, s }
+		AuthorizationListEntry {
+			chain_id,
+			address,
+			nonce,
+			y_parity: U256::from(recovery_id),
+			r: U256::from_big_endian(&r_bytes),
+			s: U256::from_big_endian(&s_bytes),
+		}
 	}
 }
 

@@ -23,7 +23,7 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{recover_eth_address_from_message, rlp, AuthorizationListEntry},
+	evm::api::{recover_eth_address_from_message, AuthorizationListEntry},
 	storage::AccountInfo,
 	weights::WeightInfo,
 	Config,
@@ -83,7 +83,7 @@ pub fn process_authorizations<T: Config>(
 			.map_err(|_| crate::Error::<T>::OutOfGas)?;
 
 		// Apply delegation
-		apply_delegation::<T>(&authority, auth.authorization_unsigned.address);
+		apply_delegation::<T>(&authority, auth.address);
 	}
 
 	Ok(())
@@ -98,23 +98,21 @@ pub(crate) fn validate_authorization<T: Config>(
 	chain_id: U256,
 ) -> Option<H160> {
 	// Validate chain_id
-	if !auth.authorization_unsigned.chain_id.is_zero()
-		&& auth.authorization_unsigned.chain_id != chain_id
-	{
+	if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
 		log::debug!(
 			target: crate::LOG_TARGET,
 			"Invalid chain_id in authorization: expected {chain_id:?} or 0, got {:?}",
-			auth.authorization_unsigned.chain_id
+			auth.chain_id
 		);
 		return None;
 	}
 
 	// Validate nonce is within bounds
-	if auth.authorization_unsigned.nonce >= U256::from(u64::MAX) {
+	if auth.nonce >= U256::from(u64::MAX) {
 		log::debug!(
 			target: crate::LOG_TARGET,
 			"Authorization nonce too large: {:?}",
-			auth.authorization_unsigned.nonce
+			auth.nonce
 		);
 		return None;
 	}
@@ -131,7 +129,7 @@ pub(crate) fn validate_authorization<T: Config>(
 	// Verify nonce matches
 	let account_id = T::AddressMapper::to_account_id(&authority);
 	let current_nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
-	let expected_nonce = auth.authorization_unsigned.nonce;
+	let expected_nonce = auth.nonce;
 
 	if U256::from(current_nonce.saturated_into::<u64>()) != expected_nonce {
 		log::debug!(
@@ -183,34 +181,52 @@ pub(crate) fn apply_delegation<T: Config>(authority: &H160, target_address: H160
 fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 	let mut message = Vec::new();
 	message.push(EIP7702_MAGIC);
-
-	let rlp_encoded = rlp::encode(&auth.authorization_unsigned);
-	message.extend_from_slice(&rlp_encoded);
+	message.extend_from_slice(&auth.rlp_encode_unsigned());
 
 	let signature = auth.signature();
 	recover_eth_address_from_message(&message, &signature)
 }
 
-/// Sign an authorization entry with a k256 signing key
+/// Sign an authorization entry
 ///
 /// This is a helper function for benchmarks and tests.
+///
+/// # Parameters
+/// - `signing_key`: The k256 signing key to sign with
+/// - `chain_id`: Chain ID for the authorization
+/// - `address`: Target address to delegate to
+/// - `nonce`: Nonce for the authorization
 #[cfg(any(test, feature = "runtime-benchmarks"))]
-pub(crate) fn sign_authorization(
+pub fn sign_authorization(
 	signing_key: &k256::ecdsa::SigningKey,
-	authorization_unsigned: crate::evm::UnsignedAuthorizationListEntry,
+	chain_id: U256,
+	address: H160,
+	nonce: U256,
 ) -> AuthorizationListEntry {
 	use sp_core::keccak_256;
 
+	// Create unsigned entry for RLP encoding
+	let unsigned = AuthorizationListEntry {
+		chain_id,
+		address,
+		nonce,
+		y_parity: U256::zero(),
+		r: U256::zero(),
+		s: U256::zero(),
+	};
+
 	let mut message = Vec::new();
 	message.push(EIP7702_MAGIC);
-	message.extend_from_slice(&rlp::encode(&authorization_unsigned));
+	message.extend_from_slice(&unsigned.rlp_encode_unsigned());
 
 	let hash = keccak_256(&message);
 	let (signature, recovery_id) =
 		signing_key.sign_prehash_recoverable(&hash).expect("signing succeeds");
 
 	AuthorizationListEntry {
-		authorization_unsigned,
+		chain_id,
+		address,
+		nonce,
 		y_parity: U256::from(recovery_id.to_byte()),
 		r: U256::from_big_endian(&signature.r().to_bytes()),
 		s: U256::from_big_endian(&signature.s().to_bytes()),
