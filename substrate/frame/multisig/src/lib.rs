@@ -718,9 +718,10 @@ impl<T: Config> Pallet<T> {
 		let (call_hash, call_len, maybe_versioned_call) = match call_or_hash {
 			CallOrHash::Call(versioned_call) => {
 				// Validate the version before proceeding
-				let _ = Self::validate_and_extract_call(&versioned_call)?;
+				let call = Self::validate_and_extract_call(&versioned_call)?;
 
-				let call_hash = blake2_256(&versioned_call.encode());
+				// Hash the actual call, not the versioned wrapper
+				let call_hash = blake2_256(&call.encode());
 				let call_len = versioned_call.encode().len();
 				(call_hash, call_len, Some(versioned_call))
 			},
