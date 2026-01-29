@@ -1402,6 +1402,268 @@ fn time_scheduler_v1_anon_cancel_works() {
 }
 
 #[test]
+fn time_scheduler_v1_anon_reschedule_works() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+
+		// Schedule a call at minute 4
+		let address = <Scheduler as Anon<_, _, _>>::schedule(
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		)
+		.unwrap();
+
+		run_to_time(180_000);
+		// Did not execute till minute 3
+		assert!(logger::log().is_empty());
+
+		// Cannot re-schedule into the same bucket.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(240_000)),
+			Error::<Test>::RescheduleNoChange
+		);
+		// Cannot re-schedule into the past.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(120_000)),
+			Error::<Test>::TargetTimestampInPast
+		);
+		// Re-schedule to minute 5.
+		assert_ok!(<Scheduler as Anon<_, _, _>>::reschedule(
+			address,
+			DispatchTime::At(300_000)
+		));
+		// Minute 4 does nothing.
+		run_to_time(240_000);
+		assert!(logger::log().is_empty());
+		// Executes at minute 5.
+		run_to_time(300_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+		// Cannot re-schedule executed task.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			DispatchError::Unavailable
+		);
+	});
+}
+
+#[test]
+fn time_scheduler_v1_anon_next_schedule_time_works() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+
+		// Schedule a call at minute 4
+		let address = <Scheduler as Anon<_, _, _>>::schedule(
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			bound.clone(),
+		)
+		.unwrap();
+
+		run_to_time(180_000);
+		assert!(logger::log().is_empty());
+
+		// Scheduled for minute 4 (timestamp 240_000).
+		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
+		// Execute at minute 4.
+		run_to_time(240_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+
+		// No dispatch time after execution.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::next_dispatch_time(address),
+			DispatchError::Unavailable
+		);
+	});
+}
+
+/// Re-scheduling a task changes its next dispatch time.
+#[test]
+fn time_scheduler_v1_anon_reschedule_and_next_schedule_time_work() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+
+		// Schedule at minute 4
+		let old_address = <Scheduler as Anon<_, _, _>>::schedule(
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			bound.clone(),
+		)
+		.unwrap();
+
+		run_to_time(180_000);
+		assert!(logger::log().is_empty());
+
+		// Scheduled for minute 4.
+		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(old_address), Ok(240_000));
+		// Re-schedule to minute 5.
+		let address =
+			<Scheduler as Anon<_, _, _>>::reschedule(old_address, DispatchTime::At(300_000))
+				.unwrap();
+		assert!(address != old_address);
+		// Now scheduled for minute 5.
+		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(300_000));
+
+		// Minute 4 does nothing.
+		run_to_time(240_000);
+		assert!(logger::log().is_empty());
+		// Minute 5 executes it.
+		run_to_time(300_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+	});
+}
+
+/// Cancelling and scheduling does not overflow the agenda but fills holes.
+#[test]
+fn time_scheduler_v1_anon_cancel_and_schedule_fills_holes() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	let max: u32 = <Test as crate::Config>::MaxScheduledPerBucket::get();
+	assert!(max > 3, "This test only makes sense for MaxScheduledPerBucket > 3");
+
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+		let mut addrs = Vec::<_>::default();
+
+		// Schedule the maximal number allowed per bucket.
+		for _ in 0..max {
+			addrs.push(
+				<Scheduler as Anon<_, _, _>>::schedule(
+					DispatchTime::At(240_000),
+					None,
+					127,
+					root(),
+					bound.clone(),
+				)
+				.unwrap(),
+			);
+		}
+		// Cancel three of them.
+		for addr in addrs.into_iter().take(3) {
+			<Scheduler as Anon<_, _, _>>::cancel(addr).unwrap();
+		}
+		// Schedule three new ones — they should fill the holes.
+		for i in 0..3 {
+			let (_bucket, index) = <Scheduler as Anon<_, _, _>>::schedule(
+				DispatchTime::At(240_000),
+				None,
+				127,
+				root(),
+				bound.clone(),
+			)
+			.unwrap();
+			assert_eq!(i, index);
+		}
+
+		run_to_time(240_000);
+		// Maximum number of calls are executed.
+		assert_eq!(logger::log().len() as u32, max);
+	});
+}
+
+/// Re-scheduling does not overflow the agenda but fills holes.
+#[test]
+fn time_scheduler_v1_anon_reschedule_fills_holes() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	let max: u32 = <Test as crate::Config>::MaxScheduledPerBucket::get();
+	assert!(max > 3, "This test only makes sense for MaxScheduledPerBucket > 3");
+
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+		let mut addrs = Vec::<_>::default();
+
+		// Schedule the maximal number allowed per bucket.
+		for _ in 0..max {
+			addrs.push(
+				<Scheduler as Anon<_, _, _>>::schedule(
+					DispatchTime::At(240_000),
+					None,
+					127,
+					root(),
+					bound.clone(),
+				)
+				.unwrap(),
+			);
+		}
+		let mut new_addrs = Vec::<_>::default();
+		// Take last three (reversed).
+		let last_three = addrs.into_iter().rev().take(3).collect::<Vec<_>>();
+		// Re-schedule three of them to minute 5.
+		for addr in last_three.iter().cloned() {
+			new_addrs.push(
+				<Scheduler as Anon<_, _, _>>::reschedule(addr, DispatchTime::At(300_000)).unwrap(),
+			);
+		}
+		// Re-scheduling them back into minute 4 should result in the same addresses.
+		for (old, want) in new_addrs.into_iter().zip(last_three.into_iter().rev()) {
+			let new =
+				<Scheduler as Anon<_, _, _>>::reschedule(old, DispatchTime::At(240_000)).unwrap();
+			assert_eq!(new, want);
+		}
+
+		run_to_time(240_000);
+		// Maximum number of calls are executed.
+		assert_eq!(logger::log().len() as u32, max);
+	});
+}
+
+#[test]
+fn time_scheduler_v1_anon_schedule_agenda_overflows() {
+	use frame_support::traits::time_schedule::v1::Anon;
+	let max: u32 = <Test as crate::Config>::MaxScheduledPerBucket::get();
+
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+
+		// Schedule the maximal number allowed per bucket.
+		for _ in 0..max {
+			<Scheduler as Anon<_, _, _>>::schedule(
+				DispatchTime::At(240_000),
+				None,
+				127,
+				root(),
+				bound.clone(),
+			)
+			.unwrap();
+		}
+
+		// One more and it errors.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::schedule(
+				DispatchTime::At(240_000),
+				None,
+				127,
+				root(),
+				bound,
+			),
+			DispatchError::Exhausted
+		);
+
+		run_to_time(240_000);
+		assert_eq!(logger::log().len() as u32, max);
+	});
+}
+
+#[test]
 fn time_scheduler_v1_named_basic_works() {
 	use frame_support::traits::time_schedule::v1::Named;
 	new_test_ext().execute_with(|| {
@@ -1501,6 +1763,141 @@ fn time_scheduler_v1_named_reschedule_works() {
 		// Executes at minute 6
 		run_to_time(360_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
+	});
+}
+
+/// A named task can also be cancelled by its address.
+#[test]
+fn time_scheduler_v1_named_cancel_without_name_works() {
+	use frame_support::traits::time_schedule::v1::{Anon, Named};
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+		let name = [1u8; 32];
+
+		// Schedule a named call.
+		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+			name,
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			bound.clone(),
+		)
+		.unwrap();
+		// Cancel the call by address.
+		assert_ok!(<Scheduler as Anon<_, _, _>>::cancel(address));
+		// It did not get executed.
+		run_to_time(600_000);
+		assert!(logger::log().is_empty());
+		// Cannot cancel again.
+		assert_err!(<Scheduler as Anon<_, _, _>>::cancel(address), DispatchError::Unavailable);
+	});
+}
+
+#[test]
+fn time_scheduler_v1_named_next_schedule_time_works() {
+	use frame_support::traits::time_schedule::v1::{Anon, Named};
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let bound = Preimage::bound(call).unwrap();
+		let name = [1u8; 32];
+
+		// Schedule a named call at minute 4.
+		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+			name,
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			bound.clone(),
+		)
+		.unwrap();
+
+		run_to_time(180_000);
+		assert!(logger::log().is_empty());
+
+		// Scheduled for minute 4 (via name).
+		assert_eq!(<Scheduler as Named<_, _, _>>::next_dispatch_time(name), Ok(240_000));
+		// Also works by address.
+		assert_eq!(<Scheduler as Anon<_, _, _>>::next_dispatch_time(address), Ok(240_000));
+		// Execute at minute 4.
+		run_to_time(240_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+
+		// No dispatch time after execution.
+		assert_noop!(
+			<Scheduler as Named<_, _, _>>::next_dispatch_time(name),
+			DispatchError::Unavailable
+		);
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::next_dispatch_time(address),
+			DispatchError::Unavailable
+		);
+	});
+}
+
+/// A named task can be re-scheduled by its name but not by its address.
+#[test]
+fn time_scheduler_v1_named_reschedule_named_works() {
+	use frame_support::traits::time_schedule::v1::{Anon, Named};
+	new_test_ext().execute_with(|| {
+		let call =
+			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
+		let name = [1u8; 32];
+
+		// Schedule a named call at minute 4.
+		let address = <Scheduler as Named<_, _, _>>::schedule_named(
+			name,
+			DispatchTime::At(240_000),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		)
+		.unwrap();
+
+		run_to_time(180_000);
+		assert!(logger::log().is_empty());
+
+		// Cannot re-schedule by address (it's named).
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			Error::<Test>::Named,
+		);
+		// Cannot re-schedule into the same bucket.
+		assert_noop!(
+			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(240_000)),
+			Error::<Test>::RescheduleNoChange
+		);
+		// Cannot re-schedule into the past.
+		assert_noop!(
+			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(120_000)),
+			Error::<Test>::TargetTimestampInPast
+		);
+		// Re-schedule to minute 5.
+		assert_ok!(<Scheduler as Named<_, _, _>>::reschedule_named(
+			name,
+			DispatchTime::At(300_000)
+		));
+		// Minute 4 does nothing.
+		run_to_time(240_000);
+		assert!(logger::log().is_empty());
+		// Executes at minute 5.
+		run_to_time(300_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
+		// Cannot re-schedule executed task.
+		assert_noop!(
+			<Scheduler as Named<_, _, _>>::reschedule_named(name, DispatchTime::At(600_000)),
+			DispatchError::Unavailable
+		);
+		// Also not by address.
+		assert_noop!(
+			<Scheduler as Anon<_, _, _>>::reschedule(address, DispatchTime::At(600_000)),
+			DispatchError::Unavailable
+		);
 	});
 }
 

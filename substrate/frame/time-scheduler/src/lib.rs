@@ -1398,7 +1398,7 @@ impl<T: Config>
 			.get(index as usize)
 			.and_then(Option::as_ref)
 			.map(|_| bucket * resolution)
-			.ok_or(Error::<T>::NotFound.into())
+			.ok_or(DispatchError::Unavailable)
 	}
 }
 
@@ -1432,7 +1432,7 @@ impl<T: Config>
 	}
 
 	fn next_dispatch_time(id: TaskName) -> Result<TimeFor<T>, DispatchError> {
-		let (bucket, _index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+		let (bucket, _index) = Lookup::<T>::get(&id).ok_or(DispatchError::Unavailable)?;
 		let resolution: TimeFor<T> = T::BucketResolution::get().into();
 		Ok(bucket * resolution)
 	}
