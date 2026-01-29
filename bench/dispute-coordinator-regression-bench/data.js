@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769708857494,
+  "lastUpdate": 1769711257315,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22490,6 +22490,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0026851994700000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
+          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-29T17:10:38Z",
+          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
+        },
+        "date": 1769711233086,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006458493400000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009159960019999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002682879929999999,
             "unit": "seconds"
           }
         ]
