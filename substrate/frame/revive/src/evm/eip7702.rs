@@ -63,22 +63,17 @@ pub fn process_authorizations<T: Config>(
 	meter: &mut WeightMeter,
 ) -> DispatchResult {
 	for auth in authorization_list.iter() {
-		// Charge weight for validation before processing
 		meter
 			.try_consume(T::WeightInfo::validate_authorization())
 			.map_err(|_| crate::Error::<T>::OutOfGas)?;
 
-		// Validate the authorization (also checks if account is new)
 		let Some((authority, is_new_account)) = validate_authorization::<T>(auth, chain_id) else {
 			continue;
 		};
 
-		// Charge weight for applying delegation based on account existence
 		meter
 			.try_consume(T::WeightInfo::apply_delegation(is_new_account as u32))
 			.map_err(|_| crate::Error::<T>::OutOfGas)?;
-
-		// Apply delegation
 		apply_delegation::<T>(&authority, auth.address);
 	}
 
