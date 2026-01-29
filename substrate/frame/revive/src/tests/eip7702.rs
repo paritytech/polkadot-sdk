@@ -54,7 +54,6 @@ impl TestSigner {
 	/// Create a new test signer from a seed
 	fn new(seed: &[u8; 32]) -> Self {
 		let keypair = ecdsa::Pair::from_seed(seed);
-		// Derive the Ethereum address by signing a dummy message
 		let dummy_message = [0u8; 32];
 		let signature = keypair.sign_prehashed(&dummy_message);
 
@@ -75,36 +74,29 @@ impl TestSigner {
 		address: H160,
 		nonce: U256,
 	) -> SignedAuthorizationListEntry {
-		// Construct the message: MAGIC || rlp([chain_id, address, nonce])
 		let mut message = Vec::new();
 		message.push(crate::evm::eip7702::EIP7702_MAGIC);
 
-		// Create unsigned authorization tuple for RLP encoding
 		let unsigned_auth = AuthorizationListEntry {
 			chain_id,
 			address,
 			nonce,
 		};
 
-		// RLP encode the unsigned authorization tuple
 		let rlp_encoded = crate::evm::rlp::encode(&unsigned_auth);
 		message.extend_from_slice(&rlp_encoded);
 
-		// Hash the message
 		let message_hash = keccak_256(&message);
 
-		// Sign with the keypair
 		let signature = self.keypair.sign_prehashed(&message_hash);
 		let sig_bytes = signature.0;
 
-		// The signature from ecdsa::Pair is 65 bytes: [r (32), s (32), recovery_id (1)]
 		let mut r_bytes = [0u8; 32];
 		let mut s_bytes = [0u8; 32];
 		r_bytes.copy_from_slice(&sig_bytes[0..32]);
 		s_bytes.copy_from_slice(&sig_bytes[32..64]);
 		let recovery_id = sig_bytes[64];
 
-		// Convert to U256
 		let r = U256::from_big_endian(&r_bytes);
 		let s = U256::from_big_endian(&s_bytes);
 		let y_parity = U256::from(recovery_id);
@@ -122,13 +114,10 @@ fn set_delegation_creates_indicator() {
 		let eoa = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
 
-		// Set delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target));
 
-		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&eoa));
 
-		// Verify we can retrieve the target
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target));
 	});
 }
@@ -139,14 +128,11 @@ fn clear_delegation_restores_eoa() {
 		let authority = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
 
-		// Set delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target));
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
-		// Clear delegation
 		assert_ok!(AccountInfo::<Test>::clear_delegation(&authority));
 
-		// Should no longer be delegated
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 	});
 }
@@ -158,15 +144,12 @@ fn delegation_can_be_updated() {
 		let target1 = H160::from([0x22; 20]);
 		let target2 = H160::from([0x33; 20]);
 
-		// Set first delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target1));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target1));
 
-		// Update to second delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target2));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target2));
 
-		// Still delegated
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 	});
 }
@@ -174,14 +157,12 @@ fn delegation_can_be_updated() {
 #[test]
 fn regular_contract_is_not_delegation() {
 	ExtBuilder::default().build().execute_with(|| {
-		// Deploy a regular contract
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 1_000_000_000);
 		let bytecode = dummy_evm_contract();
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(bytecode)).build_and_unwrap_contract();
 
-		// Regular contract should not be considered a delegation
 		assert!(AccountInfo::<Test>::is_contract(&addr));
 		assert!(!AccountInfo::<Test>::is_delegated(&addr));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&addr), None);
@@ -191,19 +172,14 @@ fn regular_contract_is_not_delegation() {
 #[test]
 fn eip3607_allows_delegated_accounts_to_originate_transactions() {
 	ExtBuilder::default().build().execute_with(|| {
-		// Per EIP-7702: accounts with delegation indicators ARE allowed to
-		// originate transactions (modification to EIP-3607)
 		let authority = H160::from([0x11; 20]);
 		let target = H160::from([0x22; 20]);
 
-		// Create the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		// Set delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&authority, target));
 
-		// Should be allowed to originate transactions (EIP-7702 modification to EIP-3607)
 		let origin = RuntimeOrigin::signed(authority_id.clone());
 		assert_ok!(Contracts::ensure_non_contract_if_signed(&origin));
 	});
@@ -218,7 +194,6 @@ fn eip3607_rejects_regular_contract_originating_transactions() {
 		let Contract { account_id, .. } =
 			builder::bare_instantiate(Code::Upload(bytecode)).build_and_unwrap_contract();
 
-		// Regular contracts should NOT be allowed to originate transactions (EIP-3607)
 		let origin = RuntimeOrigin::signed(account_id);
 		assert!(Contracts::ensure_non_contract_if_signed(&origin).is_err());
 	});
@@ -228,23 +203,18 @@ fn eip3607_rejects_regular_contract_originating_transactions() {
 
 #[test]
 fn multiple_delegations_last_one_wins() {
-	// Per EIP-7702: "When multiple tuples from the same authority are present,
-	// set the code using the address in the last valid occurrence."
 	ExtBuilder::default().build().execute_with(|| {
 		let eoa = H160::from([0x11; 20]);
 		let target1 = H160::from([0x22; 20]);
 		let target2 = H160::from([0x33; 20]);
 		let target3 = H160::from([0x44; 20]);
 
-		// Set first delegation
 		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target1));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target1));
 
-		// Set second delegation (should override)
 		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target2));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target2));
 
-		// Set third delegation (should override again)
 		assert_ok!(AccountInfo::<Test>::set_delegation(&eoa, target3));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&eoa), Some(target3));
 	});
@@ -256,28 +226,22 @@ fn valid_signature_is_verified_correctly() {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
-		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Sign authorization with correct nonce
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
-		// Process authorizations
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
-		// Should succeed and set delegation
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
 	});
@@ -290,27 +254,22 @@ fn invalid_chain_id_rejects_authorization() {
 		let wrong_chain_id = U256::from(999);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Sign with wrong chain ID
 		let auth = signer.sign_authorization(wrong_chain_id, target, nonce);
 
-		// Process with correct chain ID - should reject
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			correct_chain_id,
 		);
 
-		// Should not set delegation
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 	});
 }
@@ -321,28 +280,23 @@ fn nonce_mismatch_rejects_authorization() {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let current_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 		let wrong_nonce = current_nonce.saturating_add(U256::from(1));
 
-		// Sign with wrong nonce
 		let auth = signer.sign_authorization(chain_id, target, wrong_nonce);
 
-		// Process - should reject due to nonce mismatch
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
-		// Should not set delegation
 		assert!(!AccountInfo::<Test>::is_delegated(&signer.address));
 	});
 }
@@ -355,29 +309,24 @@ fn multiple_authorizations_from_same_authority_last_wins() {
 		let target2 = H160::from([0x22; 20]);
 		let target3 = H160::from([0x33; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Sign three authorizations with same nonce but different targets
 		let auth1 = signer.sign_authorization(chain_id, target1, nonce);
 		let auth2 = signer.sign_authorization(chain_id, target2, nonce);
 		let auth3 = signer.sign_authorization(chain_id, target3, nonce);
 
-		// Process all three - last one should win
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth1, auth2, auth3],
 			chain_id,
 		);
 
-		// Should set delegation to target3 (last one)
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target3));
 	});
@@ -389,27 +338,22 @@ fn authorization_increments_nonce() {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let nonce_before = frame_system::Pallet::<Test>::account_nonce(&authority_id);
 
-		// Sign authorization with current nonce
 		let auth = signer.sign_authorization(chain_id, target, U256::from(nonce_before));
 
-		// Process authorization
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
-		// Nonce should be incremented
 		let nonce_after = frame_system::Pallet::<Test>::account_nonce(&authority_id);
 		assert_eq!(nonce_after, nonce_before + 1);
 	});
@@ -421,27 +365,22 @@ fn chain_id_zero_accepts_any_chain() {
 		let current_chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Sign with chain_id = 0 (should accept any chain)
 		let auth = signer.sign_authorization(U256::zero(), target, nonce);
 
-		// Process with current chain ID
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			current_chain_id,
 		);
 
-		// Should succeed
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
 	});
@@ -453,7 +392,6 @@ fn new_account_sets_delegation() {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer but DON'T fund the account (new account)
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
@@ -461,16 +399,13 @@ fn new_account_sets_delegation() {
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Sign authorization
 		let auth = signer.sign_authorization(chain_id, target, nonce);
 
-		// Process authorization
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth],
 			chain_id,
 		);
 
-		// Delegation should be set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), Some(target));
 	});
@@ -482,63 +417,87 @@ fn clearing_delegation_with_zero_address() {
 		let chain_id = U256::from(1);
 		let target = H160::from([0x42; 20]);
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Fund the account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 1_000_000);
 
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target, nonce);
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth1],
 			chain_id,
 		);
 
-		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
-		// Get new nonce after first authorization
 		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		crate::evm::eip7702::process_authorizations::<Test>(
+		let (_new_accounts, _existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
 			&[auth2],
 			chain_id,
 		);
 
-		// Delegation should be cleared
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 	});
 }
 
-// ============================================================================
-// Runtime Tests for EIP-7702
-// ============================================================================
-//
-// The following tests verify the end-to-end functionality of EIP-7702 through
-// the runtime's eth_call dispatchable. Unlike the unit tests above which test
-// individual components in isolation, these runtime tests simulate real-world
-// transaction flows:
-//
-// 1. Create a generic EIP-7702 transaction with authorization list
-// 2. Convert it into an eth_call dispatchable
-// 3. Dispatch the call through the runtime
-// 4. Verify the authorization was processed correctly
-//
-// These tests cover three main scenarios:
-// - Setting authorization: EOA delegates to a contract
-// - Clearing authorization: EOA clears delegation (sets to 0x0)
-// - Delegation resolution: Calling a delegated EOA executes target code
-//
-// ============================================================================
+#[test]
+fn process_authorizations_returns_correct_counts() {
+	ExtBuilder::default().build().execute_with(|| {
+		let chain_id = U256::from(1);
+		let target = H160::from([0x42; 20]);
+
+		let seed1 = H256::from([1u8; 32]);
+		let seed2 = H256::from([2u8; 32]);
+		let seed3 = H256::from([3u8; 32]);
+
+		let signer1 = TestSigner::new(&seed1.0);
+		let signer2 = TestSigner::new(&seed2.0);
+		let signer3 = TestSigner::new(&seed3.0);
+
+		let authority1 = signer1.address;
+		let authority2 = signer2.address;
+		let authority3 = signer3.address;
+
+		let authority1_id = <Test as Config>::AddressMapper::to_account_id(&authority1);
+		let authority2_id = <Test as Config>::AddressMapper::to_account_id(&authority2);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority1_id, 1_000_000);
+		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority2_id, 1_000_000);
+
+		assert!(frame_system::Account::<Test>::contains_key(&authority1_id));
+		assert!(frame_system::Account::<Test>::contains_key(&authority2_id));
+		let authority3_id = <Test as Config>::AddressMapper::to_account_id(&authority3);
+		assert!(!frame_system::Account::<Test>::contains_key(&authority3_id));
+
+
+		let nonce1 = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority1_id));
+		let nonce2 = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority2_id));
+		let nonce3 = U256::zero();
+
+		let auth1 = signer1.sign_authorization(chain_id, target, nonce1);
+		let auth2 = signer2.sign_authorization(chain_id, target, nonce2);
+		let auth3 = signer3.sign_authorization(chain_id, target, nonce3);
+
+		let (new_accounts, existing_accounts) = crate::evm::eip7702::process_authorizations::<Test>(
+			&[auth1, auth2, auth3],
+			chain_id,
+		);
+
+		assert_eq!(new_accounts, 1, "Expected 1 new account");
+		assert_eq!(existing_accounts, 2, "Expected 2 existing accounts");
+
+		assert!(AccountInfo::<Test>::is_delegated(&authority1));
+		assert!(AccountInfo::<Test>::is_delegated(&authority2));
+		assert!(AccountInfo::<Test>::is_delegated(&authority3));
+	});
+}
+
 
 /// Runtime test: Set authorization via eth_call
 ///
@@ -556,46 +515,36 @@ fn test_runtime_set_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 
-		// Fund ALICE (the origin of eth_call) and deposit tx fees
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		// Create a signer (this will be the EOA that delegates)
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Create a target contract to delegate to
 		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
-		// Fund the authority account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
-		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Create authorization to delegate to target contract
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
 
-		// Create eth_call with authorization list
 		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(1_000_000u64.into())
 			.build();
 
-		// Should succeed
 		assert_ok!(result);
 
-		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(
 			AccountInfo::<Test>::get_delegation_target(&authority),
 			Some(target_contract.addr)
 		);
 
-		// Verify nonce was incremented
 		let new_nonce = frame_system::Pallet::<Test>::account_nonce(&authority_id);
 		assert_eq!(new_nonce, 1);
 	});
@@ -616,27 +565,21 @@ fn test_runtime_clear_authorization() {
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 
-		// Fund ALICE (the origin of eth_call) and deposit tx fees
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		// Create a signer
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Create a target contract
 		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
-		// Fund the authority account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
-		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// First, set delegation
 		let auth1 = signer.sign_authorization(chain_id, target_contract.addr, nonce);
 		let result1 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth1])
@@ -644,13 +587,10 @@ fn test_runtime_clear_authorization() {
 			.build();
 		assert_ok!(result1);
 
-		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 
-		// Get new nonce
 		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Clear delegation with zero address
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
 		let result2 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth2])
@@ -658,11 +598,9 @@ fn test_runtime_clear_authorization() {
 			.build();
 		assert_ok!(result2);
 
-		// Verify delegation is cleared
 		assert!(!AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(AccountInfo::<Test>::get_delegation_target(&authority), None);
 
-		// Verify account is back to EOA state
 		assert!(!AccountInfo::<Test>::is_contract(&authority));
 	});
 }
@@ -688,30 +626,21 @@ fn test_runtime_delegation_resolution() {
 	ExtBuilder::default().build().execute_with(|| {
 		let chain_id = U256::from(<Test as Config>::ChainId::get());
 
-		// Fund ALICE (the origin of eth_call) and deposit tx fees
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&ALICE, 100_000_000);
 		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
 
-		// Create a signer (EOA that will delegate)
 		let seed = H256::random();
 		let signer = TestSigner::new(&seed.0);
 		let authority = signer.address;
 
-		// Create a simple target contract that returns a fixed value (0x2a = 42)
-		// This contract just returns 42 without any storage operations
 		let target_contract = builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
 			.build_and_unwrap_contract();
 
-		// Fund the authority account
 		let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
 		let _ = <<Test as Config>::Currency as Mutate<_>>::set_balance(&authority_id, 100_000_000);
 
-		// Get current nonce
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
-		// Set delegation from authority to target contract
-		// We need to call some address with the authorization list to process it
-		// We'll call the target contract itself just to trigger authorization processing
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
 		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
@@ -719,25 +648,17 @@ fn test_runtime_delegation_resolution() {
 			.build();
 		assert_ok!(result);
 
-		// Verify delegation is set
 		assert!(AccountInfo::<Test>::is_delegated(&authority));
 		assert_eq!(
 			AccountInfo::<Test>::get_delegation_target(&authority),
 			Some(target_contract.addr)
 		);
 
-		// Now call the authority address (EOA with delegation) using eth_call
-		// This verifies that calling a delegated EOA succeeds in the EVM context
 		let call_result = builder::eth_call(authority)
 			.eth_gas_limit(1_000_000u64.into())
 			.build();
 
-		// Should succeed - the call is recognized and doesn't revert
 		assert_ok!(&call_result);
 
-		// The key verification is that:
-		// 1. Authorization was processed and delegation was set (verified above)
-		// 2. Calling the delegated EOA succeeds without error
-		// This confirms the delegation mechanism is working at the runtime level
 	});
 }

@@ -128,10 +128,10 @@ mod benchmarks {
 		}
 	}
 
-	// Benchmark for EIP-7702 authorization processing
-	// Measures the weight of processing `a` authorization tuples
+	// Benchmark for EIP-7702 single authorization validation
+	// Measures the weight of validating a single authorization tuple
 	#[benchmark(pov_mode = Measured)]
-	fn process_authorizations(a: Linear<0, 16>) -> Result<(), BenchmarkError> {
+	fn process_single_authorization() -> Result<(), BenchmarkError> {
 		use crate::evm::{
 			AuthorizationListEntry, SignedAuthorizationListEntry,
 			eip7702,
@@ -139,51 +139,105 @@ mod benchmarks {
 		use k256::ecdsa::SigningKey;
 		use sp_core::keccak_256;
 
-		// Create authorization list with `a` entries
-		let mut authorization_list = Vec::new();
+		// Generate a signing key
+		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32]))
+			.expect("valid key");
 
-		for i in 0..a {
-			// Generate a unique signing key for each authorization
-			let signing_key = SigningKey::from_slice(&keccak_256(&i.to_le_bytes()))
-				.expect("valid key");
+		// Create target address
+		let target_address = H160::from_low_u64_be(1);
 
-			// Create target address (use a deterministic address based on index)
-			let target_address = H160::from_low_u64_be(i as u64 + 1);
+		// Create unsigned authorization
+		let unsigned_auth = AuthorizationListEntry {
+			chain_id: U256::from(T::ChainId::get()),
+			address: target_address,
+			nonce: U256::zero(),
+		};
 
-			// Create unsigned authorization
-			let unsigned_auth = AuthorizationListEntry {
-				chain_id: U256::from(T::ChainId::get()),
-				address: target_address,
-				nonce: U256::zero(),
-			};
+		// Sign the authorization
+		let mut message = Vec::new();
+		message.push(eip7702::EIP7702_MAGIC);
+		message.extend_from_slice(&crate::evm::rlp::encode(&unsigned_auth));
 
-			// Sign the authorization
-			let mut message = Vec::new();
-			message.push(eip7702::EIP7702_MAGIC);
-			message.extend_from_slice(&crate::evm::rlp::encode(&unsigned_auth));
+		let hash = keccak_256(&message);
+		let (signature, recovery_id) = signing_key
+			.sign_prehash_recoverable(&hash)
+			.expect("signing succeeds");
 
-			let hash = keccak_256(&message);
-			let (signature, recovery_id) = signing_key
-				.sign_prehash_recoverable(&hash)
-				.expect("signing succeeds");
-
-			let signed_auth = SignedAuthorizationListEntry {
-				chain_id: unsigned_auth.chain_id,
-				address: unsigned_auth.address,
-				nonce: unsigned_auth.nonce,
-				y_parity: U256::from(recovery_id.to_byte()),
-				r: U256::from_big_endian(&signature.r().to_bytes()),
-				s: U256::from_big_endian(&signature.s().to_bytes()),
-			};
-
-			authorization_list.push(signed_auth);
-		}
+		let signed_auth = SignedAuthorizationListEntry {
+			chain_id: unsigned_auth.chain_id,
+			address: unsigned_auth.address,
+			nonce: unsigned_auth.nonce,
+			y_parity: U256::from(recovery_id.to_byte()),
+			r: U256::from_big_endian(&signature.r().to_bytes()),
+			s: U256::from_big_endian(&signature.s().to_bytes()),
+		};
 
 		let chain_id = U256::from(T::ChainId::get());
 
 		#[block]
 		{
-			eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+			let _result = eip7702::process_single_authorization::<T>(&signed_auth, chain_id);
+		}
+
+		Ok(())
+	}
+
+	// Benchmark for EIP-7702 delegation application on existing accounts
+	// Measures the weight of applying delegations for `a` existing accounts
+	#[benchmark(pov_mode = Measured)]
+	fn apply_delegations_existing(a: Linear<1, 16>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use frame_support::traits::fungible::Mutate;
+
+		let mut authorities = alloc::collections::BTreeMap::new();
+
+		// Create existing accounts with balance
+		for i in 0..a {
+			let authority = H160::from_low_u64_be(i as u64 + 1);
+			let target = H160::from_low_u64_be((i + 100) as u64);
+			
+			// Fund the account so it exists in frame_system
+			let authority_id = T::AddressMapper::to_account_id(&authority);
+			let _ = T::Currency::set_balance(&authority_id, 1_000_000u32.into());
+			
+			// Verify the account now exists in frame_system
+			assert!(frame_system::Account::<T>::contains_key(&authority_id),
+				"Account should exist after setting balance");
+			
+			authorities.insert(authority, target);
+		}
+
+		#[block]
+		{
+			let (_new_accounts, _existing_accounts) = eip7702::apply_delegations::<T>(authorities.clone());
+		}
+
+		Ok(())
+	}
+
+	// Benchmark for EIP-7702 delegation application on new accounts
+	// Measures the weight of applying delegations for `a` non-existing accounts
+	#[benchmark(pov_mode = Measured)]
+	fn apply_delegations_new(a: Linear<1, 16>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+
+		let mut authorities = alloc::collections::BTreeMap::new();
+
+		// Create authority addresses that don't exist in frame_system
+		for i in 0..a {
+			let authority = H160::from_low_u64_be((i + 1000) as u64);
+			let target = H160::from_low_u64_be((i + 2000) as u64);
+			
+			// Verify the account doesn't exist
+			let authority_id = T::AddressMapper::to_account_id(&authority);
+			assert!(!frame_system::Account::<T>::contains_key(&authority_id));
+			
+			authorities.insert(authority, target);
+		}
+
+		#[block]
+		{
+			let (_new_accounts, _existing_accounts) = eip7702::apply_delegations::<T>(authorities.clone());
 		}
 
 		Ok(())

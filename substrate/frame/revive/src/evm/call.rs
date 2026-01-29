@@ -188,7 +188,7 @@ impl GenericTransaction {
 
 				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call);
+					return Err(InvalidTransaction::Call)
 				}
 
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
