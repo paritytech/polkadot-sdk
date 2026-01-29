@@ -146,3 +146,12 @@ fn try_state_validates_timestamp_slot_consistency() {
 		);
 	});
 }
+
+#[test]
+fn integrity_test_passes_with_valid_config() {
+	use frame_support::traits::Hooks;
+	build_ext(vec![0, 1, 2, 3]).execute_with(|| {
+		// This should not panic with valid configuration
+		<Aura as Hooks<frame_system::pallet_prelude::BlockNumberFor<Test>>>::integrity_test();
+	});
+}

@@ -113,7 +113,7 @@ pub mod pallet {
 		type AllowMultipleBlocksPerSlot: Get<bool>;
 
 		/// The slot duration Aura should run with, expressed in milliseconds.
-		/// The effective value of this type should not change while the chain is running.
+		/// The effective value of this type can be chaged with runtime upgrade.
 		///
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
 		#[pallet::constant]
@@ -140,24 +140,20 @@ pub mod pallet {
 		fn on_runtime_upgrade() -> Weight {
 			use pallet_timestamp::Pallet as Timestamp;
 
-			let old_slot_duration = T::OldSlotDuration::get();
-
-			if old_slot_duration.is_none() {
+			let Some(old_slot_duration) = T::OldSlotDuration::get() else {
 				log::info!(
 					target: LOG_TARGET,
 					"OldSlotDuration is None, skipping CurrentSlot migration"
 				);
-				return T::DbWeight::get().reads(1)
-			}
-
-			let old_slot_duration = old_slot_duration.expect("checked above; qed");
+				return T::DbWeight::get().reads(0);
+			};
 
 			if old_slot_duration.is_zero() {
 				log::error!(
 					target: LOG_TARGET,
 					"OldSlotDuration is zero, cannot migrate CurrentSlot"
 				);
-				return T::DbWeight::get().reads(2)
+				return T::DbWeight::get().reads(0)
 			}
 
 			let current_timestamp = Timestamp::<T>::get();
@@ -168,7 +164,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"Slot duration is zero, cannot migrate CurrentSlot"
 				);
-				return T::DbWeight::get().reads(2)
+				return T::DbWeight::get().reads(1)
 			}
 
 			let old_slot = CurrentSlot::<T>::get();
@@ -208,6 +204,15 @@ pub mod pallet {
 					u64::from(old_slot)
 				);
 				T::DbWeight::get().reads(2)
+			}
+		}
+
+		fn integrity_test() {
+			let slot_duration = T::SlotDuration::get();
+			assert!(!slot_duration.is_zero(), "Aura slot duration cannot be zero.");
+
+			if let Some(old_slot_duration) = T::OldSlotDuration::get() {
+				assert!(!old_slot_duration.is_zero(), "OldSlotDuration cannot be zero when set.");
 			}
 		}
 
