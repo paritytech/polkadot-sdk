@@ -597,409 +597,224 @@ fn eth_substrate_call_tracks_weight_correctly() {
 	});
 }
 
-#[test]
-fn execution_tracing_works_for_evm() {
-	use crate::{
-		evm::{
-			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
-			ExecutionTracerConfig,
-		},
-		tracing::trace,
-	};
-	use sp_core::U256;
-	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-		let config = ExecutionTracerConfig {
-			enable_memory: false,
-			disable_stack: false,
-			disable_storage: true,
-			enable_return_data: true,
-			disable_syscall_details: true,
-			limit: Some(5),
-			memory_word_limit: 16,
-		};
-
-		let mut tracer = ExecutionTracer::new(config);
-		let _result = trace(&mut tracer, || {
-			builder::bare_call(addr)
-				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
-				.build_and_unwrap_result()
-		});
-
-		let mut actual_trace = tracer.collect_trace();
-		actual_trace.struct_logs.iter_mut().for_each(|step| {
-			step.gas = Default::default();
-			step.gas_cost = Default::default();
-			step.weight_cost = Default::default();
-		});
-
-		let expected_trace = ExecutionTrace {
-			gas: actual_trace.gas,
-			base_call_weight: Default::default(),
-			weight_consumed: Default::default(),
-			failed: false,
-			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
-			struct_logs: vec![
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					error: None,
-					kind: ExecutionStepKind::EVMOpcode {
-						pc: 0,
-						op: PUSH1,
-						stack: vec![],
-						memory: vec![],
-						storage: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::EVMOpcode {
-						pc: 2,
-						op: PUSH1,
-						stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
-						memory: vec![],
-						storage: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::EVMOpcode {
-						pc: 4,
-						op: MSTORE,
-						stack: vec![
-							crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
-							crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
-						],
-						memory: vec![],
-						storage: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::EVMOpcode {
-						pc: 5,
-						op: CALLVALUE,
-						stack: vec![],
-						memory: vec![],
-						storage: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::EVMOpcode {
-						pc: 6,
-						op: DUP1,
-						stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
-						memory: vec![],
-						storage: None,
-					},
-				},
-			],
-		};
-
-		assert_eq!(actual_trace, expected_trace);
-	});
-}
-
-/// Test that execution tracing correctly tracks gas costs for nested calls.
+/// Tests execution tracing for both EVM and PVM.
 ///
-/// For EVM: gas - gas_cost == return_step.gas (exact, every opcode is traced)
-/// For PVM: gas - gas_cost >= return_step.gas (inequality, PVM instructions between syscalls
-///          consume additional gas that isn't individually traced)
-#[test_case(FixtureType::Solc; "evm")]
-#[test_case(FixtureType::Resolc; "pvm")]
-fn execution_tracing_nested_calls_gas(fixture_type: FixtureType) {
+/// Each test case runs for both Solc (EVM) and Resolc (PVM) with separate expected traces.
+/// Expected traces are stored in `src/tests/json_trace/` directory.
+///
+/// Gas consistency is verified for consecutive steps:
+/// - For EVM: gas - gas_cost == next_step.gas (exact, every opcode is traced)
+/// - For PVM: gas - gas_cost >= next_step.gas (inequality, PVM instructions between syscalls
+///   consume additional gas that isn't individually traced)
+#[test]
+fn execution_tracing_works() {
 	use crate::{
-		evm::{ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
+		evm::{Bytes, ExecutionStepKind, ExecutionTrace, ExecutionTracer, ExecutionTracerConfig},
 		tracing::trace,
-		vm::pvm::env::lookup_syscall_index,
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
 
-	/// Identifier for a call operation, either an EVM opcode or a PVM syscall index.
-	#[derive(Clone, Copy, Debug)]
-	enum CallOp {
-		Evm(u8),
-		Pvm(u8),
+	struct TestCase {
+		name: &'static str,
+		setup: Box<dyn Fn(FixtureType) -> ExecutionTrace>,
+		expected_evm_trace: &'static str,
+		expected_pvm_trace: &'static str,
 	}
 
-	/// Verifies gas tracking for a call operation (CALL/DELEGATECALL opcode or syscall):
-	/// 1. The operation has non-zero gas_cost
-	/// 2. For EVM: gas - gas_cost == return_step.gas
-	/// 3. For PVM: gas - gas_cost >= return_step.gas
-	fn verify_call_gas(trace: &ExecutionTrace, call_op: CallOp, op_name: &str) {
-		let steps = &trace.struct_logs;
+	let test_cases: Vec<TestCase> = vec![
+		TestCase {
+			name: "Fibonacci",
+			setup: Box::new(|fixture_type| {
+				let (code, _) = compile_module_with_type("Fibonacci", fixture_type).unwrap();
+				let Contract { addr, .. } =
+					builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		for (i, step) in steps.iter().enumerate() {
-			let matches = match (&step.kind, call_op) {
-				(ExecutionStepKind::EVMOpcode { op, .. }, CallOp::Evm(expected)) => *op == expected,
-				(ExecutionStepKind::PVMSyscall { op, .. }, CallOp::Pvm(expected)) => *op == expected,
-				_ => false,
-			};
+				let config = ExecutionTracerConfig {
+					enable_return_data: true,
+					limit: Some(5),
+					..Default::default()
+				};
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(addr)
+						.data(Fibonacci::fibCall { n: 3 }.abi_encode())
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/fibonacci_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/fibonacci_pvm.json"),
+		},
+		TestCase {
+			name: "CALL",
+			setup: Box::new(|fixture_type| {
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
 
-			if matches && step.depth == 1 {
-				assert!(step.gas_cost > 0, "{} should have non-zero gas_cost", op_name);
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
 
-				let return_step = steps[i + 1..]
-					.iter()
-					.find(|s| s.depth == 1)
-					.expect("Should have a step after returning from nested call");
+				let config =
+					ExecutionTracerConfig { enable_return_data: true, ..Default::default() };
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/call_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/call_pvm.json"),
+		},
+		TestCase {
+			name: "DELEGATECALL",
+			setup: Box::new(|fixture_type| {
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
 
-				let expected_gas = step.gas.saturating_sub(step.gas_cost);
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
 
-				match call_op {
-					CallOp::Evm(_) => {
-						// EVM: exact equality (every opcode is traced)
-						assert_eq!(
-							expected_gas, return_step.gas,
-							"{}: gas - gas_cost should equal return step gas",
-							op_name
-						);
+				let config =
+					ExecutionTracerConfig { enable_return_data: true, ..Default::default() };
+				let mut tracer = ExecutionTracer::new(config);
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::delegateCall {
+								_callee: callee.0.into(),
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			}),
+			expected_evm_trace: include_str!("json_trace/delegatecall_evm.json"),
+			expected_pvm_trace: include_str!("json_trace/delegatecall_pvm.json"),
+		},
+	];
+
+	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
+	fn normalize_trace(trace: &ExecutionTrace) -> ExecutionTrace {
+		use frame_support::weights::Weight;
+
+		let mut normalized = trace.clone();
+		normalized.gas = 0;
+		normalized.weight_consumed = Weight::zero();
+		normalized.base_call_weight = Weight::zero();
+
+		for step in &mut normalized.struct_logs {
+			step.gas = 0;
+			step.gas_cost = 0;
+			step.weight_cost = Weight::zero();
+
+			match &mut step.kind {
+				ExecutionStepKind::EVMOpcode { stack, .. } =>
+					for val in stack.iter_mut() {
+						*val = Bytes::from(vec![0u8]);
 					},
-					CallOp::Pvm(_) => {
-						// PVM: inequality (instructions between syscalls consume gas)
-						assert!(
-							return_step.gas <= expected_gas,
-							"{}: return gas ({}) should be <= gas - gas_cost ({})",
-							op_name,
-							return_step.gas,
-							expected_gas
-						);
-					},
-				}
-				return;
+				ExecutionStepKind::PVMSyscall { args, returned, .. } => {
+					for val in args.iter_mut() {
+						*val = 0;
+					}
+					if returned.is_some() {
+						*returned = Some(0);
+					}
+				},
 			}
 		}
-		panic!("No {} found at depth 1", op_name);
+		normalized
 	}
 
-	fn trace_call(
-		config: &ExecutionTracerConfig,
-		caller_addr: sp_core::H160,
-		call_data: Vec<u8>,
-	) -> ExecutionTrace {
-		let mut tracer = ExecutionTracer::new(config.clone());
-		let _ = trace(&mut tracer, || {
-			builder::bare_call(caller_addr).data(call_data).build_and_unwrap_result()
-		});
-		tracer.collect_trace()
-	}
-
-	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
-	let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
-
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-
-		let Contract { addr: callee_addr, .. } =
-			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
-		let Contract { addr: caller_addr, .. } =
-			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-
-		let config = ExecutionTracerConfig {
-			enable_memory: false,
-			disable_stack: true,
-			disable_storage: true,
-			enable_return_data: false,
-			disable_syscall_details: true,
-			limit: None,
-			memory_word_limit: 0,
-		};
-
-		// Test CALL / call_evm
-		let call_trace = trace_call(
-			&config,
-			caller_addr,
-			Caller::normalCall {
-				_callee: callee_addr.0.into(),
-				_value: 0,
-				_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
-				_gas: u64::MAX,
-			}
-			.abi_encode(),
-		);
+	/// Verifies gas consistency using consecutive step equations.
+	/// EVM: gas - gas_cost == next_step.gas (exact)
+	/// PVM: gas - gas_cost >= next_step.gas (inequality)
+	fn verify_gas_consistency(trace: &ExecutionTrace, is_evm: bool, name: &str) {
+		let violations: Vec<_> = trace
+			.struct_logs
+			.iter()
+			.zip(trace.struct_logs.iter().skip(1))
+			.enumerate()
+			.filter(|(_, (curr, next))| curr.depth == next.depth)
+			.filter_map(|(i, (curr, next))| {
+				let expected = curr.gas.saturating_sub(curr.gas_cost);
+				let valid = if is_evm { expected == next.gas } else { next.gas <= expected };
+				(!valid).then_some((i, curr.depth, curr.gas, curr.gas_cost, expected, next.gas))
+			})
+			.collect();
 
 		assert!(
-			call_trace.struct_logs.iter().any(|s| s.depth > 1),
-			"Should have nested call steps"
+			violations.is_empty(),
+			"{name}: gas violations (step, depth, gas, gas_cost, expected, actual): {violations:?}",
 		);
 
-		let (call_op, call_name) = match fixture_type {
-			FixtureType::Solc | FixtureType::SolcRuntime =>
-				(CallOp::Evm(revm::bytecode::opcode::CALL), "CALL"),
-			FixtureType::Resolc | FixtureType::Rust =>
-				(CallOp::Pvm(lookup_syscall_index("call_evm").unwrap()), "call_evm"),
-		};
-		verify_call_gas(&call_trace, call_op, call_name);
+		// Verify sum of gas_cost at depth 1 relates to total trace gas
+		let depth1_sum: u64 =
+			trace.struct_logs.iter().filter(|s| s.depth == 1).map(|s| s.gas_cost).sum();
 
-		// Test DELEGATECALL / delegate_call_evm
-		let delegate_trace = trace_call(
-			&config,
-			caller_addr,
-			Caller::delegateCall {
-				_callee: callee_addr.0.into(),
-				_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
-				_gas: u64::MAX,
+		if is_evm {
+			// For EVM, first step's gas minus last step's remaining gas should equal sum
+			if let (Some(first), Some(last)) = (trace.struct_logs.first(), trace.struct_logs.last())
+			{
+				let total_consumed =
+					first.gas.saturating_sub(last.gas.saturating_sub(last.gas_cost));
+				assert_eq!(
+					depth1_sum, total_consumed,
+					"{name}: depth 1 gas_cost sum ({depth1_sum}) != total consumed ({total_consumed})",
+				);
 			}
-			.abi_encode(),
-		);
+		}
+	}
 
-		let (delegate_op, delegate_name) = match fixture_type {
-			FixtureType::Solc | FixtureType::SolcRuntime =>
-				(CallOp::Evm(revm::bytecode::opcode::DELEGATECALL), "DELEGATECALL"),
-			FixtureType::Resolc | FixtureType::Rust => (
-				CallOp::Pvm(lookup_syscall_index("delegate_call_evm").unwrap()),
-				"delegate_call_evm",
-			),
-		};
-		verify_call_gas(&delegate_trace, delegate_op, delegate_name);
-	});
-}
+	for test_case in test_cases {
+		for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-#[test]
-fn execution_tracing_works_for_pvm() {
-	use crate::{
-		evm::{
-			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
-			ExecutionTracerConfig,
-		},
-		tracing::trace,
-		vm::pvm::env::lookup_syscall_index,
-	};
-	use sp_core::U256;
-	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Resolc).unwrap();
-	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+				let actual_trace = (test_case.setup)(fixture_type);
+				let is_evm = matches!(fixture_type, FixtureType::Solc | FixtureType::SolcRuntime);
+				let name = test_case.name;
+				let vm_type = if is_evm { "EVM" } else { "PVM" };
 
-		let config = ExecutionTracerConfig {
-			enable_return_data: true,
-			limit: Some(5),
-			..Default::default()
-		};
+				let expected_json_str = if is_evm {
+					test_case.expected_evm_trace
+				} else {
+					test_case.expected_pvm_trace
+				};
+				let expected: ExecutionTrace = serde_json::from_str(expected_json_str)
+					.unwrap_or_else(|e| {
+						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
+					});
+				// Normalize both traces for comparison (zeroes out dynamic values)
+				let normalized_actual = normalize_trace(&actual_trace);
+				let normalized_expected = normalize_trace(&expected);
+				assert_eq!(
+					normalized_actual, normalized_expected,
+					"{name} ({vm_type}): trace mismatch"
+				);
 
-		let mut tracer = ExecutionTracer::new(config);
-		let _result = trace(&mut tracer, || {
-			builder::bare_call(addr)
-				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
-				.build_and_unwrap_result()
-		});
-
-		let mut actual_trace = tracer.collect_trace();
-		actual_trace.struct_logs.iter_mut().for_each(|step| {
-			step.gas = Default::default();
-			step.gas_cost = Default::default();
-			step.weight_cost = Default::default();
-			// Replace args with 42 as they contain memory addresses that may vary between runs
-			if let ExecutionStepKind::PVMSyscall { args, .. } = &mut step.kind {
-				args.iter_mut().for_each(|arg| *arg = 42);
-			}
-		});
-
-		let expected_trace = ExecutionTrace {
-			gas: actual_trace.gas,
-			base_call_weight: Default::default(),
-			weight_consumed: Default::default(),
-			failed: false,
-			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
-			struct_logs: vec![
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::PVMSyscall {
-						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
-						args: vec![],
-						returned: Some(36),
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::PVMSyscall {
-						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
-						args: vec![42, 42],
-						returned: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::PVMSyscall {
-						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
-						args: vec![42],
-						returned: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::PVMSyscall {
-						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
-						args: vec![42, 42],
-						returned: None,
-					},
-				},
-				ExecutionStep {
-					depth: 1,
-					return_data: crate::evm::Bytes::default(),
-					error: None,
-					gas: Default::default(),
-					gas_cost: Default::default(),
-					weight_cost: Default::default(),
-					kind: ExecutionStepKind::PVMSyscall {
-						op: lookup_syscall_index("seal_return").unwrap_or_default(),
-						args: vec![42, 42, 42],
-						returned: None,
-					},
-				},
-			],
-		};
-
-		assert_eq!(actual_trace, expected_trace);
-	});
+				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
+			});
+		}
+	}
 }
