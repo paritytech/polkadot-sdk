@@ -192,7 +192,7 @@ mod benchmarks {
 		let mut counter = WeightMeter::with_limit(Weight::zero());
 		#[block]
 		{
-			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			let _ = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 	}
 
@@ -212,7 +212,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			let _ = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 	}
 
@@ -227,7 +227,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			let _ = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 	}
 
@@ -242,7 +242,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			let _ = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 	}
 
