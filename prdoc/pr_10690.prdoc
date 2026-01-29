@@ -29,7 +29,7 @@ crates:
 - name: sp-statement-store
   bump: major
 - name: sc-statement-store
-  bump: major
+  bump: minor
 - name: sc-rpc-api
   bump: major
 - name: sc-rpc
@@ -37,7 +37,7 @@ crates:
 - name: sc-network-statement
   bump: patch
 - name: sc-utils
-  bump: patch
+  bump: minor
 - name: polkadot-omni-node-lib
   bump: patch
 - name: node-rpc
