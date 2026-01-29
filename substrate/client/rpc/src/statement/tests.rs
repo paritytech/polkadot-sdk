@@ -71,12 +71,17 @@ async fn subscribe_works() {
 	let submitted = generate_statements();
 	let first_topic: Bytes = submitted[0].topic(0).expect("Should have topic").to_vec().into();
 
-	let match_all_filter = TopicFilter::MatchAll(vec![first_topic.clone()]);
+	let match_all_filter =
+		TopicFilter::MatchAll(vec![first_topic.clone()].try_into().expect("Single topic"));
 	let submitted_clone = submitted.clone();
-	let match_any_filter = TopicFilter::MatchAny(vec![
-		submitted[0].topic(1).expect("Should have topic").to_vec().into(),
-		submitted[1].topic(1).expect("Should have topic").to_vec().into(),
-	]);
+	let match_any_filter = TopicFilter::MatchAny(
+		vec![
+			submitted[0].topic(1).expect("Should have topic").to_vec().into(),
+			submitted[1].topic(1).expect("Should have topic").to_vec().into(),
+		]
+		.try_into()
+		.expect("Two topics"),
+	);
 
 	let subscriptions = subscribe_to_topics(
 		&api_rpc,
@@ -115,7 +120,7 @@ async fn subscribe_works() {
 	let mut match_any_with_random = api_rpc
 		.subscribe_unbounded(
 			"statement_subscribeStatement",
-			(TopicFilter::MatchAny(vec![vec![7u8; 32].into()]),),
+			(TopicFilter::MatchAny(vec![vec![7u8; 32].into()].try_into().expect("Single topic")),),
 		)
 		.await
 		.expect("Failed to subscribe");
@@ -127,7 +132,9 @@ async fn subscribe_works() {
 	.await;
 	assert!(res.is_err(), "expected no message for random topic");
 
-	let match_all_with_random = TopicFilter::MatchAll(vec![first_topic, vec![7u8; 32].into()]);
+	let match_all_with_random = TopicFilter::MatchAll(
+		vec![first_topic, vec![7u8; 32].into()].try_into().expect("Two topics"),
+	);
 	let mut match_all_with_random = api_rpc
 		.subscribe("statement_subscribeStatement", (match_all_with_random,), 100000)
 		.await

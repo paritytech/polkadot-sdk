@@ -17,7 +17,7 @@
 
 pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
-use sp_core::Bytes;
+use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
 use std::collections::HashSet;
 
 /// Statement store error.
@@ -43,11 +43,11 @@ pub enum TopicFilter {
 	/// Matches all topics.
 	Any,
 	/// Matches only statements including all of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
-	MatchAll(Vec<Bytes>),
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_TOPICS`] topics can be provided.
+	MatchAll(BoundedVec<Bytes, ConstU32<{ MAX_TOPICS as u32 }>>),
 	/// Matches statements including any of the given topics.
-	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
-	MatchAny(Vec<Bytes>),
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_ANY_TOPICS`] topics can be provided.
+	MatchAny(BoundedVec<Bytes, ConstU32<{ MAX_ANY_TOPICS as u32 }>>),
 }
 
 /// Topic filter for statement subscriptions.
@@ -86,9 +86,6 @@ impl TryInto<CheckedTopicFilter> for TopicFilter {
 			TopicFilter::Any => Ok(CheckedTopicFilter::Any),
 			TopicFilter::MatchAll(topics) => {
 				let mut parsed_topics = HashSet::with_capacity(topics.len());
-				if topics.len() > MAX_TOPICS {
-					return Err(Error::Decode("Too many topics in MatchAll filter".into()));
-				}
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));
@@ -101,9 +98,6 @@ impl TryInto<CheckedTopicFilter> for TopicFilter {
 			},
 			TopicFilter::MatchAny(topics) => {
 				let mut parsed_topics = HashSet::with_capacity(topics.len());
-				if topics.len() > MAX_ANY_TOPICS {
-					return Err(Error::Decode("Too many topics in MatchAny filter".into()));
-				}
 				for topic in topics {
 					if topic.0.len() != 32 {
 						return Err(Error::Decode("Invalid topic format".into()));

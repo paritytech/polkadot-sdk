@@ -42,7 +42,7 @@ pub type AccountId = [u8; 32];
 /// Statement channel.
 pub type Channel = [u8; 32];
 
-/// Total number of topic fields allowed.
+/// Total number of topic fields allowed in a statement and in `MatchAll` filters.
 pub const MAX_TOPICS: usize = 4;
 /// `MatchAny` allows to provide a list of topics match against. This is the maximum number of
 /// topics allowed.
