@@ -480,10 +480,10 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
-	/// Percentage of fees that go to DAP satellite (0-100).
+	/// Percentage of fees that go to DAP satellite.
 	/// The remainder goes to block author. Tips always go 100% to author.
 	/// Westend: 0% to DAP (preserving original behavior of 100% to author)
-	pub const DapSatelliteFeePercent: u32 = 0;
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0);
 }
 
 /// Fee handler that splits fees between DAP satellite and block author.

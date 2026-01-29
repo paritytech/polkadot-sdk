@@ -64,7 +64,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
+pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	SignatureVerificationResult, Statement,
@@ -251,7 +251,7 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10.
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	pub const DapSatelliteFeePercent: u32 = 0;
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0);
 }
 
 type DealWithFeesSatellite =

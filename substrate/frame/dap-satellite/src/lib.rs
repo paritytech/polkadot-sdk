@@ -79,6 +79,7 @@ use frame_support::{
 	},
 	PalletId,
 };
+use sp_runtime::Percent;
 
 pub use pallet::*;
 
@@ -231,7 +232,7 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 
 /// A configurable fee handler that splits fees between DAP satellite and another destination.
 ///
-/// - `DapPercent`: Percentage of fees (0-100) to send to DAP satellite
+/// - `DapPercent`: Percentage of fees to send to DAP satellite (e.g., `Percent::from_percent(0)`)
 /// - `OtherHandler`: Where to send the remaining fees (e.g., `ToAuthor`, `DealWithFees`)
 ///
 /// Tips always go 100% to `OtherHandler`.
@@ -240,7 +241,7 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 ///
 /// ```ignore
 /// parameter_types! {
-///     pub const DapSatelliteFeePercent: u32 = 0; // 0% to DAP, 100% to staking
+///     pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0); // 0% to DAP
 /// }
 ///
 /// type DealWithFeesSatellite = pallet_dap_satellite::DealWithFeesSplit<
@@ -261,12 +262,12 @@ impl<T, DapPercent, OtherHandler> OnUnbalanced<CreditOf<T>>
 	for DealWithFeesSplit<T, DapPercent, OtherHandler>
 where
 	T: Config,
-	DapPercent: Get<u32>,
+	DapPercent: Get<Percent>,
 	OtherHandler: OnUnbalanced<CreditOf<T>>,
 {
 	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = CreditOf<T>>) {
 		if let Some(fees) = fees_then_tips.next() {
-			let dap_percent = DapPercent::get();
+			let dap_percent = DapPercent::get().deconstruct() as u32;
 			let other_percent = 100u32.saturating_sub(dap_percent);
 			let mut split = fees.ration(dap_percent, other_percent);
 			if let Some(tips) = fees_then_tips.next() {

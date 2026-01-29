@@ -20,6 +20,7 @@
 use crate::{mock::*, CreditOf, DealWithFeesSplit};
 use frame_support::{parameter_types, traits::OnUnbalanced};
 use pallet_balances::Pallet as BalancesPallet;
+use sp_runtime::Percent;
 use std::cell::Cell;
 
 type DapSatellitePallet = crate::Pallet<Test>;
@@ -49,9 +50,9 @@ fn get_other_handler_received() -> u64 {
 }
 
 parameter_types! {
-	pub const ZeroPercent: u32 = 0;
-	pub const FiftyPercent: u32 = 50;
-	pub const HundredPercent: u32 = 100;
+	pub const ZeroPercent: Percent = Percent::from_percent(0);
+	pub const FiftyPercent: Percent = Percent::from_percent(50);
+	pub const HundredPercent: Percent = Percent::from_percent(100);
 }
 
 #[test]

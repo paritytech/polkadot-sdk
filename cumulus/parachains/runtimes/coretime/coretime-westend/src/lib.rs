@@ -71,7 +71,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, BlockNumberProvider},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Debug, DispatchError, MultiAddress, Perbill,
+	ApplyExtrinsicResult, Debug, DispatchError, MultiAddress, Perbill, Percent,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
 #[cfg(feature = "std")]
@@ -275,8 +275,8 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite (0-100). Currently 0% - all fees go to collators.
-	pub const DapSatelliteFeePercent: u32 = 0;
+	/// Percentage of fees to send to DAP satellite. Currently 0% - all fees go to collators.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0);
 }
 
 pub type DealWithFeesSatellite =

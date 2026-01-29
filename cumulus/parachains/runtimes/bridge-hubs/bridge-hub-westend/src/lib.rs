@@ -48,7 +48,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Percent,
 };
 
 use sp_session::OpaqueGeneratedSessionKeys;
@@ -363,8 +363,8 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite (0 = all to staking pot, 100 = all to DAP).
-	pub const DapSatelliteFeePercent: u32 = 0;
+	/// Percentage of fees to send to DAP satellite. 0% = all to staking pot.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0);
 }
 
 /// Fee handler that splits fees between DAP satellite and staking pot.

@@ -62,7 +62,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill,
+	ApplyExtrinsicResult, Perbill, Percent,
 };
 
 #[cfg(feature = "std")]
@@ -240,7 +240,7 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	pub const DapSatelliteFeePercent: u32 = 0;
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0);
 }
 
 type DealWithFeesSatellite =
