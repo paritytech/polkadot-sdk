@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-runtime = { workspace = true }
+sp-version = { workspace = true, default-features = true }
 
 [dev-dependencies]
 frame-support-test = { workspace = true }

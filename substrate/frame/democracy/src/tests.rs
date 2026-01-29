@@ -31,7 +31,7 @@ use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
 use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash},
-	BuildStorage, Perbill,
+	BuildStorage, Perbill, VersionedCall,
 };
 mod cancellation;
 mod decoders;
@@ -134,6 +134,42 @@ impl SortedMembers<u64> for OneToFive {
 	fn add(_m: &u64) {}
 }
 
+// Wrapper type that implements the v3::Named trait with VersionedCall
+pub struct SchedulerWrapper;
+
+impl frame_support::traits::schedule::v3::Named<u64, VersionedCall<RuntimeCall>, OriginCaller>
+	for SchedulerWrapper
+{
+	type Address = (u64, u32);
+	type Hasher = BlakeTwo256;
+
+	fn schedule_named(
+		id: [u8; 32],
+		when: frame_support::traits::schedule::DispatchTime<u64>,
+		maybe_periodic: Option<frame_support::traits::schedule::Period<u64>>,
+		priority: frame_support::traits::schedule::Priority,
+		origin: OriginCaller,
+		call: frame_support::traits::Bounded<VersionedCall<RuntimeCall>, BlakeTwo256>,
+	) -> Result<Self::Address, sp_runtime::DispatchError> {
+		Scheduler::schedule_named(id, when, maybe_periodic, priority, origin, call)
+	}
+
+	fn cancel_named(id: [u8; 32]) -> Result<(), sp_runtime::DispatchError> {
+		Scheduler::cancel_named(id)
+	}
+
+	fn reschedule_named(
+		id: [u8; 32],
+		when: frame_support::traits::schedule::DispatchTime<u64>,
+	) -> Result<Self::Address, sp_runtime::DispatchError> {
+		Scheduler::reschedule_named(id, when)
+	}
+
+	fn next_dispatch_time(id: [u8; 32]) -> Result<u64, sp_runtime::DispatchError> {
+		Scheduler::next_dispatch_time(id)
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
@@ -158,7 +194,7 @@ impl Config for Test {
 	type Slash = ();
 	type InstantOrigin = EnsureSignedBy<Six, u64>;
 	type InstantAllowed = InstantAllowed;
-	type Scheduler = Scheduler;
+	type Scheduler = SchedulerWrapper;
 	type MaxVotes = ConstU32<100>;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = ();
@@ -193,15 +229,31 @@ fn params_should_work() {
 
 fn set_balance_proposal(value: u64) -> BoundedCallOf<Test> {
 	let inner = pallet_balances::Call::force_set_balance { who: 42, new_free: value };
-	let outer = RuntimeCall::Balances(inner);
-	Preimage::bound(outer).unwrap()
+	let runtime_call = RuntimeCall::Balances(inner);
+
+	// Get current transaction version from runtime
+	let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+
+	// Wrap in VersionedCall with current transaction version
+	let versioned_call = VersionedCall::new(runtime_call, current_version);
+
+	// Now bound the VersionedCall for storage
+	Preimage::bound(versioned_call).unwrap()
 }
 
 #[test]
 fn set_balance_proposal_is_correctly_filtered_out() {
 	for i in 0..10 {
-		let call = Preimage::realize(&set_balance_proposal(i)).unwrap().0;
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
+		let bounded = set_balance_proposal(i);
+
+		// Realize the bounded call to get the VersionedCall
+		let (versioned_call, _len) = Preimage::realize(&bounded).unwrap();
+
+		// Extract the inner RuntimeCall from VersionedCall
+		let call = versioned_call.call_ref();
+
+		// Now check the filter against the actual RuntimeCall
+		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(call));
 	}
 }
 

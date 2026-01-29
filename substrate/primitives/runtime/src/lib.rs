@@ -1147,7 +1147,7 @@ impl OpaqueValue {
 /// This prevents issues when a runtime upgrade occurs between when a call is stored
 /// and when it is executed. The version check ensures that calls are only executed
 /// if they match the current transaction version.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(skip_type_params(Call))]
 pub struct VersionedCall<Call> {
 	/// The transaction version when this call was created
@@ -1167,10 +1167,7 @@ impl<Call> VersionedCall<Call> {
 		if self.transaction_version == current_version {
 			Ok(())
 		} else {
-			Err(VersionMismatchError {
-				stored: self.transaction_version,
-				current: current_version,
-			})
+			Err(VersionMismatchError { stored: self.transaction_version, current: current_version })
 		}
 	}
 
@@ -1224,7 +1221,7 @@ impl<Call: MaxEncodedLen> MaxEncodedLen for VersionedCall<Call> {
 }
 
 #[cfg(test)]
-mod tests {
+mod testss {
 	use super::*;
 
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
@@ -1263,7 +1260,6 @@ mod tests {
 		assert!(display.contains("2"));
 	}
 }
-
 
 // TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
 /// Deprecated `Cow::Borrowed()` wrapper.
