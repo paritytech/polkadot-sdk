@@ -392,7 +392,9 @@ pub mod v11 {
 						warn,
 						"new bags-list name is equal to the old one, only bumping the version"
 					);
-					return T::DbWeight::get().reads(1).saturating_add(T::DbWeight::get().writes(1));
+					return T::DbWeight::get()
+						.reads(1)
+						.saturating_add(T::DbWeight::get().writes(1));
 				}
 
 				move_pallet(old_pallet_name.as_bytes(), new_pallet_name.as_bytes());

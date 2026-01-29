@@ -506,7 +506,10 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 		.cloned()
 		.collect();
 	if let Some(span) = duplicate {
-		return Err(Error::new(span, "only one `#[pallet::_]` attribute is supported on this item"));
+		return Err(Error::new(
+			span,
+			"only one `#[pallet::_]` attribute is supported on this item",
+		));
 	}
 	Ok(attr)
 }

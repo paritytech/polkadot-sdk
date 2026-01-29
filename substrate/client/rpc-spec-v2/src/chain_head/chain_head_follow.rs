@@ -521,7 +521,9 @@ where
 		let parent_block_hash = *notification.header.parent_hash();
 		if !self.announced_blocks.was_announced(&parent_block_hash) {
 			// The parent block was not reported, we have a gap.
-			return Err(SubscriptionManagementError::Custom("Parent block was not reported".into()));
+			return Err(SubscriptionManagementError::Custom(
+				"Parent block was not reported".into(),
+			));
 		}
 
 		self.announced_blocks.insert(block_hash, false);

@@ -551,7 +551,10 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize));
+			return Err(Error::POVSizeExceeded(
+				encoded_size,
+				validation_data.max_pov_size as usize,
+			));
 		}
 
 		pov
