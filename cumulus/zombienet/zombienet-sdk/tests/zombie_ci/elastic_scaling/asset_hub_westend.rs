@@ -84,24 +84,24 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assign_cores(relay_node, PARA_ID, vec![0]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 3..18)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 3..18)]
 	)
 	.await?;
 
 	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
-	assign_cores(relay_node, PARA_ID, vec![1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![1]).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 
 	assert_para_throughput(
 		&relay_client,
 		20,
-		[(ParaId::from(PARA_ID), 50..61)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 50..61)],
 	)
 	.await?;
 
