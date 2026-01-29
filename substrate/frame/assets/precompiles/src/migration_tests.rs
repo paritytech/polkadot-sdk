@@ -161,7 +161,7 @@ fn create_asset_details(
 	<Test as pallet_balances::Config>::Balance,
 > {
 	AssetDetails {
-		owner: owner,
+		owner,
 		issuer: owner,
 		admin: owner,
 		freezer: owner,
