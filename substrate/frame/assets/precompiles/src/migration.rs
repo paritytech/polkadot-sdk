@@ -113,7 +113,8 @@ where
 
 			let next = match &cursor {
 				None => Self::migrate_asset_step(None),
-				Some(MigrationState::Asset(last_asset)) => Self::migrate_asset_step(Some(last_asset)),
+				Some(MigrationState::Asset(last_asset)) =>
+					Self::migrate_asset_step(Some(last_asset)),
 				Some(MigrationState::Finished) => {
 					log::info!(
 						target: "runtime::MigrateForeignAssetPrecompileMappings",

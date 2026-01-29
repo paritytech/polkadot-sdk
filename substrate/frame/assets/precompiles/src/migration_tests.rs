@@ -142,8 +142,7 @@ fn run_migration_to_completion() -> u32 {
 	loop {
 		let mut meter = WeightMeter::with_limit(Weight::MAX);
 		match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(
-			cursor,
-			&mut meter,
+			cursor, &mut meter,
 		) {
 			Ok(None) => break, // Migration complete
 			Ok(Some(new_cursor)) => {
@@ -417,8 +416,7 @@ fn migration_respects_weight_limits() {
 			let mut meter = WeightMeter::with_limit(limited_weight);
 
 			match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(
-				cursor,
-				&mut meter,
+				cursor, &mut meter,
 			) {
 				Ok(None) => break,
 				Ok(Some(new_cursor)) => {
@@ -452,8 +450,7 @@ fn migration_id_is_consistent() {
 	assert_eq!(id1.version_to, id2.version_to, "Version to should be consistent");
 
 	assert_eq!(
-		&id1.pallet_id,
-		b"foreign-asset-precompile-mapping",
+		&id1.pallet_id, b"foreign-asset-precompile-mapping",
 		"Migration ID should have correct pallet_id"
 	);
 	assert_eq!(id1.version_from, 0, "Migration should be from version 0");
