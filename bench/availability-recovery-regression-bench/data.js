@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769625131091,
+  "lastUpdate": 1769701162812,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6efe9f5c2032140930061c98ca323c71f53958b6",
-          "message": "`fatxpool`: limits handling optimizations and fixes (#8596)\n\nThis PR adds some optimization and fixes in handling limits in\nfork-aware transaction pool.\n\n#### Notes for reviewers\n\nChanges made (random order):\n- debug levels adjusted in numerous places places ( `debug -> trace` for\ntx, `trace -> debug` for general flow) for better readablity,\n- internal TxMemPool\n[storage](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L268-L272)\nis now\n[sorted](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool/tx_mem_pool_map.rs#L123-L132).\nA new helper exposes methods to reduce number of transaction clones\n(e.g.\n[here](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1404-L1410),\nsee [previous\nverions](https://github.com/paritytech/polkadot-sdk/blob/2863b7a9a879935ff16987d0e95065d088dad9f8/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1352-L1359)).\nThis new structure eliminates the necessity of sorting transactions on\nthe fly which was a not efficient, naive,\n[first](https://github.com/paritytech/polkadot-sdk/blob/e44b89fb7ca3385f314803c733ad97b26cd14e9f/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L384-L400)\nimplementation.\n- some _mutexes_ were migrated to `tokio::sync::Mutex` to avoid tokio\nthreads locking,\n- `sync` to `async`\n_[message](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L743)\nbased_ bridge was implemented. It's purpose is mainly to support\n`LocalTransactionPool / OffchainTransactionPool` infrastucture. `sync`\nmethods can be called from both non-tokio and tokio context. This\nrequires one additional\n[blocking](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L398-L402)\ntask for transaction pool.\n- `ViewStore::most_recent_view` is now a\n[reference](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L171)\nto `View`.\n- `TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER` removed, there is no point\nfor buffering more. Initially intended to work as buffer accommodating\ntransactions from two different full views (which could have different\nset of transactions), turned out to be a bottleneck in maintain function\n(it still is but aligning sizes reduced the impact),\n-\n[bug](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L769)\n:see_no_evil: fixed in pre-insert actions removal\n-\n[`ValidateTransactionPriority`](https://github.com/paritytech/polkadot-sdk/blob/045bc6d342620a02ee9b28d8de51f72ae680f06f/substrate/client/transaction-pool/src/graph/pool.rs#L64-L71)\nwas added. The goal is to allow faster processing of validation requests\nthat were made from the `maintain` context. Otherwise all requests were\nlanding in the same queue and maintain requests could be delayed. Now\nthe processing power is evenly 50/50 split between _maintain_ and\n_submit+revalidate_ context.\n\n\nRelated work:\n- https://github.com/michalkucharczyk/tx-test-tool/pull/42,\n- https://github.com/paritytech/polkadot-sdk/pull/8152,\n\nTodo:\n- [x] some run should be done also for parachain,\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-24T16:06:37Z",
-          "tree_id": "af50442b60ceb8c007b5ac7d4eaab7eaaa5a00e5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6efe9f5c2032140930061c98ca323c71f53958b6"
-        },
-        "date": 1750784925308,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2035029406666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.197674568200004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12381112413333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ed9375f1c0462eb5cd24d7ed78732faa17af931b",
+          "message": "Update the resolc and retester versions (#10907)\n\n## Summary\n\nThis PR allows us to use nightly versions of the resolc compiler in the\ndifferential tests CI which include fixes not yet available in the\npublished version of the compiler. It also bumps the commit hash of\ndifferential tests used to a version that allows for gas limits to be\nspecified manually to circumvent the issue observed in\nhttps://github.com/paritytech/contract-issues/issues/259\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-29T14:26:44Z",
+          "tree_id": "6f78399931e3a9e257d74e1063e907544d44f23c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ed9375f1c0462eb5cd24d7ed78732faa17af931b"
+        },
+        "date": 1769701138217,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12402666350000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.078842028533336,
             "unit": "seconds"
           }
         ]
