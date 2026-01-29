@@ -83,6 +83,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -105,7 +106,7 @@ impl pallet_scheduler::Config for Test {
 	type MaxScheduledPerBlock = ConstU32<100>;
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type Preimages = ();
+	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
@@ -113,10 +114,12 @@ impl pallet_scheduler::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
+
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
 	pub static InstantAllowed: bool = false;
 }
+
 ord_parameter_types! {
 	pub const One: u64 = 1;
 	pub const Two: u64 = 2;
@@ -125,6 +128,7 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
+
 pub struct OneToFive;
 impl SortedMembers<u64> for OneToFive {
 	fn sorted_members() -> Vec<u64> {
@@ -132,42 +136,6 @@ impl SortedMembers<u64> for OneToFive {
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add(_m: &u64) {}
-}
-
-// Wrapper type that implements the v3::Named trait with VersionedCall
-pub struct SchedulerWrapper;
-
-impl frame_support::traits::schedule::v3::Named<u64, VersionedCall<RuntimeCall>, OriginCaller>
-	for SchedulerWrapper
-{
-	type Address = (u64, u32);
-	type Hasher = BlakeTwo256;
-
-	fn schedule_named(
-		id: [u8; 32],
-		when: frame_support::traits::schedule::DispatchTime<u64>,
-		maybe_periodic: Option<frame_support::traits::schedule::Period<u64>>,
-		priority: frame_support::traits::schedule::Priority,
-		origin: OriginCaller,
-		call: frame_support::traits::Bounded<VersionedCall<RuntimeCall>, BlakeTwo256>,
-	) -> Result<Self::Address, sp_runtime::DispatchError> {
-		Scheduler::schedule_named(id, when, maybe_periodic, priority, origin, call)
-	}
-
-	fn cancel_named(id: [u8; 32]) -> Result<(), sp_runtime::DispatchError> {
-		Scheduler::cancel_named(id)
-	}
-
-	fn reschedule_named(
-		id: [u8; 32],
-		when: frame_support::traits::schedule::DispatchTime<u64>,
-	) -> Result<Self::Address, sp_runtime::DispatchError> {
-		Scheduler::reschedule_named(id, when)
-	}
-
-	fn next_dispatch_time(id: [u8; 32]) -> Result<u64, sp_runtime::DispatchError> {
-		Scheduler::next_dispatch_time(id)
-	}
 }
 
 impl Config for Test {
@@ -194,7 +162,7 @@ impl Config for Test {
 	type Slash = ();
 	type InstantOrigin = EnsureSignedBy<Six, u64>;
 	type InstantAllowed = InstantAllowed;
-	type Scheduler = SchedulerWrapper;
+	type Scheduler = Scheduler;
 	type MaxVotes = ConstU32<100>;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = ();
@@ -229,31 +197,22 @@ fn params_should_work() {
 
 fn set_balance_proposal(value: u64) -> BoundedCallOf<Test> {
 	let inner = pallet_balances::Call::force_set_balance { who: 42, new_free: value };
-	let runtime_call = RuntimeCall::Balances(inner);
-
-	// Get current transaction version from runtime
+	let outer = RuntimeCall::Balances(inner);
+	// Create a VersionedCall with the current transaction version
 	let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
-
-	// Wrap in VersionedCall with current transaction version
-	let versioned_call = VersionedCall::new(runtime_call, current_version);
-
-	// Now bound the VersionedCall for storage
+	let versioned_call = VersionedCall::new(outer, current_version);
 	Preimage::bound(versioned_call).unwrap()
 }
 
 #[test]
 fn set_balance_proposal_is_correctly_filtered_out() {
 	for i in 0..10 {
-		let bounded = set_balance_proposal(i);
-
-		// Realize the bounded call to get the VersionedCall
-		let (versioned_call, _len) = Preimage::realize(&bounded).unwrap();
-
-		// Extract the inner RuntimeCall from VersionedCall
-		let call = versioned_call.call_ref();
-
-		// Now check the filter against the actual RuntimeCall
-		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(call));
+		let bounded_call = set_balance_proposal(i);
+		// Get the inner call from the bounded call
+		let (versioned_call, _) = Preimage::peek(&bounded_call).unwrap();
+		let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+		let call = versioned_call.into_inner(current_version).unwrap();
+		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
 	}
 }
 

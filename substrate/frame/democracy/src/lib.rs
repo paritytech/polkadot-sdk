@@ -228,7 +228,7 @@ pub mod pallet {
 		/// The Scheduler.
 		type Scheduler: ScheduleNamed<
 			BlockNumberFor<Self>,
-			CallOf<Self>,
+			VersionedCall<CallOf<Self>>,
 			Self::PalletsOrigin,
 			Hasher = Self::Hashing,
 		>;
@@ -1613,46 +1613,6 @@ impl<T: Config> Pallet<T> {
 			// Get the bounded call
 			let bounded_call = status.proposal;
 
-			// Peek the versioned call to validate version
-			let versioned_call = match T::Preimages::peek(&bounded_call) {
-				Ok((vc, _len)) => vc,
-				Err(_) => {
-					log::error!(target: "runtime::democracy", "Failed to get call from bounded");
-					return false;
-				},
-			};
-
-			// Validate the transaction version
-			let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
-
-			// Extract the inner call if version matches
-			let call = match versioned_call.into_inner(current_version) {
-				Ok(c) => c,
-				Err(version_error) => {
-					log::warn!(
-						target: "runtime::democracy",
-						"Referendum {} has version mismatch: stored={}, current={}",
-						index,
-						version_error.stored,
-						version_error.current
-					);
-					Self::deposit_event(Event::<T>::ReferendumVersionMismatch { ref_index: index });
-					return false;
-				},
-			};
-
-			// Drop the old bounded call since we've extracted what we need
-			T::Preimages::drop(&bounded_call);
-
-			// Now bound the unwrapped RuntimeCall for the scheduler
-			let bounded_runtime_call = match T::Preimages::bound(call) {
-				Ok(b) => b,
-				Err(_) => {
-					log::error!(target: "runtime::democracy", "Failed to bound runtime call");
-					return false;
-				},
-			};
-
 			let when = now.saturating_add(status.delay.max(One::one()));
 
 			if T::Scheduler::schedule_named(
@@ -1661,7 +1621,7 @@ impl<T: Config> Pallet<T> {
 				None,
 				63,
 				frame_system::RawOrigin::Root.into(),
-				bounded_runtime_call,
+				bounded_call,
 			)
 			.is_err()
 			{
