@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769708758204,
+  "lastUpdate": 1769711158251,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "77e73b9b258a94a8c0a43fcc19ee6257100861da",
-          "message": "`fatxpool`: some more integration tests (#8152)\n\nSome extra tests for `fatxpool`, including long term test:\n- sending 5M transactions to relay/para,\n- transaction gossiping tests (for network protocol evaluation),\n- yet-another-parachain spemening test (2s / 7k),\n\nThe base directory can be specified by setting `TXPOOL_TEST_DIR` env\nvariable.\n\nIf set every individual test restults will be placed under this path in\na directory name formatted as `test_%Y%m%d_%H%M%S`. e.g.:\n```\nexport TXPOOL_TEST_DIR=/home/miszka/test-results\ncargo test  --release --test integration -- --ignored send_future_and_ready_from_many_accounts_to_parachain\n...\n2025-04-11T07:48:15.324966Z  INFO zombienet_orchestrator: 🧰 base_dir: \"/home/miszka/test-results/test_20250411_094815\"\n...\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-06-24T19:37:16Z",
-          "tree_id": "f169c3e56938a2920569959eef3005f2d3c530cf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77e73b9b258a94a8c0a43fcc19ee6257100861da"
-        },
-        "date": 1750797449379,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022481303473333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009058218533333405,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01277040088,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15663495812666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02313146710666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2",
+          "message": "Make some BEEFY keystore logic more generic (#10763)\n\nThis PR:\n1. makes some BEEFY keystore methods more generic:\n- `sign()`\n- `public_keys()`\nThis is done by implementing the specific logic in the\n`BeefyAuthorityId`.\n2. Removes the `BeefyAuthorityId::SignatureHasher` since for some\nalgorithms it doesn't make sense to have a hasher.\n\nAlso since now the `BeefyAuthorityId` implements both the signing and\nthe verification logic, we should have better consistency.\n\nRelated to\nhttps://github.com/paritytech/polkadot-sdk/pull/8707#discussion_r2673377834\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-29T17:10:38Z",
+          "tree_id": "110d53e0e67de85770f7f7a662d7e9c98ef8764e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a6082b32bee9fedd1143b43a6b9a0a1f4b1e5ae2"
+        },
+        "date": 1769711134540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009685151053333327,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006854382986666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1439398102266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.023096977366666657,
             "unit": "seconds"
           }
         ]
