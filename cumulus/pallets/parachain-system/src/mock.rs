@@ -455,6 +455,7 @@ impl BlockTests {
 			}
 
 			// clean up
+			System::maybe_apply_pending_code_upgrade();
 			let header = System::finalize();
 			let head_data = relay_chain::HeadData(header.encode());
 			parent_head_data = head_data.clone();

@@ -49,7 +49,7 @@ use sp_core::{
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
-use sp_state_machine::StateMachine;
+use sp_state_machine::{backend::TryPendingCode, StateMachine};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
 use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 use std::{
@@ -749,7 +749,8 @@ impl PalletCmd {
 			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
 		} else {
 			log::info!(target: LOG_TARGET, "Loading WASM from state");
-			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+			let state =
+				sp_state_machine::backend::BackendRuntimeCode::new(state, TryPendingCode::No);
 
 			Ok(FetchedCode::FromGenesis { state })
 		}

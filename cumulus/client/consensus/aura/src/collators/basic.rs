@@ -174,12 +174,18 @@ where
 				continue
 			}
 
-			let Ok(Some(code)) =
-				params.para_client.state_at(parent_hash).map_err(drop).and_then(|s| {
-					s.storage(&sp_core::storage::well_known_keys::CODE).map_err(drop)
-				})
-			else {
-				continue;
+			let code = {
+				let Ok(state) = params.para_client.state_at(parent_hash) else { continue };
+				let Ok(pending) = state.storage(&sp_core::storage::well_known_keys::PENDING_CODE)
+				else {
+					continue;
+				};
+				let Some(code) = pending.or_else(|| {
+					state.storage(&sp_core::storage::well_known_keys::CODE).ok().flatten()
+				}) else {
+					continue;
+				};
+				code
 			};
 
 			super::check_validation_code_or_log(

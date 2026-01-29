@@ -58,7 +58,7 @@ impl_for_tuples_attr! {
 	}
 }
 
-/// Provides a callback to execute logic before the all transactions.
+/// Provides a callback to execute logic after the all transactions.
 pub trait PostTransactions {
 	/// Called after all transactions were applied but before `on_finalize`.
 	fn post_transactions() {}
