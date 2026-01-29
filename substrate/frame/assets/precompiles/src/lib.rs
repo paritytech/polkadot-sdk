@@ -37,9 +37,12 @@ use pallet_revive::precompiles::{
 };
 
 pub mod foreign_assets;
+pub mod migration;
 
 #[cfg(test)]
 mod foreign_assets_tests;
+#[cfg(test)]
+mod migration_tests;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -48,6 +51,7 @@ mod tests;
 pub use foreign_assets::{
 	pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId, ToAssetIndex,
 };
+pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
