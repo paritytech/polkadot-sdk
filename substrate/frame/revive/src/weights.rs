@@ -73,7 +73,9 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
-	fn process_authorizations(a: u32, ) -> Weight;
+	fn process_single_authorization() -> Weight;
+	fn apply_delegations_existing(a: u32, ) -> Weight;
+	fn apply_delegations_new(a: u32, ) -> Weight;
 	fn call_with_pvm_code_per_byte(c: u32, ) -> Weight;
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight;
 	fn basic_block_compilation(b: u32, ) -> Weight;
@@ -204,15 +206,45 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
 	}
-	/// The range of component `a` is `[0, 16]`.
-	fn process_authorizations(a: u32, ) -> Weight {
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn process_single_authorization() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `514 + a * (33 ±0)`
+		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 281_000 picoseconds.
-		Weight::from_parts(9_800_017, 0)
-			// Standard Error: 37_432
-			.saturating_add(Weight::from_parts(51_677_669, 0).saturating_mul(a.into()))
+		// Minimum execution time: 50_000_000 picoseconds.
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// The range of component `a` is `[1, 16]`.
+	fn apply_delegations_existing(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `128 + a * (128 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000_000, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(a.into())))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// The range of component `a` is `[1, 16]`.
+	fn apply_delegations_new(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + a * (0 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(Weight::from_parts(40_000_000, 0).saturating_mul(a.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(a.into())))
+			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(a.into())))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
@@ -1503,15 +1535,45 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 70).saturating_mul(k.into()))
 	}
-	/// The range of component `a` is `[0, 16]`.
-	fn process_authorizations(a: u32, ) -> Weight {
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	fn process_single_authorization() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `514 + a * (33 ±0)`
+		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 281_000 picoseconds.
-		Weight::from_parts(9_800_017, 0)
-			// Standard Error: 37_432
-			.saturating_add(Weight::from_parts(51_677_669, 0).saturating_mul(a.into()))
+		// Minimum execution time: 50_000_000 picoseconds.
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// The range of component `a` is `[1, 16]`.
+	fn apply_delegations_existing(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `128 + a * (128 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(30_000_000, 0).saturating_mul(a.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(a.into())))
+			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(a.into())))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:0 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)
+	/// The range of component `a` is `[1, 16]`.
+	fn apply_delegations_new(a: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + a * (0 ±0)`
+		//  Estimated: `0`
+		// Minimum execution time: 30_000_000 picoseconds.
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(Weight::from_parts(40_000_000, 0).saturating_mul(a.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(a.into())))
+			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(a.into())))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(247), added: 2722, mode: `Measured`)

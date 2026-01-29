@@ -1333,7 +1333,6 @@ pub mod pallet {
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
-			.saturating_add(T::WeightInfo::process_authorizations(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1352,12 +1351,27 @@ pub mod pallet {
 
 			Self::ensure_non_contract_if_signed(&origin)?;
 
-			// EIP-7702: Process authorizations if present
-			// The weight cost is accounted for in the extrinsic weight attribute
-			if !authorization_list.is_empty() {
+			let (eth_gas_limit, weight_limit) = if !authorization_list.is_empty() {
 				let chain_id = U256::from(T::ChainId::get());
-				evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
-			}
+				let (new_accounts, existing_accounts) = evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+
+				let auth_count = authorization_list.len() as u64;
+				let single_auth_weight = T::WeightInfo::process_single_authorization();
+				let auth_weight = single_auth_weight.saturating_mul(auth_count)
+					.saturating_add(T::WeightInfo::apply_delegations_existing(existing_accounts as u32))
+					.saturating_add(T::WeightInfo::apply_delegations_new(new_accounts as u32));
+
+				let gas_scale: u64 = T::GasScale::get().into();
+				let auth_gas = auth_weight.ref_time().saturating_div(gas_scale);
+
+				let adjusted_gas_limit = eth_gas_limit.saturating_sub(U256::from(auth_gas));
+				let adjusted_weight_limit = weight_limit.saturating_sub(auth_weight);
+
+				(adjusted_gas_limit, adjusted_weight_limit)
+			} else {
+				(eth_gas_limit, weight_limit)
+			};
+
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
