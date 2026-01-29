@@ -62,9 +62,8 @@ impl TransactionSigned {
 			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
 			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
 			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
-			TransactionLegacySigned(tx) => {
-				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned)
-			},
+			TransactionLegacySigned(tx) =>
+				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
 		}
 	}
 
