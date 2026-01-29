@@ -88,7 +88,6 @@ pub(crate) fn validate_authorization<T: Config>(
 	auth: &AuthorizationListEntry,
 	chain_id: U256,
 ) -> Option<(H160, bool)> {
-	// Validate chain_id
 	if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
 		log::debug!(
 			target: crate::LOG_TARGET,
@@ -148,7 +147,6 @@ pub(crate) fn validate_authorization<T: Config>(
 pub(crate) fn apply_delegation<T: Config>(authority: &H160, target_address: H160) {
 	let account_id = T::AddressMapper::to_account_id(authority);
 
-	// Apply delegation
 	if target_address.is_zero() {
 		let _ = AccountInfo::<T>::clear_delegation(authority);
 	} else {
@@ -161,7 +159,6 @@ pub(crate) fn apply_delegation<T: Config>(authority: &H160, target_address: H160
 		}
 	}
 
-	// Increment nonce
 	frame_system::Pallet::<T>::inc_account_nonce(&account_id);
 }
 

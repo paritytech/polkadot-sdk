@@ -301,7 +301,7 @@ impl GenericTransaction {
 			tx_fee,
 			storage_deposit,
 			eth_gas_limit: gas,
-			authorization_list: self.authorization_list.clone(),
+			authorization_list: self.authorization_list,
 		})
 	}
 }

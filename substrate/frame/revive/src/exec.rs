@@ -95,26 +95,20 @@ pub const EMPTY_CODE_HASH: H256 =
 /// # Returns
 /// The actual code hash to execute (either the default or the delegated target's code hash)
 fn resolve_delegation<T: Config>(address: &H160, default_code_hash: H256) -> H256 {
-	// Check if the account is delegated
 	let Some(target_address) = AccountInfo::<T>::get_delegation_target(address) else {
-		// Not delegated, return the default code hash
 		return default_code_hash;
 	};
 
-	// Per EIP-7702: If delegation points to a precompile, return empty code hash
-	// Precompiles should not execute their logic when delegated to
+	// Per EIP-7702: delegation to a precompile returns empty code hash
 	if T::Precompiles::code(target_address.as_fixed_bytes()).is_some() {
 		return EMPTY_CODE_HASH;
 	}
 
-	// Load the delegated contract's code hash
 	// Per EIP-7702: only follow one level of delegation (no chaining)
 	let Some(delegated_contract) = AccountInfo::<T>::load_contract(&target_address) else {
-		// If target is not a contract, return empty code hash
 		return EMPTY_CODE_HASH;
 	};
 
-	// Return the delegated code hash (don't follow further delegations)
 	delegated_contract.code_hash
 }
 
