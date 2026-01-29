@@ -394,6 +394,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					transaction_pool: transaction_pool.clone(),
 					para_id,
 					spawn_handle: task_manager.spawn_handle(),
+					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,

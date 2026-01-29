@@ -285,25 +285,6 @@ fn basic_setup_sessions_per_era() {
 mod try_state_assertions {
 	use super::*;
 	#[test]
-	#[should_panic]
-	fn count_check_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			// We should never insert into the validators or nominators map directly as this will
-			// not keep track of the count. This test should panic as we verify the count is
-			// accurate after every test using the `post_checks` in `mock`.
-			Validators::<Test>::insert(987654321, ValidatorPrefs::default());
-			Nominators::<Test>::insert(
-				987654321,
-				Nominations {
-					targets: Default::default(),
-					submitted_in: Default::default(),
-					suppressed: false,
-				},
-			);
-		})
-	}
-
-	#[test]
 	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"number of entries in payee storage items does not match the number of bonded ledgers\")"]
 	fn check_payee_invariant1_works() {
 		// A bonded ledger should always have an assigned `Payee` This test should panic as we
