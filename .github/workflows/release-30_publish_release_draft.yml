@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary: [ polkadot, polkadot-execute-worker, polkadot-prepare-worker, polkadot-parachain, polkadot-omni-node, frame-omni-bencher, chain-spec-builder ]
+        binary: [ polkadot, polkadot-execute-worker, polkadot-prepare-worker, polkadot-parachain, polkadot-omni-node, frame-omni-bencher, chain-spec-builder, eth-rpc ]
         target: [ x86_64-unknown-linux-gnu, aarch64-apple-darwin ]
 
     steps:
