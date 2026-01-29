@@ -63,19 +63,24 @@ fn basic_scheduling_works() {
 			Box::new(call),
 		));
 
-		// Check that the task is scheduled in minute 2 (120_000 / 60_000 = 2)
+		// Check that the task is scheduled in bucket 2 (120_000 / 60_000 = 2)
 		assert!(!bucket_is_empty(2));
 		assert!(logger::log().is_empty());
 
-		// Advance timestamp to 120_000ms and run on_initialize
-		Timestamp::set_timestamp(120_000);
-		Scheduler::on_initialize(2);
+		// Not yet at the scheduled time
+		run_to_time(60_000);
+		assert!(logger::log().is_empty());
 
-		// Check that the log was executed
+		// Advance to the scheduled time - task should execute
+		run_to_time(120_000);
 		assert_eq!(logger::log(), vec![(root(), 42)]);
 
 		// Agenda should be cleaned up after dispatch
 		assert!(bucket_is_empty(2));
+
+		// Running further should not re-execute
+		run_to_time(600_000);
+		assert_eq!(logger::log(), vec![(root(), 42)]);
 	});
 }
 
