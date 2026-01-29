@@ -822,7 +822,6 @@ pub struct Transaction7702Unsigned {
 }
 
 /// Authorization list entry for EIP-7702
-/// Contains the authorization tuple with signature components
 #[derive(
 	Debug,
 	Default,
@@ -854,9 +853,6 @@ pub struct AuthorizationListEntry {
 
 impl AuthorizationListEntry {
 	/// Convert signature components (r, s, y_parity) into a 65-byte ECDSA signature.
-	///
-	/// # Returns
-	/// A 65-byte array containing: [r (32 bytes), s (32 bytes), recovery_id (1 byte)]
 	pub fn signature(&self) -> [u8; 65] {
 		let mut signature = [0u8; 65];
 		let r_bytes = self.r.to_big_endian();
