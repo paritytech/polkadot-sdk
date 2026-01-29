@@ -890,7 +890,7 @@ where
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			trace!(
 				target: LOG_TARGET,
-				"Created `StrategyRequest` to {peer_id}.",
+				"Created `StateRequest` to {peer_id}.",
 			);
 
 			let (tx, rx) = oneshot::channel();
@@ -1553,9 +1553,14 @@ where
 			);
 		}
 
-		let origin = if !gap && !self.status().state.is_major_syncing() {
+		let origin = if gap {
+			// Gap sync: filling historical blocks after warp sync
+			BlockOrigin::GapSync
+		} else if !self.status().state.is_major_syncing() {
+			// Normal operation: receiving new blocks
 			BlockOrigin::NetworkBroadcast
 		} else {
+			// Initial sync: catching up with the chain
 			BlockOrigin::NetworkInitialSync
 		};
 

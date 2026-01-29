@@ -323,11 +323,22 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		return Err(BlockImportError::IncompleteHeader(peer))
 	};
 
-	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
-
 	let number = *header.number();
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
+
+	trace!(target: LOG_TARGET, "Block {number} ({hash}) has {:?} logs (origin: {:?})", header.digest().logs().len(), block_origin);
+
+	// Skip block verification for warp synced blocks.
+	// They have been verified within warp sync proof verification.
+	if matches!(block_origin, BlockOrigin::WarpSync) {
+		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+			import_block: BlockImportParams::new(block_origin, header),
+			hash: block.hash,
+			block_origin: peer,
+			verification_time: Duration::ZERO,
+		}));
+	}
 
 	match import_handler::<B>(
 		number,

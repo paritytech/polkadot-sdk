@@ -276,6 +276,17 @@ where
 		hash: Block::Hash,
 		initial_sync: bool,
 	) -> Result<PendingSetChanges<Block>, ConsensusError> {
+		// For warp synced block we can skip authority set change tracking for warp synced blocks,
+		// because authority sets will be reconstructed after sync completes from the finalized
+		// state.
+		if block.origin == BlockOrigin::WarpSync {
+			return Ok(PendingSetChanges {
+				just_in_case: None,
+				applied_changes: AppliedChanges::None,
+				do_pause: false,
+			})
+		}
+
 		// when we update the authorities, we need to hold the lock
 		// until the block is written to prevent a race if we need to restore
 		// the old authority set on error or panic.

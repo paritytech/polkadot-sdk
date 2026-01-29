@@ -563,6 +563,7 @@ where
 		let status = self.backend.blockchain().status(hash)?;
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
+
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -571,8 +572,15 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		let gap_block =
-			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
+		let gap_block = info.block_gap.map_or(false, |gap| {
+			let number = *import_headers.post().number();
+			number == gap.start ||
+				// Gap start advances as blocks are imported during gap sync.
+				// If we're importing gap.start + 1 and its parent already exists, then the import of
+				// parent block was skipped during gap sync (because it was already imported during warp sync),
+				// so gap.start wasn't advanced.
+				(number == gap.start + One::one() && parent_exists)
+		});
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -589,7 +597,11 @@ where
 		let make_notifications = match origin {
 			BlockOrigin::NetworkBroadcast | BlockOrigin::Own | BlockOrigin::ConsensusBroadcast =>
 				true,
-			BlockOrigin::Genesis | BlockOrigin::NetworkInitialSync | BlockOrigin::File => false,
+			BlockOrigin::Genesis |
+			BlockOrigin::NetworkInitialSync |
+			BlockOrigin::File |
+			BlockOrigin::WarpSync |
+			BlockOrigin::GapSync => false,
 		};
 
 		let storage_changes = match storage_changes {
@@ -807,9 +819,9 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
+			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
-			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
