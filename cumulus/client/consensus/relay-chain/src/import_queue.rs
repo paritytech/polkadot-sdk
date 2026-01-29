@@ -20,6 +20,7 @@ use std::{marker::PhantomData, sync::Arc};
 use sc_consensus::{import_queue::Verifier as VerifierT, BlockImportParams};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_consensus::BlockOrigin;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
@@ -49,9 +50,14 @@ where
 		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
-			block_params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
-		));
+		let is_sync_selected = matches!(
+			block_params.origin,
+			BlockOrigin::NetworkInitialSync |
+				BlockOrigin::WarpSync |
+				BlockOrigin::StateSync { .. } |
+				BlockOrigin::GapSync
+		);
+		block_params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(is_sync_selected));
 
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
