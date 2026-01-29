@@ -46,7 +46,7 @@ jobs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
@@ -77,7 +77,7 @@ jobs:
           which pgpkms
 
       - name: Checkout sources
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -95,7 +95,7 @@ jobs:
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
@@ -142,7 +142,7 @@ jobs:
        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
      steps:
        - name: Checkout sources
-         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
          with:
            ref: ${{ inputs.release_tag }}
            fetch-depth: 0
@@ -236,7 +236,7 @@ jobs:
            ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
        - name: Generate artifact attestation
-         uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
+         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
          with:
            subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -275,7 +275,7 @@ jobs:
 
     steps:
     - name: Checkout sources
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
@@ -327,7 +327,7 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
+      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       with:
         subject-path: |
           target/production/*.deb
