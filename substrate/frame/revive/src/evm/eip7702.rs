@@ -23,7 +23,7 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{recover_eth_address_from_message, rlp, SignedAuthorizationListEntry},
+	evm::api::{recover_eth_address_from_message, rlp, AuthorizationListEntry},
 	storage::AccountInfo,
 	weights::WeightInfo,
 	Config,
@@ -58,7 +58,7 @@ pub const EIP7702_MAGIC: u8 = 0x05;
 /// # Returns
 /// `Ok(())` on success, or `Err` if out of weight
 pub fn process_authorizations<T: Config>(
-	authorization_list: &[SignedAuthorizationListEntry],
+	authorization_list: &[AuthorizationListEntry],
 	chain_id: U256,
 	meter: &mut WeightMeter,
 ) -> DispatchResult {
@@ -94,7 +94,7 @@ pub fn process_authorizations<T: Config>(
 /// Returns the authority address if validation succeeds, None otherwise.
 /// This is exposed for benchmarking purposes.
 pub(crate) fn validate_authorization<T: Config>(
-	auth: &SignedAuthorizationListEntry,
+	auth: &AuthorizationListEntry,
 	chain_id: U256,
 ) -> Option<H160> {
 	// Validate chain_id
@@ -180,7 +180,7 @@ pub(crate) fn apply_delegation<T: Config>(authority: &H160, target_address: H160
 ///
 /// Implements the EIP-7702 signature recovery:
 /// - Message = keccak(MAGIC || rlp([chain_id, address, nonce]))
-fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
+fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 	let mut message = Vec::new();
 	message.push(EIP7702_MAGIC);
 
@@ -198,7 +198,7 @@ fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 pub(crate) fn sign_authorization(
 	signing_key: &k256::ecdsa::SigningKey,
 	authorization_unsigned: crate::evm::UnsignedAuthorizationListEntry,
-) -> SignedAuthorizationListEntry {
+) -> AuthorizationListEntry {
 	use sp_core::keccak_256;
 
 	let mut message = Vec::new();
@@ -209,7 +209,7 @@ pub(crate) fn sign_authorization(
 	let (signature, recovery_id) =
 		signing_key.sign_prehash_recoverable(&hash).expect("signing succeeds");
 
-	SignedAuthorizationListEntry {
+	AuthorizationListEntry {
 		authorization_unsigned,
 		y_parity: U256::from(recovery_id.to_byte()),
 		r: U256::from_big_endian(&signature.r().to_bytes()),

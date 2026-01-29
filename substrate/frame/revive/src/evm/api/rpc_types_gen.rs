@@ -257,7 +257,7 @@ pub struct GenericTransaction {
 	/// authorizationList
 	/// List of account code authorizations (EIP-7702)
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
-	pub authorization_list: Vec<SignedAuthorizationListEntry>,
+	pub authorization_list: Vec<AuthorizationListEntry>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
 	#[serde(default)]
@@ -787,7 +787,7 @@ pub struct Transaction7702Unsigned {
 	pub access_list: AccessList,
 	/// authorizationList
 	/// List of account code authorizations
-	pub authorization_list: Vec<SignedAuthorizationListEntry>,
+	pub authorization_list: Vec<AuthorizationListEntry>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	pub chain_id: U256,
@@ -862,7 +862,7 @@ pub struct UnsignedAuthorizationListEntry {
 	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct SignedAuthorizationListEntry {
+pub struct AuthorizationListEntry {
 	/// The unsigned authorization entry
 	#[serde(flatten)]
 	pub authorization_unsigned: UnsignedAuthorizationListEntry,
@@ -874,7 +874,7 @@ pub struct SignedAuthorizationListEntry {
 	pub s: U256,
 }
 
-impl SignedAuthorizationListEntry {
+impl AuthorizationListEntry {
 	/// Convert signature components (r, s, y_parity) into a 65-byte ECDSA signature.
 	///
 	/// # Returns

@@ -286,7 +286,7 @@ builder!(
 		transaction_encoded: Vec<u8>,
 		effective_gas_price: U256,
 		encoded_len: u32,
-		authorization_list: Vec<crate::evm::SignedAuthorizationListEntry>,
+		authorization_list: Vec<crate::evm::AuthorizationListEntry>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallWithAuthorizationListBuilder`] with default values.

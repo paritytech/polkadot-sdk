@@ -18,7 +18,7 @@
 //! Tests for EIP-7702: Set EOA Account Code
 
 use crate::{
-	evm::{fees::InfoT, SignedAuthorizationListEntry, UnsignedAuthorizationListEntry},
+	evm::{fees::InfoT, AuthorizationListEntry, UnsignedAuthorizationListEntry},
 	storage::AccountInfo,
 	test_utils::builder::Contract,
 	tests::{builder, *},
@@ -74,7 +74,7 @@ impl TestSigner {
 		chain_id: U256,
 		address: H160,
 		nonce: U256,
-	) -> SignedAuthorizationListEntry {
+	) -> AuthorizationListEntry {
 		let mut message = Vec::new();
 		message.push(crate::evm::eip7702::EIP7702_MAGIC);
 
@@ -98,7 +98,7 @@ impl TestSigner {
 		let s = U256::from_big_endian(&s_bytes);
 		let y_parity = U256::from(recovery_id);
 
-		SignedAuthorizationListEntry { authorization_unsigned, y_parity, r, s }
+		AuthorizationListEntry { authorization_unsigned, y_parity, r, s }
 	}
 }
 

@@ -234,7 +234,7 @@ impl Decodable for UnsignedAuthorizationListEntry {
 	}
 }
 
-impl Encodable for SignedAuthorizationListEntry {
+impl Encodable for AuthorizationListEntry {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(6);
 		s.append(&self.authorization_unsigned.chain_id);
@@ -246,9 +246,9 @@ impl Encodable for SignedAuthorizationListEntry {
 	}
 }
 
-impl Decodable for SignedAuthorizationListEntry {
+impl Decodable for AuthorizationListEntry {
 	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
-		Ok(SignedAuthorizationListEntry {
+		Ok(AuthorizationListEntry {
 			authorization_unsigned: UnsignedAuthorizationListEntry {
 				chain_id: rlp.val_at(0)?,
 				address: rlp.val_at(1)?,
