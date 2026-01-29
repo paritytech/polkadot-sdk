@@ -415,8 +415,9 @@ fn inherent_messages_are_compressed() {
 				sproof.dmq_mqc_head = Some(dmp_mqc.head());
 
 				for (sender, msg) in &hrmp_msgs_clone {
-					let mqc_head =
-						sproof.upsert_inbound_channel(*sender).mqc_head.get_or_insert_default();
+					let channel = sproof.upsert_inbound_channel(*sender);
+					channel.max_message_size = 100 * 1024;
+					let mqc_head = channel.mqc_head.get_or_insert_default();
 					let mut mqc = MessageQueueChain::new(*mqc_head);
 					mqc.extend_hrmp(msg);
 					*mqc_head = mqc.head();

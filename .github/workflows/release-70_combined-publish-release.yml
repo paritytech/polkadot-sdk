@@ -62,7 +62,7 @@ jobs:
   promote-rc-to-final:
     name: Promote RC to final on S3
     needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     uses: ./.github/workflows/release-31_promote-rc-to-final.yml
     with:
       binary: ${{ inputs.binary }}
@@ -106,6 +106,8 @@ jobs:
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-polkadot-parachain:
     name: Publish Docker image - polkadot-parachain
@@ -121,6 +123,8 @@ jobs:
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-polkadot-omni-node:
     name: Publish Docker image - polkadot-omni-node
@@ -136,6 +140,8 @@ jobs:
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-chain-spec-builder:
     name: Publish Docker image - chain-spec-builder
@@ -151,3 +157,5 @@ jobs:
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write

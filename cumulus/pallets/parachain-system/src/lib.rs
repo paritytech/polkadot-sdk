@@ -109,6 +109,7 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
@@ -1117,7 +1118,11 @@ impl<T: Config> Pallet<T> {
 	fn messages_collection_size_limit() -> usize {
 		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
 		let max_block_pov = max_block_weight.proof_size();
-		(max_block_pov / 6).saturated_into()
+
+		let remaining_proof_size =
+			frame_system::Pallet::<T>::remaining_block_weight().remaining().proof_size();
+
+		(max_block_pov / 6).min(remaining_proof_size).saturated_into()
 	}
 
 	/// Updates inherent data to only include the messages that weren't already processed
@@ -1164,7 +1169,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_enough_messages_included("DMQ");
+		downward_messages.check_enough_messages_included_basic("DMQ");
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1210,6 +1215,25 @@ impl<T: Config> Pallet<T> {
 		weight_used
 	}
 
+	fn get_ingress_channel_or_panic(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		sender: ParaId,
+	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
+		let maybe_channel_idx = ingress_channels
+			.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender)
+			.ok();
+		let maybe_channel = maybe_channel_idx
+			.and_then(|channel_idx| ingress_channels.get(channel_idx))
+			.map(|(_, channel)| channel);
+		maybe_channel.unwrap_or_else(|| {
+			panic!(
+				"One of the messages submitted by the collator was sent from a sender ({}) \
+				that doesn't have a channel opened to this parachain",
+				<ParaId as Into<u32>>::into(sender)
+			)
+		})
+	}
+
 	fn check_hrmp_mcq_heads(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
@@ -1243,17 +1267,8 @@ impl<T: Config> Pallet<T> {
 		}
 		*maybe_prev_msg_metadata = Some(msg_metadata);
 
-		// Check that the message is sent from an existing channel. The channel exists
-		// if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		let sender = msg_metadata.1;
-		let maybe_channel_idx =
-			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
-		assert!(
-			maybe_channel_idx.is_ok(),
-			"One of the messages submitted by the collator was sent from a sender ({}) \
-					that doesn't have a channel opened to this parachain",
-			<ParaId as Into<u32>>::into(sender)
-		);
+		// Check that the message is sent from an existing channel.
+		Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -1271,11 +1286,22 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check the HRMP advancement rule.
-		horizontal_messages.check_enough_messages_included("HRMP");
-
-		let (messages, hashed_messages) = horizontal_messages.messages();
 		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+		let (messages, hashed_messages) = horizontal_messages.messages();
+
+		// First, check the HRMP advancement rule.
+		let maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| *sender);
+		if let Some(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
+			let channel =
+				Self::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
+			horizontal_messages.check_enough_messages_included_advanced(
+				"HRMP",
+				AbridgedInboundMessagesSizeInfo {
+					max_full_messages_size: Self::messages_collection_size_limit(),
+					first_hashed_msg_max_size: channel.max_message_size as usize,
+				},
+			);
+		}
 
 		Self::prune_closed_mqc_heads(ingress_channels, &mut mqc_heads);
 
