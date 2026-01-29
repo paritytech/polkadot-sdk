@@ -36,7 +36,7 @@
 //!
 //! The unconnected storage keeps a record of seconded/backable candidates that may be
 //! added to the best chain in the future.
-//!	Once a candidate is seconded, it becomes part of this unconnected storage.
+//! 	Once a candidate is seconded, it becomes part of this unconnected storage.
 //! Only after it is backed it may be added to the best chain (but not necessarily). It's only
 //! added if it builds on the latest candidate in the chain and if there isn't a better backable
 //! candidate according to the fork selection rule.
@@ -230,7 +230,7 @@ impl CandidateStorage {
 	fn add_candidate_entry(&mut self, candidate: CandidateEntry) -> Result<(), Error> {
 		let candidate_hash = candidate.candidate_hash;
 		if self.by_candidate_hash.contains_key(&candidate_hash) {
-			return Err(Error::CandidateAlreadyKnown)
+			return Err(Error::CandidateAlreadyKnown);
 		}
 
 		self.by_parent_head
@@ -379,14 +379,14 @@ impl CandidateEntry {
 		let para_id = candidate.descriptor.para_id();
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
 		{
-			return Err(CandidateEntryError::PersistedValidationDataMismatch)
+			return Err(CandidateEntryError::PersistedValidationDataMismatch);
 		}
 
 		let parent_head_data_hash = persisted_validation_data.parent_head.hash();
 		let output_head_data_hash = candidate.commitments.head_data.hash();
 
 		if parent_head_data_hash == output_head_data_hash {
-			return Err(CandidateEntryError::ZeroLengthCycle)
+			return Err(CandidateEntryError::ZeroLengthCycle);
 		}
 
 		Ok(Self {
@@ -508,11 +508,11 @@ impl Scope {
 			let mut prev = relay_parent.number;
 			for ancestor in ancestors {
 				if prev == 0 {
-					return Err(UnexpectedAncestor { number: ancestor.number, prev })
+					return Err(UnexpectedAncestor { number: ancestor.number, prev });
 				} else if ancestor.number != prev - 1 {
-					return Err(UnexpectedAncestor { number: ancestor.number, prev })
+					return Err(UnexpectedAncestor { number: ancestor.number, prev });
 				} else if prev == base_constraints.min_relay_parent_number {
-					break
+					break;
 				} else {
 					prev = ancestor.number;
 					ancestors_by_hash.insert(ancestor.hash, ancestor.clone());
@@ -543,7 +543,7 @@ impl Scope {
 	/// Get the relay ancestor of the fragment chain by hash.
 	pub fn ancestor(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
 		if hash == &self.relay_parent.hash {
-			return Some(self.relay_parent.clone())
+			return Some(self.relay_parent.clone());
 		}
 
 		self.ancestors_by_hash.get(hash).map(|info| info.clone())
@@ -779,7 +779,7 @@ impl FragmentChain {
 	pub fn candidate_backed(&mut self, newly_backed_candidate: &CandidateHash) {
 		// Already backed.
 		if self.best_chain.candidates.contains(newly_backed_candidate) {
-			return
+			return;
 		}
 		let Some(parent_head_hash) = self
 			.unconnected
@@ -788,7 +788,7 @@ impl FragmentChain {
 			.map(|entry| entry.parent_head_data_hash)
 		else {
 			// Candidate is not in unconnected storage.
-			return
+			return;
 		};
 
 		// Mark the candidate hash.
@@ -797,7 +797,7 @@ impl FragmentChain {
 		// Revert to parent_head_hash
 		if !self.revert_to(&parent_head_hash) {
 			// If nothing was reverted, there is nothing we can do for now.
-			return
+			return;
 		}
 
 		let mut prev_storage = std::mem::take(&mut self.unconnected);
@@ -824,7 +824,7 @@ impl FragmentChain {
 		let candidate_hash = candidate.candidate_hash();
 
 		if self.best_chain.contains(&candidate_hash) || self.unconnected.contains(&candidate_hash) {
-			return Err(Error::CandidateAlreadyKnown)
+			return Err(Error::CandidateAlreadyKnown);
 		}
 
 		self.check_potential(candidate)
@@ -854,7 +854,7 @@ impl FragmentChain {
 		// First, see if this is the head data of the latest included candidate.
 		let required_parent = &self.scope.base_constraints().required_parent;
 		if &required_parent.hash() == head_data_hash {
-			return Some(required_parent.clone())
+			return Some(required_parent.clone());
 		}
 
 		// Cheaply check if the head data is in the best backable chain.
@@ -899,7 +899,7 @@ impl FragmentChain {
 		count: u32,
 	) -> Vec<(CandidateHash, Hash)> {
 		if count == 0 {
-			return vec![]
+			return vec![];
 		}
 		let base_pos = self.find_ancestor_path(ancestors);
 
@@ -913,7 +913,7 @@ impl FragmentChain {
 			if self.scope.get_pending_availability(&elem.candidate_hash).is_none() {
 				res.push((elem.candidate_hash, elem.relay_parent()));
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -930,7 +930,7 @@ impl FragmentChain {
 
 		for (index, candidate) in self.best_chain.chain.iter().enumerate() {
 			if !ancestors.remove(&candidate.candidate_hash) {
-				return index
+				return index;
 			}
 		}
 
@@ -980,7 +980,7 @@ impl FragmentChain {
 			// Sanity check, all pending availability candidates should be already present in the
 			// chain.
 			if self.scope.get_pending_availability(&candidate.candidate_hash).is_some() {
-				continue
+				continue;
 			}
 
 			match self.can_add_candidate_as_potential(&candidate) {
@@ -1005,12 +1005,12 @@ impl FragmentChain {
 		// this should catch a cycle where this candidate would point back to the parent of some
 		// candidate in the chain.
 		if self.best_chain.by_parent_head.contains_key(output_head_hash) {
-			return Err(Error::Cycle)
+			return Err(Error::Cycle);
 		}
 
 		// multiple paths to the same state, which can't happen for a chain.
 		if self.best_chain.by_output_head.contains_key(output_head_hash) {
-			return Err(Error::MultiplePaths)
+			return Err(Error::MultiplePaths);
 		}
 
 		Ok(())
@@ -1029,7 +1029,7 @@ impl FragmentChain {
 		// trivial 0-length cycle.
 		if let Some(output_head_hash) = candidate.output_head_data_hash() {
 			if parent_head_hash == output_head_hash {
-				return Err(Error::ZeroLengthCycle)
+				return Err(Error::ZeroLengthCycle);
 			}
 		}
 
@@ -1038,7 +1038,7 @@ impl FragmentChain {
 			return Err(Error::RelayParentNotInScope(
 				relay_parent,
 				self.scope.earliest_relay_parent().hash,
-			))
+			));
 		};
 
 		// Check if the relay parent moved backwards from the latest candidate pending availability.
@@ -1047,20 +1047,20 @@ impl FragmentChain {
 			return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
 				relay_parent.hash,
 				earliest_rp_of_pending_availability.hash,
-			))
+			));
 		}
 
 		// If it's a fork with a backed candidate in the current chain.
 		if let Some(other_candidate) = self.best_chain.by_parent_head.get(&parent_head_hash) {
 			if self.scope().get_pending_availability(other_candidate).is_some() {
 				// Cannot accept a fork with a candidate pending availability.
-				return Err(Error::ForkWithCandidatePendingAvailability(*other_candidate))
+				return Err(Error::ForkWithCandidatePendingAvailability(*other_candidate));
 			}
 
 			// If the candidate is backed and in the current chain, accept only a candidate
 			// according to the fork selection rule.
 			if fork_selection_rule(other_candidate, &candidate.candidate_hash()) == Ordering::Less {
-				return Err(Error::ForkChoiceRule(*other_candidate))
+				return Err(Error::ForkChoiceRule(*other_candidate));
 			}
 		}
 
@@ -1072,7 +1072,7 @@ impl FragmentChain {
 					self.best_chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
 				else {
 					// Should never really happen.
-					return Err(Error::ParentCandidateNotFound)
+					return Err(Error::ParentCandidateNotFound);
 				};
 
 				(
@@ -1111,7 +1111,7 @@ impl FragmentChain {
 					commitments,
 					&validation_code_hash,
 				)
-				.map_err(Error::CheckAgainstConstraints)
+				.map_err(Error::CheckAgainstConstraints);
 			}
 			Fragment::check_against_constraints(
 				&relay_parent,
@@ -1124,12 +1124,12 @@ impl FragmentChain {
 		}
 
 		if relay_parent.number < constraints.min_relay_parent_number {
-			return Err(Error::RelayParentMovedBackwards)
+			return Err(Error::RelayParentMovedBackwards);
 		}
 
 		if let Some(earliest_rp) = maybe_min_relay_parent_number {
 			if relay_parent.number < earliest_rp {
-				return Err(Error::RelayParentMovedBackwards)
+				return Err(Error::RelayParentMovedBackwards);
 			}
 		}
 
@@ -1170,7 +1170,7 @@ impl FragmentChain {
 				// Already visited this parent. Either is a cycle or multiple paths that lead to the
 				// same candidate. Either way, stop this branch to avoid looping forever.
 				if visited.contains(&child.output_head_data_hash) {
-					continue
+					continue;
 				}
 
 				// Only keep a candidate if its full ancestry was already kept as potential and this
@@ -1247,7 +1247,7 @@ impl FragmentChain {
 							"Failed to apply modifications",
 						);
 
-						break
+						break;
 					},
 					Ok(c) => c,
 				};
@@ -1271,12 +1271,12 @@ impl FragmentChain {
 						.map(|p| p.relay_parent.clone())
 						.or_else(|| self.scope.ancestor(&candidate.relay_parent))
 					else {
-						return None
+						return None;
 					};
 
 					if self.check_cycles_or_invalid_tree(&candidate.output_head_data_hash).is_err()
 					{
-						return None
+						return None;
 					}
 
 					// require: candidates don't move backwards
@@ -1293,14 +1293,14 @@ impl FragmentChain {
 						.unwrap_or_else(|| earliest_rp.number);
 
 					if relay_parent.number < min_relay_parent_number {
-						return None // relay parent moved backwards.
+						return None; // relay parent moved backwards.
 					}
 
 					// don't add candidates if they're already present in the chain.
 					// this can never happen, as candidates can only be duplicated if there's a
 					// cycle and we shouldn't have allowed for a cycle to be chained.
 					if self.best_chain.contains(&candidate.candidate_hash) {
-						return None
+						return None;
 					}
 
 					let fragment = {
@@ -1329,7 +1329,7 @@ impl FragmentChain {
 									"Failed to instantiate fragment",
 								);
 
-								return None
+								return None;
 							},
 						}
 					};
@@ -1388,7 +1388,7 @@ impl FragmentChain {
 				// Add the candidate to the chain now.
 				self.best_chain.push(node);
 			} else {
-				break
+				break;
 			}
 		}
 	}

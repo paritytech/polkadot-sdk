@@ -130,7 +130,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee_with_tip.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let credit = F::withdraw(
@@ -157,7 +157,7 @@ where
 		_tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
 		if fee_with_tip.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		match F::can_withdraw(who, fee_with_tip) {
@@ -270,7 +270,7 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee_with_tip.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 
 		let withdraw_reason = if tip.is_zero() {
@@ -296,7 +296,7 @@ where
 		tip: Self::Balance,
 	) -> Result<(), TransactionValidityError> {
 		if fee_with_tip.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let withdraw_reason = if tip.is_zero() {

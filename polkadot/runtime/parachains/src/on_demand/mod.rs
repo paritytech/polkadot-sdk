@@ -603,12 +603,12 @@ where
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
 		// Return early if queue has no capacity.
 		if queue_capacity == 0 {
-			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero)
+			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero);
 		}
 
 		// Return early if queue size is greater than capacity.
 		if queue_size > queue_capacity {
-			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity)
+			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity);
 		}
 
 		// (queue_size / queue_capacity) - target_queue_utilisation
@@ -751,7 +751,7 @@ where
 				if when > now.saturating_sub(index.into()) {
 					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
 				} else {
-					break
+					break;
 				}
 			}
 		});

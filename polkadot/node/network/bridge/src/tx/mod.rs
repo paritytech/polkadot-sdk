@@ -328,7 +328,7 @@ where
 				)
 				.await;
 
-			return (network_service, ads)
+			return (network_service, ads);
 		},
 		NetworkBridgeTxMessage::ConnectToResolvedValidators { validator_addrs, peer_set } => {
 			gum::trace!(
@@ -345,7 +345,7 @@ where
 			let network_service = validator_discovery
 				.on_resolved_request(all_addrs, peer_set, network_service)
 				.await;
-			return (network_service, authority_discovery_service)
+			return (network_service, authority_discovery_service);
 		},
 
 		NetworkBridgeTxMessage::AddToResolvedValidators { validator_addrs, peer_set } => {
@@ -361,7 +361,7 @@ where
 			let network_service = validator_discovery
 				.on_add_to_resolved_request(all_addrs, peer_set, network_service)
 				.await;
-			return (network_service, authority_discovery_service)
+			return (network_service, authority_discovery_service);
 		},
 	}
 	(network_service, authority_discovery_service)

@@ -552,7 +552,7 @@ impl BuiltinAddressMatcher {
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}

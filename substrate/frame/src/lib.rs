@@ -584,7 +584,6 @@ pub mod hashing {
 }
 
 // Systems involved in transaction execution in the runtime.
-///
 /// This is already part of the [`prelude`].
 pub mod transaction {
 	pub use frame_support::traits::{CallMetadata, GetCallMetadata};

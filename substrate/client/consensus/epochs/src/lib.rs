@@ -546,7 +546,7 @@ where
 	) -> Result<Option<ViableEpochDescriptor<Hash, Number, E>>, fork_tree::Error<D::Error>> {
 		if parent_number == Zero::zero() {
 			// need to insert the genesis epoch.
-			return Ok(Some(ViableEpochDescriptor::UnimportedGenesis(slot)))
+			return Ok(Some(ViableEpochDescriptor::UnimportedGenesis(slot)));
 		}
 
 		// find_node_where will give you the node in the fork-tree which is an ancestor
@@ -728,7 +728,7 @@ mod tests {
 				if let Some((ref c_head, ref c_parent)) = current {
 					if head == c_head {
 						if base == c_parent {
-							return Ok(true)
+							return Ok(true);
 						} else {
 							head = c_parent;
 						}
@@ -768,7 +768,6 @@ mod tests {
 
 	#[test]
 	fn genesis_epoch_is_created_but_not_imported() {
-		//
 		// A - B
 		//  \
 		//   — C
@@ -810,7 +809,6 @@ mod tests {
 
 	#[test]
 	fn epoch_changes_between_blocks() {
-		//
 		// A - B
 		//  \
 		//   — C
@@ -1063,7 +1061,7 @@ mod tests {
 
 		let is_descendent_of = |base: &Hash, block: &Hash| -> Result<bool, TestError> {
 			match (block, base) {
-				| (b"A", b"0") |
+				(b"A", b"0") |
 				(b"B", b"0" | b"A") |
 				(b"C", b"0" | b"A" | b"B") |
 				(b"D", b"0" | b"A" | b"B" | b"C") |

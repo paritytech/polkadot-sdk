@@ -154,7 +154,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				cursor = Some(last_key)
 			} else {
 				cursor = None;
-				break
+				break;
 			}
 		}
 		Ok(cursor)

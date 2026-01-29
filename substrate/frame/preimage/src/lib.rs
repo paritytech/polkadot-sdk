@@ -279,7 +279,7 @@ impl<T: Config> Pallet<T> {
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
 						.defensive_proof("Unexpected inability to take deposit after unreserved")
 				else {
-					return true
+					return true;
 				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
 			},
@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 									"Unexpected inability to take deposit after unreserved",
 								)
 						else {
-							return true
+							return true;
 						};
 						Some((who, ticket))
 					} else {
@@ -316,7 +316,7 @@ impl<T: Config> Pallet<T> {
 		origin: T::RuntimeOrigin,
 	) -> Result<Option<T::AccountId>, BadOrigin> {
 		if T::ManagerOrigin::ensure_origin(origin.clone()).is_ok() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let who = ensure_signed(origin)?;
 		Ok(Some(who))

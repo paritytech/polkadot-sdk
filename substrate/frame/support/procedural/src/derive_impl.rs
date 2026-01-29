@@ -51,7 +51,7 @@ fn is_runtime_type(item: &syn::ImplItemType) -> bool {
 		if let Ok(PalletAttr { typ: PalletAttrType::RuntimeType(_), .. }) =
 			parse2::<PalletAttr>(attr.into_token_stream())
 		{
-			return true
+			return true;
 		}
 		false
 	})
@@ -78,7 +78,8 @@ impl syn::parse::Parse for DeriveImplAttrArgs {
 				(default_impl_path, Some(args.clone()))
 			},
 			Some(PathSegment { arguments: PathArguments::None, .. }) => (default_impl_path, None),
-			_ => return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path")),
+			_ =>
+				return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path")),
 		};
 
 		let lookahead = input.lookahead1();
@@ -177,7 +178,7 @@ fn combine_impls(
 		if let Some(ident) = impl_item_ident(&item) {
 			if existing_local_keys.contains(&ident) {
 				// do not copy colliding items that have an ident
-				return None
+				return None;
 			}
 			if let ImplItem::Type(typ) = item.clone() {
 				let cfg_attrs = typ
@@ -194,14 +195,14 @@ fn combine_impls(
 					} else {
 						item
 					};
-					return Some(item)
+					return Some(item);
 				}
 				// modify and insert uncolliding type items
 				let modified_item: ImplItem = parse_quote! {
 					#( #cfg_attrs )*
 					type #ident = <#default_impl_path #generics as #disambiguation_path>::#ident;
 				};
-				return Some(modified_item)
+				return Some(modified_item);
 			}
 			// copy uncolliding non-type items that have an ident
 			Some(item)
@@ -246,7 +247,7 @@ fn compute_disambiguation_path(
 /// Internal implementation behind [`#[derive_impl(..)]`](`macro@crate::derive_impl`).
 ///
 /// `default_impl_path`: the module path of the external `impl` statement whose tokens we are
-///	                     importing via `macro_magic`
+/// 	                     importing via `macro_magic`
 ///
 /// `foreign_tokens`: the tokens for the external `impl` statement
 ///

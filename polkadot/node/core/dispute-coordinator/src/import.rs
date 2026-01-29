@@ -97,7 +97,7 @@ impl<'a> CandidateEnvironment<'a> {
 			let mut d: HashSet<ValidatorIndex> = HashSet::new();
 			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
 				if d.len() == byzantine_threshold {
-					break
+					break;
 				}
 				d.insert(v);
 			}
@@ -157,7 +157,7 @@ impl OwnVoteState {
 	fn new(votes: &CandidateVotes, env: &CandidateEnvironment) -> Self {
 		let controlled_indices = env.controlled_indices();
 		if controlled_indices.is_empty() {
-			return Self::CannotVote
+			return Self::CannotVote;
 		}
 
 		let our_valid_votes = controlled_indices
@@ -321,7 +321,7 @@ impl CandidateVoteState<CandidateVotes> {
 					"Validator index doesn't match claimed key",
 				);
 
-				continue
+				continue;
 			}
 			if statement.candidate_hash() != &expected_candidate_hash {
 				gum::error!(
@@ -332,7 +332,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected candidate!",
 				);
-				continue
+				continue;
 			}
 			if statement.session_index() != env.session_index() {
 				gum::error!(
@@ -343,7 +343,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected session!",
 				);
-				continue
+				continue;
 			}
 
 			match statement.statement() {

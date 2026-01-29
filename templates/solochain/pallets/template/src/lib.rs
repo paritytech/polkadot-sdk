@@ -101,7 +101,7 @@ pub mod pallet {
 	/// documentation for each event field and its parameters is added to a node's metadata so it
 	/// can be used by external interfaces or tools.
 	///
-	///	The `generate_deposit` macro generates a function on `Pallet` called `deposit_event` which
+	/// 	The `generate_deposit` macro generates a function on `Pallet` called `deposit_event` which
 	/// will convert the event type of your pallet into `RuntimeEvent` (declared in the pallet's
 	/// [`Config`] trait) and deposit it using [`frame_system::Pallet::deposit_event`].
 	#[pallet::event]

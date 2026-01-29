@@ -148,7 +148,7 @@ impl AvailabilityDistributionSubsystem {
 				Either::Right(from_task) => {
 					let from_task = from_task.ok_or(FatalError::RequesterExhausted)?;
 					ctx.send_message(from_task).await;
-					continue
+					continue;
 				},
 			};
 			match message {

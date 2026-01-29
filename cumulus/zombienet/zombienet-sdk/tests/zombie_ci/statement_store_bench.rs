@@ -483,7 +483,7 @@ impl Participant {
 
 	async fn wait_for_retry(&mut self) -> Result<(), anyhow::Error> {
 		if self.retry_count >= MAX_RETRIES {
-			return Err(anyhow!("No more retry attempts for participant {}", self.idx))
+			return Err(anyhow!("No more retry attempts for participant {}", self.idx));
 		}
 
 		self.retry_count += 1;

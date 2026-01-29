@@ -411,7 +411,7 @@ pub mod pallet {
 							Self::deposit_event(Event::InvalidInvulnerableSkipped {
 								account_id: account_id.clone(),
 							});
-							continue
+							continue;
 						}
 						// else condition passes; key is registered
 					},
@@ -420,7 +420,7 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidInvulnerableSkipped {
 							account_id: account_id.clone(),
 						});
-						continue
+						continue;
 					},
 				}
 
@@ -699,7 +699,7 @@ pub mod pallet {
 						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					} else {
-						return Err(Error::<T>::IdenticalDeposit.into())
+						return Err(Error::<T>::IdenticalDeposit.into());
 					}
 
 					// Update the deposit and insert the candidate in the correct spot in the list.

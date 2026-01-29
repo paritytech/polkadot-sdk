@@ -469,7 +469,7 @@ impl ProtocolController {
 				"Trying to add an already reserved node {peer_id} as reserved on {:?}.",
 				self.set_id,
 			);
-			return
+			return;
 		}
 
 		// Get the peer out of non-reserved peers if it's there.
@@ -510,7 +510,7 @@ impl ProtocolController {
 					target: LOG_TARGET,
 					"Trying to remove unknown reserved node {peer_id} from {:?}.", self.set_id,
 				);
-				return
+				return;
 			},
 		};
 
@@ -581,7 +581,7 @@ impl ProtocolController {
 		self.reserved_only = reserved_only;
 
 		if !reserved_only {
-			return self.alloc_slots()
+			return self.alloc_slots();
 		}
 
 		// Disconnect all non-reserved peers.
@@ -614,7 +614,7 @@ impl ProtocolController {
 				target: LOG_TARGET,
 				"Ignoring request to disconnect reserved peer {peer_id} from {:?}.", self.set_id,
 			);
-			return
+			return;
 		}
 
 		match self.nodes.remove(&peer_id) {
@@ -659,7 +659,7 @@ impl ProtocolController {
 
 		if self.reserved_only && !self.reserved_nodes.contains_key(&peer_id) {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		// Check if the node is reserved first.
@@ -679,7 +679,7 @@ impl ProtocolController {
 						self.accept_connection(peer_id, incoming_index);
 					},
 			}
-			return
+			return;
 		}
 
 		// If we're already connected, pretend we are not connected and decide on the node again.
@@ -700,12 +700,12 @@ impl ProtocolController {
 
 		if self.num_in >= self.max_in {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		if self.is_banned(&peer_id) {
 			self.reject_connection(peer_id, incoming_index);
-			return
+			return;
 		}
 
 		self.num_in += 1;
@@ -799,7 +799,7 @@ impl ProtocolController {
 
 		// Nothing more to do if we're in reserved-only mode or don't have slots available.
 		if self.reserved_only || self.num_out >= self.max_out {
-			return
+			return;
 		}
 
 		// Fill available slots.

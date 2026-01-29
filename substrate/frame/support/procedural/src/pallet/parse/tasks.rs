@@ -73,7 +73,7 @@ impl syn::parse::Parse for TasksDef {
 			return Err(Error::new(
 				extra_tasks_attr.span(),
 				"unexpected extra `#[pallet::tasks_experimental]` attribute",
-			))
+			));
 		}
 		let tasks: Vec<TaskDef> = if tasks_attr.is_some() {
 			item_impl
@@ -93,7 +93,7 @@ impl syn::parse::Parse for TasksDef {
 				return Err(Error::new(
 					task_index.span(),
 					format!("duplicate task index `{}`", task_index),
-				))
+				));
 			}
 		}
 		let mut item_impl = item_impl;
@@ -107,7 +107,7 @@ impl syn::parse::Parse for TasksDef {
 				enum_path.span(),
 				"if specified manually, the task enum must be defined locally in this \
 				pallet and cannot be a re-export",
-			))
+			));
 		};
 		let enum_ident = last_seg.ident.clone();
 		let enum_arguments = last_seg.arguments.clone();
@@ -194,7 +194,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_index(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(condition_attr) = task_attrs
@@ -205,7 +205,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_condition(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(list_attr) = task_attrs
@@ -216,7 +216,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_list(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(weight_attr) = task_attrs
@@ -227,7 +227,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_weight(..)]` attribute",
-			))
+			));
 		};
 
 		if let Some(duplicate) = task_attrs
@@ -239,7 +239,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_condition(..)]` attribute",
-			))
+			));
 		}
 
 		if let Some(duplicate) = task_attrs
@@ -251,7 +251,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_list(..)]` attribute",
-			))
+			));
 		}
 
 		if let Some(duplicate) = task_attrs
@@ -263,7 +263,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_index(..)]` attribute",
-			))
+			));
 		}
 
 		let mut arg_names = vec![];
@@ -492,10 +492,10 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 				.map(|seg| seg.ident.clone())
 				.collect::<Vec<_>>();
 			let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
-				return true
+				return true;
 			};
 			if seg1 != "pallet" {
-				return true
+				return true;
 			}
 			if attr.is_some() {
 				duplicate = Some(found_attr.span());
@@ -506,7 +506,7 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 		.cloned()
 		.collect();
 	if let Some(span) = duplicate {
-		return Err(Error::new(span, "only one `#[pallet::_]` attribute is supported on this item"))
+		return Err(Error::new(span, "only one `#[pallet::_]` attribute is supported on this item"));
 	}
 	Ok(attr)
 }
@@ -517,7 +517,7 @@ fn partition_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn:
 		let (Some(prefix), Some(suffix), None) =
 			(path_segs.next(), path_segs.next(), path_segs.next())
 		else {
-			return false
+			return false;
 		};
 		prefix.ident == "pallet" && suffix.ident == "tasks_experimental"
 	})
@@ -527,7 +527,7 @@ fn partition_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Att
 	item.attrs.clone().into_iter().partition(|attr| {
 		let mut path_segs = attr.path().segments.iter();
 		let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
-			return false
+			return false;
 		};
 		// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
 		// parsing and makes no stack or heap allocations

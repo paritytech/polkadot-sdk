@@ -189,7 +189,7 @@
 //! Note that there could be an overlap between these sub-errors. For example, A
 //! `SnapshotUnavailable` can happen in both miner and feasibility check phase.
 //!
-//!	## Multi-page election support
+//! 	## Multi-page election support
 //!
 //! The [`frame_election_provider_support::ElectionDataProvider`] and
 //! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet can support a
@@ -1729,7 +1729,7 @@ impl<T: Config> Pallet<T> {
 			if submission.is_none() {
 				return Err(
 					"All signed submissions indices must be part of the submissions map".into()
-				)
+				);
 			}
 
 			if i == 0 {
@@ -1737,8 +1737,8 @@ impl<T: Config> Pallet<T> {
 			} else {
 				if last_score.strict_better(indice.0) {
 					return Err(
-						"Signed submission indices vector must be ordered by election score".into()
-					)
+						"Signed submission indices vector must be ordered by election score".into(),
+					);
 				}
 				last_score = indice.0;
 			}
@@ -1746,8 +1746,8 @@ impl<T: Config> Pallet<T> {
 
 		if SignedSubmissionsMap::<T>::iter().nth(indices.len()).is_some() {
 			return Err(
-				"Signed submissions map length should be the same as the indices vec length".into()
-			)
+				"Signed submissions map length should be the same as the indices vec length".into(),
+			);
 		}
 
 		match SignedSubmissionNextIndex::<T>::get() {
@@ -1757,7 +1757,7 @@ impl<T: Config> Pallet<T> {
 					return Err(
 						"The next submissions index should not be in the submissions maps already"
 							.into(),
-					)
+					);
 				} else {
 					Ok(())
 				},

@@ -103,20 +103,20 @@ impl Candidates {
 		match entry {
 			CandidateState::Confirmed(ref c) => {
 				if c.relay_parent() != claimed_relay_parent {
-					return Err(BadAdvertisement)
+					return Err(BadAdvertisement);
 				}
 
 				if c.group_index() != claimed_group_index {
-					return Err(BadAdvertisement)
+					return Err(BadAdvertisement);
 				}
 
 				if let Some((claimed_parent_hash, claimed_id)) = claimed_parent_hash_and_id {
 					if c.parent_head_data_hash() != claimed_parent_hash {
-						return Err(BadAdvertisement)
+						return Err(BadAdvertisement);
 					}
 
 					if c.para_id() != claimed_id {
-						return Err(BadAdvertisement)
+						return Err(BadAdvertisement);
 					}
 				}
 			},

@@ -273,7 +273,7 @@ where
 			return Err(
 				Box::from("`ProofSizeExt` registered, but no `storage_proof_recorder` provided. This is a bug.")
 					as Box<dyn Error + Send + Sync>
-			)
+			);
 		}
 
 		// Create proposal arguments

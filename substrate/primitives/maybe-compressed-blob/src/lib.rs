@@ -115,7 +115,7 @@ pub fn compress(blob: &[u8], bomb_limit: usize) -> Option<Vec<u8>> {
 /// not be able to be able to differentiate it from a compression bomb.
 fn compress_with_level(blob: &[u8], bomb_limit: usize, level: i32) -> Option<Vec<u8>> {
 	if blob.len() > bomb_limit {
-		return None
+		return None;
 	}
 
 	let mut buf = ZSTD_PREFIX.to_vec();

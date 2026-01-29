@@ -180,7 +180,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 
 	fn strategy_type() -> StakeStrategyType {
 		if LegacyAdapter::get() {
-			return TransferStake::strategy_type()
+			return TransferStake::strategy_type();
 		}
 		DelegateStake::strategy_type()
 	}
@@ -189,21 +189,21 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		member_account: Member<Self::AccountId>,
 	) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::transferable_balance(pool_account, member_account)
+			return TransferStake::transferable_balance(pool_account, member_account);
 		}
 		DelegateStake::transferable_balance(pool_account, member_account)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
-			return TransferStake::total_balance(pool_account)
+			return TransferStake::total_balance(pool_account);
 		}
 		DelegateStake::total_balance(pool_account)
 	}
 
 	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
-			return TransferStake::member_delegation_balance(member_account)
+			return TransferStake::member_delegation_balance(member_account);
 		}
 		DelegateStake::member_delegation_balance(member_account)
 	}
@@ -216,7 +216,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		bond_type: BondType,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
+			return TransferStake::pledge_bond(who, pool_account, reward_account, amount, bond_type);
 		}
 		DelegateStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
 	}
@@ -228,21 +228,21 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
+			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans);
 		}
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::dissolve(pool_account)
+			return TransferStake::dissolve(pool_account);
 		}
 		DelegateStake::dissolve(pool_account)
 	}
 
 	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::pending_slash(pool_account)
+			return TransferStake::pending_slash(pool_account);
 		}
 		DelegateStake::pending_slash(pool_account)
 	}
@@ -254,7 +254,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::member_slash(who, pool_account, amount, maybe_reporter)
+			return TransferStake::member_slash(who, pool_account, amount, maybe_reporter);
 		}
 		DelegateStake::member_slash(who, pool_account, amount, maybe_reporter)
 	}
@@ -264,7 +264,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::migrate_nominator_to_agent(agent, reward_account)
+			return TransferStake::migrate_nominator_to_agent(agent, reward_account);
 		}
 		DelegateStake::migrate_nominator_to_agent(agent, reward_account)
 	}
@@ -275,7 +275,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		value: Self::Balance,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::migrate_delegation(agent, delegator, value)
+			return TransferStake::migrate_delegation(agent, delegator, value);
 		}
 		DelegateStake::migrate_delegation(agent, delegator, value)
 	}
