@@ -27,7 +27,7 @@ use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
 /// Information relating to the period of a scheduled task. First item is the duration
 /// between executions and the second is the number of times it should be executed in
 /// total before the task is considered finished and removed.
-pub type Period<Duration> = (Duration, u32);
+pub type Period<Time> = (Time, u32);
 
 /// Priority with which a call is scheduled. It's just a linear amount with lowest values meaning
 /// higher priority.
@@ -46,15 +46,15 @@ pub type Priority = u8;
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub enum DispatchTime<Moment> {
+pub enum DispatchTime<Time> {
 	/// At specified timestamp.
-	At(Moment),
+	At(Time),
 	/// After specified duration.
-	After(Moment),
+	After(Time),
 }
 
-impl<Moment: Saturating + Copy> DispatchTime<Moment> {
-	pub fn evaluate(&self, now: Moment) -> Moment {
+impl<Time: Saturating + Copy> DispatchTime<Time> {
+	pub fn evaluate(&self, now: Time) -> Time {
 		match &self {
 			Self::At(m) => *m,
 			Self::After(m) => m.saturating_add(now),
@@ -147,9 +147,8 @@ pub mod v1 {
 
 	/// A type that can be used as a scheduler.
 	///
-	/// - `Moment`: Absolute timestamp type.
-	/// - `Duration`: Interval/duration type for periodic scheduling.
-	pub trait Anon<Moment, Duration, Call, Origin> {
+	/// - `Time`: Timestamp type.`
+	pub trait Anon<Time, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug + TypeInfo;
 		/// The hasher used in the runtime.
@@ -159,8 +158,8 @@ pub mod v1 {
 		///
 		/// This is not named.
 		fn schedule(
-			when: DispatchTime<Moment>,
-			maybe_periodic: Option<Period<Duration>>,
+			when: DispatchTime<Time>,
+			maybe_periodic: Option<Period<Time>>,
 			priority: Priority,
 			origin: Origin,
 			call: Bounded<Call, Self::Hasher>,
@@ -186,22 +185,21 @@ pub mod v1 {
 		/// Will return an `Unavailable` error if the `address` is invalid.
 		fn reschedule(
 			address: Self::Address,
-			when: DispatchTime<Moment>,
+			when: DispatchTime<Time>,
 		) -> Result<Self::Address, DispatchError>;
 
 		/// Return the next dispatch time for a given task.
 		///
 		/// Will return an `Unavailable` error if the `address` is invalid.
-		fn next_dispatch_time(address: Self::Address) -> Result<Moment, DispatchError>;
+		fn next_dispatch_time(address: Self::Address) -> Result<Time, DispatchError>;
 	}
 
 	pub type TaskName = [u8; 32];
 
 	/// A type that can be used as a scheduler.
 	///
-	/// - `Moment`: Absolute timestamp type.
-	/// - `Duration`: Interval/duration type for periodic scheduling.
-	pub trait Named<Moment, Duration, Call, Origin> {
+	/// - `Time`: Timestamp type.
+	pub trait Named<Time, Call, Origin> {
 		/// An address which can be used for removing a scheduled task.
 		type Address: Codec + MaxEncodedLen + Clone + Eq + EncodeLike + Debug;
 		/// The hasher used in the runtime.
@@ -214,8 +212,8 @@ pub mod v1 {
 		/// NOTE: This will request `call` to be made available.
 		fn schedule_named(
 			id: TaskName,
-			when: DispatchTime<Moment>,
-			maybe_periodic: Option<Period<Duration>>,
+			when: DispatchTime<Time>,
+			maybe_periodic: Option<Period<Time>>,
 			priority: Priority,
 			origin: Origin,
 			call: Bounded<Call, Self::Hasher>,
@@ -236,12 +234,12 @@ pub mod v1 {
 		/// Will return an `Unavailable` error if the `id` is invalid.
 		fn reschedule_named(
 			id: TaskName,
-			when: DispatchTime<Moment>,
+			when: DispatchTime<Time>,
 		) -> Result<Self::Address, DispatchError>;
 
 		/// Return the next dispatch time for a given task.
 		///
 		/// Will return an `Unavailable` error if the `id` is invalid.
-		fn next_dispatch_time(id: TaskName) -> Result<Moment, DispatchError>;
+		fn next_dispatch_time(id: TaskName) -> Result<Time, DispatchError>;
 	}
 }

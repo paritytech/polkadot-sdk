@@ -130,13 +130,9 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// Absolute timestamp in milliseconds from the timestamp provider.
-pub type MomentFor<T> = <<T as Config>::TimestampProvider as Time>::Moment;
+pub type TimeFor<T> = <<T as Config>::TimestampProvider as Time>::Moment;
 /// Bucket index (`timestamp / BucketResolution`).
-pub type BucketFor<T> = MomentFor<T>;
-/// Duration in milliseconds (external API).
-pub type DurationFor<T> = MomentFor<T>;
-/// Duration in bucket units (internal storage).
-pub type PeriodFor<T> = BucketFor<T>;
+pub type BucketFor<T> = TimeFor<T>;
 /// Task location: `(bucket_index, position_in_bucket)`.
 pub type TaskAddress<Bucket> = (Bucket, u32);
 /// Bounded call type for scheduled tasks.
@@ -221,7 +217,7 @@ where
 pub type ScheduledOf<T> = Scheduled<
 	TaskName,
 	BoundedCallOf<T>,
-	PeriodFor<T>,
+	BucketFor<T>,
 	<T as Config>::PalletsOrigin,
 	<T as frame_system::Config>::AccountId,
 >;
@@ -358,7 +354,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		TaskAddress<BucketFor<T>>,
-		RetryConfig<PeriodFor<T>>,
+		RetryConfig<BucketFor<T>>,
 		OptionQuery,
 	>;
 
@@ -384,7 +380,7 @@ pub mod pallet {
 		RetrySet {
 			task: TaskAddress<BucketFor<T>>,
 			id: Option<TaskName>,
-			period: PeriodFor<T>,
+			period: BucketFor<T>,
 			retries: u8,
 			try_same_bucket_first: bool,
 		},
@@ -467,8 +463,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule(
 			origin: OriginFor<T>,
-			when: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+			when: TimeFor<T>,
+			maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -487,7 +483,7 @@ pub mod pallet {
 		/// Cancel an anonymously scheduled task.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBucket::get()))]
-		pub fn cancel(origin: OriginFor<T>, when: MomentFor<T>, index: u32) -> DispatchResult {
+		pub fn cancel(origin: OriginFor<T>, when: TimeFor<T>, index: u32) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			Self::do_cancel(Some(origin.caller().clone()), (when, index))?;
@@ -500,8 +496,8 @@ pub mod pallet {
 		pub fn schedule_named(
 			origin: OriginFor<T>,
 			id: TaskName,
-			when: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+			when: TimeFor<T>,
+			maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -533,8 +529,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::schedule(T::MaxScheduledPerBucket::get()))]
 		pub fn schedule_after(
 			origin: OriginFor<T>,
-			after: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+			after: TimeFor<T>,
+			maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -556,8 +552,8 @@ pub mod pallet {
 		pub fn schedule_named_after(
 			origin: OriginFor<T>,
 			id: TaskName,
-			after: MomentFor<T>,
-			maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+			after: TimeFor<T>,
+			maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 			priority: schedule::Priority,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
@@ -594,11 +590,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task: TaskAddress<BucketFor<T>>,
 			retries: u8,
-			duration: DurationFor<T>,
+			duration: TimeFor<T>,
 			try_same_bucket_first: bool,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+			let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
 			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
 			let period = duration / bucket_resolution;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -648,11 +644,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: TaskName,
 			retries: u8,
-			duration: DurationFor<T>,
+			duration: TimeFor<T>,
 			try_same_bucket_first: bool,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+			let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
 			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
 			let period = duration / bucket_resolution;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
@@ -712,11 +708,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// Convert a timestamp in milliseconds to a bucket key (timestamp / BucketResolution).
-	fn timestamp_to_bucket(timestamp: MomentFor<T>) -> BucketFor<T> {
+	fn timestamp_to_bucket(timestamp: TimeFor<T>) -> BucketFor<T> {
 		timestamp / T::BucketResolution::get().into()
 	}
 
-	fn resolve_time(when: DispatchTime<MomentFor<T>>) -> Result<MomentFor<T>, DispatchError> {
+	fn resolve_time(when: DispatchTime<TimeFor<T>>) -> Result<TimeFor<T>, DispatchError> {
 		let now = T::TimestampProvider::now();
 		let when = when.evaluate(now);
 
@@ -731,7 +727,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Place a task in the agenda and update lookup if named.
 	fn place_task(
-		when: MomentFor<T>,
+		when: TimeFor<T>,
 		what: ScheduledOf<T>,
 	) -> Result<TaskAddress<BucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
 		let maybe_name = what.maybe_id;
@@ -785,8 +781,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedule a task. Periodic durations are converted to bucket counts.
 	fn do_schedule(
-		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+		when: DispatchTime<TimeFor<T>>,
+		maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
@@ -794,7 +790,7 @@ impl<T: Config> Pallet<T> {
 		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
-		let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
 
 		// Convert duration-based period to bucket-based period.
 		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
@@ -861,7 +857,7 @@ impl<T: Config> Pallet<T> {
 	/// Reschedule a task by address.
 	fn do_reschedule(
 		(bucket, index): TaskAddress<BucketFor<T>>,
-		new_time: DispatchTime<MomentFor<T>>,
+		new_time: DispatchTime<TimeFor<T>>,
 	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
 		let new_bucket = Self::timestamp_to_bucket(new_time);
@@ -885,8 +881,8 @@ impl<T: Config> Pallet<T> {
 	/// Schedule a named task. Periodic durations are converted to bucket counts.
 	fn do_schedule_named(
 		id: TaskName,
-		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+		when: DispatchTime<TimeFor<T>>,
+		maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 		priority: schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: BoundedCallOf<T>,
@@ -899,7 +895,7 @@ impl<T: Config> Pallet<T> {
 		let when = Self::resolve_time(when)?;
 
 		let lookup_hash = call.lookup_hash();
-		let bucket_resolution: MomentFor<T> = T::BucketResolution::get().into();
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
 
 		// Convert duration-based period to bucket-based period.
 		// Duration must be >= BucketResolution to ensure at least one bucket between executions.
@@ -961,7 +957,7 @@ impl<T: Config> Pallet<T> {
 	/// Reschedule a named task.
 	fn do_reschedule_named(
 		id: TaskName,
-		new_time: DispatchTime<MomentFor<T>>,
+		new_time: DispatchTime<TimeFor<T>>,
 	) -> Result<TaskAddress<BucketFor<T>>, DispatchError> {
 		let new_time = Self::resolve_time(new_time)?;
 		let new_bucket = Self::timestamp_to_bucket(new_time);
@@ -1016,7 +1012,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This ensures that tasks scheduled in intermediate buckets are not skipped when
 	/// time advances across multiple buckets between blocks.
-	fn service_agendas(weight: &mut WeightMeter, now: MomentFor<T>, max: u32) {
+	fn service_agendas(weight: &mut WeightMeter, now: TimeFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
 			return;
 		}
@@ -1285,7 +1281,7 @@ impl<T: Config> Pallet<T> {
 		bucket: BucketFor<T>,
 		agenda_index: u32,
 		task: &ScheduledOf<T>,
-		retry_config: RetryConfig<PeriodFor<T>>,
+		retry_config: RetryConfig<BucketFor<T>>,
 	) {
 		if weight
 			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBucket::get()))
@@ -1364,15 +1360,15 @@ impl<T: Config> Pallet<T> {
 use time_schedule::v1::TaskName;
 
 impl<T: Config>
-	time_schedule::v1::Anon<MomentFor<T>, DurationFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	time_schedule::v1::Anon<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
 	type Hasher = T::Hashing;
 
 	fn schedule(
-		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+		when: DispatchTime<TimeFor<T>>,
+		maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 		priority: time_schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: Bounded<<T as Config>::RuntimeCall, Self::Hasher>,
@@ -1386,15 +1382,15 @@ impl<T: Config>
 
 	fn reschedule(
 		address: Self::Address,
-		when: DispatchTime<MomentFor<T>>,
+		when: DispatchTime<TimeFor<T>>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_reschedule(address, when).map_err(map_err_to_v1_err::<T>)
 	}
 
-	fn next_dispatch_time(address: Self::Address) -> Result<MomentFor<T>, DispatchError> {
+	fn next_dispatch_time(address: Self::Address) -> Result<TimeFor<T>, DispatchError> {
 		let (bucket, index) = address;
 		let agenda = Agenda::<T>::get(bucket);
-		let resolution: MomentFor<T> = T::BucketResolution::get().into();
+		let resolution: TimeFor<T> = T::BucketResolution::get().into();
 		agenda
 			.get(index as usize)
 			.and_then(Option::as_ref)
@@ -1404,7 +1400,7 @@ impl<T: Config>
 }
 
 impl<T: Config>
-	time_schedule::v1::Named<MomentFor<T>, DurationFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+	time_schedule::v1::Named<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
@@ -1412,8 +1408,8 @@ impl<T: Config>
 
 	fn schedule_named(
 		id: TaskName,
-		when: DispatchTime<MomentFor<T>>,
-		maybe_periodic: Option<time_schedule::Period<DurationFor<T>>>,
+		when: DispatchTime<TimeFor<T>>,
+		maybe_periodic: Option<time_schedule::Period<TimeFor<T>>>,
 		priority: time_schedule::Priority,
 		origin: T::PalletsOrigin,
 		call: Bounded<<T as Config>::RuntimeCall, Self::Hasher>,
@@ -1427,14 +1423,14 @@ impl<T: Config>
 
 	fn reschedule_named(
 		id: TaskName,
-		when: DispatchTime<MomentFor<T>>,
+		when: DispatchTime<TimeFor<T>>,
 	) -> Result<Self::Address, DispatchError> {
 		Self::do_reschedule_named(id, when).map_err(map_err_to_v1_err::<T>)
 	}
 
-	fn next_dispatch_time(id: TaskName) -> Result<MomentFor<T>, DispatchError> {
+	fn next_dispatch_time(id: TaskName) -> Result<TimeFor<T>, DispatchError> {
 		let (bucket, _index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
-		let resolution: MomentFor<T> = T::BucketResolution::get().into();
+		let resolution: TimeFor<T> = T::BucketResolution::get().into();
 		Ok(bucket * resolution)
 	}
 }
