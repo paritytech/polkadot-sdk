@@ -190,14 +190,10 @@ mod benchmarks {
 		let task = make_task::<T>(false, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
-		let _result;
-
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
-
-		// assert!(_result.is_ok());
 	}
 
 	// `service_task` when the task is a non-periodic, non-named, fetched call (with a known
@@ -213,14 +209,11 @@ mod benchmarks {
 		let task = make_task::<T>(false, false, false, Some(s), 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
-		let _result;
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
-
-		// assert!(result.is_ok());
 	}
 
 	// `service_task` when the task is a non-periodic, named, non-fetched call which is not
@@ -231,14 +224,11 @@ mod benchmarks {
 		let task = make_task::<T>(false, true, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
-		let _result;
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
-
-		// assert!(result.is_ok());
 	}
 
 	// `service_task` when the task is a periodic, non-named, non-fetched call which is not
@@ -249,14 +239,11 @@ mod benchmarks {
 		let task = make_task::<T>(true, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
-		let _result;
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
+			Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
-
-		// assert!(result.is_ok());
 	}
 
 	// `execute_dispatch` when the origin is `Signed`, not counting the dispatchable's weight.
