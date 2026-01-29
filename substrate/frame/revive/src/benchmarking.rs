@@ -139,21 +139,17 @@ mod benchmarks {
 		use k256::ecdsa::SigningKey;
 		use sp_core::keccak_256;
 
-		// Generate a signing key
 		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32]))
 			.expect("valid key");
 
-		// Create target address
 		let target_address = H160::from_low_u64_be(1);
 
-		// Create unsigned authorization
 		let unsigned_auth = AuthorizationListEntry {
 			chain_id: U256::from(T::ChainId::get()),
 			address: target_address,
 			nonce: U256::zero(),
 		};
 
-		// Sign the authorization
 		let mut message = Vec::new();
 		message.push(eip7702::EIP7702_MAGIC);
 		message.extend_from_slice(&crate::evm::rlp::encode(&unsigned_auth));
@@ -187,23 +183,19 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn apply_delegations_existing(a: Linear<1, 16>) -> Result<(), BenchmarkError> {
 		use crate::evm::eip7702;
-		use frame_support::traits::fungible::Mutate;
 
 		let mut authorities = alloc::collections::BTreeMap::new();
 
-		// Create existing accounts with balance
 		for i in 0..a {
 			let authority = H160::from_low_u64_be(i as u64 + 1);
 			let target = H160::from_low_u64_be((i + 100) as u64);
-			
-			// Fund the account so it exists in frame_system
+
 			let authority_id = T::AddressMapper::to_account_id(&authority);
-			let _ = T::Currency::set_balance(&authority_id, 1_000_000u32.into());
-			
-			// Verify the account now exists in frame_system
+			frame_system::Pallet::<T>::inc_account_nonce(&authority_id);
+
 			assert!(frame_system::Account::<T>::contains_key(&authority_id),
-				"Account should exist after setting balance");
-			
+				"Account should exist after incrementing nonce");
+
 			authorities.insert(authority, target);
 		}
 
@@ -223,15 +215,13 @@ mod benchmarks {
 
 		let mut authorities = alloc::collections::BTreeMap::new();
 
-		// Create authority addresses that don't exist in frame_system
 		for i in 0..a {
 			let authority = H160::from_low_u64_be((i + 1000) as u64);
 			let target = H160::from_low_u64_be((i + 2000) as u64);
-			
-			// Verify the account doesn't exist
+
 			let authority_id = T::AddressMapper::to_account_id(&authority);
 			assert!(!frame_system::Account::<T>::contains_key(&authority_id));
-			
+
 			authorities.insert(authority, target);
 		}
 
