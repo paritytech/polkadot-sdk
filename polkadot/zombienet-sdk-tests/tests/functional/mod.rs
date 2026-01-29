@@ -4,9 +4,24 @@
 mod approval_voting_coalescing;
 mod approved_peer_mixed_validators;
 mod async_backing_6_seconds_rate;
+mod beefy_and_mmr;
+mod chunk_fetching_network_compatibility;
+mod coretime_collation_fetching_fairness;
+mod coretime_shared_core;
+mod dispute_freshly_finalized;
 mod dispute_old_finalized;
 mod duplicate_collations;
+mod parachains_max_tranche0;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;
+mod systematic_chunk_recovery;
 mod validator_disabling;
+
+// Disable following tests temporarily
+// since depends on the below:
+// https://github.com/paritytech/zombienet-sdk/pull/487
+// https://github.com/paritytech/zombienet-sdk/pull/484
+// mod parachains_pvf;
+// mod parachains_disputes;
+// mod parachains_garbage_candidate;

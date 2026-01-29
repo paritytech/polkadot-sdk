@@ -7,6 +7,10 @@ mod elastic_scaling;
 #[cfg(feature = "zombie-ci")]
 mod functional;
 #[cfg(feature = "zombie-ci")]
+mod malus;
+#[cfg(feature = "zombie-ci")]
 mod parachains;
 #[cfg(feature = "zombie-ci")]
 mod smoke;
+#[cfg(feature = "zombie-ci")]
+mod utils;
