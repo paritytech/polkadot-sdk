@@ -2899,7 +2899,7 @@ fn postponed_task_is_still_available() {
 /// `on_initialize` even if no more tasks were processed since processing empty agenda has a base
 /// weight.
 #[test]
-fn not_permanently_overweight_when_task_from_not_first_agenda() {
+fn overweight_task_is_permanently_overweight_when_first_in_catchup() {
 	new_test_ext().execute_with(|| {
 		// Set initial time to bucket 1 and run to establish IncompleteSince
 		Timestamp::set_timestamp(60_000);
@@ -2918,30 +2918,19 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 
 		// Jump time significantly ahead so we need to catch up multiple buckets.
 		// IncompleteSince is at bucket 2, now_bucket will be 11.
-		// Scheduler will process buckets 2,3,4,5 (empty), then 6 (overweight task).
+		// Empty buckets (2-5) are skipped via contains_key check.
+		// Bucket 6 has the overweight task and is the first bucket actually processed.
 
 		// Run to bucket 11 - this will process buckets in catch-up mode
 		run_to_time(660_000);
 
-		// The task remains in the agenda because it was overweight when processed at bucket 6,
-		// but since it wasn't the first bucket being processed (buckets 2-5 were processed first),
-		// it's not considered permanently overweight yet - just incomplete.
+		// Since empty buckets are skipped, bucket 6 is the first bucket with an agenda.
+		// The task is overweight and is_first=true, so it's immediately PermanentlyOverweight.
 		assert_eq!(agenda_task_count(schedule_at), 1);
-		assert_eq!(
-			System::events().last().unwrap().event,
-			crate::Event::AgendaIncomplete { when: schedule_at }.into()
-		);
-
-		// Run to the next bucket - this time we start from bucket 6
-		run_to_time(720_000); // bucket 12
-
-		// Now it's permanently overweight because bucket 6 is the first bucket being processed.
 		assert_eq!(
 			System::events().last().unwrap().event,
 			crate::Event::PermanentlyOverweight { task: (schedule_at, 0), id: None }.into(),
 		);
-		// permanently overweight tasks are not removed from the agenda.
-		assert_eq!(agenda_task_count(schedule_at), 1);
 	});
 }
 
@@ -3108,26 +3097,23 @@ fn on_initialize_weight_is_correct() {
 		Timestamp::set_timestamp(2500);
 		let weight_same_bucket = Scheduler::on_initialize(2);
 
-		// Expected: just service_agendas_base + service_agenda_base(0) for empty agenda
-		let expected_weight_same_bucket =
-			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0);
+		// Expected: just service_agendas_base (empty buckets are skipped via contains_key)
+		let expected_weight_same_bucket = TestWeightInfo::service_agendas_base();
 		assert_eq!(weight_same_bucket, expected_weight_same_bucket);
 		// Log unchanged - no new executions
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// === Block 3: Process bucket 2 (Anon + Anon Periodic) ===
-		// Note: IncompleteSince is bucket 1, so we first re-process bucket 1 (now empty)
-		// then process bucket 2
+		// Note: IncompleteSince is bucket 1, bucket 1 is empty so skipped, process bucket 2
 		Timestamp::set_timestamp(4000);
 		let weight_bucket_2 = Scheduler::on_initialize(3);
 
 		// Expected: service_agendas_base +
-		//           service_agenda_base(0) for bucket 1 (empty, already processed) +
 		//           service_agenda_base(2) for bucket 2 +
 		//           service_task(None, named=false, periodic=false) + execute_dispatch_unsigned + call_weight +
 		//           service_task(None, named=false, periodic=true) + execute_dispatch_unsigned + call_weight
+		// Note: bucket 1 is skipped (empty, no agenda in storage)
 		let expected_weight_2 = TestWeightInfo::service_agendas_base() +
-			TestWeightInfo::service_agenda_base(0) + // bucket 1 (empty)
 			TestWeightInfo::service_agenda_base(2) + // bucket 2
 			<TestWeightInfo as MarginalWeightInfo>::service_task(None, false, false) +
 			TestWeightInfo::execute_dispatch_unsigned() +
@@ -3142,17 +3128,16 @@ fn on_initialize_weight_is_correct() {
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// === Block 4: Process bucket 3 (Named only) ===
-		// IncompleteSince is bucket 2, so we first re-process bucket 2 (now empty) then bucket 3
+		// IncompleteSince is bucket 2, bucket 2 is empty so skipped, process bucket 3
 		Timestamp::set_timestamp(6000);
 		let weight_bucket_3 = Scheduler::on_initialize(4);
 
 		// Expected: service_agendas_base +
-		//           service_agenda_base(0) for bucket 2 (empty) +
 		//           service_agenda_base(1) for bucket 3 +
 		//           service_task(None, named=true, periodic=false) +
 		//           execute_dispatch_unsigned + call_weight
+		// Note: bucket 2 is skipped (empty, no agenda in storage)
 		let expected_weight_3 = TestWeightInfo::service_agendas_base() +
-			TestWeightInfo::service_agenda_base(0) + // bucket 2 (empty)
 			TestWeightInfo::service_agenda_base(1) + // bucket 3
 			<TestWeightInfo as MarginalWeightInfo>::service_task(None, true, false) +
 			TestWeightInfo::execute_dispatch_unsigned() +
@@ -3165,14 +3150,12 @@ fn on_initialize_weight_is_correct() {
 		);
 
 		// === Block 5: Empty bucket 4 ===
-		// IncompleteSince is bucket 3, so we process bucket 3 (empty) then bucket 4 (empty)
+		// IncompleteSince is bucket 3, buckets 3 and 4 are empty so skipped
 		Timestamp::set_timestamp(8000);
 		let weight_empty = Scheduler::on_initialize(5);
 
-		// Expected: base costs for processing two empty buckets (3 and 4)
-		let expected_weight_empty = TestWeightInfo::service_agendas_base() +
-			TestWeightInfo::service_agenda_base(0) + // bucket 3 (empty)
-			TestWeightInfo::service_agenda_base(0); // bucket 4 (empty)
+		// Expected: just service_agendas_base (all empty buckets skipped)
+		let expected_weight_empty = TestWeightInfo::service_agendas_base();
 		assert_eq!(weight_empty, expected_weight_empty);
 
 		// === Block 6: Test early exit when block is already at max weight ===
