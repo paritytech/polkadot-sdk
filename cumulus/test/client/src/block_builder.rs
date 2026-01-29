@@ -16,7 +16,9 @@
 
 use crate::Client;
 use codec::Encode;
-use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
+use cumulus_primitives_core::{
+	KeyToIncludeInRelayProof, ParachainBlockData, PersistedValidationData, RelayStorageKey,
+};
 use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
@@ -164,9 +166,11 @@ fn init_block_builder(
 		.put_data(sp_timestamp::INHERENT_IDENTIFIER, &timestamp)
 		.expect("Put timestamp failed");
 
-	let alice_key = cumulus_test_runtime::test_pallet::relay_alice_account_key();
-	let alice_data = (0u32, 0u32, 1u32, 0u32, 25_000_000_000_000u128, 0u128, 0u128, 0u128).encode();
-	relay_sproof_builder.additional_key_values.push((alice_key, alice_data));
+	let relay_proof_request = client.runtime_api().keys_to_prove(at).unwrap_or_default();
+	if let Some(RelayStorageKey::Top(k)) = relay_proof_request.keys.into_iter().next() {
+		let dummy_account_info = (0u32, 0u32, 1u32, 0u32, 25u128, 0u128, 0u128, 0u128).encode();
+		relay_sproof_builder.additional_key_values.push((k, dummy_account_info));
+	}
 
 	let (relay_parent_storage_root, relay_chain_state) =
 		relay_sproof_builder.into_state_root_and_proof();
