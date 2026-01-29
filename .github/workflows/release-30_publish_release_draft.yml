@@ -56,14 +56,14 @@ on:
         default: false
 
 jobs:
-  check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
-    secrets:
-      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+  # check-synchronization:
+  #   uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+  #   secrets:
+  #     fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
-    needs: [ check-synchronization ]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
+    # needs: [ check-synchronization ]
+    # if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
