@@ -169,7 +169,7 @@ use frame_support::{
 use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use sp_runtime::{
 	traits::{BadOrigin, Bounded as ArithBounded, One, Saturating, StaticLookup, Zero},
-	ArithmeticError, DispatchError, DispatchResult,
+	ArithmeticError, DispatchError, DispatchResult, VersionedCall,
 };
 
 mod conviction;
@@ -203,7 +203,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
-pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
+pub type BoundedCallOf<T> = Bounded<VersionedCall<CallOf<T>>, <T as frame_system::Config>::Hashing>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -507,6 +507,8 @@ pub mod pallet {
 			/// Preimage hash.
 			hash: T::Hash,
 		},
+		/// A referendum's call version doesn't match the current runtime version.
+		ReferendumVersionMismatch { ref_index: ReferendumIndex },
 	}
 
 	#[pallet::error]
@@ -560,6 +562,8 @@ pub mod pallet {
 		VotingPeriodLow,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The call's transaction version doesn't match the current runtime version.
+		CallVersionMismatch,
 	}
 
 	#[pallet::hooks]
@@ -1594,6 +1598,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Actually enact a vote, if legit.
 	fn bake_referendum(
 		now: BlockNumberFor<T>,
 		index: ReferendumIndex,
@@ -1605,19 +1610,62 @@ impl<T: Config> Pallet<T> {
 		if approved {
 			Self::deposit_event(Event::<T>::Passed { ref_index: index });
 
-			// Earliest it can be scheduled for is next block.
+			// Get the bounded call
+			let bounded_call = status.proposal;
+
+			// Peek the versioned call to validate version
+			let versioned_call = match T::Preimages::peek(&bounded_call) {
+				Ok((vc, _len)) => vc,
+				Err(_) => {
+					log::error!(target: "runtime::democracy", "Failed to get call from bounded");
+					return false;
+				},
+			};
+
+			// Validate the transaction version
+			let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
+			// Extract the inner call if version matches
+			let call = match versioned_call.into_inner(current_version) {
+				Ok(c) => c,
+				Err(version_error) => {
+					log::warn!(
+						target: "runtime::democracy",
+						"Referendum {} has version mismatch: stored={}, current={}",
+						index,
+						version_error.stored,
+						version_error.current
+					);
+					Self::deposit_event(Event::<T>::ReferendumVersionMismatch { ref_index: index });
+					return false;
+				},
+			};
+
+			// Drop the old bounded call since we've extracted what we need
+			T::Preimages::drop(&bounded_call);
+
+			// Now bound the unwrapped RuntimeCall for the scheduler
+			let bounded_runtime_call = match T::Preimages::bound(call) {
+				Ok(b) => b,
+				Err(_) => {
+					log::error!(target: "runtime::democracy", "Failed to bound runtime call");
+					return false;
+				},
+			};
+
 			let when = now.saturating_add(status.delay.max(One::one()));
+
 			if T::Scheduler::schedule_named(
 				(DEMOCRACY_ID, index).encode_into::<_, T::Hashing>(),
 				DispatchTime::At(when),
 				None,
 				63,
 				frame_system::RawOrigin::Root.into(),
-				status.proposal,
+				bounded_runtime_call,
 			)
 			.is_err()
 			{
-				frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
+				log::error!("LOGIC ERROR: bake_referendum/schedule_named failed");
 			}
 		} else {
 			Self::deposit_event(Event::<T>::NotPassed { ref_index: index });

@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 scale-info = { features = ["derive"], workspace = true }
+sp-runtime = { workspace = true }
 
 # third party
 log = { workspace = true }
