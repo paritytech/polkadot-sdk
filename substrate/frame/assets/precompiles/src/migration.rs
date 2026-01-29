@@ -179,20 +179,20 @@ where
 					}
 				},
 				None => {
-					log::warn!(
+					log::error!(
 						target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
 						"Asset {:?} not migrated",
 						asset_id
 					);
+					return Err(sp_runtime::TryRuntimeError::Other("Asset not migrated"));
 				},
 			}
 		}
 
 		log::info!(
 			target: "runtime::MigrateForeignAssetPrecompileMappings::post_upgrade",
-			"Verified {} out of {} foreign asset mappings",
-			migrated,
-			unmapped_assets.len()
+			"Verified {} foreign asset mappings",
+			migrated
 		);
 
 		Ok(())

@@ -27,12 +27,6 @@
 use crate::foreign_assets::pallet::{Config, Pallet};
 use frame_benchmarking::v2::*;
 
-/// Helper trait for benchmarking that creates asset IDs.
-pub trait BenchmarkHelper<AssetId> {
-	/// Create a valid asset ID for benchmarking from a seed.
-	fn create_asset_id(seed: u32) -> AssetId;
-}
-
 #[benchmarks(
 	where
 		T::ForeignAssetId: From<u32>,
