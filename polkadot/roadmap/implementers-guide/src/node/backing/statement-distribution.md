@@ -22,7 +22,7 @@ in case of disputes. Any validator can be selected as the next relay-chain block
 advance for security reasons. As a result, all validators must have a up to date view of all possible parachain
 candidates + backing statements that could be placed on-chain in the next block.
 
-[This blog post](https://polkadot.com/blog/polkadot-v1-0-sharding-and-economic-security) puts it another way:
+[The wiki](https://wiki.polkadot.com/docs/learn-parachains-protocol) puts it another way:
 "Validators who aren't assigned to the parachain still listen for the attestations [statements] because whichever
 validator ends up being the author of the relay-chain block needs to bundle up attested parachain blocks for several
 parachains and place them into the relay-chain block."
