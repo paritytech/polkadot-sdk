@@ -51,6 +51,7 @@ frame-metadata-hash-extension = { workspace = true }
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
+pallet-assets = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -147,6 +148,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"log/std",
+    "pallet-assets/std",
 	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
@@ -240,6 +242,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+    "pallet-assets/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
@@ -303,6 +306,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+    "pallet-assets/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",

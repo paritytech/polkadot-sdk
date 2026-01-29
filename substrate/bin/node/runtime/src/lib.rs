@@ -31,7 +31,7 @@ use pallet_multi_asset_bounties::ArgumentsFactory as PalletMultiAssetBountiesArg
 use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
-
+use crate::pallet_assets::AssetCategoryManager;
 use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
@@ -260,6 +260,31 @@ impl Contains<RuntimeCallNameOf<Runtime>> for TxPauseWhitelistedCalls {
 			_ => false,
 		}
 	}
+}
+
+pub struct CombinedAssetManager;
+
+impl AssetCategoryManager<AccountId> for CombinedAssetManager {
+    type AssetKind = NativeOrWithId<u32>;
+    type Balance = Balance;
+    
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Assets::assets_in_category(category)
+            .into_iter()
+            .map(|asset_id| NativeOrWithId::WithId(asset_id))
+            .collect()
+    }
+    
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        match asset {
+            NativeOrWithId::Native => {
+                Some(Balances::free_balance(&owner))
+            }
+            NativeOrWithId::WithId(asset_id) => {
+                Assets::available_balance(asset_id, owner)
+            }
+        }
+    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1328,6 +1353,7 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
+    type AssetCategories = CombinedAssetManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletTreasuryArguments;
 }

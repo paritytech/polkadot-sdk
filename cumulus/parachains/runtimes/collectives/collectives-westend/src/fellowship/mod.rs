@@ -34,6 +34,8 @@ use frame_support::{
 	},
 	PalletId,
 };
+use alloc::{vec, vec::Vec};
+use pallet_assets::AssetCategoryManager;
 use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 pub use origins::{
 	pallet_origins as pallet_fellowship_origins, Architects, EnsureCanPromoteTo, EnsureCanRetainAt,
@@ -285,6 +287,21 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
 
+pub struct CWAssetCategories;
+
+impl AssetCategoryManager<AccountId> for CWAssetCategories {
+    type AssetKind = VersionedLocatableAsset;
+    type Balance = Balance;
+
+    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
+        vec![]
+    }
+
+    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
+        None
+    }
+}
+
 impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type PalletId = FellowshipTreasuryPalletId;
@@ -329,6 +346,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = ConstU32<{ 30 * DAYS }>;
+    type AssetCategories = CWAssetCategories;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
 		sp_core::ConstU8<1>,

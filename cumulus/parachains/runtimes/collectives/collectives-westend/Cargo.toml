@@ -27,6 +27,7 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
+pallet-assets = { workspace = true }
 pallet-alliance = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-aura = { workspace = true }
@@ -114,6 +115,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-alliance/runtime-benchmarks",
+    "pallet-assets/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
@@ -157,6 +159,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance/try-runtime",
+    "pallet-assets/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -205,6 +208,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime?/std",
 	"pallet-alliance/std",
+    "pallet-assets/std",
 	"pallet-asset-rate/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
