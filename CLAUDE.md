@@ -94,6 +94,15 @@ Located in `polkadot/xcm/`. XCM is the messaging format for cross-chain communic
 - **Panickers**: Avoid `unwrap()`; if used, add proof comment ending with `; qed`
 - **Unsafe code**: Requires explicit safety justification
 
+### Editing Rust Code
+
+When editing existing Rust code, preserve the local style:
+- **Do not add semicolons** to existing `return` statements or `break`/`continue` if the original code omits them
+- **Do not add braces** to match arms or if-else expressions if the original code uses the braceless form
+- **Do not change operator position** (e.g., `&&` or `-` at end of line vs start of next line)
+- **Use `cargo +nightly fmt`** for formatting, but avoid reformatting unrelated code in your changes
+- When in doubt, match the style of surrounding code
+
 ## PR Requirements
 
 1. All PRs need a `prdoc` file unless labeled `R0-no-crate-publish-required`
