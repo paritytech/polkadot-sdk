@@ -50,6 +50,7 @@ use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
+	RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -67,7 +68,7 @@ use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_consensus::Environment;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
@@ -76,7 +77,8 @@ use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
 };
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
+use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -240,6 +242,7 @@ where
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
 				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,
@@ -412,6 +415,16 @@ where
 		>,
 	> + Send
 	       + Sync {
+		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
+
+		// Start 2 hours in the past to avoid timestamps immediately running into the future.
+		let initial_relay_slot = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.expect("Current time is always after UNIX_EPOCH; qed")
+			.sub(Duration::from_secs(2 * 60 * 60))
+			.as_millis() as u64 /
+			RELAY_CHAIN_SLOT_DURATION_MILLIS;
+
 		move |block: Hash, ()| {
 			let current_para_head = client
 				.header(block)
@@ -430,11 +443,27 @@ where
 				UniqueSaturatedInto::<u32>::unique_saturated_into(*current_para_head.number()) + 1;
 			log::info!("Current block number: {current_block_number}");
 
+			let relay_parent_offset =
+				client.runtime_api().relay_parent_offset(block).unwrap_or_default();
+
+			let relay_blocks_per_para_block =
+				(slot_duration.as_millis() / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+
+			// Each para block gets a unique relay slot: initial_relay_slot +
+			// relay_blocks_per_para_block * block_number
+			let target_relay_slot = initial_relay_slot +
+				u64::from(current_block_number) * u64::from(relay_blocks_per_para_block);
+
+			let relay_offset = (target_relay_slot as u32)
+				.saturating_sub(relay_blocks_per_para_block * current_block_number);
+
 			let mocked_parachain = MockValidationDataInherentDataProvider::<()> {
 				current_para_block: current_block_number,
 				para_id,
 				current_para_block_head,
-				relay_blocks_per_para_block: 1,
+				relay_blocks_per_para_block,
+				relay_offset,
+				relay_parent_offset,
 				para_blocks_per_relay_epoch: 10,
 				upgrade_go_ahead: should_send_go_ahead.then(|| {
 					log::info!("Detected pending validation code, sending go-ahead signal.");
@@ -443,9 +472,9 @@ where
 				..Default::default()
 			};
 
-			let timestamp_provider = sp_timestamp::InherentDataProvider::new(
-				(slot_duration.as_millis() * current_block_number as u64).into(),
-			);
+			let timestamp = target_relay_slot * RELAY_CHAIN_SLOT_DURATION_MILLIS;
+
+			let timestamp_provider = sp_timestamp::InherentDataProvider::new(timestamp.into());
 
 			futures::future::ready(Ok((timestamp_provider, mocked_parachain)))
 		}
@@ -591,8 +620,28 @@ where
 		);
 
 		let client_for_aura = client.clone();
+		let client_clone = client.clone();
 		let params = SlotBasedParams {
-			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			create_inherent_data_providers: move |parent, ()| {
+				let client_clone = client_clone.clone();
+				async move {
+					let has_tx_storage_api = client_clone
+						.runtime_api()
+						.has_api::<dyn TransactionStorageApi<Block>>(parent)
+						.unwrap_or(false);
+					if has_tx_storage_api {
+						let storage_proof =
+							sp_transaction_storage_proof::registration::new_data_provider(
+								&*client_clone,
+								&parent,
+								client_clone.runtime_api().retention_period(parent)?,
+							)?;
+						Ok(vec![storage_proof])
+					} else {
+						Ok(vec![])
+					}
+				}
+			},
 			block_import,
 			para_client: client.clone(),
 			para_backend: backend.clone(),
@@ -618,7 +667,6 @@ where
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
 		// code.
-
 		Self::launch_slot_based_collator(params);
 
 		Ok(())
@@ -716,10 +764,30 @@ where
 			client.clone(),
 		);
 
+		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
 			export_pov: node_extra_args.export_pov,
 			params: AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				create_inherent_data_providers: move |parent, ()| {
+					let client_clone = client_clone.clone();
+					async move {
+						let has_tx_storage_api = client_clone
+							.runtime_api()
+							.has_api::<dyn TransactionStorageApi<Block>>(parent)
+							.unwrap_or(false);
+						if has_tx_storage_api {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+									client_clone.runtime_api().retention_period(parent)?,
+								)?;
+							Ok(vec![storage_proof])
+						} else {
+							Ok(vec![])
+						}
+					}
+				},
 				block_import,
 				para_client: client.clone(),
 				para_backend: backend,

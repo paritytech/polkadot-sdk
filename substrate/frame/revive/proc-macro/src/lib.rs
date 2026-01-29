@@ -25,17 +25,6 @@ use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
 
-#[proc_macro_attribute]
-pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
-	let input = syn::parse_macro_input!(item as syn::Item);
-	let expanded = quote! {
-		#[cfg(feature = "unstable-hostfn")]
-		#[cfg_attr(docsrs, doc(cfg(feature = "unstable-hostfn")))]
-		#input
-	};
-	expanded.into()
-}
-
 /// Defines a host functions set that can be imported by contract polkavm code.
 ///
 /// **CAUTION**: Be advised that all functions defined by this macro
@@ -71,7 +60,6 @@ struct EnvDef {
 /// Parsed host function definition.
 struct HostFn {
 	item: syn::ItemFn,
-	is_stable: bool,
 	name: String,
 	returns: HostFnReturn,
 	cfg: Option<syn::Attribute>,
@@ -98,6 +86,15 @@ impl HostFnReturn {
 			Self::U32 => parse_quote! { -> u32 },
 			Self::U64 => parse_quote! { -> u64 },
 			Self::ReturnCode => parse_quote! { -> ReturnErrorCode },
+		}
+	}
+
+	fn trace_return_value(&self) -> TokenStream2 {
+		match self {
+			Self::Unit => quote! { None },
+			Self::U32 => quote! { result.as_ref().ok().map(|r| *r as u64) },
+			Self::ReturnCode => quote! { result.as_ref().ok().copied().map(u64::from) },
+			Self::U64 => quote! { result.as_ref().ok().copied() },
 		}
 	}
 }
@@ -135,22 +132,15 @@ impl HostFn {
 		};
 
 		// process attributes
-		let msg = "Only #[stable], #[cfg] and #[mutating] attributes are allowed.";
+		let msg = "Only #[cfg] and #[mutating] attributes are allowed.";
 		let span = item.span();
 		let mut attrs = item.attrs.clone();
 		attrs.retain(|a| !a.path().is_ident("doc"));
-		let mut is_stable = false;
 		let mut mutating = false;
 		let mut cfg = None;
 		while let Some(attr) = attrs.pop() {
 			let ident = attr.path().get_ident().ok_or(err(span, msg))?.to_string();
 			match ident.as_str() {
-				"stable" => {
-					if is_stable {
-						return Err(err(span, "#[stable] can only be specified once"))
-					}
-					is_stable = true;
-				},
 				"mutating" => {
 					if mutating {
 						return Err(err(span, "#[mutating] can only be specified once"))
@@ -264,7 +254,7 @@ impl HostFn {
 							_ => Err(err(arg1.span(), &msg)),
 						}?;
 
-						Ok(Self { item, is_stable, name, returns, cfg })
+						Ok(Self { item, name, returns, cfg })
 					},
 					_ => Err(err(span, &msg)),
 				}
@@ -335,16 +325,18 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
-	let stable_syscalls = expand_func_list(def, false);
-	let all_syscalls = expand_func_list(def, true);
+	let all_syscalls = expand_func_list(def);
+	let lookup_syscall = expand_func_lookup(def);
 
 	quote! {
-		pub fn list_syscalls(include_unstable: bool) -> &'static [&'static [u8]] {
-			if include_unstable {
-				#all_syscalls
-			} else {
-				#stable_syscalls
-			}
+		/// Returns the list of all syscalls.
+		pub fn list_syscalls() -> &'static [&'static [u8]] {
+			#all_syscalls
+		}
+
+		/// Return the index of a syscall in the `all_syscalls()` list.
+		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
+			#lookup_syscall
 		}
 
 		impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
@@ -401,10 +393,10 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let syscall_symbol = Literal::byte_string(name.as_bytes());
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
+		let trace_return = f.returns.trace_return_value();
 		let output = &f.item.sig.output;
 
 		// wrapped host function body call with host function traces
-		// see https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/contracts#host-function-tracing
 		let wrapped_body_with_trace = {
 			let trace_fmt_args = params.clone().filter_map(|arg| match arg {
 				syn::FnArg::Receiver(_) => None,
@@ -420,11 +412,18 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 				.collect::<Vec<_>>()
 				.join(", ");
 			let trace_fmt_str = format!("{}({}) = {{:?}} weight_consumed: {{:?}}", name, params_fmt_str);
+			let trace_args_for_tracer: Vec<_> = trace_fmt_args.clone().collect();
 
 			quote! {
+				crate::tracing::if_tracing(|tracer| {
+					tracer.enter_ecall(#name, &[#( #trace_args_for_tracer as u64 ),*], self)
+				});
+
 				// wrap body in closure to make sure the tracing is always executed
 				let result = (|| #body)();
 				::log::trace!(target: "runtime::revive::strace", #trace_fmt_str, #( #trace_fmt_args, )* result, self.ext.frame_meter().weight_consumed());
+
+				crate::tracing::if_tracing(|tracer| tracer.exit_step(self, #trace_return));
 				result
 			}
 		};
@@ -512,17 +511,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 				});
 				quote! { #( #docs )* }
 			};
-			let availability = if func.is_stable {
-				let info = "\n# Stable API\nThis API is stable and will never change.";
-				quote! { #[doc = #info] }
-			} else {
-				let info =
-				"\n# Unstable API\nThis API is not standardized and only available for testing.";
-				quote! { #[doc = #info] }
-			};
 			quote! {
 				#func_docs
-				#availability
 			}
 		};
 		quote! {
@@ -536,8 +526,8 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 	}
 }
 
-fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
-	let docs = def.host_funcs.iter().filter(|f| include_unstable || f.is_stable).map(|f| {
+fn expand_func_list(def: &EnvDef) -> TokenStream2 {
+	let docs = def.host_funcs.iter().map(|f| {
 		let name = Literal::byte_string(f.name.as_bytes());
 		quote! {
 			#name.as_slice()
@@ -549,6 +539,22 @@ fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
 		{
 			static FUNCS: [&[u8]; #len] = [#(#docs),*];
 			FUNCS.as_slice()
+		}
+	}
+}
+
+fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
+	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let name_str = &f.name;
+		quote! {
+			#name_str => Some(#idx as u8)
+		}
+	});
+
+	quote! {
+		match name {
+			#( #arms, )*
+			_ => None,
 		}
 	}
 }

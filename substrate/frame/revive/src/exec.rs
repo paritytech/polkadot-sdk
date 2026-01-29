@@ -472,7 +472,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool;
 
 	/// Returns Ethereum address from the ECDSA compressed public key.
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -1239,7 +1239,12 @@ where
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
-				frame.frame_meter.eth_gas_left().unwrap_or_default().into(),
+				frame
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1458,10 +1463,12 @@ where
 					// we treat the initial frame meter differently to address
 					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
-						frame_meter.total_consumed_gas().into()
+						frame_meter.total_consumed_gas()
 					} else {
-						frame_meter.eth_gas_consumed().into()
+						frame_meter.eth_gas_consumed()
 					};
+
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
 
 					match &output {
 						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
@@ -1480,11 +1487,12 @@ where
 					// we treat the initial frame meter differently to address
 					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
-						frame_meter.total_consumed_gas().into()
+						frame_meter.total_consumed_gas()
 					} else {
-						frame_meter.eth_gas_consumed().into()
+						frame_meter.eth_gas_consumed()
 					};
 
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
 					tracer.exit_child_span_with_error(error.into(), gas_consumed);
 				});
 
@@ -1884,7 +1892,12 @@ where
 			tracer.terminate(
 				addr,
 				*beneficiary,
-				self.top_frame().frame_meter.eth_gas_left().unwrap_or_default().into(),
+				self.top_frame()
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 				crate::Pallet::<T>::evm_balance(&addr),
 			);
 		});
@@ -2327,8 +2340,10 @@ where
 		)
 	}
 
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic::from(*pk).to_eth_address()
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
+		Ok(ECDSAPublic::from(*pk)
+			.to_eth_address()
+			.or_else(|()| Err(Error::<T>::EcdsaRecoveryFailed))?)
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks"))]

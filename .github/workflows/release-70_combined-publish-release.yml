@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag in the format polkadot-stableYYMM or polkadot-stableYYMM-X or polkadot-stableYYMM(-X)-rcX
+        description: Release RC tag in the format polkadot-stableYYMM(-X)-rcX
         type: string
         required: true
 
@@ -26,21 +26,6 @@ on:
           - frame-omni-bencher
           - chain-spec-builder
 
-      image_type:
-        description: Type of Docker image (rc for release candidates, release for final)
-        required: true
-        default: rc
-        type: choice
-        options:
-          - rc
-          - release
-
-      distribution:
-        description: Distribution for Debian package (release, staging, stable2407, etc)
-        default: staging
-        required: true
-        type: string
-
       registry:
         description: Container registry for Docker images
         required: true
@@ -54,7 +39,13 @@ on:
         default: parity
 
       version:
-        description: Version for Docker tags in format v1.16.0 or v1.16.0-rc1
+        description: Version for Docker tags in format v1.16.0
+        required: true
+        type: string
+
+      distribution:
+        description: Distribution where to publish rpm package (release, staging)
+        default: release
         required: true
         type: string
 
@@ -71,7 +62,7 @@ jobs:
   promote-rc-to-final:
     name: Promote RC to final on S3
     needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     uses: ./.github/workflows/release-31_promote-rc-to-final.yml
     with:
       binary: ${{ inputs.binary }}
@@ -86,8 +77,8 @@ jobs:
     needs: [promote-rc-to-final]
     uses: ./.github/workflows/release-40_publish-deb-package.yml
     with:
-      tag: ${{ inputs.release_tag }}
-      distribution: ${{ inputs.distribution }}
+      tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+      distribution: release
     secrets: inherit
 
   publish-rpm-package:
@@ -95,7 +86,8 @@ jobs:
     needs: [promote-rc-to-final]
     uses: ./.github/workflows/release-41_publish-rpm-package.yml
     with:
-      tag: ${{ inputs.release_tag }}
+      tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+      distribution: ${{ inputs.distribution }}
     secrets: inherit
 
   # ==============================================
@@ -103,60 +95,67 @@ jobs:
   # ==============================================
   publish-docker-polkadot:
     name: Publish Docker image - polkadot
-    # needs: [publish-deb-package, publish-rpm-package]
-    needs: [check-synchronization]
+    needs: [promote-rc-to-final, publish-deb-package]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
-      stable_tag: ${{ inputs.release_tag }}
+      stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-polkadot-parachain:
     name: Publish Docker image - polkadot-parachain
     # needs: [publish-deb-package, publish-rpm-package]
-    needs: [check-synchronization]
+    needs: [promote-rc-to-final]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot-parachain
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
-      stable_tag: ${{ inputs.release_tag }}
+      stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-polkadot-omni-node:
     name: Publish Docker image - polkadot-omni-node
     # needs: [publish-deb-package, publish-rpm-package]
-    needs: [check-synchronization]
+    needs: [promote-rc-to-final]
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: polkadot-omni-node
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
-      stable_tag: ${{ inputs.release_tag }}
+      stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write
 
   publish-docker-chain-spec-builder:
     name: Publish Docker image - chain-spec-builder
     # needs: [publish-deb-package, publish-rpm-package]
-    needs: [check-synchronization]
+    needs: [promote-rc-to-final]
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
     uses: ./.github/workflows/release-50_publish-docker.yml
     with:
-      image_type: ${{ inputs.image_type }}
+      image_type: release
       binary: chain-spec-builder
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
-      stable_tag: ${{ inputs.release_tag }}
+      stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
     secrets: inherit
+    permissions:
+      contents: write

@@ -35,8 +35,8 @@ use asset_hub_westend_runtime::{
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
-	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
-	ExtBuilder, GovernanceOrigin, SlotDurations,
+	test_cases::exchange_asset_on_asset_hub_works, test_cases_over_bridge::TestBridgingConfig,
+	CollatorSessionKey, CollatorSessionKeys, ExtBuilder, GovernanceOrigin, SlotDurations,
 };
 use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
@@ -60,14 +60,16 @@ use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
 	Code, TransactionLimits,
 };
-use pallet_revive_fixtures::compile_module;
+use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
+use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
 		prelude::{Assets as XcmAssets, *},
@@ -82,19 +84,11 @@ use xcm_builder::{
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
+use sp_runtime::traits::OpaqueKeys;
+
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
-
-const ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/erc20.polkavm");
-
-const FAKE_ERC20_PVM: &[u8] =
-	include_bytes!("../../../../../../substrate/frame/revive/fixtures/erc20/fake_erc20.polkavm");
-
-const EXPENSIVE_ERC20_PVM: &[u8] = include_bytes!(
-	"../../../../../../substrate/frame/revive/fixtures/erc20/expensive_erc20.polkavm"
-);
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -1701,7 +1695,9 @@ fn withdraw_and_deposit_erc20s() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
-		let code = ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1875,7 +1871,9 @@ fn smart_contract_does_not_return_bool_fails() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
-		let code = FAKE_ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1934,7 +1932,9 @@ fn expensive_erc20_runs_out_of_gas() {
 		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
-		let code = EXPENSIVE_ERC20_PVM.to_vec();
+		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)
+			.expect("compile ERC20")
+			.0;
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
@@ -1965,4 +1965,128 @@ fn expensive_erc20_runs_out_of_gas() {
 		)
 		.is_err());
 	});
+}
+
+#[test]
+fn exchange_asset_success() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		500 * UNITS,
+		665 * UNITS,
+		None,
+	);
+}
+
+#[test]
+fn exchange_asset_insufficient_liquidity() {
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			1_000 * UNITS,
+			2_000 * UNITS,
+			Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+		);
+	});
+	assert!(log_capture.contains("NoDeal"));
+}
+
+#[test]
+fn exchange_asset_insufficient_balance() {
+	let log_capture = capture_test_logs!({
+		exchange_asset_on_asset_hub_works::<
+			Runtime,
+			RuntimeCall,
+			RuntimeOrigin,
+			Block,
+			ForeignAssetsInstance,
+		>(
+			collator_session_keys(),
+			ASSET_HUB_ID,
+			AccountId::from(ALICE),
+			WestendLocation::get(),
+			true,
+			5_000 * UNITS, // This amount will be greater than initial balance
+			1_665 * UNITS,
+			Some(xcm::v5::InstructionError {
+				index: 0,
+				error: xcm::v5::Error::FailedToTransactAsset(""),
+			}),
+		);
+	});
+	assert!(log_capture.contains("Funds are unavailable"));
+}
+
+#[test]
+fn exchange_asset_pool_not_created() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		false, // Pool not created
+		500 * UNITS,
+		665 * UNITS,
+		Some(xcm::v5::InstructionError { index: 1, error: xcm::v5::Error::NoDeal }),
+	);
+}
+
+#[test]
+fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
+	exchange_asset_on_asset_hub_works::<
+		Runtime,
+		RuntimeCall,
+		RuntimeOrigin,
+		Block,
+		ForeignAssetsInstance,
+	>(
+		collator_session_keys(),
+		ASSET_HUB_ID,
+		AccountId::from(ALICE),
+		WestendLocation::get(),
+		true,
+		100_000_000_000u128,
+		1_000_000_000u128,
+		None,
+	);
+}
+
+/// Verify that AssetHub's `RelayChainSessionKeys` is compatible with Westend's `SessionKeys`.
+#[test]
+fn session_keys_are_compatible_between_ah_and_rc() {
+	use asset_hub_westend_runtime::staking::RelayChainSessionKeys;
+
+	// Verify the key type IDs match in order.
+	// This ensures that when keys are encoded on AssetHub and decoded on Westend (or vice versa),
+	// they map to the correct key types.
+	assert_eq!(
+		RelayChainSessionKeys::key_ids(),
+		westend_runtime::SessionKeys::key_ids(),
+		"Session key type IDs must match between AssetHub and Westend"
+	);
 }
