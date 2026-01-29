@@ -32,6 +32,11 @@ log = { workspace = true }
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
 
+[dev-dependencies]
+parking_lot = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-utils = { workspace = true }
+
 [features]
 default = ["std"]
 std = [

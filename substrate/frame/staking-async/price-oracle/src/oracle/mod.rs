@@ -1,3 +1,20 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // TODO: why time is the way it is.
 
 pub mod offchain;
@@ -39,36 +56,44 @@ pub mod pallet {
 	/// Alias for the price data type.
 	pub type PriceDataOf<T> = PriceData<BlockNumberFor<T>, MomentOf<T>>;
 
+	/// The error type that an implementation of [`Tally`] can return.
+	///
+	/// The actual error is generic; this enum is just distinguishing whether because of this error
+	/// we should keep the old votes, or yank them.
+	#[derive(Clone, PartialEq, Eq, Debug)]
+	pub enum TallyOuterError<Error> {
+		/// An error happened, and we should yank existing votes as they are not useful anymore.
+		YankVotes(Error),
+		/// An error happened, but we can keep the old votes as they are useful.
+		///
+		/// Note that this keeps the votes iff they still respect [`Config::MaxVoteAge`].
+		KeepVotes(Error),
+	}
+
 	/// Interface to be implemented by the tally algorithm that we intend to use here.
 	pub trait Tally {
 		/// The asset-id type.
 		type AssetId;
 		/// The account-id type.
 		type AccountId;
+		/// The block number type.
+		type BlockNumber;
 		/// The error type.
 		type Error: Debug + Eq + PartialEq + Clone;
 
 		/// Tally the votes for a given asset.
+		///
+		/// The vote argument is a vector of (account-id, vote-price-value, produced-in) tuples.
 		fn tally(
 			asset_id: Self::AssetId,
-			votes: Vec<(Self::AccountId, FixedU128)>,
-		) -> Result<(FixedU128, Percent), Self::Error>;
+			votes: Vec<(Self::AccountId, FixedU128, Self::BlockNumber)>,
+		) -> Result<(FixedU128, Percent), TallyOuterError<Self::Error>>;
 	}
 
 	/// Listener hook to be implemented by entities that wish to be informed of price updates.
 	#[impl_trait_for_tuples::impl_for_tuples(8)]
-	pub trait OnPriceUpdate {
-		/// The asset-id type.
-		type AssetId;
-		/// The block number type.
-		type BlockNumber;
-		/// The moment type.
-		type Moment;
-
-		fn on_price_update(
-			asset_id: Self::AssetId,
-			new: PriceData<Self::BlockNumber, Self::Moment>,
-		);
+	pub trait OnPriceUpdate<AssetId, BlockNumber, Moment> {
+		fn on_price_update(asset_id: AssetId, new: PriceData<BlockNumber, Moment>);
 	}
 
 	#[pallet::config]
@@ -101,11 +126,6 @@ pub mod pallet {
 		/// The number of previous price and vote data-points to keep onchain.
 		type HistoryDepth: Get<u32>;
 
-		/// The origin that can manage this pallet, and add/remove assets and endpoints.
-		///
-		/// Is of utmost importance, should be super secure.
-		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Maximum number of votes that can be submitted per block.
 		///
 		/// This is merely an upper bound on the number of votes that can be submitted. It doesn't
@@ -119,7 +139,11 @@ pub mod pallet {
 		type MaxVoteAge: Get<BlockNumberFor<Self>>;
 
 		/// The tally manager to use.
-		type TallyManager: Tally<AssetId = Self::AssetId, AccountId = Self::AccountId>;
+		type TallyManager: Tally<
+			AssetId = Self::AssetId,
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+		>;
 
 		/// Type providing the relay block-number value.
 		type RelayBlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
@@ -130,11 +154,7 @@ pub mod pallet {
 		/// Hook to inform other systems that the price has been updated.
 		///
 		/// Is essentially a listener for [`Price`] storage item.
-		type OnPriceUpdate: OnPriceUpdate<
-			AssetId = Self::AssetId,
-			BlockNumber = BlockNumberFor<Self>,
-			Moment = MomentOf<Self>,
-		>;
+		type OnPriceUpdate: OnPriceUpdate<Self::AssetId, BlockNumberFor<Self>, MomentOf<Self>>;
 
 		/// Every `PriceUpdateInterval` blocks, the offchain worker will submit a price update
 		/// transaction.
@@ -210,7 +230,7 @@ pub mod pallet {
 		}
 
 		/// All of the assets that we are tracking.
-		fn tracked_assets() -> Vec<T::AssetId> {
+		pub(crate) fn tracked_assets() -> Vec<T::AssetId> {
 			Endpoints::<T>::iter_keys().collect()
 		}
 
@@ -262,7 +282,11 @@ pub mod pallet {
 		}
 
 		/// Add a new `vote` or `asset_id` from `who`
-		fn add_vote(asset_id: T::AssetId, who: T::AccountId, vote: FixedU128) -> DispatchResult {
+		fn add_vote(
+			asset_id: T::AssetId,
+			who: T::AccountId,
+			vote: Vote<BlockNumberFor<T>>,
+		) -> DispatchResult {
 			ensure!(Self::is_tracked(asset_id), Error::<T>::AssetNotTracked);
 
 			let now = Pallet::<T>::local_block_number();
@@ -284,6 +308,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 			price: FixedU128,
 			confidence: Percent,
+			local_block_number: BlockNumberFor<T>,
 		) -> Result<PriceData<BlockNumberFor<T>, MomentOf<T>>, Error<T>> {
 			// ensure this asset is tracked at this point.
 			ensure!(Self::is_tracked(asset_id), Error::<T>::AssetNotTracked);
@@ -297,10 +322,12 @@ pub mod pallet {
 			};
 			let new_price = PriceData { price, confidence, updated_in };
 
-			// Update price related data.
+			// Update the new price.
 			Price::<T>::insert(asset_id, &new_price);
-			if let Some(yanked_price) = maybe_yanked_price {
-				if T::HistoryDepth::get() > 0 {
+
+			// If history is to be kept, yank old historical data.
+			if !T::HistoryDepth::get().is_zero() {
+				if let Some(yanked_price) = maybe_yanked_price {
 					let mut price_history = PriceHistory::<T>::get(asset_id);
 					if price_history.is_full() {
 						price_history.remove(0);
@@ -309,34 +336,39 @@ pub mod pallet {
 						.try_push(yanked_price)
 						.defensive_proof("is not full; try_push will not fail; qed");
 					PriceHistory::<T>::insert(asset_id, price_history);
-				} else {
-					// nothing to do; we cannot store any history.
+				}
+
+				// Remove stale voting data.
+				if let Some(to_remove) = Pallet::<T>::local_block_number()
+					.checked_sub(&(T::HistoryDepth::get().saturating_add(1).into()))
+				{
+					// Note: `T::HistoryDepth::get().saturating_add(1)` because we want to keep
+					// `HistoryDepth` old price voting data, on top of the current
+					// price/voting-data.
+					BlockVotes::<T>::remove(&asset_id, to_remove);
 				}
 			} else {
-				// TODO: may only happen in the first block.
-			}
-
-			// Remove stale voting data.
-			if let Some(to_remove) =
-				Pallet::<T>::local_block_number().checked_sub(&(T::HistoryDepth::get().into()))
-			{
-				BlockVotes::<T>::remove(&asset_id, to_remove);
+				// yank current current vote.
+				BlockVotes::<T>::remove(&asset_id, local_block_number);
 			}
 
 			Ok(new_price)
 		}
 	}
 
-	#[cfg(any(feature = "std", feature = "try-runtime"))]
+	#[cfg(any(test, feature = "std", feature = "try-runtime"))]
 	impl<T: Config> StorageManager<T> {
 		/// Ensure all storage items tracked by this type are valid.
 		///
 		/// We look into 4 mappings and their keys:
 		///
-		/// * All tracked assets.
-		/// * Current prices.
-		/// * Historical prices.
-		/// * Votes.
+		/// * All tracked assets ([`Endpoints`]).
+		/// * Current prices ([`Price`]).
+		/// * Historical prices ([`PriceHistory`]).
+		/// * Votes ([`BlockVotes`]).
+		///
+		/// Note: this check should only be called at the end of a block, after `on_finalize` has
+		/// been called.
 		fn sanity_check() -> Result<(), sp_runtime::TryRuntimeError> {
 			// 1.Tracked assets is the superset of all. An asset can be tracked, but not yet
 			// have any of the latter 3 storage items.
@@ -350,16 +382,40 @@ pub mod pallet {
 					// 2.2 There should be no history.
 					Self::ensure_no_history(asset_id)?;
 				}
+
+				// 2.3. Ensure all votes that are in storage for this asset respect `MaxVoteAge`.
+				Self::ensure_all_votes_are_valid(asset_id)?;
 			}
+
+			Ok(())
+		}
+
+		fn ensure_all_votes_are_valid(
+			asset_id: T::AssetId,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				BlockVotes::<T>::iter_prefix(asset_id).all(|(target_block, votes)| {
+					votes.into_iter().all(|(_who, vote)| {
+						Pallet::<T>::vote_not_too_old_at(vote.produced_in, target_block)
+					})
+				}),
+				"some vote in BlockVotes is too old"
+			);
 			Ok(())
 		}
 
 		fn ensure_no_history(asset_id: T::AssetId) -> Result<(), sp_runtime::TryRuntimeError> {
-			let votes_history = BlockVotes::<T>::iter_prefix(&asset_id).count();
+			// Note: we might move votes from block n to n+1 at the end of block n as a result of
+			// `TallyError::KeepVotes`, these future votes don't count towards this check as an
+			// exception.
+			let local_block_number = Pallet::<T>::local_block_number();
+			let votes_history = BlockVotes::<T>::iter_prefix(&asset_id)
+				.filter(|(target_block, _vote)| target_block <= &local_block_number)
+				.count();
 			let price_history = PriceHistory::<T>::get(&asset_id).len();
 			ensure!(
 				votes_history == 0 && price_history == 0,
-				"votes/price history should be empty"
+				"votes/price history (excluding a future block) should be empty"
 			);
 			Ok(())
 		}
@@ -367,11 +423,17 @@ pub mod pallet {
 		fn ensure_asset_history_is_valid(
 			asset_id: T::AssetId,
 		) -> Result<(), sp_runtime::TryRuntimeError> {
-			let votes_history = BlockVotes::<T>::iter_prefix(&asset_id).count();
+			// Note: we might move votes from block n to n+1 at the end of block n as a result of
+			// `TallyError::KeepVotes`, these future votes don't count towards this check as an
+			// exception.
+			let local_block_number = Pallet::<T>::local_block_number();
+			let votes_history = BlockVotes::<T>::iter_prefix(&asset_id)
+				.filter(|(target_block, _vote)| target_block <= &local_block_number)
+				.count();
 			let price_history = PriceHistory::<T>::get(&asset_id).len();
 			ensure!(
-				votes_history == price_history + 1,
-				"votes history should be equal to price history + 1"
+				votes_history == 0 || votes_history == price_history + 1,
+				"votes history (excluding a future block) should be equal to price history + 1"
 			);
 			Ok(())
 		}
@@ -397,6 +459,29 @@ pub mod pallet {
 			);
 			Ok(())
 		}
+
+		/// Returns all of the votes submitted associated with `block_number` for `asset_id`.
+		pub(crate) fn block_votes(
+			asset_id: T::AssetId,
+			block_number: BlockNumberFor<T>,
+		) -> Vec<(T::AccountId, Vote<BlockNumberFor<T>>)> {
+			BlockVotes::<T>::get(asset_id, block_number).into_iter().collect::<Vec<_>>()
+		}
+
+		/// Return the historical price of `asset_id`, excluding the current price stored in
+		/// [`Price`].
+		pub(crate) fn price_history(
+			asset_id: T::AssetId,
+		) -> Vec<PriceData<BlockNumberFor<T>, MomentOf<T>>> {
+			PriceHistory::<T>::get(asset_id).into_inner()
+		}
+
+		/// Returns a list of (block_number, vote_count) pairs for `asset_id`.
+		pub(crate) fn block_with_votes(asset_id: T::AssetId) -> Vec<(BlockNumberFor<T>, u32)> {
+			BlockVotes::<T>::iter_prefix(asset_id)
+				.map(|(block_number, votes)| (block_number, votes.len() as u32))
+				.collect::<Vec<_>>()
+		}
 	}
 
 	/// The block number at which the price was updated.
@@ -414,11 +499,11 @@ pub mod pallet {
 	)]
 	pub struct TimePoint<BlockNumber, Moment> {
 		/// The local block number.
-		local: BlockNumber,
+		pub(crate) local: BlockNumber,
 		/// The relay block number.
-		relay: BlockNumber,
+		pub(crate) relay: BlockNumber,
 		/// The canonical timestamp.
-		timestamp: Moment,
+		pub(crate) timestamp: Moment,
 	}
 
 	/// A single price data-point.
@@ -436,11 +521,31 @@ pub mod pallet {
 	)]
 	pub struct PriceData<BlockNumber, Moment> {
 		/// The price of the asset.
-		price: FixedU128,
+		pub(crate) price: FixedU128,
 		/// The confidence in the price.
-		confidence: Percent,
+		pub(crate) confidence: Percent,
 		/// The time point at which the price was updated.
-		updated_in: TimePoint<BlockNumber, Moment>,
+		pub(crate) updated_in: TimePoint<BlockNumber, Moment>,
+	}
+
+	/// A single vote data-point.
+	#[derive(
+		TypeInfo,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		Default,
+		MaxEncodedLen,
+	)]
+	pub(crate) struct Vote<BlockNumber> {
+		/// The price-value of the vote.
+		pub(crate) price: FixedU128,
+		/// When this vote was produced in.
+		pub(crate) produced_in: BlockNumber,
 	}
 
 	#[pallet::storage]
@@ -479,13 +584,13 @@ pub mod pallet {
 	///
 	/// Cleared automatically after [`Config::HistoryDepth`] blocks.
 	#[pallet::storage]
-	pub type BlockVotes<T: Config> = StorageDoubleMap<
+	type BlockVotes<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		T::AssetId,
 		Twox64Concat,
 		BlockNumberFor<T>,
-		BoundedBTreeMap<T::AccountId, FixedU128, T::MaxVotesPerBlock>,
+		BoundedBTreeMap<T::AccountId, Vote<BlockNumberFor<T>>, T::MaxVotesPerBlock>,
 		ValueQuery,
 	>;
 
@@ -493,6 +598,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub tracked_assets: Vec<(T::AssetId, Vec<Vec<u8>>)>,
+		pub maybe_authorities: Option<Vec<(T::AccountId, Percent)>>,
 	}
 
 	#[pallet::genesis_build]
@@ -512,6 +618,12 @@ pub mod pallet {
 				StorageManager::<T>::register_asset(*asset_id, outer_bounded)
 					.expect("failed to register genesis asset");
 			}
+			if let Some(authorities) = &self.maybe_authorities {
+				let bounded_authorities =
+					BoundedVec::<_, T::MaxAuthorities>::try_from(authorities.clone())
+						.expect("genesis authorities should fit");
+				Authorities::<T>::put(bounded_authorities);
+			}
 		}
 	}
 
@@ -522,49 +634,22 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(local_block_number: BlockNumberFor<T>) {
 			for asset_id in StorageManager::<T>::tracked_assets() {
-				let votes = BlockVotes::<T>::get(asset_id, local_block_number)
-					.into_iter()
-					.collect::<Vec<_>>();
-				match T::TallyManager::tally(asset_id, votes) {
-					Ok((price, confidence)) => {
-						// will store the new price, and prune old voting data
-						match StorageManager::<T>::update(asset_id, price, confidence) {
-							Ok(new_price) => {
-								log!(
-									info,
-									"updated price for asset {:?}: {:?}",
-									asset_id,
-									new_price
-								);
-								T::OnPriceUpdate::on_price_update(asset_id, new_price);
-							},
-							Err(e) => {
-								log!(
-									warn,
-									"failed to update price for asset {:?}: {:?}",
-									asset_id,
-									e
-								);
-							},
-						}
-					},
-					Err(e) => {
-						log!(error, "error tallying votes for asset {:?}: {:?}", asset_id, e);
-						// move unprocessed votes from this round to the next one.
-						let unprocessed = BlockVotes::<T>::take(&asset_id, local_block_number);
-						BlockVotes::<T>::insert(
-							asset_id,
-							local_block_number + One::one(),
-							unprocessed,
-						);
-					},
-				}
+				Self::do_tally(asset_id, local_block_number)
 			}
+
+			#[cfg(test)]
+			let _ = Self::do_try_state(local_block_number)
+				.defensive_proof("try_state should not fail; qed");
 		}
 
 		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			let res = offchain::OracleOffchainWorker::<T>::offchain_worker(block_number);
 			log!(debug, "offchain worker result: {:?}", res);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(block_number: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(block_number)
 		}
 	}
 
@@ -587,14 +672,10 @@ pub mod pallet {
 			})?;
 
 			// Ensure the call is not too old
-			ensure!(
-				produced_in >=
-					Pallet::<T>::local_block_number().saturating_sub(T::MaxVoteAge::get()),
-				Error::<T>::OldVote
-			);
+			ensure!(Self::vote_not_too_old_now(produced_in), Error::<T>::OldVote);
 
 			// Register it.
-			StorageManager::<T>::add_vote(asset_id, who.clone(), price)?;
+			StorageManager::<T>::add_vote(asset_id, who.clone(), Vote { price, produced_in })?;
 
 			log!(
 				debug,
@@ -608,10 +689,124 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		pub fn register_asset(
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			endpoints: Vec<Vec<u8>>,
+		) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(0)]
+		pub fn deregister_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(0)]
+		pub fn add_endpoint(
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			endpoint: Vec<u8>,
+		) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(0)]
+		pub fn remove_endpoint(
+			origin: OriginFor<T>,
+			asset_id: T::AssetId,
+			index: u32,
+		) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(0)]
+		pub fn force_set_authorities(origin: OriginFor<T>) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(0)]
+		pub fn set_invulnerables(origin: OriginFor<T>) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(0)]
+		pub fn ban_authority(origin: OriginFor<T>) -> DispatchResult {
+			todo!();
+		}
+
+		#[pallet::call_index(8)]
+		#[pallet::weight(0)]
+		pub fn unban_authority(origin: OriginFor<T>) -> DispatchResult {
+			todo!();
+		}
 	}
 
 	/// Helper functions.
 	impl<T: Config> Pallet<T> {
+		fn do_tally(asset_id: T::AssetId, local_block_number: BlockNumberFor<T>) {
+			let votes = BlockVotes::<T>::get(asset_id, local_block_number)
+				.into_iter()
+				.map(|(who, vote)| (who, vote.price, vote.produced_in))
+				.collect::<Vec<_>>();
+			match T::TallyManager::tally(asset_id, votes) {
+				Ok((price, confidence)) => {
+					// will store the new price, and prune old voting data as per `HistoryDepth`.
+					match StorageManager::<T>::update(
+						asset_id,
+						price,
+						confidence,
+						local_block_number,
+					) {
+						Ok(new_price) => {
+							log!(info, "updated price for asset {:?}: {:?}", asset_id, new_price);
+							T::OnPriceUpdate::on_price_update(asset_id, new_price);
+						},
+						Err(e) => {
+							defensive!("the only reason `update` might fail is if asset is not tracked; we are iterating tracked assets here; qed");
+						},
+					}
+				},
+				Err(TallyOuterError::KeepVotes(e)) => {
+					// move unprocessed votes from this round to the next one, if they are not
+					// stale now.
+					let next_block = local_block_number + One::one();
+					let mut unprocessed = BlockVotes::<T>::take(&asset_id, local_block_number);
+					let original_count = unprocessed.len();
+					unprocessed.retain(|k, v| Self::vote_not_too_old_at(v.produced_in, next_block));
+
+					log!(
+						error,
+						"error tallying votes for asset {:?}: {:?}, keeping {} out of {} votes",
+						asset_id,
+						e,
+						unprocessed.len(),
+						original_count
+					);
+
+					BlockVotes::<T>::insert(asset_id, next_block, unprocessed);
+				},
+				Err(TallyOuterError::YankVotes(e)) => {
+					BlockVotes::<T>::remove(asset_id, local_block_number);
+					log!(
+						error,
+						"error tallying votes for asset {:?}: {:?}, yanking votes",
+						asset_id,
+						e
+					);
+				},
+			}
+		}
+
 		/// Get the local block number.
 		pub(crate) fn local_block_number() -> BlockNumberFor<T> {
 			frame_system::Pallet::<T>::block_number()
@@ -620,6 +815,31 @@ pub mod pallet {
 		/// Get the relay block number.
 		pub(crate) fn relay_block_number() -> BlockNumberFor<T> {
 			T::RelayBlockNumberProvider::current_block_number()
+		}
+
+		/// Determine if a vote is too old at the current block number or not.
+		pub(crate) fn vote_not_too_old_now(produced_in: BlockNumberFor<T>) -> bool {
+			Self::vote_not_too_old_at(produced_in, Self::local_block_number())
+		}
+
+		/// Determine if a vote is too old at a given block number or not.
+		///
+		/// Note: both argument are of the same type; be careful with the order.
+		pub(crate) fn vote_not_too_old_at(
+			produced_in: BlockNumberFor<T>,
+			at: BlockNumberFor<T>,
+		) -> bool {
+			produced_in >= at.saturating_sub(T::MaxVoteAge::get())
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		pub fn do_try_state(
+			block_number: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			StorageManager::<T>::sanity_check()?;
+			Ok(())
 		}
 	}
 

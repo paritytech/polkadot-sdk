@@ -44,3 +44,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::default() // CI-FAIL
 	}
 }
+
+// For testing
+impl WeightInfo for () {
+	fn vote() -> Weight {
+		Weight::default()
+	}
+}

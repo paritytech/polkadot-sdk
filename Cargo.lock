@@ -13715,15 +13715,19 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "pallet-session",
  "parity-scale-codec",
+ "parking_lot 0.12.3",
  "scale-info",
  "serde",
  "serde_json",
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "sp-tracing 16.0.0",
+ "substrate-test-utils",
 ]
 
 [[package]]
