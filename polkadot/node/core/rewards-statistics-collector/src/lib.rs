@@ -28,10 +28,11 @@ pub mod metrics;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use std::task::Context;
 use futures::{channel::oneshot, prelude::*};
+use sp_keystore::KeystorePtr;
 use polkadot_node_primitives::{
     approval::{
         time::Tick,
@@ -44,26 +45,24 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
     errors::RuntimeApiError as RuntimeApiSubsystemError,
     messages::{
-        ChainApiMessage, ConsensusStatisticsCollectorMessage, RewardsStatisticsCollectorMessage,
+        ChainApiMessage, RewardsStatisticsCollectorMessage,
         RuntimeApiMessage, RuntimeApiRequest
     },
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
 use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo};
-use crate::approval_voting_metrics::{ApprovalsStats, handle_candidate_approved, handle_observed_no_shows};
 use crate::{
-    error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
+    error::{FatalError, FatalResult, JfyiError, Result},
 };
-use std::collections::{BTreeMap, HashMap};
 use self::metrics::Metrics;
 use crate::{
-	approval_voting_metrics::{handle_candidate_approved, handle_observed_no_shows},
+	approval_voting_metrics::{ApprovalsStats, handle_candidate_approved, handle_observed_no_shows},
 	availability_distribution_metrics::{
 		handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks,
 	},
 };
-use approval_voting_metrics::ApprovalsStats;
 use polkadot_node_subsystem_util::{request_session_index_for_child, request_session_info};
+use polkadot_primitives::vstaging::{ApprovalStatistics, ApprovalStatisticsTallyLine};
 
 const MAX_SESSION_VIEWS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
 const MAX_AVAILABILITIES_TO_KEEP: SessionWindowSize = new_session_window_size!(3);
@@ -106,17 +105,17 @@ impl PerValidatorTally {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PerSessionView {
     credentials: Option<SigningCredentials>,
-    authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
+    authorities_ids: Vec<AuthorityDiscoveryId>,
     validators_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
 }
 
 impl PerSessionView {
     fn new(
-        authorities_lookup: HashMap<AuthorityDiscoveryId, ValidatorIndex>,
+        authorities_ids: Vec<AuthorityDiscoveryId>,
         credentials: Option<SigningCredentials>,
     ) -> Self {
         Self {
-            authorities_lookup,
+            authorities_ids,
             credentials,
             validators_tallies: HashMap::new(),
         }
@@ -217,8 +216,6 @@ pub(crate) async fn run_iteration<Context>(
     keystore: &KeystorePtr,
     metrics: (&Metrics, bool),
 ) -> Result<()> {
-    let mut sender = ctx.sender().clone();
-    
     loop {
         match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
             FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
@@ -233,7 +230,7 @@ pub(crate) async fn run_iteration<Context>(
                         new_session_info,
                         recent_block,
                     } = extract_activated_leaf_info(
-                        &mut sender,
+                        ctx.sender(),
                         view,
                         keystore,
                         relay_hash,
@@ -255,14 +252,14 @@ pub(crate) async fn run_iteration<Context>(
                         view.per_session.insert(
                             session_index, 
                             PerSessionView::new(
-									session_info.discovery_keys.iter().cloned().collect(),
-                                    credentials,
-							),
+                                session_info.discovery_keys.iter().cloned().collect(),
+                                credentials,
+                            ),
                         );
                     }
                 }
             },
-            FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, _)) => {
+            FromOrchestra::Signal(OverseerSignal::BlockFinalized(fin_block_hash, fin_block_number)) => {
                 // when a block is finalized it performs:
 				// 1. Pruning unneeded forks
 				// 2. Collected statistics that belongs to the finalized chain
@@ -458,10 +455,8 @@ fn prune_based_on_session_windows(
 // submit_finalized_session_stats works after a whole session is finalized
 // getting all the collected data and submitting to the runtime, after the
 // submition the data is cleaned from mapping
-async fn submit_finalized_session_stats<
-    Sender: SubsystemSender<RuntimeApiMessage>,
->(
-    mut sender: Sender,
+async fn submit_finalized_session_stats(
+    sender: &mut impl SubsystemSender<RuntimeApiMessage>,
     keystore: &KeystorePtr,
     view: &mut View,
     finalized_hash: Hash,
@@ -479,7 +474,7 @@ async fn submit_finalized_session_stats<
         },
     };
 
-    let current_fin_session = request_session_index_for_child(finalized_hash, &mut sender)
+    let current_fin_session = request_session_index_for_child(finalized_hash, sender)
         .await
         .await
         .map_err(JfyiError::OverseerCommunication)?

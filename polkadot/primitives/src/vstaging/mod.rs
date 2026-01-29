@@ -17,18 +17,15 @@
 //! Staging Primitives.
 
 use scale_info::TypeInfo;
-use sp_api::__private::{Decode, Encode};
-use sp_application_crypto::RuntimeDebug;
-use sp_core::DecodeWithMemTracking;
-use sp_staking::SessionIndex;
-use crate::ValidatorIndex;
 use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use super::{SessionIndex, ValidatorIndex};
 
 /// A reward tally line represent the collected statistics about
 /// approvals voting for a given validator, how much successful approvals
 /// was collected and how many times the given validator no-showed
 #[derive(
-    RuntimeDebug,
+    Debug,
     Copy,
     Clone,
     PartialEq,
@@ -53,7 +50,7 @@ pub struct ApprovalStatisticsTallyLine {
 /// ApprovalRewards is the set of tallies where each tally represents
 /// a given validator and its approval voting statistics
 #[derive(
-    RuntimeDebug,
+    Debug,
     Clone,
     PartialEq,
     Encode,
