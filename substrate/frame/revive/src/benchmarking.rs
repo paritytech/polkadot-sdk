@@ -152,7 +152,9 @@ mod benchmarks {
 			result = eip7702::validate_authorization::<T>(&signed_auth, chain_id);
 		}
 
-		assert!(result.is_some());
+		assert!(result.is_some(), "Authorization validation should succeed");
+		let (_authority, is_new_account) = result.unwrap();
+		assert!(is_new_account, "Account should be new since we didn't create it");
 		Ok(())
 	}
 

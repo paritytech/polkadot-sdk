@@ -68,14 +68,10 @@ pub fn process_authorizations<T: Config>(
 			.try_consume(T::WeightInfo::validate_authorization())
 			.map_err(|_| crate::Error::<T>::OutOfGas)?;
 
-		// Validate the authorization
-		let Some(authority) = validate_authorization::<T>(auth, chain_id) else {
+		// Validate the authorization (also checks if account is new)
+		let Some((authority, is_new_account)) = validate_authorization::<T>(auth, chain_id) else {
 			continue;
 		};
-
-		// Check if account exists to determine which weight to charge
-		let account_id = T::AddressMapper::to_account_id(&authority);
-		let is_new_account = !frame_system::Account::<T>::contains_key(&account_id);
 
 		// Charge weight for applying delegation based on account existence
 		meter
@@ -91,12 +87,12 @@ pub fn process_authorizations<T: Config>(
 
 /// Validate a single authorization tuple
 ///
-/// Returns the authority address if validation succeeds, None otherwise.
-/// This is exposed for benchmarking purposes.
+/// Returns the authority address and whether it's a new account if validation succeeds,
+/// None otherwise. This is exposed for benchmarking purposes.
 pub(crate) fn validate_authorization<T: Config>(
 	auth: &AuthorizationListEntry,
 	chain_id: U256,
-) -> Option<H160> {
+) -> Option<(H160, bool)> {
 	// Validate chain_id
 	if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
 		log::debug!(
@@ -126,8 +122,9 @@ pub(crate) fn validate_authorization<T: Config>(
 		},
 	};
 
-	// Verify nonce matches
+	// Verify nonce matches and check if account exists
 	let account_id = T::AddressMapper::to_account_id(&authority);
+	let is_new_account = !frame_system::Account::<T>::contains_key(&account_id);
 	let current_nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
 	let expected_nonce = auth.nonce;
 
@@ -148,7 +145,7 @@ pub(crate) fn validate_authorization<T: Config>(
 		return None;
 	}
 
-	Some(authority)
+	Some((authority, is_new_account))
 }
 
 /// Apply a delegation for a single authority
