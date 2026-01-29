@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn schedule_named(s: u32, ) -> Weight;
 	fn cancel_named(s: u32, ) -> Weight;
 	fn schedule_retry(s: u32, ) -> Weight;
+	fn schedule_retry_try_same_bucket(s: u32, ) -> Weight;
 	fn set_retry() -> Weight;
 	fn set_retry_named() -> Weight;
 	fn cancel_retry() -> Weight;
@@ -261,6 +262,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 267
 			.saturating_add(Weight::from_parts(16_285, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Scheduler::Agenda` (r:2 w:1)
+	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
+	/// Storage: `Scheduler::Retries` (r:0 w:1)
+	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[1, 512]`.
+	/// Worst case: `try_same_bucket_first` is true, same bucket is full, falls back to period bucket.
+	fn schedule_retry_try_same_bucket(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `31`
+		//  Estimated: `219984`
+		// Placeholder weights - will be updated when benchmarks are run.
+		Weight::from_parts(21_524_348, 219984)
+			.saturating_add(Weight::from_parts(32_570, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Scheduler::Agenda` (r:1 w:0)
@@ -490,6 +507,22 @@ impl WeightInfo for () {
 			// Standard Error: 267
 			.saturating_add(Weight::from_parts(16_285, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Scheduler::Agenda` (r:2 w:1)
+	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
+	/// Storage: `Scheduler::Retries` (r:0 w:1)
+	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// The range of component `s` is `[1, 512]`.
+	/// Worst case: `try_same_bucket_first` is true, same bucket is full, falls back to period bucket.
+	fn schedule_retry_try_same_bucket(s: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `31`
+		//  Estimated: `219984`
+		// Placeholder weights - will be updated when benchmarks are run.
+		Weight::from_parts(21_524_348, 219984)
+			.saturating_add(Weight::from_parts(32_570, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Scheduler::Agenda` (r:1 w:0)

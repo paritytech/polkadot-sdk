@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Scheduler pallet benchmarking.
+//! Time-Scheduler pallet benchmarking.
 
 use alloc::vec;
 use frame_benchmarking::v2::*;
@@ -26,13 +26,15 @@ use frame_support::{
 };
 use frame_system::{EventRecord, RawOrigin};
 
+use sp_io::hashing::blake2_256;
+
 use crate::*;
 
 type SystemCall<T> = frame_system::Call<T>;
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
 const SEED: u32 = 0;
-const BLOCK_NUMBER: u32 = 2;
+const BUCKET: u32 = 2;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
@@ -42,23 +44,35 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
-/// Add `n` items to the schedule.
+/// Add `n` named periodic items to the schedule for a given bucket.
 ///
-/// For `resolved`:
-/// - `
-/// - `None`: aborted (hash without preimage)
-/// - `Some(true)`: hash resolves into call if possible, plain call otherwise
-/// - `Some(false)`: plain call
-fn fill_schedule<T: Config>(when: BlockNumberFor<T>, n: u32) -> Result<(), &'static str> {
+/// Converts the bucket to a timestamp for scheduling, but verifies
+/// the agenda by bucket index. `name_offset` shifts the naming indices
+/// to avoid collisions when filling multiple buckets.
+fn fill_schedule<T: Config>(
+	bucket: BucketFor<T>,
+	n: u32,
+) -> Result<(), &'static str> {
+	fill_schedule_offset::<T>(bucket, n, 0)
+}
+
+fn fill_schedule_offset<T: Config>(
+	bucket: BucketFor<T>,
+	n: u32,
+	name_offset: u32,
+) -> Result<(), &'static str> {
+	let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+	let when: TimeFor<T> = bucket * bucket_resolution;
 	let t = DispatchTime::At(when);
 	let origin: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
 	for i in 0..n {
 		let call = make_call::<T>(None);
-		let period = Some(((i + 100).into(), 100));
-		let name = u32_to_name(i);
+		let duration: TimeFor<T> = bucket_resolution * (i + 100).into();
+		let period = Some((duration, 100));
+		let name = u32_to_name(name_offset + i);
 		Pallet::<T>::do_schedule_named(name, t, period, 0, origin.clone(), call)?;
 	}
-	ensure!(Agenda::<T>::get(when).len() == n as usize, "didn't fill schedule");
+	ensure!(Agenda::<T>::get(bucket).len() == n as usize, "didn't fill schedule");
 	Ok(())
 }
 
@@ -136,32 +150,34 @@ mod benchmarks {
 	// `service_agendas` when no work is done.
 	#[benchmark]
 	fn service_agendas_base() {
-		let now = BLOCK_NUMBER.into();
-		IncompleteSince::<T>::put(now - One::one());
+		let bucket: BucketFor<T> = BUCKET.into();
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let now: TimeFor<T> = bucket * bucket_resolution;
+		IncompleteSince::<T>::put(bucket - One::one());
 
 		#[block]
 		{
 			Pallet::<T>::service_agendas(&mut WeightMeter::new(), now, 0);
 		}
 
-		assert_eq!(IncompleteSince::<T>::get(), Some(now - One::one()));
+		assert_eq!(IncompleteSince::<T>::get(), Some(bucket - One::one()));
 	}
 
 	// `service_agenda` when no work is done.
 	#[benchmark]
 	fn service_agenda_base(
-		s: Linear<0, { T::MaxScheduledPerBlock::get() }>,
+		s: Linear<0, { T::MaxScheduledPerBucket::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let now = BLOCK_NUMBER.into();
-		fill_schedule::<T>(now, s)?;
-		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
+		let bucket: BucketFor<T> = BUCKET.into();
+		fill_schedule::<T>(bucket, s)?;
+		assert_eq!(Agenda::<T>::get(bucket).len() as u32, s);
 
 		#[block]
 		{
-			Pallet::<T>::service_agenda(&mut WeightMeter::new(), true, now, now, 0);
+			Pallet::<T>::service_agenda(&mut WeightMeter::new(), true, bucket, 0);
 		}
 
-		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
+		assert_eq!(Agenda::<T>::get(bucket).len() as u32, s);
 
 		Ok(())
 	}
@@ -170,7 +186,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_base() {
-		let now = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 		let task = make_task::<T>(false, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -178,7 +194,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 
 		// assert!(_result.is_ok());
@@ -193,7 +209,7 @@ mod benchmarks {
 	fn service_task_fetched(
 		s: Linear<{ BoundedInline::bound() as u32 }, { T::Preimages::MAX_LENGTH as u32 }>,
 	) {
-		let now = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 		let task = make_task::<T>(false, false, false, Some(s), 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -201,7 +217,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 
 		// assert!(result.is_ok());
@@ -211,7 +227,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_named() {
-		let now = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 		let task = make_task::<T>(false, true, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -219,7 +235,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 
 		// assert!(result.is_ok());
@@ -229,7 +245,7 @@ mod benchmarks {
 	// dispatched (e.g. due to being overweight).
 	#[benchmark]
 	fn service_task_periodic() {
-		let now = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 		let task = make_task::<T>(true, false, false, None, 0);
 		// prevent any tasks from actually being executed as we only want the surrounding weight.
 		let mut counter = WeightMeter::with_limit(Weight::zero());
@@ -237,7 +253,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			_result = Pallet::<T>::service_task(&mut counter, now, now, 0, true, task);
+			_result = Pallet::<T>::service_task(&mut counter, bucket, 0, true, task);
 		}
 
 		// assert!(result.is_ok());
@@ -281,48 +297,50 @@ mod benchmarks {
 
 	#[benchmark]
 	fn schedule(
-		s: Linear<0, { T::MaxScheduledPerBlock::get() - 1 }>,
+		s: Linear<0, { T::MaxScheduledPerBucket::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
-		let when = BLOCK_NUMBER.into();
-		let periodic = Some((BlockNumberFor::<T>::one(), 100));
+		let bucket: BucketFor<T> = BUCKET.into();
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let when: TimeFor<T> = bucket * bucket_resolution;
+		let periodic = Some((bucket_resolution, 100));
 		let priority = 0;
 		// Essentially a no-op call.
 		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, when, periodic, priority, call);
 
-		ensure!(Agenda::<T>::get(when).len() == s as usize + 1, "didn't add to schedule");
+		ensure!(Agenda::<T>::get(bucket).len() == s as usize + 1, "didn't add to schedule");
 
 		Ok(())
 	}
 
 	#[benchmark]
-	fn cancel(s: Linear<1, { T::MaxScheduledPerBlock::get() }>) -> Result<(), BenchmarkError> {
-		let when = BLOCK_NUMBER.into();
+	fn cancel(s: Linear<1, { T::MaxScheduledPerBucket::get() }>) -> Result<(), BenchmarkError> {
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
-		assert_eq!(Agenda::<T>::get(when).len(), s as usize);
+		fill_schedule::<T>(bucket, s)?;
+		assert_eq!(Agenda::<T>::get(bucket).len(), s as usize);
 		let schedule_origin =
 			T::ScheduleOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(schedule_origin as SystemOrigin<T>, when, 0);
+		_(schedule_origin as SystemOrigin<T>, bucket, 0);
 
 		ensure!(
 			s == 1 || Lookup::<T>::get(u32_to_name(0)).is_none(),
-			"didn't remove from lookup if more than 1 task scheduled for `when`"
+			"didn't remove from lookup if more than 1 task scheduled"
 		);
 		// Removed schedule is NONE
 		ensure!(
-			s == 1 || Agenda::<T>::get(when)[0].is_none(),
-			"didn't remove from schedule if more than 1 task scheduled for `when`"
+			s == 1 || Agenda::<T>::get(bucket)[0].is_none(),
+			"didn't remove from schedule if more than 1 task scheduled"
 		);
 		ensure!(
-			s > 1 || Agenda::<T>::get(when).len() == 0,
-			"remove from schedule if only 1 task scheduled for `when`"
+			s > 1 || Agenda::<T>::get(bucket).len() == 0,
+			"remove from schedule if only 1 task scheduled"
 		);
 
 		Ok(())
@@ -330,48 +348,50 @@ mod benchmarks {
 
 	#[benchmark]
 	fn schedule_named(
-		s: Linear<0, { T::MaxScheduledPerBlock::get() - 1 }>,
+		s: Linear<0, { T::MaxScheduledPerBucket::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let id = u32_to_name(s);
-		let when = BLOCK_NUMBER.into();
-		let periodic = Some((BlockNumberFor::<T>::one(), 100));
+		let bucket: BucketFor<T> = BUCKET.into();
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let when: TimeFor<T> = bucket * bucket_resolution;
+		let periodic = Some((bucket_resolution, 100));
 		let priority = 0;
 		// Essentially a no-op call.
 		let call = Box::new(SystemCall::set_storage { items: vec![] }.into());
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, id, when, periodic, priority, call);
 
-		ensure!(Agenda::<T>::get(when).len() == s as usize + 1, "didn't add to schedule");
+		ensure!(Agenda::<T>::get(bucket).len() == s as usize + 1, "didn't add to schedule");
 
 		Ok(())
 	}
 
 	#[benchmark]
 	fn cancel_named(
-		s: Linear<1, { T::MaxScheduledPerBlock::get() }>,
+		s: Linear<1, { T::MaxScheduledPerBucket::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let when = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, u32_to_name(0));
 
 		ensure!(
 			s == 1 || Lookup::<T>::get(u32_to_name(0)).is_none(),
-			"didn't remove from lookup if more than 1 task scheduled for `when`"
+			"didn't remove from lookup if more than 1 task scheduled"
 		);
 		// Removed schedule is NONE
 		ensure!(
-			s == 1 || Agenda::<T>::get(when)[0].is_none(),
-			"didn't remove from schedule if more than 1 task scheduled for `when`"
+			s == 1 || Agenda::<T>::get(bucket)[0].is_none(),
+			"didn't remove from schedule if more than 1 task scheduled"
 		);
 		ensure!(
-			s > 1 || Agenda::<T>::get(when).len() == 0,
-			"remove from schedule if only 1 task scheduled for `when`"
+			s > 1 || Agenda::<T>::get(bucket).len() == 0,
+			"remove from schedule if only 1 task scheduled"
 		);
 
 		Ok(())
@@ -379,61 +399,123 @@ mod benchmarks {
 
 	#[benchmark]
 	fn schedule_retry(
-		s: Linear<1, { T::MaxScheduledPerBlock::get() }>,
+		s: Linear<1, { T::MaxScheduledPerBucket::get() }>,
 	) -> Result<(), BenchmarkError> {
-		let when = BLOCK_NUMBER.into();
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let period: BlockNumberFor<T> = 1_u32.into();
-		let retry_config = RetryConfig { total_retries: 10, remaining: 10, period };
+		let period: BucketFor<T> = 1_u32.into();
+		let retry_config =
+			RetryConfig { total_retries: 10, remaining: 10, period, try_same_bucket_first: false };
 		Retries::<T>::insert(address, retry_config);
-		let (mut when, index) = address;
-		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
+		let (bucket, index) = address;
+		let task = Agenda::<T>::get(bucket)[index as usize].clone().unwrap();
 		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 
 		#[block]
 		{
 			Pallet::<T>::schedule_retry(
 				&mut weight_counter,
-				when,
-				when,
+				bucket,
 				index,
 				&task,
 				retry_config,
 			);
 		}
 
-		when = when + BlockNumberFor::<T>::one();
+		let next_bucket = bucket + One::one();
 		assert_eq!(
-			Retries::<T>::get((when, 0)),
-			Some(RetryConfig { total_retries: 10, remaining: 9, period })
+			Retries::<T>::get((next_bucket, 0)),
+			Some(RetryConfig {
+				total_retries: 10,
+				remaining: 9,
+				period,
+				try_same_bucket_first: false,
+			})
 		);
 
 		Ok(())
 	}
 
 	#[benchmark]
-	fn set_retry() -> Result<(), BenchmarkError> {
-		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+	fn schedule_retry_try_same_bucket(
+		s: Linear<1, { T::MaxScheduledPerBucket::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		// Fill the current bucket to capacity so same-bucket placement fails.
+		fill_schedule::<T>(bucket, T::MaxScheduledPerBucket::get())?;
+		let name = u32_to_name(T::MaxScheduledPerBucket::get() - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let period: BucketFor<T> = 1_u32.into();
+		let retry_config =
+			RetryConfig { total_retries: 10, remaining: 10, period, try_same_bucket_first: true };
+		Retries::<T>::insert(address, retry_config);
+		let (bucket, index) = address;
+		let task = Agenda::<T>::get(bucket)[index as usize].clone().unwrap();
+
+		// Fill the target bucket (bucket + period) with `s` items so place_task
+		// must scan through them. One slot remains for the retry task.
+		let target_bucket = bucket + One::one();
+		fill_schedule_offset::<T>(target_bucket, s, T::MaxScheduledPerBucket::get())?;
+
+		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
+
+		#[block]
+		{
+			Pallet::<T>::schedule_retry(
+				&mut weight_counter,
+				bucket,
+				index,
+				&task,
+				retry_config,
+			);
+		}
+
+		// Same bucket was full, so retry goes to target_bucket (bucket + period).
+		// It's appended after the `s` items already there.
+		assert!(Retries::<T>::get((target_bucket, s)).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn set_retry() -> Result<(), BenchmarkError> {
+		let s = T::MaxScheduledPerBucket::get();
+		let bucket: BucketFor<T> = BUCKET.into();
+
+		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let (when, index) = address;
-		let period = BlockNumberFor::<T>::one();
+		let (bucket, index) = address;
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		// Duration in ms (converted to 1 bucket period internally)
+		let duration: TimeFor<T> = bucket_resolution;
+		let stored_period: BucketFor<T> = One::one();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, (when, index), 10, period);
+		_(RawOrigin::Root, (bucket, index), 10, duration, false);
 
 		assert_eq!(
-			Retries::<T>::get((when, index)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+			Retries::<T>::get((bucket, index)),
+			Some(RetryConfig {
+				total_retries: 10,
+				remaining: 10,
+				period: stored_period,
+				try_same_bucket_first: false,
+			})
 		);
 		assert_last_event::<T>(
-			Event::RetrySet { task: address, id: None, period, retries: 10 }.into(),
+			Event::RetrySet {
+				task: address,
+				id: None,
+				period: stored_period,
+				retries: 10,
+				try_same_bucket_first: false,
+			}
+			.into(),
 		);
 
 		Ok(())
@@ -441,24 +523,38 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_retry_named() -> Result<(), BenchmarkError> {
-		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let s = T::MaxScheduledPerBucket::get();
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let (when, index) = address;
-		let period = BlockNumberFor::<T>::one();
+		let (bucket, index) = address;
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let duration: TimeFor<T> = bucket_resolution;
+		let stored_period: BucketFor<T> = One::one();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, name, 10, period);
+		_(RawOrigin::Root, name, 10, duration, false);
 
 		assert_eq!(
-			Retries::<T>::get((when, index)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+			Retries::<T>::get((bucket, index)),
+			Some(RetryConfig {
+				total_retries: 10,
+				remaining: 10,
+				period: stored_period,
+				try_same_bucket_first: false,
+			})
 		);
 		assert_last_event::<T>(
-			Event::RetrySet { task: address, id: Some(name), period, retries: 10 }.into(),
+			Event::RetrySet {
+				task: address,
+				id: Some(name),
+				period: stored_period,
+				retries: 10,
+				try_same_bucket_first: false,
+			}
+			.into(),
 		);
 
 		Ok(())
@@ -466,20 +562,24 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel_retry() -> Result<(), BenchmarkError> {
-		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let s = T::MaxScheduledPerBucket::get();
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let (when, index) = address;
-		let period = BlockNumberFor::<T>::one();
-		assert!(Pallet::<T>::set_retry(RawOrigin::Root.into(), (when, index), 10, period).is_ok());
+		let (bucket, index) = address;
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let duration: TimeFor<T> = bucket_resolution;
+		assert!(
+			Pallet::<T>::set_retry(RawOrigin::Root.into(), (bucket, index), 10, duration, false)
+				.is_ok()
+		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, (when, index));
+		_(RawOrigin::Root, (bucket, index));
 
-		assert!(!Retries::<T>::contains_key((when, index)));
+		assert!(!Retries::<T>::contains_key((bucket, index)));
 		assert_last_event::<T>(Event::RetryCancelled { task: address, id: None }.into());
 
 		Ok(())
@@ -487,20 +587,24 @@ mod benchmarks {
 
 	#[benchmark]
 	fn cancel_retry_named() -> Result<(), BenchmarkError> {
-		let s = T::MaxScheduledPerBlock::get();
-		let when = BLOCK_NUMBER.into();
+		let s = T::MaxScheduledPerBucket::get();
+		let bucket: BucketFor<T> = BUCKET.into();
 
-		fill_schedule::<T>(when, s)?;
+		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let (when, index) = address;
-		let period = BlockNumberFor::<T>::one();
-		assert!(Pallet::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, period).is_ok());
+		let (bucket, index) = address;
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		let duration: TimeFor<T> = bucket_resolution;
+		assert!(
+			Pallet::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, duration, false)
+				.is_ok()
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, name);
 
-		assert!(!Retries::<T>::contains_key((when, index)));
+		assert!(!Retries::<T>::contains_key((bucket, index)));
 		assert_last_event::<T>(Event::RetryCancelled { task: address, id: Some(name) }.into());
 
 		Ok(())

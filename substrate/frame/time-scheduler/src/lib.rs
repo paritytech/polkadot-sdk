@@ -1283,10 +1283,13 @@ impl<T: Config> Pallet<T> {
 		task: &ScheduledOf<T>,
 		retry_config: RetryConfig<BucketFor<T>>,
 	) {
-		if weight
-			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBucket::get()))
-			.is_err()
-		{
+		let max_scheduled = T::MaxScheduledPerBucket::get();
+		let retry_weight = if retry_config.try_same_bucket_first {
+			T::WeightInfo::schedule_retry_try_same_bucket(max_scheduled)
+		} else {
+			T::WeightInfo::schedule_retry(max_scheduled)
+		};
+		if weight.try_consume(retry_weight).is_err() {
 			Self::deposit_event(Event::RetryFailed {
 				task: (bucket, agenda_index),
 				id: task.maybe_id,
