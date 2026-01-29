@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769701162812,
+  "lastUpdate": 1769708724489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "77e73b9b258a94a8c0a43fcc19ee6257100861da",
-          "message": "`fatxpool`: some more integration tests (#8152)\n\nSome extra tests for `fatxpool`, including long term test:\n- sending 5M transactions to relay/para,\n- transaction gossiping tests (for network protocol evaluation),\n- yet-another-parachain spemening test (2s / 7k),\n\nThe base directory can be specified by setting `TXPOOL_TEST_DIR` env\nvariable.\n\nIf set every individual test restults will be placed under this path in\na directory name formatted as `test_%Y%m%d_%H%M%S`. e.g.:\n```\nexport TXPOOL_TEST_DIR=/home/miszka/test-results\ncargo test  --release --test integration -- --ignored send_future_and_ready_from_many_accounts_to_parachain\n...\n2025-04-11T07:48:15.324966Z  INFO zombienet_orchestrator: 🧰 base_dir: \"/home/miszka/test-results/test_20250411_094815\"\n...\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-06-24T19:37:16Z",
-          "tree_id": "f169c3e56938a2920569959eef3005f2d3c530cf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77e73b9b258a94a8c0a43fcc19ee6257100861da"
-        },
-        "date": 1750797422401,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.194464682333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.2002971126,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.078842028533336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f87563a37d5ef6ad6153d9462e2aa70a027584f0",
+          "message": "[Release|CI/CD] Add `eth-rpc` binary to release draft artifacts (#10934)\n\nAddress: https://github.com/paritytech/release-engineering/issues/281",
+          "timestamp": "2026-01-29T16:39:29Z",
+          "tree_id": "be3a5043a67e8b7b2589056a48eada95cb8c472f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f87563a37d5ef6ad6153d9462e2aa70a027584f0"
+        },
+        "date": 1769708699983,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1273425854666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.165672559033334,
             "unit": "seconds"
           }
         ]
