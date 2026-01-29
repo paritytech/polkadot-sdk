@@ -107,3 +107,5 @@ sync-backing = []
 async-backing = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
+# A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
+slot-duration-18s = ["increment-spec-version"]
