@@ -41,6 +41,9 @@ sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
+# Polkadot
+polkadot-primitives = { workspace = true }
+
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
@@ -75,6 +78,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
+	"polkadot-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",

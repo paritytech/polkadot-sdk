@@ -1,0 +1,199 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+#![cfg(test)]
+
+use super::*;
+use crate::{mock::*, test_util::build_sproof_with_child_data};
+use codec::Encode;
+use cumulus_primitives_core::ParaId;
+use frame_support::assert_ok;
+
+/// Build a relay chain state proof with child trie data for a single publisher.
+fn build_test_proof(
+	publisher_para_id: ParaId,
+	child_data: Vec<(Vec<u8>, Vec<u8>)>,
+) -> cumulus_pallet_parachain_system::RelayChainStateProof {
+	build_sproof_with_child_data(&[(publisher_para_id, child_data)])
+}
+
+#[test]
+fn process_relay_proof_keys_with_new_data_calls_handler() {
+	new_test_ext().execute_with(|| {
+		ReceivedData::set(vec![]);
+		let publisher = ParaId::from(1000);
+		let key = vec![0x12, 0x34];
+		let value = vec![0xAA, 0xBB].encode();
+
+		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
+
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
+
+		Pallet::<Test>::process_relay_proof_keys(&proof);
+
+		let received = ReceivedData::get();
+		assert_eq!(received.len(), 1);
+		assert_eq!(received[0].0, publisher);
+		assert_eq!(received[0].1, key);
+		assert_eq!(received[0].2, Vec::<u8>::decode(&mut &value[..]).unwrap());
+	});
+}
+
+#[test]
+fn process_empty_subscriptions() {
+	new_test_ext().execute_with(|| {
+		ReceivedData::set(vec![]);
+		TestSubscriptions::set(vec![]);
+
+		let proof = build_test_proof(ParaId::from(1000), vec![]);
+
+		Pallet::<Test>::process_relay_proof_keys(&proof);
+
+		assert_eq!(ReceivedData::get().len(), 0);
+	});
+}
+
+#[test]
+fn root_change_triggers_processing() {
+	new_test_ext().execute_with(|| {
+		ReceivedData::set(vec![]);
+		let publisher = ParaId::from(1000);
+		let key = vec![0x01];
+		let value1 = vec![0x11].encode();
+		let value2 = vec![0x22].encode();
+
+		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
+
+		// First block
+		let proof1 = build_test_proof(publisher, vec![(key.clone(), value1.clone())]);
+		Pallet::<Test>::process_relay_proof_keys(&proof1);
+		assert_eq!(ReceivedData::get().len(), 1);
+
+		// Second block with different value
+		ReceivedData::set(vec![]);
+		let proof2 = build_test_proof(publisher, vec![(key.clone(), value2.clone())]);
+		Pallet::<Test>::process_relay_proof_keys(&proof2);
+
+		assert_eq!(ReceivedData::get().len(), 1);
+		assert_eq!(ReceivedData::get()[0].2, Vec::<u8>::decode(&mut &value2[..]).unwrap());
+	});
+}
+
+#[test]
+fn unchanged_root_skips_processing() {
+	new_test_ext().execute_with(|| {
+		ReceivedData::set(vec![]);
+		let publisher = ParaId::from(1000);
+		let key = vec![0x01];
+		let value = vec![0x11].encode();
+
+		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
+
+		// First block
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
+		Pallet::<Test>::process_relay_proof_keys(&proof);
+		assert_eq!(ReceivedData::get().len(), 1);
+
+		// Second block with same data
+		ReceivedData::set(vec![]);
+		let proof2 = build_test_proof(publisher, vec![(key.clone(), value)]);
+		Pallet::<Test>::process_relay_proof_keys(&proof2);
+
+		assert_eq!(ReceivedData::get().len(), 0, "Handler should not be called for unchanged root");
+	});
+}
+
+#[test]
+fn clear_stored_roots_extrinsic() {
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(1000);
+		TestSubscriptions::set(vec![(publisher, vec![vec![0x01]])]);
+
+		// Store a root for the publisher
+		let proof = build_test_proof(publisher, vec![(vec![0x01], vec![0x11].encode())]);
+		Pallet::<Test>::process_relay_proof_keys(&proof);
+
+		// Verify root is stored
+		assert!(PreviousPublishedDataRoots::<Test>::get().contains_key(&publisher));
+
+		// Clear the publisher's root
+		assert_ok!(Pallet::<Test>::clear_stored_roots(
+			frame_system::RawOrigin::Root.into(),
+			publisher
+		));
+
+		// Verify the root was cleared
+		assert!(!PreviousPublishedDataRoots::<Test>::get().contains_key(&publisher));
+	});
+}
+
+#[test]
+fn clear_stored_roots_only_clears_specified_publisher() {
+	new_test_ext().execute_with(|| {
+		let publisher1 = ParaId::from(1000);
+		let publisher2 = ParaId::from(2000);
+
+		// Manually set up storage with 2 publisher roots
+		let mut roots = BoundedBTreeMap::new();
+		roots.try_insert(publisher1, BoundedVec::try_from(vec![0u8; 32]).unwrap()).unwrap();
+		roots.try_insert(publisher2, BoundedVec::try_from(vec![1u8; 32]).unwrap()).unwrap();
+		PreviousPublishedDataRoots::<Test>::put(roots);
+
+		assert_eq!(PreviousPublishedDataRoots::<Test>::get().len(), 2);
+
+		// Clear only publisher1's root
+		assert_ok!(Pallet::<Test>::clear_stored_roots(
+			frame_system::RawOrigin::Root.into(),
+			publisher1
+		));
+
+		// Publisher1's root should be cleared, but publisher2's should remain
+		let roots = PreviousPublishedDataRoots::<Test>::get();
+		assert_eq!(roots.len(), 1);
+		assert!(!roots.contains_key(&publisher1));
+		assert!(roots.contains_key(&publisher2));
+	});
+}
+
+#[test]
+fn clear_stored_roots_fails_if_not_found() {
+	use frame_support::assert_noop;
+
+	new_test_ext().execute_with(|| {
+		let publisher = ParaId::from(1000);
+
+		// Try to clear root for publisher that doesn't exist
+		assert_noop!(
+			Pallet::<Test>::clear_stored_roots(frame_system::RawOrigin::Root.into(), publisher),
+			Error::<Test>::PublisherRootNotFound
+		);
+	});
+}
+
+#[test]
+fn data_processed_event_emitted() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		let publisher = ParaId::from(1000);
+		let key = vec![0x12];
+		let value = vec![0xAA].encode();
+
+		TestSubscriptions::set(vec![(publisher, vec![key.clone()])]);
+
+		let proof = build_test_proof(publisher, vec![(key.clone(), value.clone())]);
+		Pallet::<Test>::process_relay_proof_keys(&proof);
+
+		// value_size is the decoded Vec<u8> length, not the encoded length
+		let decoded_len = Vec::<u8>::decode(&mut &value[..]).unwrap().len() as u32;
+
+		System::assert_has_event(
+			Event::DataProcessed {
+				publisher,
+				key: key.try_into().unwrap(),
+				value_size: decoded_len,
+			}
+			.into(),
+		);
+	});
+}

@@ -961,6 +961,48 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn publish(n: Linear<1, { MaxPublishItems::get() }>) -> Result<(), BenchmarkError> {
+		use xcm::latest::MaxPublishValueLength;
+
+		let max_value_len = MaxPublishValueLength::get() as usize;
+
+		// Calculate value size to fit within a conservative 2KB total storage budget
+		const KEY_SIZE: usize = 32;
+		let conservative_total_storage = 2048usize;
+		let value_size = ((conservative_total_storage / n.max(1) as usize).saturating_sub(KEY_SIZE))
+			.min(max_value_len)
+			.max(1);
+
+		let data_vec: Vec<_> = (0..n)
+			.map(|i| {
+				let mut key = [0u8; KEY_SIZE];
+				key[0] = i as u8;
+				(
+					key,
+					BoundedVec::try_from(vec![i as u8; value_size]).unwrap(),
+				)
+			})
+			.collect();
+
+		let data = BoundedVec::try_from(data_vec).unwrap();
+
+		let origin = T::publish_origin()?;
+		T::ensure_publisher_registered(&origin)?;
+
+		let mut executor = new_executor::<T>(origin);
+
+		let instruction = Instruction::Publish { data };
+		let xcm = Xcm(vec![instruction]);
+
+		#[block]
+		{
+			executor.bench_process(xcm)?;
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::generic::mock::new_test_ext(),
