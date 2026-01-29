@@ -20,10 +20,7 @@
 //! This module defines its own mock runtime that uses `xcm::v5::Location` as the asset ID type,
 //! which is the real-world use case for foreign assets.
 
-use crate::{
-	foreign_assets::pallet,
-	migration::{MigrateForeignAssetPrecompileMappings, MigrationState},
-};
+use crate::{foreign_assets::pallet, migration::MigrateForeignAssetPrecompileMappings};
 use frame_support::{
 	derive_impl,
 	migrations::SteppedMigration,
@@ -141,7 +138,7 @@ fn run_migration_to_completion() -> u32 {
 	let mut steps = 0u32;
 	loop {
 		let mut meter = WeightMeter::with_limit(Weight::MAX);
-		match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(
+		match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance, ()>::step(
 			cursor, &mut meter,
 		) {
 			Ok(None) => break, // Migration complete
@@ -410,12 +407,13 @@ fn migration_respects_weight_limits() {
 		let mut steps = 0u32;
 
 		// Use a weight that allows processing ~2 assets per step
-		let limited_weight = Weight::from_parts(100_000_000, 0);
+		// The default WeightInfo for () returns ~390M ref_time per step
+		let limited_weight = Weight::from_parts(800_000_000, 0);
 
 		loop {
 			let mut meter = WeightMeter::with_limit(limited_weight);
 
-			match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(
+			match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance, ()>::step(
 				cursor, &mut meter,
 			) {
 				Ok(None) => break,
@@ -441,8 +439,8 @@ fn migration_respects_weight_limits() {
 /// Test that migration ID is consistent.
 #[test]
 fn migration_id_is_consistent() {
-	let id1 = MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::id();
-	let id2 = MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::id();
+	let id1 = MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance, ()>::id();
+	let id2 = MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance, ()>::id();
 
 	// Compare individual fields since MigrationId doesn't implement PartialEq
 	assert_eq!(id1.pallet_id, id2.pallet_id, "Pallet ID should be consistent");

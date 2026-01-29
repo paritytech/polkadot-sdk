@@ -17,13 +17,12 @@
 
 //! Migrations for `pallet-assets-precompiles`.
 
-use crate::foreign_assets::pallet;
+use crate::{foreign_assets::pallet, weights::WeightInfo};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	traits::Get,
-	weights::WeightMeter,
+	weights::{Weight, WeightMeter},
 };
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
@@ -62,6 +61,7 @@ pub enum MigrationState<A> {
 /// - `T`: The runtime configuration implementing both `pallet_assets::Config<I>` and
 ///   `pallet::Config`
 /// - `I`: The pallet_assets instance identifier (e.g., `ForeignAssetsInstance`)
+/// - `W`: The weight info implementation for the migration benchmarks
 ///
 /// # Usage in Runtime
 ///
@@ -70,7 +70,7 @@ pub enum MigrationState<A> {
 /// ```ignore
 /// pub type Migrations = (
 ///     // ... other migrations ...
-///     pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<Runtime, ForeignAssetsInstance>,
+///     pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<Runtime, ForeignAssetsInstance, ()>,
 /// );
 /// ```
 ///
@@ -79,13 +79,14 @@ pub enum MigrationState<A> {
 /// - Idempotent: Skips assets that already have mappings
 /// - Non-destructive: Does not modify any asset data, only adds mappings
 /// - Sequential indices: Each migrated asset gets the next available index
-pub struct MigrateForeignAssetPrecompileMappings<T, I = ()>(PhantomData<(T, I)>);
+pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
 
-impl<T, I> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I>
+impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
 where
 	T: pallet_assets::Config<I>
 		+ pallet::Config<ForeignAssetId = <T as pallet_assets::Config<I>>::AssetId>,
 	I: 'static,
+	W: WeightInfo,
 {
 	type Cursor = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
 	type Identifier = MigrationId<32>;
@@ -98,9 +99,9 @@ where
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// Weight for one iteration: 2 reads (iter + check mapping) + potentially 3 writes + 1 read
-		// for insert (NextAssetIndex read/write, two map writes)
-		let required = <T as frame_system::Config>::DbWeight::get().reads_writes(3, 3);
+		// Use the maximum weight (migrate case) as the required weight per iteration,
+		// since we don't know ahead of time whether we'll migrate or skip.
+		let required = W::migrate_asset_step_migrate();
 
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
@@ -111,7 +112,7 @@ where
 				break;
 			}
 
-			let next = match &cursor {
+			let (next, weight) = match &cursor {
 				None => Self::migrate_asset_step(None),
 				Some(MigrationState::Asset(last_asset)) =>
 					Self::migrate_asset_step(Some(last_asset)),
@@ -125,7 +126,7 @@ where
 			};
 
 			cursor = Some(next);
-			meter.consume(required);
+			meter.consume(weight);
 		}
 
 		Ok(cursor)
@@ -198,15 +199,18 @@ where
 	}
 }
 
-impl<T, I> MigrateForeignAssetPrecompileMappings<T, I>
+impl<T, I, W> MigrateForeignAssetPrecompileMappings<T, I, W>
 where
 	T: pallet_assets::Config<I>
 		+ pallet::Config<ForeignAssetId = <T as pallet_assets::Config<I>>::AssetId>,
 	I: 'static,
+	W: WeightInfo,
 {
+	/// Performs a single step of the migration.
+	/// Returns the new migration state and the weight consumed.
 	fn migrate_asset_step(
 		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
-	) -> MigrationState<<T as pallet_assets::Config<I>>::AssetId> {
+	) -> (MigrationState<<T as pallet_assets::Config<I>>::AssetId>, Weight) {
 		let mut iter = if let Some(last_key) = maybe_last_key {
 			pallet_assets::Asset::<T, I>::iter_keys_from(
 				pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
@@ -223,7 +227,7 @@ where
 					"Skipping asset {:?} - mapping already exists",
 					asset_id
 				);
-				return MigrationState::Asset(asset_id);
+				return (MigrationState::Asset(asset_id), W::migrate_asset_step_skip());
 			}
 
 			// Insert the bidirectional mapping with a new sequential index
@@ -245,9 +249,9 @@ where
 				},
 			}
 
-			MigrationState::Asset(asset_id)
+			(MigrationState::Asset(asset_id), W::migrate_asset_step_migrate())
 		} else {
-			MigrationState::Finished
+			(MigrationState::Finished, W::migrate_asset_step_finished())
 		}
 	}
 }

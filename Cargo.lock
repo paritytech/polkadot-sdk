@@ -11502,6 +11502,7 @@ name = "pallet-assets-precompiles"
 version = "0.1.0"
 dependencies = [
  "ethereum-standards",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

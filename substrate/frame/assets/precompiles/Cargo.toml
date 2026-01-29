@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 ethereum-standards = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
@@ -36,6 +37,7 @@ test-case = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -49,6 +51,7 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",

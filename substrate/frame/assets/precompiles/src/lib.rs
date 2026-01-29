@@ -38,6 +38,9 @@ use pallet_revive::precompiles::{
 
 pub mod foreign_assets;
 pub mod migration;
+#[cfg(feature = "runtime-benchmarks")]
+pub mod migration_benchmarks;
+pub mod weights;
 
 #[cfg(test)]
 mod foreign_assets_tests;
@@ -50,6 +53,7 @@ mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
 pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
+pub use weights::{SubstrateWeight, WeightInfo as MigrationWeightInfo};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
