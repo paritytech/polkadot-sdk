@@ -19,14 +19,15 @@ use codec::Decode;
 use log::warn;
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
 use sp_core::ecdsa_bls381;
-use sp_core::{ecdsa, keccak_256};
 
 use sp_keystore::KeystorePtr;
-use std::marker::PhantomData;
+use sp_runtime::traits::Hash;
+use std::{convert::TryInto, marker::PhantomData};
 
-use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId};
 
 use crate::{error, LOG_TARGET};
 
@@ -82,11 +83,15 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		// ECDSA should use ecdsa_sign_prehashed since it needs to be hashed by keccak_256 instead
-		// of blake2. As such we need to deal with producing the signatures case-by-case
+		// Use SignatureHasher to ensure consistency with verify() which also uses SignatureHasher.
+		// This allows the hashing algorithm to be configurable per AuthorityId type.
 		let signature_byte_array: Vec<u8> = match <AuthorityId as AppCrypto>::CRYPTO_ID {
 			ecdsa::CRYPTO_ID => {
-				let msg_hash = keccak_256(message);
+				let hash_output =
+					<<AuthorityId as AuthorityIdBound>::SignatureHasher as Hash>::hash(message);
+				let msg_hash: [u8; 32] = hash_output.as_ref().try_into().map_err(|_| {
+					error::Error::Signature("hash output must be 32 bytes".to_string())
+				})?;
 				let public: ecdsa::Public = ecdsa::Public::try_from(public.as_slice()).unwrap();
 
 				let sig = store
@@ -101,17 +106,39 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 
 			#[cfg(feature = "bls-experimental")]
 			ecdsa_bls381::CRYPTO_ID => {
+				let hash_output =
+					<<AuthorityId as AuthorityIdBound>::SignatureHasher as Hash>::hash(message);
+				let msg_hash: [u8; 32] = hash_output.as_ref().try_into().map_err(|_| {
+					error::Error::Signature("hash output must be 32 bytes".to_string())
+				})?;
 				let public: ecdsa_bls381::Public =
 					ecdsa_bls381::Public::try_from(public.as_slice()).unwrap();
+
 				let sig = store
-					.ecdsa_bls381_sign_with_keccak256(BEEFY_KEY_TYPE, &public, &message)
+					.ecdsa_bls381_sign(BEEFY_KEY_TYPE, &public, &msg_hash)
 					.map_err(|e| error::Error::Keystore(e.to_string()))?
-					.ok_or_else(|| error::Error::Signature("bls381_sign()  failed".to_string()))?;
+					.ok_or_else(|| {
+						error::Error::Signature("ecdsa_bls381_sign() failed".to_string())
+					})?;
 				let sig_ref: &[u8] = sig.as_ref();
 				sig_ref.to_vec()
 			},
 
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into()))?,
+			_ => {
+				// For other crypto types, sign_with() uses default hashers which might not match
+				// SignatureHasher. Custom keystore implementations can override sign_with() to use
+				// SignatureHasher when id == BEEFY_KEY_TYPE, but the default implementation uses
+				// scheme-specific default hashers.
+				store
+					.sign_with(
+						<AuthorityId as AppCrypto>::ID,
+						<AuthorityId as AppCrypto>::CRYPTO_ID,
+						public.as_slice(),
+						&message,
+					)
+					.map_err(|e| error::Error::Keystore(e.to_string()))?
+					.ok_or_else(|| error::Error::Signature("signature failed".to_string()))?
+			},
 		};
 
 		//check that `sig` has the expected result type
@@ -133,34 +160,14 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn public_keys(&self) -> Result<Vec<AuthorityId>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let pk = match <AuthorityId as AppCrypto>::CRYPTO_ID {
-			ecdsa::CRYPTO_ID => store
-				.ecdsa_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
+		let pk = store
+			.keys(BEEFY_KEY_TYPE)
+			.map_err(|e| error::Error::Keystore(e.to_string()))?
+			.into_iter()
+			.filter_map(|pk| AuthorityId::try_from(pk.as_ref()).ok())
+			.collect::<Vec<_>>();
 
-			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls381::CRYPTO_ID => store
-				.ecdsa_bls381_public_keys(BEEFY_KEY_TYPE)
-				.drain(..)
-				.map(|pk| AuthorityId::try_from(pk.as_ref()))
-				.collect::<Result<Vec<_>, _>>()
-				.or_else(|_| {
-					Err(error::Error::Keystore(
-						"unable to convert public key into authority id".into(),
-					))
-				}),
-
-			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into())),
-		};
-
-		pk
+		Ok(pk)
 	}
 
 	/// Use the `public` key to verify that `sig` is a valid signature for `message`.
@@ -171,7 +178,9 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 		sig: &<AuthorityId as RuntimeAppPublic>::Signature,
 		message: &[u8],
 	) -> bool {
-		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
+		BeefyAuthorityId::<<AuthorityId as AuthorityIdBound>::SignatureHasher>::verify(
+			public, sig, message,
+		)
 	}
 }
 
@@ -184,11 +193,15 @@ impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<
 #[cfg(test)]
 pub mod tests {
 	#[cfg(feature = "bls-experimental")]
+	use sp_consensus_beefy::bls_crypto;
+	#[cfg(feature = "bls-experimental")]
 	use sp_consensus_beefy::ecdsa_bls_crypto;
 	use sp_consensus_beefy::{
 		ecdsa_crypto,
 		test_utils::{BeefySignerAuthority, Keyring},
 	};
+	#[cfg(feature = "bls-experimental")]
+	use sp_core::bls381;
 	use sp_core::Pair as PairT;
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -205,19 +218,19 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let msg = b"I am Alice!";
 		let sig = Keyring::<AuthorityId>::Alice.sign(b"I am Alice!");
 
-		assert!(<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(<AuthorityId as BeefyAuthorityId<AuthorityId::SignatureHasher>>::verify(
 			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
 		));
 
 		// different public key -> fail
-		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(!<AuthorityId as BeefyAuthorityId<AuthorityId::SignatureHasher>>::verify(
 			&Keyring::Bob.public(),
 			&sig,
 			&msg.as_slice(),
@@ -226,7 +239,7 @@ pub mod tests {
 		let msg = b"I am not Alice!";
 
 		// different msg -> fail
-		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
+		assert!(!<AuthorityId as BeefyAuthorityId<AuthorityId::SignatureHasher>>::verify(
 			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
@@ -242,7 +255,7 @@ pub mod tests {
 	where
 		AuthorityId:
 			AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 		<AuthorityId as RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 	{
@@ -261,6 +274,12 @@ pub mod tests {
 					.unwrap();
 				AuthorityId::decode(&mut pk.as_ref()).unwrap()
 			},
+			#[cfg(feature = "bls-experimental")]
+			bls381::CRYPTO_ID => {
+				let pk =
+					store.bls381_generate_new(key_type, optional_seed.as_deref()).ok().unwrap();
+				AuthorityId::decode(&mut pk.as_ref()).unwrap()
+			},
 			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
 		}
 	}
@@ -268,6 +287,12 @@ pub mod tests {
 	#[test]
 	fn pair_verify_should_work_ecdsa() {
 		pair_verify_should_work::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn pair_verify_should_work_bls381() {
+		pair_verify_should_work::<bls_crypto::AuthorityId>();
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -282,7 +307,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Alice", None)
 			.expect("Pair failed")
@@ -340,6 +365,12 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
+	fn bls381_pair_works() {
+		pair_works::<bls_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
 	fn ecdsa_n_bls_pair_works() {
 		pair_works::<ecdsa_bls_crypto::AuthorityId>();
 	}
@@ -350,7 +381,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let store = keystore();
 
@@ -381,6 +412,12 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
+	fn authority_id_works_for_bls381() {
+		authority_id_works::<bls_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
 	fn authority_id_works_for_ecdsa_n_bls() {
 		authority_id_works::<ecdsa_bls_crypto::AuthorityId>();
 	}
@@ -391,7 +428,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let store = keystore();
 
@@ -416,6 +453,12 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
+	fn sign_works_for_bls381() {
+		sign_works::<bls_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
 	fn sign_works_for_ecdsa_n_bls() {
 		sign_works::<ecdsa_bls_crypto::AuthorityId>();
 	}
@@ -427,7 +470,7 @@ pub mod tests {
 	) where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let store = keystore();
 
@@ -447,6 +490,12 @@ pub mod tests {
 	#[test]
 	fn sign_error_for_ecdsa() {
 		sign_error::<ecdsa_crypto::AuthorityId>("ecdsa_sign_prehashed() failed");
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn sign_error_for_bls381() {
+		sign_error::<bls_crypto::AuthorityId>("signature failed");
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -473,7 +522,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		let store = keystore();
 
@@ -500,6 +549,12 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
+	fn verify_works_for_bls381() {
+		verify_works::<bls_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
 
 	fn verify_works_for_ecdsa_n_bls() {
 		verify_works::<ecdsa_bls_crypto::AuthorityId>();
@@ -512,7 +567,7 @@ pub mod tests {
 	where
 		<AuthorityId as sp_runtime::RuntimeAppPublic>::Signature:
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	{
 		const TEST_TYPE: sp_application_crypto::KeyTypeId =
 			sp_application_crypto::KeyTypeId(*b"test");
@@ -548,6 +603,12 @@ pub mod tests {
 	#[test]
 	fn public_keys_works_for_ecdsa_keystore() {
 		public_keys_works::<ecdsa_crypto::AuthorityId>();
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	#[test]
+	fn public_keys_works_for_bls381() {
+		public_keys_works::<bls_crypto::AuthorityId>();
 	}
 
 	#[cfg(feature = "bls-experimental")]

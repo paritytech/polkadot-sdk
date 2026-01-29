@@ -16,10 +16,12 @@
 // limitations under the License.
 
 #[cfg(feature = "bls-experimental")]
+use crate::bls_crypto;
+#[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, Commitment, DoubleVotingProof, ForkVotingProof,
+	FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -64,6 +66,17 @@ where
 }
 
 #[cfg(feature = "bls-experimental")]
+impl<MsgHash> BeefySignerAuthority<MsgHash> for <bls_crypto::AuthorityId as AppCrypto>::Pair
+where
+	MsgHash: Hash,
+	<MsgHash as Hash>::Output: Into<[u8; 32]>,
+{
+	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign(&message).into()
+	}
+}
+
+#[cfg(feature = "bls-experimental")]
 impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
 where
 	MsgHash: Hash,
@@ -78,7 +91,7 @@ where
 impl<AuthorityId> Keyring<AuthorityId>
 where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {

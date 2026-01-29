@@ -20,8 +20,7 @@ use codec::DecodeAll;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{
-	AuthorityIdBound, BeefySignatureHasher, KnownSignature, ValidatorSet, ValidatorSetId,
-	VersionedFinalityProof,
+	AuthorityIdBound, KnownSignature, ValidatorSet, ValidatorSetId, VersionedFinalityProof,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -62,7 +61,7 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT, AuthorityId: Authorit
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {
 			let signatories = signed_commitment
-				.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
+				.verify_signatures::<_, AuthorityId::SignatureHasher>(target_number, validator_set)
 				.map_err(|checked_signatures| {
 					(ConsensusError::InvalidJustification, checked_signatures)
 				})?;

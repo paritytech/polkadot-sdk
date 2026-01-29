@@ -347,7 +347,7 @@ fn add_mmr_digest(builder: &mut impl BlockBuilderExt, mmr_hash: MmrRootHash) {
 	builder
 		.push_deposit_log_digest_item(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<AuthorityId>::MmrRoot(mmr_hash).encode(),
+			ConsensusLog::<AuthorityId, MmrRootHash>::MmrRoot(mmr_hash).encode(),
 		))
 		.unwrap();
 }
@@ -356,7 +356,7 @@ fn add_auth_change_digest(builder: &mut impl BlockBuilderExt, new_auth_set: Beef
 	builder
 		.push_deposit_log_digest_item(DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<AuthorityId>::AuthoritiesChange(new_auth_set).encode(),
+			ConsensusLog::<AuthorityId, MmrRootHash>::AuthoritiesChange(new_auth_set).encode(),
 		))
 		.unwrap();
 }
