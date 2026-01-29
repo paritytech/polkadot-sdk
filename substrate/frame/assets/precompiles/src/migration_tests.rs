@@ -161,9 +161,9 @@ fn create_asset_details(
 	<Test as pallet_balances::Config>::Balance,
 > {
 	AssetDetails {
-		owner: owner.clone(),
-		issuer: owner.clone(),
-		admin: owner.clone(),
+		owner: owner,
+		issuer: owner,
+		admin: owner,
 		freezer: owner,
 		supply: 0,
 		deposit: 0,
