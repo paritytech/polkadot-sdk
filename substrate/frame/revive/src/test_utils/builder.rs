@@ -257,11 +257,40 @@ builder!(
 		transaction_encoded: Vec<u8>,
 		effective_gas_price: U256,
 		encoded_len: u32,
-		authorization_list: Vec<crate::evm::SignedAuthorizationListEntry>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
 	pub fn eth_call(origin: OriginFor<T>, dest: H160) -> Self {
+		Self {
+			origin,
+			dest,
+			value: 0u32.into(),
+			weight_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
+			data: vec![],
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
+		}
+	}
+);
+
+builder!(
+	eth_call_with_authorization_list(
+		origin: OriginFor<T>,
+		dest: H160,
+		value: U256,
+		weight_limit: Weight,
+		eth_gas_limit: U256,
+		data: Vec<u8>,
+		transaction_encoded: Vec<u8>,
+		effective_gas_price: U256,
+		encoded_len: u32,
+		authorization_list: Vec<crate::evm::SignedAuthorizationListEntry>,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthCallWithAuthorizationListBuilder`] with default values.
+	pub fn eth_call_with_authorization_list(origin: OriginFor<T>, dest: H160) -> Self {
 		Self {
 			origin,
 			dest,

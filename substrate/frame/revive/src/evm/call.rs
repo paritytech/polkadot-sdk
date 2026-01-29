@@ -189,13 +189,25 @@ impl GenericTransaction {
 
 				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call)
+					return Err(InvalidTransaction::Call);
 				}
 
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
 					.into()
+			} else if self.authorization_list.is_empty() {
+				crate::Call::eth_call::<T> {
+					dest,
+					value,
+					weight_limit: Zero::zero(),
+					eth_gas_limit: gas,
+					data,
+					transaction_encoded,
+					effective_gas_price,
+					encoded_len,
+				}
+				.into()
 			} else {
-				let call = crate::Call::eth_call::<T> {
+				crate::Call::eth_call_with_authorization_list::<T> {
 					dest,
 					value,
 					weight_limit: Zero::zero(),
@@ -206,8 +218,7 @@ impl GenericTransaction {
 					encoded_len,
 					authorization_list: self.authorization_list.clone(),
 				}
-				.into();
-				call
+				.into()
 			}
 		} else {
 			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {

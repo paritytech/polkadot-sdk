@@ -180,8 +180,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -248,6 +248,15 @@ pub(crate) mod builder {
 
 	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
 		EthCallBuilder::<Test>::eth_call(crate::Origin::<Test>::EthTransaction(ALICE).into(), dest)
+	}
+
+	pub fn eth_call_with_authorization_list(
+		dest: H160,
+	) -> EthCallWithAuthorizationListBuilder<Test> {
+		EthCallWithAuthorizationListBuilder::<Test>::eth_call_with_authorization_list(
+			crate::Origin::<Test>::EthTransaction(ALICE).into(),
+			dest,
+		)
 	}
 
 	pub fn eth_instantiate_with_code(code: Vec<u8>) -> EthInstantiateWithCodeBuilder<Test> {
@@ -418,8 +427,9 @@ impl SetWeightLimit for RuntimeCall {
 	fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
 		match self {
 			Self::Contracts(
-				Call::eth_call { weight_limit, .. } |
-				Call::eth_instantiate_with_code { weight_limit, .. },
+				Call::eth_call { weight_limit, .. }
+				| Call::eth_call_with_authorization_list { weight_limit, .. }
+				| Call::eth_instantiate_with_code { weight_limit, .. },
 			) => {
 				let old = *weight_limit;
 				*weight_limit = new_weight_limit;
