@@ -395,3 +395,10 @@ metadata-hash = ["substrate-wasm-builder/metadata-hash"]
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller, like logging for example.
 on-chain-release-build = ["metadata-hash"]
+
+[package.metadata.cargo-udeps.ignore]
+development = [
+	"asset-test-utils",
+	"pallet-bags-list-remote-tests",
+	"parachains-runtimes-test-utils",
+]

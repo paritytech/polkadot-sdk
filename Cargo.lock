@@ -4251,15 +4251,11 @@ dependencies = [
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
- "cumulus-test-client",
- "cumulus-test-relay-sproof-builder",
- "cumulus-test-runtime",
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
  "polkadot-overseer",
  "polkadot-primitives",
  "sc-client-api",
@@ -4367,9 +4363,6 @@ name = "cumulus-client-consensus-relay-chain"
 version = "0.7.0"
 dependencies = [
  "async-trait",
- "cumulus-client-consensus-common",
- "cumulus-primitives-core",
- "cumulus-relay-chain-interface",
  "futures",
  "parking_lot 0.12.3",
  "sc-consensus",
@@ -4480,7 +4473,6 @@ version = "0.7.0"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
- "cumulus-client-collator",
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-client-pov-recovery",
@@ -13532,7 +13524,6 @@ name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -13829,7 +13820,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "tiny-keccak",
  "tokio",
  "xcm-runtime-apis",
 ]
@@ -14421,12 +14411,6 @@ dependencies = [
  "serde",
  "unicode-normalization",
 ]
-
-[[package]]
-name = "parity-bytes"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 
 [[package]]
 name = "parity-db"
@@ -20792,7 +20776,6 @@ dependencies = [
  "log",
  "parity-db",
  "parking_lot 0.12.3",
- "sc-client-api",
  "sc-keystore",
  "sc-network-statement",
  "sp-api",
@@ -21454,15 +21437,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde-value"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22077,21 +22051,15 @@ name = "snowbridge-ethereum"
 version = "0.3.0"
 dependencies = [
  "alloy-consensus",
- "alloy-core",
  "alloy-primitives",
  "alloy-rlp",
- "ethabi-decode",
  "ethbloom",
  "ethereum-types",
  "hex-literal",
- "parity-bytes",
  "parity-scale-codec",
  "rlp 0.6.1",
  "scale-info",
  "serde",
- "serde-big-array",
- "sp-io",
- "sp-runtime",
  "sp-std 14.0.0",
 ]
 

@@ -1567,3 +1567,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[workspace.metadata.cargo-udeps.ignore]
+normal = ["aquamarine"]

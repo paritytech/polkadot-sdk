@@ -80,3 +80,6 @@ frame-feature-testing-2 = []
 # Disable ui tests
 disable-ui-tests = []
 no-metadata-docs = ["frame-support/no-metadata-docs"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["frame-benchmarking", "rustversion", "test-pallet", "trybuild"]

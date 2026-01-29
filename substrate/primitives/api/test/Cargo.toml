@@ -44,3 +44,6 @@ static_assertions = { workspace = true, default-features = true }
 [features]
 enable-staging-api = []
 disable-ui-tests = []
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["rustversion", "trybuild"]

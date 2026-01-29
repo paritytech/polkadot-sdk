@@ -40,3 +40,6 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["cumulus-pallet-parachain-system"]

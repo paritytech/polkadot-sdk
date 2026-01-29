@@ -33,3 +33,6 @@ polkavm-derive = { version = "0.30.0" }
 default = ["scale"]
 scale = ["dep:codec", "scale-info"]
 precompiles-sol-interfaces = ["alloy-core"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["pallet-revive-proc-macro"]

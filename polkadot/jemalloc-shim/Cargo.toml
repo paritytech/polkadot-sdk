@@ -29,3 +29,6 @@ jemalloc-allocator = [
 	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["polkadot-cli", "polkadot-node-core-pvf", "polkadot-node-core-pvf-prepare-worker", "polkadot-overseer"]

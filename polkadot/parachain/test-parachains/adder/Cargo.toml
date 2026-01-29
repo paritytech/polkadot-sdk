@@ -26,3 +26,6 @@ substrate-wasm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = ["codec/std", "polkadot-parachain-primitives/std", "sp-io/std"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["dlmalloc", "polkadot-parachain-primitives"]

@@ -158,3 +158,6 @@ bls-experimental = ["sha2", "w3f-bls"]
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bandersnatch-experimental = ["ark-vrf"]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["k256", "sp-debug-derive"]

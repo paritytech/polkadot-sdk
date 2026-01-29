@@ -37,3 +37,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["polkadot-jemalloc-shim"]

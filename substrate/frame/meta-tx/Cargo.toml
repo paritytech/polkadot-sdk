@@ -63,3 +63,6 @@ try-runtime = [
 	"pallet-verify-signature/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+
+[package.metadata.cargo-udeps.ignore]
+development = ["sp-keyring"]

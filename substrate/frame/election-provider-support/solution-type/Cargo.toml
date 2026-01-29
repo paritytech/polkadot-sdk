@@ -33,3 +33,12 @@ sp-arithmetic = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true, default-features = true, features = ["std"] }
 frame-support = { workspace = true, default-features = true }
 trybuild = { workspace = true }
+
+[package.metadata.cargo-udeps.ignore]
+development = [
+	"frame-election-provider-support",
+	"frame-support",
+	"scale-info",
+	"sp-arithmetic",
+	"trybuild",
+]
