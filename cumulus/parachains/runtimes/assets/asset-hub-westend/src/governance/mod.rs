@@ -29,8 +29,10 @@ use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
 };
+use alloc::{vec, vec::Vec};
 use sp_runtime::{traits::IdentityLookup, Percent};
 use xcm::latest::BodyId;
+use pallet_assets::AssetCategoryManager;
 
 mod origins;
 pub use origins::{
@@ -124,6 +126,22 @@ parameter_types! {
 
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
 
+pub struct AHWAssetCategories;
+
+impl AssetCategoryManager<AccountId> for AHWAssetCategories {
+    type AssetKind = VersionedLocatableAsset;
+    type Balance = Balance;
+
+    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
+        vec![]
+    }
+
+    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
+        None
+    }
+}
+
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
@@ -150,6 +168,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
+    type AssetCategories = AHWAssetCategories;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<

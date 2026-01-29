@@ -508,17 +508,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /*
-    #[pallet::storage]
-    pub type AssetCategories<T: Config<I>, I: 'static = ()> = StorageMap<
-        _,
-        Blake2_128Concat,
-        BoundedVec<u8, ConstU32<32>>,  // Category
-        BoundedVec<T::AssetKind, ConstU32<32>>,  // Assets in this category
-        ValueQuery,    
-    >;
-    */
-
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
 	///
