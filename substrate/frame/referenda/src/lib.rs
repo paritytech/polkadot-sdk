@@ -70,7 +70,7 @@ use alloc::boxed::Box;
 use codec::{Codec, Encode};
 use core::fmt::Debug;
 use frame_support::{
-	dispatch::DispatchResult,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
 	traits::{
 		schedule::{
@@ -98,10 +98,10 @@ pub use self::{
 	pallet::*,
 	types::{
 		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DecidingStatus,
-		DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf,
-		ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf,
-		ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf,
-		TracksInfo, VotesOf,
+		DecidingStatusOf, DecisionDeposit, Deposit, InsertSorted, NegativeImbalanceOf,
+		PalletsOriginOf, ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus,
+		ReferendumStatusOf, ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -222,6 +222,9 @@ pub mod pallet {
 		///
 		/// Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		/// Maximum number of individual contributions allowed to fund a deposit.
+		type MaxDepositContributions: Get<u32>;
 	}
 
 	#[pallet::extra_constants]
@@ -303,13 +306,20 @@ pub mod pallet {
 			/// The proposal for the referendum.
 			proposal: BoundedCallOf<T, I>,
 		},
-		/// The decision deposit has been placed.
+		/// The decision deposit has been fully collected and placed.
 		DecisionDepositPlaced {
 			/// Index of the referendum.
 			index: ReferendumIndex,
-			/// The account who placed the deposit.
-			who: T::AccountId,
 			/// The amount placed by the account.
+			amount: BalanceOf<T, I>,
+		},
+		/// Someone contributed to the decision deposit.
+		ContributedDecisionDeposit {
+			/// Index of the referendum.
+			index: ReferendumIndex,
+			/// The account who contributed parts of the deposit.
+			who: T::AccountId,
+			/// The amount contributed by the account.
 			amount: BalanceOf<T, I>,
 		},
 		/// The decision deposit has been refunded.
@@ -410,6 +420,33 @@ pub mod pallet {
 			/// Preimage hash.
 			hash: T::Hash,
 		},
+		/// The list of decision depositors is full, but someone provided an higher deposit.
+		ReplacedDecisionContributor {
+			/// The account that got replaced in the list of decision depositors.
+			who: T::AccountId,
+			/// Index of the referendum.
+			index: ReferendumIndex,
+			/// The amount that the account had contributed.
+			amount: BalanceOf<T, I>,
+		},
+		/// An account increased its decision deposit contribution.
+		DecisionDepositContributionIncreased {
+			/// The account that increased its decision deposit contribution.
+			who: T::AccountId,
+			/// The amount by which the contribution was increased.
+			increased_by: BalanceOf<T, I>,
+			/// Index of the referendum.
+			index: ReferendumIndex,
+		},
+		/// An account decreased its decision deposit contribution.
+		DecisionDepositContributionDecreased {
+			/// The account that decreased its decision deposit contribution.
+			who: T::AccountId,
+			/// The amount by which the contribution was decreased.
+			decreased_by: BalanceOf<T, I>,
+			/// Index of the referendum.
+			index: ReferendumIndex,
+		},
 	}
 
 	#[pallet::error]
@@ -442,6 +479,11 @@ pub mod pallet {
 		PreimageNotExist,
 		/// The preimage is stored with a different length than the one provided.
 		PreimageStoredWithDifferentLength,
+		/// The maximum number of decision depositors is reached and the deposit is too low to
+		/// replace a depositor in the list.
+		DepositTooLow,
+		/// A newly decision deposit contribution must be higher than the user's previous.
+		DepositMustIncrease,
 	}
 
 	#[pallet::hooks]
@@ -455,6 +497,10 @@ pub mod pallet {
 		#[cfg(any(feature = "std", test))]
 		fn integrity_test() {
 			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
+			assert!(
+				T::MaxDepositContributions::get() > 0,
+				"MaxDepositContributions must be greater than 0"
+			);
 		}
 	}
 
@@ -492,7 +538,8 @@ pub mod pallet {
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
-			let submission_deposit = Self::take_deposit(who, T::SubmissionDeposit::get())?;
+			let track_info = T::Tracks::info(track).ok_or(Error::<T, I>::BadTrack)?;
+			let submission_deposit = Self::take_deposit(&who, T::SubmissionDeposit::get())?;
 			let index = ReferendumCount::<T, I>::mutate(|x| {
 				let r = *x;
 				*x += 1;
@@ -507,14 +554,14 @@ pub mod pallet {
 				proposal: proposal.clone(),
 				enactment: enactment_moment,
 				submitted: now,
-				submission_deposit,
-				decision_deposit: None,
+				submission_deposit: (who, submission_deposit).into(),
+				decision_deposit: DecisionDeposit::new(track_info.decision_deposit),
 				deciding: None,
 				tally: TallyOf::<T, I>::new(track),
 				in_queue: false,
 				alarm: Self::set_alarm(nudge_call, now.saturating_add(T::UndecidingTimeout::get())),
 			};
-			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+			ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 
 			Self::deposit_event(Event::<T, I>::Submitted { index, track, proposal });
 			Ok(())
@@ -535,18 +582,8 @@ pub mod pallet {
 			index: ReferendumIndex,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let mut status = Self::ensure_ongoing(index)?;
-			ensure!(status.decision_deposit.is_none(), Error::<T, I>::HasDeposit);
-			let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
-			status.decision_deposit =
-				Some(Self::take_deposit(who.clone(), track.decision_deposit)?);
-			let now = T::BlockNumberProvider::current_block_number();
-			let (info, _, branch) = Self::service_referendum(now, index, status);
-			ReferendumInfoFor::<T, I>::insert(index, info);
-			let e =
-				Event::<T, I>::DecisionDepositPlaced { index, who, amount: track.decision_deposit };
-			Self::deposit_event(e);
-			Ok(branch.weight_of_deposit::<T, I>().into())
+
+			Self::contribute_decision_deposit_impl(index, who, None)
 		}
 
 		/// Refund the Decision Deposit for a closed referendum back to the depositor.
@@ -557,11 +594,11 @@ pub mod pallet {
 		///
 		/// Emits `DecisionDepositRefunded`.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::refund_decision_deposit())]
+		#[pallet::weight(T::WeightInfo::refund_decision_deposit(T::MaxDepositContributions::get()))]
 		pub fn refund_decision_deposit(
 			origin: OriginFor<T>,
 			index: ReferendumIndex,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
@@ -569,15 +606,16 @@ pub mod pallet {
 				.take_decision_deposit()
 				.map_err(|_| Error::<T, I>::Unfinished)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+
+			let num_contributors = deposit.contributors.len() as u32;
+			deposit.contributors.into_iter().for_each(|(who, amount)| {
+				Self::refund_deposit(&who, amount);
+
+				let e = Event::<T, I>::DecisionDepositRefunded { index, who, amount };
+				Self::deposit_event(e);
+			});
 			ReferendumInfoFor::<T, I>::insert(index, info);
-			let e = Event::<T, I>::DecisionDepositRefunded {
-				index,
-				who: deposit.who,
-				amount: deposit.amount,
-			};
-			Self::deposit_event(e);
-			Ok(())
+			Ok(Some(T::WeightInfo::refund_decision_deposit(num_contributors)).into())
 		}
 
 		/// Cancel an ongoing referendum.
@@ -596,11 +634,11 @@ pub mod pallet {
 			}
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Cancelled { index, tally: status.tally });
-			let info = ReferendumInfo::Cancelled(
-				T::BlockNumberProvider::current_block_number(),
-				Some(status.submission_deposit),
-				status.decision_deposit,
-			);
+			let info = ReferendumInfo::Cancelled {
+				when: T::BlockNumberProvider::current_block_number(),
+				submission_deposit: Some(status.submission_deposit),
+				decision_deposit: status.decision_deposit,
+			};
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
@@ -621,10 +659,16 @@ pub mod pallet {
 			}
 			Self::note_one_fewer_deciding(status.track);
 			Self::deposit_event(Event::<T, I>::Killed { index, tally: status.tally });
-			Self::slash_deposit(Some(status.submission_deposit.clone()));
-			Self::slash_deposit(status.decision_deposit.clone());
+			Self::slash_deposit(
+				status.submission_deposit.who.clone(),
+				status.submission_deposit.amount,
+			);
+			status.decision_deposit.contributors.iter().for_each(|(who, amount)| {
+				Self::slash_deposit(who.clone(), *amount);
+			});
 			Self::do_clear_metadata(index);
-			let info = ReferendumInfo::Killed(T::BlockNumberProvider::current_block_number());
+			let info =
+				ReferendumInfo::Killed { when: T::BlockNumberProvider::current_block_number() };
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
@@ -657,6 +701,7 @@ pub mod pallet {
 		/// - `track`: the track to be advanced.
 		///
 		/// Action item for when there is now one fewer referendum in the deciding phase and the
+		///
 		/// `DecidingCount` is not yet updated. This means that we should either:
 		/// - begin deciding another referendum (and leave `DecidingCount` alone); or
 		/// - decrement `DecidingCount`.
@@ -677,7 +722,7 @@ pub mod pallet {
 					if let Some(set_alarm) = maybe_alarm {
 						Self::ensure_alarm_at(&mut status, index, set_alarm);
 					}
-					ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+					ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 					TrackQueue::<T, I>::insert(track, track_queue);
 					branch.into()
 				} else {
@@ -707,7 +752,7 @@ pub mod pallet {
 				.take_submission_deposit()
 				.map_err(|_| Error::<T, I>::BadStatus)?
 				.ok_or(Error::<T, I>::NoDeposit)?;
-			Self::refund_deposit(Some(deposit.clone()));
+			Self::refund_deposit(&deposit.who, deposit.amount);
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
 				index,
@@ -751,6 +796,25 @@ pub mod pallet {
 				Ok(())
 			}
 		}
+
+		/// Contribute towards the Decision Deposit of a referendum.
+		///
+		/// - `origin`: must be `Signed` and the account must have funds available for the
+		///   referendum's track's Decision Deposit.
+		/// - `index`: The index of the submitted referendum whose Decision Deposit is yet to be
+		///   posted.
+		/// - `deposit`: The amount to be contributed to towards the Decision Deposit.
+		#[pallet::call_index(9)]
+		#[pallet::weight(ServiceBranch::max_weight_of_deposit::<T, I>())]
+		pub fn contribute_decision_deposit(
+			origin: OriginFor<T>,
+			index: ReferendumIndex,
+			amount: BalanceOf<T, I>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			Self::contribute_decision_deposit_impl(index, who, Some(amount))
+		}
 	}
 }
 
@@ -769,15 +833,15 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		f: impl FnOnce(PollStatus<&mut T::Tally, BlockNumberFor<T, I>, TrackIdOf<T, I>>) -> R,
 	) -> R {
 		match ReferendumInfoFor::<T, I>::get(index) {
-			Some(ReferendumInfo::Ongoing(mut status)) => {
+			Some(ReferendumInfo::Ongoing { mut status }) => {
 				let result = f(PollStatus::Ongoing(&mut status.tally, status.track));
 				let now = T::BlockNumberProvider::current_block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
-				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 				result
 			},
-			Some(ReferendumInfo::Approved(end, ..)) => f(PollStatus::Completed(end, true)),
-			Some(ReferendumInfo::Rejected(end, ..)) => f(PollStatus::Completed(end, false)),
+			Some(ReferendumInfo::Approved { when, .. }) => f(PollStatus::Completed(when, true)),
+			Some(ReferendumInfo::Rejected { when, .. }) => f(PollStatus::Completed(when, false)),
 			_ => f(PollStatus::None),
 		}
 	}
@@ -789,15 +853,15 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
 		match ReferendumInfoFor::<T, I>::get(index) {
-			Some(ReferendumInfo::Ongoing(mut status)) => {
+			Some(ReferendumInfo::Ongoing { mut status }) => {
 				let result = f(PollStatus::Ongoing(&mut status.tally, status.track))?;
 				let now = T::BlockNumberProvider::current_block_number();
 				Self::ensure_alarm_at(&mut status, index, now + One::one());
-				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+				ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 				Ok(result)
 			},
-			Some(ReferendumInfo::Approved(end, ..)) => f(PollStatus::Completed(end, true)),
-			Some(ReferendumInfo::Rejected(end, ..)) => f(PollStatus::Completed(end, false)),
+			Some(ReferendumInfo::Approved { when, .. }) => f(PollStatus::Completed(when, true)),
+			Some(ReferendumInfo::Rejected { when, .. }) => f(PollStatus::Completed(when, false)),
 			_ => f(PollStatus::None),
 		}
 	}
@@ -817,6 +881,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		let dummy_account_id =
 			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::new(&b"dummy"[..]))
 				.expect("infinite length input; no invalid inputs for type; qed");
+		let track_info = T::Tracks::info(class).expect("Track should exist for `class`");
 		let mut status = ReferendumStatusOf::<T, I> {
 			track: class,
 			origin: frame_support::dispatch::RawOrigin::Root.into(),
@@ -825,7 +890,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			enactment: DispatchTime::After(Zero::zero()),
 			submitted: now,
 			submission_deposit: Deposit { who: dummy_account_id, amount: Zero::zero() },
-			decision_deposit: None,
+			decision_deposit: DecisionDeposit::new(track_info.decision_deposit),
 			deciding: None,
 			tally: TallyOf::<T, I>::new(class),
 			in_queue: false,
@@ -833,7 +898,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		};
 
 		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
-		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
+		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing { status });
 		Ok(index)
 	}
 
@@ -844,9 +909,17 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 		Self::note_one_fewer_deciding(status.track);
 		let now = T::BlockNumberProvider::current_block_number();
 		let info = if approved {
-			ReferendumInfo::Approved(now, Some(status.submission_deposit), status.decision_deposit)
+			ReferendumInfo::Approved {
+				when: now,
+				submission_deposit: Some(status.submission_deposit),
+				decision_deposit: status.decision_deposit,
+			}
 		} else {
-			ReferendumInfo::Rejected(now, Some(status.submission_deposit), status.decision_deposit)
+			ReferendumInfo::Rejected {
+				when: now,
+				submission_deposit: Some(status.submission_deposit),
+				decision_deposit: status.decision_deposit,
+			}
 		};
 		ReferendumInfoFor::<T, I>::insert(index, info);
 		Ok(())
@@ -868,9 +941,116 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		index: ReferendumIndex,
 	) -> Result<ReferendumStatusOf<T, I>, DispatchError> {
 		match ReferendumInfoFor::<T, I>::get(index) {
-			Some(ReferendumInfo::Ongoing(status)) => Ok(status),
+			Some(ReferendumInfo::Ongoing { status }) => Ok(status),
 			_ => Err(Error::<T, I>::NotOngoing.into()),
 		}
+	}
+
+	/// Contribute decision deposit to the referendum with `index`.
+	///
+	/// The `deposit` will be locked for `contributor`. If `deposit` is `None`, the required
+	/// `decision_deposit` of the track will be locked.
+	fn contribute_decision_deposit_impl(
+		index: ReferendumIndex,
+		contributor: T::AccountId,
+		deposit: Option<BalanceOf<T, I>>,
+	) -> DispatchResultWithPostInfo {
+		let mut status = Self::ensure_ongoing(index)?;
+		let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
+		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
+
+		let mut deposit = deposit.unwrap_or(track.decision_deposit);
+		let remaining =
+			track.decision_deposit.saturating_sub(status.decision_deposit.collected_deposit);
+
+		if let Some(pos) =
+			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
+		{
+			// Ensure only necessary amount can be reserved.
+			let old_deposit = status.decision_deposit.contributors.remove(pos).1;
+			let max_needed = old_deposit + remaining;
+			if deposit > max_needed {
+				deposit = max_needed;
+			}
+
+			if old_deposit >= deposit {
+				return Err(Error::<T, I>::DepositMustIncrease.into());
+			} else {
+				Self::take_deposit(&contributor, deposit - old_deposit)?;
+				status.decision_deposit.collected_deposit += deposit - old_deposit;
+
+				Self::deposit_event(Event::DecisionDepositContributionIncreased {
+					index,
+					who: contributor.clone(),
+					increased_by: deposit - old_deposit,
+				});
+			}
+
+			let pos = status
+				.decision_deposit
+				.contributors
+				.binary_search_by_key(&deposit, |c| c.1)
+				.unwrap_or_else(|e| e);
+			status
+				.decision_deposit
+				.contributors
+				.try_insert(pos, (contributor.clone(), deposit))
+				.expect("We just removed an element, so there is space; qed");
+		} else {
+			// Ensure only necessary amount can be reserved.
+			let max_needed = if status.decision_deposit.contributors.is_full() {
+				let lowest =
+					status.decision_deposit.contributors.first().map(|c| c.1).unwrap_or_default();
+				remaining.saturating_add(lowest)
+			} else {
+				remaining
+			};
+
+			if deposit > max_needed {
+				deposit = max_needed;
+			}
+
+			let pos = status
+				.decision_deposit
+				.contributors
+				.binary_search_by_key(&deposit, |c| c.1)
+				.unwrap_or_else(|e| e);
+
+			if pos == 0 && status.decision_deposit.contributors.is_full() {
+				return Err(Error::<T, I>::DepositTooLow.into());
+			}
+
+			Self::take_deposit(&contributor, deposit)?;
+			status.decision_deposit.collected_deposit =
+				status.decision_deposit.collected_deposit.saturating_add(deposit);
+
+			if let Some((who, amount)) = status
+				.decision_deposit
+				.contributors
+				.force_insert_keep_right(pos, (contributor.clone(), deposit))
+				.unwrap_or_else(|e| Some(e))
+			{
+				Self::refund_deposit(&who, amount);
+				status.decision_deposit.collected_deposit =
+					status.decision_deposit.collected_deposit.saturating_sub(amount);
+				Self::deposit_event(Event::ReplacedDecisionContributor { who, index, amount });
+			}
+
+			Self::deposit_event(Event::<T, I>::ContributedDecisionDeposit {
+				index,
+				who: contributor,
+				amount: deposit,
+			});
+		}
+
+		let now = T::BlockNumberProvider::current_block_number();
+		let (info, _, branch) = Self::service_referendum(now, index, status);
+		ReferendumInfoFor::<T, I>::insert(index, info);
+
+		let e = Event::<T, I>::DecisionDepositPlaced { index, amount: track.decision_deposit };
+		Self::deposit_event(e);
+
+		Ok(branch.weight_of_deposit::<T, I>().into())
 	}
 
 	/// Returns whether the referendum is passing.
@@ -878,7 +1058,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_referendum_passing(ref_index: ReferendumIndex) -> Result<bool, DispatchError> {
 		let info = ReferendumInfoFor::<T, I>::get(ref_index).ok_or(Error::<T, I>::BadReferendum)?;
 		match info {
-			ReferendumInfo::Ongoing(status) => {
+			ReferendumInfo::Ongoing { status } => {
 				let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 				let elapsed = if let Some(deciding) = status.deciding {
 					T::BlockNumberProvider::current_block_number().saturating_sub(deciding.since)
@@ -1111,7 +1291,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Should it begin being decided?
 		let track = match T::Tracks::info(status.track) {
 			Some(x) => x,
-			None => return (ReferendumInfo::Ongoing(status), false, ServiceBranch::Fail),
+			None => return (ReferendumInfo::Ongoing { status }, false, ServiceBranch::Fail),
 		};
 		// Default the alarm to the end of the world.
 		let timeout = status.submitted + T::UndecidingTimeout::get();
@@ -1141,7 +1321,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					TrackQueue::<T, I>::insert(status.track, queue);
 				} else {
 					// Are we ready for deciding?
-					branch = if status.decision_deposit.is_some() {
+					branch = if status.decision_deposit.is_fully_collected() {
 						let prepare_end = status.submitted.saturating_add(track.prepare_period);
 						if now >= prepare_end {
 							let (maybe_alarm, branch) =
@@ -1166,11 +1346,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Self::ensure_no_alarm(&mut status);
 					Self::deposit_event(Event::<T, I>::TimedOut { index, tally: status.tally });
 					return (
-						ReferendumInfo::TimedOut(
-							now,
-							Some(status.submission_deposit),
-							status.decision_deposit,
-						),
+						ReferendumInfo::TimedOut {
+							when: now,
+							submission_deposit: Some(status.submission_deposit),
+							decision_deposit: status.decision_deposit,
+						},
 						true,
 						ServiceBranch::TimedOut,
 					)
@@ -1198,11 +1378,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								tally: status.tally,
 							});
 							return (
-								ReferendumInfo::Approved(
-									now,
-									Some(status.submission_deposit),
-									status.decision_deposit,
-								),
+								ReferendumInfo::Approved {
+									when: now,
+									submission_deposit: Some(status.submission_deposit),
+									decision_deposit: status.decision_deposit,
+								},
 								true,
 								ServiceBranch::Approved,
 							)
@@ -1223,11 +1403,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						Self::note_one_fewer_deciding(status.track);
 						Self::deposit_event(Event::<T, I>::Rejected { index, tally: status.tally });
 						return (
-							ReferendumInfo::Rejected(
-								now,
-								Some(status.submission_deposit),
-								status.decision_deposit,
-							),
+							ReferendumInfo::Rejected {
+								when: now,
+								submission_deposit: Some(status.submission_deposit),
+								decision_deposit: status.decision_deposit,
+							},
 							true,
 							ServiceBranch::Rejected,
 						)
@@ -1251,7 +1431,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		} else {
 			Self::ensure_no_alarm(&mut status)
 		};
-		(ReferendumInfo::Ongoing(status), dirty_alarm || dirty, branch)
+		(ReferendumInfo::Ongoing { status }, dirty_alarm || dirty, branch)
 	}
 
 	/// Determine the point at which a referendum will be accepted, move into confirmation with the
@@ -1286,26 +1466,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Reserve a deposit and return the `Deposit` instance.
 	fn take_deposit(
-		who: T::AccountId,
+		who: &T::AccountId,
 		amount: BalanceOf<T, I>,
-	) -> Result<Deposit<T::AccountId, BalanceOf<T, I>>, DispatchError> {
-		T::Currency::reserve(&who, amount)?;
-		Ok(Deposit { who, amount })
+	) -> Result<BalanceOf<T, I>, DispatchError> {
+		T::Currency::reserve(who, amount)?;
+		Ok(amount)
 	}
 
 	/// Return a deposit, if `Some`.
-	fn refund_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
-		if let Some(Deposit { who, amount }) = deposit {
-			T::Currency::unreserve(&who, amount);
-		}
+	fn refund_deposit(contributor: &T::AccountId, refund: BalanceOf<T, I>) {
+		T::Currency::unreserve(&contributor, refund);
 	}
 
 	/// Slash a deposit, if `Some`.
-	fn slash_deposit(deposit: Option<Deposit<T::AccountId, BalanceOf<T, I>>>) {
-		if let Some(Deposit { who, amount }) = deposit {
-			T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
-			Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
-		}
+	fn slash_deposit(who: T::AccountId, amount: BalanceOf<T, I>) {
+		T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+		Self::deposit_event(Event::<T, I>::DepositSlashed { who, amount });
 	}
 
 	/// Determine whether the given `tally` would result in a referendum passing at `elapsed` blocks
@@ -1374,7 +1550,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn try_state_referenda_info() -> Result<(), sp_runtime::TryRuntimeError> {
 		ReferendumInfoFor::<T, I>::iter().try_for_each(|(_, referendum)| {
 			match referendum {
-				ReferendumInfo::Ongoing(status) => {
+				ReferendumInfo::Ongoing { status } => {
 					ensure!(
 						T::Tracks::info(status.track).is_some(),
 						"No track info for the track of the referendum."

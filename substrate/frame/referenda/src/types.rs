@@ -20,10 +20,10 @@
 use super::*;
 use alloc::borrow::Cow;
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
-use core::fmt::Debug;
+use core::{fmt::Debug, mem};
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
-	Parameter,
+	DebugNoBound, EqNoBound, Parameter, PartialEqNoBound,
 };
 use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
@@ -54,6 +54,7 @@ pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 	TallyOf<T, I>,
 	<T as frame_system::Config>::AccountId,
 	ScheduleAddressOf<T, I>,
+	<T as Config<I>>::MaxDepositContributions,
 >;
 pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 	TrackIdOf<T, I>,
@@ -64,6 +65,7 @@ pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 	TallyOf<T, I>,
 	<T as frame_system::Config>::AccountId,
 	ScheduleAddressOf<T, I>,
+	<T as Config<I>>::MaxDepositContributions,
 >;
 pub type DecidingStatusOf<T, I> = DecidingStatus<BlockNumberFor<T, I>>;
 pub type TrackInfoOf<T, I = ()> = TrackInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>;
@@ -118,6 +120,77 @@ pub struct DecidingStatus<BlockNumber> {
 pub struct Deposit<AccountId, Balance> {
 	pub who: AccountId,
 	pub amount: Balance,
+}
+
+impl<AccountId, Balance> From<(AccountId, Balance)> for Deposit<AccountId, Balance> {
+	fn from(data: (AccountId, Balance)) -> Self {
+		Self { who: data.0, amount: data.1 }
+	}
+}
+
+#[derive(Encode, Decode, TypeInfo, DebugNoBound, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxContributors))]
+pub struct DecisionDeposit<AccountId: Debug, Balance: Debug, MaxContributors: Get<u32>> {
+	pub collected_deposit: Balance,
+	pub required_track_deposit: Balance,
+	pub contributors: BoundedVec<(AccountId, Balance), MaxContributors>,
+}
+
+impl<AccountId: Clone + Debug, Balance: Clone + Debug, MaxContributors: Get<u32>> Clone
+	for DecisionDeposit<AccountId, Balance, MaxContributors>
+{
+	fn clone(&self) -> Self {
+		Self {
+			collected_deposit: self.collected_deposit.clone(),
+			required_track_deposit: self.required_track_deposit.clone(),
+			contributors: self.contributors.clone(),
+		}
+	}
+}
+
+impl<AccountId: Eq + Debug, Balance: Eq + Debug, MaxContributors: Get<u32>> Eq
+	for DecisionDeposit<AccountId, Balance, MaxContributors>
+{
+}
+
+impl<AccountId: PartialEq + Debug, Balance: PartialEq + Debug, MaxContributors: Get<u32>> PartialEq
+	for DecisionDeposit<AccountId, Balance, MaxContributors>
+{
+	fn eq(&self, other: &Self) -> bool {
+		self.collected_deposit == other.collected_deposit &&
+			self.required_track_deposit == other.required_track_deposit &&
+			self.contributors == other.contributors
+	}
+}
+
+impl<
+		AccountId: Debug,
+		Balance: PartialOrd + Default + Clone + Debug,
+		MaxDecisionContributors: Get<u32>,
+	> DecisionDeposit<AccountId, Balance, MaxDecisionContributors>
+{
+	/// Create a new decision deposit instance.
+	pub fn new(required_track_deposit: Balance) -> Self {
+		Self {
+			collected_deposit: Default::default(),
+			required_track_deposit,
+			contributors: Default::default(),
+		}
+	}
+
+	/// Are enough funds collected to pay for the decision deposit?
+	pub fn is_fully_collected(&self) -> bool {
+		self.collected_deposit >= self.required_track_deposit
+	}
+
+	/// Take the decision deposit, only leaving the `required_track_deposit`.
+	pub fn take(&mut self) -> Self {
+		Self {
+			collected_deposit: mem::take(&mut self.collected_deposit),
+			required_track_deposit: self.required_track_deposit.clone(),
+			contributors: mem::take(&mut self.contributors),
+		}
+	}
 }
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
@@ -266,8 +339,17 @@ where
 
 /// Info regarding an ongoing referendum.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEqNoBound,
+	Eq,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
+#[scale_info(skip_type_params(MaxContributors))]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -277,6 +359,7 @@ pub struct ReferendumStatus<
 	Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	MaxContributors: Get<u32>,
 > {
 	/// The track of this referendum.
 	pub track: TrackId,
@@ -292,7 +375,7 @@ pub struct ReferendumStatus<
 	/// The deposit reserved for the submission of this referendum.
 	pub submission_deposit: Deposit<AccountId, Balance>,
 	/// The deposit reserved for this referendum to be decided.
-	pub decision_deposit: Option<Deposit<AccountId, Balance>>,
+	pub decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
 	/// The status of a decision being made. If `None`, it has not entered the deciding period.
 	pub deciding: Option<DecidingStatus<Moment>>,
 	/// The current tally of votes in this referendum.
@@ -305,8 +388,17 @@ pub struct ReferendumStatus<
 
 /// Info regarding a referendum, present or past.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEqNoBound,
+	EqNoBound,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
+#[scale_info(skip_type_params(MaxContributors))]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -316,10 +408,11 @@ pub enum ReferendumInfo<
 	Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+	MaxContributors: Get<u32>,
 > {
 	/// Referendum has been submitted and is being voted on.
-	Ongoing(
-		ReferendumStatus<
+	Ongoing {
+		status: ReferendumStatus<
 			TrackId,
 			RuntimeOrigin,
 			Moment,
@@ -328,18 +421,35 @@ pub enum ReferendumInfo<
 			Tally,
 			AccountId,
 			ScheduleAddress,
+			MaxContributors,
 		>,
-	),
+	},
 	/// Referendum finished with approval. Submission deposit is held.
-	Approved(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+	Approved {
+		when: Moment,
+		submission_deposit: Option<Deposit<AccountId, Balance>>,
+		decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+	},
 	/// Referendum finished with rejection. Submission deposit is held.
-	Rejected(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+	Rejected {
+		when: Moment,
+		submission_deposit: Option<Deposit<AccountId, Balance>>,
+		decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+	},
 	/// Referendum finished with cancellation. Submission deposit is held.
-	Cancelled(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+	Cancelled {
+		when: Moment,
+		submission_deposit: Option<Deposit<AccountId, Balance>>,
+		decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+	},
 	/// Referendum finished and was never decided. Submission deposit is held.
-	TimedOut(Moment, Option<Deposit<AccountId, Balance>>, Option<Deposit<AccountId, Balance>>),
+	TimedOut {
+		when: Moment,
+		submission_deposit: Option<Deposit<AccountId, Balance>>,
+		decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
+	},
 	/// Referendum finished with a kill.
-	Killed(Moment),
+	Killed { when: Moment },
 }
 
 impl<
@@ -347,24 +457,39 @@ impl<
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		Balance: Default + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + PartialOrd,
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		AccountId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		ScheduleAddress: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
+		MaxContributors: Get<u32>,
 	>
-	ReferendumInfo<TrackId, RuntimeOrigin, Moment, Call, Balance, Tally, AccountId, ScheduleAddress>
+	ReferendumInfo<
+		TrackId,
+		RuntimeOrigin,
+		Moment,
+		Call,
+		Balance,
+		Tally,
+		AccountId,
+		ScheduleAddress,
+		MaxContributors,
+	>
 {
 	/// Take the Decision Deposit from `self`, if there is one. Returns an `Err` if `self` is not
 	/// in a valid state for the Decision Deposit to be refunded.
-	pub fn take_decision_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
+	pub fn take_decision_deposit(
+		&mut self,
+	) -> Result<Option<DecisionDeposit<AccountId, Balance, MaxContributors>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			Ongoing(x) if x.decision_deposit.is_none() => Ok(None),
+			Ongoing { status } if !status.decision_deposit.is_fully_collected() => Ok(None),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
-			Ongoing(_) => Err(()),
-			Approved(_, _, d) | Rejected(_, _, d) | TimedOut(_, _, d) | Cancelled(_, _, d) =>
-				Ok(d.take()),
-			Killed(_) => Ok(None),
+			Ongoing { .. } => Err(()),
+			Approved { decision_deposit, .. } |
+			Rejected { decision_deposit, .. } |
+			TimedOut { decision_deposit, .. } |
+			Cancelled { decision_deposit, .. } => Ok(Some(decision_deposit.take())),
+			Killed { .. } => Ok(None),
 		}
 	}
 
@@ -374,10 +499,11 @@ impl<
 	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's approved or cancelled.
-			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
+			// Can only refund deposit if it's appoved or cancelled.
+			Approved { submission_deposit, .. } | Cancelled { submission_deposit, .. } =>
+				Ok(submission_deposit.take()),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
-			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
+			Ongoing { .. } | Rejected { .. } | TimedOut { .. } | Killed { .. } => Err(()),
 		}
 	}
 }
