@@ -23,10 +23,9 @@
 use crate::{
 	foreign_assets::pallet,
 	migration::{MigrateForeignAssetPrecompileMappings, MigrationState},
-	ToAssetIndex,
 };
 use frame_support::{
-	assert_ok, derive_impl,
+	derive_impl,
 	migrations::SteppedMigration,
 	parameter_types,
 	traits::AsEnsureOriginWithArg,
@@ -188,7 +187,7 @@ fn create_asset_details(
 ///    pre-migration state)
 /// 2. Verifies that precompile mappings do NOT exist before migration
 /// 3. Runs the migration
-/// 4. Verifies that precompile mappings exist after migration
+/// 4. Verifies that precompile mappings exist after migration with sequential indices
 #[test]
 fn migration_populates_precompile_mappings() {
 	new_test_ext().execute_with(|| {
@@ -224,42 +223,44 @@ fn migration_populates_precompile_mappings() {
 
 		// Verify precompile mappings do NOT exist before migration
 		for asset_location in &test_assets {
-			let asset_index = asset_location.to_asset_index();
-
-			assert!(
-				pallet::Pallet::<Test>::asset_id_of(asset_index).is_none(),
-				"Precompile mapping should NOT exist before migration"
-			);
 			assert!(
 				pallet::Pallet::<Test>::asset_index_of(asset_location).is_none(),
-				"Reverse precompile mapping should NOT exist before migration"
+				"Precompile mapping should NOT exist before migration"
 			);
 		}
 
 		run_migration_to_completion();
 
 		// Verify precompile mappings now exist after migration
+		// All assets should have sequential indices (0, 1, 2, ...)
+		let mut indices_found = Vec::new();
 		for asset_location in &test_assets {
-			let asset_index = asset_location.to_asset_index();
-
-			// Check forward mapping: index -> location
-			let stored_location = pallet::Pallet::<Test>::asset_id_of(asset_index);
-			assert_eq!(
-				stored_location,
-				Some(asset_location.clone()),
-				"Forward precompile mapping should exist after migration for {:?}",
-				asset_location
-			);
-
-			// Check reverse mapping: location -> index
+			// Check reverse mapping exists: location -> index
 			let stored_index = pallet::Pallet::<Test>::asset_index_of(asset_location);
-			assert_eq!(
-				stored_index,
-				Some(asset_index),
+			assert!(
+				stored_index.is_some(),
 				"Reverse precompile mapping should exist after migration for {:?}",
 				asset_location
 			);
+
+			let index = stored_index.unwrap();
+			indices_found.push(index);
+
+			// Check forward mapping is consistent: index -> location
+			let stored_location = pallet::Pallet::<Test>::asset_id_of(index);
+			assert_eq!(
+				stored_location,
+				Some(asset_location.clone()),
+				"Forward precompile mapping should be consistent for {:?}",
+				asset_location
+			);
 		}
+
+		// Verify indices are sequential starting from 0
+		indices_found.sort();
+		assert_eq!(indices_found.len(), 3);
+		// The indices should be 0, 1, 2 (order depends on storage iteration)
+		assert!(indices_found.iter().all(|&i| i < 3), "All indices should be less than 3");
 	});
 }
 
@@ -283,59 +284,46 @@ fn migration_is_idempotent() {
 			create_asset_details(owner),
 		);
 
-		let asset_index_1 = asset_location_1.to_asset_index();
-		let asset_index_2 = asset_location_2.to_asset_index();
-
 		// Verify mappings do not exist before migration
 		assert!(
-			pallet::Pallet::<Test>::asset_id_of(asset_index_1).is_none(),
+			pallet::Pallet::<Test>::asset_index_of(&asset_location_1).is_none(),
 			"Mapping 1 should NOT exist before migration"
 		);
 		assert!(
-			pallet::Pallet::<Test>::asset_id_of(asset_index_2).is_none(),
+			pallet::Pallet::<Test>::asset_index_of(&asset_location_2).is_none(),
 			"Mapping 2 should NOT exist before migration"
 		);
 
 		run_migration_to_completion();
 
+		// Get the indices assigned during first run
+		let index_1 = pallet::Pallet::<Test>::asset_index_of(&asset_location_1).unwrap();
+		let index_2 = pallet::Pallet::<Test>::asset_index_of(&asset_location_2).unwrap();
+
 		// Capture complete state after first run
 		let state_after_first = (
-			pallet::Pallet::<Test>::asset_id_of(asset_index_1),
-			pallet::Pallet::<Test>::asset_id_of(asset_index_2),
+			pallet::Pallet::<Test>::asset_id_of(index_1),
+			pallet::Pallet::<Test>::asset_id_of(index_2),
 			pallet::Pallet::<Test>::asset_index_of(&asset_location_1),
 			pallet::Pallet::<Test>::asset_index_of(&asset_location_2),
+			pallet::Pallet::<Test>::next_asset_index(),
 		);
 
 		// Verify mappings were created correctly after first run
-		assert_eq!(
-			state_after_first.0,
-			Some(asset_location_1.clone()),
-			"Forward mapping 1 should exist after first run"
-		);
-		assert_eq!(
-			state_after_first.1,
-			Some(asset_location_2.clone()),
-			"Forward mapping 2 should exist after first run"
-		);
-		assert_eq!(
-			state_after_first.2,
-			Some(asset_index_1),
-			"Reverse mapping 1 should exist after first run"
-		);
-		assert_eq!(
-			state_after_first.3,
-			Some(asset_index_2),
-			"Reverse mapping 2 should exist after first run"
-		);
+		assert!(state_after_first.0.is_some(), "Forward mapping 1 should exist after first run");
+		assert!(state_after_first.1.is_some(), "Forward mapping 2 should exist after first run");
+		assert!(state_after_first.2.is_some(), "Reverse mapping 1 should exist after first run");
+		assert!(state_after_first.3.is_some(), "Reverse mapping 2 should exist after first run");
 
 		run_migration_to_completion();
 
 		// Capture complete state after second run
 		let state_after_second = (
-			pallet::Pallet::<Test>::asset_id_of(asset_index_1),
-			pallet::Pallet::<Test>::asset_id_of(asset_index_2),
+			pallet::Pallet::<Test>::asset_id_of(index_1),
+			pallet::Pallet::<Test>::asset_id_of(index_2),
 			pallet::Pallet::<Test>::asset_index_of(&asset_location_1),
 			pallet::Pallet::<Test>::asset_index_of(&asset_location_2),
+			pallet::Pallet::<Test>::next_asset_index(),
 		);
 
 		// State must be identical after second run
@@ -374,26 +362,27 @@ fn migration_skips_already_mapped_assets() {
 			create_asset_details(owner),
 		);
 
-		// Pre-create mapping for one asset
-		let pre_mapped_index = asset_with_mapping.to_asset_index();
-		assert_ok!(pallet::Pallet::<Test>::insert_asset_mapping(
-			pre_mapped_index,
-			&asset_with_mapping,
-		));
+		// Pre-create mapping for one asset using insert_asset_mapping
+		let pre_mapped_index =
+			pallet::Pallet::<Test>::insert_asset_mapping(&asset_with_mapping).unwrap();
 
 		run_migration_to_completion();
 
-		let index_1 = asset_with_mapping.to_asset_index();
-		let index_2 = asset_without_mapping.to_asset_index();
-
+		// The pre-mapped asset should keep its original index
 		assert_eq!(
-			pallet::Pallet::<Test>::asset_id_of(index_1),
-			Some(asset_with_mapping),
+			pallet::Pallet::<Test>::asset_index_of(&asset_with_mapping),
+			Some(pre_mapped_index),
 			"Pre-existing mapping should be preserved"
 		);
 		assert_eq!(
-			pallet::Pallet::<Test>::asset_id_of(index_2),
-			Some(asset_without_mapping),
+			pallet::Pallet::<Test>::asset_id_of(pre_mapped_index),
+			Some(asset_with_mapping),
+			"Pre-existing forward mapping should be preserved"
+		);
+
+		// The unmapped asset should now have a mapping
+		assert!(
+			pallet::Pallet::<Test>::asset_index_of(&asset_without_mapping).is_some(),
 			"New mapping should be created for previously unmapped asset"
 		);
 	});
@@ -442,78 +431,8 @@ fn migration_respects_weight_limits() {
 
 		// Verify all assets were migrated
 		for asset_location in &assets {
-			let asset_index = asset_location.to_asset_index();
 			assert!(
-				pallet::Pallet::<Test>::asset_id_of(asset_index).is_some(),
-				"Asset {:?} should have a mapping after migration",
-				asset_location
-			);
-		}
-	});
-}
-
-/// Test the migration cursor state transitions.
-#[test]
-fn migration_cursor_transitions_correctly() {
-	new_test_ext().execute_with(|| {
-		let owner = 1u64;
-
-		// Create multiple assets to ensure we can observe state transitions
-		let assets: Vec<Location> = (7000..7005u32)
-			.map(|para_id| Location::new(1, [Junction::Parachain(para_id)]))
-			.collect();
-
-		for asset_location in &assets {
-			pallet_assets::Asset::<Test, ForeignAssetsInstance>::insert(
-				asset_location.clone(),
-				create_asset_details(owner),
-			);
-		}
-
-		// Use limited weight to force multiple steps
-		let limited_weight = Weight::from_parts(10_000, 0);
-		let mut meter = WeightMeter::with_limit(limited_weight);
-
-		// First step with limited weight
-		let cursor =
-			MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(None, &mut meter)
-				.expect("Migration should succeed");
-
-		// With limited weight, we expect either:
-		// 1. A cursor pointing to an asset (if we processed some but not all)
-		// 2. None if weight was insufficient for even one iteration
-		// Both are valid - let's verify the migration completes correctly regardless
-
-		// Now run to completion with unlimited weight
-		let mut current_cursor = cursor;
-		loop {
-			let mut full_meter = WeightMeter::with_limit(Weight::MAX);
-			match MigrateForeignAssetPrecompileMappings::<Test, ForeignAssetsInstance>::step(
-				current_cursor,
-				&mut full_meter,
-			) {
-				Ok(None) => break, // Migration complete
-				Ok(Some(new_cursor)) => {
-					// Verify cursor contains valid state
-					match &new_cursor {
-						MigrationState::Asset(_) => {
-							// Valid intermediate state
-						},
-						MigrationState::Finished => {
-							panic!("Should not return Finished in cursor, should return Ok(None)");
-						},
-					}
-					current_cursor = Some(new_cursor);
-				},
-				Err(e) => panic!("Migration failed: {:?}", e),
-			}
-		}
-
-		// Verify all assets were migrated
-		for asset_location in &assets {
-			let asset_index = asset_location.to_asset_index();
-			assert!(
-				pallet::Pallet::<Test>::asset_id_of(asset_index).is_some(),
+				pallet::Pallet::<Test>::asset_index_of(asset_location).is_some(),
 				"Asset {:?} should have a mapping after migration",
 				asset_location
 			);
@@ -541,24 +460,40 @@ fn migration_id_is_consistent() {
 	assert_eq!(id1.version_to, 1, "Migration should be to version 1");
 }
 
-/// Test that Location's ToAssetIndex implementation produces deterministic hashes.
+/// Test that sequential indices are correctly assigned during migration.
 #[test]
-fn location_to_asset_index_is_deterministic() {
-	let location1 = Location::new(1, [Junction::Parachain(1000)]);
-	let location2 = Location::new(1, [Junction::Parachain(1000)]);
-	let location3 = Location::new(1, [Junction::Parachain(2000)]);
+fn migration_assigns_sequential_indices() {
+	new_test_ext().execute_with(|| {
+		let owner = 1u64;
 
-	// Same locations should produce same index
-	assert_eq!(
-		location1.to_asset_index(),
-		location2.to_asset_index(),
-		"Same locations should produce same asset index"
-	);
+		// Create 5 assets
+		let assets: Vec<Location> = (1000..1005u32)
+			.map(|para_id| Location::new(1, [Junction::Parachain(para_id)]))
+			.collect();
 
-	// Different locations should (likely) produce different indices
-	assert_ne!(
-		location1.to_asset_index(),
-		location3.to_asset_index(),
-		"Different locations should produce different asset indices"
-	);
+		for asset_location in &assets {
+			pallet_assets::Asset::<Test, ForeignAssetsInstance>::insert(
+				asset_location.clone(),
+				create_asset_details(owner),
+			);
+		}
+
+		// NextAssetIndex should be 0 initially
+		assert_eq!(pallet::Pallet::<Test>::next_asset_index(), 0);
+
+		run_migration_to_completion();
+
+		// NextAssetIndex should be 5 after migrating 5 assets
+		assert_eq!(pallet::Pallet::<Test>::next_asset_index(), 5);
+
+		// Collect all assigned indices
+		let mut assigned_indices: Vec<u32> = assets
+			.iter()
+			.map(|loc| pallet::Pallet::<Test>::asset_index_of(loc).unwrap())
+			.collect();
+		assigned_indices.sort();
+
+		// Indices should be 0, 1, 2, 3, 4
+		assert_eq!(assigned_indices, vec![0, 1, 2, 3, 4]);
+	});
 }

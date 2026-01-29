@@ -48,7 +48,7 @@ fn assert_contract_event(contract: H160, event: IERC20Events) {
 
 fn setup_asset_for_prefix(asset_id: u32, _owner: u64, prefix: u16) {
 	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		pallet::Pallet::<Test>::insert_asset_mapping(0, &asset_id)
+		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
 			.expect("Failed to insert asset mapping");
 	}
 }

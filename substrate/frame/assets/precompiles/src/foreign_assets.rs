@@ -24,38 +24,16 @@ pub use pallet::*;
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
-	T::AssetId: ToAssetIndex,
 	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
 	I: 'static,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		pallet::Pallet::<T>::insert_asset_mapping(id.to_asset_index(), id)
+		pallet::Pallet::<T>::insert_asset_mapping(id).map(|_| ())
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
 		pallet::Pallet::<T>::remove_asset_mapping(id);
 		Ok(())
-	}
-}
-
-/// Trait to convert various types to u32 asset index used internally by the pallet.
-pub trait ToAssetIndex {
-	fn to_asset_index(&self) -> u32;
-}
-
-/// Implemented for trust-backed assets and pool assets.
-impl ToAssetIndex for u32 {
-	fn to_asset_index(&self) -> u32 {
-		*self
-	}
-}
-
-/// Implemented for foreign assets.
-impl ToAssetIndex for xcm::v5::Location {
-	fn to_asset_index(&self) -> u32 {
-		use codec::Encode;
-		let h = sp_core::hashing::blake2_256(&self.encode());
-		u32::from_le_bytes([h[0], h[1], h[2], h[3]])
 	}
 }
 
@@ -68,16 +46,16 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The foreign asset ID type. This must match the `AssetId` type used by the
 		/// `pallet_assets` instance for foreign assets.
-		type ForeignAssetId: Member
-			+ Parameter
-			+ Clone
-			+ MaybeSerializeDeserialize
-			+ MaxEncodedLen
-			+ ToAssetIndex;
+		type ForeignAssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	/// The next available asset index for foreign assets.
+	/// This is incremented each time a new foreign asset mapping is created.
+	#[pallet::storage]
+	pub type NextAssetIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Mapping an asset index (derived from the precompile address) to a `ForeignAssetId`.
 	#[pallet::storage]
@@ -100,21 +78,31 @@ pub mod pallet {
 			ForeignAssetIdToAssetIndex::<T>::get(asset_id)
 		}
 
-		pub fn insert_asset_mapping(
-			asset_index: u32,
-			asset_id: &T::ForeignAssetId,
-		) -> Result<(), ()> {
-			if AssetIndexToForeignAssetId::<T>::contains_key(asset_index) {
-				log::debug!(target: LOG_TARGET, "Asset index {:?} already mapped", asset_index);
-				return Err(());
-			}
+		/// Get the next available asset index without incrementing it.
+		pub fn next_asset_index() -> u32 {
+			NextAssetIndex::<T>::get()
+		}
+
+		/// Insert a new asset mapping, allocating a sequential index.
+		/// Returns the allocated asset index on success.
+		pub fn insert_asset_mapping(asset_id: &T::ForeignAssetId) -> Result<u32, ()> {
 			if ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
 				log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
 				return Err(());
 			}
+
+			let asset_index = NextAssetIndex::<T>::get();
+			let next_index = asset_index.checked_add(1).ok_or_else(|| {
+				log::error!(target: LOG_TARGET, "Asset index overflow");
+				()
+			})?;
+
 			AssetIndexToForeignAssetId::<T>::insert(asset_index, asset_id.clone());
 			ForeignAssetIdToAssetIndex::<T>::insert(asset_id, asset_index);
-			Ok(())
+			NextAssetIndex::<T>::put(next_index);
+
+			log::debug!(target: LOG_TARGET, "Mapped asset {:?} to index {:?}", asset_id, asset_index);
+			Ok(asset_index)
 		}
 
 		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {

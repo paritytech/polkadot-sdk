@@ -48,9 +48,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub use foreign_assets::{
-	pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId, ToAssetIndex,
-};
+pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
 pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
 
 /// Mean of extracting the asset id from the precompile address.
