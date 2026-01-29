@@ -27,6 +27,7 @@ doc:
       `BurnHandler::on_burned` to reduce total issuance.
 
     - Redirect all burns to DAP or DAP satellite.
+    - Fee split set to 100% DAP on Westend chains to accelerate testing.
 crates:
 - name: frame-support
   bump: minor
