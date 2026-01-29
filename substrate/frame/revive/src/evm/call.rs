@@ -112,7 +112,8 @@ impl GenericTransaction {
 			}
 
 			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
-			// Per spec: "The transaction is considered invalid if the length of authorization_list is zero."
+			// Per spec: "The transaction is considered invalid if the length of authorization_list
+			// is zero."
 			if self.authorization_list.is_empty() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);

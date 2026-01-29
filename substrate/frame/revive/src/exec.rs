@@ -118,7 +118,6 @@ fn resolve_delegation<T: Config>(address: &H160, default_code_hash: H256) -> H25
 	delegated_contract.code_hash
 }
 
-
 /// Combined key type for both fixed and variable sized storage keys.
 #[derive(Debug)]
 pub enum Key {
@@ -1138,7 +1137,8 @@ where
 							return Ok(None);
 						};
 						// EIP-7702: Resolve delegation if account is delegated
-						let actual_code_hash = resolve_delegation::<T>(&delegated_call.callee, info.code_hash);
+						let actual_code_hash =
+							resolve_delegation::<T>(&delegated_call.callee, info.code_hash);
 						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1153,7 +1153,8 @@ where
 							.as_contract()
 							.expect("When not a precompile the contract was loaded above; qed");
 						// EIP-7702: Resolve delegation if account is delegated
-						let actual_code_hash = resolve_delegation::<T>(&address, contract_info.code_hash);
+						let actual_code_hash =
+							resolve_delegation::<T>(&address, contract_info.code_hash);
 						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}

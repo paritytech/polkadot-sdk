@@ -23,16 +23,12 @@
 
 use crate::{
 	address::AddressMapper,
-	evm::api::{
-		recover_eth_address_from_message, rlp, AuthorizationListEntry, SignedAuthorizationListEntry,
-	},
+	evm::api::{recover_eth_address_from_message, rlp, SignedAuthorizationListEntry},
 	storage::AccountInfo,
 	Config,
 };
 use alloc::vec::Vec;
-
 use sp_core::{H160, U256};
-
 use sp_runtime::SaturatedConversion;
 
 /// EIP-7702: Magic value for authorization signature message
@@ -190,13 +186,7 @@ fn recover_authority(auth: &SignedAuthorizationListEntry) -> Result<H160, ()> {
 	let mut message = Vec::new();
 	message.push(EIP7702_MAGIC);
 
-	let unsigned_auth = AuthorizationListEntry {
-		chain_id: auth.chain_id,
-		address: auth.address,
-		nonce: auth.nonce,
-	};
-
-	let rlp_encoded = rlp::encode(&unsigned_auth);
+	let rlp_encoded = rlp::encode(&auth.inner);
 	message.extend_from_slice(&rlp_encoded);
 
 	let signature = auth.signature();

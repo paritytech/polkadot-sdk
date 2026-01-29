@@ -132,19 +132,15 @@ mod benchmarks {
 	// Measures the weight of validating a single authorization tuple
 	#[benchmark(pov_mode = Measured)]
 	fn process_single_authorization() -> Result<(), BenchmarkError> {
-		use crate::evm::{
-			AuthorizationListEntry, SignedAuthorizationListEntry,
-			eip7702,
-		};
+		use crate::evm::{eip7702, SignedAuthorizationListEntry, UnsignedAuthorizationListEntry};
 		use k256::ecdsa::SigningKey;
 		use sp_core::keccak_256;
 
-		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32]))
-			.expect("valid key");
+		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32])).expect("valid key");
 
 		let target_address = H160::from_low_u64_be(1);
 
-		let unsigned_auth = AuthorizationListEntry {
+		let authorization_unsigned = UnsignedAuthorizationListEntry {
 			chain_id: U256::from(T::ChainId::get()),
 			address: target_address,
 			nonce: U256::zero(),
@@ -152,12 +148,26 @@ mod benchmarks {
 
 		let mut message = Vec::new();
 		message.push(eip7702::EIP7702_MAGIC);
+		message.extend_from_slice(&crate::evm::rlp::encode(&authorization_unsigned));
+
+		let hash = keccak_256(&message);
+		let (signature, recovery_id) =
+			signing_key.sign_prehash_recoverable(&hash).expect("signing succeeds");
+
+		let signed_auth = SignedAuthorizationListEntry {
+			authorization_unsigned,
+			y_parity: U256::from(recovery_id.to_byte()),
+			r: U256::from_big_endian(&signature.r().to_bytes()),
+			s: U256::from_big_endian(&signature.s().to_bytes()),
+		};
+
+		let mut message = Vec::new();
+		message.push(eip7702::EIP7702_MAGIC);
 		message.extend_from_slice(&crate::evm::rlp::encode(&unsigned_auth));
 
 		let hash = keccak_256(&message);
-		let (signature, recovery_id) = signing_key
-			.sign_prehash_recoverable(&hash)
-			.expect("signing succeeds");
+		let (signature, recovery_id) =
+			signing_key.sign_prehash_recoverable(&hash).expect("signing succeeds");
 
 		let signed_auth = SignedAuthorizationListEntry {
 			chain_id: unsigned_auth.chain_id,
@@ -193,15 +203,18 @@ mod benchmarks {
 			let authority_id = T::AddressMapper::to_account_id(&authority);
 			frame_system::Pallet::<T>::inc_account_nonce(&authority_id);
 
-			assert!(frame_system::Account::<T>::contains_key(&authority_id),
-				"Account should exist after incrementing nonce");
+			assert!(
+				frame_system::Account::<T>::contains_key(&authority_id),
+				"Account should exist after incrementing nonce"
+			);
 
 			authorities.insert(authority, target);
 		}
 
 		#[block]
 		{
-			let (_new_accounts, _existing_accounts) = eip7702::apply_delegations::<T>(authorities.clone());
+			let (_new_accounts, _existing_accounts) =
+				eip7702::apply_delegations::<T>(authorities.clone());
 		}
 
 		Ok(())
@@ -227,7 +240,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			let (_new_accounts, _existing_accounts) = eip7702::apply_delegations::<T>(authorities.clone());
+			let (_new_accounts, _existing_accounts) =
+				eip7702::apply_delegations::<T>(authorities.clone());
 		}
 
 		Ok(())
@@ -566,7 +580,7 @@ mod benchmarks {
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
 			0,
-			vec![]
+			vec![],
 		);
 
 		// contract should have received the value

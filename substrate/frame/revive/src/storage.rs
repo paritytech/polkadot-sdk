@@ -207,19 +207,14 @@ impl<T: Config> AccountInfo<T> {
 
 	/// EIP-7702: Set a delegation indicator for an EOA
 	/// Marks the account as delegated to the target address
-	pub fn set_delegation(
-		address: &H160,
-		target: H160
-	) -> Result<(), DispatchError> {
+	pub fn set_delegation(address: &H160, target: H160) -> Result<(), DispatchError> {
 		// Update or create account info with Delegated type
 		AccountInfoOf::<T>::mutate(address, |account| {
 			if let Some(account) = account {
 				account.account_type = AccountType::Delegated { target };
 			} else {
-				*account = Some(AccountInfo {
-					account_type: AccountType::Delegated { target },
-					dust: 0,
-				});
+				*account =
+					Some(AccountInfo { account_type: AccountType::Delegated { target }, dust: 0 });
 			}
 		});
 		Ok(())

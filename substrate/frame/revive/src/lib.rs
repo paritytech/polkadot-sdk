@@ -1354,12 +1354,16 @@ pub mod pallet {
 
 			let (eth_gas_limit, weight_limit) = if !authorization_list.is_empty() {
 				let chain_id = U256::from(T::ChainId::get());
-				let (new_accounts, existing_accounts) = evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+				let (new_accounts, existing_accounts) =
+					evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
 
 				let auth_count = authorization_list.len() as u64;
 				let single_auth_weight = T::WeightInfo::process_single_authorization();
-				let auth_weight = single_auth_weight.saturating_mul(auth_count)
-					.saturating_add(T::WeightInfo::apply_delegations_existing(existing_accounts as u32))
+				let auth_weight = single_auth_weight
+					.saturating_mul(auth_count)
+					.saturating_add(T::WeightInfo::apply_delegations_existing(
+						existing_accounts as u32,
+					))
 					.saturating_add(T::WeightInfo::apply_delegations_new(new_accounts as u32));
 
 				let gas_scale: u64 = T::GasScale::get().into();

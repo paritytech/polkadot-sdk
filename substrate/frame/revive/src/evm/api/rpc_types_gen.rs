@@ -837,7 +837,7 @@ pub struct Transaction7702Unsigned {
 	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct AuthorizationListEntry {
+pub struct UnsignedAuthorizationListEntry {
 	/// Chain ID that this authorization is valid on
 	pub chain_id: U256,
 	/// Address to authorize
@@ -863,12 +863,9 @@ pub struct AuthorizationListEntry {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct SignedAuthorizationListEntry {
-	/// Chain ID that this authorization is valid on
-	pub chain_id: U256,
-	/// Address to authorize
-	pub address: Address,
-	/// Nonce of the authorization
-	pub nonce: U256,
+	/// The unsigned authorization entry
+	#[serde(flatten)]
+	pub authorization_unsigned: UnsignedAuthorizationListEntry,
 	/// y-parity of the signature
 	pub y_parity: U256,
 	/// r component of signature
