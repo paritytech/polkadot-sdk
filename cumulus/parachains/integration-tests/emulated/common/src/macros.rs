@@ -149,10 +149,19 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					//       So this is just workaround, must be investigated
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| { });
 
+					let receiver_total_issuance_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
+						<<$receiver_para as [<$receiver_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance()
+					});
 					// Send XCM message from Origin Parachain
 					<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+						let total_issuance_source_of_truth = <$sender_para as $crate::macros::Chain>::native_total_issuance_source_of_truth();
+						let total_issuance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
 						let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 						$crate::macros::assert_ok!(<_ as $crate::macros::Dispatchable>::dispatch(call, origin));
+						let total_issuance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
 
 						type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
 
@@ -166,10 +175,23 @@ macro_rules! test_parachain_is_trusted_teleporter {
 									$crate::macros::cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
-								) => {},
+									$crate::macros::pallet_balances::Event::Withdraw { who, .. }
+								) => {
+									who: *who == sender,
+								},
 							]
 						);
+						if total_issuance_source_of_truth {
+							assert_eq!(
+								total_issuance_after, total_issuance_before,
+								"Unexpected change in sender native token total issuance source of truth"
+							);
+						} else {
+							assert_eq!(
+								total_issuance_after, total_issuance_before - $amount,
+								"Native token total issuance should have decreased on sender"
+							);
+						}
 					});
 
 					// Receive XCM message in Destination Parachain
@@ -180,13 +202,28 @@ macro_rules! test_parachain_is_trusted_teleporter {
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
-								) => {},
+									$crate::macros::pallet_balances::Event::Deposit { who, .. }
+								) => {
+									who: *who == receiver,
+								},
 								RuntimeEvent::MessageQueue(
 									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
 								) => {},
 							]
 						);
+						let receiver_total_issuance_after = <<$receiver_para as [<$receiver_para Pallet>]>::Balances
+							as $crate::macros::Currency<_>>::total_issuance();
+						if <$receiver_para as $crate::macros::Chain>::native_total_issuance_source_of_truth() {
+							assert_eq!(
+								receiver_total_issuance_after, receiver_total_issuance_before,
+								"Unexpected change in receiver native token total issuance source of truth"
+							);
+						} else {
+							assert!(
+								receiver_total_issuance_after > receiver_total_issuance_before,
+								"Native token total issuance should have increased on receiver"
+							);
+						}
 					});
 
 					// Check if balances are updated accordingly in Origin and Destination Parachains
@@ -303,8 +340,10 @@ macro_rules! test_relay_is_trusted_teleporter {
 									$crate::macros::pallet_xcm::Event::Attempted { outcome: $crate::macros::Outcome::Complete { .. } }
 								) => {},
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
-								) => {},
+									$crate::macros::pallet_balances::Event::Withdraw { who, .. }
+								) => {
+									who: *who == sender,
+								},
 								RuntimeEvent::XcmPallet(
 									$crate::macros::pallet_xcm::Event::Sent { .. }
 								) => {},
@@ -320,8 +359,10 @@ macro_rules! test_relay_is_trusted_teleporter {
 							$receiver_para,
 							vec![
 								RuntimeEvent::Balances(
-									$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
-								) => {},
+									$crate::macros::pallet_balances::Event::Deposit { who, .. }
+								) => {
+									who: *who == receiver,
+								},
 								RuntimeEvent::MessageQueue(
 									$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
 								) => {},
@@ -468,8 +509,10 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 							$crate::macros::pallet_xcm::Event::Attempted { outcome: $crate::macros::Outcome::Complete { .. } }
 						) => {},
 						RuntimeEvent::Balances(
-							$crate::macros::pallet_balances::Event::Burned { who: sender, amount }
-						) => {},
+							$crate::macros::pallet_balances::Event::Withdraw { who, .. }
+						) => {
+							who: *who == sender,
+						},
 						RuntimeEvent::PolkadotXcm(
 							$crate::macros::pallet_xcm::Event::Sent { .. }
 						) => {},
@@ -485,8 +528,10 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 					$receiver_relay,
 					vec![
 						RuntimeEvent::Balances(
-							$crate::macros::pallet_balances::Event::Minted { who: receiver, .. }
-						) => {},
+							$crate::macros::pallet_balances::Event::Deposit { who, .. }
+						) => {
+							who: *who == receiver,
+						},
 						RuntimeEvent::MessageQueue(
 							$crate::macros::pallet_message_queue::Event::Processed { success: true, .. }
 						) => {},
@@ -511,31 +556,46 @@ macro_rules! test_parachain_is_trusted_teleporter_for_relay {
 
 #[macro_export]
 macro_rules! test_chain_can_claim_assets {
-	( $sender_para:ty, $runtime_call:ty, $network_id:expr, $assets:expr, $amount:expr ) => {
+	( $sender_para:ty, $xcm_config:ty, $network_id:expr, $asset:expr, $amount:expr ) => {
 		$crate::macros::paste::paste! {
+			use xcm_executor::traits::TransactAsset;
 			let sender = [<$sender_para Sender>]::get();
 			let origin = <$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(sender.clone());
 			// Receiver is the same as sender
 			let beneficiary: $crate::macros::Location =
 				$crate::macros::Junction::AccountId32 { network: Some($network_id), id: sender.clone().into() }.into();
-			let versioned_assets: $crate::macros::VersionedAssets = $assets.clone().into();
+			let assets: $crate::macros::Assets = $asset.clone().into();
+			let versioned_assets: $crate::macros::VersionedAssets = assets.clone().into();
+			let context = $crate::macros::XcmContext { origin: None, message_id: Default::default(), topic: None };
 
 			<$sender_para as $crate::macros::TestExt>::execute_with(|| {
+				// Mint some assets to trap.
+				let holdings =
+					<$xcm_config as xcm_executor::Config>::AssetTransactor::mint_asset(
+						&$asset, &context,
+					).unwrap();
+				let total_issuance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
+					as $crate::macros::Currency<_>>::total_issuance();
 				// Assets are trapped for whatever reason.
 				// The possible reasons for this might differ from runtime to runtime, so here we just drop them directly.
 				<<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm as $crate::macros::DropAssets>::drop_assets(
-					&beneficiary,
-					$assets.clone().into(),
-					&$crate::macros::XcmContext { origin: None, message_id: [0u8; 32], topic: None },
+					&beneficiary, holdings, &context,
 				);
+				// assert trapping assets does not alter total issuance
+				let total_issuance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
+					as $crate::macros::Currency<_>>::total_issuance();
+				assert_eq!(total_issuance_before, total_issuance_after);
 
 				type RuntimeEvent = <$sender_para as $crate::macros::Chain>::RuntimeEvent;
 				$crate::macros::assert_expected_events!(
 					$sender_para,
 					vec![
 						RuntimeEvent::PolkadotXcm(
-							$crate::macros::pallet_xcm::Event::AssetsTrapped { origin: beneficiary, assets: versioned_assets, .. }
-						) => {},
+							$crate::macros::pallet_xcm::Event::AssetsTrapped { origin, assets, .. }
+						) => {
+							origin: *origin == beneficiary,
+							assets: *assets == versioned_assets,
+						},
 					]
 				);
 
@@ -567,8 +627,11 @@ macro_rules! test_chain_can_claim_assets {
 					$sender_para,
 					vec![
 						RuntimeEvent::PolkadotXcm(
-							$crate::macros::pallet_xcm::Event::AssetsClaimed { origin: beneficiary, assets: versioned_assets, .. }
-						) => {},
+							$crate::macros::pallet_xcm::Event::AssetsClaimed { origin, assets, .. }
+						) => {
+							origin: *origin == beneficiary,
+							assets: *assets == versioned_assets,
+						},
 					]
 				);
 
@@ -576,6 +639,11 @@ macro_rules! test_chain_can_claim_assets {
 				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 				assert_eq!(balance_after, balance_before + $amount);
+
+				// assert claiming trapped assets does not alter total issuance
+				let total_issuance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
+					as $crate::macros::Currency<_>>::total_issuance();
+				assert_eq!(total_issuance_before, total_issuance_after);
 
 				// Claiming the assets again doesn't work.
 				assert!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::claim_assets(
@@ -588,11 +656,15 @@ macro_rules! test_chain_can_claim_assets {
 					as $crate::macros::Currency<_>>::free_balance(&sender);
 				assert_eq!(balance, balance_after);
 
+				let holdings =
+					<$xcm_config as xcm_executor::Config>::AssetTransactor::mint_asset(
+						&$asset, &context,
+					).unwrap();
+				let total_issuance_before = <<$sender_para as [<$sender_para Pallet>]>::Balances
+					as $crate::macros::Currency<_>>::total_issuance();
 				// You can also claim assets and send them to a different account.
 				<<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm as $crate::macros::DropAssets>::drop_assets(
-					&beneficiary,
-					$assets.clone().into(),
-					&$crate::macros::XcmContext { origin: None, message_id: [0u8; 32], topic: None },
+					&beneficiary, holdings, &context,
 				);
 				let receiver = [<$sender_para Receiver>]::get();
 				let other_beneficiary: $crate::macros::Location =
@@ -607,6 +679,10 @@ macro_rules! test_chain_can_claim_assets {
 				let balance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
 					as $crate::macros::Currency<_>>::free_balance(&receiver);
 				assert_eq!(balance_after, balance_before + $amount);
+				// assert claiming trapped assets does not alter total issuance
+				let total_issuance_after = <<$sender_para as [<$sender_para Pallet>]>::Balances
+					as $crate::macros::Currency<_>>::total_issuance();
+				assert_eq!(total_issuance_before, total_issuance_after);
 			});
 		}
 	};

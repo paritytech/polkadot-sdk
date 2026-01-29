@@ -20,14 +20,14 @@ use emulated_integration_tests_common::test_chain_can_claim_assets;
 
 #[test]
 fn assets_can_be_claimed() {
-	let amount = AssetHubWestendExistentialDeposit::get();
-	let assets: Asset = (Parent, amount).into();
+	let amount = CollectivesWestendExistentialDeposit::get();
+	let asset: Asset = (Parent, amount).into();
 
 	test_chain_can_claim_assets!(
-		AssetHubWestend,
-		AssetHubWestendXcmConfig,
+		CollectivesWestend,
+		CollectivesWestendXcmConfig,
 		NetworkId::ByGenesis(WESTEND_GENESIS_HASH),
-		assets,
+		asset,
 		amount
 	);
 }

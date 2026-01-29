@@ -254,6 +254,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 			Runtime,
 			XcmConfig,
 			WithBridgeHubRococoMessagesInstance,
+			LocationToAccountId,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,

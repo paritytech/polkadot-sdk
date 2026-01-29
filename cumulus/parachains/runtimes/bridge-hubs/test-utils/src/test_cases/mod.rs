@@ -36,7 +36,7 @@ use codec::Encode;
 use frame_support::{
 	assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{Contains, Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{fungible::Mutate, Contains, Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
@@ -48,7 +48,7 @@ use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
-	traits::{ConvertLocation, TransactAsset, WeightBounds},
+	traits::{ConvertLocation, WeightBounds},
 	XcmExecutor,
 };
 
@@ -315,6 +315,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	Runtime,
 	XcmConfig,
 	MessagesPalletInstance,
+	LocationToAccountId,
 >(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
@@ -323,13 +324,14 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		dyn Fn(Vec<u8>) -> Option<pallet_bridge_messages::Event<Runtime, MessagesPalletInstance>>,
 	>,
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
-	existential_deposit: Option<Asset>,
+	_existential_deposit: Option<Asset>,
 	maybe_paid_export_message: Option<Asset>,
 	prepare_configuration: impl Fn() -> LaneIdOf<Runtime, MessagesPalletInstance>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
 	XcmConfig: xcm_executor::Config,
 	MessagesPalletInstance: 'static,
+	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
 	let sibling_parachain_location = Location::new(1, [Parachain(sibling_parachain_id)]);
@@ -352,22 +354,25 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 
 		// prepare `ExportMessage`
 		let xcm = if let Some(fee) = maybe_paid_export_message {
-			// deposit ED to origin (if needed)
-			if let Some(ed) = existential_deposit {
-				XcmConfig::AssetTransactor::deposit_asset(
-					&ed,
-					&sibling_parachain_location,
-					Some(&XcmContext::with_message_id([0; 32])),
-				)
-				.expect("deposited ed");
-			}
-			// deposit fee to origin
-			XcmConfig::AssetTransactor::deposit_asset(
-				&fee,
-				&sibling_parachain_location,
-				Some(&XcmContext::with_message_id([0; 32])),
-			)
-			.expect("deposited fee");
+			// Pre-fund the sibling parachain's sovereign account with the fee
+			// We need to convert the location to an account and mint funds
+			let sibling_account =
+				LocationToAccountId::convert_location(&sibling_parachain_location)
+					.expect("valid location conversion");
+
+			// Extract the amount from the fee asset
+			let fee_amount = if let Fungibility::Fungible(amount) = fee.fun {
+				amount
+			} else {
+				panic!("Expected fungible asset for fee");
+			};
+
+			// Mint the fee amount to the sibling account using the runtime's Balances pallet
+			let balance_amount: BalanceOf<Runtime> = fee_amount
+				.try_into()
+				.unwrap_or_else(|_| panic!("Failed to convert fee amount to balance"));
+			<pallet_balances::Pallet<Runtime>>::mint_into(&sibling_account, balance_amount)
+				.expect("minting should succeed");
 
 			Xcm(vec![
 				WithdrawAsset(Assets::from(vec![fee.clone()])),

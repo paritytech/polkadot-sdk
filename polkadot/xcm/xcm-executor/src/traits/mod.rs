@@ -19,7 +19,7 @@
 mod conversion;
 pub use conversion::{CallDispatcher, ConvertLocation, ConvertOrigin, WithOriginFilter};
 mod drop_assets;
-pub use drop_assets::{ClaimAssets, DropAssets};
+pub use drop_assets::{ClaimAssets, DropAssets, TrapAndClaimAssets};
 mod asset_exchange;
 pub use asset_exchange::AssetExchange;
 mod asset_lock;
@@ -66,7 +66,7 @@ pub mod prelude {
 		DropAssets, Enact, Error, EventEmitter, ExportXcm, FeeManager, FeeReason, LockError,
 		MatchesFungible, MatchesFungibles, MatchesInstance, MatchesNonFungible,
 		MatchesNonFungibles, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
-		VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+		TrapAndClaimAssets, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
 	};
 	#[allow(deprecated)]
 	pub use super::{Identity, JustTry};

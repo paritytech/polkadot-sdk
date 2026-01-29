@@ -19,12 +19,13 @@
 use crate::{AssetChecking, MintLocation};
 use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::{
-	ensure,
+	defensive_assert, ensure,
 	traits::{tokens::nonfungibles, Get},
 };
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{
-	ConvertLocation, Error as MatchError, MatchesNonFungibles, TransactAsset,
+use xcm_executor::{
+	traits::{ConvertLocation, Error as MatchError, MatchesNonFungibles, TransactAsset},
+	AssetsInHolding,
 };
 
 const LOG_TARGET: &str = "xcm::nonfungibles_adapter";
@@ -54,7 +55,7 @@ where
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -71,7 +72,7 @@ where
 			tracing::debug!(target: LOG_TARGET, ?e, ?class, ?instance, ?destination, "Failed to transfer asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
-		Ok(what.clone().into())
+		Ok(what.clone())
 	}
 }
 
@@ -226,7 +227,11 @@ where
 		}
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -234,13 +239,21 @@ where
 			?context,
 			"deposit_asset",
 		);
+		defensive_assert!(what.len() == 1, "Trying to deposit more than one asset!");
 		// Check we handle this asset.
-		let (class, instance) = Matcher::matches_nonfungibles(what)?;
-		let who = AccountIdConverter::convert_location(who)
-			.ok_or(MatchError::AccountIdConversionFailed)?;
+		let maybe = what
+			.non_fungible_assets_iter()
+			.next()
+			.and_then(|asset| Matcher::matches_nonfungibles(&asset).ok());
+		let Some((class, instance)) = maybe else {
+			return Err((what, MatchError::AssetNotHandled.into()))
+		};
+		let Some(who) = AccountIdConverter::convert_location(who) else {
+			return Err((what, MatchError::AccountIdConversionFailed.into()))
+		};
 		Assets::mint_into(&class, &instance, &who).map_err(|e| {
 			tracing::debug!(target: LOG_TARGET, ?e, ?class, ?instance, ?who, "Failed to mint asset");
-			XcmError::FailedToTransactAsset(e.into())
+			(what, XcmError::FailedToTransactAsset(e.into()))
 		})
 	}
 
@@ -248,7 +261,7 @@ where
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		tracing::trace!(
 			target: LOG_TARGET,
 			?what,
@@ -259,12 +272,30 @@ where
 		// Check we handle this asset.
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
+		let asset_instance = match what.fun {
+			NonFungible(instance) => instance,
+			_ => return Err(MatchError::AssetNotHandled.into()),
+		};
 		let (class, instance) = Matcher::matches_nonfungibles(what)?;
 		Assets::burn(&class, &instance, Some(&who)).map_err(|e| {
 			tracing::debug!(target: LOG_TARGET, ?e, ?class, ?instance, ?who, "Failed to burn asset");
 			XcmError::FailedToTransactAsset(e.into())
 		})?;
-		Ok(what.clone().into())
+		Ok(AssetsInHolding::new_from_non_fungible(what.id.clone(), asset_instance))
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?what, ?context,
+			"mint_asset",
+		);
+		let asset_instance = match what.fun {
+			NonFungible(instance) => instance,
+			_ => return Err(MatchError::AssetNotHandled.into()),
+		};
+		Matcher::matches_nonfungibles(what)?;
+		Ok(AssetsInHolding::new_from_non_fungible(what.id.clone(), asset_instance))
 	}
 }
 
@@ -348,7 +379,11 @@ where
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		what: AssetsInHolding,
+		who: &Location,
+		context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -363,7 +398,7 @@ where
 		what: &Asset,
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> result::Result<AssetsInHolding, XcmError> {
 		NonFungiblesMutateAdapter::<
 			Assets,
 			Matcher,
@@ -379,9 +414,20 @@ where
 		from: &Location,
 		to: &Location,
 		context: &XcmContext,
-	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		NonFungiblesTransferAdapter::<Assets, Matcher, AccountIdConverter, AccountId>::transfer_asset(
 			what, from, to, context,
 		)
+	}
+
+	fn mint_asset(what: &Asset, context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		NonFungiblesMutateAdapter::<
+			Assets,
+			Matcher,
+			AccountIdConverter,
+			AccountId,
+			CheckAsset,
+			CheckingAccount,
+		>::mint_asset(what, context)
 	}
 }
