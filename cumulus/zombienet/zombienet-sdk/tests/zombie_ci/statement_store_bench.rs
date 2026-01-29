@@ -183,6 +183,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 				statement.set_topic(1, topic(1));
 				statement.set_topic(2, topic(2));
 				statement.set_topic(3, topic(3));
+				statement.set_expiry_from_parts(u32::MAX, statement_count as u32);
 				statement.set_plain_data(vec![0u8; payload_size]);
 				statement.sign_sr25519_private(&keyring);
 
