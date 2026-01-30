@@ -1286,7 +1286,7 @@ async fn advertise_collations_for_relay_parents<Context>(
 				.unwrap_or_default(),
 			false => {
 				unknown_relay_parents.push(relay_parent);
-				continue
+				continue;
 			},
 		};
 
@@ -1318,13 +1318,12 @@ async fn handle_peer_view_change<Context>(
 	peer_id: PeerId,
 	view: View,
 ) {
-	let added: Vec<Hash> = {
-		let Some(PeerData { view: current, .. }) = state.peer_data.get_mut(&peer_id) else {
-			return
-		};
-		let added = view.difference(&*current).cloned().collect();
-		*current = view;
-		added
+	let Some(added) = state.peer_data.get_mut(&peer_id).map(|peer| {
+		let diff: Vec<Hash> = view.difference(&peer.view).cloned().collect();
+		peer.view = view;
+		diff
+	}) else {
+		return;
 	};
 
 	let unknown_relay_parents =
