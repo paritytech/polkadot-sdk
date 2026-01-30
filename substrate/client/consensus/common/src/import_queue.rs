@@ -36,10 +36,9 @@ use std::sync::Arc;
 
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as _, NumberFor},
+	traits::{Block as BlockT, Header as _, NumberFor, PartialStateFor},
 	Justifications,
 };
-use sp_trie::PrefixedMemoryDB;
 
 use crate::{
 	block_import::{
@@ -133,8 +132,7 @@ pub trait ImportQueueService<B: BlockT>: Send {
 	/// and to allow cleaning up incomplete partial state for that block.
 	fn import_partial_state(
 		&mut self,
-		block_hash: B::Hash,
-		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+		partial_state: PartialStateFor<B>,
 	);
 }
 

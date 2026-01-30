@@ -124,10 +124,9 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block as BlockT, HashingFor, Header, NumberFor, SaturatedConversion, Zero},
+	traits::{Block as BlockT, Header, NumberFor, PartialStateFor, SaturatedConversion, Zero},
 	DigestItem,
 };
-use sp_trie::PrefixedMemoryDB;
 
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -1731,8 +1730,8 @@ where
 		self.inner.check_block(block).await.map_err(Into::into)
 	}
 
-	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
-		self.inner.import_partial_state(block_hash, partial_state).await.map_err(Into::into)
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await.map_err(Into::into)
 	}
 }
 

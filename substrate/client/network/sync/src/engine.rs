@@ -65,10 +65,9 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnbound
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header, NumberFor, Zero},
+	traits::{Block as BlockT, Header, NumberFor, PartialStateFor, Zero},
 	Justifications,
 };
-use sp_trie::PrefixedMemoryDB;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -644,8 +643,8 @@ where
 						number,
 					)
 				},
-				SyncingAction::ImportPartialState { block_hash, partial_state } => {
-					self.import_partial_state(block_hash, partial_state);
+				SyncingAction::ImportPartialState { partial_state } => {
+					self.import_partial_state(partial_state);
 
 					trace!(
 						target: LOG_TARGET,
@@ -1154,9 +1153,8 @@ where
 	/// and to allow cleaning up incomplete partial state for that block.
 	fn import_partial_state(
 		&mut self,
-		block_hash: B::Hash,
-		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+		partial_state: PartialStateFor<B>,
 	) {
-		self.import_queue.import_partial_state(block_hash, partial_state);
+		self.import_queue.import_partial_state(partial_state);
 	}
 }

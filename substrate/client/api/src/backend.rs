@@ -26,7 +26,7 @@ use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
 use sp_core::offchain::OffchainStorage;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, NumberFor},
+	traits::{Block as BlockT, HashingFor, NumberFor, PartialStateFor},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
@@ -35,7 +35,6 @@ use sp_state_machine::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
-use sp_trie::PrefixedMemoryDB;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
@@ -693,7 +692,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Block hash is passed to remember partial state belonging to that block,
 	/// to avoid inserting node second time (may break reference counting),
 	/// and to allow cleaning up incomplete partial state for that block.
-	fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()>;
+	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

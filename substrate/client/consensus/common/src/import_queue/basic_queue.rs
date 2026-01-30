@@ -24,10 +24,9 @@ use prometheus_endpoint::Registry;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor, PartialStateFor},
 	Justification, Justifications,
 };
-use sp_trie::PrefixedMemoryDB;
 use std::pin::Pin;
 
 use crate::{
@@ -170,11 +169,10 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 
 	fn import_partial_state(
 		&mut self,
-		block_hash: B::Hash,
-		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+		partial_state: PartialStateFor<B>,
 	) {
 		let res = self.partial_state_import_sender.unbounded_send(
-			worker_messages::ImportPartialState { block_hash, partial_state },
+			worker_messages::ImportPartialState { partial_state },
 		);
 
 		if res.is_err() {
@@ -234,8 +232,7 @@ mod worker_messages {
 		pub Justification,
 	);
 	pub struct ImportPartialState<B: BlockT> {
-		pub block_hash: B::Hash,
-		pub partial_state: PrefixedMemoryDB<HashingFor<B>>,
+		pub partial_state: PartialStateFor<B>,
 	}
 }
 
@@ -354,8 +351,8 @@ impl<B: BlockT> BlockImportWorker<B> {
 				// Then process all partial states before importing block
 				while let Poll::Ready(partial_state) = futures::poll!(partial_state_import_receiver.next()) {
 					match partial_state {
-						Some(ImportPartialState { block_hash, partial_state }) => {
-							if let Err(e) = block_import.import_partial_state(block_hash, partial_state).await {
+						Some(ImportPartialState { partial_state }) => {
+							if let Err(e) = block_import.import_partial_state(partial_state).await {
 								log::debug!(
 									target: LOG_TARGET,
 									"Import partial state failed with error: {}",

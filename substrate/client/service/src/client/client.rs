@@ -66,7 +66,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -77,7 +77,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, PrefixedMemoryDB, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -1804,12 +1804,12 @@ where
 		Ok(ImportResult::imported(false))
 	}
 
-	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
 		// Can't use `lock_import_and_run`.
 		// It requires block to write state changes along with the block.
 		// But partial state implies block is not ready for import yet.
 		let _import_lock = self.backend.get_import_lock().write();
-		self.backend.import_partial_state(block_hash, partial_state)
+		self.backend.import_partial_state(partial_state)
 		.map_err(|e| {
 			warn!("Partial state import error: {}", e);
 			ConsensusError::ClientImport(e.to_string())
@@ -1843,8 +1843,8 @@ where
 		(&self).import_block(import_block).await
 	}
 
-	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
-		(&self).import_partial_state(block_hash, partial_state).await
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		(&self).import_partial_state(partial_state).await
 	}
 }
 

@@ -25,7 +25,7 @@ use sp_core::{
 };
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, PartialStateFor, Zero},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
@@ -773,8 +773,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
-	fn import_partial_state(&self, _block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
-		self.state_db.write().consolidate(partial_state);
+	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
+		self.state_db.write().consolidate(partial_state.nodes);
 		Ok(())
 	}
 

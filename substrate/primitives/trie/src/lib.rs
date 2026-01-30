@@ -39,6 +39,8 @@ mod trie_stream;
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
 
+pub mod partial_state;
+
 #[cfg(feature = "std")]
 pub use std::hash::RandomState;
 

@@ -81,7 +81,7 @@ use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
-		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, SaturatedConversion,
+		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor, SaturatedConversion,
 		Zero,
 	},
 	Justification, Justifications, StateVersion, Storage,
@@ -2644,11 +2644,11 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		)
 	}
 
-	fn import_partial_state(&self, block_hash: Block::Hash, mut partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> sp_blockchain::Result<()> {
+	fn import_partial_state(&self, mut partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
 		let mut transaction = Transaction::new();
 		let commit = self.storage.state_db.import_partial_state(
-			&block_hash,
-			partial_state
+			&partial_state.block_hash,
+			partial_state.nodes
 				.drain()
 				.into_iter()
 				.map(|(key, (value, _))| (key, value)),

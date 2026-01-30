@@ -24,10 +24,9 @@ use sp_api::ProvideRuntimeApi;
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_beefy::{AuthorityIdBound, BeefyApi, BEEFY_ENGINE_ID};
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor, PartialStateFor},
 	EncodedJustification,
 };
-use sp_trie::PrefixedMemoryDB;
 
 use sc_client_api::{backend::Backend, TrieCacheContext};
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
@@ -199,7 +198,7 @@ where
 		self.inner.check_block(block).await
 	}
 
-	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
-		self.inner.import_partial_state(block_hash, partial_state).await
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await
 	}
 }

@@ -41,10 +41,9 @@ use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, NumberFor},
+	traits::{Block as BlockT, NumberFor, PartialStateFor},
 	Justifications,
 };
-use sp_trie::PrefixedMemoryDB;
 use std::any::Any;
 
 /// Syncing strategy for syncing engine to use
@@ -175,8 +174,7 @@ pub enum SyncingAction<B: BlockT> {
 	},
 	/// Import partial state
 	ImportPartialState {
-		block_hash: B::Hash,
-		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+		partial_state: PartialStateFor<B>,
 	},
 	/// Strategy finished. Nothing to do, this is handled by `PolkadotSyncingStrategy`.
 	Finished,

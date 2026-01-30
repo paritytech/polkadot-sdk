@@ -29,7 +29,7 @@ use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header, NumberFor},
+	traits::{Block as BlockT, HashingFor, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
 use sp_trie::PrefixedMemoryDB;
@@ -86,21 +86,21 @@ pub enum ImportResult<B: BlockT> {
 	Import {
 		hash: B::Hash,
 		header: B::Header,
-		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
+		partial_state: Option<PartialStateFor<B>>,
 		state: ImportedState<B>,
 		body: Option<Vec<B::Extrinsic>>,
 		justifications: Option<Justifications>,
 	},
 	/// Continue downloading.
 	Continue {
-		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
+		partial_state: Option<PartialStateFor<B>>,
 	},
 	/// Bad state chunk.
 	BadResponse,
 }
 
 impl<B: BlockT> ImportResult<B> {
-	pub fn take_partial_state(&mut self) -> Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)> {
+	pub fn take_partial_state(&mut self) -> Option<PartialStateFor<B>> {
 		match self {
 			ImportResult::Import { partial_state, .. } | ImportResult::Continue { partial_state } => partial_state.take(),
 			ImportResult::BadResponse => None,
@@ -310,9 +310,13 @@ where
 			};
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
-			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::new(&[]);
+			let mut partial_state = PartialStateFor::<B> {
+				block_hash: self.target_hash(),
+				block_number: self.target_number(),
+				nodes: PrefixedMemoryDB::<HashingFor<B>>::new(&[]),
+			};
 			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
-				&mut partial_state,
+				&mut partial_state.nodes,
 				proof.iter_compact_encoded_nodes(),
 				Some(&self.metadata.target_root()),
 			) {
@@ -330,7 +334,7 @@ where
 			};
 
 			self.metadata.imported_bytes += proof_size;
-			(complete, Some((self.target_hash(), partial_state)))
+			(complete, Some(partial_state))
 		} else {
 			(self.process_state_unverified(response), None)
 		};
