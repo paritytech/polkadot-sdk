@@ -1723,7 +1723,7 @@ impl<T: Config> Pallet<T> {
 					)?;
 					executable
 				},
-				Code::Upload(code) => {
+				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
 						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
@@ -1731,8 +1731,7 @@ impl<T: Config> Pallet<T> {
 						executable
 					} else {
 						return Err(<Error<T>>::CodeRejected.into());
-					}
-				},
+					},
 				Code::Existing(code_hash) => {
 					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
@@ -2547,14 +2546,14 @@ impl<T: Config> Pallet<T> {
 	/// This enforces EIP-3607.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> DispatchResult {
 		if DebugSettings::bypass_eip_3607::<T>() {
-			return Ok(())
+			return Ok(());
 		}
 		let Some(address) = origin
 			.as_system_ref()
 			.and_then(|o| o.as_signed())
 			.map(<T::AddressMapper as AddressMapper<T>>::to_address)
 		else {
-			return Ok(())
+			return Ok(());
 		};
 
 		if exec::is_precompile::<T, ContractBlob<T>>(&address) ||

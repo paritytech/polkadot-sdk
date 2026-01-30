@@ -72,7 +72,6 @@ impl GenericTransaction {
 		let is_dry_run = matches!(mode, CreateCallMode::DryRun);
 		let base_fee = <Pallet<T>>::evm_base_fee();
 
-
 		// EIP-7702: Store the authorization list for later processing
 		let authorization_list = self.authorization_list.clone();
 
@@ -86,12 +85,11 @@ impl GenericTransaction {
 		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
 		match (self.chain_id, self.r#type.as_ref()) {
 			(None, Some(super::Byte(TYPE_LEGACY))) => {},
-			(Some(chain_id), ..) => {
+			(Some(chain_id), ..) =>
 				if chain_id != <T as Config>::ChainId::get().into() {
 					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 					return Err(InvalidTransaction::Call);
-				}
-			},
+				},
 			(None, ..) => {
 				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
 				return Err(InvalidTransaction::Call);
@@ -126,7 +124,8 @@ impl GenericTransaction {
 			}
 
 			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
-			// Per spec: "The transaction is considered invalid if the length of authorization_list is zero."
+			// Per spec: "The transaction is considered invalid if the length of authorization_list
+			// is zero."
 			if self.authorization_list.is_empty() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);
