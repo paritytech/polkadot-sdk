@@ -1,0 +1,39 @@
+title: Add optional ERC20 metadata functions (name, symbol, decimals) to IERC20 interface
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds support for optional ERC20 metadata functions to the IERC20 interface and its Rust precompile implementation.
+
+    The changes implement the optional metadata functions (`name()`, `symbol()`, and `decimals()`) as defined in the ERC-20 specification. These functions allow querying token metadata through the precompile interface.
+
+    ## Changes
+
+    ### IERC20.sol Interface
+    Added three new optional view functions:
+    - `name()` - Returns the token name as a string
+    - `symbol()` - Returns the token symbol as a string
+    - `decimals()` - Returns the number of decimal places for the token
+
+    All three functions are marked as optional per the ERC-20 specification, which acknowledges that implementations may choose not to support these functions.
+
+    ### Precompile Implementation (pallet-assets-precompiles)
+    Implemented handlers for the three new metadata functions in the ERC20 precompile:
+    - The handlers access the `pallet_assets::Metadata` storage to retrieve token metadata
+    - Each function properly encodes its return value using the Solidity ABI encoding scheme
+    - Weight is charged using the existing `balance()` weight for these read-only operations
+
+    ### Test Coverage
+    Added three comprehensive test cases:
+    - `metadata_name_works()` - Verifies name() function returns the correct token name
+    - `metadata_symbol_works()` - Verifies symbol() function returns the correct token symbol
+    - `metadata_decimals_works()` - Verifies decimals() function returns the correct decimal places
+
+    ## Integration
+
+    This is a non-breaking addition that extends the ERC20 precompile with optional metadata functions. Existing implementations continue to work without modification. Smart contracts can now query token metadata directly through the ERC20 interface without requiring additional precompiles or external calls.
+
+    No storage migrations are required. The implementation uses existing pallet_assets::Metadata storage, which is already in use for other purposes in the pallet.
+
+    ## Breaking
+
+    No breaking changes. This is a pure extension to the existing IERC20 interface with optional function implementations.

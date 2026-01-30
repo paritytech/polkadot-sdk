@@ -60,4 +60,16 @@ interface IERC20 {
      ///
      /// Emits a {Transfer} event.
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+     /// @dev Returns the name of the token.
+     /// This is an optional metadata function as per the ERC-20 specification.
+    function name() external view returns (string memory);
+
+     /// @dev Returns the symbol of the token.
+     /// This is an optional metadata function as per the ERC-20 specification.
+    function symbol() external view returns (string memory);
+
+     /// @dev Returns the decimals places of the token.
+     /// This is an optional metadata function as per the ERC-20 specification.
+    function decimals() external view returns (uint8);
 }

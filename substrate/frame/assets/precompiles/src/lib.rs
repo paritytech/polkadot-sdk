@@ -118,6 +118,9 @@ where
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
 			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::name(_) => Self::name(asset_id, env),
+			IERC20Calls::symbol(_) => Self::symbol(asset_id, env),
+			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
 	}
 }
@@ -321,5 +324,32 @@ where
 		)?;
 
 		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
+	}
+
+	/// Execute the name call.
+	fn name(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		_env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		let metadata = pallet_assets::Metadata::<Runtime, Instance>::get(asset_id);
+		return Ok(IERC20::nameCall::abi_encode_returns(&metadata.name.to_vec().into()));
+	}
+
+	/// Execute the symbol call.
+	fn symbol(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		_env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		let metadata = pallet_assets::Metadata::<Runtime, Instance>::get(asset_id);
+		return Ok(IERC20::symbolCall::abi_encode_returns(&metadata.symbol.to_vec().into()));
+	}
+
+	/// Execute the decimals call.
+	fn decimals(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		_env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		let metadata = pallet_assets::Metadata::<Runtime, Instance>::get(asset_id);
+		return Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals));
 	}
 }

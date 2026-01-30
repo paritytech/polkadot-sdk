@@ -271,3 +271,129 @@ fn approval_works() {
 		);
 	});
 }
+
+#[test]
+fn metadata_name_works() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr =
+			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+
+		let owner = 123456789;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		let test_name = vec![1, 2, 3, 4, 5];
+		assert_ok!(Assets::force_set_metadata(
+			RuntimeOrigin::root(),
+			asset_id,
+			test_name.clone(),
+			vec![6, 7, 8],
+			12,
+			false
+		));
+
+		let data = IERC20::nameCall {}.abi_encode();
+
+		let data = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			H160::from(asset_addr),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.unwrap()
+		.data;
+
+		let ret = IERC20::nameCall::abi_decode_returns(&data).unwrap();
+		assert_eq!(ret, test_name);
+	});
+}
+
+#[test]
+fn metadata_symbol_works() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr =
+			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+
+		let owner = 123456789;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		let test_symbol = vec![6, 7, 8, 9];
+		assert_ok!(Assets::force_set_metadata(
+			RuntimeOrigin::root(),
+			asset_id,
+			vec![1, 2, 3],
+			test_symbol.clone(),
+			12,
+			false
+		));
+
+		let data = IERC20::symbolCall {}.abi_encode();
+
+		let data = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			H160::from(asset_addr),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.unwrap()
+		.data;
+
+		let ret = IERC20::symbolCall::abi_decode_returns(&data).unwrap();
+		assert_eq!(ret, test_symbol);
+	});
+}
+
+#[test]
+fn metadata_decimals_works() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr =
+			hex::const_decode_to_array(b"0000000000000000000000000000000001200000").unwrap();
+
+		let owner = 123456789;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		let test_decimals = 18u8;
+		assert_ok!(Assets::force_set_metadata(
+			RuntimeOrigin::root(),
+			asset_id,
+			vec![1, 2, 3],
+			vec![6, 7, 8],
+			test_decimals,
+			false
+		));
+
+		let data = IERC20::decimalsCall {}.abi_encode();
+
+		let data = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			H160::from(asset_addr),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.unwrap()
+		.data;
+
+		let ret = IERC20::decimalsCall::abi_decode_returns(&data).unwrap();
+		assert_eq!(ret, test_decimals);
+	});
+}
