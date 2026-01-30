@@ -126,6 +126,33 @@ builder!(
 );
 
 builder!(
+	instantiate_with_code_as(
+		origin: OriginFor<T>,
+		value: BalanceOf<T>,
+		weight_limit: Weight,
+		storage_deposit_limit: BalanceOf<T>,
+		code: Vec<u8>,
+		data: Vec<u8>,
+		salt: Option<[u8; 32]>,
+		account: T::AccountId,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create an [`InstantiateWithCodeAsBuilder`] with default values.
+	pub fn instantiate_with_code_as(origin: OriginFor<T>, code: Vec<u8>, account: T::AccountId) -> Self {
+		Self {
+			origin,
+			value: 0u32.into(),
+			weight_limit: WEIGHT_LIMIT,
+			storage_deposit_limit: deposit_limit::<T>(),
+			code,
+			data: vec![],
+			salt: Some([0; 32]),
+			account,
+		}
+	}
+);
+
+builder!(
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,

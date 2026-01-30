@@ -241,6 +241,14 @@ pub(crate) mod builder {
 		InstantiateBuilder::<Test>::instantiate(RuntimeOrigin::signed(ALICE), code_hash)
 	}
 
+	pub fn instantiate_with_code_as(code: Vec<u8>, account: sp_runtime::AccountId32) -> InstantiateWithCodeAsBuilder<Test> {
+		InstantiateWithCodeAsBuilder::<Test>::instantiate_with_code_as(
+			RuntimeOrigin::signed(ALICE),
+			code,
+			account,
+		)
+	}
+
 	pub fn call(dest: H160) -> CallBuilder<Test> {
 		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}

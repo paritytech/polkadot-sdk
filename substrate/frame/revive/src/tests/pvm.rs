@@ -2935,6 +2935,30 @@ fn signed_cannot_set_code() {
 }
 
 #[test]
+fn signed_cannot_instantiate_with_code_as_origin() {
+	let (binary, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		assert_err_ignore_postinfo!(
+			builder::instantiate_with_code_as(binary, BOB).build(),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn root_can_instantiate_with_code_as_origin() {
+	let (binary, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		// Root can instantiate on behalf of BOB
+		assert_ok!(builder::instantiate_with_code_as(binary, BOB).origin(RuntimeOrigin::root()).build());
+	});
+}
+
+#[test]
 fn none_cannot_call_code() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_err_ignore_postinfo!(

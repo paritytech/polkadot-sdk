@@ -1230,6 +1230,72 @@ pub mod pallet {
 			)
 		}
 
+		/// Instantiate a new contract with code, using a specified account id.
+		///
+		/// This is similar to [`Self::instantiate_with_code`] but allows root to specify
+		/// which account should be used for the instantiation. This is useful for
+		/// administrative operations where the actual instantiator should be different
+		/// from the caller.
+		///
+		/// # Parameters
+		///
+		/// * `origin`: Must be root.
+		/// * `value`: The balance to transfer from the `account` to the new contract.
+		/// * `weight_limit`: The gas limit enforced when executing the constructor.
+		/// * `storage_deposit_limit`: The maximum amount of balance that can be charged
+		///   from the caller to pay for the storage consumed.
+		/// * `code`: The contract code to deploy in raw bytes.
+		/// * `data`: The input data to pass to the contract constructor.
+		/// * `salt`: Used for the address derivation. See [`Pallet::contract_address`].
+		/// * `account`: The account to use for instantiation.
+		///
+		/// Requires root origin. The `account` will be used as the deployer account.
+		#[pallet::call_index(13)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::instantiate_with_code(
+				code.len() as u32,
+				data.len() as u32,
+			)
+		)]
+		pub fn instantiate_with_code_as(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			weight_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			salt: Option<[u8; 32]>,
+			account: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			let instantiate_origin: OriginFor<T> = RawOrigin::Signed(account).into();
+			Self::ensure_non_contract_if_signed(&instantiate_origin)?;
+			let code_len = code.len() as u32;
+			let data_len = data.len() as u32;
+			let mut output = Self::bare_instantiate(
+				instantiate_origin,
+				Pallet::<T>::convert_native_to_evm(value),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: storage_deposit_limit,
+				},
+				Code::Upload(code),
+				data,
+				salt,
+				ExecConfig::new_substrate_tx(),
+			);
+			if let Ok(retval) = &output.result {
+				if retval.result.did_revert() {
+					output.result = Err(<Error<T>>::ContractReverted.into());
+				}
+			}
+			dispatch_result(
+				output.result.map(|result| result.result),
+				output.weight_consumed,
+				<T as Config>::WeightInfo::instantiate_with_code(code_len, data_len),
+			)
+		}
+
 		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		///
