@@ -33,12 +33,14 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::oracle::offchain::Endpoint;
+
 	use super::{offchain, WeightInfo};
 	use alloc::vec::Vec;
 	use frame_support::{
 		dispatch::DispatchResult,
 		pallet_prelude::*,
-		traits::{Defensive, DefensiveTruncateInto, EnsureOrigin, OneSessionHandler, Time},
+		traits::{Defensive, DefensiveTruncateInto, OneSessionHandler, Time},
 		Parameter,
 	};
 	use frame_system::{
@@ -120,9 +122,6 @@ pub mod pallet {
 		/// Maximum number of endpoints that can be added to an asset.
 		type MaxEndpointsPerAsset: Get<u32>;
 
-		/// Maximum byte-size of an endpoint (string length).
-		type MaxEndpointLength: Get<u32>;
-
 		/// The number of previous price and vote data-points to keep onchain.
 		type HistoryDepth: Get<u32>;
 
@@ -156,9 +155,18 @@ pub mod pallet {
 		/// Is essentially a listener for [`Price`] storage item.
 		type OnPriceUpdate: OnPriceUpdate<Self::AssetId, BlockNumberFor<Self>, MomentOf<Self>>;
 
+		// Configs related to the OCW. Could someday be moved ot a new `trait OffchainWorkerConfig`
+		// or similar.
+
 		/// Every `PriceUpdateInterval` blocks, the offchain worker will submit a price update
 		/// transaction.
 		type PriceUpdateInterval: Get<BlockNumberFor<Self>>;
+
+		/// The default deadline for all HTTP requests made, if not specified by the endpoint data
+		/// itself.
+		///
+		/// In milliseconds.
+		type DefaultRequestDeadline: Get<u64>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: super::WeightInfo;
@@ -182,6 +190,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// An endpoint is invalid.
+		InvalidEndpoint,
 		/// The asset id was not found -- is not being tracked yet.
 		AssetNotTracked,
 		/// The asset is already being tracked.
@@ -221,11 +231,9 @@ pub mod pallet {
 		}
 
 		/// All of the assets that we are tracking and their list of feeds.
-		pub(crate) fn tracked_assets_with_feeds() -> Vec<(T::AssetId, Vec<Vec<u8>>)> {
+		pub(crate) fn tracked_assets_with_endpoints() -> Vec<(T::AssetId, Vec<Endpoint>)> {
 			Endpoints::<T>::iter()
-				.map(|(asset_id, endpoints)| {
-					(asset_id, endpoints.into_inner().into_iter().map(|e| e.into_inner()).collect())
-				})
+				.map(|(asset_id, endpoints)| (asset_id, endpoints.into_inner()))
 				.collect()
 		}
 
@@ -237,9 +245,13 @@ pub mod pallet {
 		/// Register a new asset to be tracked.
 		fn register_asset(
 			asset_id: T::AssetId,
-			endpoints: BoundedVec<BoundedVec<u8, T::MaxEndpointLength>, T::MaxEndpointsPerAsset>,
+			endpoints: BoundedVec<Endpoint, T::MaxEndpointsPerAsset>,
 		) -> DispatchResult {
 			ensure!(!Self::is_tracked(asset_id), Error::<T>::AssetAlreadyTracked);
+			ensure!(
+				endpoints.iter().all(|e| offchain::OracleOffchainWorker::<T>::validate_endpoint(e).is_ok()),
+				Error::<T>::InvalidEndpoint
+			);
 			Endpoints::<T>::insert(asset_id, endpoints);
 			Ok(())
 		}
@@ -257,10 +269,7 @@ pub mod pallet {
 		}
 
 		/// Add an endpoint to an already tracked asset.
-		fn add_endpoint(
-			asset_id: T::AssetId,
-			endpoint: BoundedVec<u8, T::MaxEndpointLength>,
-		) -> DispatchResult {
+		fn add_endpoint(asset_id: T::AssetId, endpoint: Endpoint) -> DispatchResult {
 			let mut stored = Endpoints::<T>::get(&asset_id).ok_or(Error::<T>::AssetNotTracked)?;
 			stored.try_push(endpoint).map_err(|_| Error::<T>::TooManyEndpoints)?;
 			Endpoints::<T>::insert(asset_id, stored);
@@ -553,7 +562,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AssetId,
-		BoundedVec<BoundedVec<u8, T::MaxEndpointLength>, T::MaxEndpointsPerAsset>,
+		BoundedVec<Endpoint, T::MaxEndpointsPerAsset>,
 		OptionQuery,
 	>;
 
@@ -597,7 +606,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		pub tracked_assets: Vec<(T::AssetId, Vec<Vec<u8>>)>,
+		pub tracked_assets: Vec<(T::AssetId, Vec<Endpoint>)>,
 		pub maybe_authorities: Option<Vec<(T::AccountId, Percent)>>,
 	}
 
@@ -605,17 +614,15 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (asset_id, endpoints) in &self.tracked_assets {
-				let inner_bounded = endpoints
-					.into_iter()
-					.map(|e| {
-						BoundedVec::<u8, T::MaxEndpointLength>::try_from(e.clone())
-							.expect("genesis endpoints should fit")
-					})
-					.collect::<Vec<_>>();
-				let outer_bounded =
-					BoundedVec::<_, T::MaxEndpointsPerAsset>::try_from(inner_bounded)
-						.expect("genesis endpoints should fit");
-				StorageManager::<T>::register_asset(*asset_id, outer_bounded)
+				if !endpoints
+					.iter()
+					.all(|e| offchain::OracleOffchainWorker::<T>::validate_endpoint(e).is_ok())
+				{
+					panic!("genesis endpoints should be valid");
+				}
+				let bounded = BoundedVec::<_, _>::try_from(endpoints.clone())
+					.expect("genesis endpoints should fit");
+				StorageManager::<T>::register_asset(*asset_id, bounded)
 					.expect("failed to register genesis asset");
 			}
 			if let Some(authorities) = &self.maybe_authorities {
@@ -654,6 +661,7 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
+	#[allow(unused)] // TODO: remove later
 	impl<T: Config> Pallet<T> {
 		/// A new opinion from `origin` about the `price` of `asset_id`.
 		#[pallet::call_index(0)]
@@ -695,7 +703,7 @@ pub mod pallet {
 		pub fn register_asset(
 			origin: OriginFor<T>,
 			asset_id: T::AssetId,
-			endpoints: Vec<Vec<u8>>,
+			endpoints: Vec<Endpoint>,
 		) -> DispatchResult {
 			todo!();
 		}
@@ -771,7 +779,7 @@ pub mod pallet {
 							log!(info, "updated price for asset {:?}: {:?}", asset_id, new_price);
 							T::OnPriceUpdate::on_price_update(asset_id, new_price);
 						},
-						Err(e) => {
+						Err(_) => {
 							defensive!("the only reason `update` might fail is if asset is not tracked; we are iterating tracked assets here; qed");
 						},
 					}
@@ -782,7 +790,8 @@ pub mod pallet {
 					let next_block = local_block_number + One::one();
 					let mut unprocessed = BlockVotes::<T>::take(&asset_id, local_block_number);
 					let original_count = unprocessed.len();
-					unprocessed.retain(|k, v| Self::vote_not_too_old_at(v.produced_in, next_block));
+					unprocessed
+						.retain(|_k, v| Self::vote_not_too_old_at(v.produced_in, next_block));
 
 					log!(
 						error,
@@ -835,9 +844,7 @@ pub mod pallet {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	impl<T: Config> Pallet<T> {
-		pub fn do_try_state(
-			block_number: BlockNumberFor<T>,
-		) -> Result<(), sp_runtime::TryRuntimeError> {
+		pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			StorageManager::<T>::sanity_check()?;
 			Ok(())
 		}

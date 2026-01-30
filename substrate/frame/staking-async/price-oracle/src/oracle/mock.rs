@@ -19,12 +19,16 @@
 
 use crate::{
 	extension::SetPriorityFromProducedIn,
-	oracle::{self as pallet_price_oracle, MomentOf, TallyOuterError},
+	oracle::{
+		self as pallet_price_oracle,
+		offchain::{Endpoint, Method, ParsingMethod},
+		MomentOf, TallyOuterError,
+	},
 	tally::SimpleAverage,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::Time};
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot};
+use frame_system::pallet_prelude::BlockNumberFor;
 use parking_lot::RwLock;
 use scale_info::TypeInfo;
 use sp_core::{
@@ -32,7 +36,7 @@ use sp_core::{
 		testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 	},
-	ConstU32,
+	ConstU32, ConstU64,
 };
 use sp_runtime::{
 	impl_opaque_keys,
@@ -233,7 +237,6 @@ impl pallet_price_oracle::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 	type MaxAuthorities = ConstU32<8>;
 	type MaxEndpointsPerAsset = ConstU32<8>;
-	type MaxEndpointLength = ConstU32<128>;
 	type MaxVotesPerBlock = MaxVotesPerBlock;
 	type MaxVoteAge = MaxVoteAge;
 	type TallyManager = TestTally;
@@ -242,25 +245,26 @@ impl pallet_price_oracle::Config for Runtime {
 	type TimeProvider = TimeProvider;
 	type OnPriceUpdate = OnPriceUpdate;
 	type WeightInfo = ();
+	type DefaultRequestDeadline = ConstU64<2000>;
 }
 
 #[derive(Default)]
 pub struct ExtBuilder {
-	extra_assets: Vec<(AssetId, Vec<Vec<u8>>)>,
+	extra_assets: Vec<(AssetId, Vec<Endpoint>)>,
 }
 
 impl ExtBuilder {
-	pub fn extra_asset(mut self, id: AssetId, endpoints: Vec<Vec<u8>>) -> Self {
+	pub fn extra_asset(mut self, id: AssetId, endpoints: Vec<Endpoint>) -> Self {
 		self.extra_assets.push((id, endpoints));
 		self
 	}
 
-	pub fn max_votes_per_block(mut self, max: u32) -> Self {
+	pub fn max_votes_per_block(self, max: u32) -> Self {
 		MaxVotesPerBlock::set(max);
 		self
 	}
 
-	pub fn history_depth(mut self, depth: u32) -> Self {
+	pub fn history_depth(self, depth: u32) -> Self {
 		HistoryDepth::set(depth);
 		self
 	}
@@ -268,9 +272,19 @@ impl ExtBuilder {
 
 impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
-		let default_endpoint = "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
-			.to_string()
-			.into_bytes();
+		let default_endpoint = Endpoint {
+			body: Default::default(),
+			deadline: None,
+			headers: Default::default(),
+			method: Method::Get,
+			parsing_method: ParsingMethod::CryptoCompareFree,
+			requires_api_key: false,
+			url: "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
+				.to_string()
+				.into_bytes()
+				.try_into()
+				.unwrap(),
+		};
 		sp_tracing::try_init_simple();
 		let mut storage =
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();

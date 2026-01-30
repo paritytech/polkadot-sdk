@@ -17,7 +17,7 @@
 
 //! Tests for pallet-price-oracle
 
-use crate::oracle::{self, mock::*, StorageManager, Vote};
+use crate::oracle::{self, mock::*, PriceData, StorageManager, TallyOuterError, TimePoint, Vote};
 use frame_support::{pallet_prelude::*, testing_prelude::*};
 use sp_runtime::{DispatchError, FixedU128, Percent};
 use substrate_test_utils::assert_eq_uvec;
@@ -52,7 +52,7 @@ mod setup {
 	}
 
 	#[test]
-	fn too_long_endpoint() {
+	fn invalid_endpoint() {
 		todo!()
 	}
 
@@ -60,7 +60,7 @@ mod setup {
 	fn track_asset_with_no_endpoint() {
 		ExtBuilder::default().extra_asset(2, vec![]).build_and_execute(|| {
 			assert!(matches!(
-				&StorageManager::<T>::tracked_assets_with_feeds()[..],
+				&StorageManager::<T>::tracked_assets_with_endpoints()[..],
 				[(1, x), (2, y)] if !x.is_empty() && y.is_empty()
 			))
 		});
@@ -293,11 +293,6 @@ mod vote {
 }
 
 mod tally_on_finalize {
-	use frame_support::pallet_prelude::StorageMap;
-	use sp_runtime::Perbill;
-
-	use crate::oracle::{PriceData, TallyOuterError, TimePoint};
-
 	use super::*;
 
 	fn all_vote(asset_id: AssetId, now: BlockNumber, vote: u32) {

@@ -435,10 +435,8 @@ impl price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
 	type PriceUpdateInterval = ConstU32<3>;
 	type AssetId = u32;
-	type AdminOrigin = EnsureRoot<AccountId>;
 	type MaxAuthorities = ConstU32<8>;
 	type HistoryDepth = ConstU32<42>;
-	type MaxEndpointLength = ConstU32<128>;
 	type MaxEndpointsPerAsset = ConstU32<8>;
 	type MaxVoteAge = ConstU32<4>;
 	type MaxVotesPerBlock = Self::MaxAuthorities;
@@ -447,6 +445,8 @@ impl price_oracle::oracle::Config for Runtime {
 	type TimeProvider = crate::Timestamp;
 	type TallyManager = price_oracle::tally::SimpleAverage<Self>;
 	type WeightInfo = price_oracle::oracle::weights::SubstrateWeight<Self>;
+	type OnPriceUpdate = ();
+	type DefaultRequestDeadline = ConstU64<1000>;
 }
 
 impl price_oracle::client::Config for Runtime {
