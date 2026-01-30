@@ -132,10 +132,12 @@ parameter_types! {
 	/// All Polkadot-like chains have maximal block size set to 5MB.
 	///
 	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		5 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * 5 * 1024 * 1024
+		})
+		.build();
 	/// All Polkadot-like chains have the same block weights.
 	///
 	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.

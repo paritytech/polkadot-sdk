@@ -55,10 +55,12 @@ pub const MAX_BRIDGE_HUB_HEADER_SIZE: u32 = 4_096;
 
 parameter_types! {
 	/// Size limit of the Cumulus-based bridge hub blocks.
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
-		5 * 1024 * 1024,
-		NORMAL_DISPATCH_RATIO,
-	);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * 5 * 1024 * 1024
+		})
+		.build();
 
 	/// Importing a block with 0 Extrinsics.
 	pub const BlockExecutionWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0)

@@ -997,6 +997,9 @@ pub mod pallet {
 	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
+	///
+	/// In contrast to its name it also includes the header overhead and digest size to accurately
+	/// track block size.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
@@ -1929,6 +1932,27 @@ impl<T: Config> Pallet<T> {
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
+
+		// Account for digest size and empty header overhead in block length.
+		// This ensures block limits consider the full block size, not just extrinsics.
+		let digest_size = digest.encoded_size();
+		let empty_header = <<T as Config>::Block as traits::Block>::Header::new(
+			*number,
+			Default::default(),
+			Default::default(),
+			*parent_hash,
+			Default::default(),
+		);
+		let empty_header_size = empty_header.encoded_size();
+		let overhead = digest_size.saturating_add(empty_header_size) as u32;
+		AllExtrinsicsLen::<T>::put(overhead);
+
+		// Ensure inherent digests don't exceed the configured max header size
+		let max_total_header = T::BlockLength::get().max_header_size();
+		assert!(
+			overhead <= max_total_header as u32,
+			"Header size ({overhead}) exceeds max header size limit ({max_total_header})"
+		);
 	}
 
 	/// Initialize [`INTRABLOCK_ENTROPY`](well_known_keys::INTRABLOCK_ENTROPY).
@@ -2039,8 +2063,14 @@ impl<T: Config> Pallet<T> {
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
 	}
 
-	/// Deposits a log and ensures it matches the block's log data.
+	/// Deposits a log (digest) in the block's header.
+	///
+	/// Digests should not be directly controllable by external users as they increase the size of
+	/// the header.
 	pub fn deposit_log(item: generic::DigestItem) {
+		AllExtrinsicsLen::<T>::mutate(|len| {
+			*len = Some(len.unwrap_or(0).saturating_add(item.encoded_size() as u32));
+		});
 		<Digest<T>>::append(item);
 	}
 

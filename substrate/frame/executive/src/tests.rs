@@ -829,7 +829,9 @@ fn block_weight_and_size_is_stored_per_tx() {
 		Executive::initialize_block(&Header::new_from_number(1));
 
 		assert_eq!(<frame_system::Pallet<Runtime>>::block_weight().total(), base_block_weight);
-		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 0);
+		// After initialize_block, all_extrinsics_len includes the header overhead (digest + empty
+		// header size).
+		let header_overhead = <frame_system::Pallet<Runtime>>::all_extrinsics_len();
 
 		assert!(Executive::apply_extrinsic(xt.clone()).unwrap().is_ok());
 		assert!(Executive::apply_extrinsic(x1.clone()).unwrap().is_ok());
@@ -845,7 +847,10 @@ fn block_weight_and_size_is_stored_per_tx() {
 			<frame_system::Pallet<Runtime>>::block_weight().total(),
 			base_block_weight + 3u64 * extrinsic_weight + 3u64 * Weight::from_parts(0, len as u64),
 		);
-		assert_eq!(<frame_system::Pallet<Runtime>>::all_extrinsics_len(), 3 * len);
+		assert_eq!(
+			<frame_system::Pallet<Runtime>>::all_extrinsics_len(),
+			3 * len + header_overhead
+		);
 
 		let _ = <frame_system::Pallet<Runtime>>::finalize();
 		// All extrinsics length cleaned on `System::finalize`

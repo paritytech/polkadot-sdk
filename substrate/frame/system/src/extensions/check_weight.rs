@@ -571,7 +571,7 @@ mod tests {
 	fn signed_ext_check_weight_block_size_works() {
 		new_test_ext().execute_with(|| {
 			let normal = DispatchInfo::default();
-			let normal_limit = normal_weight_limit().ref_time() as usize;
+			let normal_len_limit = normal_length_limit() as usize;
 			let reset_check_weight = |tx, s, f| {
 				AllExtrinsicsLen::<Test>::put(0);
 				let r = CheckWeight::<Test>(PhantomData).validate_and_prepare(
@@ -588,9 +588,9 @@ mod tests {
 				}
 			};
 
-			reset_check_weight(&normal, normal_limit - 1, false);
-			reset_check_weight(&normal, normal_limit, false);
-			reset_check_weight(&normal, normal_limit + 1, true);
+			reset_check_weight(&normal, normal_len_limit - 1, false);
+			reset_check_weight(&normal, normal_len_limit, false);
+			reset_check_weight(&normal, normal_len_limit + 1, true);
 
 			// Operational ones don't have this limit.
 			let op = DispatchInfo {
@@ -599,10 +599,12 @@ mod tests {
 				class: DispatchClass::Operational,
 				pays_fee: Pays::Yes,
 			};
-			reset_check_weight(&op, normal_limit, false);
-			reset_check_weight(&op, normal_limit + 100, false);
-			reset_check_weight(&op, 1024, false);
-			reset_check_weight(&op, 1025, true);
+			let operational_limit =
+				*<Test as Config>::BlockLength::get().max.get(DispatchClass::Operational) as usize;
+			reset_check_weight(&op, normal_len_limit, false);
+			reset_check_weight(&op, normal_len_limit + 100, false);
+			reset_check_weight(&op, operational_limit, false);
+			reset_check_weight(&op, operational_limit + 1, true);
 		})
 	}
 

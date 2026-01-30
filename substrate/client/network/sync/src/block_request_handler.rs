@@ -60,7 +60,6 @@ use std::{
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
-const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
 mod rep {
@@ -442,11 +441,15 @@ where
 			};
 
 			let new_total_size = total_size +
+				block_data.header.len() +
 				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
-				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
+				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>() +
+				block_data.justification.len() +
+				block_data.justifications.len();
 
 			// Send at least one block, but make sure to not exceed the limit.
-			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
+			// Reserve 20 KiB for protocol overhead.
+			if !blocks.is_empty() && new_total_size > (MAX_RESPONSE_SIZE as usize - 20 * 1024) {
 				break
 			}
 

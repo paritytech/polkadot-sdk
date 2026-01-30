@@ -113,7 +113,12 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(4 * 1024 * 1024, u64::MAX),
 		);
-	pub static BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(u32::MAX, Perbill::from_percent(75));
+	pub static BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(u32::MAX)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = Perbill::from_percent(75) * u32::MAX
+		})
+		.build();
 }
 
 pub type AccountId = u64;

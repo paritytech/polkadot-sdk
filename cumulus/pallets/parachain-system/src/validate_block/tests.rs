@@ -777,3 +777,39 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 			.contains("only one block per PoV is allowed"));
 	}
 }
+
+#[test]
+fn validate_block_rejects_huge_header_single_block() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+
+		let digest_data_exceeding_max_head_data_size =
+			vec![0u8; relay_chain::MAX_HEAD_DATA_SIZE as usize + 1024];
+		let pre_digests =
+			vec![DigestItem::PreRuntime(*b"TEST", digest_data_exceeding_max_head_data_size)];
+
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			pre_digests,
+		);
+
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_rejects_huge_header_single_block", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(
+			dbg!(String::from_utf8(output.stderr).unwrap()).contains("exceeds MAX_HEAD_DATA_SIZE")
+		);
+	}
+}
