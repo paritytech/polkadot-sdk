@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769781921084,
+  "lastUpdate": 1769785946896,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "fe26e9e34c0ac7236202f99720d8cb129d7b6818",
-          "message": "[pvf-worker] Refactor execute request handling (#8908)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/8886\n\nPVF execution worker communication was organized into a single\nExecuteRequest struct. This should improve performance: one\nencode/decode operation instead of four. Also, no more chance of\nordering mistakes.\n\n\n\n## Integration\n\nThis is an internal refactoring of the PVF execution worker. Downstream\nprojects will not need any code changes.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T08:18:13Z",
-          "tree_id": "3700ea0539301970f2be67d83b426fcf936cff85",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fe26e9e34c0ac7236202f99720d8cb129d7b6818"
-        },
-        "date": 1750843505401,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008831157960000089,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012811112206666659,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022483903900000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15650775462000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009729223213333325,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5168cadb2683174b891cbd33e37cd436bfdce1d",
+          "message": "collator-protocol: Readvertise collations after peer disconnects (#10464)\n\nThere's a possible race case between peer connectivity and collation\nadvertisement:\n- The advertisement was generated\n- peer disconnected before receiving the advertisement\n\nAs a result of that, when the peer reconnects, the previous collation\n(C0) is not sent.\nThis happens when the collator has produced another collation (C1).\nHowever, from the logs it looks like the collation C1 is advertising,\nbut C0 is skipped.\n\n- T0: peer disconnects without receiving C0\n- T1: peer reconnects\n- T2: collator advertises C1, but not C0\n\nThis PR aims to resubmit collations on `PeerConect` events to mitigate\nthese cases\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/10463\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-30T13:57:37Z",
+          "tree_id": "7068a46b2cd404d92390dc3bd0b3efa3b14b6638",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5168cadb2683174b891cbd33e37cd436bfdce1d"
+        },
+        "date": 1769785921913,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0068635623000000015,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02285713076,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00981973011333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14524843821333341,
             "unit": "seconds"
           }
         ]
