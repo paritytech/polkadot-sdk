@@ -18,11 +18,12 @@
 use super::ExtBytecode;
 use crate::{
 	primitives::ExecReturnValue,
+	tracing::FrameTraceInfo,
 	vm::{
 		evm::{memory::Memory, stack::Stack},
 		ExecResult, Ext,
 	},
-	Config, DispatchError, Error,
+	Config, DispatchError, Error, Weight,
 };
 use alloc::vec::Vec;
 use pallet_revive_uapi::ReturnFlags;
@@ -72,5 +73,31 @@ impl<'a, E: Ext> Interpreter<'a, E> {
 	/// Create a new interpreter instance
 	pub fn new(bytecode: ExtBytecode, input: Vec<u8>, ext: &'a mut E) -> Self {
 		Self { ext, bytecode, input, stack: Stack::new(), memory: Memory::new() }
+	}
+}
+
+impl<E: Ext> FrameTraceInfo for Interpreter<'_, E> {
+	fn gas_left(&self) -> u64 {
+		let meter = self.ext.frame_meter();
+		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
+	}
+
+	fn weight_consumed(&self) -> Weight {
+		let meter = self.ext.frame_meter();
+		meter.weight_consumed()
+	}
+
+	fn last_frame_output(&self) -> crate::evm::Bytes {
+		crate::evm::Bytes(self.ext.last_frame_output().data.clone())
+	}
+}
+
+impl<E: Ext> crate::tracing::EVMFrameTraceInfo for Interpreter<'_, E> {
+	fn memory_snapshot(&self, limit: usize) -> Vec<crate::evm::Bytes> {
+		self.memory.snapshot(limit)
+	}
+
+	fn stack_snapshot(&self) -> Vec<crate::evm::Bytes> {
+		self.stack.snapshot()
 	}
 }
