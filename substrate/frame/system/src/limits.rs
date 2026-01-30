@@ -42,7 +42,7 @@ pub struct BlockLength {
 	pub max: PerDispatchClass<u32>,
 	/// Optional maximum header size in bytes.
 	///
-	/// It is still possible that a header goes above this limit, if the runtime deposits to may
+	/// It is still possible that a header goes above this limit, if the runtime deposits too many
 	/// digests in the header. However, it is assumed that the runtime restricts the access for
 	/// depositing digests in the header.
 	///
@@ -62,7 +62,9 @@ impl Default for BlockLength {
 
 impl BlockLength {
 	/// Create new `BlockLength` with `max` for every class.
-	#[deprecated(since = "TBD", note = "Use `BlockLength::builder().max(value).build()` instead")]
+	#[deprecated(
+		note = "Use `BlockLength::builder().max(value).build()` instead. Will be removed after July 2026."
+	)]
 	pub fn max(max: u32) -> Self {
 		Self { max: PerDispatchClass::new(|_| max), max_header_size: None }
 	}
@@ -70,8 +72,7 @@ impl BlockLength {
 	/// Create new `BlockLength` with `max` for `Operational` & `Mandatory`
 	/// and `normal * max` for `Normal`.
 	#[deprecated(
-		since = "TBD",
-		note = "Use `BlockLength::builder().normal_ratio(value, ratio).build()` instead"
+		note = "Use `BlockLength::builder().normal_ratio(value, ratio).build()` instead. Will be removed after July 2026."
 	)]
 	pub fn max_with_normal_ratio(max: u32, normal: Perbill) -> Self {
 		Self {

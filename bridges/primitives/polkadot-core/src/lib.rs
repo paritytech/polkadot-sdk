@@ -135,7 +135,7 @@ parameter_types! {
 	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
-			*m = NORMAL_DISPATCH_RATIO * 5 * 1024 * 1024
+			*m = NORMAL_DISPATCH_RATIO * *m
 		})
 		.build();
 	/// All Polkadot-like chains have the same block weights.

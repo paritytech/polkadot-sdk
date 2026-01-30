@@ -217,7 +217,7 @@ parameter_types! {
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
-			*m = NORMAL_DISPATCH_RATIO * 5 * 1024 * 1024
+			*m = NORMAL_DISPATCH_RATIO * *m
 		})
 		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
