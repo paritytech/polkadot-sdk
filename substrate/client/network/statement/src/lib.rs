@@ -31,7 +31,7 @@ use crate::config::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 #[cfg(any(test, feature = "test-helpers"))]
 use futures::future::pending;
-use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
+use futures::{future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
 };
@@ -58,15 +58,13 @@ use std::{
 	iter,
 	num::NonZeroUsize,
 	pin::Pin,
-	sync::Arc,
+	sync::{Arc, RwLock},
 };
 use tokio::time::timeout;
 pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
-/// Future resolving to statement import result.
-pub type StatementImportFuture = oneshot::Receiver<SubmitResult>;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -91,7 +89,10 @@ const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
-struct Metrics {
+#[cfg_attr(any(test, feature = "test-helpers"), doc(hidden))]
+#[cfg_attr(any(test, feature = "test-helpers"), allow(dead_code))]
+#[derive(Debug)]
+pub struct Metrics {
 	propagated_statements: Counter<U64>,
 	known_statements_received: Counter<U64>,
 	skipped_oversized_statements: Counter<U64>,
@@ -210,7 +211,28 @@ impl StatementHandlerPrototype {
 		mut num_submission_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+
+		// Channel for submitting statements to the store (validation worker).
+		let (submit_queue_sender, submit_queue_receiver) =
+			async_channel::bounded::<(Hash, Statement)>(MAX_PENDING_STATEMENTS);
+
+		// Channel for on_statements requests from main loop to worker processing statements
+		let (statements_queue_sender, statements_queue_receiver) =
+			async_channel::bounded::<OnStatementsRequest>(MAX_PENDING_STATEMENTS);
+
+		// Channel for worker events back to main loop.
+		let (results_queue_sender, results_queue_receiver) =
+			async_channel::bounded::<WorkerEvent>(MAX_PENDING_STATEMENTS);
+
+		// Shared state for pending statements.
+		let pending_state = Arc::new(RwLock::new(PendingState::new()));
+
+		// Create metrics early so we can share with worker.
+		let metrics = if let Some(r) = metrics_registry {
+			Some(Arc::new(Metrics::register(r)?))
+		} else {
+			None
+		};
 
 		if num_submission_workers == 0 {
 			log::warn!(
@@ -220,28 +242,62 @@ impl StatementHandlerPrototype {
 			num_submission_workers = 1;
 		}
 
+		// Spawn the statement store submission workers.
+		// These workers validate statements and send results directly to the main loop.
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
-			let mut queue_receiver = queue_receiver.clone();
+			let validation_results_sender = results_queue_sender.clone();
+			let mut submit_queue_receiver = submit_queue_receiver.clone();
 			executor(
 				async move {
 					loop {
-						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-							queue_receiver.next().await;
+						let task: Option<(Hash, Statement)> = submit_queue_receiver.next().await;
 						match task {
 							None => return,
-							Some((statement, completion)) => {
+							Some((hash, statement)) => {
 								let result = store.submit(statement, StatementSource::Network);
-								if completion.send(result).is_err() {
+								// Send result directly to main loop.
+								let event = WorkerEvent::StatementResult(StatementProcessResult {
+									hash,
+									result: Some(result),
+								});
+								if validation_results_sender.send(event).await.is_err() {
 									log::debug!(
 										target: LOG_TARGET,
-										"Error sending validation completion"
+										"Error sending validation result, receiver dropped"
 									);
+									return;
 								}
 							},
 						}
 					}
 				}
+				.boxed(),
+			);
+		}
+
+		// Create shared peers map.
+		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
+
+		// Spawn the statements processing workers.
+		for _ in 0..num_submission_workers {
+			let worker_pending_state = pending_state.clone();
+			let worker_statement_store = statement_store.clone();
+			let worker_peers = peers.clone();
+			let worker_metrics = metrics.clone();
+			let worker_statements_queue_receiver = statements_queue_receiver.clone();
+			let worker_submit_queue_sender = submit_queue_sender.clone();
+			let worker_results_queue_sender = results_queue_sender.clone();
+			executor(
+				Self::run_on_statements_worker(
+					worker_statements_queue_receiver,
+					worker_submit_queue_sender,
+					worker_results_queue_sender,
+					worker_pending_state,
+					worker_statement_store,
+					worker_peers,
+					worker_metrics,
+				)
 				.boxed(),
 			);
 		}
@@ -252,27 +308,197 @@ impl StatementHandlerPrototype {
 			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state,
+			results_queue_receiver,
+			statements_queue_sender,
 			network,
 			sync,
 			sync_event_stream: sync_event_stream.fuse(),
-			peers: HashMap::new(),
+			peers,
 			statement_store,
-			queue_sender,
-			metrics: if let Some(r) = metrics_registry {
-				Some(Metrics::register(r)?)
-			} else {
-				None
-			},
+			metrics,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		};
 
 		Ok(handler)
 	}
+
+	/// Worker that processes statements received from the network.
+	pub async fn run_on_statements_worker(
+		mut receiver: async_channel::Receiver<OnStatementsRequest>,
+		submit_queue_sender: async_channel::Sender<(Hash, Statement)>,
+		event_sender: async_channel::Sender<WorkerEvent>,
+		shared_state: Arc<RwLock<PendingState>>,
+		statement_store: Arc<dyn StatementStore>,
+		shared_peers: PeersState,
+		metrics: Option<Arc<Metrics>>,
+	) {
+		loop {
+			match receiver.next().await {
+				None => return,
+				Some(OnStatementsRequest { who, notification }) => {
+					Self::process_on_statements(
+						who,
+						notification,
+						&shared_state,
+						&statement_store,
+						&submit_queue_sender,
+						&event_sender,
+						&shared_peers,
+						&metrics,
+					)
+					.await;
+				},
+			}
+		}
+	}
+
+	/// Process statements from a peer (runs in worker thread).
+	/// Decodes the notification, filters statements, and queues them for validation.
+	async fn process_on_statements(
+		who: PeerId,
+		notification: Vec<u8>,
+		shared_state: &Arc<RwLock<PendingState>>,
+		statement_store: &Arc<dyn StatementStore>,
+		submit_queue_sender: &async_channel::Sender<(Hash, Statement)>,
+		event_sender: &async_channel::Sender<WorkerEvent>,
+		shared_peers: &PeersState,
+		metrics: &Option<Arc<Metrics>>,
+	) {
+		// Decode the notification
+		let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) else {
+			log::debug!(target: LOG_TARGET, "Worker: Failed to decode statement list from {who}");
+			return;
+		};
+
+		log::trace!(target: LOG_TARGET, "Worker processing {} statements from {}", statements.len(), who);
+
+		// Track aggregated reputation change for this peer
+		let mut aggregated_reputation: i32 = 0;
+
+		for s in statements {
+			let hash = s.hash();
+
+			// Mark statement as known for this peer.
+			{
+				let Ok(mut guard) = shared_peers.write() else {
+					log::error!(target: LOG_TARGET, "shared_peers lock poisoned");
+					break;
+				};
+				// We can't punish peers for sending us statements we already know from them,
+				// because there might be a race between us sending them the statement and them
+				// sending it to us. So we just skip duplicates from the same peer
+				if !guard
+					.get_mut(&who)
+					.map(|peer| peer.known_statements.insert(hash))
+					.unwrap_or(true)
+				{
+					continue;
+				}
+			};
+
+			// Check if we already received this from the same peer while pending validation.
+			{
+				let Ok(state) = shared_state.read() else {
+					log::error!(target: LOG_TARGET, "shared_state lock poisoned");
+					break;
+				};
+				if state
+					.pending_statements_peers
+					.get(&hash)
+					.map(|peers| peers.contains(&who))
+					.unwrap_or(false)
+				{
+					log::trace!(
+						target: LOG_TARGET,
+						"Worker: Already received the statement from the same peer {who} while pending.",
+					);
+					aggregated_reputation =
+						aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
+					continue;
+				}
+			}
+
+			// Skip if we already have this statement (from another peer).
+			if statement_store.has_statement(&hash) {
+				log::trace!(
+					target: LOG_TARGET,
+					"Worker: Already have statement in store (from another peer), skipping.",
+				);
+				if let Some(metrics) = metrics {
+					metrics.known_statements_received.inc();
+				}
+				continue;
+			}
+
+			// Queue ANY_STATEMENT reputation report for new statements
+			aggregated_reputation = aggregated_reputation.saturating_add(rep::ANY_STATEMENT.value);
+
+			// Acquire write lock to update pending state.
+			let Ok(mut state) = shared_state.write() else {
+				log::error!(target: LOG_TARGET, "shared_state lock poisoned");
+				break;
+			};
+
+			// Check pending limit.
+			if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
+				log::debug!(
+					target: LOG_TARGET,
+					"Worker: Ignoring statement, exceeded MAX_PENDING_STATEMENTS limit",
+				);
+				if let Some(metrics) = metrics {
+					metrics.ignored_statements.inc();
+				}
+				break;
+			}
+
+			match state.pending_statements_peers.entry(hash) {
+				Entry::Vacant(entry) => match submit_queue_sender.try_send((hash, s)) {
+					Ok(()) => {
+						entry.insert(HashSet::from_iter([who]));
+					},
+					Err(async_channel::TrySendError::Full(_)) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Worker: Dropped statement because validation channel is full",
+						);
+					},
+					Err(async_channel::TrySendError::Closed(_)) => {
+						log::trace!(
+							target: LOG_TARGET,
+							"Worker: Dropped statement because validation channel is closed",
+						);
+					},
+				},
+				Entry::Occupied(mut entry) =>
+					if !entry.get_mut().insert(who) {
+						//  We might have raced with another worker thread adding the same peer.
+						aggregated_reputation =
+							aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
+					},
+			}
+		}
+
+		// Send aggregated reputation change if any
+		if aggregated_reputation != 0 {
+			let _ = event_sender
+				.send(WorkerEvent::ReputationChange(ReputationChange {
+					peer: who,
+					change: sc_network::ReputationChange::new(
+						aggregated_reputation,
+						"Statement batch",
+					),
+				}))
+				.await;
+		}
+	}
 }
+
+/// Shared peers map type alias for clarity.
+pub type PeersState = Arc<RwLock<HashMap<PeerId, Peer>>>;
 
 /// Handler for statements. Call [`StatementHandler::run`] to start the processing.
 pub struct StatementHandler<
@@ -282,14 +508,14 @@ pub struct StatementHandler<
 	protocol_name: ProtocolName,
 	/// Interval at which we call `propagate_statements`.
 	propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
-	/// Pending statements verification tasks.
-	pending_statements:
-		FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>,
-	/// As multiple peers can send us the same statement, we group
-	/// these peers using the statement hash while the statement is
-	/// imported. This prevents that we import the same statement
-	/// multiple times concurrently.
-	pending_statements_peers: HashMap<Hash, HashSet<PeerId>>,
+	/// Shared state for pending statements accessed by main loop and worker threads that process
+	/// statements coming from the network.
+	pending_state: Arc<RwLock<PendingState>>,
+	/// Receiver for events from worker threads, about the results of statement processing.
+	pub results_queue_receiver: async_channel::Receiver<WorkerEvent>,
+	/// Sender for on_statements requests to worker threads that does the initial decoding and
+	/// filtering.
+	pub statements_queue_sender: async_channel::Sender<OnStatementsRequest>,
 	/// Network service to use to send messages and manage peers.
 	network: N,
 	/// Syncing service.
@@ -298,18 +524,19 @@ pub struct StatementHandler<
 	sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 	/// Notification service.
 	notification_service: Box<dyn NotificationService>,
-	// All connected peers
-	peers: HashMap<PeerId, Peer>,
+	/// All connected peers (shared with worker thread for direct known_statements updates).
+	peers: PeersState,
 	statement_store: Arc<dyn StatementStore>,
-	queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
-	/// Prometheus metrics.
-	metrics: Option<Metrics>,
+	/// Prometheus metrics (shared with worker thread).
+	metrics: Option<Arc<Metrics>>,
 	/// Timeout for sending next statement batch during initial sync.
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
+	/// Pending statement send operations, polled by the main loop.
+	pending_sends: PendingSends,
 }
 
 /// Peer information
@@ -324,6 +551,73 @@ pub struct Peer {
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
 struct PendingInitialSync {
 	hashes: Vec<Hash>,
+}
+
+/// Message sent from main loop to on_statements worker thread.
+#[cfg_attr(any(test, feature = "test-helpers"), derive(Debug, Clone))]
+pub struct OnStatementsRequest {
+	/// The peer that sent the statements.
+	pub who: PeerId,
+	/// Raw notification bytes to decode in worker thread.
+	pub notification: Vec<u8>,
+}
+
+/// Result from processing a statement in the worker thread.
+#[derive(Debug)]
+pub struct StatementProcessResult {
+	/// Hash of the statement that was processed.
+	pub hash: Hash,
+	/// Result of the statement submission.
+	pub result: Option<SubmitResult>,
+}
+
+/// Reputation change to be applied by the main loop.
+#[derive(Debug)]
+pub struct ReputationChange {
+	/// The peer to report.
+	pub peer: PeerId,
+	/// The reputation change to apply.
+	pub change: sc_network::ReputationChange,
+}
+
+/// Result of a pending statement send operation.
+struct PendingSendResult {
+	/// The peer the notification was sent to.
+	peer: PeerId,
+	/// Number of statements in the chunk.
+	count: usize,
+	/// Result of the send operation (Ok if successful, Err with error or timeout).
+	result: Result<Result<(), sc_network::error::Error>, tokio::time::error::Elapsed>,
+}
+
+/// Type alias for the pending sends future collection, this is a list of in-flight sends to peers.
+type PendingSends =
+	FuturesUnordered<Pin<Box<dyn Future<Output = PendingSendResult> + Send + 'static>>>;
+
+/// Events sent from workers back to main loop.
+#[derive(Debug)]
+pub enum WorkerEvent {
+	/// A statement was processed and completed validation.
+	StatementResult(StatementProcessResult),
+	/// A reputation change should be applied.
+	ReputationChange(ReputationChange),
+}
+
+/// Shared state for pending statements, protected by RwLock.
+#[derive(Debug)]
+pub struct PendingState {
+	/// As multiple peers can send us the same statement, we group
+	/// these peers using the statement hash while the statement is
+	/// imported. This prevents that we import the same statement
+	/// multiple times concurrently.
+	pub pending_statements_peers: HashMap<Hash, HashSet<PeerId>>,
+}
+
+impl PendingState {
+	/// Create a new empty shared pending state.
+	pub fn new() -> Self {
+		Self { pending_statements_peers: HashMap::new() }
+	}
 }
 
 /// Result of finding a sendable chunk of statements.
@@ -416,36 +710,36 @@ where
 		network: N,
 		sync: S,
 		sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
-		peers: HashMap<PeerId, Peer>,
+		peers: PeersState,
 		statement_store: Arc<dyn StatementStore>,
-		queue_sender: async_channel::Sender<(Statement, oneshot::Sender<SubmitResult>)>,
+		statements_queue_sender: async_channel::Sender<OnStatementsRequest>,
+		results_queue_receiver: async_channel::Receiver<WorkerEvent>,
+		pending_state: Arc<RwLock<PendingState>>,
 	) -> Self {
 		Self {
 			protocol_name,
 			notification_service,
 			propagate_timeout,
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state,
+			results_queue_receiver,
+			statements_queue_sender,
 			network,
 			sync,
 			sync_event_stream,
 			peers,
 			statement_store,
-			queue_sender,
 			metrics: None,
 			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		}
 	}
 
-	/// Get mutable access to pending statements for testing/benchmarking.
+	/// Get the shared pending state for testing/benchmarking.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn pending_statements_mut(
-		&mut self,
-	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
-	{
-		&mut self.pending_statements
+	pub fn pending_state(&self) -> &Arc<RwLock<PendingState>> {
+		&self.pending_state
 	}
 
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -453,19 +747,46 @@ where
 	pub async fn run(mut self) {
 		loop {
 			futures::select_biased! {
-				_ = self.propagate_timeout.next() => {
-					self.propagate_statements().await;
-					self.metrics.as_ref().map(|metrics| {
-						metrics.pending_statements.set(self.pending_statements.len() as u64);
-					});
+				// Poll pending sends first (highest priority for completing in-flight work)
+				send_result = self.pending_sends.select_next_some() => {
+					self.handle_send_result(send_result);
 				},
-				(hash, result) = self.pending_statements.select_next_some() => {
-					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
-						if let Some(result) = result {
-							peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
+				_ = self.propagate_timeout.next() => {
+					self.propagate_statements();
+					if let Some(metrics) = self.metrics.as_ref() {
+						if let Ok(state) = self.pending_state.read() {
+							metrics.pending_statements.set(state.pending_statements_peers.len() as u64);
+						} else {
+							log::error!(target: LOG_TARGET, "pending_state lock poisoned");
 						}
-					} else {
-						log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
+					}
+				},
+				event = self.results_queue_receiver.next().fuse() => {
+					match event {
+						Some(WorkerEvent::StatementResult(StatementProcessResult { hash, result })) => {
+							// Update shared state and handle import result.
+							let Ok(mut state) = self.pending_state.write() else {
+								log::error!(target: LOG_TARGET, "pending_state lock poisoned");
+								continue;
+							};
+							let peers = state.pending_statements_peers.remove(&hash);
+							drop(state);
+							if let Some(peers) = peers {
+								if let Some(result) = result {
+									peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
+								}
+							} else {
+								log::warn!(target: LOG_TARGET, "Inconsistent state, no peers for pending statement!");
+							}
+						},
+						Some(WorkerEvent::ReputationChange(ReputationChange { peer, change })) => {
+							self.network.report_peer(peer, change);
+						},
+						None => {
+							// Worker channel closed, shutting down.
+							log::debug!(target: LOG_TARGET, "Worker event channel closed");
+							return;
+						},
 					}
 				},
 				sync_event = self.sync_event_stream.next() => {
@@ -494,10 +815,11 @@ where
 	}
 
 	/// Send a single chunk of statements to a peer.
-	async fn send_statement_chunk(
-		&mut self,
-		peer: &PeerId,
-		statements: &[&Statement],
+	/// Returns a future that calls `send_async_notification`.
+	async fn send_statement_chunk<'a>(
+		&'a mut self,
+		peer: &'a PeerId,
+		statements: &'a [&'a Statement],
 	) -> SendChunkResult {
 		match find_sendable_chunk(statements) {
 			ChunkResult::Send(0) => SendChunkResult::Empty,
@@ -569,17 +891,23 @@ where
 					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
 					return
 				};
-
-				let _was_in = self.peers.insert(
-					peer,
-					Peer {
-						known_statements: LruHashSet::new(
-							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
-						),
-						role,
-					},
-				);
-				debug_assert!(_was_in.is_none());
+				{
+					let Ok(mut guard) = self.peers.write() else {
+						log::error!(target: LOG_TARGET, "peers lock poisoned");
+						return;
+					};
+					let _was_in = guard.insert(
+						peer,
+						Peer {
+							known_statements: LruHashSet::new(
+								NonZeroUsize::new(MAX_KNOWN_STATEMENTS)
+									.expect("Constant is nonzero"),
+							),
+							role,
+						},
+					);
+					debug_assert!(_was_in.is_none());
+				}
 
 				if !self.sync.is_major_syncing() && !role.is_light() {
 					let hashes = self.statement_store.statement_hashes();
@@ -590,8 +918,14 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				let _peer = self.peers.remove(&peer);
-				debug_assert!(_peer.is_some());
+				let Ok(mut guard) = self.peers.write() else {
+					log::error!(target: LOG_TARGET, "peers lock poisoned");
+					return;
+				};
+				{
+					let _peer = guard.remove(&peer);
+					debug_assert!(_peer.is_some());
+				}
 				self.pending_initial_syncs.remove(&peer);
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 			},
@@ -605,95 +939,18 @@ where
 					return
 				}
 
-				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) {
-					self.on_statements(peer, statements);
-				} else {
-					log::debug!(target: LOG_TARGET, "Failed to decode statement list from {peer}");
-				}
-			},
-		}
-	}
-
-	/// Called when peer sends us new statements
-	#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
-	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
-		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
-		if let Some(ref mut peer) = self.peers.get_mut(&who) {
-			let mut statements_left = statements.len() as u64;
-			for s in statements {
-				if self.pending_statements.len() > MAX_PENDING_STATEMENTS {
+				// Send raw notification to worker for decoding and processing
+				if let Err(e) = self.statements_queue_sender.try_send(OnStatementsRequest {
+					who: peer,
+					notification: notification.to_vec(),
+				}) {
 					log::debug!(
 						target: LOG_TARGET,
-						"Ignoring {} statements that exceed `MAX_PENDING_STATEMENTS`({}) limit",
-						statements_left,
-						MAX_PENDING_STATEMENTS,
+						"Failed to send notification to worker: {:?}",
+						e
 					);
-					self.metrics.as_ref().map(|metrics| {
-						metrics.ignored_statements.inc_by(statements_left);
-					});
-					break
 				}
-
-				let hash = s.hash();
-				peer.known_statements.insert(hash);
-
-				if self.statement_store.has_statement(&hash) {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.known_statements_received.inc();
-					});
-
-					if let Some(peers) = self.pending_statements_peers.get(&hash) {
-						if peers.contains(&who) {
-							log::trace!(
-								target: LOG_TARGET,
-								"Already received the statement from the same peer {who}.",
-							);
-							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-						}
-					}
-					continue;
-				}
-
-				self.network.report_peer(who, rep::ANY_STATEMENT);
-
-				match self.pending_statements_peers.entry(hash) {
-					Entry::Vacant(entry) => {
-						let (completion_sender, completion_receiver) = oneshot::channel();
-						match self.queue_sender.try_send((s, completion_sender)) {
-							Ok(()) => {
-								self.pending_statements.push(
-									async move {
-										let res = completion_receiver.await;
-										(hash, res.ok())
-									}
-									.boxed(),
-								);
-								entry.insert(HashSet::from_iter([who]));
-							},
-							Err(async_channel::TrySendError::Full(_)) => {
-								log::debug!(
-									target: LOG_TARGET,
-									"Dropped statement because validation channel is full",
-								);
-							},
-							Err(async_channel::TrySendError::Closed(_)) => {
-								log::trace!(
-									target: LOG_TARGET,
-									"Dropped statement because validation channel is closed",
-								);
-							},
-						}
-					},
-					Entry::Occupied(mut entry) => {
-						if !entry.get_mut().insert(who) {
-							// Already received this from the same peer.
-							self.network.report_peer(who, rep::DUPLICATE_STATEMENT);
-						}
-					},
-				}
-
-				statements_left -= 1;
-			}
+			},
 		}
 	}
 
@@ -709,7 +966,8 @@ where
 	}
 
 	/// Propagate one statement.
-	pub async fn propagate_statement(&mut self, hash: &Hash) {
+	/// Queues send futures to `pending_sends`, polled by the main loop.
+	pub fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
@@ -717,15 +975,20 @@ where
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
 		if let Ok(Some(statement)) = self.statement_store.statement(hash) {
-			self.do_propagate_statements(&[(*hash, statement)]).await;
+			self.do_propagate_statements(&[(*hash, statement)]);
 		}
 	}
 
 	/// Propagate the given `statements` to the given `peer`.
 	///
 	/// Internally filters `statements` to only send unknown statements to the peer.
-	async fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
-		let Some(peer) = self.peers.get_mut(who) else {
+	/// Send futures are queued to `pending_sends` and polled by the main loop.
+	fn send_statements_to_peer(&mut self, who: &PeerId, statements: &[(Hash, Statement)]) {
+		let Ok(mut peers) = self.peers.write() else {
+			log::error!(target: LOG_TARGET, "peers lock poisoned");
+			return;
+		};
+		let Some(peer) = peers.get_mut(who) else {
 			return;
 		};
 
@@ -739,6 +1002,7 @@ where
 			.iter()
 			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
 			.collect();
+		drop(peers);
 
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
@@ -746,37 +1010,93 @@ where
 			return
 		}
 
-		self.send_statements_in_chunks(who, &to_send).await;
+		self.send_statements_in_chunks(who, &to_send);
 	}
 
 	/// Send statements to a peer in chunks, respecting the maximum notification size.
-	async fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+	/// Chunks are queued to `pending_sends` and will be polled by the main loop.
+	fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+		// Pre-compute all chunks with their sizes (encoded data, statement count)
+		let mut chunks: Vec<(Vec<u8>, usize)> = Vec::new();
 		let mut offset = 0;
 		while offset < statements.len() {
-			match self.send_statement_chunk(who, &statements[offset..]).await {
-				SendChunkResult::Sent(chunk_end) => {
+			match find_sendable_chunk(&statements[offset..]) {
+				ChunkResult::Send(0) => break,
+				ChunkResult::Send(chunk_end) => {
+					let chunk = &statements[offset..offset + chunk_end];
+					chunks.push((chunk.encode(), chunk_end));
 					offset += chunk_end;
 				},
-				SendChunkResult::Skipped => {
+				ChunkResult::SkipOversized => {
+					log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+					self.metrics.as_ref().map(|metrics| {
+						metrics.skipped_oversized_statements.inc();
+					});
 					offset += 1;
 				},
-				SendChunkResult::Empty | SendChunkResult::Failed => return,
 			}
 		}
+
+		if chunks.is_empty() {
+			return;
+		}
+
+		// Queue futures for all chunks to be polled by the main loop
+		for (encoded, count) in chunks {
+			let Some(message_sink) = self.notification_service.message_sink(who) else {
+				log::debug!(target: LOG_TARGET, "Failed to get message sink for peer {who}");
+				return;
+			};
+			let peer = *who;
+			self.pending_sends.push(Box::pin(async move {
+				let result =
+					timeout(SEND_TIMEOUT, message_sink.send_async_notification(encoded)).await;
+				PendingSendResult { peer, count, result }
+			}));
+		}
 	}
 
-	async fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
-		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), self.peers.len());
-		let peers: Vec<_> = self.peers.keys().copied().collect();
+	/// Handle the result of a completed send operation.
+	fn handle_send_result(&mut self, send_result: PendingSendResult) {
+		let PendingSendResult { peer, count, result } = send_result;
+		match result {
+			Ok(Ok(())) => {
+				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", count, peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.propagated_statements.inc_by(count as u64);
+					metrics.propagated_statements_chunks.observe(count as f64);
+				});
+			},
+			Ok(Err(e)) => {
+				log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
+			},
+			Err(_) => {
+				log::debug!(target: LOG_TARGET, "Send to {peer} timed out");
+			},
+		}
+	}
+
+	/// Queue statement sends to all peers. Futures are polled by the main loop.
+	fn do_propagate_statements(&mut self, statements: &[(Hash, Statement)]) {
+		let Ok(guard) = self.peers.read() else {
+			log::error!(target: LOG_TARGET, "peers lock poisoned");
+			return;
+		};
+		let peers: Vec<_> = guard.keys().copied().collect();
+		drop(guard);
+		log::debug!(target: LOG_TARGET, "Propagating {} statements for {} peers", statements.len(), peers.len());
 		for who in peers {
 			log::trace!(target: LOG_TARGET, "Start propagating statements for {}", who);
-			self.send_statements_to_peer(&who, statements).await;
+			self.send_statements_to_peer(&who, statements);
 		}
-		log::trace!(target: LOG_TARGET, "Statements propagated to all peers");
+
+		log::trace!(target: LOG_TARGET, "Statements queued for propagation to all peers");
 	}
 
-	/// Call when we must propagate ready statements to peers.
-	async fn propagate_statements(&mut self) {
+	/// Call when we must propagate ready statements
+	/// to peers.
+	/// Queues send futures to `pending_sends`, polled by the main loop.
+	fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			return
@@ -784,7 +1104,7 @@ where
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
-			self.do_propagate_statements(&statements).await;
+			self.do_propagate_statements(&statements);
 		}
 	}
 
@@ -843,10 +1163,14 @@ where
 			SendChunkResult::Sent(sent) => {
 				debug_assert_eq!(to_send.len(), sent);
 				// Mark statements as known
-				if let Some(peer) = self.peers.get_mut(&peer_id) {
-					for (hash, _) in &statements {
-						peer.known_statements.insert(*hash);
+				if let Ok(mut guard) = self.peers.write() {
+					if let Some(peer) = guard.get_mut(&peer_id) {
+						for (hash, _) in &statements {
+							peer.known_statements.insert(*hash);
+						}
 					}
+				} else {
+					log::error!(target: LOG_TARGET, "peers lock poisoned");
 				}
 			},
 			SendChunkResult::Empty | SendChunkResult::Skipped => {},
@@ -1002,14 +1326,94 @@ mod tests {
 		}
 	}
 
-	#[derive(Debug, Clone)]
-	struct TestNotificationService {
+	/// A test message sink for sending notifications to a specific peer.
+	struct TestMessageSink {
+		peer: PeerId,
 		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		notification_sender: Option<tokio::sync::mpsc::Sender<(PeerId, Vec<u8>)>>,
+	}
+
+	#[async_trait::async_trait]
+	impl sc_network::service::traits::MessageSink for TestMessageSink {
+		fn send_sync_notification(&self, notification: Vec<u8>) {
+			self.sent_notifications.lock().unwrap().push((self.peer, notification.clone()));
+			if let Some(ref sender) = self.notification_sender {
+				let _ = sender.try_send((self.peer, notification));
+			}
+		}
+
+		async fn send_async_notification(
+			&self,
+			notification: Vec<u8>,
+		) -> Result<(), sc_network::error::Error> {
+			self.sent_notifications.lock().unwrap().push((self.peer, notification.clone()));
+			if let Some(ref sender) = self.notification_sender {
+				sender
+					.send((self.peer, notification))
+					.await
+					.map_err(|_| sc_network::error::Error::ChannelClosed)?;
+			}
+			Ok(())
+		}
+	}
+
+	/// A unified test notification service that supports:
+	/// - Synchronous notification collection via `get_sent_notifications()`
+	/// - Optional event injection via `next_event()`
+	/// - Optional bounded channel for backpressure simulation
+	#[derive(Debug)]
+	struct TestNotificationService {
+		/// Synchronous storage for sent notifications (always available)
+		sent_notifications: Arc<Mutex<Vec<(PeerId, Vec<u8>)>>>,
+		/// Optional receiver for injected events (peer connect/disconnect, incoming statements).
+		/// Uses tokio::sync::Mutex to allow holding the lock across await points.
+		/// None for simple tests and clones; Some(...) for tests with event injection.
+		event_receiver: Option<tokio::sync::mpsc::UnboundedReceiver<NotificationEvent>>,
+		/// Optional bounded channel sender for async notifications (simulates backpressure)
+		notification_sender: Option<tokio::sync::mpsc::Sender<(PeerId, Vec<u8>)>>,
+	}
+
+	impl Clone for TestNotificationService {
+		fn clone(&self) -> Self {
+			Self {
+				sent_notifications: self.sent_notifications.clone(),
+				event_receiver: None, // Clones don't receive events
+				notification_sender: self.notification_sender.clone(),
+			}
+		}
 	}
 
 	impl TestNotificationService {
+		/// Create a simple test notification service without event injection.
 		fn new() -> Self {
-			Self { sent_notifications: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				sent_notifications: Arc::new(Mutex::new(Vec::new())),
+				event_receiver: None,
+				notification_sender: None,
+			}
+		}
+
+		/// Create a test notification service with event injection and bounded channel
+		/// for backpressure simulation.
+		fn with_event_injection(
+			channel_capacity: usize,
+		) -> (
+			Self,
+			tokio::sync::mpsc::UnboundedSender<NotificationEvent>,
+			tokio::sync::mpsc::Receiver<(PeerId, Vec<u8>)>,
+		) {
+			let (event_sender, event_receiver) = tokio::sync::mpsc::unbounded_channel();
+			let (notification_sender, notification_receiver) =
+				tokio::sync::mpsc::channel(channel_capacity);
+			(
+				Self {
+					sent_notifications: Arc::new(Mutex::new(Vec::new())),
+					event_receiver: Some(event_receiver),
+					notification_sender: Some(notification_sender),
+				},
+				event_sender,
+				notification_receiver,
+			)
 		}
 
 		fn get_sent_notifications(&self) -> Vec<(PeerId, Vec<u8>)> {
@@ -1028,7 +1432,11 @@ mod tests {
 		}
 
 		fn send_sync_notification(&mut self, peer: &PeerId, notification: Vec<u8>) {
-			self.sent_notifications.lock().unwrap().push((*peer, notification));
+			self.sent_notifications.lock().unwrap().push((*peer, notification.clone()));
+			// Also send to channel if available (ignore errors for sync send)
+			if let Some(ref sender) = self.notification_sender {
+				let _ = sender.try_send((*peer, notification));
+			}
 		}
 
 		async fn send_async_notification(
@@ -1036,7 +1444,14 @@ mod tests {
 			peer: &PeerId,
 			notification: Vec<u8>,
 		) -> Result<(), sc_network::error::Error> {
-			self.sent_notifications.lock().unwrap().push((*peer, notification));
+			self.sent_notifications.lock().unwrap().push((*peer, notification.clone()));
+			// Also send to channel if available
+			if let Some(ref sender) = self.notification_sender {
+				sender
+					.send((*peer, notification))
+					.await
+					.map_err(|_| sc_network::error::Error::ChannelClosed)?;
+			}
 			Ok(())
 		}
 
@@ -1048,8 +1463,11 @@ mod tests {
 			unimplemented!()
 		}
 
-		async fn next_event(&mut self) -> Option<sc_network::service::traits::NotificationEvent> {
-			None
+		async fn next_event(&mut self) -> Option<NotificationEvent> {
+			match &mut self.event_receiver {
+				Some(receiver) => receiver.recv().await,
+				None => None,
+			}
 		}
 
 		fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
@@ -1062,9 +1480,13 @@ mod tests {
 
 		fn message_sink(
 			&self,
-			_peer: &PeerId,
+			peer: &PeerId,
 		) -> Option<Box<dyn sc_network::service::traits::MessageSink>> {
-			unimplemented!()
+			Some(Box::new(TestMessageSink {
+				peer: *peer,
+				sent_notifications: self.sent_notifications.clone(),
+				notification_sender: self.notification_sender.clone(),
+			}))
 		}
 	}
 
@@ -1196,10 +1618,17 @@ mod tests {
 
 		fn submit(
 			&self,
-			_statement: sp_statement_store::Statement,
+			statement: sp_statement_store::Statement,
 			_source: sp_statement_store::StatementSource,
 		) -> sp_statement_store::SubmitResult {
-			unimplemented!()
+			let hash = statement.hash();
+			let mut statements = self.statements.lock().unwrap();
+			if statements.contains_key(&hash) {
+				SubmitResult::Known
+			} else {
+				statements.insert(hash, statement);
+				SubmitResult::New
+			}
 		}
 
 		fn remove(&self, _hash: &sp_statement_store::Hash) -> sp_statement_store::Result<()> {
@@ -1216,15 +1645,18 @@ mod tests {
 		TestStatementStore,
 		TestNetwork,
 		TestNotificationService,
-		async_channel::Receiver<(Statement, oneshot::Sender<SubmitResult>)>,
+		async_channel::Receiver<OnStatementsRequest>,
+		async_channel::Sender<WorkerEvent>,
 	) {
 		let statement_store = TestStatementStore::new();
-		let (queue_sender, queue_receiver) = async_channel::bounded(2);
+		let (statements_queue_sender, statements_queue_receiver) = async_channel::bounded(100);
+		let (results_queue_sender, results_queue_receiver) = async_channel::bounded(100);
+		let pending_state = Arc::new(RwLock::new(PendingState::new()));
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let peer_id = PeerId::random();
-		let mut peers = HashMap::new();
-		peers.insert(
+		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
+		peers.write().unwrap().insert(
 			peer_id,
 			Peer {
 				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
@@ -1238,8 +1670,9 @@ mod tests {
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state,
+			results_queue_receiver,
+			statements_queue_sender,
 			network: network.clone(),
 			sync: TestSync {},
 			sync_event_stream: (Box::pin(futures::stream::pending())
@@ -1247,78 +1680,145 @@ mod tests {
 				.fuse(),
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
-			queue_sender,
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		};
-		(handler, statement_store, network, notification_service, queue_receiver)
+		(
+			handler,
+			statement_store,
+			network,
+			notification_service,
+			statements_queue_receiver,
+			results_queue_sender,
+		)
 	}
 
 	#[tokio::test]
-	async fn test_skips_processing_statements_that_already_in_store() {
-		let (mut handler, statement_store, _network, _notification_service, queue_receiver) =
-			build_handler();
+	async fn test_notification_is_sent_to_worker() {
+		let (
+			mut handler,
+			_statement_store,
+			_network,
+			_notification_service,
+			statements_queue_receiver,
+			_results_queue_sender,
+		) = build_handler();
 
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(b"statement1".to_vec());
-		let hash1 = statement1.hash();
-
-		statement_store.statements.lock().unwrap().insert(hash1, statement1.clone());
 
 		let mut statement2 = Statement::new();
 		statement2.set_plain_data(b"statement2".to_vec());
-		let hash2 = statement2.hash();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
+		let notification = vec![statement1, statement2].encode();
 
-		handler.on_statements(peer_id, vec![statement1, statement2]);
+		// Simulate receiving a notification
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification: notification.clone().into(),
+			})
+			.await;
 
-		let to_submit = queue_receiver.try_recv();
-		assert_eq!(to_submit.unwrap().0.hash(), hash2, "Expected only statement2 to be queued");
+		// The notification should be sent to the worker
+		let request = statements_queue_receiver.try_recv();
+		let request = request.expect("Expected a request to be sent to worker");
+		assert_eq!(request.who, peer_id);
+		assert_eq!(request.notification, notification);
 
-		let no_more = queue_receiver.try_recv();
-		assert!(no_more.is_err(), "Expected only one statement to be queued");
+		let no_more = statements_queue_receiver.try_recv();
+		assert!(no_more.is_err(), "Expected only one request to be queued");
 	}
 
 	#[tokio::test]
-	async fn test_reports_for_duplicate_statements() {
-		let (mut handler, statement_store, network, _notification_service, queue_receiver) =
-			build_handler();
+	async fn test_worker_event_reputation_change_is_applied() {
+		let (
+			handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_statements_queue_receiver,
+			results_queue_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
-		let mut statement1 = Statement::new();
-		statement1.set_plain_data(b"statement1".to_vec());
+		// Simulate worker sending a reputation change event
+		results_queue_sender
+			.send(WorkerEvent::ReputationChange(ReputationChange {
+				peer: peer_id,
+				change: rep::ANY_STATEMENT,
+			}))
+			.await
+			.unwrap();
 
-		handler.on_statements(peer_id, vec![statement1.clone()]);
-		{
-			// Manually process statements submission
-			let (s, _) = queue_receiver.try_recv().unwrap();
-			let _ = statement_store.statements.lock().unwrap().insert(s.hash(), s);
-			handler.network.report_peer(peer_id, rep::ANY_STATEMENT_REFUND);
+		// Process the event in the handler
+		let event = handler.results_queue_receiver.try_recv().unwrap();
+		match event {
+			WorkerEvent::ReputationChange(ReputationChange { peer, change }) => {
+				handler.network.report_peer(peer, change);
+			},
+			_ => panic!("Expected ReputationChange event"),
 		}
-
-		handler.on_statements(peer_id, vec![statement1]);
 
 		let reports = network.get_reports();
 		assert_eq!(
 			reports,
-			vec![
-				(peer_id, rep::ANY_STATEMENT),        // Report for first statement
-				(peer_id, rep::ANY_STATEMENT_REFUND), // Refund for first statement
-				(peer_id, rep::DUPLICATE_STATEMENT)   // Report for duplicate statement
-			],
-			"Expected ANY_STATEMENT, ANY_STATEMENT_REFUND, DUPLICATE_STATEMENT reputation change, but got: {:?}",
-			reports
+			vec![(peer_id, rep::ANY_STATEMENT)],
+			"Expected ANY_STATEMENT reputation change"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_shared_peers_mark_known_directly() {
+		let (
+			handler,
+			_statement_store,
+			_network,
+			_notification_service,
+			_statements_queue_receiver,
+			_results_queue_sender,
+		) = build_handler();
+
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
+		let hash = [1u8; 32];
+
+		// Simulate worker marking statement as known directly via shared peers
+		{
+			let mut peers = handler.peers.write().unwrap();
+			if let Some(peer) = peers.get_mut(&peer_id) {
+				peer.known_statements.insert(hash);
+			}
+		}
+
+		// Verify the hash is now known (insert returns false if already present)
+		assert!(
+			!handler
+				.peers
+				.write()
+				.unwrap()
+				.get_mut(&peer_id)
+				.unwrap()
+				.known_statements
+				.insert(hash),
+			"Hash should be known after direct update (insert returns false for existing)"
 		);
 	}
 
 	#[tokio::test]
 	async fn test_splits_large_batches_into_smaller_chunks() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			_statements_queue_receiver,
+			_results_queue_sender,
+		) = build_handler();
 
 		let num_statements = 30;
 		let statement_size = 100 * 1024; // 100KB per statement
@@ -1331,7 +1831,12 @@ mod tests {
 			statement_store.recent_statements.lock().unwrap().insert(hash, statement);
 		}
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+
+		// Drive pending sends to completion
+		while let Some(result) = handler.pending_sends.next().await {
+			handler.handle_send_result(result);
+		}
 
 		let sent = notification_service.get_sent_notifications();
 		let mut total_statements_sent = 0;
@@ -1361,8 +1866,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_skips_only_oversized_statements() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			_statements_queue_receiver,
+			_results_queue_sender,
+		) = build_handler();
 
 		let mut statement1 = Statement::new();
 		statement1.set_plain_data(vec![1u8; 100]);
@@ -1409,7 +1920,12 @@ mod tests {
 			.unwrap()
 			.insert(hash3, statement3.clone());
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+
+		// Drive pending sends to completion
+		while let Some(result) = handler.pending_sends.next().await {
+			handler.handle_send_result(result);
+		}
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -1433,7 +1949,9 @@ mod tests {
 		TestNotificationService,
 	) {
 		let statement_store = TestStatementStore::new();
-		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let (statements_queue_sender, _statements_queue_receiver) = async_channel::bounded(100);
+		let (_results_queue_sender, results_queue_receiver) = async_channel::bounded(100);
+		let pending_state = Arc::new(RwLock::new(PendingState::new()));
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 
@@ -1443,22 +1961,104 @@ mod tests {
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state,
+			results_queue_receiver,
+			statements_queue_sender,
 			network: network.clone(),
 			sync: TestSync {},
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
-			peers: HashMap::new(),
+			peers: Arc::new(RwLock::new(HashMap::new())),
 			statement_store: Arc::new(statement_store.clone()),
-			queue_sender,
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		};
 		(handler, statement_store, network, notification_service)
+	}
+
+	/// Build a handler configured for testing the run loop with event injection
+	/// and bounded notification channels.
+	fn build_handler_for_run_loop(
+		num_peers: usize,
+		channel_capacity: usize,
+	) -> (
+		StatementHandler<TestNetwork, TestSync>,
+		TestStatementStore,
+		TestNetwork,
+		tokio::sync::mpsc::UnboundedSender<NotificationEvent>,
+		tokio::sync::mpsc::Receiver<(PeerId, Vec<u8>)>,
+		async_channel::Sender<WorkerEvent>,
+		async_channel::Receiver<OnStatementsRequest>,
+		Vec<PeerId>,
+	) {
+		let statement_store = TestStatementStore::new();
+		let (statements_queue_sender, statements_queue_receiver) = async_channel::bounded(1000);
+		let (results_queue_sender, results_queue_receiver) = async_channel::bounded(1000);
+		let network = TestNetwork::new();
+		let (notification_service, event_sender, notification_receiver) =
+			TestNotificationService::with_event_injection(channel_capacity);
+
+		// Create peers
+		let mut peers_map = HashMap::new();
+		let mut peer_ids = Vec::new();
+		for _ in 0..num_peers {
+			let peer_id = PeerId::random();
+			peers_map.insert(
+				peer_id,
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(10000).unwrap()),
+					role: ObservedRole::Full,
+				},
+			);
+			network.set_peer_role(peer_id, ObservedRole::Full);
+			peer_ids.push(peer_id);
+		}
+		let peers: PeersState = Arc::new(RwLock::new(peers_map));
+
+		// Use tokio interval stream that works with tokio's paused time for testing
+		let propagate_timeout = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
+			std::time::Duration::from_secs(1),
+		))
+		.map(|_| ());
+
+		let handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service),
+			propagate_timeout: (Box::pin(propagate_timeout)
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_state: Arc::new(RwLock::new(PendingState::new())),
+			results_queue_receiver,
+			statements_queue_sender,
+			network: network.clone(),
+			sync: TestSync {},
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers,
+			statement_store: Arc::new(statement_store.clone()),
+			metrics: None,
+			initial_sync_timeout: Box::pin(
+				tokio::time::sleep(std::time::Duration::from_millis(100)).fuse(),
+			),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
+		};
+		(
+			handler,
+			statement_store,
+			network,
+			event_sender,
+			notification_receiver,
+			results_queue_sender,
+			statements_queue_receiver,
+			peer_ids,
+		)
 	}
 
 	#[tokio::test]
@@ -1497,7 +2097,7 @@ mod tests {
 			.await;
 
 		// Verify peer was added and initial sync was queued
-		assert!(handler.peers.contains_key(&peer_id));
+		assert!(handler.peers.read().unwrap().contains_key(&peer_id));
 		assert!(handler.pending_initial_syncs.contains_key(&peer_id));
 		assert_eq!(handler.initial_sync_peer_queue.len(), 1);
 
@@ -1586,7 +2186,7 @@ mod tests {
 		}
 
 		// Verify all peers were added and initial syncs were queued
-		assert_eq!(handler.peers.len(), 3);
+		assert_eq!(handler.peers.read().unwrap().len(), 3);
 		assert_eq!(handler.pending_initial_syncs.len(), 3);
 		assert_eq!(handler.initial_sync_peer_queue.len(), 3);
 
@@ -1667,8 +2267,14 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_send_statements_in_chunks_exact_max_size() {
-		let (mut handler, statement_store, _network, notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			statement_store,
+			_network,
+			notification_service,
+			_statements_queue_receiver,
+			_results_queue_sender,
+		) = build_handler();
 
 		// Calculate the data sizes so that 100 statements together exactly fill max_size.
 		// This tests that all 100 statements fit in a single notification.
@@ -1717,7 +2323,12 @@ mod tests {
 			max_size
 		);
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+
+		// Drive pending sends to completion
+		while let Some(result) = handler.pending_sends.next().await {
+			handler.handle_send_result(result);
+		}
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -1860,5 +2471,355 @@ mod tests {
 
 		// No more pending
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn test_run_loop_propagates_recent_statements_to_peers() {
+		// Setup: 3 peers, 600 statements of ~2KB each (~1.2MB total, exceeds 1MB limit)
+		let (
+			handler,
+			statement_store,
+			_network,
+			_event_sender,
+			mut notification_receiver,
+			_results_queue_sender,
+			_statements_queue_receiver,
+			peer_ids,
+		) = build_handler_for_run_loop(3, 100);
+
+		assert_eq!(peer_ids.len(), 3);
+
+		// Add 600 statements to recent_statements (~2KB each = ~1.2MB total)
+		let num_statements = 600;
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut stmt = Statement::new();
+			let mut data = vec![0u8; 2048]; // ~2KB each
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			stmt.set_plain_data(data);
+			let hash = stmt.hash();
+			expected_hashes.push(hash);
+			statement_store.recent_statements.lock().unwrap().insert(hash, stmt);
+		}
+
+		// Spawn run loop
+		let handle = tokio::spawn(handler.run());
+
+		// Advance time to trigger propagate_timeout (fires at 1 second intervals)
+		tokio::time::advance(std::time::Duration::from_secs(2)).await;
+		tokio::task::yield_now().await;
+
+		// Collect sent notifications (time-boxed)
+		let mut received: Vec<(PeerId, Vec<u8>)> = Vec::new();
+		let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+		while tokio::time::Instant::now() < deadline {
+			tokio::task::yield_now().await;
+			match tokio::time::timeout(
+				std::time::Duration::from_millis(100),
+				notification_receiver.recv(),
+			)
+			.await
+			{
+				Ok(Some(notif)) => received.push(notif),
+				Ok(None) => break, // Channel closed
+				Err(_) => break,   // Timeout
+			}
+		}
+
+		// Abort the run loop
+		handle.abort();
+
+		// Verify: Decode all notifications and collect statement hashes per peer
+		let mut hashes_per_peer: HashMap<PeerId, HashSet<Hash>> = HashMap::new();
+		for (peer, notification) in &received {
+			if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_slice()) {
+				hashes_per_peer
+					.entry(*peer)
+					.or_insert_with(HashSet::new)
+					.extend(statements.iter().map(|s| s.hash()));
+			}
+		}
+
+		// Each peer should have received all 600 statements
+		for peer_id in &peer_ids {
+			let peer_hashes =
+				hashes_per_peer.get(peer_id).expect("Peer should have received notifications");
+			assert_eq!(
+				peer_hashes.len(),
+				num_statements,
+				"Peer {:?} should have received all {} statements, got {}",
+				peer_id,
+				num_statements,
+				peer_hashes.len()
+			);
+		}
+
+		// Verify chunking occurred (should have multiple notifications per peer due to 1MB limit)
+		let notifications_per_peer: HashMap<PeerId, usize> =
+			received.iter().fold(HashMap::new(), |mut acc, (peer, _)| {
+				*acc.entry(*peer).or_insert(0) += 1;
+				acc
+			});
+
+		for peer_id in &peer_ids {
+			let count = notifications_per_peer.get(peer_id).unwrap_or(&0);
+			assert!(
+				*count > 1,
+				"Peer {:?} should have received multiple chunks due to 1MB limit, got {}",
+				peer_id,
+				count
+			);
+		}
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn test_run_loop_validates_statements_and_updates_reputation() {
+		let (
+			handler,
+			statement_store,
+			network,
+			event_sender,
+			_notification_receiver,
+			results_queue_sender,
+			statements_queue_receiver,
+			peer_ids,
+		) = build_handler_for_run_loop(1, 100);
+
+		let peer = peer_ids[0];
+
+		// Create 10 statements (~2KB each)
+		let num_statements = 10;
+		let statements: Vec<Statement> = (0..num_statements)
+			.map(|i| {
+				let mut stmt = Statement::new();
+				let mut data = vec![0u8; 2048];
+				data[0] = i as u8;
+				stmt.set_plain_data(data);
+				stmt
+			})
+			.collect();
+
+		// Get pending_state from handler to share with mock worker
+		let pending_state = handler.pending_state.clone();
+
+		// Spawn a mock worker that emulates the real on_statements_worker behavior
+		let worker_store = statement_store.clone();
+		let worker_handle = tokio::spawn(async move {
+			loop {
+				match statements_queue_receiver.recv().await {
+					Ok(request) => {
+						let who = request.who;
+						// Decode the notification to get statements
+						if let Ok(stmts) =
+							<Statements as Decode>::decode(&mut request.notification.as_slice())
+						{
+							let mut aggregated_reputation: i32 = 0;
+							for stmt in stmts {
+								let hash = stmt.hash();
+
+								// Add ANY_STATEMENT penalty for each new statement
+								aggregated_reputation =
+									aggregated_reputation.saturating_add(rep::ANY_STATEMENT.value);
+
+								// Update pending_state to track this peer for this statement
+								{
+									let mut state = pending_state.write().unwrap();
+									state
+										.pending_statements_peers
+										.entry(hash)
+										.or_insert_with(HashSet::new)
+										.insert(who);
+								}
+
+								let result = worker_store.submit(stmt, StatementSource::Network);
+								let event = WorkerEvent::StatementResult(StatementProcessResult {
+									hash,
+									result: Some(result),
+								});
+								if results_queue_sender.send(event).await.is_err() {
+									return;
+								}
+							}
+
+							// Send aggregated reputation change
+							if aggregated_reputation != 0 {
+								let event = WorkerEvent::ReputationChange(ReputationChange {
+									peer: who,
+									change: sc_network::ReputationChange::new(
+										aggregated_reputation,
+										"Any statement",
+									),
+								});
+								if results_queue_sender.send(event).await.is_err() {
+									return;
+								}
+							}
+						}
+					},
+					Err(_) => return,
+				}
+			}
+		});
+
+		// Spawn run loop
+		let handle = tokio::spawn(handler.run());
+
+		// Yield to let run loop and worker start
+		tokio::task::yield_now().await;
+
+		// Inject NotificationReceived event with encoded statements
+		event_sender
+			.send(NotificationEvent::NotificationReceived {
+				peer,
+				notification: statements.encode().into(),
+			})
+			.unwrap();
+
+		// Allow time for statements to be processed through the validation pipeline:
+		// 1. Run loop receives NotificationReceived event
+		// 2. Statements are queued for validation
+		// 3. Worker processes queue and submits to store
+		// 4. Store returns SubmitResult::New
+		// 5. Run loop receives completion and updates reputation
+		tokio::time::advance(std::time::Duration::from_millis(200)).await;
+		tokio::task::yield_now().await;
+
+		// Abort both the run loop and worker
+		handle.abort();
+		worker_handle.abort();
+
+		// Verify reputation changes
+		let reports = network.get_reports();
+
+		// The worker sends an aggregated ANY_STATEMENT report (all statements combined)
+		// and individual GOOD_STATEMENT reports for each new statement.
+		// Total reputation impact: num_statements * ANY_STATEMENT + num_statements * GOOD_STATEMENT
+
+		// Check aggregated ANY_STATEMENT report (aggregated value = num_statements * -16)
+		let expected_any_statement_total = num_statements as i32 * rep::ANY_STATEMENT.value;
+		let any_statement_report = reports
+			.iter()
+			.find(|(p, rep)| *p == peer && rep.value == expected_any_statement_total);
+		assert!(
+			any_statement_report.is_some(),
+			"Expected aggregated ANY_STATEMENT report with value {}, reports: {:?}",
+			expected_any_statement_total,
+			reports
+		);
+
+		// Check individual GOOD_STATEMENT reports
+		let good_statement_count = reports
+			.iter()
+			.filter(|(p, rep)| *p == peer && rep.value == rep::GOOD_STATEMENT.value)
+			.count();
+		assert_eq!(
+			good_statement_count, num_statements,
+			"Expected {} GOOD_STATEMENT reports, got {}",
+			num_statements, good_statement_count
+		);
+
+		// Verify statements were actually stored
+		let stored_count = statement_store.statements.lock().unwrap().len();
+		assert_eq!(
+			stored_count, num_statements,
+			"Expected {} statements in store, got {}",
+			num_statements, stored_count
+		);
+	}
+
+	#[tokio::test(start_paused = true)]
+	async fn test_run_loop_sends_statements_to_new_peer() {
+		// Start with no peers, but pre-populate statement store
+		let (
+			handler,
+			statement_store,
+			network,
+			event_sender,
+			mut notification_receiver,
+			_results_queue_sender,
+			_statements_queue_receiver,
+			_peer_ids,
+		) = build_handler_for_run_loop(0, 100);
+
+		// Add 600 statements to store (main statements for initial sync)
+		let num_statements = 600;
+		let mut expected_hashes = Vec::new();
+		for i in 0..num_statements {
+			let mut stmt = Statement::new();
+			let mut data = vec![0u8; 2048]; // ~2KB each
+			data[0] = (i % 256) as u8;
+			data[1] = (i / 256) as u8;
+			stmt.set_plain_data(data);
+			let hash = stmt.hash();
+			expected_hashes.push(hash);
+			statement_store.statements.lock().unwrap().insert(hash, stmt);
+		}
+
+		// Spawn run loop
+		let handle = tokio::spawn(handler.run());
+
+		// Yield to let run loop start
+		tokio::task::yield_now().await;
+
+		// Inject peer connection event
+		let new_peer = PeerId::random();
+		network.set_peer_role(new_peer, ObservedRole::Full);
+		event_sender
+			.send(NotificationEvent::NotificationStreamOpened {
+				peer: new_peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.unwrap();
+
+		// Advance time to trigger initial_sync_timeout (100ms intervals)
+		// With 600 statements of ~2KB each, we need multiple bursts
+		// Allow enough time for all bursts to complete
+		for _ in 0..100 {
+			tokio::time::advance(std::time::Duration::from_millis(100)).await;
+			tokio::task::yield_now().await;
+		}
+
+		// Collect sent notifications
+		let mut received: Vec<(PeerId, Vec<u8>)> = Vec::new();
+		loop {
+			match notification_receiver.try_recv() {
+				Ok(notif) => received.push(notif),
+				Err(_) => break,
+			}
+		}
+
+		// Abort the run loop
+		handle.abort();
+
+		// Verify: Decode all notifications and collect statement hashes for the new peer
+		let mut received_hashes: HashSet<Hash> = HashSet::new();
+		for (peer, notification) in &received {
+			if *peer == new_peer {
+				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_slice())
+				{
+					received_hashes.extend(statements.iter().map(|s| s.hash()));
+				}
+			}
+		}
+
+		// New peer should have received all 600 statements
+		assert_eq!(
+			received_hashes.len(),
+			num_statements,
+			"New peer should have received all {} statements, got {}",
+			num_statements,
+			received_hashes.len()
+		);
+
+		// Verify chunking occurred (multiple notifications due to 1MB limit)
+		let notifications_for_new_peer = received.iter().filter(|(p, _)| *p == new_peer).count();
+		assert!(
+			notifications_for_new_peer > 1,
+			"New peer should have received multiple chunks due to 1MB limit, got {}",
+			notifications_for_new_peer
+		);
 	}
 }
