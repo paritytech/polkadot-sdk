@@ -76,7 +76,6 @@ pub enum MigrationState<A> {
 ///
 /// # Safety
 ///
-/// - Idempotent: Skips assets that already have mappings
 /// - Non-destructive: Does not modify any asset data, only adds mappings
 /// - Sequential indices: Each migrated asset gets the next available index
 pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<(T, I, W)>);
@@ -254,16 +253,6 @@ where
 		};
 
 		if let Some(asset_id) = iter.next() {
-			// Check if mapping already exists (idempotent)
-			if pallet::Pallet::<T>::asset_index_of(&asset_id).is_some() {
-				log::debug!(
-					target: "runtime::MigrateForeignAssetPrecompileMappings",
-					"Skipping asset {:?} - mapping already exists",
-					asset_id
-				);
-				return (MigrationState::Asset(asset_id), W::migrate_asset_step_skip());
-			}
-
 			// Insert the bidirectional mapping with a new sequential index
 			match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
 				Ok(asset_index) => {
