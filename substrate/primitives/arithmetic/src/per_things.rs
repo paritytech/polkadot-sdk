@@ -28,7 +28,6 @@
 #![doc = docify::embed!("./src/lib.rs", perbill_example)]
 //! > **[`Percent`](Percent), parts of a hundred**
 #![doc = docify::embed!("./src/lib.rs", percent_example)]
-//!
 //! Note that `Percent` is represented as a _rounded down_, fixed point
 //! number (see the example above). Unlike primitive types, types that implement
 //! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
@@ -182,7 +181,7 @@ pub trait PerThing:
 	#[must_use]
 	fn less_epsilon(self) -> Self {
 		if self.is_zero() {
-			return self
+			return self;
 		}
 		Self::from_parts(self.deconstruct() - One::one())
 	}
@@ -191,7 +190,7 @@ pub trait PerThing:
 	/// zero.
 	fn try_less_epsilon(self) -> Result<Self, Self> {
 		if self.is_zero() {
-			return Err(self)
+			return Err(self);
 		}
 		Ok(Self::from_parts(self.deconstruct() - One::one()))
 	}
@@ -200,7 +199,7 @@ pub trait PerThing:
 	#[must_use]
 	fn plus_epsilon(self) -> Self {
 		if self.is_one() {
-			return self
+			return self;
 		}
 		Self::from_parts(self.deconstruct() + One::one())
 	}
@@ -209,7 +208,7 @@ pub trait PerThing:
 	/// one.
 	fn try_plus_epsilon(self) -> Result<Self, Self> {
 		if self.is_one() {
-			return Err(self)
+			return Err(self);
 		}
 		Ok(Self::from_parts(self.deconstruct() + One::one()))
 	}

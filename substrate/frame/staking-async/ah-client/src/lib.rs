@@ -736,7 +736,7 @@ pub mod pallet {
 			weight.saturating_accrue(T::DbWeight::get().reads(2));
 			OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
 				if page.is_empty() {
-					return Ok(())
+					return Ok(());
 				}
 				// send the page if not empty. If sending returns `Ok`, we delete this page.
 				T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(|_| {

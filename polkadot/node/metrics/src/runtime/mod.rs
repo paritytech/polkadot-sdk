@@ -79,7 +79,7 @@ impl RuntimeMetricsProvider {
 			hashmap
 				.entry(counter.name.to_owned())
 				.or_insert(register(Counter::new(counter.name, counter.description)?, &self.0)?);
-			return Ok(())
+			return Ok(());
 		})
 	}
 
@@ -92,7 +92,7 @@ impl RuntimeMetricsProvider {
 				)?,
 				&self.0,
 			)?);
-			return Ok(())
+			return Ok(());
 		})
 	}
 
@@ -159,7 +159,7 @@ impl sc_tracing::TraceHandler for RuntimeMetricsProvider {
 			.unwrap_or(&String::default())
 			.ne("metrics")
 		{
-			return
+			return;
 		}
 
 		if let Some(update_op_bs58) = event.values.string_values.get("params") {
@@ -203,7 +203,7 @@ impl RuntimeMetricsProvider {
 		const SKIP_CHARS: &'static str = " { update_op: ";
 		if SKIP_CHARS.len() < event_params.len() {
 			if SKIP_CHARS.eq_ignore_ascii_case(&event_params[..SKIP_CHARS.len()]) {
-				return bs58::decode(&event_params[SKIP_CHARS.len()..].as_bytes()).into_vec().ok()
+				return bs58::decode(&event_params[SKIP_CHARS.len()..].as_bytes()).into_vec().ok();
 			}
 		}
 
@@ -216,7 +216,7 @@ impl RuntimeMetricsProvider {
 pub fn logger_hook() -> impl FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration) -> () {
 	|logger_builder, config| {
 		if config.prometheus_registry().is_none() {
-			return
+			return;
 		}
 		let registry = config.prometheus_registry().cloned().unwrap();
 		let metrics_provider = RuntimeMetricsProvider::new(registry);

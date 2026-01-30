@@ -486,7 +486,7 @@ where
 		.await?;
 
 		if keys.is_empty() {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let conn_manager = self.conn_manager()?;
@@ -735,7 +735,7 @@ where
 
 		if child_roots.is_empty() {
 			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape");
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let total_count = child_roots.len();
@@ -1430,7 +1430,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn can_build_big_pallet() {
 		if std::option_env!("TEST_WS").is_none() {
-			return
+			return;
 		}
 		init_logger();
 		Builder::<Block>::new()
@@ -1449,7 +1449,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn can_fetch_all() {
 		if std::option_env!("TEST_WS").is_none() {
-			return
+			return;
 		}
 		init_logger();
 		Builder::<Block>::new()

@@ -124,12 +124,12 @@ impl CompositeDef {
 			return Err(syn::Error::new(
 				item.span(),
 				"Invalid pallet::composite_enum, expected enum item",
-			))
+			));
 		};
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = format!("Invalid pallet::composite_enum, `{}` must be public", item.ident);
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		let has_instance = if item.generics.params.first().is_some() {

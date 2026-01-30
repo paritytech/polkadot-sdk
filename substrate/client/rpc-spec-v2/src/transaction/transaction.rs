@@ -107,7 +107,7 @@ where
 
 					// The transaction is invalid.
 					let _ = sink.send(&event).await;
-					return
+					return;
 				},
 			};
 

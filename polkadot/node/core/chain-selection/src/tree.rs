@@ -111,7 +111,7 @@ fn propagate_viability_update(
 		// Furthermore, in such cases, the set of viable leaves
 		// does not change at all.
 		backend.write_block_entry(base);
-		return Ok(())
+		return Ok(());
 	}
 
 	let mut viable_leaves = backend.load_leaves()?;
@@ -147,7 +147,7 @@ fn propagate_viability_update(
 						"Missing expected block entry"
 					);
 
-					continue
+					continue;
 				},
 				Some(entry) => entry,
 			},
@@ -222,7 +222,7 @@ fn propagate_viability_update(
 				//
 				// Furthermore, if the set of viable leaves is empty, the
 				// finalized block is implicitly the viable leaf.
-				continue
+				continue;
 			},
 			Some(entry) =>
 				if entry.children.len() == pivot_count {
@@ -267,9 +267,9 @@ fn load_ancestor(
 	let block_hash = block_entry.block_hash;
 	let block_number = block_entry.block_number;
 	if block_number == ancestor_number {
-		return Ok(Some(block_entry.clone()))
+		return Ok(Some(block_entry.clone()));
 	} else if block_number < ancestor_number {
-		return Ok(None)
+		return Ok(None);
 	}
 
 	let mut current_hash = block_hash;
@@ -470,7 +470,7 @@ pub(super) fn finalize_block<'a, B: Backend + 'a>(
 		None => {
 			// This implies that there are no unfinalized blocks and hence nothing
 			// to update.
-			return Ok(backend)
+			return Ok(backend);
 		},
 		Some(e) => e,
 	};
@@ -721,7 +721,7 @@ pub(super) fn revert_to<'a, B: Backend + 'a>(
 
 			// The parent is expected to be the last finalized block.
 			if block.parent_hash != hash {
-				return Err(ChainApiError::from("Can't revert below last finalized block").into())
+				return Err(ChainApiError::from("Can't revert below last finalized block").into());
 			}
 
 			// The weight is set to the one of the first child. Even though this is

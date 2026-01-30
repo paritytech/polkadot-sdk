@@ -139,7 +139,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				peer_id,
 				hash,
 			);
-			return
+			return;
 		}
 
 		// Try to allocate a slot for this block announce validation.
@@ -153,7 +153,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 			AllocateSlotForBlockAnnounceValidation::MaximumPeerSlotsReached => {
 				debug!(
@@ -163,7 +163,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 		}
 
@@ -231,7 +231,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 		peer_id: &PeerId,
 	) -> AllocateSlotForBlockAnnounceValidation {
 		if self.validations.len() >= MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
-			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached
+			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached;
 		}
 
 		match self.validations_per_peer.entry(*peer_id) {

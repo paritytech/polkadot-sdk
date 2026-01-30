@@ -130,7 +130,7 @@ impl Diff {
 		let info = if let Some(info) = info {
 			info
 		} else {
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract

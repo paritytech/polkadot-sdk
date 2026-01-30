@@ -147,22 +147,22 @@ pub fn fetched_collation_sanity_check(
 	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash() {
-		return Err(SecondingError::PersistedValidationDataMismatch)
+		return Err(SecondingError::PersistedValidationDataMismatch);
 	}
 
 	if advertised
 		.prospective_candidate
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
-		return Err(SecondingError::CandidateHashMismatch)
+		return Err(SecondingError::CandidateHashMismatch);
 	}
 
 	if advertised.relay_parent != fetched.descriptor.relay_parent() {
-		return Err(SecondingError::RelayParentMismatch)
+		return Err(SecondingError::RelayParentMismatch);
 	}
 
 	if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
-		return Err(SecondingError::ParentHeadDataMismatch)
+		return Err(SecondingError::ParentHeadDataMismatch);
 	}
 
 	Ok(())
@@ -307,7 +307,7 @@ impl Collations {
 				.get_mut(&assignment)
 				.and_then(|collations| collations.pop_front())
 			{
-				return Some(collation)
+				return Some(collation);
 			}
 		}
 
@@ -380,7 +380,7 @@ impl Future for CollationFetchRequest {
 					pending_collation: self.pending_collation,
 				},
 				Err(CollationFetchError::Cancelled),
-			))
+			));
 		}
 
 		let res = self.from_collator.poll_unpin(cx).map(|res| {

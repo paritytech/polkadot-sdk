@@ -202,7 +202,7 @@ pub mod pallet {
 					next_key = next;
 				} else {
 					if panic_at_end {
-						return Ok(())
+						return Ok(());
 					} else {
 						panic!("Could not read {read} times from the state");
 					}

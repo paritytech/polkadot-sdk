@@ -272,7 +272,7 @@ impl Tester {
 				Poll::Ready(None) => panic!("concluded early"),
 				Poll::Ready(Some(item)) =>
 					if pred(item) {
-						return Poll::Ready(s.take().unwrap())
+						return Poll::Ready(s.take().unwrap());
 					},
 				Poll::Pending => return Poll::Pending,
 			}

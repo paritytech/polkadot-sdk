@@ -211,7 +211,7 @@ impl Decode for Statement {
 		for i in 0..num_fields.into() {
 			let field: Field = Decode::decode(input)?;
 			if i > 0 && field.discriminant() <= tag {
-				return Err("Invalid field order or duplicate fields".into())
+				return Err("Invalid field order or duplicate fields".into());
 			}
 			tag = field.discriminant();
 			match field {
@@ -705,7 +705,7 @@ mod test {
 		let (pair, _) = sp_core::ed25519::Pair::generate();
 		let plain = b"test data".to_vec();
 
-		//let sr25519_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		// let sr25519_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
 		statement.encrypt(&plain, &pair.public()).unwrap();
 		assert_ne!(plain.as_slice(), statement.data().unwrap().as_slice());
 

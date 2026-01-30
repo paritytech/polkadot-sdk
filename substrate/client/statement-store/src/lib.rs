@@ -77,7 +77,7 @@ const CURRENT_VERSION: u32 = 1;
 const LOG_TARGET: &str = "statement-store";
 
 /// The amount of time an expired statement is kept before it is removed from the store entirely.
-pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; //48h
+pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; // 48h
 /// The maximum number of statements the statement store can hold.
 pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// The maximum amount of data the statement store can hold, regardless of the number of
@@ -257,10 +257,10 @@ impl Index {
 
 	fn query(&self, hash: &Hash) -> IndexQuery {
 		if self.entries.contains_key(hash) {
-			return IndexQuery::Exists
+			return IndexQuery::Exists;
 		}
 		if self.expired.contains_key(hash) {
-			return IndexQuery::Expired
+			return IndexQuery::Expired;
 		}
 		IndexQuery::Unknown
 	}
@@ -278,19 +278,19 @@ impl Index {
 		let empty = HashSet::new();
 		let mut sets: [&HashSet<Hash>; MAX_TOPICS + 1] = [&empty; MAX_TOPICS + 1];
 		if match_all_topics.len() > MAX_TOPICS {
-			return Ok(())
+			return Ok(());
 		}
 		let key_set = self.by_dec_key.get(&key);
 		if key_set.map_or(0, |s| s.len()) == 0 {
 			// Key does not exist in the index.
-			return Ok(())
+			return Ok(());
 		}
 		sets[0] = key_set.expect("Function returns if key_set is None");
 		for (i, t) in match_all_topics.iter().enumerate() {
 			let set = self.by_topic.get(t);
 			if set.map_or(0, |s| s.len()) == 0 {
 				// At least one of the match_all_topics does not exist in the index.
-				return Ok(())
+				return Ok(());
 			}
 			sets[i + 1] = set.expect("Function returns if set is None");
 		}
@@ -448,11 +448,11 @@ impl Index {
 					account_rec.by_priority.len() + 1 - evicted.len() <= max_count
 				{
 					// Satisfied
-					break
+					break;
 				}
 				if evicted.contains(&entry.hash) {
 					// Already accounted for above
-					continue
+					continue;
 				}
 				if entry.priority >= priority {
 					log::debug!(
@@ -563,7 +563,7 @@ impl Store {
 						.map_err(|_| Error::Db("Error reading database version".into()))?,
 				);
 				if version != CURRENT_VERSION {
-					return Err(Error::Db(format!("Unsupported database version: {version}")))
+					return Err(Error::Db(format!("Unsupported database version: {version}")));
 				}
 			},
 			None => {
@@ -787,7 +787,7 @@ impl StatementStore for Store {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
-				continue
+				continue;
 			};
 			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
 				result.push((hash, statement));
@@ -804,7 +804,7 @@ impl StatementStore for Store {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
-				continue
+				continue;
 			};
 			if let Ok(statement) = Statement::decode(&mut encoded.as_slice()) {
 				result.push((hash, statement));
@@ -864,7 +864,7 @@ impl StatementStore for Store {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
-				continue
+				continue;
 			};
 			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else { continue };
 			match filter(hash, &encoded, &statement) {
@@ -875,7 +875,7 @@ impl StatementStore for Store {
 				FilterDecision::Abort => {
 					// We did not process it :)
 					processed -= 1;
-					break
+					break;
 				},
 			}
 		}
@@ -951,11 +951,11 @@ impl StatementStore for Store {
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired =>
 				if !source.can_be_resubmitted() {
-					return SubmitResult::KnownExpired
+					return SubmitResult::KnownExpired;
 				},
 			IndexQuery::Exists =>
 				if !source.can_be_resubmitted() {
-					return SubmitResult::Known
+					return SubmitResult::Known;
 				},
 			IndexQuery::Unknown => {},
 		}
@@ -1024,7 +1024,7 @@ impl StatementStore for Store {
 					e,
 					statement
 				);
-				return SubmitResult::InternalError(Error::Db(e.to_string()))
+				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 		} // Release index lock
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
@@ -1049,7 +1049,7 @@ impl StatementStore for Store {
 						e,
 						HexDisplay::from(hash),
 					);
-					return Err(Error::Db(e.to_string()))
+					return Err(Error::Db(e.to_string()));
 				}
 			}
 		}

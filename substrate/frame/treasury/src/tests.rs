@@ -171,7 +171,7 @@ pub struct MulBy<N>(PhantomData<N>);
 impl<N: Get<u64>> ConversionFromAssetBalance<u64, u32, u64> for MulBy<N> {
 	type Error = ();
 	fn from_asset_balance(balance: u64, _asset_id: u32) -> Result<u64, Self::Error> {
-		return balance.checked_mul(N::get()).ok_or(())
+		return balance.checked_mul(N::get()).ok_or(());
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: u32) {}

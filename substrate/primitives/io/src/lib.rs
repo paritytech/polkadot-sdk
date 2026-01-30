@@ -945,7 +945,7 @@ pub trait Crypto {
 			use ed25519_dalek::Verifier;
 
 			let Ok(public_key) = ed25519_dalek::VerifyingKey::from_bytes(&pub_key.0) else {
-				return false
+				return false;
 			};
 
 			let sig = ed25519_dalek::Signature::from_bytes(&sig.0);
@@ -2089,9 +2089,9 @@ mod tests {
 
 		t.execute_with(|| {
 			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
+			// assert!(matches!(
+			// 	storage::clear_prefix(b":abc", None),
+			// 	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
 			//));
 			assert!(matches!(
 				storage::clear_prefix(b":abc", None),
@@ -2104,9 +2104,9 @@ mod tests {
 			assert!(storage::get(b":abc").is_none());
 
 			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
+			// assert!(matches!(
+			// 	storage::clear_prefix(b":abc", None),
+			// 	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
 			//));
 			assert!(matches!(
 				storage::clear_prefix(b":abc", None),

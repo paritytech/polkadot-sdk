@@ -316,11 +316,11 @@ impl NotificationService for NotificationHandle {
 						handshake,
 						direction,
 						negotiated_fallback,
-					})
+					});
 				},
 				InnerNotificationEvent::NotificationStreamClosed { peer } => {
 					self.peers.remove(&peer);
-					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() })
+					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() });
 				},
 				InnerNotificationEvent::NotificationReceived { peer, notification } =>
 					return Some(NotificationEvent::NotificationReceived {
@@ -472,7 +472,7 @@ impl ProtocolHandle {
 		);
 
 		if self.delegate_to_peerset {
-			return Ok(ValidationCallResult::Delegated)
+			return Ok(ValidationCallResult::Delegated);
 		}
 
 		// if there is only one subscriber, `Notifications` can wait directly on the
@@ -486,7 +486,7 @@ impl ProtocolHandle {
 					result_tx,
 				})
 				.map(|_| ValidationCallResult::WaitForValidation(rx))
-				.map_err(|_| ())
+				.map_err(|_| ());
 		}
 
 		// if there are multiple subscribers, create a task which waits for all of the
@@ -517,7 +517,7 @@ impl ProtocolHandle {
 				}
 			}
 
-			return tx.send(ValidationResult::Accept)
+			return tx.send(ValidationResult::Accept);
 		});
 
 		Ok(ValidationCallResult::WaitForValidation(rx))

@@ -192,7 +192,6 @@ impl core::fmt::LowerHex for ExecutorParamsPrepHash {
 /// # Deterministically serialized execution environment semantics
 /// Represents an arbitrary semantics of an arbitrary execution environment, so should be kept as
 /// abstract as possible.
-//
 // ADR: For mandatory entries, mandatoriness should be enforced in code rather than separating them
 // into individual fields of the structure. Thus, complex migrations shall be avoided when adding
 // new entries and removing old ones. At the moment, there's no mandatory parameters defined. If
@@ -254,7 +253,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfPrepTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout))
+					return Some(Duration::from_millis(*timeout));
 				}
 			}
 		}
@@ -266,7 +265,7 @@ impl ExecutorParams {
 		for param in &self.0 {
 			if let ExecutorParam::PvfExecTimeout(k, timeout) = param {
 				if kind == *k {
-					return Some(Duration::from_millis(*timeout))
+					return Some(Duration::from_millis(*timeout));
 				}
 			}
 		}
@@ -277,7 +276,7 @@ impl ExecutorParams {
 	pub fn prechecking_max_memory(&self) -> Option<u64> {
 		for param in &self.0 {
 			if let ExecutorParam::PrecheckingMaxMemory(limit) = param {
-				return Some(*limit)
+				return Some(*limit);
 			}
 		}
 		None
@@ -293,7 +292,7 @@ impl ExecutorParams {
 		macro_rules! check {
 			($param:ident, $val:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param))
+					return Err(DuplicatedParam($param));
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -301,10 +300,10 @@ impl ExecutorParams {
 			// should check existence before range
 			($param:ident, $val:expr, $out_of_limit:expr $(,)?) => {
 				if seen.contains_key($param) {
-					return Err(DuplicatedParam($param))
+					return Err(DuplicatedParam($param));
 				}
 				if $out_of_limit {
-					return Err(OutsideLimit($param))
+					return Err(OutsideLimit($param));
 				}
 				seen.insert($param, $val as u64);
 			};
@@ -368,7 +367,7 @@ impl ExecutorParams {
 			seen.get("StackNativeMax").or(Some(&(DEFAULT_NATIVE_STACK_MAX as u64))),
 		) {
 			if *nm < 128 * *lm {
-				return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"))
+				return Err(IncompatibleValues("StackLogicalMax", "StackNativeMax"));
 			}
 		}
 
@@ -379,7 +378,7 @@ impl ExecutorParams {
 				.or(Some(&DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			if *precheck >= *lenient {
-				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"))
+				return Err(IncompatibleValues("PvfPrepKind::Precheck", "PvfPrepKind::Prepare"));
 			}
 		}
 
@@ -389,7 +388,7 @@ impl ExecutorParams {
 				.or(Some(&DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			if *backing >= *approval {
-				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"))
+				return Err(IncompatibleValues("PvfExecKind::Backing", "PvfExecKind::Approval"));
 			}
 		}
 

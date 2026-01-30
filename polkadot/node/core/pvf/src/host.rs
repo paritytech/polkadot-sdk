@@ -816,7 +816,7 @@ async fn handle_prepare_done(
 			// thus the artifact cannot be unknown, only preparing;
 			// qed.
 			never!("an unknown artifact was prepared: {:?}", artifact_id);
-			return Ok(())
+			return Ok(());
 		},
 		Some(ArtifactState::Prepared { .. }) => {
 			// before sending request to prepare, the artifact is inserted with `preparing` state;
@@ -825,13 +825,13 @@ async fn handle_prepare_done(
 			// thus the artifact cannot be prepared, only preparing;
 			// qed.
 			never!("the artifact is already prepared: {:?}", artifact_id);
-			return Ok(())
+			return Ok(());
 		},
 		Some(ArtifactState::FailedToProcess { .. }) => {
 			// The reasoning is similar to the above, the artifact cannot be
 			// processed at this point.
 			never!("the artifact is already processed unsuccessfully: {:?}", artifact_id);
-			return Ok(())
+			return Ok(());
 		},
 		Some(state @ ArtifactState::Preparing { .. }) => state,
 	};
@@ -846,7 +846,7 @@ async fn handle_prepare_done(
 		num_failures
 	} else {
 		never!("The reasoning is similar to the above, the artifact can only be preparing at this point; qed");
-		return Ok(())
+		return Ok(());
 	};
 
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
@@ -858,14 +858,14 @@ async fn handle_prepare_done(
 		if result_tx.is_canceled() {
 			// Preparation could've taken quite a bit of time and the requester may be not
 			// interested in execution anymore, in which case we just skip the request.
-			continue
+			continue;
 		}
 
 		let (path, checksum) = match &result {
 			Ok(success) => (success.path.clone(), success.checksum),
 			Err(error) => {
 				let _ = result_tx.send(Err(ValidationError::from(error.clone())));
-				continue
+				continue;
 			},
 		};
 
@@ -1028,7 +1028,7 @@ fn can_retry_prepare_after_failure(
 ) -> bool {
 	if error.is_deterministic() {
 		// This error is considered deterministic, so it will probably be reproducible. Don't retry.
-		return false
+		return false;
 	}
 
 	// Retry if the retry cooldown has elapsed and if we have already retried less than
@@ -1241,7 +1241,7 @@ pub(crate) mod tests {
 			}
 
 			if let Poll::Ready(r) = futures::poll!(&mut *fut) {
-				break r
+				break r;
 			}
 
 			if futures::poll!(&mut *task).is_ready() {

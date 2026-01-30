@@ -368,7 +368,7 @@ where
 
 	async fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> ReadyIteratorFor<PoolApi> {
 		let Ok(at) = self.api.resolve_block_number(at) else {
-			return Box::new(std::iter::empty()) as Box<_>
+			return Box::new(std::iter::empty()) as Box<_>;
 		};
 
 		let status = self.status();
@@ -377,7 +377,7 @@ where
 		// There could be transaction being added because of some re-org happening at the relevant
 		// block, but this is relative unlikely.
 		if status.ready == 0 && status.future == 0 {
-			return Box::new(std::iter::empty()) as Box<_>
+			return Box::new(std::iter::empty()) as Box<_>;
 		}
 
 		if self.ready_poll.lock().updated_at() >= at {
@@ -387,7 +387,7 @@ where
 				"Transaction pool already processed block."
 			);
 			let iterator: ReadyIteratorFor<PoolApi> = Box::new(self.pool.validated_pool().ready());
-			return iterator
+			return iterator;
 		}
 
 		let result = self.ready_poll.lock().add(at).map(|received| {
@@ -626,11 +626,11 @@ pub async fn prune_known_txs_for_block<
 		Ok(Some(h)) => h,
 		Ok(None) => {
 			trace!(target: LOG_TARGET, hash = ?at.hash, "Could not find header.");
-			return hashes
+			return hashes;
 		},
 		Err(error) => {
 			trace!(target: LOG_TARGET, hash = ?at.hash,  ?error, "Error retrieving header.");
-			return hashes
+			return hashes;
 		},
 	};
 
@@ -657,7 +657,7 @@ where
 			Some(hash_and_number) => hash_and_number,
 			None => {
 				warn!(target: LOG_TARGET, ?tree_route, "Skipping ChainEvent - no last block in tree route.");
-				return
+				return;
 			},
 		};
 
@@ -715,7 +715,7 @@ where
 				let mut resubmitted_to_report = 0;
 
 				resubmit_transactions.extend(
-					//todo: arctx - we need to get ref from somewhere
+					// todo: arctx - we need to get ref from somewhere
 					block_transactions.into_iter().map(Arc::from).filter_map(|tx| {
 						let tx_hash = pool.hash_of(&tx);
 						let contains = pruned_log.contains(&tx_hash);

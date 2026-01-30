@@ -173,7 +173,7 @@ pub fn read_subscription_id_as_string(sink: &Subscription) -> String {
 fn parse_hex_param(param: String) -> Result<Vec<u8>, ChainHeadRpcError> {
 	// Methods can accept empty parameters.
 	if param.is_empty() {
-		return Ok(Default::default())
+		return Ok(Default::default());
 	}
 
 	match array_bytes::hex2bytes(&param) {
@@ -213,7 +213,7 @@ where
 			let Some(mut reserved_subscription) = subscriptions.reserve_subscription(connection_id)
 			else {
 				pending.reject(ChainHeadRpcError::ReachedLimits).await;
-				return
+				return;
 			};
 
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
@@ -227,7 +227,7 @@ where
 				// subscription ID.
 				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
 				let _ = sink.send(&FollowEvent::<String>::Stop).await;
-				return
+				return;
 			};
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
 
@@ -310,7 +310,7 @@ where
 						hash
 					);
 					subscriptions.remove_subscription(&follow_subscription);
-					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
 				},
 				Err(error) => FollowEvent::<Block::Hash>::OperationError(OperationError {
 					operation_id: operation_id.clone(),
@@ -359,7 +359,7 @@ where
 			Err(SubscriptionManagementError::ExceededLimits) => return Ok(None),
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				return Err(ChainHeadRpcError::InvalidBlock.into())
+				return Err(ChainHeadRpcError::InvalidBlock.into());
 			},
 			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
 		};
@@ -425,7 +425,7 @@ where
 				},
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
 					// Block is not part of the subscription.
-					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
 				},
 				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
@@ -489,11 +489,11 @@ where
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
 			Err(SubscriptionManagementError::ExceededLimits) => {
 				// Invalid invalid subscription ID.
-				return ResponsePayload::success(MethodResponse::LimitReached)
+				return ResponsePayload::success(MethodResponse::LimitReached);
 			},
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
+				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
 			},
 			Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
@@ -513,7 +513,7 @@ where
 			// Wait for the server to send out the response and if it produces an error no event
 			// should be generated.
 			if rp_fut.await.is_err() {
-				return
+				return;
 			}
 
 			let event = client
@@ -590,7 +590,7 @@ where
 			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
-			return Ok(())
+			return Ok(());
 		}
 
 		// WaitingForContinue event is never emitted, in such cases
@@ -614,13 +614,13 @@ where
 			.expect("ConnectionId is always set by jsonrpsee; qed");
 
 		if !self.subscriptions.contains_subscription(conn_id, &follow_subscription) {
-			return Ok(())
+			return Ok(());
 		}
 
 		let Some(mut operation) =
 			self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
-			return Ok(())
+			return Ok(());
 		};
 
 		operation.stop();
