@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769790931990,
+  "lastUpdate": 1769800040271,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e774263960d8cb601c3087fb9bb38715ffb401b5",
-          "message": "Fix revive-fixtures build script (#8980)\n\nThe .polkavm files are not recompiled when deleting\n`target/pallet-revive-fixtures`. I assume that CI is not caching that\nfolder or the .polkavm file extension. This leads to the\n`include_bytes!` macro to not finding these files.\n\nTested it here https://github.com/polkadot-fellows/runtimes/pull/785\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-06-25T14:30:51Z",
-          "tree_id": "3d61ca0ac619bf952142e25b3d372d6e52ddbfd8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e774263960d8cb601c3087fb9bb38715ffb401b5"
-        },
-        "date": 1750865676093,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15695920938000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022382350393333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012963566546666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008912434046666749,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.00680008228666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a9c09b0bf857037584f8439908cf68e34abf1ee9",
+          "message": "collator-protocol: Re-advertise collations when peer authority IDs are updated (#10891)\n\nThe collator protocol contained a race-condition which could manifest as\n\"Collation wasn't advertised\".\n\nA given peer (\"A\") can connect before the new authority keys are\nreceived via `UpdatedAuthorityIds` (nk -- new key).\n\n- T0: peer A connects`PeerConnected`\n- T1: peer A sends its current view `PeerViewChange`\n  - Peer A wants the block N \n- T2: `validator_group.should_advertise_to`: checks peer A for key nK\n(the new key)\n- We don't have this key stored and therefore return\n`ShouldAdvertiseTo::NotAuthority`\n- T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])\n\nAt this point, we have the collation, peer A wants to collation, we know\npeer A is an authority but we never send the collation back. Then, the\ncollation will expire with \"Collation wasn't advertised\".\n\nTo close the gap, the `UpdatedAuthorityIds` events will trigger a\nre-advertisement of collations\n- note: if the advertisement was already sent, the logic does not resend\nit (achieved in should_advertise_to).\n\nPart of the stabilization of: \n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T17:46:48Z",
+          "tree_id": "7b10160fb0e0396af578d3a2a1489e8be3546d30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9c09b0bf857037584f8439908cf68e34abf1ee9"
+        },
+        "date": 1769800015951,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14597371222000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01024037935333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007239549806666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.022979097479999995,
             "unit": "seconds"
           }
         ]
