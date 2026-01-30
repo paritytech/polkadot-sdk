@@ -458,7 +458,7 @@ fn test_runtime_set_authorization() {
 
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
 
-		let result = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(1_000_000u64.into())
 			.build();
@@ -507,7 +507,7 @@ fn test_runtime_clear_authorization() {
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		let auth1 = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result1 = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result1 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth1])
 			.eth_gas_limit(1_000_000u64.into())
 			.build();
@@ -518,7 +518,7 @@ fn test_runtime_clear_authorization() {
 		let new_nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		let auth2 = signer.sign_authorization(chain_id, H160::zero(), new_nonce);
-		let result2 = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result2 = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth2])
 			.eth_gas_limit(1_000_000u64.into())
 			.build();
@@ -568,7 +568,7 @@ fn test_runtime_delegation_resolution() {
 		let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
 
 		let auth = signer.sign_authorization(chain_id, target_contract.addr, nonce);
-		let result = builder::eth_call_with_authorization_list(target_contract.addr)
+		let result = builder::eth_call(target_contract.addr)
 			.authorization_list(vec![auth])
 			.eth_gas_limit(1_000_000u64.into())
 			.build();

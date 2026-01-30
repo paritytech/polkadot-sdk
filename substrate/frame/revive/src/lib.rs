@@ -1345,32 +1345,38 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
-			authorization_list: Vec<evm::SignedAuthorizationListEntry>,
+			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
 
+			// Process EIP-7702 authorizations with weight metering
 			let (eth_gas_limit, weight_limit) = if !authorization_list.is_empty() {
 				let chain_id = U256::from(T::ChainId::get());
-				let (new_accounts, existing_accounts) =
-					evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
 
+				// Calculate worst-case weight for authorization processing
 				let auth_count = authorization_list.len() as u64;
-				let single_auth_weight = T::WeightInfo::process_single_authorization();
-				let auth_weight = single_auth_weight
+				let auth_weight = T::WeightInfo::validate_authorization()
 					.saturating_mul(auth_count)
-					.saturating_add(T::WeightInfo::apply_delegations_existing(
-						existing_accounts as u32,
-					))
-					.saturating_add(T::WeightInfo::apply_delegations_new(new_accounts as u32));
+					.saturating_add(T::WeightInfo::apply_delegation(1).saturating_mul(auth_count));
 
+				// Create a weight meter and process authorizations
+				let mut meter = frame_support::weights::WeightMeter::with_limit(auth_weight);
+				evm::eip7702::process_authorizations::<T>(
+					&authorization_list,
+					chain_id,
+					&mut meter,
+				)?;
+
+				// Adjust gas/weight limits by consumed weight
+				let consumed = meter.consumed();
 				let gas_scale: u64 = T::GasScale::get().into();
-				let auth_gas = auth_weight.ref_time().saturating_div(gas_scale);
+				let auth_gas = consumed.ref_time().saturating_div(gas_scale);
 
 				let adjusted_gas_limit = eth_gas_limit.saturating_sub(U256::from(auth_gas));
-				let adjusted_weight_limit = weight_limit.saturating_sub(auth_weight);
+				let adjusted_weight_limit = weight_limit.saturating_sub(consumed);
 
 				(adjusted_gas_limit, adjusted_weight_limit)
 			} else {
@@ -1386,7 +1392,7 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
-				authorization_list,
+				authorization_list: authorization_list.clone(),
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);

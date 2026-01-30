@@ -185,6 +185,7 @@ fn recover_authority(auth: &AuthorizationListEntry) -> Result<H160, ()> {
 /// - `address`: Target address to delegate to
 /// - `nonce`: Nonce for the authorization
 #[cfg(any(test, feature = "runtime-benchmarks"))]
+#[allow(dead_code)] // Used by benchmarks; tests use Signer::sign_authorization wrapper
 pub fn sign_authorization(
 	signing_key: &k256::ecdsa::SigningKey,
 	chain_id: U256,

@@ -293,7 +293,6 @@ impl<T: Config> AccountInfo<T> {
 					updated.code_hash = target_code_hash;
 					updated
 				} else {
-					// Not currently delegated, create new ContractInfo
 					let account_id = T::AddressMapper::to_account_id(address);
 					let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
 					ContractInfo::<T>::new_for_delegation(address, nonce, target_code_hash)?

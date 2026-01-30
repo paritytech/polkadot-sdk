@@ -322,15 +322,6 @@ pub(crate) mod builder {
 		EthCallBuilder::<Test>::eth_call(crate::Origin::<Test>::EthTransaction(ALICE).into(), dest)
 	}
 
-	pub fn eth_call_with_authorization_list(
-		dest: H160,
-	) -> EthCallWithAuthorizationListBuilder<Test> {
-		EthCallWithAuthorizationListBuilder::<Test>::eth_call_with_authorization_list(
-			crate::Origin::<Test>::EthTransaction(ALICE).into(),
-			dest,
-		)
-	}
-
 	pub fn eth_instantiate_with_code(code: Vec<u8>) -> EthInstantiateWithCodeBuilder<Test> {
 		EthInstantiateWithCodeBuilder::<Test>::eth_instantiate_with_code(
 			crate::Origin::<Test>::EthTransaction(ALICE).into(),
@@ -500,7 +491,6 @@ impl SetWeightLimit for RuntimeCall {
 		match self {
 			Self::Contracts(
 				Call::eth_call { weight_limit, .. } |
-				Call::eth_call_with_authorization_list { weight_limit, .. } |
 				Call::eth_instantiate_with_code { weight_limit, .. },
 			) => {
 				let old = *weight_limit;
