@@ -1,0 +1,10 @@
+title: 'fix[pallet-broker]: Allow early auto-renewal registration and track core reallocations'
+doc:
+- audience: Runtime Dev
+  description: "resolves https://github.com/paritytech/polkadot-sdk/issues/8475\n\n\
+    This PR fixes the broker pallet\u2019s auto-renewal by allowing leases to register\
+    \ early and ensuring core IDs are correctly tracked and updated even when cores\
+    \ are reallocated between sales."
+crates:
+- name: pallet-broker
+  bump: minor
