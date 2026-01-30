@@ -189,7 +189,7 @@
 //! Note that there could be an overlap between these sub-errors. For example, A
 //! `SnapshotUnavailable` can happen in both miner and feasibility check phase.
 //!
-//! 	## Multi-page election support
+//! ## Multi-page election support
 //!
 //! The [`frame_election_provider_support::ElectionDataProvider`] and
 //! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet can support a
