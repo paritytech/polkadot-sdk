@@ -60,12 +60,12 @@ pub mod pallet {
 	/// Mapping an asset index (derived from the precompile address) to a `ForeignAssetId`.
 	#[pallet::storage]
 	pub type AssetIndexToForeignAssetId<T: Config> =
-		StorageMap<_, Blake2_128Concat, u32, T::ForeignAssetId, OptionQuery>;
+		StorageMap<_, Identity, u32, T::ForeignAssetId, OptionQuery>;
 
 	/// Mapping a `ForeignAssetId` to an asset index (used for deriving precompile addresses).
 	#[pallet::storage]
 	pub type ForeignAssetIdToAssetIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::ForeignAssetId, u32, OptionQuery>;
+		StorageMap<_, Identity, T::ForeignAssetId, u32, OptionQuery>;
 
 	impl<T: Config> Pallet<T> {
 		/// Get the foreign asset ID for a given asset index.
