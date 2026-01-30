@@ -1364,31 +1364,90 @@ impl<T: Config> Pallet<T> {
 			task.maybe_periodic.is_some(),
 		));
 
-		// Validate the transaction version
+		// Validate the transaction version and extract the call
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
 
-		// Validate that stored version matches current version
-		if let Err(version_error) = versioned_call.validate_version(current_version) {
-			Self::deposit_event(Event::CallVersionMismatch {
-				task: (when, agenda_index),
-				id: task.maybe_id.clone(),
-				stored_version: version_error.stored,
-				current_version: version_error.current,
-			});
-			T::Preimages::drop(&task.call);
-			log::warn!(
-				target: "runtime::scheduler",
-				"Task {:?} has version mismatch: stored={}, current={}",
-				task.maybe_id,
-				version_error.stored,
-				version_error.current
-			);
-			return Err((Unavailable, Some(task)))
-		}
+		match versioned_call.validate_version(current_version) {
+			Ok(()) => {
+				// Get the actual call from the versioned wrapper
+				let call = match versioned_call.clone().into_inner(current_version) {
+					Ok(call) => call,
+					Err(_) => {
+						// This shouldn't happen if validate_version succeeded, but handle it
+						Self::deposit_event(Event::CallVersionMismatch {
+							task: (when, agenda_index),
+							id: task.maybe_id.clone(),
+							stored_version: versioned_call.version(),
+							current_version,
+						});
+						T::Preimages::drop(&task.call);
+						return Err((Unavailable, Some(task)))
+					},
+				};
 
-		// Get the actual call from the versioned wrapper
-		let call = match versioned_call.into_inner(current_version) {
-			Ok(call) => call,
+				// Proceed with execution
+				match Self::execute_dispatch(weight, task.origin.clone(), call) {
+					Err(()) if is_first => {
+						T::Preimages::drop(&task.call);
+						Self::deposit_event(Event::PermanentlyOverweight {
+							task: (when, agenda_index),
+							id: task.maybe_id,
+						});
+						Err((Unavailable, Some(task)))
+					},
+					Err(()) => Err((Overweight, Some(task))),
+					Ok(result) => {
+						let failed = result.is_err();
+						let maybe_retry_config = Retries::<T>::take((when, agenda_index));
+						Self::deposit_event(Event::Dispatched {
+							task: (when, agenda_index),
+							id: task.maybe_id,
+							result,
+						});
+
+						match maybe_retry_config {
+							Some(retry_config) if failed => {
+								Self::schedule_retry(
+									weight,
+									now,
+									when,
+									agenda_index,
+									&task,
+									retry_config,
+								);
+							},
+							_ => {},
+						}
+
+						if let &Some((period, count)) = &task.maybe_periodic {
+							if count > 1 {
+								task.maybe_periodic = Some((period, count - 1));
+							} else {
+								task.maybe_periodic = None;
+							}
+							let wake = now.saturating_add(period);
+							match Self::place_task(wake, task) {
+								Ok(new_address) =>
+									if let Some(retry_config) = maybe_retry_config {
+										Retries::<T>::insert(new_address, retry_config);
+									},
+								Err((_, task)) => {
+									// TODO: Leave task in storage somewhere for it to be
+									// rescheduled manually.
+									T::Preimages::drop(&task.call);
+									Self::deposit_event(Event::PeriodicFailed {
+										task: (when, agenda_index),
+										id: task.maybe_id,
+									});
+								},
+							}
+						} else {
+							T::Preimages::drop(&task.call);
+						}
+						Ok(())
+					},
+				}
+			},
 			Err(version_error) => {
 				Self::deposit_event(Event::CallVersionMismatch {
 					task: (when, agenda_index),
@@ -1397,63 +1456,14 @@ impl<T: Config> Pallet<T> {
 					current_version: version_error.current,
 				});
 				T::Preimages::drop(&task.call);
-				return Err((Unavailable, Some(task)))
-			},
-		};
-
-		// Version is valid, proceed with execution
-		match Self::execute_dispatch(weight, task.origin.clone(), call) {
-			Err(()) if is_first => {
-				T::Preimages::drop(&task.call);
-				Self::deposit_event(Event::PermanentlyOverweight {
-					task: (when, agenda_index),
-					id: task.maybe_id,
-				});
+				log::warn!(
+					target: "runtime::scheduler",
+					"Task {:?} has version mismatch: stored={}, current={}",
+					task.maybe_id,
+					version_error.stored,
+					version_error.current
+				);
 				Err((Unavailable, Some(task)))
-			},
-			Err(()) => Err((Overweight, Some(task))),
-			Ok(result) => {
-				let failed = result.is_err();
-				let maybe_retry_config = Retries::<T>::take((when, agenda_index));
-				Self::deposit_event(Event::Dispatched {
-					task: (when, agenda_index),
-					id: task.maybe_id,
-					result,
-				});
-
-				match maybe_retry_config {
-					Some(retry_config) if failed => {
-						Self::schedule_retry(weight, now, when, agenda_index, &task, retry_config);
-					},
-					_ => {},
-				}
-
-				if let &Some((period, count)) = &task.maybe_periodic {
-					if count > 1 {
-						task.maybe_periodic = Some((period, count - 1));
-					} else {
-						task.maybe_periodic = None;
-					}
-					let wake = now.saturating_add(period);
-					match Self::place_task(wake, task) {
-						Ok(new_address) =>
-							if let Some(retry_config) = maybe_retry_config {
-								Retries::<T>::insert(new_address, retry_config);
-							},
-						Err((_, task)) => {
-							// TODO: Leave task in storage somewhere for it to be rescheduled
-							// manually.
-							T::Preimages::drop(&task.call);
-							Self::deposit_event(Event::PeriodicFailed {
-								task: (when, agenda_index),
-								id: task.maybe_id,
-							});
-						},
-					}
-				} else {
-					T::Preimages::drop(&task.call);
-				}
-				Ok(())
 			},
 		}
 	}

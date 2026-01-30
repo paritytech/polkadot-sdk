@@ -939,6 +939,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::WrongProposalWeight
 		);
 
+		// Validate version before execution
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		versioned_proposal.validate_version(current_version).map_err(|err| {
+			log::warn!(
+				target: LOG_TARGET,
+				"Proposal version mismatch in immediate execution: stored={}, current={}",
+				err.stored,
+				err.current
+			);
+			Error::<T, I>::ProposalVersionMismatch
+		})?;
+
 		let proposal_hash = T::Hashing::hash_of(&versioned_proposal);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
@@ -1174,7 +1186,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(()) => Ok(versioned_proposal.call_ref().clone()),
 			Err(err) => {
 				log::warn!(
-					target: "runtime::collective",
+					target: LOG_TARGET,
 					"Proposal version mismatch: stored={}, current={}",
 					err.stored,
 					err.current

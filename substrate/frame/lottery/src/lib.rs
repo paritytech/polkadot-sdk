@@ -54,6 +54,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
+pub mod migrations;
+
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
@@ -113,6 +115,7 @@ impl<T: Config> ValidateCall<T> for Pallet<T> {
 			return false;
 		}
 
+		// Get the inner call
 		let call = versioned_call.call_ref();
 		let valid_calls = CallIndices::<T>::get();
 		let call_index = match Self::call_to_index(call) {

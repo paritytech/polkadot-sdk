@@ -79,92 +79,112 @@ pub mod v1 {
 	}
 }
 
-// pub mod v2 {
-//     use super::*;
-//     use frame::prelude::*;
-//     use sp_runtime::VersionedCall;
+pub mod v2 {
+	use super::*;
+	use sp_runtime::VersionedCall;
 
-//     #[frame::storage_alias]
-//     pub type Calls<T: Config> = StorageDoubleMap<
-//         Pallet<T>,
-//         Twox64Concat,
-//         <T as frame_system::Config>::AccountId,
-//         Blake2_128Concat,
-//         [u8; 32],
-//         <T as Config>::RuntimeCall,
-//     >;
+	#[frame::storage_alias]
+	type OldCalls<T: Config> = StorageDoubleMap<
+		Pallet<T>,
+		Twox64Concat,
+		<T as frame_system::Config>::AccountId,
+		Blake2_128Concat,
+		[u8; 32],
+		<T as Config>::RuntimeCall,
+	>;
 
-//     /// Migrate the multisig pallet to use VersionedCall
-//     pub struct MigrateToVersionedCall<T>(core::marker::PhantomData<T>);
+	pub struct MigrateToVersionedCall<T>(core::marker::PhantomData<T>);
 
-//     impl<T: Config> OnRuntimeUpgrade for MigrateToVersionedCall<T> {
-//         #[cfg(feature = "try-runtime")]
-//         fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
-//             let call_count = Calls::<T>::iter().count();
-//             log!(info, "Migrating {} stored calls to VersionedCall", call_count);
+	impl<T: Config> OnRuntimeUpgrade for MigrateToVersionedCall<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, frame::try_runtime::TryRuntimeError> {
+			use codec::Encode;
 
-//             // Check that all calls can be converted
-//             for (account, call_hash, call) in Calls::<T>::iter() {
-//                 let encoded = call.encode();
-//                 // Just check encoding/decoding
-//                 if let Err(e) = <T as Config>::RuntimeCall::decode(&mut &encoded[..]) {
-//                     log!(error, "Failed to decode call for account {:?}: {:?}", account, e);
-//                     return Err("Cannot decode stored call".into());
-//                 }
-//             }
+			let version = Pallet::<T>::on_chain_storage_version();
+			ensure!(version == 1, "Can only migrate from version 1");
 
-//             Ok((call_count as u32).encode())
-//         }
+			let call_count = OldCalls::<T>::iter().count() as u32;
+			log::info!(
+				target: crate::LOG_TARGET,
+				"Preparing to migrate {} stored calls to VersionedCall format",
+				call_count
+			);
 
-//         fn on_runtime_upgrade() -> Weight {
-//             let current_version =
-// frame_system::Pallet::<T>::runtime_version().transaction_version;             let mut migrated =
-// 0u32;             let mut failed = 0u32;
+			Ok(call_count.encode())
+		}
 
-//             // Migrate all stored calls to VersionedCall
-//             Calls::<T>::translate::<<T as Config>::RuntimeCall, _>(
-//                 |account, call_hash, call| {
-//                     let versioned_call = VersionedCall::new(call, current_version);
-//                     migrated += 1;
-//                     Some(versioned_call)
-//                 }
-//             );
+		fn on_runtime_upgrade() -> Weight {
+			let version = Pallet::<T>::on_chain_storage_version();
+			let current_version = Pallet::<T>::in_code_storage_version();
 
-//             // If there were any entries, we need to update storage version
-//             if migrated > 0 {
-//                 // Update storage version to 2 (if we're creating a new version)
-//                 // Note: Currently the pallet is at version 1
-//                 StorageVersion::new(2).put::<Pallet<T>>();
-//             }
+			if version != 1 {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"Skipping migration: expected version 1, found {:?}",
+					version
+				);
+				return T::DbWeight::get().reads(1);
+			}
 
-//             log!(info, "Migrated {} calls to VersionedCall ({} failed)", migrated, failed);
+			let mut migrated = 0u32;
+			let mut weight = T::DbWeight::get().reads_writes(1, 0);
 
-//             T::DbWeight::get().reads_writes(migrated as u64 + 1, migrated as u64 + 1)
-//         }
+			// Get current transaction version
+			let current_tx_version =
+				<frame_system::Pallet<T>>::runtime_version().transaction_version;
 
-//         #[cfg(feature = "try-runtime")]
-//         fn post_upgrade(state: Vec<u8>) -> Result<(), frame::try_runtime::TryRuntimeError> {
-//             let old_count: u32 = Decode::decode(&mut &state[..]).unwrap_or(0);
-//             let new_count = crate::Calls::<T>::iter().count() as u32;
+			// Migrate all stored calls to VersionedCall format
+			for (account, call_hash, old_call) in OldCalls::<T>::drain() {
+				// Wrap the old call in VersionedCall with current version
+				let versioned_call = VersionedCall::new(old_call, current_tx_version);
 
-//             ensure!(
-//                 old_count == new_count,
-//                 "Call count mismatch after migration: before={}, after={}",
-//                 old_count,
-//                 new_count
-//             );
+				// Store the versioned call
+				crate::Calls::<T>::insert(&account, call_hash, versioned_call);
 
-//             // Verify all calls are now VersionedCall
-//             for (account, call_hash, versioned_call) in crate::Calls::<T>::iter() {
-//                 let current_version =
-// frame_system::Pallet::<T>::runtime_version().transaction_version;                 if let Err(e) =
-// versioned_call.validate_version(current_version) {                     log!(error, "Versioned
-// call validation failed: {:?}", e);                     // This is OK - it means the call was
-// stored with a different version                     // and will fail validation when executed
-//                 }
-//             }
+				migrated += 1;
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+			}
 
-//             Ok(())
-//         }
-//     }
-// }
+			// Update storage version
+			current_version.put::<Pallet<T>>();
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+			log::info!(
+				target: crate::LOG_TARGET,
+				"Migrated {} calls to VersionedCall format",
+				migrated
+			);
+
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), frame::try_runtime::TryRuntimeError> {
+			use codec::Decode;
+
+			let expected_migrated: u32 =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
+
+			// Verify storage version was updated
+			ensure!(
+				Pallet::<T>::on_chain_storage_version() == 2,
+				"Storage version not updated correctly"
+			);
+
+			// Verify all calls were migrated
+			let current_call_count = crate::Calls::<T>::iter().count() as u32;
+			ensure!(current_call_count == expected_migrated, "Call count mismatch after migration");
+
+			// Verify no old calls remain
+			ensure!(OldCalls::<T>::iter().count() == 0, "Old calls still exist after migration");
+
+			log::info!(
+				target: crate::LOG_TARGET,
+				"Successfully migrated {} calls",
+				current_call_count
+			);
+
+			Ok(())
+		}
+	}
+}

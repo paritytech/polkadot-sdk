@@ -1610,7 +1610,7 @@ impl<T: Config> Pallet<T> {
 		if approved {
 			Self::deposit_event(Event::<T>::Passed { ref_index: index });
 
-			// Get the bounded call
+			// Get the bounded call and validate version
 			let bounded_call = status.proposal;
 
 			let when = now.saturating_add(status.delay.max(One::one()));

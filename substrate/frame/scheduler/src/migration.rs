@@ -79,7 +79,7 @@ pub mod v3 {
 	pub(crate) type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
-	/// Migrate the scheduler pallet from V3 to V4.
+	/// Migrate the scheduler pallet from V3 to V4 with VersionedCall support.
 	pub struct MigrateToV4<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
@@ -121,7 +121,11 @@ pub mod v3 {
 				for schedule in agenda.iter().cloned().flatten() {
 					match schedule.call {
 						frame_support::traits::schedule::MaybeHashed::Value(call) => {
-							let l = call.using_encoded(|c| c.len());
+							// Get current transaction version for creating VersionedCall
+							let current_version =
+								<frame_system::Pallet<T>>::runtime_version().transaction_version;
+							let versioned_call = VersionedCall::new(call, current_version);
+							let l = versioned_call.encode().len();
 							if l > max_length {
 								log::error!(
 									target: TARGET,
