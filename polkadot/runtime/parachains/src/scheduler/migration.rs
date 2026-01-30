@@ -17,478 +17,887 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
-use alloc::vec::Vec;
+use crate::on_demand;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::UncheckedOnRuntimeUpgrade, weights::Weight,
 };
 
-/// Old/legacy assignment representation (v0).
-///
-/// `Assignment` used to be a concrete type with the same layout V0Assignment, identical on all
-/// assignment providers. This can be removed once storage has been migrated.
-#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Clone)]
-struct V0Assignment {
-	pub para_id: ParaId,
-}
+// Import V4 types - these will be used directly for decoding V3 storage since they're
+// binary-compatible
+use super::assigner_coretime::{CoreDescriptor, Schedule};
 
-/// Old scheduler with explicit parathreads and `Scheduled` storage instead of `ClaimQueue`.
-mod v0 {
+/// V3 storage format - types and storage items before migration to V4.
+pub(super) mod v3 {
 	use super::*;
-	use polkadot_primitives::{CollatorId, Id};
+	use frame_support::pallet_prelude::{OptionQuery, Twox256};
 
-	#[storage_alias]
-	pub(super) type Scheduled<T: Config> = StorageValue<Pallet<T>, Vec<CoreAssignment>, ValueQuery>;
-
-	#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub struct ParathreadClaim(pub Id, pub CollatorId);
-
-	#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub struct ParathreadEntry {
-		/// The claim.
-		pub claim: ParathreadClaim,
-		/// Number of retries.
-		pub retries: u32,
+	/// Assignment type used in V2 and V3 storage (before migration to V4).
+	#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq)]
+	pub(crate) enum Assignment {
+		/// A pool assignment (on-demand).
+		Pool { para_id: ParaId, core_index: CoreIndex },
+		/// A bulk assignment (from broker chain).
+		Bulk(ParaId),
 	}
 
-	/// What is occupying a specific availability core.
-	#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub enum CoreOccupied {
-		/// A parathread.
-		Parathread(ParathreadEntry),
-		/// A parachain.
-		Parachain,
-	}
-
-	/// The actual type isn't important, as we only delete the key in the state.
-	#[storage_alias]
-	pub(crate) type AvailabilityCores<T: Config> =
-		StorageValue<Pallet<T>, Vec<Option<CoreOccupied>>, ValueQuery>;
-
-	/// The actual type isn't important, as we only delete the key in the state.
-	#[storage_alias]
-	pub(super) type ParathreadQueue<T: Config> = StorageValue<Pallet<T>, (), ValueQuery>;
-
-	#[storage_alias]
-	pub(super) type ParathreadClaimIndex<T: Config> = StorageValue<Pallet<T>, (), ValueQuery>;
-
-	/// The assignment type.
-	#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub enum AssignmentKind {
-		/// A parachain.
-		Parachain,
-		/// A parathread.
-		Parathread(CollatorId, u32),
-	}
-
-	/// How a free core is scheduled to be assigned.
-	#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
-	pub struct CoreAssignment {
-		/// The core that is assigned.
-		pub core: CoreIndex,
-		/// The unique ID of the para that is assigned to the core.
-		pub para_id: ParaId,
-		/// The kind of the assignment.
-		pub kind: AssignmentKind,
-		/// The index of the validator group assigned to the core.
-		pub group_idx: GroupIndex,
-	}
-}
-
-// `ClaimQueue` got introduced.
-//
-// - Items are `Option` for some weird reason.
-// - Assignments only consist of `ParaId`, `Assignment` is a concrete type (Same as V0Assignment).
-mod v1 {
-	use frame_support::{
-		pallet_prelude::ValueQuery, storage_alias, traits::UncheckedOnRuntimeUpgrade,
-		weights::Weight,
-	};
-	use frame_system::pallet_prelude::BlockNumberFor;
-
-	use super::*;
-	use crate::scheduler;
-
-	#[storage_alias]
-	pub(super) type ClaimQueue<T: Config> = StorageValue<
-		Pallet<T>,
-		BTreeMap<CoreIndex, VecDeque<Option<ParasEntry<BlockNumberFor<T>>>>>,
-		ValueQuery,
-	>;
-
-	#[storage_alias]
-	pub(super) type AvailabilityCores<T: Config> =
-		StorageValue<Pallet<T>, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
-
-	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
-	pub(super) enum CoreOccupied<N> {
-		/// No candidate is waiting availability on this core right now (the core is not occupied).
-		Free,
-		/// A para is currently waiting for availability/inclusion on this core.
-		Paras(ParasEntry<N>),
-	}
-
-	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
-	pub(super) struct ParasEntry<N> {
-		/// The underlying `Assignment`
-		pub(super) assignment: V0Assignment,
-		/// The number of times the entry has timed out in availability already.
-		pub(super) availability_timeouts: u32,
-		/// The block height until this entry needs to be backed.
-		///
-		/// If missed the entry will be removed from the claim queue without ever having occupied
-		/// the core.
-		pub(super) ttl: N,
-	}
-
-	impl<N> ParasEntry<N> {
-		/// Create a new `ParasEntry`.
-		pub(super) fn new(assignment: V0Assignment, now: N) -> Self {
-			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
-		}
-
-		/// Return `Id` from the underlying `Assignment`.
-		pub(super) fn para_id(&self) -> ParaId {
-			self.assignment.para_id
-		}
-	}
-
-	fn add_to_claimqueue<T: Config>(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
-		ClaimQueue::<T>::mutate(|la| {
-			la.entry(core_idx).or_default().push_back(Some(pe));
-		});
-	}
-
-	/// Migration to V1
-	pub struct UncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight: Weight = Weight::zero();
-
-			v0::ParathreadQueue::<T>::kill();
-			v0::ParathreadClaimIndex::<T>::kill();
-
-			let now = frame_system::Pallet::<T>::block_number();
-			let scheduled = v0::Scheduled::<T>::take();
-			let sched_len = scheduled.len() as u64;
-			for core_assignment in scheduled {
-				let core_idx = core_assignment.core;
-				let assignment = V0Assignment { para_id: core_assignment.para_id };
-				let pe = v1::ParasEntry::new(assignment, now);
-				v1::add_to_claimqueue::<T>(core_idx, pe);
+	impl Assignment {
+		pub fn para_id(&self) -> ParaId {
+			match self {
+				Self::Pool { para_id, .. } => *para_id,
+				Self::Bulk(para_id) => *para_id,
 			}
-
-			let parachains = paras::Parachains::<T>::get();
-			let availability_cores = v0::AvailabilityCores::<T>::take();
-			let mut new_availability_cores = Vec::new();
-
-			for (core_index, core) in availability_cores.into_iter().enumerate() {
-				let new_core = if let Some(core) = core {
-					match core {
-						v0::CoreOccupied::Parachain =>
-							v1::CoreOccupied::Paras(v1::ParasEntry::new(
-								V0Assignment { para_id: parachains[core_index] },
-								now,
-							)),
-						v0::CoreOccupied::Parathread(entry) => v1::CoreOccupied::Paras(
-							v1::ParasEntry::new(V0Assignment { para_id: entry.claim.0 }, now),
-						),
-					}
-				} else {
-					v1::CoreOccupied::Free
-				};
-
-				new_availability_cores.push(new_core);
-			}
-
-			v1::AvailabilityCores::<T>::set(new_availability_cores);
-
-			// 2x as once for Scheduled and once for Claimqueue
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(2 * sched_len, 2 * sched_len));
-			// reading parachains + availability_cores, writing AvailabilityCores
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
-			// 2x kill
-			weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-			log::info!(target: scheduler::LOG_TARGET, "Migrated para scheduler storage to v1");
-
-			weight
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			let n: u32 = v0::Scheduled::<T>::get().len() as u32 +
-				v0::AvailabilityCores::<T>::get().iter().filter(|c| c.is_some()).count() as u32;
-
-			log::info!(
-				target: crate::scheduler::LOG_TARGET,
-				"Number of scheduled and waiting for availability before: {n}",
-			);
-
-			Ok(n.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::info!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
-
-			ensure!(
-				v0::Scheduled::<T>::get().is_empty(),
-				"Scheduled should be empty after the migration"
-			);
-
-			let expected_len = u32::decode(&mut &state[..]).unwrap();
-			let availability_cores_waiting = v1::AvailabilityCores::<T>::get()
-				.into_iter()
-				.filter(|c| !matches!(c, v1::CoreOccupied::Free))
-				.count();
-
-			ensure!(
-				Pallet::<T>::claim_queue_len() as u32 + availability_cores_waiting as u32 ==
-					expected_len,
-				"ClaimQueue and AvailabilityCores should have the correct length",
-			);
-
-			Ok(())
 		}
 	}
-}
-
-/// Migrate `V0` to `V1` of the storage format.
-pub type MigrateV0ToV1<T> = VersionedMigration<
-	0,
-	1,
-	v1::UncheckedMigrateToV1<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
-
-pub(crate) mod v2 {
-	use super::*;
-	use crate::scheduler;
-
-	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
-	pub(crate) enum CoreOccupied<N> {
-		Free,
-		Paras(ParasEntry<N>),
-	}
-
-	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
-	pub(crate) struct ParasEntry<N> {
-		pub assignment: Assignment,
-		pub availability_timeouts: u32,
-		pub ttl: N,
-	}
-
-	// V2 (no Option wrapper) and new [`Assignment`].
-	#[storage_alias]
-	pub(crate) type ClaimQueue<T: Config> = StorageValue<
-		Pallet<T>,
-		BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumberFor<T>>>>,
-		ValueQuery,
-	>;
-
-	#[storage_alias]
-	pub(crate) type AvailabilityCores<T: Config> =
-		StorageValue<Pallet<T>, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
-
-	fn is_bulk<T: Config>(core_index: CoreIndex) -> bool {
-		core_index.0 < paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
-	}
-
-	/// Migration to V2
-	pub struct UncheckedMigrateToV2<T>(core::marker::PhantomData<T>);
-
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight: Weight = Weight::zero();
-
-			let old = v1::ClaimQueue::<T>::take();
-			let new = old
-				.into_iter()
-				.map(|(k, v)| {
-					(
-						k,
-						v.into_iter()
-							.flatten()
-							.map(|p| {
-								let assignment = if is_bulk::<T>(k) {
-									Assignment::Bulk(p.para_id())
-								} else {
-									Assignment::Pool { para_id: p.para_id(), core_index: k }
-								};
-
-								ParasEntry {
-									assignment,
-									availability_timeouts: p.availability_timeouts,
-									ttl: p.ttl,
-								}
-							})
-							.collect::<VecDeque<_>>(),
-					)
-				})
-				.collect::<BTreeMap<CoreIndex, VecDeque<ParasEntry<BlockNumberFor<T>>>>>();
-
-			ClaimQueue::<T>::put(new);
-
-			let old = v1::AvailabilityCores::<T>::get();
-
-			let new = old
-				.into_iter()
-				.enumerate()
-				.map(|(k, a)| match a {
-					v1::CoreOccupied::Free => CoreOccupied::Free,
-					v1::CoreOccupied::Paras(paras) => {
-						let assignment = if is_bulk::<T>((k as u32).into()) {
-							Assignment::Bulk(paras.para_id())
-						} else {
-							Assignment::Pool {
-								para_id: paras.para_id(),
-								core_index: (k as u32).into(),
-							}
-						};
-
-						CoreOccupied::Paras(ParasEntry {
-							assignment,
-							availability_timeouts: paras.availability_timeouts,
-							ttl: paras.ttl,
-						})
-					},
-				})
-				.collect::<Vec<_>>();
-			AvailabilityCores::<T>::put(new);
-
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v2");
-
-			weight
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			log::trace!(
-				target: crate::scheduler::LOG_TARGET,
-				"ClaimQueue before migration: {}",
-				v1::ClaimQueue::<T>::get().len()
-			);
-
-			let bytes = u32::to_be_bytes(v1::ClaimQueue::<T>::get().len() as u32);
-
-			Ok(bytes.to_vec())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
-
-			let old_len = u32::from_be_bytes(state.try_into().unwrap());
-			ensure!(
-				v2::ClaimQueue::<T>::get().len() as u32 == old_len,
-				"Old ClaimQueue completely moved to new ClaimQueue after migration"
-			);
-
-			Ok(())
-		}
-	}
-}
-
-/// Migrate `V1` to `V2` of the storage format.
-pub type MigrateV1ToV2<T> = VersionedMigration<
-	1,
-	2,
-	v2::UncheckedMigrateToV2<T>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
-
-/// Migration for TTL and availability timeout retries removal.
-/// AvailabilityCores storage is removed and ClaimQueue now holds `Assignment`s instead of
-/// `ParasEntryType`
-mod v3 {
-	use super::*;
-	use crate::scheduler;
 
 	#[storage_alias]
 	pub(crate) type ClaimQueue<T: Config> =
 		StorageValue<Pallet<T>, BTreeMap<CoreIndex, VecDeque<Assignment>>, ValueQuery>;
-	/// Migration to V3
-	pub struct UncheckedMigrateToV3<T>(core::marker::PhantomData<T>);
 
-	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV3<T> {
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight: Weight = Weight::zero();
+	/// Storage alias for the old CoreSchedules storage in the AssignerCoretime pallet.
+	///
+	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
+	/// In production runtimes (Polkadot/Kusama), this is named "CoretimeAssignmentProvider".
+	///
+	/// We can decode directly into V4 types (Schedule, PartsOf57600, etc.) because they're
+	/// binary-compatible with the V3 types - field visibility doesn't affect encoding.
+	#[storage_alias]
+	pub(crate) type CoreSchedules<T: Config> = StorageMap<
+		CoretimeAssignmentProvider,
+		Twox256,
+		(BlockNumberFor<T>, CoreIndex),
+		Schedule<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
 
-			// Migrate ClaimQueuee to new format.
+	/// Storage alias for the old CoreDescriptors storage in the AssignerCoretime pallet.
+	///
+	/// NOTE: The pallet name must match the name used in the runtime's `construct_runtime!` macro.
+	/// In production runtimes (Polkadot/Kusama), this is named "CoretimeAssignmentProvider".
+	#[storage_alias]
+	pub(crate) type CoreDescriptors<T: Config> = StorageMap<
+		CoretimeAssignmentProvider,
+		Twox256,
+		CoreIndex,
+		CoreDescriptor<BlockNumberFor<T>>,
+		ValueQuery,
+	>;
+}
 
-			let old = v2::ClaimQueue::<T>::take();
-			let new = old
-				.into_iter()
-				.map(|(k, v)| {
-					(
-						k,
-						v.into_iter()
-							.map(|paras_entry| paras_entry.assignment)
-							.collect::<VecDeque<_>>(),
-					)
-				})
-				.collect::<BTreeMap<CoreIndex, VecDeque<Assignment>>>();
+/// Migration for consolidating coretime assignment scheduling into the Scheduler pallet.
+///
+/// V4 completes the transition to the new coretime scheduling model by moving all coretime-related
+/// storage from the deprecated top-level AssignerCoretime pallet into the Scheduler pallet.
+///
+/// Major changes in V4:
+/// - **Removes ClaimQueue storage**: The scheduler no longer maintains a claim queue. Assignment
+///   scheduling is now handled entirely through CoreSchedules managed by the assigner_coretime
+///   submodule.
+/// - **Migrates CoreSchedules**: Moves schedule assignments from the deprecated AssignerCoretime
+///   pallet to Scheduler pallet storage, following linked-list structure via `next_schedule`
+///   pointers.
+/// - **Migrates CoreDescriptors**: Moves core metadata (queue descriptors and current work state)
+///   from the deprecated pallet to Scheduler pallet storage.
+/// - **Upgrades storage hasher**: Changes from Twox256 (non-reversible) to Twox64Concat
+///   (reversible) for CoreSchedules, enabling efficient iteration and queries.
+/// - **Preserves on-demand orders**: Any Pool assignments remaining in ClaimQueue are migrated to
+///   the on-demand pallet queue to ensure no orders are lost.
+/// - **Drops bulk assignments**: Bulk assignments (from broker chain) in ClaimQueue are
+///   intentionally dropped as they will be rescheduled from CoreSchedules in the new model.
+///
+/// After this migration, the deprecated AssignerCoretime pallet becomes an empty stub that can be
+/// removed once all networks have upgraded.
+pub struct UncheckedMigrateToV4<T>(core::marker::PhantomData<T>);
 
-			v3::ClaimQueue::<T>::put(new);
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> UncheckedMigrateToV4<T> {
+	pub fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+		// Count schedules and descriptors by enumerating cores
+		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
+		let mut schedule_count = 0u32;
+		let mut descriptor_count = 0u32;
 
-			// Clear AvailabilityCores storage
-			v2::AvailabilityCores::<T>::kill();
+		for core_idx in 0..num_cores {
+			let core_index = CoreIndex(core_idx);
+			let descriptor = v3::CoreDescriptors::<T>::get(core_index);
 
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+			if descriptor.queue().is_some() || descriptor.current_work().is_some() {
+				descriptor_count += 1;
 
-			log::info!(target: scheduler::LOG_TARGET, "Migrating para scheduler storage to v3");
-
-			weight
+				// Count schedules by following the queue and validate linked list integrity
+				if let Some(queue) = descriptor.queue() {
+					let mut current_block = Some(queue.first);
+					while let Some(block_number) = current_block {
+						let key = (block_number, core_index);
+						if let Some(schedule) = v3::CoreSchedules::<T>::get(key) {
+							schedule_count += 1;
+							current_block = schedule.next_schedule();
+						} else {
+							// Linked list is broken - log warning and stop traversing this chain
+							// The data was already lost before migration, failing here won't help
+							log::warn!(
+								target: super::LOG_TARGET,
+								"Broken linked list detected for core {:?} at block {:?}",
+								core_index,
+								block_number
+							);
+							break;
+						}
+					}
+				}
+			}
 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
-			log::trace!(
-				target: crate::scheduler::LOG_TARGET,
-				"ClaimQueue before migration: {}",
-				v2::ClaimQueue::<T>::get().len()
+		let claim_queue = v3::ClaimQueue::<T>::get();
+		let mut total_assignments = 0u32;
+		let mut pool_assignments = 0u32;
+
+		for (_core_idx, assignments) in claim_queue.iter() {
+			for assignment in assignments {
+				total_assignments = total_assignments.saturating_add(1);
+				if matches!(assignment, v3::Assignment::Pool { .. }) {
+					pool_assignments = pool_assignments.saturating_add(1);
+				}
+			}
+		}
+
+		log::info!(
+			target: super::LOG_TARGET,
+			"Before migration v4: {} CoreSchedules, {} CoreDescriptors, {} ClaimQueue assignments ({} pool, {} bulk)",
+			schedule_count,
+			descriptor_count,
+			total_assignments,
+			pool_assignments,
+			total_assignments.saturating_sub(pool_assignments)
+		);
+
+		// Sanity check: On production networks, we expect to find data to migrate
+		// If we find nothing, the storage alias pallet name is likely wrong
+		if descriptor_count == 0 && schedule_count == 0 {
+			log::error!(
+				target: super::LOG_TARGET,
+				"Migration found no data to migrate! This likely means the storage alias pallet name \
+				(CoretimeAssignmentProvider) doesn't match the actual pallet name in construct_runtime. \
+				Check the runtime's construct_runtime macro for the correct pallet name."
 			);
-
-			let bytes = u32::to_be_bytes(v2::ClaimQueue::<T>::get().len() as u32);
-
-			Ok(bytes.to_vec())
+			return Err("No data found to migrate - wrong pallet name in storage alias?".into());
 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
-			log::trace!(target: crate::scheduler::LOG_TARGET, "Running post_upgrade()");
+		Ok((schedule_count, descriptor_count, total_assignments, pool_assignments).encode())
+	}
 
-			let old_len = u32::from_be_bytes(state.try_into().unwrap());
+	pub fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		log::info!(target: super::LOG_TARGET, "Running post_upgrade() for v4");
+
+		let (
+			expected_schedule_count,
+			expected_descriptor_count,
+			total_assignments,
+			expected_pool_assignments,
+		): (u32, u32, u32, u32) =
+			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
+
+		// Verify old storage is cleaned up
+		ensure!(!v3::ClaimQueue::<T>::exists(), "ClaimQueue storage should have been removed");
+
+		// Check old CoreSchedules and CoreDescriptors are empty by enumerating cores
+		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
+		for core_idx in 0..num_cores {
+			let core_index = CoreIndex(core_idx);
+
+			// Check descriptor is default/empty
+			let old_descriptor = v3::CoreDescriptors::<T>::get(core_index);
 			ensure!(
-				v3::ClaimQueue::<T>::get().len() as u32 == old_len,
-				"Old ClaimQueue completely moved to new ClaimQueue after migration"
+				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
+				"Old CoreDescriptors should be empty"
 			);
 
-			ensure!(
-				!v2::AvailabilityCores::<T>::exists(),
-				"AvailabilityCores storage should have been completely killed"
-			);
-
-			Ok(())
+			// Check no schedules remain (by checking a few potential block numbers)
+			// We can't fully verify without iterating all possible block numbers,
+			// but checking the descriptor is empty should be sufficient
 		}
+
+		// Verify new storage (Twox64Concat allows iteration)
+		let new_schedule_count = super::CoreSchedules::<T>::iter().count() as u32;
+		ensure!(
+			new_schedule_count == expected_schedule_count,
+			"CoreSchedules count mismatch after migration"
+		);
+
+		let new_descriptor_count = super::CoreDescriptors::<T>::get().len() as u32;
+		ensure!(
+			new_descriptor_count == expected_descriptor_count,
+			"CoreDescriptors count mismatch after migration"
+		);
+
+		log::info!(
+			target: super::LOG_TARGET,
+			"Successfully migrated v4: {} CoreSchedules, {} CoreDescriptors from AssignerCoretime to Scheduler; {} ClaimQueue assignments ({} pool pushed to on-demand)",
+			new_schedule_count,
+			new_descriptor_count,
+			total_assignments,
+			expected_pool_assignments
+		);
+
+		Ok(())
 	}
 }
 
-/// Migrate `V2` to `V3` of the storage format.
-pub type MigrateV2ToV3<T> = VersionedMigration<
-	2,
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV4<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight: Weight = Weight::zero();
+
+		// Get the actual number of cores from configuration
+		let num_cores = configuration::ActiveConfig::<T>::get().scheduler_params.num_cores;
+		weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+		// Step 1 & 2: Migrate CoreDescriptors and CoreSchedules together by enumerating cores
+		let mut schedule_count = 0u64;
+		let mut descriptor_count = 0u64;
+		let mut new_descriptors: BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>> =
+			BTreeMap::new();
+
+		for core_idx in 0..num_cores {
+			let core_index = CoreIndex(core_idx);
+
+			// Take the descriptor for this core (read and remove in one operation)
+			let old_descriptor = v3::CoreDescriptors::<T>::take(core_index);
+			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+			// Check if this core has a non-default descriptor
+			if old_descriptor.queue().is_none() && old_descriptor.current_work().is_none() {
+				continue; // Skip empty/default descriptors
+			}
+
+			descriptor_count += 1;
+
+			// Migrate schedules for this core by following the queue linked list
+			if let Some(queue) = old_descriptor.queue() {
+				let mut current_block = Some(queue.first);
+
+				while let Some(block_number) = current_block {
+					let key = (block_number, core_index);
+
+					if let Some(schedule) = v3::CoreSchedules::<T>::take(key) {
+						schedule_count += 1;
+						weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+						// Save next_schedule before moving schedule
+						let next = schedule.next_schedule();
+
+						// Insert into new storage with new hasher (Twox64Concat)
+						super::CoreSchedules::<T>::insert(key, schedule);
+						weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+						// Move to next schedule in queue
+						current_block = next;
+					} else {
+						// Queue is broken or reached the end
+
+						log::error!(
+							target: super::LOG_TARGET,
+							"Next queue entry was missing - this is unexpected, (core, block): {:?}",
+							key,
+						);
+						break;
+					}
+				}
+			}
+
+			// Descriptor can be used as-is since types are binary-compatible
+			new_descriptors.insert(core_index, old_descriptor);
+		}
+
+		// Write all descriptors at once
+		super::CoreDescriptors::<T>::put(new_descriptors);
+		weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+		// Clear all old v3 storage completely to handle any orphaned entries
+		// (e.g., from previous higher num_cores or broken linked lists)
+		let _ = v3::CoreDescriptors::<T>::clear(u32::MAX, None);
+		let _ = v3::CoreSchedules::<T>::clear(u32::MAX, None);
+		weight.saturating_accrue(T::DbWeight::get().writes(2));
+
+		// Step 3: Migrate ClaimQueue - preserve pool assignments
+		let old_claim_queue = v3::ClaimQueue::<T>::take();
+		weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+		let mut total_assignments = 0u32;
+		let mut migrated_pool_assignments = 0u32;
+
+		// Extract and preserve only Pool (on-demand) assignments.
+		// Bulk assignments will be repopulated from the broker chain via CoreSchedules.
+		for (_core_idx, assignments) in old_claim_queue.iter() {
+			for assignment in assignments {
+				total_assignments = total_assignments.saturating_add(1);
+				if let v3::Assignment::Pool { para_id, .. } = assignment {
+					// Push the on-demand order back to the on-demand pallet.
+					// This ensures user-paid orders are not lost.
+					on_demand::Pallet::<T>::push_back_order(*para_id);
+					migrated_pool_assignments = migrated_pool_assignments.saturating_add(1);
+				}
+				// Bulk assignments are intentionally dropped - this is
+				// technically not fully correct, but will not matter in
+				// practice as virtually nobody is sharing cores right now
+				// and even if so, this lack in preciseness would hardly be
+				// noticable.
+			}
+		}
+
+		// Account for writes to on-demand storage for pool assignments
+		weight.saturating_accrue(T::DbWeight::get().writes(migrated_pool_assignments as u64));
+
+		log::info!(
+			target: super::LOG_TARGET,
+			"Migrated para scheduler storage to v4: {} CoreSchedules, {} CoreDescriptors migrated from AssignerCoretime to Scheduler; removed ClaimQueue ({} total assignments, {} pool assignments migrated to on-demand)",
+			schedule_count,
+			descriptor_count,
+			total_assignments,
+			migrated_pool_assignments
+		);
+
+		weight
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
+		Self::pre_upgrade()
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		Self::post_upgrade(state)
+	}
+}
+
+/// Migrate `V3` to `V4` of the storage format.
+pub type MigrateV3ToV4<T> = VersionedMigration<
 	3,
-	v3::UncheckedMigrateToV3<T>,
+	4,
+	UncheckedMigrateToV4<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
+
+#[cfg(test)]
+mod v4_tests {
+	use super::*;
+	use crate::{
+		configuration,
+		mock::{new_test_ext, MockGenesisConfig, System, Test},
+		on_demand, scheduler,
+	};
+	use alloc::collections::BTreeMap;
+	use frame_support::traits::StorageVersion;
+	use pallet_broker::CoreAssignment as BrokerCoreAssignment;
+	use polkadot_primitives::{CoreIndex, Id as ParaId};
+
+	use super::assigner_coretime::{
+		AssignmentState, CoreDescriptor, PartsOf57600, QueueDescriptor, Schedule, WorkState,
+	};
+
+	#[test]
+	fn basic_migration_works() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			// Setup: Create old storage
+			let core = CoreIndex(0);
+			let block_number = 10u32;
+			let para_id = ParaId::from(1000);
+
+			// Create old schedule
+			let old_schedule = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(para_id.into()),
+					PartsOf57600::new_saturating(28800),
+				)],
+				Some(100u32),
+				None,
+			);
+
+			// Create old descriptor with queue pointing to this schedule
+			let old_descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
+
+			// Write to old storage using storage aliases
+			v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
+
+			// Set storage version to 3
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify new storage
+			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
+				.expect("Schedule should be migrated");
+			assert_eq!(new_schedule.assignments().len(), 1);
+			assert_eq!(new_schedule.end_hint(), Some(100u32));
+			assert_eq!(new_schedule.next_schedule(), None);
+
+			let new_descriptors = super::CoreDescriptors::<Test>::get();
+			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should be migrated");
+			assert!(new_descriptor.queue().is_some());
+			assert!(new_descriptor.current_work().is_none());
+
+			// Verify old storage is cleared
+			assert!(
+				v3::CoreSchedules::<Test>::get((block_number, core)).is_none(),
+				"Old CoreSchedules should be cleared"
+			);
+
+			// Verify old CoreDescriptor is cleared (should be default/empty after migration)
+			let old_descriptor = v3::CoreDescriptors::<Test>::get(core);
+			assert!(
+				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
+				"Old CoreDescriptor should be cleared after migration"
+			);
+		});
+	}
+
+	#[test]
+	fn multi_core_migration_works() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 3 cores
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 3;
+			});
+
+			let block_number = 10u32;
+
+			// Setup three cores with different configurations
+			for core_idx in 0..3 {
+				let core = CoreIndex(core_idx);
+				let para_id = ParaId::from(1000 + core_idx);
+
+				let old_schedule = Schedule::new(
+					vec![(
+						BrokerCoreAssignment::Task(para_id.into()),
+						PartsOf57600::new_saturating(57600),
+					)],
+					None,
+					None,
+				);
+
+				let old_descriptor = CoreDescriptor::new(
+					Some(QueueDescriptor { first: block_number, last: block_number }),
+					None,
+				);
+
+				v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+				v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
+			}
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify all cores migrated
+			let new_descriptors = super::CoreDescriptors::<Test>::get();
+			assert_eq!(new_descriptors.len(), 3);
+
+			for core_idx in 0..3 {
+				let core = CoreIndex(core_idx);
+				assert!(new_descriptors.contains_key(&core));
+				assert!(super::CoreSchedules::<Test>::get((block_number, core)).is_some());
+			}
+		});
+	}
+
+	#[test]
+	fn linked_list_migration_works() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			let core = CoreIndex(0);
+			let para_id = ParaId::from(1000);
+
+			// Create a linked list: block 10 -> 20 -> 30
+			let schedule_30 = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(para_id.into()),
+					PartsOf57600::new_saturating(57600),
+				)],
+				None,
+				None,
+			);
+
+			let schedule_20 = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(para_id.into()),
+					PartsOf57600::new_saturating(57600),
+				)],
+				None,
+				Some(30u32),
+			);
+
+			let schedule_10 = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(para_id.into()),
+					PartsOf57600::new_saturating(57600),
+				)],
+				None,
+				Some(20u32),
+			);
+
+			// Write schedules
+			v3::CoreSchedules::<Test>::insert((10u32, core), schedule_10);
+			v3::CoreSchedules::<Test>::insert((20u32, core), schedule_20);
+			v3::CoreSchedules::<Test>::insert((30u32, core), schedule_30);
+
+			// Descriptor points to first schedule
+			let old_descriptor =
+				CoreDescriptor::new(Some(QueueDescriptor { first: 10u32, last: 30u32 }), None);
+
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify all three schedules migrated
+			assert!(super::CoreSchedules::<Test>::get((10u32, core)).is_some());
+			assert!(super::CoreSchedules::<Test>::get((20u32, core)).is_some());
+			assert!(super::CoreSchedules::<Test>::get((30u32, core)).is_some());
+
+			// Verify next_schedule links preserved
+			let new_10 = super::CoreSchedules::<Test>::get((10u32, core)).unwrap();
+			assert_eq!(new_10.next_schedule(), Some(20u32));
+
+			let new_20 = super::CoreSchedules::<Test>::get((20u32, core)).unwrap();
+			assert_eq!(new_20.next_schedule(), Some(30u32));
+
+			let new_30 = super::CoreSchedules::<Test>::get((30u32, core)).unwrap();
+			assert_eq!(new_30.next_schedule(), None);
+		});
+	}
+
+	#[test]
+	fn claim_queue_pool_assignments_preserved() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			let core = CoreIndex(0);
+			let pool_para_1 = ParaId::from(1000);
+			let pool_para_2 = ParaId::from(1001);
+			let bulk_para = ParaId::from(2000);
+			let block_number = 10u32;
+
+			// Create a minimal CoreDescriptor and Schedule to pass sanity check
+			// (production networks will have these)
+			let descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
+			v3::CoreDescriptors::<Test>::insert(core, descriptor);
+
+			let schedule = Schedule::new(
+				vec![(
+					BrokerCoreAssignment::Task(pool_para_1.into()),
+					PartsOf57600::new_saturating(57600),
+				)],
+				None,
+				None,
+			);
+			v3::CoreSchedules::<Test>::insert((block_number, core), schedule);
+
+			// Create ClaimQueue with mixed assignments
+			let mut claim_queue = BTreeMap::new();
+			let mut assignments = VecDeque::new();
+			assignments.push_back(v3::Assignment::Pool { para_id: pool_para_1, core_index: core });
+			assignments.push_back(v3::Assignment::Bulk(bulk_para));
+			assignments.push_back(v3::Assignment::Pool { para_id: pool_para_2, core_index: core });
+			claim_queue.insert(core, assignments);
+
+			v3::ClaimQueue::<Test>::put(claim_queue);
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Verify claim_queue() returns the old ClaimQueue before migration
+			let claim_queue_before = super::Pallet::<Test>::claim_queue();
+			assert_eq!(claim_queue_before.len(), 1, "Should have 1 core in claim queue");
+			let core_queue = claim_queue_before.get(&core).expect("Core should be in claim queue");
+			assert_eq!(core_queue.len(), 3, "Core should have 3 assignments");
+			assert_eq!(core_queue[0], pool_para_1);
+			assert_eq!(core_queue[1], bulk_para);
+			assert_eq!(core_queue[2], pool_para_2);
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify ClaimQueue is removed
+			assert!(!v3::ClaimQueue::<Test>::exists());
+
+			// Verify pool assignments went to on-demand
+			// The migration calls `on_demand::Pallet::<T>::push_back_order` for each pool
+			// assignment, which adds them to the on-demand queue. We verify by popping
+			// assignments. Orders are ready 2 blocks after being placed (asynchronous backing).
+			let mut on_demand_queue = on_demand::Pallet::<Test>::peek_order_queue();
+			let now = System::block_number().saturating_add(2); // Advance 2 blocks for async backing
+			let popped: Vec<ParaId> =
+				on_demand_queue.pop_assignment_for_cores::<Test>(now, 2).collect();
+
+			assert_eq!(popped.len(), 2, "Should have 2 pool assignments in on-demand queue");
+			assert!(popped.contains(&pool_para_1), "pool_para_1 should be in queue");
+			assert!(popped.contains(&pool_para_2), "pool_para_2 should be in queue");
+		});
+	}
+
+	#[test]
+	fn claim_queue_bulk_assignments_dropped() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			let core = CoreIndex(0);
+			let block_number = System::block_number().saturating_plus_one();
+
+			// Create CoreSchedule with different bulk assignments (these should win)
+			let descriptor_para_1 = ParaId::from(3000);
+			let descriptor_para_2 = ParaId::from(3001);
+
+			let descriptor_schedule = Schedule::new(
+				vec![
+					(
+						BrokerCoreAssignment::Task(descriptor_para_1.into()),
+						PartsOf57600::new_saturating(28800),
+					),
+					(
+						BrokerCoreAssignment::Task(descriptor_para_2.into()),
+						PartsOf57600::new_saturating(28800),
+					),
+				],
+				None,
+				None,
+			);
+
+			let descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
+
+			v3::CoreSchedules::<Test>::insert((block_number, core), descriptor_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, descriptor);
+
+			// Create ClaimQueue with different bulk assignments (these should be dropped)
+			let claimqueue_para_1 = ParaId::from(2000);
+			let claimqueue_para_2 = ParaId::from(2001);
+
+			let mut claim_queue = BTreeMap::new();
+			let mut assignments = VecDeque::new();
+			assignments.push_back(v3::Assignment::Bulk(claimqueue_para_1));
+			assignments.push_back(v3::Assignment::Bulk(claimqueue_para_2));
+			claim_queue.insert(core, assignments);
+
+			v3::ClaimQueue::<Test>::put(claim_queue);
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify ClaimQueue is removed
+			assert!(!v3::ClaimQueue::<Test>::exists());
+
+			// Peek at the next block to see what will be scheduled
+			// Should see assignments from descriptor (3000, 3001), NOT from ClaimQueue (2000, 2001)
+			let peeked = scheduler::assigner_coretime::peek_next_block::<Test>(10);
+
+			let core_assignments = peeked.get(&core).expect("Core should have assignments");
+			let para_ids: Vec<ParaId> = core_assignments.iter().copied().collect();
+
+			// Verify we see descriptor paras, not claimqueue paras
+			assert!(para_ids.contains(&descriptor_para_1), "Should contain para from descriptor");
+			assert!(para_ids.contains(&descriptor_para_2), "Should contain para from descriptor");
+			assert!(
+				!para_ids.contains(&claimqueue_para_1),
+				"Should NOT contain para from old ClaimQueue"
+			);
+			assert!(
+				!para_ids.contains(&claimqueue_para_2),
+				"Should NOT contain para from old ClaimQueue"
+			);
+		});
+	}
+
+	#[test]
+	fn empty_storage_migration_works() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// No old storage created
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// pre_upgrade should fail if no data is found (sanity check for wrong pallet name)
+			assert!(UncheckedMigrateToV4::<Test>::pre_upgrade().is_err());
+
+			// But on_runtime_upgrade should still work (idempotent, safe to run)
+			let _weight = UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+
+			// Verify new storage is empty
+			let new_descriptors = super::CoreDescriptors::<Test>::get();
+			assert!(new_descriptors.is_empty());
+
+			// Manually construct the expected state: (schedule_count, descriptor_count,
+			// total_assignments, pool_assignments)
+			let state = (0u32, 0u32, 0u32, 0u32).encode();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state)
+				.expect("post_upgrade should succeed with empty state");
+		});
+	}
+
+	#[test]
+	fn parts_of_57600_conversion_works() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			let core = CoreIndex(0);
+			let block_number = 10u32;
+			let para_id = ParaId::from(1000);
+
+			// Create schedule with various PartsOf57600 values
+			let old_schedule = Schedule::new(
+				vec![
+					(
+						BrokerCoreAssignment::Task(para_id.into()),
+						PartsOf57600::new_saturating(14400), // 1/4
+					),
+					(
+						BrokerCoreAssignment::Task(ParaId::from(1001).into()),
+						PartsOf57600::new_saturating(28800), // 1/2
+					),
+					(
+						BrokerCoreAssignment::Task(ParaId::from(1002).into()),
+						PartsOf57600::new_saturating(14400), // 1/4
+					),
+				],
+				None,
+				None,
+			);
+
+			let old_descriptor = CoreDescriptor::new(
+				Some(QueueDescriptor { first: block_number, last: block_number }),
+				None,
+			);
+
+			v3::CoreSchedules::<Test>::insert((block_number, core), old_schedule);
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify assignments and their parts converted correctly
+			let new_schedule = super::CoreSchedules::<Test>::get((block_number, core))
+				.expect("Schedule should be migrated");
+			assert_eq!(new_schedule.assignments().len(), 3);
+
+			// Check sum of parts equals full allocation (14400 + 28800 + 14400 = 57600)
+			let sum: u16 = new_schedule.assignments().iter().map(|(_, parts)| parts.value()).sum();
+			assert_eq!(sum, 57600, "Sum of parts should equal full allocation");
+		});
+	}
+
+	#[test]
+	fn current_work_state_migrated() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// Setup configuration with 1 core
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.scheduler_params.num_cores = 1;
+			});
+
+			let core = CoreIndex(0);
+			let para_id = ParaId::from(1000);
+
+			// Create descriptor with current_work
+			let old_descriptor = CoreDescriptor::new(
+				None,
+				Some(WorkState {
+					assignments: vec![(
+						BrokerCoreAssignment::Task(para_id.into()),
+						AssignmentState {
+							ratio: PartsOf57600::new_saturating(57600),
+							remaining: PartsOf57600::new_saturating(28800),
+						},
+					)],
+					end_hint: Some(100u32),
+					pos: 0,
+					step: PartsOf57600::new_saturating(1),
+				}),
+			);
+
+			v3::CoreDescriptors::<Test>::insert(core, old_descriptor);
+
+			StorageVersion::new(3).put::<super::Pallet<Test>>();
+
+			// Run migration with pre and post upgrade checks
+			let state =
+				UncheckedMigrateToV4::<Test>::pre_upgrade().expect("pre_upgrade should succeed");
+			UncheckedMigrateToV4::<Test>::on_runtime_upgrade();
+			UncheckedMigrateToV4::<Test>::post_upgrade(state).expect("post_upgrade should succeed");
+
+			// Verify current_work migrated
+			let new_descriptors = super::CoreDescriptors::<Test>::get();
+			let new_descriptor = new_descriptors.get(&core).expect("Descriptor should exist");
+			assert!(new_descriptor.current_work().is_some());
+
+			let work = new_descriptor.current_work().unwrap();
+			assert_eq!(work.assignments.len(), 1);
+
+			// Verify the assignment details match what we set up
+			let (assignment, state) = &work.assignments[0];
+			match assignment {
+				BrokerCoreAssignment::Task(task_id) => {
+					assert_eq!(ParaId::from(*task_id), para_id, "ParaId should match");
+				},
+				_ => panic!("Expected Task assignment"),
+			}
+
+			// Verify assignment state values
+			assert_eq!(state.ratio.value(), 57600, "Ratio should be full allocation");
+			assert_eq!(state.remaining.value(), 28800, "Remaining should be half");
+
+			// Verify work state metadata
+			assert_eq!(work.end_hint, Some(100u32));
+			assert_eq!(work.pos, 0);
+			assert_eq!(work.step.value(), 1, "Step should be 1");
+		});
+	}
+}

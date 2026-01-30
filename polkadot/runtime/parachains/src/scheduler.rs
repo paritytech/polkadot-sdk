@@ -36,38 +36,42 @@
 //! number of groups as availability cores. Validator groups will be assigned to different
 //! availability cores over time.
 
-use crate::{configuration, initializer::SessionChangeNotification, paras};
+use crate::{configuration, initializer::SessionChangeNotification, paras::AssignCoretime};
 use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec,
 	vec::Vec,
 };
 use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use polkadot_core_primitives::v2::BlockNumber;
-use polkadot_primitives::{
-	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, SchedulerParams,
-	ValidatorIndex,
-};
-use sp_runtime::traits::One;
+use polkadot_primitives::{CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex};
+use sp_runtime::traits::{One, Saturating};
 
-pub mod common;
+const LOG_TARGET: &str = "runtime::parachains::scheduler";
 
-use common::{Assignment, AssignmentProvider};
-
+pub use assigner_coretime::{CoreAssignment, PartsOf57600};
 pub use pallet::*;
+pub use polkadot_core_primitives::v2::BlockNumber;
 
 #[cfg(test)]
 mod tests;
 
-const LOG_TARGET: &str = "runtime::parachains::scheduler";
+/// Implements core assignments as coming from the Coretime chain.
+///
+/// Depends on the ondemand pallet to assign pool cores.
+mod assigner_coretime;
 
+/// Storage migrations for the scheduler pallet.
 pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
+
+	use crate::on_demand;
+
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -75,8 +79,23 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
-		type AssignmentProvider: AssignmentProvider<BlockNumberFor<Self>>;
+	pub trait Config: frame_system::Config + configuration::Config + on_demand::Config {}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// assign_core was called with no assignments.
+		AssignmentsEmpty,
+		/// assign_core with non allowed insertion.
+		DisallowedInsert,
+	}
+
+	impl<T> From<assigner_coretime::Error> for Error<T> {
+		fn from(e: assigner_coretime::Error) -> Self {
+			match e {
+				assigner_coretime::Error::AssignmentsEmpty => Error::AssignmentsEmpty,
+				assigner_coretime::Error::DisallowedInsert => Error::DisallowedInsert,
+			}
+		}
 	}
 
 	/// All the validator groups. One for each core. Indices are into `ActiveValidators` - not the
@@ -99,10 +118,32 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-	/// One entry for each availability core. The `VecDeque` represents the assignments to be
-	/// scheduled on that core.
+	/// Scheduled assignment sets for coretime cores.
+	///
+	/// Assignments as of the given block number. They will go into state once the block number is
+	/// reached (and replace whatever was in there before).
+	///
+	/// Managed by the `assigner_coretime` submodule.
 	#[pallet::storage]
-	pub type ClaimQueue<T> = StorageValue<_, BTreeMap<CoreIndex, VecDeque<Assignment>>, ValueQuery>;
+	pub(super) type CoreSchedules<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		(BlockNumberFor<T>, CoreIndex),
+		assigner_coretime::Schedule<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
+
+	/// Assignments which are currently active for each core.
+	///
+	/// They will be picked from `CoreSchedules` once we reach the scheduled block number.
+	///
+	/// Managed by the `assigner_coretime` submodule.
+	#[pallet::storage]
+	pub(super) type CoreDescriptors<T: Config> = StorageValue<
+		_,
+		BTreeMap<CoreIndex, assigner_coretime::CoreDescriptor<BlockNumberFor<T>>>,
+		ValueQuery,
+	>;
 
 	/// Availability timeout status of a core.
 	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {
@@ -119,7 +160,79 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config> AssignCoretime for Pallet<T> {
+	// Only for testing purposes.
+	fn assign_coretime(id: ParaId) -> DispatchResult {
+		let current_block = frame_system::Pallet::<T>::block_number();
+
+		// Add a new core and assign the para to it.
+		let mut config = configuration::ActiveConfig::<T>::get();
+		let core = config.scheduler_params.num_cores;
+		config.scheduler_params.num_cores.saturating_inc();
+
+		// `assign_coretime` is only called at genesis or by root, so setting the active
+		// config here is fine.
+		configuration::Pallet::<T>::force_set_active_config(config);
+
+		let begin = current_block + One::one();
+		let assignment = vec![(pallet_broker::CoreAssignment::Task(id.into()), PartsOf57600::FULL)];
+		assigner_coretime::assign_core::<T>(CoreIndex(core), begin, assignment, None)
+			.map_err(Error::<T>::from)?;
+		Ok(())
+	}
+}
+
 impl<T: Config> Pallet<T> {
+	/// Assign a particular core ala Coretime.
+	pub(crate) fn assign_core(
+		core: CoreIndex,
+		begin: BlockNumberFor<T>,
+		assignment: Vec<(CoreAssignment, PartsOf57600)>,
+		end_hint: Option<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		// assigner_coretime::assign_core::<T>(core, begin, assignment,
+		// end_hint).map_err(Error::from)?;
+		assigner_coretime::assign_core::<T>(core, begin, assignment, end_hint)
+			.map_err(Error::<T>::from)?;
+		Ok(())
+	}
+
+	/// Advance claim queue.
+	///
+	/// Parameters:
+	/// - is_blocked: Inform whether a given core is currently blocked (schedules can not be
+	/// served).
+	///
+	/// Returns: The `ParaId`s that had been scheduled next, blocked ones are filtered out.
+	pub(crate) fn advance_claim_queue<F: Fn(CoreIndex) -> bool>(
+		is_blocked: F,
+	) -> BTreeMap<CoreIndex, ParaId> {
+		let mut assignments = assigner_coretime::advance_assignments::<T, F>(is_blocked);
+		assignments.split_off(&CoreIndex(Self::num_availability_cores() as _));
+		assignments
+	}
+
+	/// Retrieve upcoming claims for each core.
+	///
+	/// To be called from runtime APIs.
+	pub(crate) fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		// Since this is being called from a runtime API, we need to workaround for #64.
+		if Self::on_chain_storage_version() == StorageVersion::new(3) {
+			return migration::v3::ClaimQueue::<T>::get()
+				.into_iter()
+				.map(|(core_index, paras)| {
+					(core_index, paras.into_iter().map(|e| e.para_id()).collect())
+				})
+				.collect()
+		}
+
+		let config = configuration::ActiveConfig::<T>::get();
+		let lookahead = config.scheduler_params.lookahead;
+		let mut queue = assigner_coretime::peek_next_block::<T>(lookahead);
+		queue.split_off(&CoreIndex(Self::num_availability_cores() as _));
+		queue
+	}
+
 	/// Called by the initializer to initialize the scheduler pallet.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
 		Weight::zero()
@@ -185,11 +298,6 @@ impl<T: Config> Pallet<T> {
 
 			ValidatorGroups::<T>::set(groups);
 		}
-
-		// Resize and populate claim queue.
-		Self::maybe_resize_claim_queue();
-		Self::populate_claim_queue_after_session_change();
-
 		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
 	}
@@ -202,12 +310,6 @@ impl<T: Config> Pallet<T> {
 	/// Get the number of cores.
 	pub(crate) fn num_availability_cores() -> usize {
 		ValidatorGroups::<T>::decode_len().unwrap_or(0)
-	}
-
-	/// Expected claim queue len. Can be different than the real length if for example we don't have
-	/// assignments for a core.
-	fn expected_claim_queue_len(config: &SchedulerParams<BlockNumberFor<T>>) -> u32 {
-		core::cmp::min(config.num_cores, Self::num_availability_cores() as u32)
 	}
 
 	/// Get the group assigned to a specific core by index at the current block number. Result
@@ -298,151 +400,13 @@ impl<T: Config> Pallet<T> {
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
 
-	/// Return the next thing that will be scheduled on this core assuming it is currently
-	/// occupied and the candidate occupying it became available.
-	pub(crate) fn next_up_on_available(core: CoreIndex) -> Option<ScheduledCore> {
-		// Since this is being called from a runtime API, we need to workaround for #64.
-		if Self::on_chain_storage_version() == StorageVersion::new(2) {
-			migration::v2::ClaimQueue::<T>::get()
-				.get(&core)
-				.and_then(|a| a.front().map(|entry| entry.assignment.para_id()))
-		} else {
-			ClaimQueue::<T>::get()
-				.get(&core)
-				.and_then(|a| a.front().map(|assignment| assignment.para_id()))
-		}
-		.map(|para_id| ScheduledCore { para_id, collator: None })
-	}
-
-	// Since this is being called from a runtime API, we need to workaround for #64.
-	pub(crate) fn get_claim_queue() -> BTreeMap<CoreIndex, VecDeque<Assignment>> {
-		if Self::on_chain_storage_version() == StorageVersion::new(2) {
-			migration::v2::ClaimQueue::<T>::get()
-				.into_iter()
-				.map(|(core_index, entries)| {
-					(core_index, entries.into_iter().map(|e| e.assignment).collect())
-				})
-				.collect()
-		} else {
-			ClaimQueue::<T>::get()
-		}
-	}
-
-	/// For each core that isn't part of the `except_for` set, pop the first item of the claim queue
-	/// and fill the queue from the assignment provider.
-	pub(crate) fn advance_claim_queue(except_for: &BTreeSet<CoreIndex>) {
-		let config = configuration::ActiveConfig::<T>::get();
-		let expected_claim_queue_len = Self::expected_claim_queue_len(&config.scheduler_params);
-		// Extra sanity, config should already never be smaller than 1:
-		let n_lookahead = config.scheduler_params.lookahead.max(1);
-
-		for core_idx in 0..expected_claim_queue_len {
-			let core_idx = CoreIndex::from(core_idx);
-
-			if !except_for.contains(&core_idx) {
-				let core_idx = CoreIndex::from(core_idx);
-
-				if let Some(dropped_para) = Self::pop_front_of_claim_queue(&core_idx) {
-					T::AssignmentProvider::report_processed(dropped_para);
-				}
-
-				Self::fill_claim_queue(core_idx, n_lookahead);
-			}
-		}
-	}
-
-	// on new session
-	fn maybe_resize_claim_queue() {
-		let cq = ClaimQueue::<T>::get();
-		let Some((old_max_core, _)) = cq.last_key_value() else { return };
-		let config = configuration::ActiveConfig::<T>::get();
-		let new_core_count = Self::expected_claim_queue_len(&config.scheduler_params);
-
-		if new_core_count < (old_max_core.0 + 1) {
-			ClaimQueue::<T>::mutate(|cq| {
-				let to_remove: Vec<_> =
-					cq.range(CoreIndex(new_core_count)..=*old_max_core).map(|(k, _)| *k).collect();
-				for key in to_remove {
-					if let Some(dropped_assignments) = cq.remove(&key) {
-						Self::push_back_to_assignment_provider(dropped_assignments.into_iter());
-					}
-				}
-			});
-		}
-	}
-
-	// Populate the claim queue. To be called on new session, after all the other modules were
-	// initialized.
-	fn populate_claim_queue_after_session_change() {
-		let config = configuration::ActiveConfig::<T>::get();
-		// Extra sanity, config should already never be smaller than 1:
-		let n_lookahead = config.scheduler_params.lookahead.max(1);
-		let expected_claim_queue_len = Self::expected_claim_queue_len(&config.scheduler_params);
-
-		for core_idx in 0..expected_claim_queue_len {
-			let core_idx = CoreIndex::from(core_idx);
-			Self::fill_claim_queue(core_idx, n_lookahead);
-		}
-	}
-
-	/// Push some assignments back to the provider.
-	fn push_back_to_assignment_provider(
-		assignments: impl core::iter::DoubleEndedIterator<Item = Assignment>,
-	) {
-		// Push back in reverse order so that when we pop from the provider again,
-		// the entries in the claim queue are in the same order as they are right
-		// now.
-		for assignment in assignments.rev() {
-			T::AssignmentProvider::push_back_assignment(assignment);
-		}
-	}
-
-	fn fill_claim_queue(core_idx: CoreIndex, n_lookahead: u32) {
-		ClaimQueue::<T>::mutate(|la| {
-			let cq = la.entry(core_idx).or_default();
-
-			let mut n_lookahead_used = cq.len() as u32;
-
-			// If the claim queue used to be empty, we need to double the first assignment.
-			// Otherwise, the para will only be able to get the collation in right at the next block
-			// (synchronous backing).
-			// Only do this if the configured lookahead is greater than 1. Otherwise, it doesn't
-			// make sense.
-			if n_lookahead_used == 0 && n_lookahead > 1 {
-				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					T::AssignmentProvider::assignment_duplicated(&assignment);
-					cq.push_back(assignment.clone());
-					cq.push_back(assignment);
-					n_lookahead_used += 2;
-				}
-			}
-
-			for _ in n_lookahead_used..n_lookahead {
-				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
-					cq.push_back(assignment);
-				} else {
-					break
-				}
-			}
-
-			// If we didn't end up pushing anything, remove the entry. We don't want to waste the
-			// space if we've no assignments.
-			if cq.is_empty() {
-				la.remove(&core_idx);
-			}
-		});
-	}
-
-	fn pop_front_of_claim_queue(core_idx: &CoreIndex) -> Option<Assignment> {
-		ClaimQueue::<T>::mutate(|cq| cq.get_mut(core_idx)?.pop_front())
-	}
-
-	#[cfg(any(feature = "try-runtime", test))]
+	#[cfg(test)]
 	fn claim_queue_len() -> usize {
-		ClaimQueue::<T>::get().iter().map(|la_vec| la_vec.1.len()).sum()
+		Self::claim_queue().iter().map(|la_vec| la_vec.1.len()).sum()
 	}
 
-	#[cfg(all(not(feature = "runtime-benchmarks"), test))]
+	#[cfg(test)]
+	#[allow(dead_code)]
 	pub(crate) fn claim_queue_is_empty() -> bool {
 		Self::claim_queue_len() == 0
 	}
@@ -450,10 +414,5 @@ impl<T: Config> Pallet<T> {
 	#[cfg(test)]
 	pub(crate) fn set_validator_groups(validator_groups: Vec<Vec<ValidatorIndex>>) {
 		ValidatorGroups::<T>::set(validator_groups);
-	}
-
-	#[cfg(test)]
-	pub(crate) fn set_claim_queue(claim_queue: BTreeMap<CoreIndex, VecDeque<Assignment>>) {
-		ClaimQueue::<T>::set(claim_queue);
 	}
 }

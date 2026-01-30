@@ -37,8 +37,9 @@ use polkadot_primitives::{
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, PvfCheckStatement, ScheduledCore, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
@@ -81,7 +82,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 			},
 		};
 
-	let claim_queue = scheduler::Pallet::<T>::get_claim_queue();
+	let claim_queue = scheduler::Pallet::<T>::claim_queue();
 	let occupied_cores: BTreeMap<CoreIndex, inclusion::CandidatePendingAvailability<_, _>> =
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
@@ -95,10 +96,16 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				let backing_group_allocation_time =
 					pending_availability.relay_parent_number() + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					next_up_on_available: claim_queue
+						.get(&core_idx)
+						.and_then(|q| q.front())
+						.map(|&para_id| ScheduledCore { para_id, collator: None }),
 					occupied_since: pending_availability.backed_in_number(),
 					time_out_at: time_out_for(pending_availability.backed_in_number()).live_until,
-					next_up_on_time_out: scheduler::Pallet::<T>::next_up_on_available(core_idx),
+					next_up_on_time_out: claim_queue
+						.get(&core_idx)
+						.and_then(|q| q.front())
+						.map(|&para_id| ScheduledCore { para_id, collator: None }),
 					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
@@ -108,11 +115,8 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
 				})
 			} else {
-				if let Some(assignment) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
-					CoreState::Scheduled(polkadot_primitives::ScheduledCore {
-						para_id: assignment.para_id(),
-						collator: None,
-					})
+				if let Some(&para_id) = claim_queue.get(&core_idx).and_then(|q| q.front()) {
+					CoreState::Scheduled(ScheduledCore { para_id, collator: None })
 				} else {
 					CoreState::Free
 				}
@@ -547,18 +551,7 @@ pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams 
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let config = configuration::ActiveConfig::<T>::get();
-	// Extra sanity, config should already never be smaller than 1:
-	let n_lookahead = config.scheduler_params.lookahead.max(1);
-	scheduler::Pallet::<T>::get_claim_queue()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			(
-				core_index,
-				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
-			)
-		})
-		.collect()
+	scheduler::Pallet::<T>::claim_queue()
 }
 
 /// Returns all the candidates that are pending availability for a given `ParaId`.

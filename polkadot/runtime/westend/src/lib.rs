@@ -76,7 +76,7 @@ use polkadot_runtime_common::{
 	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -1429,7 +1429,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = CoretimeAssignmentProvider;
+	type AssignCoretime = ParaScheduler;
 	type Fungible = Balances;
 	// Per day the cooldown is removed earlier, it should cost 1000.
 	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
@@ -1515,11 +1515,7 @@ impl parachains_paras_inherent::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_parachains_paras_inherent::WeightInfo<Runtime>;
 }
 
-impl parachains_scheduler::Config for Runtime {
-	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
-	// otherwise provide a migration.
-	type AssignmentProvider = CoretimeAssignmentProvider;
-}
+impl parachains_scheduler::Config for Runtime {}
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
@@ -1565,8 +1561,6 @@ impl parachains_on_demand::Config for Runtime {
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
-
-impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1974,8 +1968,6 @@ mod runtime {
 	pub type ParasSlashing = parachains_slashing;
 	#[runtime::pallet_index(56)]
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
-	#[runtime::pallet_index(57)]
-	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -2089,12 +2081,14 @@ pub mod migrations {
 			MaxAgentsToMigrate,
 		>,
 		parachains_shared::migration::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
 		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 		pallet_session::migrations::v1::MigrateV0ToV1<
 			Runtime,
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
 		>,
+		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
+		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
+		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
