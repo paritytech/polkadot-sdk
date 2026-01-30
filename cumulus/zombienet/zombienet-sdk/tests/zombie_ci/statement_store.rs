@@ -4,8 +4,11 @@
 // Test that people-westend enables the statement store in the node and that statements are
 // propagated to peers.
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 use sp_core::{Bytes, Encode};
+use sp_statement_store::{SubmitResult, TopicFilter};
 use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -36,7 +39,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lparachain=debug".into(),
+					"-linfo,statement-gossip=debug,statement-store=debug".into(),
 					"--enable-statement-store".into(),
 				])
 				.with_collator(|n| n.with_name("charlie"))
@@ -64,40 +67,44 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
+	let topic = [0u8; 32]; // just a dummy topic
 	statement.set_plain_data(vec![1, 2, 3]);
+	statement.set_topic(0, topic);
+	statement.set_expiry_from_parts(u32::MAX, 0);
 	let dave = sp_keyring::Sr25519Keyring::Dave;
 	statement.sign_sr25519_private(&dave.pair());
 	let statement: Bytes = statement.encode().into();
+	// Subscribe to statements with topic "topic" to dave.
+	let stop_after_secs = 20;
+	let mut subscription = dave_rpc
+		.subscribe::<Bytes>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::MatchAll(
+				vec![topic.to_vec().into()].try_into().expect("Single topic")
+			)],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
 
 	// Submit the statement to charlie.
-	let _: () = charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
+	let _: SubmitResult =
+		charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
 
-	// Ensure that charlie stored the statement.
-	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
-	if charlie_dump != vec![statement.clone()] {
-		return Err(anyhow!("Charlie did not store the statement"));
-	}
+	let statement_bytes =
+		tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+			.await
+			.expect("Should not timeout")
+			.expect("Should receive")
+			.expect("Should not error");
 
-	// Query dave until it receives the statement, stop if 20 seconds passed.
-	let query_start_time = std::time::SystemTime::now();
-	let stop_after_secs = 20;
-	loop {
-		let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
-		if !dave_dump.is_empty() {
-			if dave_dump != vec![statement.clone()] {
-				return Err(anyhow!("Dave statement store is not the expected one"));
-			}
-			break;
-		}
+	assert_eq!(statement_bytes, statement);
+	// Now make sure no more statements are received.
+	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+		.await
+		.is_err());
+	log::info!("Statement store test passed");
+	log::info!("Keeping network alive");
 
-		let elapsed =
-			query_start_time.elapsed().map_err(|_| anyhow!("Failed to get elapsed time"))?;
-		if elapsed.as_secs() > stop_after_secs {
-			return Err(anyhow!("Dave did not receive the statement in time"));
-		}
-
-		tokio::time::sleep(core::time::Duration::from_secs(1)).await;
-	}
-
+	tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
 	Ok(())
 }

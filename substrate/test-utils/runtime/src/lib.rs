@@ -46,10 +46,8 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::Ss58Codec;
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
-
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};

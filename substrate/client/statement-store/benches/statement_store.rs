@@ -214,6 +214,7 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 		client,
 		keystore,
 		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
 	)
 	.unwrap();
 

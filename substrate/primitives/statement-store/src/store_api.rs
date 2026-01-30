@@ -16,7 +16,9 @@
 // limitations under the License.
 
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
+use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
+use std::collections::HashSet;
 
 /// Statement store error.
 #[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
@@ -33,6 +35,83 @@ pub enum Error {
 	Storage(String),
 }
 
+/// Filter for subscribing to statements with different topics.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum TopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_TOPICS`] topics can be provided.
+	MatchAll(BoundedVec<Bytes, ConstU32<{ MAX_TOPICS as u32 }>>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_ANY_TOPICS`] topics can be provided.
+	MatchAny(BoundedVec<Bytes, ConstU32<{ MAX_ANY_TOPICS as u32 }>>),
+}
+
+/// Topic filter for statement subscriptions.
+#[derive(Clone, Debug)]
+pub enum CheckedTopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `4` topics can be provided.
+	MatchAll(HashSet<Topic>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to `128` topics can be provided.
+	MatchAny(HashSet<Topic>),
+}
+
+impl CheckedTopicFilter {
+	/// Check if the statement matches the filter.
+	pub fn matches(&self, statement: &Statement) -> bool {
+		match self {
+			CheckedTopicFilter::Any => true,
+			CheckedTopicFilter::MatchAll(topics) =>
+				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
+					topics.len(),
+			CheckedTopicFilter::MatchAny(topics) =>
+				statement.topics().iter().any(|topic| topics.contains(topic)),
+		}
+	}
+}
+
+// Convert TopicFilter to CheckedTopicFilter, validating topic lengths.
+impl TryInto<CheckedTopicFilter> for TopicFilter {
+	type Error = Error;
+
+	fn try_into(self) -> Result<CheckedTopicFilter> {
+		match self {
+			TopicFilter::Any => Ok(CheckedTopicFilter::Any),
+			TopicFilter::MatchAll(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					if topic.0.len() != 32 {
+						return Err(Error::Decode("Invalid topic format".into()));
+					}
+					let mut arr = [0u8; 32];
+					arr.copy_from_slice(&topic.0);
+					parsed_topics.insert(arr);
+				}
+				Ok(CheckedTopicFilter::MatchAll(parsed_topics))
+			},
+			TopicFilter::MatchAny(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					if topic.0.len() != 32 {
+						return Err(Error::Decode("Invalid topic format".into()));
+					}
+					let mut arr = [0u8; 32];
+					arr.copy_from_slice(&topic.0);
+					parsed_topics.insert(arr);
+				}
+				Ok(CheckedTopicFilter::MatchAny(parsed_topics))
+			},
+		}
+	}
+}
+
 /// Reason why a statement was rejected from the store.
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -45,19 +124,19 @@ pub enum RejectionReason {
 		/// Still available data size for the account.
 		available_size: usize,
 	},
-	/// Attempting to replace a channel message with lower or equal priority.
+	/// Attempting to replace a channel message with lower or equal expiry.
 	ChannelPriorityTooLow {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing channel message.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing channel message.
+		min_expiry: u64,
 	},
-	/// Account reached its statement limit and submitted priority is too low to evict existing.
+	/// Account reached its statement limit and submitted expiry is too low to evict existing.
 	AccountFull {
-		/// The priority of the submitted statement.
-		submitted_priority: u32,
-		/// The minimum priority of the existing statement.
-		min_priority: u32,
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing statement.
+		min_expiry: u64,
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
@@ -81,6 +160,8 @@ pub enum InvalidReason {
 		/// The maximum allowed size.
 		max_size: usize,
 	},
+	/// Statement has already expired. The expiry field is in the past.
+	AlreadyExpired,
 }
 
 /// Statement submission outcome
