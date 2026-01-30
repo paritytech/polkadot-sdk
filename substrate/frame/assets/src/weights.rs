@@ -108,6 +108,9 @@ pub trait WeightInfo {
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
 	fn set_reserves(n: u32) -> Weight;
+	fn get_name() -> Weight;
+	fn get_symbol() -> Weight;
+	fn get_decimals() -> Weight;
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
 		// disabled by default, force explicit benchmarking
 		Weight::MAX
@@ -617,6 +620,36 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_name() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_symbol() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_decimals() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1119,5 +1152,35 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(198_975, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_name() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_symbol() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Assets::Metadata` (r:1 w:0)
+	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
+	fn get_decimals() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `243`
+		//  Estimated: `2615`
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(12_500_000, 2615)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }
