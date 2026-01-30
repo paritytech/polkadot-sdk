@@ -17,9 +17,24 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
+use codec::Encode;
+
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
+
+/// Generates the storage key for Alice's account on the relay chain.
+pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
+	use sp_keyring::Sr25519Keyring;
+
+	let alice = Sr25519Keyring::Alice.to_account_id();
+
+	let mut key = sp_io::hashing::twox_128(b"System").to_vec();
+	key.extend_from_slice(&sp_io::hashing::twox_128(b"Account"));
+	key.extend_from_slice(&sp_io::hashing::blake2_128(&alice.encode()));
+	key.extend_from_slice(&alice.encode());
+	key
+}
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -119,5 +134,33 @@ pub mod pallet {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
 		}
+	}
+}
+
+impl<T: Config> cumulus_pallet_parachain_system::OnSystemEvent for Pallet<T> {
+	fn on_validation_data(_data: &cumulus_primitives_core::PersistedValidationData) {
+		// Nothing to do here for tests
+	}
+
+	fn on_validation_code_applied() {
+		// Nothing to do here for tests
+	}
+
+	fn on_relay_state_proof(
+		relay_state_proof: &cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof,
+	) -> frame_support::weights::Weight {
+		use crate::{Balance, Nonce};
+		use frame_system::AccountInfo;
+		use pallet_balances::AccountData;
+
+		let alice_key = crate::test_pallet::relay_alice_account_key();
+
+		// Verify that Alice's account is included in the relay proof.
+		relay_state_proof
+			.read_optional_entry::<AccountInfo<Nonce, AccountData<Balance>>>(&alice_key)
+			.expect("Invalid relay chain state proof")
+			.expect("Alice's account must be present in the relay proof");
+
+		frame_support::weights::Weight::zero()
 	}
 }
