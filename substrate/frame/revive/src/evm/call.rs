@@ -116,7 +116,6 @@ impl GenericTransaction {
 		}
 
 		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
-		// Per spec: "Note, this implies a null destination is not valid."
 		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
 			if self.to.is_none() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
@@ -124,8 +123,6 @@ impl GenericTransaction {
 			}
 
 			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
-			// Per spec: "The transaction is considered invalid if the length of authorization_list
-			// is zero."
 			if self.authorization_list.is_empty() {
 				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
 				return Err(InvalidTransaction::Call);
