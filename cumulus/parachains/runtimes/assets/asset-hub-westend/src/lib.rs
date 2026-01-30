@@ -144,7 +144,7 @@ const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
 
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
