@@ -63,11 +63,10 @@ use sp_core::{
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{
-		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
-	},
+	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, CheckedTopicFilter, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, Proof, RejectionReason, Result, Statement, SubmitResult, Topic,
+	InvalidReason, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
+	StatementAllowance, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -1359,9 +1358,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
 		AccountId, Channel, DecryptionKey, InvalidReason, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		Statement, StatementAllowance, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
