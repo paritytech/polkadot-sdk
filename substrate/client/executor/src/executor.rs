@@ -466,7 +466,7 @@ where
 			.map_err(|e| format!("Failed to read the static section: {:?}", e))
 			.map(|v| v.map(|v| v.encode()))?
 		{
-			return Ok(version)
+			return Ok(version);
 		}
 
 		// If the blob didn't have embedded runtime version section, we fallback to the legacy
@@ -581,7 +581,6 @@ pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 
 #[allow(deprecated)]
 impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
-	///
 	/// Create new instance.
 	///
 	/// # Parameters

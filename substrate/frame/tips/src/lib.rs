@@ -548,9 +548,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Some(m) => {
 					member = members_iter.next();
 					if m < a {
-						continue
+						continue;
 					} else {
-						break true
+						break true;
 					}
 				},
 			}

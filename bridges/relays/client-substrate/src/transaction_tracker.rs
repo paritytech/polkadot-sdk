@@ -208,10 +208,10 @@ async fn watch_transaction_status<
 							"Failed to read header when watching for transaction",
 						);
 						// that's the best option we have here
-						return InvalidationStatus::Lost
+						return InvalidationStatus::Lost;
 					},
 				};
-				return InvalidationStatus::Finalized(header_id)
+				return InvalidationStatus::Finalized(header_id);
 			},
 			Some(TransactionStatusOf::<C>::Invalid) => {
 				// if node says that the transaction is invalid, there are still chances that
@@ -226,7 +226,7 @@ async fn watch_transaction_status<
 					transaction=?transaction_hash,
 					"Transaction has been invalidated"
 				);
-				return InvalidationStatus::Invalid
+				return InvalidationStatus::Invalid;
 			},
 			Some(TransactionStatusOf::<C>::Future) |
 			Some(TransactionStatusOf::<C>::Ready) |
@@ -263,7 +263,7 @@ async fn watch_transaction_status<
 					block=?block_hash,
 					"Transaction has not been finalized for too long"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Usurped(new_transaction_hash)) => {
 				// this may be result of our transaction resubmitter work or some manual
@@ -276,7 +276,7 @@ async fn watch_transaction_status<
 					new_transaction=?new_transaction_hash,
 					"Transaction has been usurped"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Dropped) => {
 				// the transaction has been removed from the pool because of its limits. Let's wait
@@ -287,12 +287,12 @@ async fn watch_transaction_status<
 					transaction=?transaction_hash,
 					"Transaction has been dropped from the pool"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			None => {
 				// the status of transaction is unknown to us (the subscription has been closed?).
 				// Let's wait a bit and report a stall
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 		}
 	}

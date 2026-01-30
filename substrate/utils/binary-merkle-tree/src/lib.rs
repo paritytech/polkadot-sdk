@@ -314,7 +314,7 @@ where
 	L: Into<Leaf<'a, H::Out>>,
 {
 	if leaf_index >= number_of_leaves {
-		return false
+		return false;
 	}
 
 	let leaf_hash = match leaf.into() {
@@ -407,7 +407,7 @@ where
 					"[merkelize_row] Next: {:?}",
 					next.iter().map(|s| array_bytes::bytes2hex("", s)).collect::<Vec<_>>()
 				);
-				return Err(next)
+				return Err(next);
 			},
 		}
 	}

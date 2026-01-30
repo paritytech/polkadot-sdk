@@ -396,7 +396,7 @@ impl TestState {
 					_new_leaf,
 					RuntimeApiRequest::FetchOnChainVotes(tx),
 				)) => {
-					//add some `BackedCandidates` or resolved disputes here as needed
+					// add some `BackedCandidates` or resolved disputes here as needed
 					tx.send(Ok(Some(ScrapedOnChainVotes {
 						session,
 						backing_validators_per_candidate: Vec::default(),
@@ -437,7 +437,7 @@ impl TestState {
 				},
 			}
 		}
-		return sent_disputes
+		return sent_disputes;
 	}
 
 	async fn handle_resume_sync(

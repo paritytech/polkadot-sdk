@@ -154,7 +154,7 @@ pub mod v1 {
 						translated
 					);
 					interrupted = true;
-					break
+					break;
 				}
 			}
 			if !interrupted {
@@ -314,7 +314,7 @@ pub mod v2 {
 					// done.
 					Some(MigrationState::Finished) => {
 						StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
-						return Ok(None)
+						return Ok(None);
 					},
 				};
 

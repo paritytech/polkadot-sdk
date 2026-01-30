@@ -16,7 +16,7 @@
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
 
-//	     [TestEnvironment]
+// 	     [TestEnvironment]
 // 	  [NetworkEmulatorHandle]
 // 			    ||
 //   +-------+--||--+-------+
@@ -136,7 +136,7 @@ impl RateLimit {
 		self.credits -= amount as isize;
 
 		if self.credits >= 0 {
-			return
+			return;
 		}
 
 		while self.credits < 0 {
@@ -368,7 +368,7 @@ impl NetworkInterface {
 					tx_network.inc_sent(size);
 				} else {
 					gum::info!(target: LOG_TARGET, "Downlink channel closed, network interface task exiting");
-					break
+					break;
 				}
 			}
 		}
@@ -891,7 +891,7 @@ impl NetworkEmulatorHandle {
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
-			return Err(EmulatedPeerError::NotConnected)
+			return Err(EmulatedPeerError::NotConnected);
 		}
 
 		dst_peer.handle().send_message(message);
@@ -908,7 +908,7 @@ impl NetworkEmulatorHandle {
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
-			return Err(EmulatedPeerError::NotConnected)
+			return Err(EmulatedPeerError::NotConnected);
 		}
 
 		dst_peer.handle().send_request(request);

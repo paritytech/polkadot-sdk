@@ -118,7 +118,7 @@ pub fn check_approval(
 	// honest node approves, the candidate should be approved.
 	let approvals = candidate.approvals();
 	if 3 * approvals.count_ones() > approvals.len() {
-		return Check::ApprovedOneThird
+		return Check::ApprovedOneThird;
 	}
 
 	match required {
@@ -208,7 +208,7 @@ impl State {
 				required_tranches: RequiredTranches::All,
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// If we have enough assignments and all no-shows are covered, we have reached the number
@@ -223,7 +223,7 @@ impl State {
 				},
 				total_observed_no_shows: self.total_observed_no_shows,
 				no_show_validators: self.no_show_validators.clone(),
-			}
+			};
 		}
 
 		// We're pending more assignments and should look at more tranches.
@@ -387,7 +387,7 @@ fn count_no_shows(
 			let has_approved = if let Some(approved) = approvals.get(v_index.0 as usize) {
 				*approved
 			} else {
-				return false
+				return false;
 			};
 
 			let is_no_show = !has_approved && no_show_at <= drifted_tick_now;

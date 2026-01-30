@@ -340,7 +340,7 @@ where
 		let validator_count = key_owner_proof.validator_count();
 		let session_index = key_owner_proof.session();
 		if session_index != set_id_session_index {
-			return Err(Error::<T>::InvalidEquivocationProofSession.into())
+			return Err(Error::<T>::InvalidEquivocationProofSession.into());
 		}
 
 		// Validate the key ownership proof extracting the id of the offender.
@@ -375,7 +375,7 @@ impl<T: Config> Pallet<T> {
 					target: LOG_TARGET,
 					"rejecting unsigned report equivocation transaction because it is not local/in-block."
 				);
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			},
 		}
 

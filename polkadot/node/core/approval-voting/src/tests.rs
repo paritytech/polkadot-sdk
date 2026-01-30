@@ -2829,7 +2829,7 @@ fn approved_ancestor_test(
 			assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
 
 			if skip_approval(i as BlockNumber + 1) {
-				continue
+				continue;
 			}
 
 			let rx = import_approval(
@@ -3444,7 +3444,7 @@ where
 		let debug = false;
 		if debug {
 			step_until_done(&clock).await;
-			return virtual_overseer
+			return virtual_overseer;
 		}
 
 		futures_timer::Delay::new(Duration::from_millis(200)).await;
@@ -3500,7 +3500,7 @@ async fn step_until_done(clock: &MockClock) {
 			relevant_ticks.push(tick);
 			clock.set_tick(tick);
 		} else {
-			break
+			break;
 		}
 	}
 }

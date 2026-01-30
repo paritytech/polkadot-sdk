@@ -58,10 +58,8 @@
 //!
 //! 1. Fund a bounty approved by spend origin of some asset kind with a proposed curator.
 #![doc = docify::embed!("src/tests.rs", fund_bounty_works)]
-//!
 //! 2. Award a bounty to a beneficiary.
 #![doc = docify::embed!("src/tests.rs", award_bounty_works)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -838,7 +836,7 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
-				return Err(Error::<T, I>::UnexpectedStatus.into())
+				return Err(Error::<T, I>::UnexpectedStatus.into());
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
@@ -1007,7 +1005,7 @@ pub mod pallet {
 			}
 
 			let BountyStatus::Active { ref curator } = status else {
-				return Err(Error::<T, I>::UnexpectedStatus.into())
+				return Err(Error::<T, I>::UnexpectedStatus.into());
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
@@ -1225,7 +1223,7 @@ pub mod pallet {
 							}
 							// refund succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into())
+							return Ok(Pays::No.into());
 						},
 						PaymentState::Pending |
 						PaymentState::Failed |
@@ -1261,7 +1259,7 @@ pub mod pallet {
 							}
 							// payout succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into())
+							return Ok(Pays::No.into());
 						},
 						PaymentState::Pending |
 						PaymentState::Failed |
@@ -1644,7 +1642,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					child_index: child_bounty_id,
 					payment_id,
 				});
-				return Ok(PaymentState::Failed)
+				return Ok(PaymentState::Failed);
 			},
 		}
 	}

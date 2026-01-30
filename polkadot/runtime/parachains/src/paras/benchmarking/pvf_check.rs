@@ -176,7 +176,8 @@ where
 			Pallet::<T>::schedule_code_upgrade(
 				id,
 				validation_code,
-				/* relay_parent_number */ 1u32.into(),
+				// relay_parent_number
+				1u32.into(),
 				&configuration::ActiveConfig::<T>::get(),
 				UpgradeStrategy::SetGoAheadSignal,
 			);

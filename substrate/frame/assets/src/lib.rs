@@ -2035,7 +2035,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					details.approvals,
 				);
 
-				return Err("Asset approvals count mismatch".into())
+				return Err("Asset approvals count mismatch".into());
 			}
 		}
 		Ok(())

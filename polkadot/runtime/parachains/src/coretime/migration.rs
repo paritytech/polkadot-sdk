@@ -86,7 +86,7 @@ mod v_coretime {
 					// we already have executed the migration.
 					Some(key) if key.starts_with(&name_hash) => {
 						log::info!("`MigrateToCoretime` already executed!");
-						return true
+						return true;
 					},
 					// Any other key/no key means that we did not yet have migrated.
 					None | Some(_) => return false,
@@ -104,7 +104,7 @@ mod v_coretime {
 	{
 		fn on_runtime_upgrade() -> Weight {
 			if Self::already_migrated() {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			log::info!("Migrating existing parachains to coretime.");
@@ -114,7 +114,7 @@ mod v_coretime {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::DispatchError> {
 			if Self::already_migrated() {
-				return Ok(Vec::new())
+				return Ok(Vec::new());
 			}
 
 			let legacy_paras = LegacyLease::get_all_parachains_with_leases();
@@ -132,7 +132,7 @@ mod v_coretime {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
 			if state.is_empty() {
-				return Ok(())
+				return Ok(());
 			}
 
 			log::trace!("Running post_upgrade()");

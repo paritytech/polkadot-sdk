@@ -370,10 +370,10 @@ fn stagnant_at_key(timestamp: Timestamp) -> [u8; 14 + 8] {
 
 fn decode_block_height_key(key: &[u8]) -> Option<BlockNumber> {
 	if key.len() != 15 + 4 {
-		return None
+		return None;
 	}
 	if !key.starts_with(BLOCK_HEIGHT_PREFIX) {
-		return None
+		return None;
 	}
 
 	let mut bytes = [0; 4];
@@ -383,10 +383,10 @@ fn decode_block_height_key(key: &[u8]) -> Option<BlockNumber> {
 
 fn decode_stagnant_at_key(key: &[u8]) -> Option<Timestamp> {
 	if key.len() != 14 + 8 {
-		return None
+		return None;
 	}
 	if !key.starts_with(STAGNANT_AT_PREFIX) {
-		return None
+		return None;
 	}
 
 	let mut bytes = [0; 8];

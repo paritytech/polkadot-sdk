@@ -182,7 +182,7 @@ impl<T: Config> StakingLedger<T> {
 	/// this helper function.
 	pub(crate) fn update(self) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::NotStash)
+			return Err(Error::<T>::NotStash);
 		}
 
 		// We skip locking virtual stakers.
@@ -208,7 +208,7 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::AlreadyBonded)
+			return Err(Error::<T>::AlreadyBonded);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);
@@ -219,7 +219,7 @@ impl<T: Config> StakingLedger<T> {
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			return Err(Error::<T>::NotStash)
+			return Err(Error::<T>::NotStash);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);

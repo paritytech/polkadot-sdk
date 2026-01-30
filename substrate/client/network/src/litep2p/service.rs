@@ -496,7 +496,7 @@ impl NetworkPeers for Litep2pNetworkService {
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
 		let Some(handle) = self.peerset_handles.get(&self.block_announce_protocol) else {
-			return Err(())
+			return Err(());
 		};
 		let (tx, rx) = oneshot::channel();
 

@@ -1277,7 +1277,7 @@ async fn has_all_chunks(
 		if query_chunk(virtual_overseer, candidate_hash, ValidatorIndex(i)).await.is_some() !=
 			expect_present
 		{
-			return false
+			return false;
 		}
 	}
 	true

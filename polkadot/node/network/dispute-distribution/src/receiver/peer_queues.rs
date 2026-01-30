@@ -71,7 +71,7 @@ impl PeerQueues {
 			Entry::Vacant(vacant) => vacant.insert(VecDeque::new()),
 			Entry::Occupied(occupied) => {
 				if occupied.get().len() >= PEER_QUEUE_CAPACITY {
-					return Err((occupied.key().clone(), req))
+					return Err((occupied.key().clone(), req));
 				}
 				occupied.into_mut()
 			},

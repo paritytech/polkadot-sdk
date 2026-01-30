@@ -55,7 +55,6 @@
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
 //! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_dev.mmd")]
-//!
 //! ## Structure
 //!
 //! Substrate contains a large number of crates, therefore it is useful to have an overview of what

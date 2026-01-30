@@ -197,7 +197,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn on_chain_votes(&self, at: Hash)
 		-> Result<Option<ScrapedOnChainVotes<Hash>>, ApiError>;
 
-	/***** Added in v2 **** */
+	/// *** Added in v2 ****
 
 	/// Get the session info for the given session, if stored.
 	///
@@ -234,7 +234,7 @@ pub trait RuntimeApiSubsystemClient {
 		assumption: OccupiedCoreAssumption,
 	) -> Result<Option<ValidationCodeHash>, ApiError>;
 
-	/***** Added in v3 **** */
+	/// *** Added in v3 ****
 
 	/// Returns all onchain disputes.
 	async fn disputes(

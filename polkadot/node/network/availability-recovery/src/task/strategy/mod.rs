@@ -104,7 +104,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 					error = ?e,
 					"Invalid Merkle proof",
 				);
-				return false
+				return false;
 			},
 		};
 	let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
@@ -115,7 +115,7 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 			chunk_index = ?chunk.index,
 			"Merkle proof mismatch"
 		);
-		return false
+		return false;
 	}
 	true
 }
@@ -446,7 +446,7 @@ impl State {
 					(authority_id, validator_index, res)
 				}));
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -643,7 +643,7 @@ impl State {
 					threshold = ?params.threshold,
 					"Can conclude availability recovery strategy",
 				);
-				break
+				break;
 			}
 		}
 
