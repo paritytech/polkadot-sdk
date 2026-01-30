@@ -314,7 +314,7 @@ impl Index {
 		let key_set = self.by_dec_key.get(&key);
 		if key_set.map_or(0, |s| s.len()) == 0 {
 			// Key does not exist in the index.
-			return Ok(())
+			return Ok(());
 		}
 
 		for t in match_any_topics {
@@ -342,7 +342,7 @@ impl Index {
 		let key_set = self.by_dec_key.get(&key);
 		if key_set.map_or(0, |s| s.len()) == 0 {
 			// Key does not exist in the index.
-			return Ok(())
+			return Ok(());
 		}
 
 		for item in key_set.map(|hashes| hashes.iter()).into_iter().flatten() {
@@ -361,7 +361,7 @@ impl Index {
 		let mut sets: [&HashSet<Hash>; MAX_TOPICS + 1] = [&empty; MAX_TOPICS + 1];
 		let num_topics = match_all_topics.len();
 		if num_topics > MAX_TOPICS {
-			return Ok(())
+			return Ok(());
 		}
 		let key_set = self.by_dec_key.get(&key);
 		if key_set.map_or(0, |s| s.len()) == 0 {
@@ -668,7 +668,12 @@ impl Store {
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
 		let read_allowance_fn =
 			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
-				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+				// storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+				std::thread::sleep(std::time::Duration::from_millis(10));
+				Ok(Some(StatementAllowance::new(
+					DEFAULT_MAX_TOTAL_STATEMENTS as u32,
+					DEFAULT_MAX_TOTAL_SIZE as u32,
+				)))
 			});
 
 		let store = Store {
@@ -815,7 +820,7 @@ impl Store {
 				drop(index);
 				let mut index = self.index.write();
 				index.accounts_to_check_for_expiry_stmts = existing_accounts;
-				return
+				return;
 			}
 
 			let mut needs_expiry = Vec::new();
@@ -843,7 +848,7 @@ impl Store {
 					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
 					start.elapsed().as_millis() >= MAX_EXPIRY_TIME_MS_PER_ITERATION
 				{
-					break
+					break;
 				}
 			}
 
@@ -1242,7 +1247,7 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::InternalError(e)
+				return SubmitResult::InternalError(e);
 			},
 		};
 
