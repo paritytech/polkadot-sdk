@@ -30,8 +30,8 @@ use test_case::test_case;
 const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
 const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
 
-fn set_prefix_in_address(base_hex: &[u8; 40], prefix: u16) -> [u8; 20] {
-	let mut addr = hex::const_decode_to_array(base_hex).unwrap();
+fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
+	let mut addr = hex::const_decode_to_array(b"0000000000000000000000000000000000000000").unwrap();
 	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
 	addr
 }
@@ -46,7 +46,7 @@ fn assert_contract_event(contract: H160, event: IERC20Events) {
 	}));
 }
 
-fn setup_asset_for_prefix(asset_id: u32, _owner: u64, prefix: u16) {
+fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
 	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
 		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
 			.expect("Failed to insert asset mapping");
@@ -73,7 +73,6 @@ fn precompile_transfer_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(
-			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
 
@@ -85,7 +84,7 @@ fn precompile_transfer_works(asset_index: u16) {
 
 		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
-		setup_asset_for_prefix(asset_id, from, asset_index);
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
 
@@ -124,14 +123,13 @@ fn total_supply_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(
-			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
 
 		let owner = 123456789;
 
 		Balances::make_free_balance_be(&owner, 100);
-		setup_asset_for_prefix(asset_id, owner, asset_index);
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
 
@@ -163,12 +161,11 @@ fn balance_of_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(
-			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
 		let owner = 123456789;
 
-		setup_asset_for_prefix(asset_id, owner, asset_index);
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
 
@@ -203,7 +200,6 @@ fn approval_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(
-			b"0000000000000000000000000000000000000000",
 			asset_index,
 		));
 
@@ -219,7 +215,7 @@ fn approval_works(asset_index: u16) {
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
 		let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
 
-		setup_asset_for_prefix(asset_id, owner, asset_index);
+		setup_asset_for_prefix(asset_id, asset_index);
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
 
