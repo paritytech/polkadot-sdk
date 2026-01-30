@@ -252,3 +252,13 @@
   test-filter: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
   runner-type: "default"
   use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-warp-sync-consensus-reset-gap-sync"
+  test-filter: "functional::warp_sync_gap_sync::warp_sync_with_consensus_reset_during_gap_sync"
+  runner-type: "default"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-warp-sync-historical-consensus-reset"
+  test-filter: "functional::warp_sync_historical::warp_sync_with_historical_consensus_reset"
+  runner-type: "default"
+  use-zombienet-sdk: true
