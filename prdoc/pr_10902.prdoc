@@ -1,0 +1,14 @@
+title: '[pallet-revive] Enforce weight limit on dry-run RPC calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    - Makes the `weight_limit` field in `TransactionLimits::EthereumGas` non-optional, enforcing bounded execution on all Ethereum-style calls
+    - Updates `dry_run_eth_transact` to use `evm_max_extrinsic_weight()` as the weight limit, preventing unbounded computation during dry-run RPC calls
+    - Simplifies metering code by removing `Option` handling for weight limits in Ethereum execution mode
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch
