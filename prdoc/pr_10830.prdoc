@@ -1,0 +1,21 @@
+title: Change EC Hostcalls to use Affine representation
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replace point arguments from projective to affine representation for all
+    elliptic curve hostcalls: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377,
+    and Ed-on-BLS12-381-Bandersnatch.
+
+    Changes:
+    - `mul_projective_*` hostcalls renamed to `mul_affine_*` and now accept/return
+      affine points instead of projective.
+    - `msm_*` hostcalls now return affine points instead of projective.
+
+    The affine representation `(x, y)` is the standard way to encode EC points
+    and is more portable. It also avoids systematic field inversions in the
+    runtime when converting returned projective points to affine form.
+
+    NOTE: These hostcalls are still under an `experimental` feature.
+crates:
+- name: sp-crypto-ec-utils
+  bump: minor
