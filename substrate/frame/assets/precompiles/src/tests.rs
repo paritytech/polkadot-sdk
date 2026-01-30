@@ -72,9 +72,7 @@ fn asset_id_extractor_works() {
 fn precompile_transfer_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(
-			asset_index,
-		));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 
 		let from = 123456789;
 		let to = 987654321;
@@ -122,9 +120,7 @@ fn precompile_transfer_works(asset_index: u16) {
 fn total_supply_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(
-			asset_index,
-		));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 
 		let owner = 123456789;
 
@@ -160,9 +156,7 @@ fn total_supply_works(asset_index: u16) {
 fn balance_of_works(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(
-			asset_index,
-		));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 		let owner = 123456789;
 
 		setup_asset_for_prefix(asset_id, asset_index);
@@ -199,9 +193,7 @@ fn approval_works(asset_index: u16) {
 
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(
-			asset_index,
-		));
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
 
 		let owner = 123456789;
 		let spender = 987654321;
