@@ -278,7 +278,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 
 		let data = bs58::decode(s).into_vec().map_err(|_| PublicError::BadBase58)?;
 		if data.len() < 2 {
-			return Err(PublicError::BadLength)
+			return Err(PublicError::BadLength);
 		}
 		let (prefix_len, ident) = match data[0] {
 			0..=63 => (1, data[0] as u16),
@@ -295,18 +295,18 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 			_ => return Err(PublicError::InvalidPrefix),
 		};
 		if data.len() != prefix_len + body_len + CHECKSUM_LEN {
-			return Err(PublicError::BadLength)
+			return Err(PublicError::BadLength);
 		}
 		let format = ident.into();
 		if !Self::format_is_allowed(format) {
-			return Err(PublicError::FormatNotAllowed)
+			return Err(PublicError::FormatNotAllowed);
 		}
 
 		let hash = ss58hash(&data[0..body_len + prefix_len]);
 		let checksum = &hash[0..CHECKSUM_LEN];
 		if data[body_len + prefix_len..body_len + prefix_len + CHECKSUM_LEN] != *checksum {
 			// Invalid checksum.
-			return Err(PublicError::InvalidChecksum)
+			return Err(PublicError::InvalidChecksum);
 		}
 
 		let result = Self::from_slice(&data[prefix_len..body_len + prefix_len])
@@ -434,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed)
+			return Err(PublicError::PasswordNotAllowed);
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -454,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed)
+			return Err(PublicError::PasswordNotAllowed);
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
@@ -1083,7 +1083,7 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 	fn try_from(x: &'a str) -> Result<Self, ()> {
 		let b = x.as_bytes();
 		if b.len() != 4 {
-			return Err(())
+			return Err(());
 		}
 		let mut res = KeyTypeId::default();
 		res.0.copy_from_slice(&b[0..4]);
@@ -1294,7 +1294,7 @@ mod tests {
 						if path_iter.count() == 0 {
 							x
 						} else {
-							return Err(DeriveError::SoftKeyInPath)
+							return Err(DeriveError::SoftKeyInPath);
 						},
 				},
 				None,

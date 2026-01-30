@@ -77,7 +77,7 @@ async fn initialize<Context>(
 			Ok(paras) => paras,
 			Err(err) => {
 				log_error(Err(err))?;
-				continue
+				continue;
 			},
 		};
 
@@ -89,7 +89,7 @@ async fn initialize<Context>(
 			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
 			Err(err) => {
 				log_error(Err(err))?;
-				continue
+				continue;
 			},
 		}
 	}
@@ -103,7 +103,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
-					return Ok(Some(activated))
+					return Ok(Some(activated));
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
@@ -136,7 +136,7 @@ async fn scheduled_paras<Sender: CollatorProtocolSenderTrait>(
 		rotation_info.core_for_group(group, groups.len())
 	} else {
 		gum::trace!(target: LOG_TARGET, ?hash, "Not a validator");
-		return Ok(VecDeque::new())
+		return Ok(VecDeque::new());
 	};
 
 	let mut claim_queue = recv_runtime(request_claim_queue(hash, sender).await).await?;

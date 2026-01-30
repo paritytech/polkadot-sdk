@@ -226,7 +226,7 @@ where
 	const IDENTIFIER: &'static str = "CheckWeight";
 	type Implicit = ();
 	type Pre = ();
-	type Val = u32; /* next block length */
+	type Val = u32; // next block length
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
 		<T::ExtensionsWeightInfo as super::WeightInfo>::check_weight()

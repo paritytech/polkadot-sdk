@@ -110,7 +110,7 @@ impl SessionCache {
 				gum::trace!(target: LOG_TARGET, session_index, "Storing session info in lru!");
 				self.session_info_cache.insert(session_index, info);
 			} else {
-				return Ok(None)
+				return Ok(None);
 			}
 		}
 
@@ -214,8 +214,8 @@ impl SessionCache {
 				our_group,
 				node_features,
 			};
-			return Ok(Some(info))
+			return Ok(Some(info));
 		}
-		return Ok(None)
+		return Ok(None);
 	}
 }

@@ -169,7 +169,7 @@ impl Freq {
 
 		// Two attempts is not enough to call something as frequent.
 		if self.ema.count < 3 {
-			return false
+			return false;
 		}
 
 		let rate = 1000.0 / self.ema.current; // Current EMA represents interval in ms

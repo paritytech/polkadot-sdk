@@ -44,7 +44,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		if signature.verify(&**data, &signer) {
-			return Ok(())
+			return Ok(());
 		}
 
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

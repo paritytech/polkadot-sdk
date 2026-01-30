@@ -232,7 +232,7 @@ where
 		for (account, unreserve_amount) in account_deposits.iter() {
 			if unreserve_amount.is_zero() {
 				log::warn!(target: LOG_TARGET, "Unexpected zero amount to unreserve!");
-				continue
+				continue;
 			}
 			T::Currency::unreserve(&account, *unreserve_amount);
 		}

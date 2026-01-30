@@ -320,7 +320,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		} else {
 			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
 		}
-		return Err(BlockImportError::IncompleteHeader(peer))
+		return Err(BlockImportError::IncompleteHeader(peer));
 	};
 
 	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
@@ -348,7 +348,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		BlockImportStatus::ImportedUnknown { .. } => (),
 		r => {
 			// Any other successful result means that the block is already imported.
-			return Ok(SingleBlockVerificationOutcome::Imported(r))
+			return Ok(SingleBlockVerificationOutcome::Imported(r));
 		},
 	}
 

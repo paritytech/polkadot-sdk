@@ -256,7 +256,7 @@ impl Queue {
 					for (i, job) in queue.iter().enumerate() {
 						if worker_data.executor_params_hash == job.executor_params.hash() {
 							(worker, job_index) = (Some(finished_worker), i);
-							break
+							break;
 						}
 					}
 				}
@@ -280,7 +280,7 @@ impl Queue {
 
 		if worker.is_none() && !self.workers.can_afford_one_more() {
 			// Bad luck, no worker slot can be used to execute the job
-			return
+			return;
 		}
 
 		let job = queue.remove(job_index).expect("Job is just checked to be in queue; qed");
@@ -336,7 +336,7 @@ impl Queue {
 
 			for &index in to_remove.iter().rev() {
 				if index > queue.len() {
-					continue
+					continue;
 				}
 
 				let Some(job) = queue.remove(index) else { continue };
@@ -600,7 +600,7 @@ async fn handle_job_finish(
 	if let Some(idle_worker) = idle_worker {
 		if let Some(data) = queue.workers.running.get_mut(worker) {
 			data.idle = Some(idle_worker);
-			return queue.try_assign_next_job(Some(worker))
+			return queue.try_assign_next_job(Some(worker));
 		}
 	} else {
 		// Note it's possible that the worker was purged already by `purge_dead`
@@ -869,7 +869,7 @@ impl Unscheduled {
 			.filter_map(|(p, c)| if *p >= *priority { Some(c) } else { None })
 			.sum();
 		if total_scheduled_at_priority_or_lower == 0 {
-			return false
+			return false;
 		}
 
 		let has_reached_threshold = count * 100 / total_scheduled_at_priority_or_lower >= threshold;

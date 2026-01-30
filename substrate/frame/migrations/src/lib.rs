@@ -36,7 +36,6 @@
 //! until all migrations finish executing. Afterwards, the recorded historic migrations are
 //! checked and events are asserted.
 #![doc = docify::embed!("src/tests.rs", simple_works)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -741,7 +740,7 @@ impl<T: Config> Pallet<T> {
 
 			let maybe_index = cursor.as_active().map(|c| c.index);
 			Self::upgrade_failed(maybe_index);
-			return T::WeightInfo::onboard_new_mbms()
+			return T::WeightInfo::onboard_new_mbms();
 		}
 
 		let migrations = T::Migrations::len();
@@ -772,7 +771,7 @@ impl<T: Config> Pallet<T> {
 		let mut cursor = match Cursor::<T>::get() {
 			None => {
 				log::trace!("[Block {n:?}] Waiting for cursor to become `Some`.");
-				return meter.consumed()
+				return meter.consumed();
 			},
 			Some(MigrationCursor::Active(cursor)) => {
 				log::debug!("Progressing MBM #{}", cursor.index);
@@ -780,7 +779,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Some(MigrationCursor::Stuck) => {
 				log::error!("Migration stuck. Governance intervention required.");
-				return meter.consumed()
+				return meter.consumed();
 			},
 		};
 		debug_assert!(Self::ongoing());
@@ -796,7 +795,7 @@ impl<T: Config> Pallet<T> {
 				},
 				Some(ControlFlow::Break(last_cursor)) => {
 					cursor = last_cursor;
-					break
+					break;
 				},
 			}
 		}
@@ -821,7 +820,7 @@ impl<T: Config> Pallet<T> {
 		// only one step per block, we can just use the maximum instead of more precise accounting.
 		if meter.try_consume(Self::exec_migration_max_weight()).is_err() {
 			defensive_assert!(!is_first, "There should be enough weight to do this at least once");
-			return Some(ControlFlow::Break(cursor))
+			return Some(ControlFlow::Break(cursor));
 		}
 
 		if cursor.index >= T::Migrations::len() {
@@ -837,13 +836,13 @@ impl<T: Config> Pallet<T> {
 		let Some(Ok(bounded_id)): Option<Result<IdentifierOf<T>, _>> = id else {
 			defensive!("integrity_test ensures that all identifiers are present and bounde; qed.");
 			Self::upgrade_failed(Some(cursor.index));
-			return None
+			return None;
 		};
 
 		if Historic::<T>::contains_key(&bounded_id) {
 			Self::deposit_event(Event::MigrationSkipped { index: cursor.index });
 			cursor.goto_next_migration(System::<T>::block_number());
-			return Some(ControlFlow::Continue(cursor))
+			return Some(ControlFlow::Continue(cursor));
 		}
 
 		let max_steps = T::Migrations::nth_max_steps(cursor.index);
@@ -865,7 +864,7 @@ impl<T: Config> Pallet<T> {
 		let Some((max_steps, next_cursor)) = max_steps.zip(next_cursor) else {
 			defensive!("integrity_test ensures that the tuple is valid; qed");
 			Self::upgrade_failed(Some(cursor.index));
-			return None
+			return None;
 		};
 
 		let took = System::<T>::block_number().saturating_sub(cursor.started_at);
@@ -874,7 +873,7 @@ impl<T: Config> Pallet<T> {
 				let Ok(bound_next_cursor) = next_cursor.try_into() else {
 					defensive!("The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed");
 					Self::upgrade_failed(Some(cursor.index));
-					return None
+					return None;
 				};
 
 				Self::deposit_event(Event::MigrationAdvanced { index: cursor.index, took });

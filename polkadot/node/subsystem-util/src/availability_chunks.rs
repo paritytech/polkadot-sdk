@@ -35,7 +35,7 @@ pub fn availability_chunk_index(
 		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
 		let core_start_pos = core_index.0 * systematic_threshold;
 
-		return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32))
+		return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32));
 	}
 
 	Ok(validator_index.into())
@@ -65,7 +65,7 @@ pub fn availability_chunk_indices(
 			.cycle()
 			.skip(core_start_pos as usize)
 			.take(n_validators)
-			.collect())
+			.collect());
 	}
 
 	Ok(identity.collect())

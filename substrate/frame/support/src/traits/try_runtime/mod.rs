@@ -204,7 +204,7 @@ impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<Bloc
 						"Detected errors while executing `try_state` checks. See logs for more \
 						info."
 							.into(),
-					)
+					);
 				}
 
 				Ok(())
@@ -297,7 +297,7 @@ impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<Bloc
 						"Detected errors while executing `try_state` checks. See logs for more \
 						info."
 							.into(),
-					)
+					);
 				}
 
 				Ok(())

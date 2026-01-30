@@ -49,7 +49,7 @@ impl MockApprovalVotingParallel {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx) => {

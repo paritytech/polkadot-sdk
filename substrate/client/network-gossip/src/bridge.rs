@@ -200,7 +200,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 					let sync_event_stream = this.sync_event_stream.poll_next_unpin(cx);
 
 					if next_notification_event.is_pending() && sync_event_stream.is_pending() {
-						break
+						break;
 					}
 
 					match next_notification_event {
@@ -247,7 +247,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						// The network event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
@@ -262,7 +262,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
@@ -272,7 +272,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						Some(n) => n,
 						None => {
 							this.forwarding_state = ForwardingState::Idle;
-							continue
+							continue;
 						},
 					};
 
@@ -290,7 +290,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							Poll::Pending => {
 								// Push back onto queue for later.
 								to_forward.push_front((topic, notification));
-								break 'outer
+								break 'outer;
 							},
 						}
 					}
@@ -300,7 +300,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					if sinks.is_empty() {
 						this.message_sinks.remove(&topic);
-						continue
+						continue;
 					}
 
 					trace!(
@@ -857,7 +857,7 @@ mod tests {
 					}
 
 					if !progress {
-						break
+						break;
 					}
 				}
 				Poll::Ready(())

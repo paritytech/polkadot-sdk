@@ -722,7 +722,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 	{
 		// the storage stuff won't work on static or delegate call
 		if case.is_store_call && !matches!(call_type, Caller::CallType::Call) {
-			continue
+			continue;
 		}
 
 		ExtBuilder::default().build().execute_with(|| {

@@ -360,7 +360,7 @@ where
 		let client_header_from_block_id =
 			|block_id: BlockId<B>| -> Result<Option<B::Header>, HandleRequestError> {
 				if let Some(hash) = self.client.block_hash_from_id(&block_id)? {
-					return self.client.header(hash).map_err(Into::into)
+					return self.client.header(hash).map_err(Into::into);
 				}
 				Ok(None)
 			};
@@ -404,7 +404,7 @@ where
 						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
-						break
+						break;
 					},
 				}
 			} else {
@@ -447,7 +447,7 @@ where
 
 			// Send at least one block, but make sure to not exceed the limit.
 			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
-				break
+				break;
 			}
 
 			total_size = new_total_size;
@@ -455,14 +455,14 @@ where
 			blocks.push(block_data);
 
 			if blocks.len() >= max_blocks as usize {
-				break
+				break;
 			}
 
 			match direction {
 				Direction::Ascending => block_id = BlockId::Number(number + One::one()),
 				Direction::Descending => {
 					if number.is_zero() {
-						break
+						break;
 					}
 					block_id = BlockId::Hash(parent_hash)
 				},

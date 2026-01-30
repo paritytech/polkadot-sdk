@@ -163,7 +163,7 @@ pub mod pallet {
 
 			if meter.try_consume(Self::on_idle_weight()).is_err() {
 				log::debug!(target: LOG, "Not enough weight for on_idle. {} < {}", Self::on_idle_weight(), limit);
-				return meter.consumed()
+				return meter.consumed();
 			}
 
 			let state = MigrationStatus::<T>::get();

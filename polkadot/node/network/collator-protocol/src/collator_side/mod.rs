@@ -194,9 +194,9 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return ShouldAdvertiseTo::Yes
+				return ShouldAdvertiseTo::Yes;
 			} else {
-				return ShouldAdvertiseTo::AlreadyAdvertised
+				return ShouldAdvertiseTo::AlreadyAdvertised;
 			}
 		}
 
@@ -461,7 +461,7 @@ async fn distribute_collation<Context>(
 				candidate_hash = ?candidate_hash,
 				"Candidate relay parent is out of our view",
 			);
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -475,7 +475,7 @@ async fn distribute_collation<Context>(
 			"Attempting to distribute collation for a core we are not assigned to ",
 		);
 
-		return Ok(())
+		return Ok(());
 	};
 
 	let current_collations_count = per_relay_parent
@@ -491,7 +491,7 @@ async fn distribute_collation<Context>(
 			collations_limit,
 			core_index.0,
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	// We have already seen collation for this relay parent.
@@ -502,7 +502,7 @@ async fn distribute_collation<Context>(
 			?candidate_hash,
 			"Already seen this candidate",
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	let elastic_scaling = per_relay_parent.assignments.len() > 1;
@@ -528,7 +528,7 @@ async fn distribute_collation<Context>(
 			"there are no validators assigned to core",
 		);
 
-		return Ok(())
+		return Ok(());
 	}
 
 	gum::debug!(
@@ -775,7 +775,7 @@ async fn update_validator_connections<Context>(
 		}
 	} else {
 		if peer_ids.is_empty() {
-			return
+			return;
 		}
 
 		let validator_ids =
@@ -826,7 +826,7 @@ async fn advertise_collation<Context>(
 				?core_index,
 				"Skipping advertising to validator, validator group for core not found",
 			);
-			return
+			return;
 		};
 
 		let should_advertise = validator_group.should_advertise_to(candidate_hash, peer_ids, &peer);
@@ -841,7 +841,7 @@ async fn advertise_collation<Context>(
 					reason = ?should_advertise,
 					"Not advertising collation"
 				);
-				continue
+				continue;
 			},
 		}
 
@@ -1133,7 +1133,7 @@ async fn handle_incoming_peer_message<Context>(
 								candidate_hash = ?&statement.payload().candidate_hash(),
 								"Seconded statement relay parent is out of our view",
 							);
-							return Ok(())
+							return Ok(());
 						},
 					};
 					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
@@ -1186,7 +1186,7 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent out of our view",
 					);
 
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -1210,7 +1210,7 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent we don't have collation stored.",
 					);
 
-					return Ok(())
+					return Ok(());
 				};
 
 			state.metrics.on_collation_sent_requested();
@@ -1230,7 +1230,7 @@ async fn handle_incoming_request<Context>(
 					COST_APPARENT_FLOOD.into(),
 				)
 				.await;
-				return Ok(())
+				return Ok(());
 			}
 
 			if waiting.collation_fetch_active {
@@ -1373,7 +1373,7 @@ async fn handle_network_msg<Context>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 			if version == CollationVersion::V1 {
@@ -1390,7 +1390,7 @@ async fn handle_network_msg<Context>(
 					PeerSet::Collation,
 				))
 				.await;
-				return Ok(())
+				return Ok(());
 			}
 
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
@@ -1496,20 +1496,20 @@ async fn process_block_events<Context>(
 				?para_id,
 				"Failed to get relay chain block number",
 			);
-			return
+			return;
 		};
 
 		for ev in events {
 			match ev {
 				CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
-						continue
+						continue;
 					}
 					collation_tracker.collation_included(block_number, leaf, receipt);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
-						continue
+						continue;
 					}
 
 					let Some(block_number) = maybe_block_number else { continue };
@@ -1590,7 +1590,7 @@ async fn handle_our_view_change<Context>(
 								?error,
 								"Failed to fetch claim queue while iterating allowed ancestry",
 							);
-							continue
+							continue;
 						},
 					};
 					let session_index =
@@ -1603,7 +1603,7 @@ async fn handle_our_view_change<Context>(
 									?error,
 									"Failed to fetch session index while iterating allowed ancestry",
 								);
-								continue
+								continue;
 							},
 						};
 
@@ -1791,7 +1791,7 @@ async fn process_possibly_finalized_collations(
 	metrics: &Metrics,
 ) {
 	if collations.is_empty() {
-		return
+		return;
 	}
 
 	let (last_hash, last_number) = last_finalized;

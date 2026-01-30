@@ -19,20 +19,20 @@
 
 pub mod env;
 
-#[cfg(doc)]
-pub use env::SyscallDoc;
-
 use crate::{
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
+	tracing::FrameTraceInfo,
 	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
+#[cfg(doc)]
+pub use env::SyscallDoc;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
@@ -814,6 +814,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	}
 }
 
+impl<'a, E: Ext, M: ?Sized + Memory<E::T>> FrameTraceInfo for Runtime<'a, E, M> {
+	fn gas_left(&self) -> u64 {
+		let meter = self.ext.frame_meter();
+		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
+	}
+	fn weight_consumed(&self) -> Weight {
+		let meter = self.ext.frame_meter();
+		meter.weight_consumed()
+	}
+
+	fn last_frame_output(&self) -> crate::evm::Bytes {
+		crate::evm::Bytes(self.ext.last_frame_output().data.clone())
+	}
+}
+
 pub struct PreparedCall<'a, E: Ext> {
 	module: polkavm::Module,
 	instance: polkavm::RawInstance,
@@ -827,7 +842,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{
-				break exec_result
+				break exec_result;
 			}
 		};
 		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;

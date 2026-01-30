@@ -126,7 +126,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 							);
 
 							common_params.metrics.on_full_request_succeeded();
-							return Ok(data)
+							return Ok(data);
 						},
 						None => {
 							common_params.metrics.on_full_request_invalid();

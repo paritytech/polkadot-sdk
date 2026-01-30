@@ -48,7 +48,7 @@ impl<
 				.enumerate()
 				.any(|(index, junction)| latest_id.interior().at(index) != Some(junction))
 		{
-			return None
+			return None;
 		}
 		match latest_id.interior().at(latest_prefix.interior().len()) {
 			Some(Junction::GeneralIndex(id)) => ConvertAssetId::convert(&id),

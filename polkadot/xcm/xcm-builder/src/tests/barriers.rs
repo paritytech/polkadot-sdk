@@ -954,7 +954,7 @@ fn deny_then_try_works() {
 			_properties: &mut Properties,
 		) -> Result<(), ProcessMessageError> {
 			if instructions.len() != 1 {
-				return Ok(())
+				return Ok(());
 			}
 			match instructions.get(0).unwrap() {
 				UnsubscribeVersion { .. } => Err(ProcessMessageError::StackLimitReached),

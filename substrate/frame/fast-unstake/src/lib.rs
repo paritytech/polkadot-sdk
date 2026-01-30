@@ -72,10 +72,8 @@
 //!
 //! 1. Fast-unstake with multiple participants in the queue.
 #![doc = docify::embed!("src/tests.rs", successful_multi_queue)]
-//!
 //! 2. Fast unstake failing because a nominator is exposed.
 #![doc = docify::embed!("src/tests.rs", exposed_nominator_cannot_unstake)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -273,7 +271,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			if remaining_weight.any_lt(T::DbWeight::get().reads(2)) {
-				return Weight::from_parts(0, 0)
+				return Weight::from_parts(0, 0);
 			}
 
 			Self::do_on_idle(remaining_weight)
@@ -450,7 +448,7 @@ pub mod pallet {
 
 			let eras_to_check_per_block = ErasToCheckPerBlock::<T>::get();
 			if eras_to_check_per_block.is_zero() {
-				return T::DbWeight::get().reads(1).saturating_add(unaccounted_weight)
+				return T::DbWeight::get().reads(1).saturating_add(unaccounted_weight);
 			}
 
 			// NOTE: here we're assuming that the number of validators has only ever increased,
@@ -476,7 +474,7 @@ pub mod pallet {
 
 			if max_weight(validator_count, next_batch_size).any_gt(remaining_weight) {
 				log!(debug, "early exit because eras_to_check_per_block is zero");
-				return T::DbWeight::get().reads(3).saturating_add(unaccounted_weight)
+				return T::DbWeight::get().reads(3).saturating_add(unaccounted_weight);
 			}
 
 			if T::Staking::election_ongoing() {
@@ -484,7 +482,7 @@ pub mod pallet {
 				// there is an ongoing election -- we better not do anything. Imagine someone is not
 				// exposed anywhere in the last era, and the snapshot for the election is already
 				// taken. In this time period, we don't want to accidentally unstake them.
-				return T::DbWeight::get().reads(4).saturating_add(unaccounted_weight)
+				return T::DbWeight::get().reads(4).saturating_add(unaccounted_weight);
 			}
 
 			let UnstakeRequest { stashes, mut checked } = match Head::<T>::take().or_else(|| {
@@ -505,7 +503,7 @@ pub mod pallet {
 			}) {
 				None => {
 					// There's no `Head` and nothing in the `Queue`, nothing to do here.
-					return T::DbWeight::get().reads(4)
+					return T::DbWeight::get().reads(4);
 				},
 				Some(head) => head,
 			};

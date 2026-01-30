@@ -72,7 +72,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			match (header.is_mandatory(), maybe_proof) {
 				(true, Some(proof)) => {
 					tracing::trace!(target: "bridge", ?header_number, "Header is mandatory");
-					return Ok(Self::Mandatory(JustifiedHeader { header, proof }))
+					return Ok(Self::Mandatory(JustifiedHeader { header, proof }));
 				},
 				(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
 				(false, Some(proof))
@@ -161,7 +161,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 					return Some(JustifiedHeader {
 						header: unjustified_header.clone(),
 						proof: finality_proof.clone(),
-					})
+					});
 				},
 				Ordering::Equal => {
 					maybe_finality_proof = finality_proofs_iter.next();

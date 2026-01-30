@@ -28,7 +28,7 @@ pub mod location {
 	/// - (Parent, Parachain(1000), AccountId32 { .. }).into()
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
 		if !input.is_empty() {
-			return Err(syn::Error::new(Span::call_site(), "No arguments expected"))
+			return Err(syn::Error::new(Span::call_site(), "No arguments expected"));
 		}
 
 		let from_tuples = generate_conversion_from_tuples(8, 8);
@@ -127,7 +127,7 @@ pub mod junctions {
 
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
 		if !input.is_empty() {
-			return Err(syn::Error::new(Span::call_site(), "No arguments expected"))
+			return Err(syn::Error::new(Span::call_site(), "No arguments expected"));
 		}
 
 		// Support up to 8 Parents in a tuple, assuming that most use cases don't go past 8 parents.
