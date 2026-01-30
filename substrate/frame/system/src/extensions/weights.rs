@@ -230,3 +230,46 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
+
+
+/// A weight info implementation that panics if used.
+/// This is used as a default to force runtimes to provide their own weight implementations.
+pub struct MustOverrideExtensionsWeightInfo;
+
+impl WeightInfo for MustOverrideExtensionsWeightInfo {
+    fn check_genesis() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_mortality_mortal_transaction() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_mortality_immortal_transaction() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_non_zero_sender() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_nonce() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_spec_version() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_tx_version() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn check_weight() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+    
+    fn weight_reclaim() -> Weight {
+        panic!("Extensions weights must be overridden in runtime configuration. Use `type ExtensionsWeightInfo = SystemExt;` or provide custom weights.")
+    }
+}
