@@ -65,8 +65,8 @@ fn test_deposit_calculation() {
 ///
 /// This test verifies that:
 /// 1. `storage_deposit` reflects the net storage change after the call
-/// 2. `max_storage_deposit` tracks the maximum storage allocation that occurred
-///    at any point during execution (before any refunds)
+/// 2. `max_storage_deposit` tracks the maximum storage allocation that occurred at any point during
+///    execution (before any refunds)
 ///
 /// The test contract sets two storage values (a=2, b=3) totaling 132 units of deposit,
 /// then clears one value, leaving 66 units as the net deposit.
