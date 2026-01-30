@@ -2343,7 +2343,7 @@ impl<T: Config> Pallet<T> {
 			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
 				.map(|code| code.into())
 				.unwrap_or_default(),
-			AccountType::Delegated { target } => {
+			AccountType::Delegated { target, .. } => {
 				let mut code = alloc::vec![0xef, 0x01, 0x00];
 				code.extend_from_slice(target.as_bytes());
 				code

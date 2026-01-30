@@ -1096,8 +1096,7 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) =
-							AccountInfo::<T>::load_contract_or_delegate(&delegated_call.callee)
+						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
 						else {
 							return Ok(None);
 						};
@@ -1111,8 +1110,7 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) = AccountInfo::<T>::load_contract_or_delegate(&address)
-						else {
+						let Some(info) = AccountInfo::<T>::load_contract(&address) else {
 							return Ok(None);
 						};
 						let executable = E::from_storage(info.code_hash, meter)?;
@@ -2220,7 +2218,7 @@ where
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
-		<AccountInfo<T>>::load_contract_or_delegate(&address)
+		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
 				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
@@ -2235,8 +2233,8 @@ where
 			return code.len() as u64;
 		}
 
-		// Use load_contract_or_delegate to follow EIP-7702 delegation
-		<AccountInfo<T>>::load_contract_or_delegate(&address)
+		// load_contract follows EIP-7702 delegation (one level)
+		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
 			.unwrap_or_default()
