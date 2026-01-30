@@ -99,31 +99,51 @@ where
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		// Use the maximum weight (migrate case) as the required weight per iteration,
-		// since we don't know ahead of time whether we'll migrate or skip.
-		let required = W::migrate_asset_step_migrate();
-
-		if !meter.can_consume(required) {
-			return Err(SteppedMigrationError::InsufficientWeight { required });
-		}
-
 		loop {
+			// Check if we're already finished
+			if let Some(MigrationState::Finished) = &cursor {
+				log::info!(
+					target: "runtime::MigrateForeignAssetPrecompileMappings",
+					"migration finished"
+				);
+				return Ok(None);
+			}
+
+			// Determine the key to start iteration from
+			let maybe_last_key = match &cursor {
+				None => None,
+				Some(MigrationState::Asset(last_asset)) => Some(last_asset),
+				Some(MigrationState::Finished) => unreachable!(),
+			};
+
+			// Peek at the next asset to determine the required weight for this step.
+			// This allows us to reserve only the weight we actually need.
+			let next_asset = Self::peek_next_asset(maybe_last_key);
+
+			// Calculate the weight required based on the actual operation
+			let required = match &next_asset {
+				None => W::migrate_asset_step_finished(),
+				Some(asset_id) => {
+					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
+						W::migrate_asset_step_skip()
+					} else {
+						W::migrate_asset_step_migrate()
+					}
+				},
+			};
+
+			// Check if we have enough weight for this specific operation
 			if !meter.can_consume(required) {
+				if cursor.is_none() {
+					// First iteration and we can't even start
+					return Err(SteppedMigrationError::InsufficientWeight { required });
+				}
+				// Can't continue, return current progress
 				break;
 			}
 
-			let (next, weight) = match &cursor {
-				None => Self::migrate_asset_step(None),
-				Some(MigrationState::Asset(last_asset)) =>
-					Self::migrate_asset_step(Some(last_asset)),
-				Some(MigrationState::Finished) => {
-					log::info!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings",
-						"migration finished"
-					);
-					return Ok(None);
-				},
-			};
+			// Perform the actual migration step
+			let (next, weight) = Self::migrate_asset_step(maybe_last_key);
 
 			cursor = Some(next);
 			meter.consume(weight);
@@ -206,6 +226,22 @@ where
 	I: 'static,
 	W: WeightInfo,
 {
+	/// Peeks at the next asset without performing any migration.
+	/// Used to determine the weight required for the next step.
+	fn peek_next_asset(
+		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
+	) -> Option<<T as pallet_assets::Config<I>>::AssetId> {
+		let mut iter = if let Some(last_key) = maybe_last_key {
+			pallet_assets::Asset::<T, I>::iter_keys_from(
+				pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
+			)
+		} else {
+			pallet_assets::Asset::<T, I>::iter_keys()
+		};
+
+		iter.next()
+	}
+
 	/// Performs a single step of the migration.
 	/// Returns the new migration state and the weight consumed.
 	fn migrate_asset_step(
