@@ -87,7 +87,7 @@ pub mod pallet {
 		/// Returns the allocated asset index on success.
 		pub fn insert_asset_mapping(asset_id: &T::ForeignAssetId) -> Result<u32, ()> {
 			if ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
-				log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
+				log::error!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
 				return Err(());
 			}
 
