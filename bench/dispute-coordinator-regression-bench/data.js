@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769711257315,
+  "lastUpdate": 1769771977323,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22539,6 +22539,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002682879929999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03ae1a76c77566c313736836d55ce50b16f5093e",
+          "message": "Bump pallet-staking-reward-fn (#10905)\n\nBump pallet-staking-reward-fn to patch. This forces it to use local path\nand the local sp-arithmetic instead of registry while running\n`parity-publish`.\nThis aims to fix the failure in `Check publish build` job (e.g.\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21359458014/job/61474963706?pr=10903#step:12:546)\nwhich started to appear since #10682 got merged.\n\nWhen parity-publish is used with --registry:\n- If the version exists on crates.io → remove path, use registry\n- If the version doesn't exist → keep path, use local\nThe issue is that --registry creates a hybrid state where some deps use\nregistry and some use local paths, causing version conflicts in case e.g\nof missing trait impl in on the two.\n\nExtended explanation, courtesy of @iulianbarbu : \nIn the parity-publish CI job example we have:\n- polkadot-runtime-common (crate A), depends on crate B indirectly &\ncrate C\n- sp-arithmetic (crate B), was bumped locally (due to #10682), but not\npublished on the registry yet\n- pallet-staking-reward-fn (crate C). depends on crate B.\n\npolkadot-runtime-common fails to compile due to a dependency graph using\ntwo versions of same type of crate B. What is an issue though is that\npallet-staking-reward-fn uses the previous crate B version (from the\nregistry), which misses a certain trait impl that is required by\npolkadot-runtime-common. If polkadot-runtime-common usage of\npallet-staking-reward-fn expects the new trait impl, it means that it is\nnot enough to just bump pallet-staking-reward-fn, but also\npolkadot-runtime-common, in this PR (to update it to depend on the new\nversion of pallet-staking-reward-fn). Everything compiles fine rn\nbecause polkadot-runtime-common is already bumped in a previous PR (e.g\n#10582 and maybe others), which did not make its way to a stable release\nyet.",
+          "timestamp": "2026-01-30T10:11:47Z",
+          "tree_id": "c324d8994cb2081f90929647158c15072033b701",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03ae1a76c77566c313736836d55ce50b16f5093e"
+        },
+        "date": 1769771953337,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0062063853799999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026942864500000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.008946872639999989,
             "unit": "seconds"
           }
         ]
