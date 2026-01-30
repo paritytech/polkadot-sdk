@@ -20371,6 +20371,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "tempfile",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

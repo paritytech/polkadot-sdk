@@ -37,6 +37,8 @@ tokio = { workspace = true }
 [dev-dependencies]
 async-trait = { workspace = true }
 criterion = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["test-util", "time", "macros", "rt"] }
+tokio-stream = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
