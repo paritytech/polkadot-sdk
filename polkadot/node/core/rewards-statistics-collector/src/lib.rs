@@ -61,8 +61,10 @@ use crate::{
 		handle_chunk_uploaded, handle_chunks_downloaded, AvailabilityChunks,
 	},
 };
-use polkadot_node_subsystem_util::{request_session_index_for_child, request_session_info};
+use polkadot_node_subsystem_util::{request_node_features, request_session_index_for_child, request_session_info};
 use polkadot_primitives::vstaging::{ApprovalStatistics, ApprovalStatisticsTallyLine};
+use polkadot_primitives::NodeFeatures;
+use polkadot_primitives::v9::node_features::FeatureIndex;
 
 const MAX_SESSION_VIEWS_TO_KEEP: SessionWindowSize = DISPUTE_WINDOW;
 const MAX_AVAILABILITIES_TO_KEEP: SessionWindowSize = new_session_window_size!(3);
@@ -107,17 +109,20 @@ pub struct PerSessionView {
     credentials: Option<SigningCredentials>,
     authorities_ids: Vec<AuthorityDiscoveryId>,
     validators_tallies: HashMap<ValidatorIndex, PerValidatorTally>,
+    node_features: NodeFeatures,
 }
 
 impl PerSessionView {
     fn new(
         authorities_ids: Vec<AuthorityDiscoveryId>,
         credentials: Option<SigningCredentials>,
+        node_features: NodeFeatures,
     ) -> Self {
         Self {
             authorities_ids,
             credentials,
             validators_tallies: HashMap::new(),
+            node_features,
         }
     }
 }
@@ -248,12 +253,13 @@ pub(crate) async fn run_iteration<Context>(
 						MAX_AVAILABILITIES_TO_KEEP,
 					);
 
-                    if let Some((session_info, credentials)) = new_session_info {
+                    if let Some((session_info, credentials, node_features)) = new_session_info {
                         view.per_session.insert(
-                            session_index, 
+                            session_index,
                             PerSessionView::new(
                                 session_info.discovery_keys.iter().cloned().collect(),
                                 credentials,
+                                node_features,
                             ),
                         );
                     }
@@ -333,7 +339,7 @@ struct ActivationInfo {
     activated_header: Option<Header>,
     recent_block: (BlockNumber, Hash),
     session_index: SessionIndex,
-    new_session_info: Option<(SessionInfo, Option<SigningCredentials>)>,
+    new_session_info: Option<(SessionInfo, Option<SigningCredentials>, NodeFeatures)>,
 }
 
 async fn extract_activated_leaf_info(
@@ -383,8 +389,15 @@ async fn extract_activated_leaf_info(
             .map(|(validator_key, validator_index)|
                 SigningCredentials { validator_key, validator_index });
 
+        // Fetch node features for this session
+        let node_features = request_node_features(relay_hash, session_idx, sender)
+            .await
+            .await
+            .map_err(JfyiError::OverseerCommunication)?
+            .map_err(JfyiError::RuntimeApiCallError)?;
+
         if let Some(session_info) = session_info {
-            Some((session_info, signing_credentials))
+            Some((session_info, signing_credentials, node_features))
         } else {
             None
         }
@@ -487,6 +500,22 @@ async fn submit_finalized_session_stats(
                 .per_session
                 .iter()
                 .filter(|stored_session_idx| stored_session_idx.0 < &current_fin_session) {
+
+                // Check if submission feature is enabled
+                let should_submit = session_view
+                    .node_features
+                    .get(FeatureIndex::SubmitApprovalStatistics as usize)
+                    .map(|b| *b)
+                    .unwrap_or(false);
+
+                if !should_submit {
+                    gum::debug!(
+                        target: LOG_TARGET,
+                        session_index = ?session_idx,
+                        "Skipping approval statistics submission: feature not enabled"
+                    );
+                    continue;
+                }
 
                 if let Some(ref credentials) = session_view.credentials {
                     sign_and_submit_approvals_tallies(

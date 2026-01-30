@@ -1730,6 +1730,9 @@ pub mod node_features {
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
 		FirstUnassigned = 4,
+		/// Enables submission of approval statistics to the runtime for rewards calculation.
+		/// When enabled, validators will submit collected approval voting statistics on-chain.
+		SubmitApprovalStatistics = 5,
 	}
 }
 
