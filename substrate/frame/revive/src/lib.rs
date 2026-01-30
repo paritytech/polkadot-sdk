@@ -1292,7 +1292,7 @@ pub mod pallet {
 					value,
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
-						maybe_weight_limit: Some(weight_limit),
+						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					Code::Upload(code),
@@ -1372,7 +1372,7 @@ pub mod pallet {
 					value,
 					TransactionLimits::EthereumGas {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
-						maybe_weight_limit: Some(weight_limit),
+						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					data,
@@ -1851,9 +1851,7 @@ impl<T: Config> Pallet<T> {
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
-			// no need to limit weight here, we will check later whether it exceeds
-			// evm_max_extrinsic_weight
-			maybe_weight_limit: None,
+			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
 		};
 
