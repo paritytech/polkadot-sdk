@@ -339,7 +339,7 @@ where
 		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
 			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
 
-		return Ok(IERC20::nameCall::abi_encode_returns(&name));
+	Ok(IERC20::nameCall::abi_encode_returns(&name))
 	}
 
 	/// Execute the symbol call.
@@ -355,7 +355,7 @@ where
 		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
 			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
 
-		return Ok(IERC20::symbolCall::abi_encode_returns(&symbol));
+	Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
 	}
 
 	/// Execute the decimals call.
@@ -368,6 +368,6 @@ where
 		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
 			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
 
-		return Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals));
+	Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
 	}
 }
