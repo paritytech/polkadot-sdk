@@ -849,10 +849,23 @@ impl Store {
 			(needs_expiry, num_accounts_checked)
 		};
 
-		let mut index = self.index.write();
 		for hash in needs_expiry {
-			index.make_expired(&hash, current_time);
+			if let Err(e) = self.remove(&hash) {
+				log::debug!(
+					target: LOG_TARGET,
+					"Error marking statement {:?} as expired: {:?}",
+					HexDisplay::from(&hash),
+					e
+				);
+			} else {
+				log::trace!(
+					target: LOG_TARGET,
+					"Marked statement {:?} as expired",
+					HexDisplay::from(&hash)
+				);
+			}
 		}
+		let mut index = self.index.write();
 		let new_len = index
 			.accounts_to_check_for_expiry_stmts
 			.len()
@@ -1315,7 +1328,7 @@ impl StatementStoreSubscriptionApi for Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::Store;
+	use crate::{col, Store};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -2452,5 +2465,51 @@ mod tests {
 			"Statement should be removed from entries after expiration"
 		);
 		assert!(index.expired.contains_key(&hash), "Statement should be in expired list");
+	}
+
+	#[test]
+	fn check_expiration_updates_database_columns() {
+		// This test verifies that check_expiration properly updates the database.
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		// Create a statement with expiry at timestamp 200
+		let mut stmt = statement(1, 1, None, 100);
+		stmt.set_expiry_from_parts(200, 1);
+		let hash = stmt.hash();
+		store.submit(stmt.clone(), StatementSource::Network);
+
+		// Verify statement is in the database
+		let db_entry = store.db.get(col::STATEMENTS, &hash).unwrap();
+		assert!(db_entry.is_some(), "Statement should be in col::STATEMENTS after submit");
+
+		// Populate the accounts list
+		store.check_expiration();
+
+		// Advance time past expiry and run check_expiration
+		store.set_time(300);
+		store.check_expiration();
+
+		// Verify in-memory state is updated correctly
+		{
+			let index = store.index.read();
+			assert!(
+				!index.entries.contains_key(&hash),
+				"Statement should be removed from in-memory entries"
+			);
+			assert!(
+				index.expired.contains_key(&hash),
+				"Statement should be in in-memory expired map"
+			);
+		}
+
+		let db_entry = store.db.get(col::STATEMENTS, &hash).unwrap();
+		assert!(
+			db_entry.is_none(),
+			"Statement should be removed from col::STATEMENTS after expiration"
+		);
+
+		let expired_entry = store.db.get(col::EXPIRED, &hash).unwrap();
+		assert!(expired_entry.is_some(), "Expiration info should be written to col::EXPIRED");
 	}
 }
