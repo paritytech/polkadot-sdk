@@ -309,7 +309,7 @@ impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 		// Mark funds as inactive so they don't participate in governance voting.
 		// TODO: When implementing XCM transfer to AssetHub, call `reactivate(amount)` before
-		// sending.
+		// sending. On AssetHub, DAP will call `deactivate` again with AssetHub's own accounting.
 		T::Currency::deactivate(actual);
 
 		Ok(actual)
