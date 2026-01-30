@@ -1320,7 +1320,7 @@ mod enter {
 	}
 
 	#[test]
-	fn candidates_are_size_limited() {
+	fn disputes_are_size_limited() {
 		BlockLength::set(
 			limits::BlockLength::builder()
 				.max_length(600)
