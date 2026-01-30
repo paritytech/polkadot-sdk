@@ -1376,7 +1376,7 @@ impl<T: Config> Pallet<T> {
 						// This shouldn't happen if validate_version succeeded, but handle it
 						Self::deposit_event(Event::CallVersionMismatch {
 							task: (when, agenda_index),
-							id: task.maybe_id.clone(),
+							id: task.maybe_id,
 							stored_version: versioned_call.version(),
 							current_version,
 						});
@@ -1451,7 +1451,7 @@ impl<T: Config> Pallet<T> {
 			Err(version_error) => {
 				Self::deposit_event(Event::CallVersionMismatch {
 					task: (when, agenda_index),
-					id: task.maybe_id.clone(),
+					id: task.maybe_id,
 					stored_version: version_error.stored,
 					current_version: version_error.current,
 				});
