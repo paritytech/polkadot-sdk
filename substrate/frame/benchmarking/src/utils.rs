@@ -298,7 +298,7 @@ pub trait Benchmarking {
 		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
 		let mut whitelist = self.get_whitelist();
 		if !whitelist.iter().any(|k| k.key == WARMUP_KEY) {
-			whitelist.push(TrackedStorageKey::from(WARMUP_KEY.to_vec()));
+			whitelist.push(WARMUP_KEY.to_vec().into());
 			self.set_whitelist(whitelist);
 		}
 		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
