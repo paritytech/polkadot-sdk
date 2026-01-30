@@ -34,14 +34,6 @@ use frame_benchmarking::v2::*;
 mod benchmarks {
 	use super::*;
 
-	/// Benchmark inserting a new asset mapping.
-	///
-	/// This measures the weight of:
-	/// - 1 read: ForeignAssetIdToAssetIndex (check if already mapped)
-	/// - 1 read: NextAssetIndex
-	/// - 1 write: NextAssetIndex
-	/// - 1 write: AssetIndexToForeignAssetId
-	/// - 1 write: ForeignAssetIdToAssetIndex
 	#[benchmark]
 	fn migrate_asset_step_migrate() {
 		let asset_id: T::ForeignAssetId = 1u32.into();
@@ -58,10 +50,6 @@ mod benchmarks {
 		assert!(Pallet::<T>::asset_index_of(&asset_id).is_some());
 	}
 
-	/// Benchmark checking an already-mapped asset (skip case).
-	///
-	/// This measures the weight of:
-	/// - 1 read: ForeignAssetIdToAssetIndex
 	#[benchmark]
 	fn migrate_asset_step_skip() {
 		let asset_id: T::ForeignAssetId = 2u32.into();
@@ -74,20 +62,6 @@ mod benchmarks {
 		{
 			// Simulate the check that happens when an asset is already mapped
 			let _ = Pallet::<T>::asset_index_of(&asset_id);
-		}
-	}
-
-	/// Benchmark the case when there are no more assets to iterate.
-	///
-	/// This measures the weight of a simple storage read returning None.
-	#[benchmark]
-	fn migrate_asset_step_finished() {
-		let nonexistent_id: T::ForeignAssetId = 999u32.into();
-
-		#[block]
-		{
-			// Simulate checking for an asset that doesn't exist
-			let _ = Pallet::<T>::asset_index_of(&nonexistent_id);
 		}
 	}
 
