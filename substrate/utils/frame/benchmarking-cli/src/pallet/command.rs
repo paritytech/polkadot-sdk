@@ -59,6 +59,7 @@ use std::{
 	fs,
 	str::FromStr,
 	time,
+	time::Duration,
 };
 
 type SubstrateAndExtraHF<T> = (
@@ -366,7 +367,7 @@ impl PalletCmd {
 		// Run the benchmarks
 		let mut batches = Vec::new();
 		let mut batches_db = Vec::new();
-		let mut timer = time::SystemTime::now();
+		let mut progress_timer = time::Instant::now();
 		// Maps (pallet, extrinsic) to its component ranges.
 		let mut component_ranges = HashMap::<(String, String), Vec<ComponentRange>>::new();
 		let pov_modes =
@@ -428,101 +429,106 @@ impl PalletCmd {
 				all_components
 			};
 
-			for (s, selected_components) in all_components.iter().enumerate() {
-				let params = |verify: bool, repeats: u32| -> Vec<u8> {
-					if benchmark_api_version >= 2 {
-						(
-							pallet.as_bytes(),
-							instance.as_bytes(),
-							extrinsic.as_bytes(),
-							&selected_components.clone(),
-							verify,
-							repeats,
-						)
-							.encode()
-					} else {
-						(
-							pallet.as_bytes(),
-							extrinsic.as_bytes(),
-							&selected_components.clone(),
-							verify,
-							repeats,
-						)
-							.encode()
+			// Ensure each benchmark runs for at least its minimum duration.
+			let start = time::Instant::now();
+			let mut first = true;
+
+			loop {
+				for (s, selected_components) in all_components.iter().enumerate() {
+					let params = |verify: bool, repeats: u32| -> Vec<u8> {
+						if benchmark_api_version >= 2 {
+							(
+								pallet.as_bytes(),
+								instance.as_bytes(),
+								extrinsic.as_bytes(),
+								&selected_components.clone(),
+								verify,
+								repeats,
+							)
+								.encode()
+						} else {
+							(
+								pallet.as_bytes(),
+								extrinsic.as_bytes(),
+								&selected_components.clone(),
+								verify,
+								repeats,
+							)
+								.encode()
+						}
+					};
+
+					// Maybe run a verification if we are the first iteration.
+					if !self.no_verify && first {
+						let state = &state_without_tracking;
+						// Don't use these results since verification code will add overhead.
+						let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
+							std::result::Result<Vec<BenchmarkBatch>, String>,
+							_,
+							_,
+						>(
+							StateMachine::new(
+								state,
+								&mut Default::default(),
+								&executor,
+								"Benchmark_dispatch_benchmark",
+								&params(true, 1),
+								&mut Self::build_extensions(executor.clone(), state.recorder()),
+								&runtime_code,
+								CallContext::Offchain,
+							),
+							"dispatch a benchmark",
+						) {
+							Err(e) => {
+								log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
+								failed.push((pallet.clone(), extrinsic.clone()));
+								continue 'outer
+							},
+							Ok(Err(e)) => {
+								log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
+								failed.push((pallet.clone(), extrinsic.clone()));
+								continue 'outer
+							},
+							Ok(Ok(b)) => b,
+						};
 					}
-				};
+					// Do one loop of DB tracking.
+					{
+						let state = &state_with_tracking;
+						let batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
+							std::result::Result<Vec<BenchmarkBatch>, String>,
+							_,
+							_,
+						>(
+							StateMachine::new(
+								state,
+								&mut Default::default(),
+								&executor,
+								"Benchmark_dispatch_benchmark",
+								&params(false, 1),
+								&mut Self::build_extensions(executor.clone(), state.recorder()),
+								&runtime_code,
+								CallContext::Offchain,
+							),
+							"dispatch a benchmark",
+						) {
+							Err(e) => {
+								log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
+								failed.push((pallet.clone(), extrinsic.clone()));
+								continue 'outer
+							},
+							Ok(Err(e)) => {
+								log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
+								failed.push((pallet.clone(), extrinsic.clone()));
+								continue 'outer
+							},
+							Ok(Ok(b)) => b,
+						};
 
-				// First we run a verification
-				if !self.no_verify {
-					let state = &state_without_tracking;
-					// Don't use these results since verification code will add overhead.
-					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
-						std::result::Result<Vec<BenchmarkBatch>, String>,
-						_,
-						_,
-					>(
-						StateMachine::new(
-							state,
-							&mut Default::default(),
-							&executor,
-							"Benchmark_dispatch_benchmark",
-							&params(true, 1),
-							&mut Self::build_extensions(executor.clone(), state.recorder()),
-							&runtime_code,
-							CallContext::Offchain,
-						),
-						"dispatch a benchmark",
-					) {
-						Err(e) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
-							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
-						},
-						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
-							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
-						},
-						Ok(Ok(b)) => b,
-					};
-				}
-				// Do one loop of DB tracking.
-				{
-					let state = &state_with_tracking;
-					let batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
-						std::result::Result<Vec<BenchmarkBatch>, String>,
-						_,
-						_,
-					>(
-						StateMachine::new(
-							state,
-							&mut Default::default(),
-							&executor,
-							"Benchmark_dispatch_benchmark",
-							&params(false, self.repeat),
-							&mut Self::build_extensions(executor.clone(), state.recorder()),
-							&runtime_code,
-							CallContext::Offchain,
-						),
-						"dispatch a benchmark",
-					) {
-						Err(e) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
-							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
-						},
-						Ok(Err(e)) => {
-							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
-							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
-						},
-						Ok(Ok(b)) => b,
-					};
+						batches_db.extend(batch);
+					}
 
-					batches_db.extend(batch);
-				}
-				// Finally run a bunch of loops to get extrinsic timing information.
-				for r in 0..self.external_repeat {
+					// Finally run a bunch of loops to get extrinsic timing information.
 					let state = &state_without_tracking;
 					let batch = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
@@ -530,7 +536,7 @@ impl PalletCmd {
 						_,
 					>(
 						StateMachine::new(
-							state, // todo remove tracking
+							state,
 							&mut Default::default(),
 							&executor,
 							"Benchmark_dispatch_benchmark",
@@ -556,28 +562,34 @@ impl PalletCmd {
 
 					batches.extend(batch);
 
-					// Show progress information
-					if let Ok(elapsed) = timer.elapsed() {
-						if elapsed >= time::Duration::from_secs(5) {
-							timer = time::SystemTime::now();
+					// Show progress information at most every 5 seconds.
+					if progress_timer.elapsed() >= time::Duration::from_secs(5) {
+						progress_timer = time::Instant::now();
 
-							log::info!(
-								target: LOG_TARGET,
-								"[{: >3} % ] Running  benchmark: {pallet}::{extrinsic}({} args) {}/{} {}/{}",
-								(i * 100) / benchmarks_to_run.len(),
-								components.len(),
+						let msg = if first {
+							format!(
+								"{}/{}",
 								s + 1, // s starts at 0.
-								all_components.len(),
-								r + 1,
-								self.external_repeat,
-							);
-						}
+								all_components.len()
+							)
+						} else {
+							"(overtime)".to_string()
+						};
+
+						log::info!(
+							target: LOG_TARGET,
+							"[{: >3} % ] Running  benchmark: {pallet}::{extrinsic} {msg}",
+							(i * 100) / benchmarks_to_run.len()
+						);
 					}
+				}
+
+				first = false;
+				if start.elapsed() >= Duration::from_secs(self.min_duration) {
+					break;
 				}
 			}
 		}
-
-		assert!(batches_db.len() == batches.len() / self.external_repeat as usize);
 
 		if !failed.is_empty() {
 			failed.sort();
@@ -1033,6 +1045,10 @@ impl PalletCmd {
 	) -> std::result::Result<(), (ErrorKind, String)> {
 		if self.runtime.is_some() && self.shared_params.chain.is_some() {
 			unreachable!("Clap should not allow both `--runtime` and `--chain` to be provided.")
+		}
+
+		if self.external_repeat.is_some() {
+			log::warn!(target: LOG_TARGET, "The `--external-repeat` argument is deprecated and will be removed in a future release.");
 		}
 
 		if chain_spec.is_none() && self.runtime.is_none() && self.shared_params.chain.is_none() {

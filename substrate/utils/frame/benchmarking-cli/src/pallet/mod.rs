@@ -87,15 +87,21 @@ pub struct PalletCmd {
 	#[arg(long = "high", value_delimiter = ',')]
 	pub highest_range_values: Vec<u32>,
 
-	/// Select how many repetitions of this benchmark should run from within the wasm.
+	/// Minimum number of repetitions of this benchmark should run from within the wasm.
+	///
+	/// It may run more often than this to reach its `min_duration`.
 	#[arg(short, long, default_value_t = 20)]
 	pub repeat: u32,
 
-	/// Select how many repetitions of this benchmark should run from the client.
+	/// DEPRECATED: Please remove usage.
+	#[arg(long)]
+	pub external_repeat: Option<u32>,
+
+	/// Minimum duration in seconds for each benchmark.
 	///
-	/// NOTE: Using this alone may give slower results, but will afford you maximum Wasm memory.
-	#[arg(long, default_value_t = 1)]
-	pub external_repeat: u32,
+	/// Can be set to 0 to disable the feature and solely rely on the `repeat` parameter.
+	#[arg(long, default_value_t = 10)]
+	pub min_duration: u64,
 
 	/// Print the raw results in JSON format.
 	#[arg(long = "json")]
