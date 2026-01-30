@@ -247,10 +247,8 @@ pub mod pallet {
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
 			/// No-op handler: burned funds are discarded without affecting issuance.
-			/// Tests needing realistic burn semantics should override `BurnDestination` with
-			/// either:
-			/// - `DirectBurn<Balances, AccountId>` - reduces total issuance
-			/// - `Dap` or `DapSatellite` - credits buffer account
+			/// Tests needing realistic burn semantics should override with a
+			/// [`BurnHandler`](frame_support::traits::tokens::BurnHandler) implementation.
 			type BurnDestination = ();
 		}
 	}
@@ -343,15 +341,9 @@ pub mod pallet {
 
 		/// Handler for burned funds.
 		///
-		/// This is called by `burn_from` after the source account's balance has been decreased.
-		/// Runtimes can configure this to either:
-		/// - Reduce total issuance (traditional burning via [`DirectBurn`])
-		/// - Credit to a buffer account (DAP-style systems)
-		///
-		/// **Configuration examples:**
-		/// - DAP-enabled runtimes on AssetHub: `type BurnDestination = Dap;`
-		/// - DAP satellite runtimes: `type BurnDestination = DapSatellite;`
-		/// - Other runtimes: `type BurnDestination = DirectBurn<Balances, AccountId>;`
+		/// Called after `burn_from` decreases the source account's balance. See
+		/// [`BurnHandler`](frame_support::traits::tokens::BurnHandler) for available
+		/// implementations and how to configure different burn behaviors.
 		#[pallet::no_default_bounds]
 		type BurnDestination: BurnHandler<Self::Balance>;
 	}
@@ -873,9 +865,8 @@ pub mod pallet {
 		/// If the origin's account ends up below the existential deposit as a result
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
-		/// The behavior depends on the runtime's `BurnDestination` configuration:
-		/// - DAP-enabled runtimes: funds are transferred to the DAP buffer
-		/// - Other runtimes: funds are burned directly, reducing total issuance
+		/// The actual burn behavior is determined by the runtime's [`Config::BurnDestination`].
+		/// See [`BurnHandler`](frame_support::traits::tokens::BurnHandler) implementations.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(

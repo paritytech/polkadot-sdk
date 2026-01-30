@@ -200,11 +200,8 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 		use fungible::{Inspect, Unbalanced};
 		let actual = Self::reducible_balance(who, preservation, force).min(amount);
 		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
-		Self::total_issuance().checked_sub(&actual).ok_or(ArithmeticError::Overflow)?;
 		let actual = Self::decrease_balance(who, actual, BestEffort, preservation, force)?;
-		// Use configurable handler instead of directly reducing total issuance.
-		// For DirectBurn: reduces total issuance (traditional burning)
-		// For DAP/DAP satellite: credits buffer account (tokens preserved)
+		// Delegate to configurable handler instead of directly reducing total issuance.
 		T::BurnDestination::on_burned(actual);
 		Self::done_burn_from(who, actual);
 		Ok(actual)

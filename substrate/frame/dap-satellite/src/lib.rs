@@ -79,7 +79,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_runtime::Percent;
+use sp_runtime::{Percent, Saturating};
 
 pub use pallet::*;
 
@@ -267,14 +267,15 @@ where
 {
 	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = CreditOf<T>>) {
 		if let Some(fees) = fees_then_tips.next() {
-			let dap_percent = DapPercent::get().deconstruct() as u32;
-			let other_percent = 100u32.saturating_sub(dap_percent);
-			let mut split = fees.ration(dap_percent, other_percent);
+			let dap_percent = DapPercent::get();
+			let other_percent = Percent::one().saturating_sub(dap_percent);
+			let mut split =
+				fees.ration(dap_percent.deconstruct() as u32, other_percent.deconstruct() as u32);
 			if let Some(tips) = fees_then_tips.next() {
 				// Tips go 100% to other handler.
 				tips.merge_into(&mut split.1);
 			}
-			if dap_percent > 0 {
+			if !dap_percent.is_zero() {
 				<Pallet<T> as OnUnbalanced<_>>::on_unbalanced(split.0);
 			}
 			OtherHandler::on_unbalanced(split.1);
