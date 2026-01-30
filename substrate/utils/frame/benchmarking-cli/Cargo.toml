@@ -23,6 +23,7 @@ clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 comfy-table = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 env_filter = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }

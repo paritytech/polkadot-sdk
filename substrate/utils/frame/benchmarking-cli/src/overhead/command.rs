@@ -38,6 +38,7 @@ use crate::{
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};
 use codec::{Decode, Encode};
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_primitives_core::RelayParentOffsetApi;
 use fake_runtime_api::RuntimeApi as FakeRuntimeApi;
 use frame_support::Deserialize;
 use genesis_state::WARN_SPEC_GENESIS_CTOR;
@@ -204,6 +205,7 @@ type OverheadClient<Block, HF> = TFullClient<Block, FakeRuntimeApi, WasmExecutor
 fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Block: BlockT>(
 	client: &Arc<Client>,
 	chain_type: &ChainType,
+	relay_parent_offset: u32,
 ) -> InherentData {
 	let genesis = client.usage_info().chain.best_hash;
 	let header = client.header(genesis).unwrap().unwrap();
@@ -216,6 +218,7 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 			para_id: ParaId::from(*para_id),
 			current_para_block_head: Some(header.encode().into()),
 			relay_offset: 0,
+			relay_parent_offset,
 			..Default::default()
 		};
 		let _ = futures::executor::block_on(
@@ -457,7 +460,19 @@ impl OverheadCmd {
 			&chain_type,
 		)?;
 
-		let inherent_data = create_inherent_data(&client, &chain_type);
+		// Fetch the relay parent offset from the runtime.
+		let relay_parent_offset = {
+			let genesis = client.usage_info().chain.best_hash;
+			client.runtime_api().relay_parent_offset(genesis).unwrap_or_else(|_| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Runtime does not implement RelayParentOffsetApi, using default offset of 0"
+				);
+				0
+			})
+		};
+
+		let inherent_data = create_inherent_data(&client, &chain_type, relay_parent_offset);
 
 		let (ext_builder, runtime_name) = {
 			let genesis = client.usage_info().chain.best_hash;
