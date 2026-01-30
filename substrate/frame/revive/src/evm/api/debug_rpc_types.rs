@@ -110,9 +110,8 @@ impl<'de> Deserialize<'de> for TracerConfig {
 		}
 
 		match TracerConfigHelper::deserialize(deserializer)? {
-			TracerConfigHelper::WithType(cfg) => {
-				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout })
-			},
+			TracerConfigHelper::WithType(cfg) =>
+				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
 			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
 				config: TracerType::ExecutionTracer(Some(cfg.execution_tracer_config)),
 				timeout: cfg.timeout,

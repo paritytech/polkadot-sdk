@@ -79,6 +79,7 @@ impl Tracing for CallTracer {
 		value: U256,
 		input: &[u8],
 		gas_limit: u64,
+		_parent_gas_left: Option<u64>,
 	) {
 		// Increment parent's child call count.
 		if let Some(&index) = self.current_stack.last() {

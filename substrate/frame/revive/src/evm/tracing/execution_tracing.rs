@@ -205,7 +205,12 @@ impl Tracing for ExecutionTracer {
 	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo, returned: Option<u64>) {
 		if let Some(step_index) = self.pending_steps.pop() {
 			if let Some(step) = self.steps.get_mut(step_index) {
-				step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
+				// For call/instantiation opcodes, gas_cost was already set in enter_child_span
+				// (opcode_cost + gas_forwarded). For other opcodes, calculate it here.
+				if step.gas_cost == 0 {
+					step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
+				}
+				// weight_cost is the total weight consumed (including child calls)
 				step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
 				if !self.config.disable_syscall_details {
 					if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
@@ -224,8 +229,19 @@ impl Tracing for ExecutionTracer {
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas_limit: u64,
+		gas_limit: u64,
+		parent_gas_left: Option<u64>,
 	) {
+		// Set gas_cost of the pending call/instantiation step.
+		// gas_cost = opcode_gas_cost + gas_forwarded
+		if let Some(&step_index) = self.pending_steps.last() {
+			if let Some(step) = self.steps.get_mut(step_index) {
+				if let Some(parent_gas) = parent_gas_left {
+					let opcode_gas_cost = step.gas.saturating_sub(parent_gas);
+					step.gas_cost = opcode_gas_cost.saturating_add(gas_limit);
+				}
+			}
+		}
 		self.storages_per_call.push(Default::default());
 		self.depth += 1;
 	}
