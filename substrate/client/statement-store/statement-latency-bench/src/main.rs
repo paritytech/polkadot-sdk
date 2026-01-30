@@ -58,6 +58,10 @@ struct Args {
 	/// Interval between rounds in milliseconds
 	#[arg(long, default_value = "10000")]
 	interval_ms: u64,
+
+	/// Skip time synchronization (for local testing)
+	#[arg(long, default_value = "false")]
+	skip_sync: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -286,6 +290,46 @@ async fn run_client(
 	Ok(all_round_stats)
 }
 
+/// Wait until the next sync boundary for synchronized start across multiple machines.
+///
+/// Uses a 10-minute sync interval. If less than 2 minutes remain until the next boundary,
+/// skip it and wait for the following one. This ensures all jobs starting within a
+/// 2-minute window will synchronize to the same boundary.
+///
+/// Example:
+/// - Job starts at 10:00 → 10 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:07 → 3 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:08 → 2 min until 10:10 (>= 2) → wait until 10:10
+/// - Job starts at 10:09 → 1 min until 10:10 (< 2) → wait until 10:20
+/// - Job starts at 10:10 → 10 min until 10:20 (>= 2) → wait until 10:20
+async fn wait_for_sync_time() {
+	let now_secs = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.expect("System time is before UNIX epoch")
+		.as_secs();
+
+	// Sync interval in seconds (10 minutes)
+	const SYNC_INTERVAL_SECS: u64 = 10 * 60;
+	// Minimum wait time: if less than this remains, skip to next boundary (2 minutes)
+	const MIN_WAIT_SECS: u64 = 2 * 60;
+
+	let secs_in_current_interval = now_secs % SYNC_INTERVAL_SECS;
+	let secs_until_next_boundary = SYNC_INTERVAL_SECS - secs_in_current_interval;
+
+	// If less than MIN_WAIT_SECS until next boundary, wait for the one after
+	let wait_secs = if secs_until_next_boundary < MIN_WAIT_SECS {
+		secs_until_next_boundary + SYNC_INTERVAL_SECS
+	} else {
+		secs_until_next_boundary
+	};
+
+	let target_timestamp = now_secs + wait_secs;
+	info!("Waiting {}s for sync time (target UNIX timestamp: {})", wait_secs, target_timestamp);
+
+	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+	info!("Sync time reached, starting benchmark");
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -308,6 +352,10 @@ async fn main() -> Result<(), anyhow::Error> {
 	}
 
 	log_configuration(&args, &messages_pattern);
+
+	if !args.skip_sync {
+		wait_for_sync_time().await;
+	}
 
 	let rpc_clients = connect_to_endpoints(&args.rpc_endpoints).await?;
 
