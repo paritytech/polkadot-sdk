@@ -2,7 +2,11 @@ title: 'Snowbridge: Describe the token location with the length field included t
 doc:
 - audience: Runtime Dev
   description: |-
-    For GeneralKey, two different XCM junctions that differ only in length can produce the same description bytes, and therefore the same TokenId.
+    For GeneralKey, two XCM junctions that differ only in length can currently produce the same description bytes, 
+    and therefore the same TokenId. To avoid such collisions, this PR includes the length field in the describe function.
+    We do have several PNAs registered that could be affected by this change. However, these tokens are not currently in use, 
+    there have been no transfers and no tokens minted so far. As a result, simply re-registering these tokens should be sufficient, 
+    without requiring a runtime storage migration.
 crates:
 - name: snowbridge-core
   bump: patch
