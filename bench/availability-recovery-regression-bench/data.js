@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769800007074,
+  "lastUpdate": 1769813776228,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "caf999310df66b790c7f26b0227a51068ba441fc",
-          "message": "`fatxpool`: `ChainApi` is now async (#8875)\n\n[`ChainApi`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L65-L66)\nis now `async_trait`,\n[`validate_transaction`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L78)\nand\n[`block_body`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L112)\nare now `async` methods. This is just cleanup - migrating from returning\n`Future` to `async` method\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T21:43:36Z",
-          "tree_id": "9d3d2131eb7ed4b84ce7223da3c9fc2191f8ba29",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/caf999310df66b790c7f26b0227a51068ba441fc"
-        },
-        "date": 1750892788848,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.190217240133332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.19829028276666671,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.521366219899999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684c79ccace32f8813b2570acac7dfb29f515656",
+          "message": "fix(revive): handle transaction hash conflicts during re-org (#10950)\n\n## Summary\n\nFixes a UNIQUE constraint violation when processing blocks after a\nre-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction TX1 → stored in `transaction_hashes`\n2. Server restarts (clearing the in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different hash) now contains the same TX1\n4. INSERT fails because TX1 already exists with old block_hash\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T21:49:20Z",
+          "tree_id": "077c704684a65444f754d1995eede215c0ac6a71",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/684c79ccace32f8813b2570acac7dfb29f515656"
+        },
+        "date": 1769813751937,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12115562046666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.208899398366668,
             "unit": "seconds"
           }
         ]
