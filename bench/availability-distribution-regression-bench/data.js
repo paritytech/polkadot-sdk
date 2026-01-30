@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769785946896,
+  "lastUpdate": 1769788412845,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1fcaaa4b8f43d4b31624297a4172eed73458f100",
-          "message": "Add polkadot_parachain_peer_connectivity metric (#8973)\n\n# Description\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/8911\n\nAdds `polkadot_parachain_peer_connectivity` histogram metric to better\nunderstand connectivity patterns.\n\n## Integration\n\nDoesn't affect downstream projects.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T09:07:00Z",
-          "tree_id": "21f9f3b700d0d6af69dd48ec271fe9579c7eab3e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1fcaaa4b8f43d4b31624297a4172eed73458f100"
-        },
-        "date": 1750847361085,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.012935210286666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15759433180000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022683372713333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008829489846666759,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14524843821333341,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8807c22f2a3507af2401e99a8c420f68e0ce7dfd",
+          "message": "telemtry: Downgrade spam log to debug (#10201)\n\nThis PR downgrade the telemetry warning log to debug.\n- The log is causing a lot of noise in our test nets:\nhttps://grafana.teleport.parity.io/goto/fjTQ_vzDg?orgId=1\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T14:40:21Z",
+          "tree_id": "9dc6998aca49d4847b64529b702da9955d0b891b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8807c22f2a3507af2401e99a8c420f68e0ce7dfd"
+        },
+        "date": 1769788388541,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14748021084666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.006999858739999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02317484652666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00996861906,
             "unit": "seconds"
           }
         ]
