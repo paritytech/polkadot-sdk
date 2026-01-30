@@ -285,6 +285,7 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]

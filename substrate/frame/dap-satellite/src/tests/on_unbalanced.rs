@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OnUnbalanced tests for the DAP pallet.
+//! OnUnbalanced tests for the DAP Satellite pallet.
 
 use crate::mock::*;
 use frame_support::traits::{
@@ -24,20 +24,20 @@ use frame_support::traits::{
 	OnUnbalanced,
 };
 
-type DapPallet = crate::Pallet<Test>;
+type DapSatellitePallet = crate::Pallet<Test>;
 
 #[test]
-fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
+fn on_unbalanced_deposits_to_satellite() {
 	new_test_ext().execute_with(|| {
-		let buffer = DapPallet::buffer_account();
+		let satellite = DapSatellitePallet::satellite_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: buffer has ED, users have balances (1: 100, 2: 200, 3: 300)
-		assert_eq!(Balances::free_balance(buffer), ed);
+		// Given: satellite has ED, users have balances (1: 100, 2: 200, 3: 300)
+		assert_eq!(Balances::free_balance(satellite), ed);
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 		let initial_total = <Balances as Inspect<_>>::total_issuance();
 
-		// When: multiple slashes occur via OnUnbalanced (simulating staking slashes)
+		// When: multiple imbalances are deposited (e.g., coretime revenue from user payments)
 		// withdraw() takes funds from an account and returns a Credit
 		let credit1 = <Balances as Balanced<u64>>::withdraw(
 			&1,
@@ -47,7 +47,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapPallet::on_unbalanced(credit1);
+		DapSatellitePallet::on_unbalanced(credit1);
 
 		let credit2 = <Balances as Balanced<u64>>::withdraw(
 			&2,
@@ -57,7 +57,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapPallet::on_unbalanced(credit2);
+		DapSatellitePallet::on_unbalanced(credit2);
 
 		let credit3 = <Balances as Balanced<u64>>::withdraw(
 			&3,
@@ -67,12 +67,12 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapPallet::on_unbalanced(credit3);
+		DapSatellitePallet::on_unbalanced(credit3);
 
-		// Then: buffer has ED + all slashes
-		assert_eq!(Balances::free_balance(buffer), ed + 100);
+		// Then: satellite has accumulated all credits
+		assert_eq!(Balances::free_balance(satellite), ed + 100);
 
-		// And: users lost their slashed amounts
+		// And: users lost their amounts
 		assert_eq!(Balances::free_balance(1), 100 - 30);
 		assert_eq!(Balances::free_balance(2), 200 - 20);
 		assert_eq!(Balances::free_balance(3), 300 - 50);
@@ -80,7 +80,26 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		// And: total issuance unchanged (funds moved, not created/destroyed)
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
 
-		// And: active issuance decreased by 100 (funds deactivated in DAP buffer)
+		// And: active issuance decreased by 100 (funds deactivated in satellite)
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 100);
+	});
+}
+
+#[test]
+fn on_unbalanced_handles_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+
+		// Given: satellite has ED (=1)
+		assert_eq!(Balances::free_balance(satellite), 1);
+		let initial_active = <Balances as Inspect<_>>::active_issuance();
+
+		// When: imbalance with zero amount
+		let credit = <Balances as Balanced<u64>>::issue(0);
+		DapSatellitePallet::on_unbalanced(credit);
+
+		// Then: satellite still has just ED (no-op)
+		assert_eq!(Balances::free_balance(satellite), 1);
+		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active);
 	});
 }

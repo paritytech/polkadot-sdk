@@ -42,11 +42,13 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate},
+		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::{BurnHandler, Fortitude, Precision, Precision::BestEffort, Preservation},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
+use sp_runtime::TokenError;
 
 pub use pallet::*;
 
@@ -73,6 +75,7 @@ pub mod pallet {
 		/// The currency type (new fungible traits).
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
@@ -119,6 +122,8 @@ pub mod pallet {
 
 			match T::Currency::mint_into(&buffer, ed) {
 				Ok(_) => {
+					// Mark ED as inactive so it doesn't participate in governance.
+					T::Currency::deactivate(ed);
 					log::info!(
 						target: LOG_TARGET,
 						"🏦 Created DAP buffer account: {buffer:?}"
@@ -212,5 +217,37 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		T::Currency::deactivate(numeric_amount);
+	}
+}
+
+/// Implementation of BurnHandler for pallet.
+///
+/// Use this as `type BurnHandler = Dap;` in pallet-balances config on AssetHub
+/// to redirect burns to the DAP buffer instead of reducing total issuance.
+impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn burn_from(
+		who: &T::AccountId,
+		amount: BalanceOf<T>,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let actual = T::Currency::reducible_balance(who, preservation, force).min(amount);
+		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
+		let actual = T::Currency::decrease_balance(who, actual, BestEffort, preservation, force)?;
+
+		// Credit the buffer account instead of reducing total issuance.
+		let buffer = Self::buffer_account();
+		let _ = T::Currency::increase_balance(&buffer, actual, BestEffort).inspect_err(|_| {
+			defensive!("Failed to credit DAP buffer - Loss of funds due to overflow");
+		});
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		T::Currency::deactivate(actual);
+
+		Ok(actual)
 	}
 }

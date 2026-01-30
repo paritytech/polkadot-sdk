@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the DAP pallet.
+//! Tests for the DAP Satellite pallet.
 
 mod burn_handler;
+mod deal_with_fees_split;
 mod genesis;
-mod migrations;
 mod on_unbalanced;

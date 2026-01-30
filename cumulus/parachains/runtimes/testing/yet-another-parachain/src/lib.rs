@@ -309,6 +309,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {

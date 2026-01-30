@@ -153,6 +153,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 parameter_types! {

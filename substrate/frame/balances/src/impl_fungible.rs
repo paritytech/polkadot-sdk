@@ -19,7 +19,7 @@
 use super::*;
 use frame_support::traits::{
 	tokens::{
-		Fortitude,
+		Fortitude, Precision,
 		Preservation::{self, Preserve, Protect},
 		Provenance::{self, Minted},
 	},
@@ -189,6 +189,17 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 }
 
 impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
+	fn burn_from(
+		who: &T::AccountId,
+		amount: Self::Balance,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		let actual = T::BurnHandler::burn_from(who, amount, preservation, precision, force)?;
+		Self::done_burn_from(who, actual);
+		Ok(actual)
+	}
 	fn done_mint_into(who: &T::AccountId, amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::Minted { who: who.clone(), amount });
 	}

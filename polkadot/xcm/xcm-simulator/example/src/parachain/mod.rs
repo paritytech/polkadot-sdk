@@ -23,7 +23,8 @@ use core::marker::PhantomData;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		ConstU128, ContainsPair, Disabled, EnsureOrigin, EnsureOriginWithArg, Everything, Nothing,
+		tokens::DirectBurn, ConstU128, ContainsPair, Disabled, EnsureOrigin, EnsureOriginWithArg,
+		Everything, Nothing,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
@@ -58,6 +59,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
+	type BurnHandler = DirectBurn<Balances>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

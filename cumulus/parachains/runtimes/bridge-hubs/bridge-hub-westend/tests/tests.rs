@@ -32,9 +32,9 @@ use bridge_hub_westend_runtime::{
 		GovernanceLocation, LocationToAccountId, RelayNetwork, WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
-	BridgeRelayers, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment, TxExtension,
-	UncheckedExtrinsic,
+	BridgeRelayers, DapSatellite, Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, TransactionPayment,
+	TxExtension, UncheckedExtrinsic,
 };
 use bridge_to_rococo_config::{
 	BridgeGrandpaRococoInstance, BridgeHubRococoLocation, BridgeParachainRococoInstance,
@@ -61,7 +61,7 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Either, Perbill,
 };
-use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
+use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::{
 	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 	VersionedLocation,
@@ -844,4 +844,43 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(Governance::get()));
+}
+
+#[test]
+fn burn_redirects_to_dap_satellite() {
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		const BOB: [u8; 32] = [2u8; 32];
+		let user: AccountId = BOB.into();
+		let initial_balance = 100 * UNITS;
+		let burn_amount = 10 * UNITS;
+
+		// Given: user has initial balance and DAP satellite exists with ED.
+		assert_ok!(<Balances as Mutate<_>>::mint_into(&user, initial_balance));
+
+		let dap_satellite = DapSatellite::satellite_account();
+		let initial_satellite_balance = <Balances as Inspect<_>>::balance(&dap_satellite);
+		let initial_issuance = <Balances as Inspect<_>>::total_issuance();
+		let initial_active_issuance = <Balances as Inspect<_>>::active_issuance();
+
+		// When: user burns some tokens.
+		assert_ok!(Balances::burn(RuntimeOrigin::signed(user.clone()), burn_amount, false));
+
+		// Then: DAP satellite receives the burned amount.
+		assert_eq!(
+			<Balances as Inspect<_>>::balance(&dap_satellite),
+			initial_satellite_balance + burn_amount
+		);
+
+		// And: user's balance is reduced.
+		assert_eq!(<Balances as Inspect<_>>::balance(&user), initial_balance - burn_amount);
+
+		// And: total issuance is unchanged (funds redirected, not destroyed).
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_issuance);
+
+		// And: active issuance is reduced (funds deactivated, excluded from governance).
+		assert_eq!(
+			<Balances as Inspect<_>>::active_issuance(),
+			initial_active_issuance - burn_amount
+		);
+	});
 }

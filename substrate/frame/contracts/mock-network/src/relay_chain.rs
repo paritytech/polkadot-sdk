@@ -90,6 +90,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 impl shared::Config for Runtime {

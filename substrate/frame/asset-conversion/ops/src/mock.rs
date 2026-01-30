@@ -60,6 +60,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]

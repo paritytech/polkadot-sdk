@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test mock for the DAP pallet.
+//! Test mock for the DAP Satellite pallet.
 
-use crate::{self as pallet_dap, Config};
+use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{derive_impl, parameter_types, PalletId};
 use sp_runtime::BuildStorage;
 
@@ -27,7 +27,7 @@ frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
-		Dap: pallet_dap,
+		DapSatellite: pallet_dap_satellite,
 	}
 );
 
@@ -40,16 +40,16 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
-	type BurnHandler = Dap;
+	type BurnHandler = DapSatellite;
 }
 
 parameter_types! {
-	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
 }
 
 impl Config for Test {
 	type Currency = Balances;
-	type PalletId = DapPalletId;
+	type PalletId = DapSatellitePalletId;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

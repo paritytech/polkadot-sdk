@@ -164,7 +164,7 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{
 		tokens::{
-			fungible, BalanceStatus as Status, DepositConsequence,
+			fungible, BalanceStatus as Status, BurnHandler, DepositConsequence,
 			Fortitude::{self, Force, Polite},
 			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
@@ -186,6 +186,7 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, TokenError,
 };
 
+pub use frame_support::traits::tokens::DirectBurn;
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -245,6 +246,10 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
+			/// No-op handler: returns zero without affecting balances or issuance.
+			/// Tests needing realistic burn semantics should override with
+			/// `DirectBurn<Balances>` or a custom implementation.
+			type BurnHandler = ();
 		}
 	}
 
@@ -333,6 +338,14 @@ pub mod pallet {
 			Self::AccountId,
 			Self::Balance,
 		>;
+
+		/// Handler for `fungible::Mutate::burn_from` operations.
+		///
+		/// Controls the entire burn flow including balance reduction and issuance handling.
+		/// See [`BurnHandler`](frame_support::traits::tokens::BurnHandler) for available
+		/// implementations.
+		#[pallet::no_default_bounds]
+		type BurnHandler: BurnHandler<Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
@@ -852,8 +865,8 @@ pub mod pallet {
 		/// If the origin's account ends up below the existential deposit as a result
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
-		/// Unlike sending funds to a _burn_ address, which merely makes the funds inaccessible,
-		/// this `burn` operation will reduce total issuance by the amount _burned_.
+		/// The actual burn behavior is determined by the runtime's [`Config::BurnHandler`].
+		/// See [`BurnHandler`](frame_support::traits::tokens::BurnHandler) implementations.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]
 		pub fn burn(
