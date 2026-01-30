@@ -48,13 +48,11 @@ pub struct DebugSettings {
 }
 
 impl DebugSettings {
-	#[cfg(test)]
 	pub fn set_bypass_eip_3607(mut self, value: bool) -> Self {
 		self.bypass_eip_3607 = value;
 		self
 	}
 
-	#[cfg(test)]
 	pub fn set_allow_unlimited_contract_size(mut self, value: bool) -> Self {
 		self.allow_unlimited_contract_size = value;
 		self
