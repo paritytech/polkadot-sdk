@@ -39,7 +39,7 @@ use pallet_revive::precompiles::{
 pub mod foreign_assets;
 pub mod migration;
 #[cfg(feature = "runtime-benchmarks")]
-pub mod migration_benchmarks;
+pub(crate) mod migration_benchmarks;
 pub mod weights;
 
 #[cfg(test)]
