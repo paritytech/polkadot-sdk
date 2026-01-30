@@ -23,7 +23,7 @@ use crate as pallet_lottery;
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use frame_support_test::TestRandomness;
 use frame_system::EnsureRoot;
-use sp_runtime::{BuildStorage, Perbill,};
+use sp_runtime::{BuildStorage, Perbill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
