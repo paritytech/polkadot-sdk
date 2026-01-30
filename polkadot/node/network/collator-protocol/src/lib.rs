@@ -44,8 +44,10 @@ use polkadot_node_subsystem::{errors::SubsystemError, overseer, DummySubsystem, 
 
 mod collator_side;
 mod validator_side;
-#[cfg(feature = "experimental-collator-protocol")]
 mod validator_side_experimental;
+
+// TODO: move into validator_side_experimental once `validator_side` is retired
+mod validator_side_metrics;
 
 const LOG_TARGET: &'static str = "parachain::collator-protocol";
 const LOG_TARGET_STATS: &'static str = "parachain::collator-protocol::stats";
@@ -84,7 +86,6 @@ pub enum ProtocolSide {
 		collator_protocol_hold_off: Option<Duration>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
-	#[cfg(feature = "experimental-collator-protocol")]
 	ValidatorExperimental {
 		/// The keystore holding validator keys.
 		keystore: KeystorePtr,
@@ -114,9 +115,6 @@ pub struct CollatorProtocolSubsystem {
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 impl CollatorProtocolSubsystem {
 	/// Start the collator protocol.
-	/// If `id` is `Some` this is a collator side of the protocol.
-	/// If `id` is `None` this is a validator side of the protocol.
-	/// Caller must provide a registry for prometheus metrics.
 	pub fn new(protocol_side: ProtocolSide) -> Self {
 		Self { protocol_side }
 	}
@@ -150,7 +148,6 @@ impl<Context> CollatorProtocolSubsystem {
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			#[cfg(feature = "experimental-collator-protocol")]
 			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
 				validator_side_experimental::run(ctx, keystore, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))

@@ -627,6 +627,7 @@ async fn handle_candidate_backed(
 				?relay_parent,
 				?para,
 				?is_active_leaf,
+				?candidate_hash,
 				"Candidate backed. Candidate chain for para: {:?}",
 				chain.best_chain_vec()
 			);

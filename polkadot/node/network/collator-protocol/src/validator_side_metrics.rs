@@ -74,6 +74,7 @@ struct MetricsInner {
 	handle_collation_request_result: prometheus::Histogram,
 	collator_peer_count: prometheus::Gauge<prometheus::U64>,
 	collation_request_duration: prometheus::Histogram,
+	// TODO: Not available for the new implementation. Remove with the old implementation.
 	request_unblocked_collations: prometheus::Histogram,
 }
 

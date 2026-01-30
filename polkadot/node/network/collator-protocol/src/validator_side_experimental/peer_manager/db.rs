@@ -20,7 +20,7 @@ use crate::validator_side_experimental::{
 };
 use async_trait::async_trait;
 use polkadot_node_network_protocol::PeerId;
-use polkadot_primitives::{BlockNumber, Hash, Id as ParaId};
+use polkadot_primitives::{BlockNumber, Id as ParaId};
 use std::{
 	collections::{btree_map, hash_map, BTreeMap, BTreeSet, HashMap},
 	time::{SystemTime, UNIX_EPOCH},
@@ -31,14 +31,14 @@ use std::{
 pub struct Db {
 	db: BTreeMap<ParaId, HashMap<PeerId, ScoreEntry>>,
 	last_finalized: Option<BlockNumber>,
-	stored_limit_per_para: u8,
+	stored_limit_per_para: u16,
 }
 
 impl Db {
 	/// Create a new instance of the in-memory DB.
 	///
 	/// `stored_limit_per_para` is the maximum number of reputations that can be stored per para.
-	pub async fn new(stored_limit_per_para: u8) -> Self {
+	pub async fn new(stored_limit_per_para: u16) -> Self {
 		Self { db: BTreeMap::new(), last_finalized: None, stored_limit_per_para }
 	}
 }
@@ -96,6 +96,18 @@ impl Backend for Db {
 
 		self.last_finalized = Some(leaf_number);
 		self.bump_reputations(bumps, decay_value)
+	}
+
+	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		let mut max_scores = HashMap::with_capacity(paras.len());
+		for para in paras {
+			if let Some(per_para) = self.db.get(&para) {
+				let max_score =
+					per_para.values().map(|e| e.score).max().unwrap_or(Score::new(0).unwrap());
+				max_scores.insert(para, max_score);
+			}
+		}
+		max_scores
 	}
 }
 
