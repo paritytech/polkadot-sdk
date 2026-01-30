@@ -51,9 +51,6 @@ impl MockProspectiveParachains {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
-					ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {
-						tx.send(vec![]).unwrap();
-					},
 					ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx) => {
 						tx.send(
 							req.candidates

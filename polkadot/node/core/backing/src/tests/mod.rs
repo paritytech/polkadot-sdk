@@ -416,6 +416,62 @@ async fn activate_leaf(
 
 	let ancestry_len = leaf_number + 1 - min_min;
 
+	// 1. SessionIndexForChild for the leaf
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+		) if parent == leaf_hash => {
+			tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+		}
+	);
+
+	// 2. SchedulingLookahead to determine how many ancestors to fetch
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::SchedulingLookahead(session_index, tx))
+		) if parent == leaf_hash && session_index == test_state.signing_context.session_index => {
+			tx.send(Ok(ancestry_len)).unwrap();
+		}
+	);
+
+	// 3. Bulk Ancestors request from Chain API
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::ChainApi(ChainApiMessage::Ancestors {
+			hash,
+			k,
+			response_channel: tx,
+		}) if hash == leaf_hash && k == (ancestry_len - 1) as usize => {
+			// Return ancestor hashes in descending order (excluding leaf)
+			let ancestors: Vec<Hash> = std::iter::successors(
+				Some(leaf_hash),
+				|h| Some(get_parent_hash(*h))
+			)
+			.skip(1)
+			.take(k)
+			.collect();
+			tx.send(Ok(ancestors)).unwrap();
+		}
+	);
+
+	// 4. SessionIndexForChild for each ancestor (to detect session boundaries)
+	for i in 0..(ancestry_len - 1) {
+		let ancestor_hash = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
+			.nth((i + 1) as usize)
+			.unwrap();
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+			) if parent == ancestor_hash => {
+				tx.send(Ok(test_state.signing_context.session_index)).unwrap();
+			}
+		);
+	}
+
+	// 5. Now handle BlockHeader requests for uncached blocks (existing flow)
 	let ancestry_hashes = std::iter::successors(Some(leaf_hash), |h| Some(get_parent_hash(*h)))
 		.take(ancestry_len as usize);
 	let ancestry_numbers = (min_min..=leaf_number).rev();
@@ -455,17 +511,6 @@ async fn activate_leaf(
 					tx.send(Ok(Some(header))).unwrap();
 				}
 			);
-
-			if requested_len == 0 {
-				assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::ProspectiveParachains(
-						ProspectiveParachainsMessage::GetMinimumRelayParents(parent, tx)
-					) if parent == leaf_hash => {
-						tx.send(min_relay_parents.clone()).unwrap();
-					}
-				);
-			}
 
 			requested_len += 1;
 		}
