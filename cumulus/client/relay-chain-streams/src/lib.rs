@@ -53,7 +53,7 @@ pub async fn pending_candidates(
 					relay_hash = ?hash,
 					"Skipping candidate due to sync.",
 				);
-				return None
+				return None;
 			}
 
 			let runtime_api_version = client

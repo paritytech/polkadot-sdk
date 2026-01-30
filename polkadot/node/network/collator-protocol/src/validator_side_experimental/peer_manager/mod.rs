@@ -190,7 +190,7 @@ impl<B: Backend> PeerManager<B> {
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
-			return
+			return;
 		}
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
@@ -415,7 +415,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 			"Peer manager stored finalized block number {} is higher than the latest finalized block.",
 			processed_finalized_block_number,
 		);
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let ancestry_len = std::cmp::min(
@@ -424,7 +424,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	);
 
 	if ancestry_len == 0 {
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let mut ancestors =

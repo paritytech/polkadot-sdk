@@ -58,12 +58,12 @@ impl Subsystem1 {
 					if let FromOrchestra::Communication { msg } = msg {
 						gum::info!("msg {:?}", msg);
 					}
-					continue 'louy
+					continue 'louy;
 				},
 				Ok(None) => (),
 				Err(_) => {
 					gum::info!("exiting");
-					break 'louy
+					break 'louy;
 				},
 			}
 
@@ -124,14 +124,14 @@ impl Subsystem2 {
 			match ctx.try_recv().await {
 				Ok(Some(msg)) => {
 					gum::info!("Subsystem2 received message {:?}", msg);
-					continue
+					continue;
 				},
 				Ok(None) => {
 					pending!();
 				},
 				Err(_) => {
 					gum::info!("exiting");
-					return
+					return;
 				},
 			}
 		}

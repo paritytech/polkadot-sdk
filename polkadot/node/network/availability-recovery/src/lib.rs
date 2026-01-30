@@ -193,7 +193,7 @@ fn reconstructed_data_matches_root(
 				err = ?e,
 				"Failed to obtain chunks",
 			);
-			return false
+			return false;
 		},
 	};
 
@@ -238,7 +238,7 @@ impl Future for RecoveryHandle {
 				"All receivers for available data dropped.",
 			);
 
-			return Poll::Ready(None)
+			return Poll::Ready(None);
 		}
 
 		let remote = &mut self.remote;
@@ -389,14 +389,14 @@ async fn handle_recover<Context>(
 	if let Some(result) =
 		state.availability_lru.get(&candidate_hash).cloned().map(|v| v.into_result())
 	{
-		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender)
+		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender);
 	}
 
 	if let Some(i) =
 		state.ongoing_recoveries.iter_mut().find(|i| i.candidate_hash == candidate_hash)
 	{
 		i.awaiting.push(response_sender);
-		return Ok(())
+		return Ok(());
 	}
 
 	let session_info_res = state
@@ -913,7 +913,7 @@ async fn erasure_task_thread(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
-				break
+				break;
 			},
 		}
 

@@ -91,7 +91,7 @@ impl Backend for Db {
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
 		if self.last_finalized.unwrap_or(0) >= leaf_number {
-			return vec![]
+			return vec![];
 		}
 
 		self.last_finalized = Some(leaf_number);
@@ -113,7 +113,7 @@ impl Db {
 
 			for (peer_id, bump) in bumps_per_para.iter() {
 				if u16::from(*bump) == 0 {
-					continue
+					continue;
 				}
 
 				self.db

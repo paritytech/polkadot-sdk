@@ -81,7 +81,7 @@ pub async fn assert_para_throughput(
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
-			continue
+			continue;
 		}
 
 		current_block_count += 1;
@@ -121,7 +121,7 @@ pub async fn assert_para_throughput(
 		if !expected_candidate_range.contains(actual) {
 			return Err(anyhow!(
 				"Candidate count {actual} not within range {expected_candidate_range:?}"
-			))
+			));
 		}
 	}
 
@@ -358,7 +358,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 			TxStatus::InFinalizedBlock(ref tx_in_block) => {
 				tx_in_block.wait_for_success().await?;
 				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
-				return Ok(tx_in_block.block_hash())
+				return Ok(tx_in_block.block_hash());
 			},
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
@@ -546,7 +546,7 @@ pub async fn wait_for_runtime_upgrade(
 		{
 			log::info!("Runtime upgraded in block {:?}", block.hash());
 
-			return Ok(block.hash())
+			return Ok(block.hash());
 		}
 	}
 

@@ -463,7 +463,7 @@ where
 		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
 				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
-				return Err(Error::ConsensusReset)
+				return Err(Error::ConsensusReset);
 			},
 			Ok(_) => {},
 			Err(api_error) => {

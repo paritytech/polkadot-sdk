@@ -151,7 +151,7 @@ impl<
 
 		// can never author when the unincluded segment is full.
 		if size_after_included >= C {
-			return false
+			return false;
 		}
 
 		// Check that we have not authored more than `V + 1` parachain blocks in the current relay

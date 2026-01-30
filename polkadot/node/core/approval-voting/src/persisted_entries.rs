@@ -164,7 +164,7 @@ impl ApprovalEntry {
 	) -> Option<(AssignmentCertV2, ValidatorIndex, DelayTranche)> {
 		let our = self.our_assignment.as_mut().and_then(|a| {
 			if a.triggered() {
-				return None
+				return None;
 			}
 			a.mark_triggered();
 

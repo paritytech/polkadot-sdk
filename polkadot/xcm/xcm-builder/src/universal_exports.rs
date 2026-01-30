@@ -285,7 +285,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -385,7 +385,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -626,7 +626,7 @@ impl<
 				},
 				Err((dest, _)) => {
 					*destination = Some(dest);
-					return Err(NotApplicable)
+					return Err(NotApplicable);
 				},
 			};
 
@@ -714,7 +714,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&d) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)
@@ -739,7 +739,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&(network, d.clone())) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)

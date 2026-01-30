@@ -91,7 +91,7 @@ impl ConnectedPeers {
 		peer_info: PeerInfo,
 	) -> TryAcceptOutcome {
 		if self.contains(&peer_id) {
-			return TryAcceptOutcome::Added
+			return TryAcceptOutcome::Added;
 		}
 
 		let mut outcome = TryAcceptOutcome::Rejected;
@@ -246,7 +246,7 @@ impl PerPara {
 		} else {
 			let Some(min_score) = self.sorted_scores.first() else {
 				// The limit must be 0, which is not possible given that limit is a NonZeroU16.
-				return TryAcceptOutcome::Rejected
+				return TryAcceptOutcome::Rejected;
 			};
 
 			if min_score.score >= score {
@@ -255,7 +255,7 @@ impl PerPara {
 				let Some(replaced) = self.sorted_scores.pop_first() else {
 					// Cannot really happen since we already know there's some entry with a lower
 					// score than ours.
-					return TryAcceptOutcome::Rejected
+					return TryAcceptOutcome::Rejected;
 				};
 				self.per_peer_score.remove(&replaced.peer_id);
 
@@ -269,7 +269,7 @@ impl PerPara {
 	fn update_reputation(&mut self, update: ReputationUpdate) {
 		let Some(score) = self.per_peer_score.get_mut(&update.peer_id) else {
 			// If the peer is not connected we don't care to update anything besides the DB.
-			return
+			return;
 		};
 
 		self.sorted_scores

@@ -104,7 +104,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
-						return None
+						return None;
 					},
 				Change::Reference(col, key) => {
 					if ref_counted_column(col) {
@@ -115,7 +115,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
-						return None
+						return None;
 					}
 				},
 				Change::Release(col, key) =>
@@ -125,7 +125,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						if !not_ref_counted_column.contains(&col) {
 							not_ref_counted_column.push(col);
 						}
-						return None
+						return None;
 					},
 			})
 		}));
@@ -134,7 +134,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 			return Err(DatabaseError(Box::new(parity_db::Error::InvalidInput(format!(
 				"Ref counted operation on non ref counted columns {:?}",
 				not_ref_counted_column
-			)))))
+			)))));
 		}
 
 		result.map_err(|e| DatabaseError(Box::new(e)))

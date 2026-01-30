@@ -149,7 +149,7 @@ impl MessageRaceLimits {
 			// limit number of messages in the batch
 			let new_selected_count = selected_count + 1;
 			if new_selected_count > reference.max_messages_in_this_batch {
-				break
+				break;
 			}
 			relay_reference.selected_size = new_selected_size;
 

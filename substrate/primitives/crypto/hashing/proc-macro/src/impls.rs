@@ -61,7 +61,7 @@ impl Parse for InputBytes {
 							)),
 					}
 				}
-				return Ok(InputBytes(bytes))
+				return Ok(InputBytes(bytes));
 			},
 			Err(_e) => (),
 		}

@@ -488,7 +488,7 @@ impl<T: Config> Pallet<T> {
 		if !signer.can_sign() {
 			return Err(
 				"No local accounts available. Consider adding one via `author_insertKey` RPC.",
-			)
+			);
 		}
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
@@ -523,7 +523,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -561,7 +561,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -604,7 +604,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -670,7 +670,7 @@ impl<T: Config> Pallet<T> {
 		// Let's check the status code before we proceed to reading the response.
 		if response.code != 200 {
 			log::warn!("Unexpected status code: {}", response.code);
-			return Err(http::Error::Unknown)
+			return Err(http::Error::Unknown);
 		}
 
 		// Next we want to fully read the response body and collect it to a vector of bytes.
@@ -750,12 +750,12 @@ impl<T: Config> Pallet<T> {
 		// Now let's check if the transaction has any chance to succeed.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if &next_authorized_at > block_number {
-			return InvalidTransaction::Stale.into()
+			return InvalidTransaction::Stale.into();
 		}
 		// Let's make sure to reject transactions from the future.
 		let current_block = <system::Pallet<T>>::block_number();
 		if &current_block < block_number {
-			return InvalidTransaction::Future.into()
+			return InvalidTransaction::Future.into();
 		}
 
 		// We prioritize transactions that are more far away from current average.

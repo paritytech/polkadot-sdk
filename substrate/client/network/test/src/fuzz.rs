@@ -214,7 +214,7 @@ async fn test_once() {
 								"Awaiting incoming response, ignoring obsolete Connect from PSM for peer {}",
 								peer_id,
 							);
-							continue
+							continue;
 						}
 
 						last_state = Some(*state);
@@ -239,7 +239,7 @@ async fn test_once() {
 								"Awaiting incoming response, ignoring obsolete Drop from PSM for peer {}",
 								peer_id,
 							);
-							continue
+							continue;
 						}
 
 						last_state = Some(*state);
@@ -265,7 +265,7 @@ async fn test_once() {
 										"Ignoring obsolete Accept for {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-									continue
+									continue;
 								} else if n.0 > incoming_index.0 {
 									panic!(
 										"Received {:?} while awaiting {:?} for peer {}",
@@ -296,7 +296,7 @@ async fn test_once() {
 										"Ignoring obsolete Reject for {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-									continue
+									continue;
 								} else if n.0 > incoming_index.0 {
 									panic!(
 										"Received {:?} while awaiting {:?} for peer {}",

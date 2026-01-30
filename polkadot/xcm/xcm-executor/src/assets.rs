@@ -266,18 +266,18 @@ impl AssetsInHolding {
 			match asset {
 				Asset { fun: Fungible(amount), id } => {
 					if self.fungible.get(id).map_or(true, |a| a < amount) {
-						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()))
+						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()));
 					}
 				},
 				Asset { fun: NonFungible(instance), id } => {
 					let id_instance = (id.clone(), *instance);
 					if !self.non_fungible.contains(&id_instance) {
-						return Err(TakeError::AssetUnderflow(id_instance.into()))
+						return Err(TakeError::AssetUnderflow(id_instance.into()));
 					}
 				},
 			}
 		}
-		return Ok(())
+		return Ok(());
 	}
 
 	/// Mutates `self` to its original value less `mask` and returns assets that were removed.
@@ -407,10 +407,10 @@ impl AssetsInHolding {
 						*balance -= amount;
 						*balance == 0
 					} else {
-						return Err(self)
+						return Err(self);
 					}
 				} else {
-					return Err(self)
+					return Err(self);
 				};
 				if remove {
 					self.fungible.remove(&asset.id);
@@ -448,23 +448,23 @@ impl AssetsInHolding {
 		let mut masked = AssetsInHolding::new();
 		let maybe_limit = mask.limit().map(|x| x as usize);
 		if maybe_limit.map_or(false, |l| l == 0) {
-			return masked
+			return masked;
 		}
 		match mask {
 			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => {
 				if maybe_limit.map_or(true, |l| self.len() <= l) {
-					return self.clone()
+					return self.clone();
 				} else {
 					for (c, &amount) in self.fungible.iter() {
 						masked.fungible.insert(c.clone(), amount);
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
 					for (c, instance) in self.non_fungible.iter() {
 						masked.non_fungible.insert((c.clone(), *instance));
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
 				}
@@ -480,7 +480,7 @@ impl AssetsInHolding {
 					if c == id {
 						masked.non_fungible.insert((c.clone(), *instance));
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
 				},

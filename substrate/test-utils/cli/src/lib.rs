@@ -220,7 +220,7 @@ pub async fn wait_n_finalized_blocks(n: usize, url: &str) {
 		if let Ok(block) = ChainApi::<(), Hash, Header, ()>::finalized_head(&rpc).await {
 			built_blocks.insert(block);
 			if built_blocks.len() > n {
-				break
+				break;
 			}
 		};
 		interval.tick().await;

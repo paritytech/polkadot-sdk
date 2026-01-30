@@ -176,7 +176,7 @@ where
 				target: LOG_TARGET,
 				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
 			);
-			return Ok(Weight::zero())
+			return Ok(Weight::zero());
 		};
 		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
 		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to

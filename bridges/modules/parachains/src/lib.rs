@@ -472,7 +472,7 @@ pub mod pallet {
 							},
 						);
 						Self::deposit_event(Event::MissingParachainHead { parachain });
-						continue
+						continue;
 					},
 					Err(e) => {
 						tracing::trace!(
@@ -482,7 +482,7 @@ pub mod pallet {
 							"The read of head of parachain has failed"
 						);
 						Self::deposit_event(Event::MissingParachainHead { parachain });
-						continue
+						continue;
 					},
 				};
 
@@ -502,7 +502,7 @@ pub mod pallet {
 						parachain_head_hash,
 						actual_parachain_head_hash,
 					});
-					continue
+					continue;
 				}
 
 				// convert from parachain head into stored parachain head data
@@ -517,7 +517,7 @@ pub mod pallet {
 								"The head of parachain has been provided, but it is not tracked by the pallet"
 							);
 							Self::deposit_event(Event::UntrackedParachainRejected { parachain });
-							continue
+							continue;
 						},
 					};
 
@@ -657,7 +657,7 @@ pub mod pallet {
 					parachain,
 					parachain_head_hash: new_head_hash,
 				});
-				return Err(())
+				return Err(());
 			}
 
 			// verify that the parachain head data size is <= `MaxParaHeadDataSize`
@@ -679,7 +679,7 @@ pub mod pallet {
 						parachain_head_size: e.value_size as _,
 					});
 
-					return Err(())
+					return Err(());
 				},
 			};
 

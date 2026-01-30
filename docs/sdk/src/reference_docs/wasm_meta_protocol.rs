@@ -35,7 +35,6 @@
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 //! follows:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
 //! The node and the runtime need to communicate. This is done through two concepts:
 //!
 //! 1. **Host functions**: a way for the (WASM) runtime to talk to the node. All host functions are
@@ -46,7 +45,6 @@
 //!    fundamental runtime API that any blockchain must implement in order to be able to (re)
 //!    execute blocks.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_client_runtime.mmd")]
-//!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See
 //! [`crate::reference_docs::custom_runtime_api_rpc`] as an example of how to add custom runtime
@@ -79,7 +77,6 @@
 //! > engine that enables trustless execution of the runtime in a distributed manner whilst
 //! > maintaining a canonical outcome of that execution.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_with_frame.mmd")]
-//!
 //! ## State
 //!
 //! From the previous sections, we know that the database component is part of the node, not the
@@ -96,7 +93,6 @@
 //! aware of. The rest of the state, including what logic the runtime has, what balance each user
 //! has and such, are all only comprehensible to the runtime.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/state.mmd")]
-//!
 //! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
 //! does not know what they mean, and it does not know what is the type of the corresponding value
 //! (e.g. if it is a number of a vector). Contrary, the runtime knows both the meaning of their
