@@ -26,7 +26,7 @@ use crate::{
 	evm::api::{recover_eth_address_from_message, AuthorizationListEntry},
 	storage::AccountInfo,
 	weights::WeightInfo,
-	Config,
+	Config, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use frame_support::{dispatch::DispatchResult, weights::WeightMeter};
@@ -90,7 +90,7 @@ pub(crate) fn validate_authorization<T: Config>(
 ) -> Option<(H160, bool)> {
 	if !auth.chain_id.is_zero() && auth.chain_id != chain_id {
 		log::debug!(
-			target: crate::LOG_TARGET,
+			target: LOG_TARGET,
 			"Invalid chain_id in authorization: expected {chain_id:?} or 0, got {:?}",
 			auth.chain_id
 		);
@@ -101,7 +101,7 @@ pub(crate) fn validate_authorization<T: Config>(
 		Ok(nonce) => nonce,
 		Err(_) => {
 			log::debug!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				"Authorization nonce too large: {:?}",
 				auth.nonce
 			);
@@ -112,7 +112,7 @@ pub(crate) fn validate_authorization<T: Config>(
 	let authority = match recover_authority(auth) {
 		Ok(addr) => addr,
 		Err(_) => {
-			log::debug!(target: crate::LOG_TARGET, "Failed to recover authority from signature");
+			log::debug!(target: LOG_TARGET, "Failed to recover authority from signature");
 			return None;
 		},
 	};
@@ -123,7 +123,7 @@ pub(crate) fn validate_authorization<T: Config>(
 
 	if current_nonce != expected_nonce {
 		log::debug!(
-			target: crate::LOG_TARGET,
+			target: LOG_TARGET,
 			"Nonce mismatch for {authority:?}: expected {expected_nonce:?}, got {current_nonce:?}",
 		);
 		return None;
@@ -132,7 +132,7 @@ pub(crate) fn validate_authorization<T: Config>(
 	// Verify account is not a contract (but delegated accounts are allowed)
 	if AccountInfo::<T>::is_contract(&authority) {
 		log::debug!(
-			target: crate::LOG_TARGET,
+			target: LOG_TARGET,
 			"Account {authority:?} has non-delegation code",
 		);
 		return None;
@@ -152,7 +152,7 @@ pub(crate) fn apply_delegation<T: Config>(authority: &H160, target_address: H160
 	} else {
 		if let Err(e) = AccountInfo::<T>::set_delegation(authority, target_address) {
 			log::debug!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				"Failed to set delegation for {authority:?}: {e:?}",
 			);
 			return;
