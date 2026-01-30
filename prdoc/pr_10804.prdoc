@@ -3,10 +3,13 @@ title: Take the header size into account for the total block size
 doc:
 - audience: Runtime Dev
   description: |
-    The `AllExtrinsicsLen` in `frame-system` now includes the header overhead (digest size and
+    The `BlockSize` storage item (formerly `AllExtrinsicsLen`) in `frame-system` now includes the header overhead (digest size and
     empty header size) in addition to the extrinsic lengths. This ensures that block size limits
     accurately account for the full block size, not just the extrinsics. Additionally, inherent
     digests are now limited to 20% of the maximum block size to prevent oversized headers.
+
+    **Breaking Change**: `AllExtrinsicsLen` has been renamed to `BlockSize` to better reflect its purpose.
+    External code using `frame_system::AllExtrinsicsLen` must be updated to use `frame_system::BlockSize`.
 
     The deprecated `BlockLength::max` and `BlockLength::max_with_normal_ratio` functions have been
     replaced with the new builder pattern across the entire codebase. Use
@@ -35,6 +38,10 @@ crates:
   bump: patch
 - name: parachains-common
   bump: patch
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: major
+- name: cumulus-pallet-weight-reclaim
+  bump: major
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime

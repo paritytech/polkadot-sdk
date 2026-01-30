@@ -996,13 +996,12 @@ pub mod pallet {
 	#[pallet::getter(fn block_weight)]
 	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
-	/// Total length (in bytes) for all extrinsics put together, for the current block.
+	/// Total size (in bytes) of the current block.
 	///
-	/// In contrast to its name it also includes the header overhead and digest size to accurately
-	/// track block size.
+	/// Tracks the size of the header and all extrinsics.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub type AllExtrinsicsLen<T: Config> = StorageValue<_, u32>;
+	pub type BlockSize<T: Config> = StorageValue<_, u32>;
 
 	/// Map of block numbers to block hashes.
 	#[pallet::storage]
@@ -1886,8 +1885,9 @@ impl<T: Config> Pallet<T> {
 		ExtrinsicCount::<T>::get().unwrap_or_default()
 	}
 
-	pub fn all_extrinsics_len() -> u32 {
-		AllExtrinsicsLen::<T>::get().unwrap_or_default()
+	/// Gets the total size (in bytes) of the current block.
+	pub fn block_size() -> u32 {
+		BlockSize::<T>::get().unwrap_or_default()
 	}
 
 	/// Inform the system pallet of some additional weight that should be accounted for, in the
@@ -1945,7 +1945,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let empty_header_size = empty_header.encoded_size();
 		let overhead = digest_size.saturating_add(empty_header_size) as u32;
-		AllExtrinsicsLen::<T>::put(overhead);
+		BlockSize::<T>::put(overhead);
 
 		// Ensure inherent digests don't exceed the configured max header size
 		let max_total_header = T::BlockLength::get().max_header_size();
@@ -1969,22 +1969,22 @@ impl<T: Config> Pallet<T> {
 	pub fn resource_usage_report() {
 		log::debug!(
 			target: LOG_TARGET,
-			"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
+			"[{:?}] {} extrinsics, block size: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
 			 {} (ref_time: {}%, proof_size: {}%) op weight {} (ref_time {}%, proof_size {}%) / \
 			  mandatory weight {} (ref_time: {}%, proof_size: {}%)",
 			Self::block_number(),
 			Self::extrinsic_count(),
-			Self::all_extrinsics_len(),
+			Self::block_size(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Normal)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Operational)
 			).deconstruct(),
 			sp_runtime::Percent::from_rational(
-				Self::all_extrinsics_len(),
+				Self::block_size(),
 				*T::BlockLength::get().max.get(DispatchClass::Mandatory)
 			).deconstruct(),
 			Self::block_weight().get(DispatchClass::Normal),
@@ -2022,7 +2022,7 @@ impl<T: Config> Pallet<T> {
 	pub fn finalize() -> HeaderFor<T> {
 		Self::resource_usage_report();
 		ExecutionPhase::<T>::kill();
-		AllExtrinsicsLen::<T>::kill();
+		BlockSize::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
 		InherentsApplied::<T>::kill();
 
@@ -2068,7 +2068,7 @@ impl<T: Config> Pallet<T> {
 	/// Digests should not be directly controllable by external users as they increase the size of
 	/// the header.
 	pub fn deposit_log(item: generic::DigestItem) {
-		AllExtrinsicsLen::<T>::mutate(|len| {
+		BlockSize::<T>::mutate(|len| {
 			*len = Some(len.unwrap_or(0).saturating_add(item.encoded_size() as u32));
 		});
 		<Digest<T>>::append(item);
@@ -2205,7 +2205,7 @@ impl<T: Config> Pallet<T> {
 		BlockWeight::<T>::mutate(|current_weight| {
 			current_weight.set(weight, DispatchClass::Normal)
 		});
-		AllExtrinsicsLen::<T>::put(len as u32);
+		BlockSize::<T>::put(len as u32);
 	}
 
 	/// Reset events.
@@ -2320,7 +2320,7 @@ impl<T: Config> Pallet<T> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Used block length: {:?}",
-			Pallet::<T>::all_extrinsics_len(),
+			Pallet::<T>::block_size(),
 		);
 
 		let next_extrinsic_index = Self::extrinsic_index().unwrap_or_default() + 1u32;

@@ -78,7 +78,7 @@ where
 		len: usize,
 	) -> Result<u32, TransactionValidityError> {
 		let length_limit = T::BlockLength::get();
-		let current_len = Pallet::<T>::all_extrinsics_len();
+		let current_len = Pallet::<T>::block_size();
 		let added_len = len as u32;
 		let next_len = current_len.saturating_add(added_len);
 		if next_len > *length_limit.max.get(info.class) {
@@ -133,7 +133,7 @@ where
 			calculate_consumed_weight::<T::RuntimeCall>(&maximum_weight, all_weight, info, len)?;
 		// Extrinsic weight already checked in `validate`.
 
-		crate::AllExtrinsicsLen::<T>::put(next_len);
+		crate::BlockSize::<T>::put(next_len);
 		crate::BlockWeight::<T>::put(next_weight);
 		Ok(())
 	}
@@ -311,7 +311,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{new_test_ext, RuntimeBlockWeights, System, Test, CALL},
-		AllExtrinsicsLen, BlockWeight, DispatchClass,
+		BlockSize, BlockWeight, DispatchClass,
 	};
 	use core::marker::PhantomData;
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
@@ -550,7 +550,7 @@ mod tests {
 
 			// likewise for length limit.
 			let len = 100_usize;
-			AllExtrinsicsLen::<Test>::put(normal_length_limit());
+			BlockSize::<Test>::put(normal_length_limit());
 			assert_eq!(
 				CheckWeight::<Test>(PhantomData)
 					.validate_and_prepare(Some(1).into(), CALL, &normal, len, 0)
@@ -573,7 +573,7 @@ mod tests {
 			let normal = DispatchInfo::default();
 			let normal_len_limit = normal_length_limit() as usize;
 			let reset_check_weight = |tx, s, f| {
-				AllExtrinsicsLen::<Test>::put(0);
+				BlockSize::<Test>::put(0);
 				let r = CheckWeight::<Test>(PhantomData).validate_and_prepare(
 					Some(1).into(),
 					CALL,

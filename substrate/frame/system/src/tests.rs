@@ -1009,14 +1009,14 @@ fn preinherent_digest_is_preserved() {
 }
 
 #[test]
-fn all_extrinsics_len_includes_digest_and_header_overhead() {
+fn block_size_includes_digest_and_header_overhead() {
 	new_test_ext().execute_with(|| {
 		let data = vec![42u8; 100];
 		let digest = Digest { logs: vec![DigestItem::PreRuntime(*b"test", data.clone())] };
 
 		System::initialize(&1, &[0u8; 32].into(), &digest);
 
-		let all_extrinsics_len = System::all_extrinsics_len();
+		let block_size = System::block_size();
 
 		let digest_size = digest.encoded_size();
 		use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
@@ -1030,17 +1030,17 @@ fn all_extrinsics_len_includes_digest_and_header_overhead() {
 		let empty_header_size = empty_header.encoded_size();
 		let expected_overhead = digest_size + empty_header_size;
 
-		assert_eq!(all_extrinsics_len as usize, expected_overhead);
-		assert!(all_extrinsics_len > 100);
+		assert_eq!(block_size as usize, expected_overhead);
+		assert!(block_size > 100);
 	});
 }
 
 #[test]
-fn deposit_log_updates_all_extrinsics_len() {
+fn deposit_log_updates_block_size() {
 	new_test_ext().execute_with(|| {
 		System::initialize(&1, &[0u8; 32].into(), &Default::default());
 
-		let initial_len = System::all_extrinsics_len();
+		let initial_len = System::block_size();
 
 		let log_data = vec![42u8; 1000];
 		let log_item = DigestItem::Other(log_data.clone());
@@ -1048,7 +1048,7 @@ fn deposit_log_updates_all_extrinsics_len() {
 
 		System::deposit_log(log_item);
 
-		let new_len = System::all_extrinsics_len();
+		let new_len = System::block_size();
 		assert_eq!(new_len, initial_len + log_size as u32);
 	});
 }
