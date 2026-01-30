@@ -47,7 +47,7 @@ use frame_support::{
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
-use sp_core::{H160, U256};
+use sp_core::{ecdsa, keccak_256, Pair, H160, U256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	generic::Header,
@@ -79,6 +79,78 @@ impl EthExtra for EthExtraImpl {
 			ChargeTransactionPayment::from(tip),
 			crate::evm::tx_extension::SetOrigin::<Test>::new_from_eth_transaction(),
 		)
+	}
+}
+
+/// Helper function to generate a simple dummy EVM contract
+/// Returns bytecode that stores a value (42) in memory and returns it
+pub(crate) fn dummy_evm_contract() -> Vec<u8> {
+	use revm::bytecode::opcode::*;
+	vec![PUSH1, 0x2a, PUSH1, 0x00, MSTORE, PUSH1, 0x20, PUSH1, 0x00, RETURN]
+}
+
+/// Test keypair for signing EIP-7702 authorizations
+pub(crate) struct TestSigner {
+	keypair: ecdsa::Pair,
+	pub address: H160,
+}
+
+impl TestSigner {
+	/// Create a new test signer from a seed
+	pub fn new(seed: &[u8; 32]) -> Self {
+		let keypair = ecdsa::Pair::from_seed(seed);
+		let dummy_message = [0u8; 32];
+		let signature = keypair.sign_prehashed(&dummy_message);
+
+		use sp_io::crypto::secp256k1_ecdsa_recover;
+		let recovered_pubkey = secp256k1_ecdsa_recover(&signature.0, &dummy_message)
+			.ok()
+			.expect("Failed to recover public key from signature");
+		let pubkey_hash = keccak_256(&recovered_pubkey);
+		let address = H160::from_slice(&pubkey_hash[12..]);
+
+		Self { keypair, address }
+	}
+
+	/// Sign an EIP-7702 authorization tuple
+	pub fn sign_authorization(
+		&self,
+		chain_id: U256,
+		address: H160,
+		nonce: U256,
+	) -> crate::evm::AuthorizationListEntry {
+		// Build unsigned entry for RLP encoding
+		let unsigned = crate::evm::AuthorizationListEntry {
+			chain_id,
+			address,
+			nonce,
+			y_parity: U256::zero(),
+			r: U256::zero(),
+			s: U256::zero(),
+		};
+
+		let mut message = Vec::new();
+		message.push(crate::evm::eip7702::EIP7702_MAGIC);
+		message.extend_from_slice(&unsigned.rlp_encode_unsigned());
+
+		let message_hash = keccak_256(&message);
+		let signature = self.keypair.sign_prehashed(&message_hash);
+		let sig_bytes = signature.0;
+
+		let mut r_bytes = [0u8; 32];
+		let mut s_bytes = [0u8; 32];
+		r_bytes.copy_from_slice(&sig_bytes[0..32]);
+		s_bytes.copy_from_slice(&sig_bytes[32..64]);
+		let recovery_id = sig_bytes[64];
+
+		crate::evm::AuthorizationListEntry {
+			chain_id,
+			address,
+			nonce,
+			y_parity: U256::from(recovery_id),
+			r: U256::from_big_endian(&r_bytes),
+			s: U256::from_big_endian(&s_bytes),
+		}
 	}
 }
 
@@ -427,9 +499,9 @@ impl SetWeightLimit for RuntimeCall {
 	fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
 		match self {
 			Self::Contracts(
-				Call::eth_call { weight_limit, .. }
-				| Call::eth_call_with_authorization_list { weight_limit, .. }
-				| Call::eth_instantiate_with_code { weight_limit, .. },
+				Call::eth_call { weight_limit, .. } |
+				Call::eth_call_with_authorization_list { weight_limit, .. } |
+				Call::eth_instantiate_with_code { weight_limit, .. },
 			) => {
 				let old = *weight_limit;
 				*weight_limit = new_weight_limit;

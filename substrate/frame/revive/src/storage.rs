@@ -179,6 +179,23 @@ impl<T: Config> AccountInfo<T> {
 		Some(contract_info)
 	}
 
+	/// Loads the contract to execute at a given address, following EIP-7702 delegation.
+	///
+	/// - If the address is a contract, returns its ContractInfo
+	/// - If the address is delegated, returns the delegate target's ContractInfo
+	/// - Returns None for EOAs or if delegation target is not a contract
+	///
+	/// Per EIP-7702: only follows one level of delegation (no chaining).
+	pub fn load_contract_or_delegate(address: &H160) -> Option<ContractInfo<T>> {
+		let info = <AccountInfoOf<T>>::get(address)?;
+
+		match info.account_type {
+			AccountType::Contract(contract_info) => Some(contract_info),
+			AccountType::Delegated { target } => Self::load_contract(&target),
+			AccountType::EOA => None,
+		}
+	}
+
 	/// Insert a contract, existing dust if any will be unchanged.
 	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
 		AccountInfoOf::<T>::mutate(address, |account| {

@@ -2331,15 +2331,26 @@ impl<T: Config> Pallet<T> {
 	/// Returns the code at `address`.
 	///
 	/// This takes pre-compiles into account.
+	/// For EIP-7702 delegated accounts, returns the delegation indicator (0xef0100 || target).
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
 			return code.into();
 		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
+
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return Vec::new() };
+
+		match info.account_type {
+			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
+				.map(|code| code.into())
+				.unwrap_or_default(),
+			AccountType::Delegated { target } => {
+				let mut code = alloc::vec![0xef, 0x01, 0x00];
+				code.extend_from_slice(target.as_bytes());
+				code
+			},
+			AccountType::EOA => Vec::new(),
+		}
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
