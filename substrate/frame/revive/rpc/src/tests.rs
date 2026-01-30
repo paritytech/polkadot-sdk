@@ -20,7 +20,6 @@
 
 use crate::{
 	cli::{self, CliCommand},
-	client,
 	example::TransactionBuilder,
 	subxt_client::{
 		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
@@ -103,6 +102,10 @@ impl SharedResources {
 		ws_client_with_retry("ws://localhost:45788").await
 	}
 
+	async fn node_client() -> OnlineClient<SrcChainConfig> {
+		OnlineClient::<SrcChainConfig>::from_url(Self::node_rpc_url()).await.unwrap()
+	}
+
 	fn node_rpc_url() -> &'static str {
 		"ws://localhost:45789"
 	}
@@ -120,7 +123,7 @@ macro_rules! unwrap_call_err(
 // Helper functions
 /// Prepare multiple EVM transfer transactions with nonce in descending order
 async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
-	client: &Arc<Client>,
+	client: Arc<Client>,
 	signer: Account,
 	recipient: pallet_revive::evm::Address,
 	amount: U256,
@@ -264,9 +267,24 @@ async fn verify_transactions_in_single_block(
 
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
+	// Set up a 2-minute timeout for the entire test
+	let timeout_duration = tokio::time::Duration::from_secs(120);
+	let result = tokio::time::timeout(timeout_duration, run_all_eth_rpc_tests_inner()).await;
+
+	match result {
+		Ok(inner_result) => inner_result,
+		Err(_) => {
+			log::error!(target: LOG_TARGET, "Test timed out after 2 minutes!");
+			std::process::exit(1);
+		},
+	}
+}
+
+async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 	// start node and rpc server
 	let _shared = SharedResources::start();
-	let client = Arc::new(SharedResources::client().await);
+	// Wait for servers to be ready
+	let _ = SharedResources::client().await;
 
 	macro_rules! run_tests {
 		($($test:ident),+ $(,)?) => {
@@ -274,7 +292,7 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 				{
 					let test_name = stringify!($test);
 					log::debug!(target: LOG_TARGET, "Running test: {}", test_name);
-					match $test(client.clone()).await {
+					match $test().await {
 						Ok(()) => log::debug!(target: LOG_TARGET, "Test passed: {}", test_name),
 						Err(err) => panic!("Test {} failed: {err:?}", test_name),
 					}
@@ -304,7 +322,8 @@ async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_transfer(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_transfer() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 
@@ -332,7 +351,8 @@ async fn test_transfer(client: Arc<WsClient>) -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_deploy_and_call(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_deploy_and_call() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
 	// Balance transfer
@@ -423,7 +443,9 @@ async fn test_deploy_and_call(client: Arc<WsClient>) -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_runtime_api_dry_run_addr_works(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
 	let account = Account::default();
 	let origin: [u8; 32] = account.substrate_account().into();
 	let data = b"hello world".to_vec();
@@ -446,14 +468,21 @@ async fn test_runtime_api_dry_run_addr_works(client: Arc<WsClient>) -> anyhow::R
 		.await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
-	let c = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
-	let res = c.runtime_api().at_latest().await?.call(payload).await?.result.unwrap();
+	let res = node_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(payload)
+		.await?
+		.result
+		.unwrap();
 
 	assert_eq!(res.addr, contract_address);
 	Ok(())
 }
 
-async fn test_invalid_transaction(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_invalid_transaction() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 
 	let err = TransactionBuilder::new(client.clone())
@@ -493,9 +522,10 @@ async fn get_evm_block_from_storage(
 	Ok(block.0)
 }
 
-async fn test_evm_blocks_should_match(client: Arc<WsClient>) -> anyhow::Result<()> {
-	let (node_client, node_rpc_client, _) =
-		client::connect(SharedResources::node_rpc_url()).await.unwrap();
+async fn test_evm_blocks_should_match() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+	let node_rpc_client = RpcClient::from_url(SharedResources::node_rpc_url()).await?;
 
 	// Deploy a contract to have some interesting blocks
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
@@ -538,7 +568,8 @@ async fn test_evm_blocks_should_match(client: Arc<WsClient>) -> anyhow::Result<(
 	Ok(())
 }
 
-async fn test_evm_blocks_hydrated_should_match(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	// Deploy a contract to have some transactions in the block
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let value = U256::from(5_000_000_000_000u128);
@@ -591,9 +622,8 @@ async fn test_evm_blocks_hydrated_should_match(client: Arc<WsClient>) -> anyhow:
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works(
-	client: Arc<WsClient>,
-) -> anyhow::Result<()> {
+async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	// Deploy a transaction to create a block with transactions
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let value = U256::from(5_000_000_000_000u128);
@@ -622,9 +652,8 @@ async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works(
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails(
-	client: Arc<WsClient>,
-) -> anyhow::Result<()> {
+async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let fake_eth_hash = H256::from([0x42u8; 32]);
 
 	log::trace!(target: LOG_TARGET, "Testing with fake Ethereum hash: {fake_eth_hash:?}");
@@ -637,9 +666,8 @@ async fn test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails(
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_block_number_works(
-	client: Arc<WsClient>,
-) -> anyhow::Result<()> {
+async fn test_block_hash_for_tag_with_block_number_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 
 	log::trace!(target: LOG_TARGET, "Testing with block number: {block_number}");
@@ -653,9 +681,8 @@ async fn test_block_hash_for_tag_with_block_number_works(
 	Ok(())
 }
 
-async fn test_block_hash_for_tag_with_block_tags_works(
-	client: Arc<WsClient>,
-) -> anyhow::Result<()> {
+async fn test_block_hash_for_tag_with_block_tags_works() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
 	let tags = vec![
@@ -675,7 +702,8 @@ async fn test_block_hash_for_tag_with_block_tags_works(
 	Ok(())
 }
 
-async fn test_multiple_transactions_in_block(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_multiple_transactions_in_block() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
 	let num_transactions = 20;
 	let alith = Account::default();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
@@ -683,7 +711,8 @@ async fn test_multiple_transactions_in_block(client: Arc<WsClient>) -> anyhow::R
 
 	// Prepare EVM transfer transactions
 	let transactions =
-		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_transactions).await?;
+		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_transactions)
+			.await?;
 
 	// Submit all transactions
 	let submitted_txs = submit_evm_transactions(transactions).await?;
@@ -698,7 +727,9 @@ async fn test_multiple_transactions_in_block(client: Arc<WsClient>) -> anyhow::R
 	Ok(())
 }
 
-async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow::Result<()> {
+async fn test_mixed_evm_substrate_transactions() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
 	let num_evm_txs = 10;
 	let num_substrate_txs = 7;
 
@@ -709,12 +740,12 @@ async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow:
 	// Prepare EVM transactions
 	log::trace!(target: LOG_TARGET, "Creating {num_evm_txs} EVM transfer transactions");
 	let evm_transactions =
-		prepare_evm_transactions(&client, alith, ethan.address(), amount, num_evm_txs).await?;
+		prepare_evm_transactions(client.clone(), alith, ethan.address(), amount, num_evm_txs)
+			.await?;
 
 	// Prepare substrate transactions (simple remarks)
 	log::trace!(target: LOG_TARGET, "Creating {num_substrate_txs} substrate remark transactions");
 	let alice_signer = subxt_signer::sr25519::dev::alice();
-	let (node_client, _, _) = client::connect(SharedResources::node_rpc_url()).await.unwrap();
 
 	let substrate_txs =
 		prepare_substrate_transactions(&node_client, &alice_signer, num_substrate_txs).await?;
@@ -743,9 +774,10 @@ async fn test_mixed_evm_substrate_transactions(client: Arc<WsClient>) -> anyhow:
 	Ok(())
 }
 
-async fn test_runtime_pallets_address_upload_code(client: Arc<WsClient>) -> anyhow::Result<()> {
-	let (node_client, node_rpc_client, _) =
-		client::connect(SharedResources::node_rpc_url()).await?;
+async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+	let node_rpc_client = RpcClient::from_url(SharedResources::node_rpc_url()).await?;
 
 	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let signer = Account::default();
