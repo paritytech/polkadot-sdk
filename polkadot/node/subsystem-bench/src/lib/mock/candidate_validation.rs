@@ -18,7 +18,7 @@
 //! is responding with candidate valid for every request.
 
 use futures::FutureExt;
-use polkadot_node_primitives::ValidationResult;
+use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 use polkadot_node_subsystem::{
 	messages::CandidateValidationMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
@@ -27,11 +27,13 @@ use polkadot_primitives::{CandidateCommitments, Hash, HeadData, PersistedValidat
 
 const LOG_TARGET: &str = "subsystem-bench::candidate-validation-mock";
 
-pub struct MockCandidateValidation {}
+pub struct MockCandidateValidation {
+	invalid_candidates: Vec<Hash>,
+}
 
 impl MockCandidateValidation {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(invalid_candidates: Vec<Hash>) -> Self {
+		Self { invalid_candidates }
 	}
 }
 
@@ -58,11 +60,15 @@ impl MockCandidateValidation {
 					CandidateValidationMessage::ValidateFromExhaustive {
 						response_sender,
 						validation_data,
+						candidate_receipt,
 						..
 					} => {
 						gum::debug!(target: LOG_TARGET, "ValidateFromExhaustive, PVD hash {:?}", validation_data.hash());
-						response_sender
-							.send(Ok(ValidationResult::Valid(
+
+						let res = if self.invalid_candidates.contains(&candidate_receipt.hash()) {
+							ValidationResult::Invalid(InvalidCandidate::BadParent)
+						} else {
+							ValidationResult::Valid(
 								CandidateCommitments::default(),
 								PersistedValidationData {
 									parent_head: HeadData(Vec::new()),
@@ -70,8 +76,9 @@ impl MockCandidateValidation {
 									relay_parent_storage_root: Hash::default(),
 									max_pov_size: 2,
 								},
-							)))
-							.unwrap()
+							)
+						};
+						response_sender.send(Ok(res)).unwrap()
 					},
 					_ => unimplemented!("Unexpected chain-api message"),
 				},

@@ -18,6 +18,7 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	disputes::DisputesOptions,
 	network::{HandleNetworkMessage, NetworkMessage},
+	NODE_UNDER_TEST,
 };
 use codec::Encode;
 use polkadot_node_network_protocol::request_response::{
@@ -35,6 +36,7 @@ use polkadot_primitives::{
 	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use sp_keystore::KeystorePtr;
 use std::{
 	collections::{HashMap, HashSet},
@@ -45,6 +47,8 @@ use std::{
 pub struct TestState {
 	// Full test config
 	pub config: TestConfiguration,
+	// Disputes Options
+	pub options: DisputesOptions,
 	// Authority keys for the network emulation.
 	pub test_authorities: TestAuthorities,
 	// Relay chain block infos
@@ -54,7 +58,7 @@ pub struct TestState {
 	// Generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
 	// Generated dispute requests
-	pub dispute_requests: HashMap<CandidateHash, DisputeRequest>,
+	pub dispute_requests: HashMap<CandidateHash, Vec<(u32, DisputeRequest)>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 	// Map from candidate hash to authorities that have received a dispute request
@@ -64,9 +68,11 @@ pub struct TestState {
 impl TestState {
 	pub fn new(config: &TestConfiguration, options: &DisputesOptions) -> Self {
 		let config = config.clone();
+		let options = options.clone();
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
+		// Generate candidate receipts for each dispute
 		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
 			.iter()
 			.map(|block_info| {
@@ -91,42 +97,105 @@ impl TestState {
 				)
 			})
 			.collect();
-		let dispute_requests = candidate_receipts
+
+		let misbehaving: HashSet<u32> = HashSet::from_iter(options.misbehaving_validators.clone());
+		assert!(!misbehaving.is_empty(), "At least one misbehaving validator must be specified");
+		assert!(
+			misbehaving
+				.iter()
+				.all(|&i| i != NODE_UNDER_TEST && i < config.n_validators as u32),
+			"Misbehaving validators should be within validators range. Index {NODE_UNDER_TEST} is reserved for the node under test"
+		);
+		let mut rng = thread_rng();
+		let misbehaving_indices = (0..options.n_disputes)
+			.map(|_| {
+				*misbehaving
+					.iter()
+					.nth(rng.gen_range(0..misbehaving.len()))
+					.expect("At least one misbehaving validator")
+			})
+			.collect::<Vec<_>>();
+		let mut available_indices: Vec<u32> =
+			(1..config.n_validators as u32).filter(|i| !misbehaving.contains(i)).collect();
+		let validator_indices_per_candidate: Vec<Vec<u32>> = (0..options.n_disputes)
+			.map(|_| {
+				available_indices.shuffle(&mut rng);
+				available_indices
+					.iter()
+					.take(options.votes_per_candidate as usize)
+					.cloned()
+					.collect::<Vec<_>>()
+			})
+			.collect();
+
+		let dispute_requests: HashMap<_, _> = candidate_receipts
 			.iter()
 			.flat_map(|(_, receipts)| {
-				receipts.iter().map(|receipt| {
-					let valid = issue_explicit_statement(
-						test_authorities.keyring.local_keystore(),
-						test_authorities.validator_public[1].clone(),
-						receipt.hash(),
-						1,
-						true,
-					);
-					let invalid = issue_explicit_statement(
-						test_authorities.keyring.local_keystore(),
-						test_authorities.validator_public[3].clone(),
-						receipt.hash(),
-						1,
-						false,
-					);
+				itertools::izip!(
+					receipts.iter(),
+					validator_indices_per_candidate.iter(),
+					misbehaving_indices.iter()
+				)
+				.map(|(receipt, validator_indices, &misbehaving_index)| {
+					let requests = validator_indices
+						.iter()
+						.map(|&validator_index| {
+							let statements = vec![
+								(
+									issue_explicit_statement(
+										test_authorities.keyring.local_keystore(),
+										test_authorities.validator_public[validator_index as usize]
+											.clone(),
+										receipt.hash(),
+										1,
+										options.concluded_valid,
+									),
+									ValidatorIndex(validator_index),
+								),
+								(
+									issue_explicit_statement(
+										test_authorities.keyring.local_keystore(),
+										test_authorities.validator_public
+											[misbehaving_index as usize]
+											.clone(),
+										receipt.hash(),
+										1,
+										!options.concluded_valid, /* votes against the
+										                           * supermajority */
+									),
+									ValidatorIndex(misbehaving_index),
+								),
+							];
 
-					(
-						receipt.hash(),
-						DisputeRequest(UncheckedDisputeMessage {
-							candidate_receipt: receipt.clone(),
-							session_index: 1,
-							valid_vote: ValidDisputeVote {
-								validator_index: ValidatorIndex(1),
-								signature: valid.validator_signature().clone(),
-								kind: ValidDisputeStatementKind::Explicit,
-							},
-							invalid_vote: InvalidDisputeVote {
-								validator_index: ValidatorIndex(3),
-								signature: invalid.validator_signature().clone(),
-								kind: InvalidDisputeStatementKind::Explicit,
-							},
-						}),
-					)
+							let valid = statements
+								.iter()
+								.find(|(s, _)| s.statement().indicates_validity())
+								.expect("One statement generates as valid");
+							let invalid = statements
+								.iter()
+								.find(|(s, _)| s.statement().indicates_invalidity())
+								.expect("One statement generates as invalid");
+
+							let request = DisputeRequest(UncheckedDisputeMessage {
+								candidate_receipt: receipt.clone(),
+								session_index: 1,
+								valid_vote: ValidDisputeVote {
+									validator_index: valid.1,
+									signature: valid.0.validator_signature().clone(),
+									kind: ValidDisputeStatementKind::Explicit,
+								},
+								invalid_vote: InvalidDisputeVote {
+									validator_index: invalid.1,
+									signature: invalid.0.validator_signature().clone(),
+									kind: InvalidDisputeStatementKind::Explicit,
+								},
+							});
+
+							(validator_index, request)
+						})
+						.collect::<Vec<_>>();
+
+					(receipt.hash(), requests)
 				})
 			})
 			.collect();
@@ -135,6 +204,7 @@ impl TestState {
 
 		Self {
 			config,
+			options,
 			test_authorities,
 			block_infos,
 			candidate_receipts,
@@ -142,6 +212,18 @@ impl TestState {
 			dispute_requests,
 			block_headers,
 			requests_tracker,
+		}
+	}
+
+	pub fn invalid_candidates(&self) -> Vec<Hash> {
+		if self.options.concluded_valid {
+			vec![]
+		} else {
+			// every disputed candidate should be invalid
+			self.candidate_receipts
+				.values()
+				.flat_map(|receipts| receipts.iter().map(|r| r.hash().0))
+				.collect::<Vec<_>>()
 		}
 	}
 }
