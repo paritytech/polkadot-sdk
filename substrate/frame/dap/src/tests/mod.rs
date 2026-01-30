@@ -17,7 +17,6 @@
 
 //! Tests for the DAP pallet.
 
-mod burn;
 mod burn_handler;
 mod genesis;
 mod migrations;

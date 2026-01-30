@@ -235,7 +235,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
-	type BurnDestination = pallet_balances::DirectBurn<Balances, AccountId>;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 parameter_types! {

@@ -97,7 +97,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = ();
 	type DoneSlashHandler = ();
-	type BurnDestination = pallet_balances::DirectBurn<Balances, AccountId>;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 parameter_types! {

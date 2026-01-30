@@ -108,7 +108,7 @@ impl pallet_treasury::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
-	type BurnDestination = (); // Just gets burned.
+	type BurnHandler = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
@@ -131,7 +131,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
-	type BurnDestination = (); // Just gets burned.
+	type BurnHandler = (); // Just gets burned.
 	type WeightInfo = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

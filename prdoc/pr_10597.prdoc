@@ -1,4 +1,4 @@
-title: 'Introduce pallet-dap-satellite for system chain fund collection and redirect all burns for native tokens to DAP/DAP satellite on Westend runtimes'
+title: 'Introduce pallet-dap-satellite and BurnHandler trait to control burn_from operation'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -11,12 +11,10 @@ doc:
     - **pallet-dap-satellite**: New pallet that implements `BurnHandler` and `OnUnbalanced`
       by accumulating funds in a satellite account.
     - DAP and DAP satellite funds are excluded from `active_issuance`.
-    - **[breaking change] pallet-balances**: `BurnDestination` is now a required config item
-      that must implement `BurnHandler`. The `BurnHandler::on_burned` method is called after
-      `decrease_balance` removes funds from an account, allowing each runtime to choose whether
-      burns lead to direct burning (reducing total issuance) or redirecting to a buffer.
+    - **[breaking change] pallet-balances**: new `BurnHandler` trait which controls the entire burn operation including
+      balance reduction and issuance handling.
       Runtimes must explicitly configure this:
-      - Non-DAP runtimes should use `pallet_balances::DirectBurn<Balances, AccountId>`
+      - Non-DAP runtimes should use `pallet_balances::DirectBurn<Balances>`
       - DAP-integrated runtimes use `pallet_dap::Pallet<Runtime>` (on AssetHub) or
         `pallet_dap_satellite::Pallet<Runtime>` (on other system chains)
       Note that non-native asset burns via pallet-assets do not use pallet-balances's implementation
@@ -26,8 +24,8 @@ doc:
     - **frame-support**: New `BurnHandler` trait and `DirectBurn` struct. `DirectBurn` implements
       `BurnHandler::on_burned` to reduce total issuance.
 
-    - Redirect all burns to DAP or DAP satellite.
-    - Fee split set to 100% DAP on Westend chains to accelerate testing.
+    - Redirect all burns to DAP or DAP satellite on Westend chains
+    - Fee split set to 100% DAP on Westend chains
 crates:
 - name: frame-support
   bump: minor

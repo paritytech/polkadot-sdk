@@ -17,15 +17,19 @@
 
 //! Tests for BurnHandler invocation in pallet-balances.
 //!
-//! These tests verify that the configurable `BurnDestination` handler is properly
+//! These tests verify that the configurable `BurnHandler` is properly
 //! called when burning tokens via `burn_from`.
 
 use crate::{self as pallet_balances, Config};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{fungible::Mutate, tokens::BurnHandler, ConstU32},
+	traits::{
+		fungible::{Inspect, Mutate, Unbalanced},
+		tokens::{BurnHandler, Fortitude, Precision, Preservation},
+		ConstU32,
+	},
 };
-use sp_runtime::BuildStorage;
+use sp_runtime::{BuildStorage, DispatchError, TokenError};
 use std::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -43,11 +47,30 @@ thread_local! {
 }
 
 /// Mock BurnHandler that records all calls for verification.
+/// Behaves like DirectBurn but also records the amounts.
 pub struct MockBurnHandler;
 
-impl BurnHandler<u64> for MockBurnHandler {
-	fn on_burned(amount: u64) {
-		BURN_HANDLER_CALLS.with(|c| c.borrow_mut().push(amount));
+impl BurnHandler<u64, u64> for MockBurnHandler {
+	fn burn_from(
+		who: &u64,
+		amount: u64,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<u64, DispatchError> {
+		// Perform the actual burn like DirectBurn does
+		let actual = Balances::reducible_balance(who, preservation, force).min(amount);
+		frame_support::ensure!(
+			actual == amount || precision == Precision::BestEffort,
+			TokenError::FundsUnavailable
+		);
+		let actual =
+			Balances::decrease_balance(who, actual, Precision::BestEffort, preservation, force)?;
+		Balances::set_total_issuance(Balances::total_issuance().saturating_sub(actual));
+
+		// Record the call for test verification
+		BURN_HANDLER_CALLS.with(|c| c.borrow_mut().push(actual));
+		Ok(actual)
 	}
 }
 
@@ -71,7 +94,7 @@ impl Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type MaxReserves = ConstU32<2>;
-	type BurnDestination = MockBurnHandler;
+	type BurnHandler = MockBurnHandler;
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {
@@ -87,10 +110,8 @@ fn new_test_ext() -> sp_io::TestExternalities {
 
 #[test]
 fn burn_from_invokes_burn_handler() {
-	use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
-
 	new_test_ext().execute_with(|| {
-		// Given: account 1 has 100 balance, no prior burn handler calls.
+		// Given: accounts have balances, no prior burn handler calls.
 		assert_eq!(Balances::free_balance(1), 100);
 		assert_eq!(Balances::free_balance(2), 200);
 		assert_eq!(Balances::free_balance(3), 300);
@@ -121,8 +142,7 @@ fn burn_from_invokes_burn_handler() {
 			Fortitude::Polite,
 		));
 
-		// Then: BurnHandler was called for each burn with the correct amounts,
-		// including for the burn with an amount of 0.
+		// Then: BurnHandler was called for each burn with the correct amounts.
 		let calls = take_burn_handler_calls();
 		assert_eq!(calls, vec![10, 20, 0]);
 
@@ -131,8 +151,8 @@ fn burn_from_invokes_burn_handler() {
 		assert_eq!(Balances::free_balance(2), 180);
 		assert_eq!(Balances::free_balance(3), 300);
 
-		// And: total issuance unchanged (MockBurnHandler doesn't reduce it).
-		assert_eq!(Balances::total_issuance(), initial_issuance);
+		// And: total issuance reduced (MockBurnHandler behaves like DirectBurn).
+		assert_eq!(Balances::total_issuance(), initial_issuance - 30);
 	});
 }
 
@@ -177,7 +197,6 @@ fn burn_entire_balance_reaps_account() {
 #[test]
 fn burn_below_ed_with_keep_alive_fails() {
 	use frame_support::assert_noop;
-	use sp_runtime::TokenError;
 
 	new_test_ext().execute_with(|| {
 		// Given: account 1 has 100 balance, ED is 1.

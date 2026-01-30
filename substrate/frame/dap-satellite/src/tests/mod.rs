@@ -17,7 +17,6 @@
 
 //! Tests for the DAP Satellite pallet.
 
-mod burn;
 mod burn_handler;
 mod deal_with_fees_split;
 mod genesis;

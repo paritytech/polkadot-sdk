@@ -99,7 +99,7 @@ impl pallet_treasury::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
-	type BurnDestination = ();
+	type BurnHandler = ();
 	type WeightInfo = ();
 	type SpendFunds = Bounties;
 	type MaxApprovals = ConstU32<100>;

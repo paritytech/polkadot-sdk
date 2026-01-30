@@ -52,7 +52,7 @@
 //! ```ignore
 //! // In runtime configuration for Coretime/People/BridgeHub/RelayChain
 //! impl pallet_balances::Config for Runtime {
-//!     type BurnDestination = DapSatellite;
+//!     type BurnHandler = DapSatellite;
 //! }
 //!
 //! // For coretime revenue (pallet-broker)
@@ -74,12 +74,12 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		tokens::{BurnHandler, Precision},
+		tokens::{BurnHandler, Fortitude, Precision, Precision::BestEffort, Preservation},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
-use sp_runtime::{Percent, Saturating};
+use sp_runtime::{Percent, Saturating, TokenError};
 
 pub use pallet::*;
 
@@ -284,24 +284,35 @@ where
 }
 
 /// Implementation of BurnHandler for pallet.
-impl<T: Config> BurnHandler<BalanceOf<T>> for Pallet<T> {
-	fn on_burned(amount: BalanceOf<T>) {
-		let satellite = Self::satellite_account();
+///
+/// Moves burned funds to the satellite account instead of reducing total issuance.
+/// Total issuance remains unchanged; funds are marked as inactive for governance.
+impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn burn_from(
+		who: &T::AccountId,
+		amount: BalanceOf<T>,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let actual = T::Currency::reducible_balance(who, preservation, force).min(amount);
+		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
+		let actual = T::Currency::decrease_balance(who, actual, BestEffort, preservation, force)?;
 
-		// Credit the satellite account. The source account's balance has already been decreased
-		// by `burn_from` before this is called.
-		// Failure can only occur due to arithmetic overflow, which is extremely unlikely.
-		let _ = T::Currency::increase_balance(&satellite, amount, Precision::BestEffort)
-			.inspect_err(|_| {
-				frame_support::defensive!(
-					"Failed to credit DAP satellite - Loss of funds due to overflow"
-				);
-			});
+		// Credit the satellite account instead of reducing total issuance.
+		let satellite = Self::satellite_account();
+		let _ = T::Currency::increase_balance(&satellite, actual, BestEffort).inspect_err(|_| {
+			frame_support::defensive!(
+				"Failed to credit DAP satellite - Loss of funds due to overflow"
+			);
+		});
 
 		// Mark funds as inactive so they don't participate in governance voting.
 		// TODO: When implementing XCM transfer to AssetHub, call `reactivate(amount)` before
 		// sending.
-		T::Currency::deactivate(amount);
+		T::Currency::deactivate(actual);
+
+		Ok(actual)
 	}
 }
 

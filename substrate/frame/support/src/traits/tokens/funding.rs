@@ -15,115 +15,144 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Traits for handling funds that would otherwise be burned.
+//! Traits for customizing burn behavior in fungible token systems.
 //!
-//! This module provides abstractions for intercepting burns and redirecting funds in a way that
-//! can be configured differently per runtime.
+//! This module provides the [`BurnHandler`] trait which allows runtimes to customize what happens
+//! when tokens are burned via `fungible::Mutate::burn_from`.
 //!
 //! ## Overview
 //!
-//! There are two main traits for handling funds that would otherwise be burned:
+//! The `BurnHandler` trait controls the **entire** `burn_from` operation, including:
+//! - Validating the burn amount against the account's reducible balance
+//! - Decreasing the account balance
+//! - Handling total issuance (reduce it, or not)
+//! - Any additional side effects (e.g., crediting a buffer account)
 //!
-//! | Trait | Entry Point | Called By |
-//! |-------|-------------|-----------|
-//! | `BurnHandler` | `pallet_balances::burn_from()` | After balance decreased, handles the "burn" |
-//! | `OnUnbalanced` | Handler receives `Credit` imbalance | Fee handlers, revenue, slashes |
+//! ## Implementations
 //!
-//! ## When to Use Each Trait
+//! | Implementation | Behavior | Use Case |
+//! |----------------|----------|----------|
+//! | [`DirectBurn`] | Reduces balance and total issuance | Traditional burning |
+//! | `Dap` / `DapSatellite` | Moves funds to buffer, total issuance unchanged | DAP system chains |
+//! | `()` | No-op, discards funds | Testing only |
 //!
-//! ### BurnHandler
+//! ## Configuration
 //!
-//! Called by `pallet_balances::burn_from()` after the source account's balance has been decreased.
-//! This is the hook point for intercepting burns before total issuance is reduced.
-//!
-//! **Use cases:**
-//! - User calls `Balances::burn` extrinsic
-//! - Any pallet calling `T::Currency::burn_from()`
-//!
-//! **Configuration:** Set `type BurnDestination` in `pallet_balances::Config`.
-//!
-//! ### OnUnbalanced
-//!
-//! Defined in `crate::traits::tokens::imbalance`. Handles `Credit` imbalances.
-//!
-//! **Use cases:**
-//! - Transaction fees (via `pallet_transaction_payment::OnChargeTransaction`)
-//! - Coretime revenue (`pallet_broker::OnRevenue`)
-//! - Staking slashes
-//! - Any context producing a `Credit` that needs handling
-//!
-//! ## Implementation Patterns
-//!
-//! ### Direct Burn
-//!
-//! Use `DirectBurn` to reduce total issuance immediately:
+//! Configure via `pallet_balances::Config::BurnHandler`:
 //!
 //! ```ignore
 //! impl pallet_balances::Config for Runtime {
-//!     type BurnDestination = pallet_balances::DirectBurn<Balances, AccountId>;
-//! }
-//! ```
+//!     // Traditional burning - exact same behavior as before this trait existed
+//!     type BurnHandler = DirectBurn<Balances>;
 //!
-//! ### Buffer-Based (DAP)
-//!
-//! Redirect funds to a buffer account for later reuse:
-//!
-//! ```ignore
-//! // On AssetHub (central DAP)
-//! impl pallet_balances::Config for Runtime {
-//!     type BurnDestination = Dap;
-//! }
-//!
-//! // On other system chains (satellite)
-//! impl pallet_balances::Config for Runtime {
-//!     type BurnDestination = DapSatellite;
+//!     // Or for DAP satellite chains:
+//!     // type BurnHandler = DapSatellite;
 //! }
 //! ```
 
-use crate::traits::tokens::fungible;
+use crate::traits::tokens::{
+	fungible::{Inspect, Unbalanced},
+	Fortitude, Precision,
+	Precision::BestEffort,
+	Preservation,
+};
 use core::marker::PhantomData;
-use sp_runtime::Saturating;
+use sp_runtime::{traits::CheckedSub, ArithmeticError, DispatchError, Saturating, TokenError};
 
-/// Trait for handling burned funds.
+/// Handler for `fungible::Mutate::burn_from` operations.
 ///
-/// This trait is used by `pallet_balances::burn_from` to handle funds after they have been
-/// removed from the source account. Implementations can either:
-/// - Reduce total issuance (traditional burning via `DirectBurn`)
-/// - Credit to a buffer account (for DAP systems)
-pub trait BurnHandler<Balance> {
-	/// Handle funds that have been burned from an account.
+/// This trait allows customization of the entire burn flow. Implementations control:
+/// - Balance validation and reduction
+/// - Total issuance handling
+/// - Any additional side effects
+///
+/// See [`DirectBurn`] for the standard implementation that reduces total issuance.
+pub trait BurnHandler<AccountId, Balance> {
+	/// Execute a burn operation.
 	///
-	/// This operation is infallible.
-	fn on_burned(amount: Balance);
+	/// This method is called by `pallet_balances`'s implementation of
+	/// `fungible::Mutate::burn_from`.
+	///
+	/// # Parameters
+	/// - `who`: Account to burn from
+	/// - `amount`: Requested amount to burn
+	/// - `preservation`: Whether to keep the account alive
+	/// - `precision`: Whether to burn exactly the amount or best-effort
+	/// - `force`: Whether to force past frozen funds
+	///
+	/// # Returns
+	/// The actual amount burned on success.
+	fn burn_from(
+		who: &AccountId,
+		amount: Balance,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<Balance, DispatchError>;
 }
 
-/// Direct burning implementation of `BurnHandler`.
+/// Standard burn implementation that reduces total issuance.
 ///
-/// This implementation burns tokens directly by reducing total issuance.
-/// Used for traditional burn systems (e.g., Kusama).
+/// This is the default handler that maintains backward compatibility. It:
+/// 1. Validates the burn amount against reducible balance
+/// 2. Checks for total issuance underflow
+/// 3. Decreases the account balance
+/// 4. Reduces total issuance by the burned amount
+///
+/// Use this for all runtimes that want traditional burn behavior.
 ///
 /// # Type Parameters
 ///
-/// * `Currency` - The currency type that implements `fungible::Unbalanced`
-/// * `AccountId` - The account identifier type
-pub struct DirectBurn<Currency, AccountId>(PhantomData<(Currency, AccountId)>);
+/// * `Currency` - The currency type (typically `Balances` pallet)
+///
+/// # Example
+///
+/// ```ignore
+/// impl pallet_balances::Config for Runtime {
+///     type BurnHandler = DirectBurn<Balances>;
+/// }
+/// ```
+pub struct DirectBurn<Currency>(PhantomData<Currency>);
 
-impl<Currency, AccountId> BurnHandler<Currency::Balance> for DirectBurn<Currency, AccountId>
+impl<Currency, AccountId> BurnHandler<AccountId, Currency::Balance> for DirectBurn<Currency>
 where
-	Currency: fungible::Unbalanced<AccountId>,
+	Currency: Inspect<AccountId> + Unbalanced<AccountId>,
 	AccountId: Eq,
 {
-	fn on_burned(amount: Currency::Balance) {
-		// Reduce total issuance - funds are permanently destroyed
-		Currency::set_total_issuance(Currency::total_issuance().saturating_sub(amount));
+	fn burn_from(
+		who: &AccountId,
+		amount: Currency::Balance,
+		preservation: Preservation,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<Currency::Balance, DispatchError> {
+		let actual = Currency::reducible_balance(who, preservation, force).min(amount);
+		frame_support::ensure!(
+			actual == amount || precision == BestEffort,
+			TokenError::FundsUnavailable
+		);
+		Currency::total_issuance()
+			.checked_sub(&actual)
+			.ok_or(ArithmeticError::Overflow)?;
+		let actual = Currency::decrease_balance(who, actual, BestEffort, preservation, force)?;
+		Currency::set_total_issuance(Currency::total_issuance().saturating_sub(actual));
+		Ok(actual)
 	}
 }
 
-/// No-op implementation of `BurnHandler` for unit type.
+/// No-op implementation for testing.
 ///
-/// This implementation discards burned funds without reducing total issuance or crediting any
-/// buffer. Useful for test configurations where burn behavior is irrelevant, but be aware that
-/// tests using this won't verify realistic burn semantics.
-impl<Balance> BurnHandler<Balance> for () {
-	fn on_burned(_amount: Balance) {}
+/// Discards burned funds without affecting balances or issuance. Only use in tests where burn
+/// behavior is irrelevant. Tests needing realistic burn semantics should use [`DirectBurn`] or
+/// a custom implementation.
+impl<AccountId, Balance: Default> BurnHandler<AccountId, Balance> for () {
+	fn burn_from(
+		_who: &AccountId,
+		_amount: Balance,
+		_preservation: Preservation,
+		_precision: Precision,
+		_force: Fortitude,
+	) -> Result<Balance, DispatchError> {
+		Ok(Default::default())
+	}
 }

@@ -419,7 +419,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
-	type BurnDestination = pallet_balances::DirectBurn<Balances, AccountId>;
+	type BurnHandler = pallet_balances::DirectBurn<Balances>;
 }
 
 parameter_types! {
@@ -533,7 +533,7 @@ impl pallet_treasury::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
-	type BurnDestination = Society;
+	type BurnHandler = Society;
 	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = Bounties;
@@ -1321,7 +1321,7 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
-	type BurnDestination = pallet_balances::DirectBurn<NisCounterpartBalances, AccountId>;
+	type BurnHandler = pallet_balances::DirectBurn<NisCounterpartBalances>;
 }
 
 parameter_types! {

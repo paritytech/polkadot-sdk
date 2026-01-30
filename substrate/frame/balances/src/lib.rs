@@ -246,10 +246,10 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
-			/// No-op handler: burned funds are discarded without affecting issuance.
-			/// Tests needing realistic burn semantics should override with a
-			/// [`BurnHandler`](frame_support::traits::tokens::BurnHandler) implementation.
-			type BurnDestination = ();
+			/// No-op handler: returns zero without affecting balances or issuance.
+			/// Tests needing realistic burn semantics should override with
+			/// `DirectBurn<Balances>` or a custom implementation.
+			type BurnHandler = ();
 		}
 	}
 
@@ -339,13 +339,13 @@ pub mod pallet {
 			Self::Balance,
 		>;
 
-		/// Handler for burned funds.
+		/// Handler for `fungible::Mutate::burn_from` operations.
 		///
-		/// Called after `burn_from` decreases the source account's balance. See
-		/// [`BurnHandler`](frame_support::traits::tokens::BurnHandler) for available
-		/// implementations and how to configure different burn behaviors.
+		/// Controls the entire burn flow including balance reduction and issuance handling.
+		/// See [`BurnHandler`](frame_support::traits::tokens::BurnHandler) for available
+		/// implementations.
 		#[pallet::no_default_bounds]
-		type BurnDestination: BurnHandler<Self::Balance>;
+		type BurnHandler: BurnHandler<Self::AccountId, Self::Balance>;
 	}
 
 	/// The in-code storage version.
@@ -865,7 +865,7 @@ pub mod pallet {
 		/// If the origin's account ends up below the existential deposit as a result
 		/// of the burn and `keep_alive` is false, the account will be reaped.
 		///
-		/// The actual burn behavior is determined by the runtime's [`Config::BurnDestination`].
+		/// The actual burn behavior is determined by the runtime's [`Config::BurnHandler`].
 		/// See [`BurnHandler`](frame_support::traits::tokens::BurnHandler) implementations.
 		#[pallet::call_index(10)]
 		#[pallet::weight(if *keep_alive {T::WeightInfo::burn_allow_death() } else {T::WeightInfo::burn_keep_alive()})]

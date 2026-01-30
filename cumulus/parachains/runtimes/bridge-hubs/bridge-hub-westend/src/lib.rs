@@ -357,7 +357,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
-	type BurnDestination = DapSatellite;
+	type BurnHandler = DapSatellite;
 }
 
 parameter_types! {

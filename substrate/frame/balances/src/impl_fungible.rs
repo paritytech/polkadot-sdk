@@ -19,8 +19,7 @@
 use super::*;
 use frame_support::traits::{
 	tokens::{
-		Fortitude,
-		Precision::{self, BestEffort},
+		Fortitude, Precision,
 		Preservation::{self, Preserve, Protect},
 		Provenance::{self, Minted},
 	},
@@ -197,12 +196,7 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 		precision: Precision,
 		force: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		use fungible::{Inspect, Unbalanced};
-		let actual = Self::reducible_balance(who, preservation, force).min(amount);
-		ensure!(actual == amount || precision == BestEffort, TokenError::FundsUnavailable);
-		let actual = Self::decrease_balance(who, actual, BestEffort, preservation, force)?;
-		// Delegate to configurable handler instead of directly reducing total issuance.
-		T::BurnDestination::on_burned(actual);
+		let actual = T::BurnHandler::burn_from(who, amount, preservation, precision, force)?;
 		Self::done_burn_from(who, actual);
 		Ok(actual)
 	}

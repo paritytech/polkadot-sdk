@@ -131,7 +131,7 @@ impl Config for Test {
 	type RuntimeFreezeReason = TestId;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = VariantCountOf<TestId>;
-	type BurnDestination = crate::DirectBurn<Pallet<Test>, AccountId>;
+	type BurnHandler = crate::DirectBurn<Pallet<Test>>;
 }
 
 #[derive(Clone)]

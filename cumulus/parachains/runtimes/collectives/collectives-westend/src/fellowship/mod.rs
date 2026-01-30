@@ -296,7 +296,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
-	type BurnDestination = ();
+	type BurnHandler = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = EitherOf<
