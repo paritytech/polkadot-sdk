@@ -650,4 +650,16 @@ impl<T: Config> Pallet<T> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
+
+	pub(crate) fn do_reset_base_price(new_base_price: BalanceOf<T>) -> DispatchResult {
+		// Should fail if sales haven't started
+		SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+
+		// Schedule the price change for the next sale rotation
+		ScheduledBasePrice::<T>::put(new_base_price);
+
+		Self::deposit_event(Event::<T>::BasePriceReset { new_base_price });
+
+		Ok(())
+	}
 }

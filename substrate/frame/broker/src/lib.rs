@@ -208,6 +208,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RevenueInbox<T> = StorageValue<_, OnDemandRevenueRecordOf<T>, OptionQuery>;
 
+	/// Scheduled base price for the next sale rotation.
+	#[pallet::storage]
+	pub type ScheduledBasePrice<T> = StorageValue<_, BalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -500,6 +504,12 @@ pub mod pallet {
 		/// This should never happen, given that enable_auto_renew checks for this before enabling
 		/// auto-renewal.
 		AutoRenewalLimitReached,
+
+		/// The base/minimum price has been reset by administrative action.
+		BasePriceReset {
+			/// The new base/minimum price.
+			new_base_price: BalanceOf<T>,
+		},
 		/// Failed to assign a force reservation due to no free cores available.
 		ForceReservationFailed {
 			/// The schedule that could not be assigned.
@@ -1028,6 +1038,22 @@ pub mod pallet {
 		pub fn remove_lease(origin: OriginFor<T>, task: TaskId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_lease(task)
+		}
+
+		/// Reset the base/minimum price for coretime sales.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `new_base_price`: The new base/minimum price to set.
+		#[pallet::call_index(25)]
+		#[pallet::weight(T::WeightInfo::reset_base_price())]
+		pub fn reset_base_price(
+			origin: OriginFor<T>,
+			new_base_price: BalanceOf<T>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+
+			Self::do_reset_base_price(new_base_price)?;
+			Ok(())
 		}
 
 		/// Remove an assignment from the Workplan.

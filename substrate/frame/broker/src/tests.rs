@@ -2802,6 +2802,33 @@ fn force_reserve_works() {
 }
 
 #[test]
+fn reset_base_price_updates_sellout_price() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Make a purchase to set sellout price
+		assert_ok!(Broker::do_purchase(1, 100));
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.sellout_price, Some(100));
+
+		// Reset to higher price (scheduled for next sale)
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 150));
+
+		// Current sale sellout price should remain unchanged
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.sellout_price, Some(100));
+
+		// Advance to next sale boundary
+		advance_sale_period();
+
+		// New sale's sellout price should use the new base price
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 150);
+		assert_eq!(sale.sellout_price, Some(150));
+	});
+}
+
 fn remove_potential_renewal_rejects_non_admin_origin() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(
@@ -2817,6 +2844,45 @@ fn remove_potential_renewal_rejects_non_admin_origin() {
 }
 
 #[test]
+fn reset_base_price_works() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Verify initial price
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 100);
+
+		// Reset base price - should not affect current sale
+		assert_noop!(Broker::reset_base_price(RuntimeOrigin::signed(2), 50), BadOrigin);
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 50));
+
+		// Verify price was NOT updated immediately
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 100); // Still the old price
+
+		// Verify the scheduled price is stored
+		assert_eq!(ScheduledBasePrice::<Test>::get(), Some(50));
+
+		// Verify event was emitted
+		System::assert_has_event(Event::<Test>::BasePriceReset { new_base_price: 50 }.into());
+
+		// Advance to the next sale boundary
+		advance_sale_period();
+
+		// Now the price should be updated
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 50);
+
+		// scheduled price should be consumed
+		assert_eq!(ScheduledBasePrice::<Test>::get(), None);
+
+		// Test that purchase uses new price
+		advance_to(sale.sale_start + 1);
+		assert_ok!(Broker::do_purchase(1, 100));
+	});
+}
+
 fn remove_potential_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
@@ -2875,6 +2941,111 @@ fn remove_potential_renewal_works() {
 }
 
 #[test]
+fn reset_base_price_applies_at_sale_boundary() {
+	TestExt::new().endow(1, 10000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Record the current sale info
+		let initial_sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(initial_sale.end_price, 100);
+
+		// Reset price during active sale
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 50));
+
+		// Price should NOT change immediately
+		let current_sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(current_sale.end_price, 100);
+		assert_eq!(current_sale.region_begin, initial_sale.region_begin);
+
+		// Make a purchase at the current (old) price
+		let region_1 = Broker::do_purchase(1, 100).unwrap();
+		assert_ok!(Broker::do_assign(region_1, None, 1001, Final));
+
+		// Advance to next sale boundary
+		advance_sale_period();
+
+		// Now verify the new price is applied
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(new_sale.end_price, 50);
+		assert_eq!(new_sale.sellout_price, Some(50)); // Sellout price also uses new base
+
+		// scheduled price should be consumed
+		assert_eq!(ScheduledBasePrice::<Test>::get(), None);
+
+		// Verify we can purchase at the new price
+		advance_to(new_sale.sale_start + 1);
+		let region_2 = Broker::do_purchase(1, 100).unwrap();
+		assert_ok!(Broker::do_assign(region_2, None, 1002, Final));
+	});
+}
+
+#[test]
+fn reset_base_price_multiple_times() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// First reset
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 50));
+		assert_eq!(ScheduledBasePrice::<Test>::get(), Some(50));
+
+		// Second reset before sale boundary (should overwrite)
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 75));
+		assert_eq!(ScheduledBasePrice::<Test>::get(), Some(75));
+
+		// Advance to sale boundary
+		advance_sale_period();
+
+		// Only the last reset should be applied
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.end_price, 75);
+		assert_eq!(ScheduledBasePrice::<Test>::get(), None);
+	});
+}
+
+#[test]
+fn reset_base_price_doesnt_affect_renewals_immediately() {
+	TestExt::new().endow(1, 1000).endow(1001, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Purchase and assign a region
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_assign(region, None, 1001, Final));
+
+		// Don't enable auto-renewal yet - wait for the renewal to be available
+		// First, advance to when the renewal record should be created
+		advance_sale_period();
+
+		// Now check that a renewal record exists
+		let sale = SaleInfo::<Test>::get().unwrap();
+		let renewal_id = PotentialRenewalId { core: region.core, when: sale.region_begin };
+		assert!(PotentialRenewals::<Test>::get(renewal_id).is_some());
+
+		// Reset price during this sale
+		assert_ok!(Broker::reset_base_price(RuntimeOrigin::root(), 50));
+
+		// The renewal price should still be the old price (100)
+		let renewal_record = PotentialRenewals::<Test>::get(renewal_id).unwrap();
+		assert_eq!(renewal_record.price, 100);
+
+		// Now enable auto-renewal
+		assert_ok!(Broker::do_enable_auto_renew(1001, region.core, 1001, None));
+
+		// Advance to next sale where auto-renewal happens
+		advance_sale_period();
+	});
+}
+
+#[test]
+fn reset_base_price_no_sales_fails() {
+	TestExt::new().execute_with(|| {
+		// Should fail if sales haven't started
+		assert_noop!(Broker::reset_base_price(RuntimeOrigin::root(), 50), Error::<Test>::NoSales);
+	});
+}
+
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));

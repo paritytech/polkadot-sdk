@@ -1313,6 +1313,24 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn reset_base_price() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		let new_base_price = 50_000u32.into();
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, new_base_price);
+
+		let sale = SaleInfo::<T>::get().unwrap();
+		assert_eq!(sale.end_price, new_base_price);
+		assert_last_event::<T>(Event::BasePriceReset { new_base_price }.into());
+
+		Ok(())
+	}
+
 	fn remove_potential_renewal() -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
@@ -1339,7 +1357,6 @@ mod benches {
 		assert_last_event::<T>(
 			Event::PotentialRenewalRemoved { core: region_id.core, timeslice: region.end }.into(),
 		);
-
 		Ok(())
 	}
 

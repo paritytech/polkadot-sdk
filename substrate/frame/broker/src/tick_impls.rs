@@ -175,7 +175,15 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(old_sale.region_end, |r| r.system.saturating_reduce(old_pooled));
 
 		// Calculate the start price for the upcoming sale.
-		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale));
+		// Check if there's a pending base price reset to apply.
+		let new_prices = if let Some(pending_price) = ScheduledBasePrice::<T>::take() {
+			// Use the pending price directly instead of the price adapter
+			log::debug!("Applying pending base price reset: {:?}", pending_price);
+			AdaptedPrices { end_price: pending_price, target_price: pending_price }
+		} else {
+			// Use normal price adaptation
+			T::PriceAdapter::adapt_price(SalePerformance::from_sale(&old_sale))
+		};
 
 		log::debug!(
 			"Rotated sale, new prices: {:?}, {:?}",
