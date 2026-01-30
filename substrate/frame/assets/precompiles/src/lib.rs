@@ -118,6 +118,9 @@ where
 			IERC20Calls::allowance(call) => Self::allowance(asset_id, call, env),
 			IERC20Calls::approve(call) => Self::approve(asset_id, call, env),
 			IERC20Calls::transferFrom(call) => Self::transfer_from(asset_id, call, env),
+			IERC20Calls::name(_) => Self::name(asset_id, env),
+			IERC20Calls::symbol(_) => Self::symbol(asset_id, env),
+			IERC20Calls::decimals(_) => Self::decimals(asset_id, env),
 		}
 	}
 }
@@ -321,5 +324,50 @@ where
 		)?;
 
 		return Ok(IERC20::transferFromCall::abi_encode_returns(&true));
+	}
+
+	/// Execute the name call.
+	fn name(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_name())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let name = alloc::string::String::from_utf8(metadata.name.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in name".into() }))?;
+
+		Ok(IERC20::nameCall::abi_encode_returns(&name))
+	}
+
+	/// Execute the symbol call.
+	fn symbol(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_symbol())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		let symbol = alloc::string::String::from_utf8(metadata.symbol.to_vec())
+			.map_err(|_| Error::Revert(Revert { reason: "Invalid UTF-8 in symbol".into() }))?;
+
+		Ok(IERC20::symbolCall::abi_encode_returns(&symbol))
+	}
+
+	/// Execute the decimals call.
+	fn decimals(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_decimals())?;
+
+		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
+			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
+
+		Ok(IERC20::decimalsCall::abi_encode_returns(&metadata.decimals))
 	}
 }
