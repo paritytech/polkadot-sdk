@@ -663,7 +663,7 @@ pub mod pallet {
 
 		/// The migrator that is used to run Multi-Block-Migrations.
 		///
-		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// Can be set to `pallet_migrations` or an alternative implementation of the interface.
 		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
