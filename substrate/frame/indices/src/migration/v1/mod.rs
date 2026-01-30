@@ -93,7 +93,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_runtime::traits::Zero;
-use std::cmp::min;
+use core::cmp::min;
 
 #[cfg(any(test, feature = "try-runtime"))]
 use alloc::collections::BTreeMap;
