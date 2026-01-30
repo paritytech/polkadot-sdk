@@ -387,7 +387,7 @@ fn report_equivocation_current_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);
@@ -484,7 +484,7 @@ fn report_equivocation_old_set_works(
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == equivocation_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), initial_balance);

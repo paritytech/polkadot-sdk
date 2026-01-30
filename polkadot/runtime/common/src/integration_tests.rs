@@ -859,7 +859,7 @@ fn basic_swap_works() {
 	// This test will test a swap between a lease holding parachain and on-demand parachain works
 	// successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1031,7 +1031,7 @@ fn basic_swap_works() {
 fn parachain_swap_works() {
 	// This test will test a swap between two parachains works successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1211,7 +1211,7 @@ fn parachain_swap_works() {
 #[test]
 fn crowdloan_ending_period_bid() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1323,7 +1323,7 @@ fn crowdloan_ending_period_bid() {
 #[test]
 fn auction_bid_requires_registered_para() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1394,7 +1394,7 @@ fn auction_bid_requires_registered_para() {
 #[test]
 fn gap_bids_work() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1581,7 +1581,7 @@ fn gap_bids_work() {
 #[test]
 fn cant_bid_on_existing_lease_periods() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);

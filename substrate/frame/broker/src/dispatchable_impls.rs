@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::NotAllowed
 			);
 		} else {
-			return Err(Error::<T>::NotAllowed.into())
+			return Err(Error::<T>::NotAllowed.into());
 		}
 
 		// We are sorting auto renewals by `CoreIndex`.

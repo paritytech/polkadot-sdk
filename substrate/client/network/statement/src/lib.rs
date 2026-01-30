@@ -567,7 +567,7 @@ where
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
 				let Some(role) = self.network.peer_role(peer, handshake) else {
 					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
-					return
+					return;
 				};
 
 				let _was_in = self.peers.insert(
@@ -602,7 +602,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					return
+					return;
 				}
 
 				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) {
@@ -631,7 +631,7 @@ where
 					self.metrics.as_ref().map(|metrics| {
 						metrics.ignored_statements.inc_by(statements_left);
 					});
-					break
+					break;
 				}
 
 				let hash = s.hash();
@@ -712,7 +712,7 @@ where
 	pub async fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
@@ -732,7 +732,7 @@ where
 		// Never send statements to light nodes
 		if peer.role.is_light() {
 			log::trace!(target: LOG_TARGET, "{who} is a light node, skipping propagation");
-			return
+			return;
 		}
 
 		let to_send: Vec<_> = statements
@@ -743,7 +743,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
 		if to_send.is_empty() {
-			return
+			return;
 		}
 
 		self.send_statements_in_chunks(who, &to_send).await;
@@ -779,7 +779,7 @@ where
 	async fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
@@ -814,7 +814,7 @@ where
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-					return FilterDecision::Abort
+					return FilterDecision::Abort;
 				}
 				accumulated_size += encoded.len();
 				FilterDecision::Take
@@ -1131,7 +1131,7 @@ mod tests {
 			for hash in hashes {
 				let Some(stmt) = statements.get(hash) else {
 					processed += 1;
-					continue
+					continue;
 				};
 				let encoded = stmt.encode();
 				match filter(hash, &encoded, stmt) {

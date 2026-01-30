@@ -194,7 +194,7 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		self.canon_equals_to(other) && self.storage.read().blocks == other.storage.read().blocks
 	}
@@ -203,7 +203,7 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn canon_equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		let this = self.storage.read();
 		let other = other.storage.read();
@@ -309,7 +309,7 @@ impl<Block: BlockT> Blockchain<Block> {
 			if !stored_justifications.append(justification) {
 				return Err(sp_blockchain::Error::BadJustification(
 					"Duplicate consensus engine ID".into(),
-				))
+				));
 			}
 		} else {
 			*block_justifications = Some(Justifications::from(justification));
@@ -744,7 +744,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		_trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State> {
 		if hash == Default::default() {
-			return Ok(Self::State::default())
+			return Ok(Self::State::default());
 		}
 
 		let header = self.blockchain.header(hash)?
@@ -795,7 +795,7 @@ impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 	if storage.top.iter().any(|(k, _)| well_known_keys::is_child_storage_key(k)) {
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	if storage
@@ -803,7 +803,7 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 		.keys()
 		.any(|child_key| !well_known_keys::is_child_storage_key(child_key))
 	{
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	Ok(())

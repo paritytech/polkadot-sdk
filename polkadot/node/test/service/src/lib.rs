@@ -395,7 +395,7 @@ impl PolkadotTestNode {
 		while let Some(notification) = import_notification_stream.next().await {
 			blocks.insert(notification.hash);
 			if blocks.len() == count {
-				break
+				break;
 			}
 		}
 	}

@@ -276,11 +276,11 @@ where
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
 		if response.entries.is_empty() && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Bad state response");
-			return ImportResult::BadResponse
+			return ImportResult::BadResponse;
 		}
 		if !self.metadata.skip_proof && response.proof.is_empty() {
 			debug!(target: LOG_TARGET, "Missing proof");
-			return ImportResult::BadResponse
+			return ImportResult::BadResponse;
 		}
 		let (complete, partial_state) = if !self.metadata.skip_proof {
 			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
@@ -289,7 +289,7 @@ where
 				Ok(proof) => proof,
 				Err(e) => {
 					debug!(target: LOG_TARGET, "Error decoding proof: {:?}", e);
-					return ImportResult::BadResponse
+					return ImportResult::BadResponse;
 				},
 			};
 
@@ -304,7 +304,7 @@ where
 						"StateResponse failed proof verification: {}",
 						e,
 					);
-					return ImportResult::BadResponse
+					return ImportResult::BadResponse;
 				},
 				Ok(values) => values,
 			};

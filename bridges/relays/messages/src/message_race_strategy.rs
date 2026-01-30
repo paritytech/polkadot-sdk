@@ -121,12 +121,12 @@ where
 
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// find first entry that may be delivered to the target node
@@ -163,7 +163,7 @@ where
 		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
 			if let Some(range_to_requeue) = queued_range.greater_than(nonce) {
 				self.source_queue.push_front((queued_at, range_to_requeue));
-				break
+				break;
 			}
 		}
 	}

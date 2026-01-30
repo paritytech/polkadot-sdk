@@ -383,7 +383,7 @@ impl RequestResponseProtocol {
 				self.protocol,
 			);
 
-			return
+			return;
 		};
 
 		let status = match error {

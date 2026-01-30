@@ -956,7 +956,7 @@ impl<T: Config> Pallet<T> {
 
 		if candidates_and_deposit.len().is_zero() {
 			Self::deposit_event(Event::EmptyTerm);
-			return T::DbWeight::get().reads(3)
+			return T::DbWeight::get().reads(3);
 		}
 
 		// All of the new winners that come out of phragmen will thus have a deposit recorded.
@@ -988,7 +988,7 @@ impl<T: Config> Pallet<T> {
 					"Failed to run election. Number of voters exceeded",
 				);
 				Self::deposit_event(Event::ElectionError);
-				return T::DbWeight::get().reads(3 + max_voters as u64)
+				return T::DbWeight::get().reads(3 + max_voters as u64);
 			},
 		}
 

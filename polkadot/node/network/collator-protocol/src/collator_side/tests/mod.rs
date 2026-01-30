@@ -378,7 +378,7 @@ async fn expect_determine_validator_group(
 				)))
 				.unwrap();
 				// This call is mandatory - we are done:
-				break
+				break;
 			},
 			other => panic!("Unexpected message received: {:?}", other),
 		}

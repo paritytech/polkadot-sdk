@@ -208,7 +208,7 @@ where
 	S: Serializer,
 {
 	if let Some(throughput) = maybe_throughput {
-		return serializer.serialize_some(&(throughput.as_mibs() as u64))
+		return serializer.serialize_some(&(throughput.as_mibs() as u64));
 	}
 	serializer.serialize_none()
 }
@@ -287,7 +287,7 @@ pub(crate) fn benchmark<E>(
 		elapsed = timestamp.elapsed();
 
 		if elapsed >= max_duration {
-			break
+			break;
 		}
 	}
 
@@ -723,7 +723,7 @@ impl Requirements {
 		let mut failures = Vec::new();
 		for requirement in self.0.iter() {
 			if requirement.validator_only && !is_rc_authority {
-				continue
+				continue;
 			}
 
 			match requirement.metric {

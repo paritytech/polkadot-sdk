@@ -842,7 +842,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{
-				break exec_result
+				break exec_result;
 			}
 		};
 		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
