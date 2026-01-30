@@ -101,7 +101,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		fetch_included_from_relay_chain(relay_client, backend, params.para_id, params.relay_parent)
 			.await?
 	else {
-		return Ok(Default::default())
+		return Ok(Default::default());
 	};
 
 	let only_included = vec![PotentialParent {
@@ -112,7 +112,7 @@ pub async fn find_potential_parents<B: BlockT>(
 	}];
 
 	if params.max_depth == 0 {
-		return Ok(only_included)
+		return Ok(only_included);
 	};
 
 	// Pending header and hash.
@@ -142,7 +142,7 @@ pub async fn find_potential_parents<B: BlockT>(
 						%pending_hash,
 						"Failed to get header for pending block.",
 					);
-					return Ok(Default::default())
+					return Ok(Default::default());
 				},
 				Ok(Some(_)) => Some((header, pending_hash)),
 				_ => None,
@@ -173,7 +173,7 @@ pub async fn find_potential_parents<B: BlockT>(
 			// This is a defensive check, should never happen.
 			if !route_to_pending.retracted().is_empty() {
 				tracing::warn!(target: PARENT_SEARCH_LOG_TARGET, "Included block not an ancestor of pending block. This should not happen.");
-				return Ok(Default::default())
+				return Ok(Default::default());
 			}
 
 			// Add all items on the path included -> pending - 1 to the potential parents, but
@@ -262,7 +262,7 @@ async fn fetch_included_from_relay_chain<B: BlockT>(
 				%included_hash,
 				"Failed to get header for included block.",
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 		Err(e) => {
 			tracing::warn!(
@@ -271,7 +271,7 @@ async fn fetch_included_from_relay_chain<B: BlockT>(
 				%e,
 				"Failed to get header for included block.",
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 		_ => {},
 	};
@@ -310,7 +310,7 @@ async fn build_relay_parent_ancestry(
 
 		// don't iterate back into the genesis block.
 		if header.number == 1 {
-			break
+			break;
 		}
 	}
 	Ok(ancestry)
@@ -388,7 +388,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		}
 
 		if !is_potential || child_depth > max_depth {
-			continue
+			continue;
 		}
 
 		// push children onto search frontier.
@@ -401,7 +401,7 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 
 			if ignore_alternative_branches && !aligned_with_pending {
 				tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, "Child is not aligned with pending block.");
-				continue
+				continue;
 			}
 
 			let Ok(Some(header)) = backend.blockchain().header(child) else { continue };

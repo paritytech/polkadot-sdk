@@ -655,7 +655,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		// not much we can do if assignments are already empty.
 		if high == low {
-			return Ok(0)
+			return Ok(0);
 		}
 
 		while high - low > 1 {
@@ -749,7 +749,7 @@ impl<T: MinerConfig> Miner<T> {
 		max_weight: Weight,
 	) -> u32 {
 		if size.voters < 1 {
-			return size.voters
+			return size.voters;
 		}
 
 		let max_voters = size.voters.max(1);
@@ -872,7 +872,7 @@ impl<T: MinerConfig> Miner<T> {
 
 			// Check that all of the targets are valid based on the snapshot.
 			if assignment.distribution.iter().any(|(d, _)| !targets.contains(d)) {
-				return Err(FeasibilityError::InvalidVote)
+				return Err(FeasibilityError::InvalidVote);
 			}
 			Ok(())
 		})?;

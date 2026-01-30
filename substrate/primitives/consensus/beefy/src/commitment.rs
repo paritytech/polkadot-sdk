@@ -20,7 +20,6 @@ use codec::{Decode, DecodeWithMemTracking, Encode, Error, Input};
 use core::cmp;
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_runtime::traits::Hash;
 
 use crate::{BeefyAuthorityId, Payload, ValidatorSet, ValidatorSetId};
 
@@ -143,21 +142,20 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 	/// at the block where the commitment was generated.
 	///
 	/// Returns the valid validator-signature pairs if the commitment can be verified.
-	pub fn verify_signatures<'a, TAuthorityId, MsgHash>(
+	pub fn verify_signatures<'a, TAuthorityId>(
 		&'a self,
 		target_number: TBlockNumber,
 		validator_set: &'a ValidatorSet<TAuthorityId>,
 	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
 	where
 		TBlockNumber: Clone + Encode + PartialEq,
-		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
-		MsgHash: Hash,
+		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId,
 	{
 		if self.signatures.len() != validator_set.len() ||
 			self.commitment.validator_set_id != validator_set.id() ||
 			self.commitment.block_number != target_number
 		{
-			return Err(0)
+			return Err(0);
 		}
 
 		// Arrangement of signatures in the commitment should be in the same order
@@ -460,7 +458,7 @@ mod tests {
 
 		let ecdsa_sigs = mock_ecdsa_signatures();
 
-		//including bls signature
+		// including bls signature
 		let bls_signed_msgs = mock_bls_signatures();
 
 		let ecdsa_and_bls_signed = SignedCommitment {
@@ -473,7 +471,7 @@ mod tests {
 			],
 		};
 
-		//when
+		// when
 		let encoded = codec::Encode::encode(&ecdsa_and_bls_signed);
 		let decoded = TestBlsSignedCommitment::decode(&mut &*encoded);
 

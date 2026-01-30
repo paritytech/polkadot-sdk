@@ -135,7 +135,7 @@ impl RelayChainInterface for Relaychain {
 			_ => &inner.relay_chain_hash_to_header,
 		};
 		let Some(parent_head) = relay_to_header.get(&hash).map(|head| head.encode().into()) else {
-			return Ok(None)
+			return Ok(None);
 		};
 		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
 	}
@@ -430,7 +430,7 @@ async fn follow_new_best_works() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -483,7 +483,7 @@ async fn follow_new_best_with_dummy_recovery_works() {
 				status => {
 					assert_eq!(block.hash(), client.usage_info().chain.best_hash);
 					assert_eq!(status, BlockStatus::InChainWithState);
-					break
+					break;
 				},
 			}
 		}
@@ -536,7 +536,7 @@ async fn follow_finalized_works() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -588,7 +588,7 @@ async fn follow_finalized_does_not_stop_on_unknown_block() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -638,7 +638,7 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 
@@ -663,7 +663,7 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if unknown_block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 	};

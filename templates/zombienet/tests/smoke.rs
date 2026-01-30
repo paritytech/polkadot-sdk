@@ -12,7 +12,7 @@
 //!
 //! You can run the following command to generate a minimal chainspec, once the runtime wasm file is
 //! compiled:
-//!`chain-spec-builder create --relay-chain <relay_chain_id> -r \
+//! `chain-spec-builder create --relay-chain <relay_chain_id> -r \
 //!     <path_to_template_wasm_file> named-preset development`
 //!
 //! Once the files are generated, you must export an environment variable called

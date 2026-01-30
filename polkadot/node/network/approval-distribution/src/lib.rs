@@ -207,10 +207,10 @@ impl ApprovalEntry {
 	pub fn includes_approval_candidates(&self, approval: &IndirectSignedApprovalVoteV2) -> bool {
 		for candidate_index in approval.candidate_indices.iter_ones() {
 			if self.assignment_claimed_candidates.bit_at((candidate_index).as_bit_index()) {
-				return true
+				return true;
 			}
 		}
-		return false
+		return false;
 	}
 
 	// Records a new approval. Returns error if the claimed candidate is not found or we already
@@ -224,16 +224,16 @@ impl ApprovalEntry {
 		// - check claimed candidate
 		// - check for duplicate approval
 		if self.validator_index != approval.validator {
-			return Err(ApprovalEntryError::InvalidValidatorIndex)
+			return Err(ApprovalEntryError::InvalidValidatorIndex);
 		}
 
 		// We need at least one of the candidates in the approval to be in this assignment
 		if !self.includes_approval_candidates(&approval) {
-			return Err(ApprovalEntryError::InvalidCandidateIndex)
+			return Err(ApprovalEntryError::InvalidCandidateIndex);
 		}
 
 		if self.approvals.contains_key(&approval.candidate_indices) {
-			return Err(ApprovalEntryError::DuplicateApproval)
+			return Err(ApprovalEntryError::DuplicateApproval);
 		}
 
 		self.approvals.insert(approval.candidate_indices.clone(), approval.clone());
@@ -568,7 +568,7 @@ impl BlockEntry {
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
-			return Err(ApprovalEntryError::CandidateIndexOutOfBounds)
+			return Err(ApprovalEntryError::CandidateIndexOutOfBounds);
 		}
 
 		// First determine all assignments bitfields that might be covered by this approval
@@ -988,7 +988,7 @@ impl State {
 	) {
 		if local_index.is_none() {
 			// this subsystem only matters to validators.
-			return
+			return;
 		}
 
 		self.topologies.insert_topology(session, topology, local_index);
@@ -1047,7 +1047,7 @@ impl State {
 
 				pending.push((peer_id, PendingMessage::Assignment(assignment, claimed_indices)));
 
-				continue
+				continue;
 			}
 
 			self.import_and_circulate_assignment(
@@ -1104,7 +1104,7 @@ impl State {
 
 				pending.push((peer_id, PendingMessage::Approval(approval_vote)));
 
-				continue
+				continue;
 			}
 
 			self.import_and_circulate_approval(
@@ -1350,7 +1350,7 @@ impl State {
 					}
 				}
 				metrics.on_assignment_invalid_block();
-				return
+				return;
 			},
 		};
 
@@ -1402,7 +1402,7 @@ impl State {
 								"We sent the message to the peer while peer was sending it to us. Known race condition.",
 							);
 						}
-						return
+						return;
 					}
 				},
 				hash_map::Entry::Vacant(_) => {
@@ -1437,7 +1437,7 @@ impl State {
 					peer_knowledge.received.insert(message_subject, message_kind);
 				}
 				metrics.on_assignment_good_known();
-				return
+				return;
 			}
 
 			let result = Self::check_assignment_valid(
@@ -1472,7 +1472,7 @@ impl State {
 						.await;
 						metrics.on_assignment_far();
 
-						return
+						return;
 					}
 
 					approval_voting_sender
@@ -1509,7 +1509,7 @@ impl State {
 					)
 					.await;
 					metrics.on_assignment_bad();
-					return
+					return;
 				},
 			}
 		} else {
@@ -1520,7 +1520,7 @@ impl State {
 					?message_subject,
 					"Importing locally an already known assignment",
 				);
-				return
+				return;
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1550,7 +1550,7 @@ impl State {
 
 		for peer in peers_to_route_to {
 			if !entry.known_by.contains_key(&peer) {
-				continue
+				continue;
 			}
 
 			peers.insert(peer);
@@ -1583,15 +1583,15 @@ impl State {
 		// Filter destination peers
 		for peer in peers_to_filter.into_iter() {
 			if Some(peer) == source_peer {
-				continue
+				continue;
 			}
 
 			if peers.contains(&peer) {
-				continue
+				continue;
 			}
 
 			if !topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false) {
-				continue
+				continue;
 			}
 
 			// Note: at this point, we haven't received the message from any peers
@@ -1606,7 +1606,7 @@ impl State {
 			}
 
 			if approval_entry.routing_info().random_routing.is_complete() {
-				break
+				break;
 			}
 		}
 
@@ -1653,7 +1653,7 @@ impl State {
 			.map_err(|err| InvalidAssignmentError::SessionInfoNotFound(err))?;
 
 		if claimed_candidate_indices.len() > session_info.n_cores as usize {
-			return Err(InvalidAssignmentError::OversizedClaimedBitfield)
+			return Err(InvalidAssignmentError::OversizedClaimedBitfield);
 		}
 
 		let claimed_cores: Vec<CoreIndex> = claimed_candidate_indices
@@ -1669,7 +1669,7 @@ impl State {
 			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
 
 		let Ok(claimed_cores) = claimed_cores.try_into() else {
-			return Err(InvalidAssignmentError::NoClaimedCandidates)
+			return Err(InvalidAssignmentError::NoClaimedCandidates);
 		};
 
 		let backing_groups = claimed_candidate_indices
@@ -1724,7 +1724,7 @@ impl State {
 				modify_reputation(reputation, network_sender, peer_id, COST_UNEXPECTED_MESSAGE)
 					.await;
 				metrics.on_approval_unknown_assignment();
-				return false
+				return false;
 			}
 		}
 
@@ -1760,7 +1760,7 @@ impl State {
 						}
 						metrics.on_approval_duplicate();
 					}
-					return false
+					return false;
 				}
 			},
 			hash_map::Entry::Vacant(_) => {
@@ -1835,7 +1835,7 @@ impl State {
 						metrics.on_approval_recent_outdated();
 					}
 				}
-				return
+				return;
 			},
 		};
 
@@ -1858,7 +1858,7 @@ impl State {
 			)
 			.await
 			{
-				return
+				return;
 			}
 
 			let result =
@@ -1904,7 +1904,7 @@ impl State {
 						"Got a bad approval from peer",
 					);
 					metrics.on_approval_bad();
-					return
+					return;
 				},
 			}
 		} else {
@@ -1917,7 +1917,7 @@ impl State {
 					target: LOG_TARGET,
 					"Importing locally an already known approval",
 				);
-				return
+				return;
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1938,7 +1938,7 @@ impl State {
 					"Possible bug: Vote import failed",
 				);
 				metrics.on_approval_bug();
-				return
+				return;
 			},
 		};
 
@@ -1953,7 +1953,7 @@ impl State {
 
 		let peer_filter = move |peer| {
 			if Some(peer) == source_peer.as_ref() {
-				return false
+				return false;
 			}
 
 			// Here we're leaning on a few behaviors of assignment propagation:
@@ -2006,7 +2006,7 @@ impl State {
 		runtime_api_sender: &mut RA,
 	) -> Result<CheckedIndirectSignedApprovalVote, InvalidVoteError> {
 		if vote.candidate_indices.len() > entry.candidates_metadata.len() {
-			return Err(InvalidVoteError::CandidateIndexOutOfBounds)
+			return Err(InvalidVoteError::CandidateIndexOutOfBounds);
 		}
 
 		let candidate_hashes = vote
@@ -2056,7 +2056,7 @@ impl State {
 						?hash,
 						"`get_approval_signatures`: could not find block entry for given hash!"
 					);
-					continue
+					continue;
 				},
 				Some(e) => e,
 			};
@@ -2115,7 +2115,7 @@ impl State {
 				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
-					break
+					break;
 				}
 
 				let peer_knowledge = entry.known_by.entry(peer_id).or_default();
@@ -2139,7 +2139,7 @@ impl State {
 									.map(|topology| topology.is_validator(peer_id))
 									.unwrap_or(false)
 								{
-									return false
+									return false;
 								}
 
 								let route_random =
@@ -2153,7 +2153,7 @@ impl State {
 						};
 
 						if !peer_filter(&peer_id) {
-							continue
+							continue;
 						}
 					}
 
@@ -2252,7 +2252,7 @@ impl State {
 				age,
 				"Aggression not enabled",
 			);
-			return
+			return;
 		}
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
@@ -2329,7 +2329,7 @@ impl State {
 						lag = ?self.approval_checking_lag,
 						"Encountered old block pending gossip topology",
 					);
-					return *required_routing
+					return *required_routing;
 				}
 
 				let mut new_required_routing = *required_routing;
@@ -2476,7 +2476,7 @@ async fn adjust_required_routing_and_propagate<
 	// for each connected peer.
 	for (block_hash, block_entry) in blocks {
 		if !block_filter(block_entry) {
-			continue
+			continue;
 		}
 
 		let topology = match topologies.get_topology(block_entry.session) {
@@ -2496,7 +2496,7 @@ async fn adjust_required_routing_and_propagate<
 			approval_entry.update_required_routing(new_required_routing);
 
 			if approval_entry.routing_info().required_routing.is_empty() {
-				continue
+				continue;
 			}
 
 			let assignment_message = approval_entry.assignment();
@@ -2509,7 +2509,7 @@ async fn adjust_required_routing_and_propagate<
 					.local_grid_neighbors()
 					.route_to_peer(approval_entry.routing_info().required_routing, peer)
 				{
-					continue
+					continue;
 				}
 
 				// Only send stuff a peer doesn't know in the context of a relay chain block.

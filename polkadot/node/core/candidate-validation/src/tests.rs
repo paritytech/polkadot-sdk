@@ -1179,7 +1179,7 @@ fn candidate_validation_retry_on_error_helper(
 		&Default::default(),
 		Default::default(),
 		VALIDATION_CODE_BOMB_LIMIT,
-	))
+	));
 }
 
 #[test]

@@ -322,7 +322,7 @@ impl CallDef {
 							if call_index.is_some() {
 								let msg =
 									"Invalid pallet::call, too many call_index attributes given";
-								return Err(syn::Error::new(method.sig.span(), msg))
+								return Err(syn::Error::new(method.sig.span(), msg));
 							}
 
 							call_index = Some(idx);
@@ -330,7 +330,7 @@ impl CallDef {
 						FunctionAttr::Weight(w) => {
 							if weight.is_some() {
 								let msg = "Invalid pallet::call, too many weight attributes given";
-								return Err(syn::Error::new(method.sig.span(), msg))
+								return Err(syn::Error::new(method.sig.span(), msg));
 							}
 							weight = Some(w);
 						},
@@ -338,7 +338,7 @@ impl CallDef {
 							if feeless_check.is_some() {
 								let msg =
 									"Invalid pallet::call, there can only be one feeless_if attribute";
-								return Err(syn::Error::new(span, msg))
+								return Err(syn::Error::new(span, msg));
 							}
 
 							feeless_check = Some(closure);
@@ -347,7 +347,7 @@ impl CallDef {
 							if authorize.is_some() {
 								let msg =
 									"Invalid pallet::call, there can only be one authorize attribute";
-								return Err(syn::Error::new(method.sig.span(), msg))
+								return Err(syn::Error::new(method.sig.span(), msg));
 							}
 
 							authorize = Some(expr);
@@ -355,7 +355,7 @@ impl CallDef {
 						FunctionAttr::WeightOfAuthorize(expr) => {
 							if weight_of_authorize.is_some() {
 								let msg = "Invalid pallet::call, there can only be one weight_of_authorize attribute";
-								return Err(syn::Error::new(method.sig.span(), msg))
+								return Err(syn::Error::new(method.sig.span(), msg));
 							}
 
 							weight_of_authorize = Some(expr);
@@ -365,7 +365,7 @@ impl CallDef {
 
 				if weight_of_authorize.is_some() && authorize.is_none() {
 					let msg = "Invalid pallet::call, weight_of_authorize attribute must be used with authorize attribute";
-					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg))
+					return Err(syn::Error::new(weight_of_authorize.unwrap().span(), msg));
 				}
 
 				let authorize = if let Some(expr) = authorize {

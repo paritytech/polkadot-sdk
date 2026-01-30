@@ -270,7 +270,7 @@ impl TryFrom<ProtocolVersion> for ValidationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 
@@ -284,7 +284,7 @@ impl TryFrom<ProtocolVersion> for CollationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 

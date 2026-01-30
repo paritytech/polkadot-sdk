@@ -82,13 +82,13 @@ fn find_process_by_sid_and_name(
 		};
 
 		if stat.session != sid || !process.exe().unwrap().to_str().unwrap().contains(exe_name) {
-			continue
+			continue;
 		}
 		// The workers are direct children of the current process, the worker job processes are not
 		// (they are children of the workers).
 		let process_is_direct_child = stat.ppid as u32 == std::process::id();
 		if is_direct_child != process_is_direct_child {
-			continue
+			continue;
 		}
 
 		if found.is_some() {

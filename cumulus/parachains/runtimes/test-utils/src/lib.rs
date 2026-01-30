@@ -283,7 +283,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 
@@ -312,7 +312,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 			let header = frame_system::Pallet::<Runtime>::finalize();

@@ -82,7 +82,7 @@ impl BackingGroupConnectionHelper {
 		if Some(current_slot) <= self.our_slot {
 			// Current slot or next slot is ours.
 			// We already sent pre-connect message, no need to proceed further.
-			return
+			return;
 		}
 
 		let next_slot = current_slot + 1;
@@ -133,7 +133,7 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
@@ -186,7 +186,7 @@ async fn scheduling_lookahead(
 	if parachain_host_runtime_api_version <
 		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
 	{
-		return None
+		return None;
 	}
 
 	match relay_client.scheduling_lookahead(relay_parent).await {
@@ -306,7 +306,7 @@ where
 				"Could not fetch potential parents to build upon"
 			);
 
-			return None
+			return None;
 		},
 		Ok(x) => x,
 	};
@@ -699,7 +699,7 @@ impl RelayParentData {
 		let Self { relay_parent, mut descendants } = self;
 
 		if descendants.is_empty() {
-			return Default::default()
+			return Default::default();
 		}
 
 		let mut result = vec![relay_parent];

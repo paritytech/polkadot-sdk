@@ -312,7 +312,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 	/// ready to be included in the block.
 	pub fn import(&mut self, tx: Transaction<Hash, Ex>) -> error::Result<Imported<Hash, Ex>> {
 		if self.is_imported(&tx.hash) {
-			return Err(error::Error::AlreadyImported(Box::new(tx.hash)))
+			return Err(error::Error::AlreadyImported(Box::new(tx.hash)));
 		}
 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
@@ -327,12 +327,12 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		// If all tags are not satisfied import to future.
 		if !tx.is_ready() {
 			if self.reject_future_transactions {
-				return Err(error::Error::RejectedFutureTransaction)
+				return Err(error::Error::RejectedFutureTransaction);
 			}
 
 			let hash = tx.transaction.hash.clone();
 			self.future.import(tx);
-			return Ok(Imported::Future { hash })
+			return Ok(Imported::Future { hash });
 		}
 
 		self.import_to_ready(tx)
@@ -382,7 +382,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 						"Error importing transaction"
 					);
 					if first {
-						return Err(error)
+						return Err(error);
 					} else {
 						removed.push(current_tx);
 						promoted.retain(|hash| *hash != current_hash);
@@ -398,7 +398,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 						"Error importing transaction"
 					);
 					if first {
-						return Err(error)
+						return Err(error);
 					} else {
 						failed.push(current_tx.hash.clone());
 					}
@@ -422,7 +422,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 				?tx_hash,
 				"Cycle detected, bailing."
 			);
-			return Err(error::Error::CycleDetected)
+			return Err(error::Error::CycleDetected);
 		}
 
 		Ok(Imported::Ready { hash: tx_hash, promoted, failed, removed })
@@ -496,7 +496,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			if let Some(worst) = worst {
 				removed.append(&mut self.remove_subtree(&[worst.transaction.hash.clone()]))
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -527,7 +527,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			if let Some(worst) = worst {
 				removed.append(&mut self.remove_subtree(&[worst.transaction.hash.clone()]))
 			} else {
-				break
+				break;
 			}
 		}
 

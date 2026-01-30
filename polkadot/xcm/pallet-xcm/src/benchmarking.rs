@@ -92,7 +92,7 @@ mod benchmarks {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let msg = Xcm(vec![ClearOrigin]);
 		let versioned_dest: VersionedLocation = T::reachable_dest()
@@ -127,7 +127,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
 		{
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -197,7 +197,7 @@ mod benchmarks {
 			origin_location.clone(),
 			assets.clone().into_inner(),
 		)) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -312,7 +312,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let msg = Xcm(vec![ClearOrigin]);
 		if !T::XcmExecuteFilter::contains(&(origin_location, msg.clone())) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let versioned_msg = VersionedXcm::from(msg);
 
@@ -677,7 +677,7 @@ mod benchmarks {
 					?origin_location,
 					"unexpected origin failed",
 				);
-				return Err(error.clone())
+				return Err(error.clone());
 			},
 		};
 

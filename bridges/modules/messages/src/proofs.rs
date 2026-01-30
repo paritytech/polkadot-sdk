@@ -65,7 +65,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 	// receiving proofs where end < begin is ok (if proof includes outbound lane state)
 	let messages_in_the_proof = nonces_range.saturating_len();
 	if messages_in_the_proof != MessageNonce::from(messages_count) {
-		return Err(VerificationError::MessagesCountMismatch)
+		return Err(VerificationError::MessagesCountMismatch);
 	}
 
 	// Read messages first. All messages that are claimed to be in the proof must
@@ -92,7 +92,7 @@ pub fn verify_messages_proof<T: Config<I>, I: 'static>(
 
 	// Now we may actually check if the proof is empty or not.
 	if proved_lane_messages.lane_state.is_none() && proved_lane_messages.messages.is_empty() {
-		return Err(VerificationError::EmptyMessageProof)
+		return Err(VerificationError::EmptyMessageProof);
 	}
 
 	// Check that the storage proof doesn't have any untouched keys.

@@ -248,7 +248,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				&mut finality_target,
 			)
 			.await;
-			continue
+			continue;
 		}
 
 		// read best finalized source header number from target
@@ -263,7 +263,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				&mut finality_target,
 			)
 			.await;
-			continue
+			continue;
 		}
 
 		// submit mandatory header if some headers are missing
@@ -334,7 +334,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 							&mut finality_target,
 						)
 						.await;
-						continue
+						continue;
 					}
 				},
 			}
@@ -402,7 +402,7 @@ async fn mandatory_headers_scan_range<C: Chain>(
 
 	// if relay is already asked to sync more headers than we have at source, don't do anything yet
 	if required_header_number >= best_finalized_source_header_at_source {
-		return None
+		return None;
 	}
 
 	Some((
@@ -440,7 +440,7 @@ where
 	// less than our `mandatory_source_header_number` before logging anything
 	let mut required_header_number = required_header_number.lock().await;
 	if *required_header_number >= mandatory_source_header_number {
-		return Ok(false)
+		return Ok(false);
 	}
 
 	tracing::trace!(

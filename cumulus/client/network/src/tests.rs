@@ -293,7 +293,7 @@ impl RelayChainInterface for DummyRelayChainInterface {
 				if let Some(hash) = self.relay_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
+					return Ok(None);
 				},
 		};
 		let header = self.relay_client.header(hash)?;

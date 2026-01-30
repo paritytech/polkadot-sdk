@@ -558,13 +558,13 @@ impl ConnectionHandler for NotifsHandler {
 						// in mind that it is invalid for the remote to open multiple such
 						// substreams, and therefore sending a "RST" is the most correct thing
 						// to do.
-						return
+						return;
 					},
 					State::Opening { ref mut in_substream, .. } |
 					State::Open { ref mut in_substream, .. } => {
 						if in_substream.is_some() {
 							// Same remark as above.
-							return
+							return;
 						}
 
 						// Create `handshake_message` on a separate line to be sure that the
@@ -771,7 +771,7 @@ impl ConnectionHandler for NotifsHandler {
 		}
 
 		if let Some(ev) = self.events_queue.pop_front() {
-			return Poll::Ready(ev)
+			return Poll::Ready(ev);
 		}
 
 		// For each open substream, try to send messages from `notifications_sink_rx` to the
@@ -810,7 +810,7 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Pending => {
 							// Should never be reached, as per `poll_peek` above.
 							debug_assert!(false);
-							break
+							break;
 						},
 					};
 
@@ -846,7 +846,7 @@ impl ConnectionHandler for NotifsHandler {
 							};
 
 							let event = NotifsHandlerOut::CloseDesired { protocol_index, reason };
-							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event));
 						},
 					};
 				},
@@ -875,7 +875,7 @@ impl ConnectionHandler for NotifsHandler {
 						Poll::Pending => {},
 						Poll::Ready(Some(Ok(message))) => {
 							let event = NotifsHandlerOut::Notification { protocol_index, message };
-							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event))
+							return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event));
 						},
 						Poll::Ready(None) | Poll::Ready(Some(Err(_))) => *in_substream = None,
 					},
@@ -892,7 +892,7 @@ impl ConnectionHandler for NotifsHandler {
 									protocol_index,
 									reason: CloseReason::RemoteRequest,
 								},
-							))
+							));
 						},
 					},
 
@@ -999,7 +999,7 @@ pub mod tests {
 			let substream = if let Some(info) = self.connections.get_mut(&(peer, set)) {
 				info
 			} else {
-				return None
+				return None;
 			};
 
 			futures::future::poll_fn(|cx| match substream.notifications.poll_next_unpin(cx) {
@@ -1118,7 +1118,7 @@ pub mod tests {
 			buf[..nsize].copy_from_slice(&data[..]);
 
 			if nsize > 0 {
-				return Poll::Ready(Ok(nsize))
+				return Poll::Ready(Ok(nsize));
 			}
 
 			Poll::Pending

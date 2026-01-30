@@ -200,7 +200,7 @@ where
 	) -> Result<schema::v1::light::Response, HandleRequestError> {
 		if request.keys.is_empty() {
 			debug!("Invalid remote read request sent by {}.", peer);
-			return Err(HandleRequestError::BadRequest("Remote read request without keys."))
+			return Err(HandleRequestError::BadRequest("Remote read request without keys."));
 		}
 
 		trace!(
@@ -239,7 +239,7 @@ where
 	) -> Result<schema::v1::light::Response, HandleRequestError> {
 		if request.keys.is_empty() {
 			debug!("Invalid remote child read request sent by {}.", peer);
-			return Err(HandleRequestError::BadRequest("Remove read child request without keys."))
+			return Err(HandleRequestError::BadRequest("Remove read child request without keys."));
 		}
 
 		trace!(

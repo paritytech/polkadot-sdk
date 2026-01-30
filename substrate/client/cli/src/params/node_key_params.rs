@@ -119,7 +119,7 @@ impl NodeKeyParams {
 						role.is_authority() &&
 						!is_dev && !key_path.exists()
 					{
-						return Err(Error::NetworkKeyNotFound(key_path))
+						return Err(Error::NetworkKeyNotFound(key_path));
 					}
 					sc_network::config::Secret::File(key_path)
 				};

@@ -553,13 +553,13 @@ impl KeystoreInner {
 	/// Get the key phrase for a given public key and key type.
 	fn key_phrase_by_type(&self, public: &[u8], key_type: KeyTypeId) -> Result<Option<String>> {
 		if let Some(phrase) = self.get_additional_pair(public, key_type) {
-			return Ok(Some(phrase.clone()))
+			return Ok(Some(phrase.clone()));
 		}
 
 		let path = if let Some(path) = self.key_file_path(public, key_type) {
 			path
 		} else {
-			return Ok(None)
+			return Ok(None);
 		};
 
 		if path.exists() {
@@ -580,7 +580,7 @@ impl KeystoreInner {
 		let phrase = if let Some(p) = self.key_phrase_by_type(public.as_slice(), key_type)? {
 			p
 		} else {
-			return Ok(None)
+			return Ok(None);
 		};
 
 		let pair = Pair::from_string(&phrase, self.password()).map_err(|_| Error::InvalidPhrase)?;
@@ -622,7 +622,7 @@ impl KeystoreInner {
 					match array_bytes::hex2bytes(name) {
 						Ok(ref hex) if hex.len() > 4 => {
 							if hex[0..4] != key_type.0 {
-								continue
+								continue;
 							}
 							let public = hex[4..].to_vec();
 							public_keys.push(public);

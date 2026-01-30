@@ -88,7 +88,7 @@ impl SteppedMigrations for MockedMigrations {
 		log::debug!("MockedMigration: Step {count} vs max {steps}");
 		if count != steps || matches!(kind, TimeoutAfter) {
 			count += 1;
-			return Some(Ok(Some(count.encode())))
+			return Some(Ok(Some(count.encode())));
 		}
 
 		Some(match kind {
@@ -134,7 +134,7 @@ impl SteppedMigrations for MockedMigrations {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PreUpgradeFail = kind {
-			return Some(Err("Some pre-upgrade error".into()))
+			return Some(Err("Some pre-upgrade error".into()));
 		}
 
 		Some(Ok(vec![]))
@@ -148,7 +148,7 @@ impl SteppedMigrations for MockedMigrations {
 		let (kind, _) = MIGRATIONS::get()[n as usize];
 
 		if let PostUpgradeFail = kind {
-			return Some(Err("Some post-upgrade error".into()))
+			return Some(Err("Some post-upgrade error".into()));
 		}
 
 		Some(Ok(()))
