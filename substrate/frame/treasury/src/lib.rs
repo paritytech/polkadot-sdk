@@ -241,7 +241,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// Handler for the unbalanced decrease when treasury funds are burned.
-		type BurnHandler: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
+		type BurnDestination: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
