@@ -16,6 +16,7 @@
 use emulated_integration_tests_common::xcm_helpers::{
 	find_mq_processed_id, find_xcm_sent_message_id,
 };
+use frame_support::traits::fungible;
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 use super::reserve_transfer::*;
@@ -193,6 +194,10 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 			)],
 		));
 	});
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalA, Location::parent(), PenpalAssetOwner::get());
+
 	PenpalA::force_create_foreign_asset(
 		roc_at_westend_parachains.clone(),
 		assets_owner.clone(),
@@ -226,7 +231,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
-		args: TestArgs::new_para(
+		args: TestArgs::<Location>::new_para(
 			destination.clone(),
 			receiver.clone(),
 			native_amount_to_send,
@@ -247,12 +252,12 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		)
 	});
 	let receiver_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location.clone(), &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(native_asset_location.clone(), &receiver)
 	});
 	let receiver_rocs_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -271,12 +276,12 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		)
 	});
 	let receiver_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(native_asset_location, &receiver)
 	});
 	let receiver_rocs_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees
@@ -304,8 +309,8 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// Init values for Parachain
 	let destination = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let sender = PenpalASender::get();
-	let native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 10000;
-	let native_asset_location = RelayLocation::get();
+	let relay_native_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 10000;
+	let relay_native_location = RelayLocation::get();
 	let assets_owner = PenpalAssetOwner::get();
 
 	// Foreign asset used: bridged ROC
@@ -341,9 +346,9 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
-		native_asset_location.clone(),
+		relay_native_location.clone(),
 		sender.clone(),
-		native_amount_to_send * 2,
+		relay_native_amount_to_send * 2,
 	);
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
@@ -361,7 +366,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	// fund Parachain's SA on AssetHub with the assets held in reserve
 	AssetHubWestend::fund_accounts(vec![(
 		sov_penpal_on_ahr.clone().into(),
-		native_amount_to_send * 2,
+		relay_native_amount_to_send * 2,
 	)]);
 	AssetHubWestend::mint_foreign_asset(
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(assets_owner),
@@ -372,7 +377,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 
 	// Assets to send
 	let assets: Vec<Asset> = vec![
-		(Parent, native_amount_to_send).into(),
+		(Parent, relay_native_amount_to_send).into(),
 		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
@@ -385,7 +390,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		args: TestArgs::new_para(
 			destination.clone(),
 			receiver.clone(),
-			native_amount_to_send,
+			relay_native_amount_to_send,
 			assets.into(),
 			None,
 			fee_asset_item,
@@ -394,13 +399,13 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	let mut test = ParaToSystemParaTest::new(test_args);
 
 	// Query initial balances
-	let sender_native_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location.clone(), &sender)
+	let sender_relay_native_before = PenpalA::execute_with(|| {
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_location.clone(), &sender)
 	});
 	let sender_rocs_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let receiver_native_before = test.receiver.balance;
 	let receiver_rocs_before = AssetHubWestend::execute_with(|| {
@@ -418,15 +423,15 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 	test.assert();
 
 	// Query final balances
-	let sender_native_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &sender)
+	let sender_relay_native_after = PenpalA::execute_with(|| {
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_location, &sender)
 	});
 	let sender_rocs_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
-	let receiver_native_after = test.receiver.balance;
+	let receiver_relay_native_after = test.receiver.balance;
 	let receiver_rocs_after = AssetHubWestend::execute_with(|| {
 		type ForeignAssets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
@@ -435,16 +440,16 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		)
 	});
 
-	// Sender's balance is reduced by amount sent plus delivery fees
-	assert!(sender_native_after < sender_native_before - native_amount_to_send);
+	// Sender's balance is reduced by exact amount sent (delivery fees are charged in native)
+	assert_eq!(sender_relay_native_after, sender_relay_native_before - relay_native_amount_to_send);
 	// Sender's balance is reduced by foreign amount sent
 	assert_eq!(sender_rocs_after, sender_rocs_before - foreign_amount_to_send);
 	// Receiver's balance is increased
-	assert!(receiver_native_after > receiver_native_before);
+	assert!(receiver_relay_native_after > receiver_native_before);
 	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
-	assert!(receiver_native_after < receiver_native_before + native_amount_to_send);
+	assert!(receiver_relay_native_after < receiver_native_before + relay_native_amount_to_send);
 	// Receiver's balance is increased by foreign amount sent
 	assert_eq!(receiver_rocs_after, receiver_rocs_before + foreign_amount_to_send);
 }
@@ -513,6 +518,9 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		vec![],
 	);
 
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
+
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
@@ -563,12 +571,12 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 
 	// Query initial balances
 	let sender_wnds_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_location.clone(), &sender)
 	});
 	let sender_rocs_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let wnds_in_sender_reserve_on_ah_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_sender_on_ah.clone()).free;
@@ -589,12 +597,12 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		)
 	});
 	let receiver_wnds_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &receiver)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_location.clone(), &receiver)
 	});
 	let receiver_rocs_before = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &receiver)
 	});
 
 	// Set assertions and dispatchables
@@ -609,12 +617,12 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 
 	// Query final balances
 	let sender_wnds_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_location.clone(), &sender)
 	});
 	let sender_rocs_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains.clone(), &sender)
 	});
 	let rocs_in_sender_reserve_on_ah_after = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
@@ -635,16 +643,16 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	let wnds_in_receiver_reserve_on_ah_after =
 		<AssetHubWestend as Chain>::account_data_of(sov_of_receiver_on_ah).free;
 	let receiver_wnds_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(wnd_location, &receiver)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(wnd_location, &receiver)
 	});
 	let receiver_rocs_after = PenpalB::execute_with(|| {
-		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
+		type Assets = <PenpalB as PenpalBPallet>::Assets;
+		<Assets as Inspect<_>>::balance(roc_at_westend_parachains, &receiver)
 	});
 
 	// Sender's balance is reduced by amount sent.
-	assert!(sender_wnds_after < sender_wnds_before - wnd_to_send);
+	assert_eq!(sender_wnds_after, sender_wnds_before - wnd_to_send);
 	assert_eq!(sender_rocs_after, sender_rocs_before - roc_to_send);
 	// Sovereign accounts on reserve are changed accordingly.
 	assert_eq!(
@@ -695,6 +703,9 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 	let relay_native_asset_location = RelayLocation::get();
 	let receiver = PenpalAReceiver::get();
 
+	// Create pool with WND to be able to pay execution in WND
+	create_foreign_pool_with_native_on!(PenpalA, RelayLocation::get(), PenpalAssetOwner::get());
+
 	// Init Test
 	let test_args = TestContext {
 		sender,
@@ -712,8 +723,8 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah.clone())
 	});
 	let receiver_assets_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &receiver)
 	});
 
 	fn relay_assertions(t: RelayToParaThroughAHTest) {
@@ -755,7 +766,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		assert_expected_events!(
 			PenpalA,
 			vec![
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 					asset_id: *asset_id == Location::new(1, Here),
 					owner: *owner == t.receiver.account_id,
 				},
@@ -820,8 +831,8 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah)
 	});
 	let receiver_assets_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
 	// Sender's balance is reduced by amount sent plus delivery fees
@@ -882,9 +893,13 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ah.clone().into(), amount_to_send * 2)]);
 
 	// Query initial balances
-	let sender_balance_before = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+	let sender_native_balance_before = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
+	let sender_relay_balance_before = PenpalA::execute_with(|| {
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
 	let sov_penpal_on_ah_before = AssetHubWestend::execute_with(|| {
 		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah.clone())
@@ -939,9 +954,13 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	test.assert();
 
 	// Query final balances
+	let sender_native_balance_after = PenpalA::execute_with(|| {
+		type Balances = <PenpalA as PenpalAPallet>::Balances;
+		<Balances as fungible::Inspect<_>>::balance(&sender)
+	});
 	let sender_balance_after = PenpalA::execute_with(|| {
-		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
-		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
+		type Assets = <PenpalA as PenpalAPallet>::Assets;
+		<Assets as Inspect<_>>::balance(relay_native_asset_location.clone(), &sender)
 	});
 	let sov_penpal_on_ah_after = AssetHubWestend::execute_with(|| {
 		<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(sov_penpal_on_ah.clone())
@@ -950,8 +969,10 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 		<Westend as WestendPallet>::Balances::free_balance(receiver.clone())
 	});
 
-	// Sender's asset balance is reduced by amount sent plus delivery fees
-	assert!(sender_balance_after < sender_balance_before - amount_to_send);
+	// Paid delivery fees in native
+	assert!(sender_native_balance_after < sender_native_balance_before);
+	// Sender's asset balance is reduced by exact amount
+	assert_eq!(sender_balance_after, sender_relay_balance_before - amount_to_send);
 	// SA on AH balance is decreased by `amount_to_send`
 	assert_eq!(sov_penpal_on_ah_after, sov_penpal_on_ah_before - amount_to_send);
 	// Receiver's balance is increased

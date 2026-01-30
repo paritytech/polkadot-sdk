@@ -23,7 +23,9 @@ use emulated_integration_tests_common::{
 	accounts, build_genesis_storage, collators, SAFE_XCM_VERSION,
 };
 use parachains_common::{AccountId, Balance};
-use penpal_runtime::xcm_config::{LocalReservableFromAssetHub, RelayLocation, UsdtFromAssetHub};
+use penpal_runtime::xcm_config::{
+	LocalPen2Asset, LocalReservableFromAssetHub, RelayLocation, UsdtFromAssetHub,
+};
 // Penpal
 pub const PARA_ID_A: u32 = 2000;
 pub const PARA_ID_B: u32 = 2001;
@@ -70,18 +72,11 @@ pub fn genesis(para_id: u32) -> Storage {
 		},
 		sudo: penpal_runtime::SudoConfig { key: Some(PenpalSudoAccount::get()) },
 		assets: penpal_runtime::AssetsConfig {
-			assets: vec![(
-				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,
-				PenpalAssetOwner::get(),
-				false,
-				ED,
-			)],
-			..Default::default()
-		},
-		foreign_assets: penpal_runtime::ForeignAssetsConfig {
 			assets: vec![
 				// Relay Native asset representation
 				(RelayLocation::get(), PenpalAssetOwner::get(), true, ED),
+				// Local Pen2 representation
+				(LocalPen2Asset::get(), PenpalAssetOwner::get(), false, ED),
 				// Sufficient AssetHub asset representation
 				(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), true, ED),
 				// USDT from AssetHub

@@ -15,6 +15,7 @@
 
 pub mod impls;
 pub mod macros;
+pub mod pools;
 pub mod xcm_helpers;
 
 use codec::Encode;
@@ -41,6 +42,7 @@ use polkadot_runtime_parachains::configuration::HostConfiguration;
 use parachains_common::{AccountId, AuraId};
 use polkadot_primitives::{AssignmentId, ValidatorId};
 use sp_runtime::traits::Convert;
+use xcm::v5::{Junction, Location};
 use xcm_emulator::{RelayBlockNumber, AURA_ENGINE_ID};
 
 pub const XCM_V2: u32 = 2;
@@ -56,7 +58,7 @@ pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 // (trust-backed) Asset registered on AH and reserve-transferred between Parachain and AH
 pub const RESERVABLE_ASSET_ID: u32 = 1;
 // ForeignAsset registered on AH and teleported between Penpal and AH
-pub const TELEPORTABLE_ASSET_ID: u32 = 2;
+pub const PEN2_TELEPORTABLE_ASSET_ID: u32 = 2;
 
 // USDT registered on AH as (trust-backed) Asset and reserve-transferred between Parachain and AH
 pub const USDT_ID: u32 = 1984;
@@ -66,6 +68,7 @@ pub const PENPAL_B_ID: u32 = 2001;
 pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
+pub const PENPAL_ASSETS_PALLET_ID: u8 = 50;
 
 pub struct AuraDigestProvider {}
 
@@ -79,26 +82,31 @@ impl Convert<(BlockNumber, RelayBlockNumber), Digest> for AuraDigestProvider {
 }
 
 parameter_types! {
-	pub PenpalALocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_A_ID)]);
-	pub PenpalBLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(PENPAL_B_ID)]);
-	pub PenpalATeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_A_ID),
-				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalALocation: Location = Location::new(1, [Junction::Parachain(PENPAL_A_ID)]);
+	pub PenpalBLocation: Location = Location::new(1, [Junction::Parachain(PENPAL_B_ID)]);
+	pub PenpalAPen2TeleportableAssetLocation: Location
+		= Location::new(1, [
+				Junction::Parachain(PENPAL_A_ID),
+				Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID),
+				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalBTeleportableAssetLocation: xcm::v5::Location
-		= xcm::v5::Location::new(1, [
-				xcm::v5::Junction::Parachain(PENPAL_B_ID),
-				xcm::v5::Junction::PalletInstance(ASSETS_PALLET_ID),
-				xcm::v5::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
+	pub PenpalBPen2TeleportableAssetLocation: Location
+		= Location::new(1, [
+				Junction::Parachain(PENPAL_B_ID),
+				Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID),
+				Junction::GeneralIndex(PEN2_TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
 	pub PenpalASiblingSovereignAccount: AccountId = Sibling::from(PENPAL_A_ID).into_account_truncating();
 	pub PenpalBSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_B_ID).into_account_truncating();
+}
+
+pub fn local_penpal_asset(id: u32) -> Location {
+	Location::new(
+		0,
+		[Junction::PalletInstance(PENPAL_ASSETS_PALLET_ID), Junction::GeneralIndex(id.into())],
+	)
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {

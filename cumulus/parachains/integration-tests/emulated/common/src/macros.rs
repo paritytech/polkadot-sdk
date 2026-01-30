@@ -61,7 +61,7 @@ pub use xcm_runtime_apis::{
 pub use frame_support::traits::{fungible::Mutate, fungibles::Inspect, Currency};
 pub use sp_runtime::{traits::Dispatchable, AccountId32};
 
-pub use crate::{ASSETS_PALLET_ID, USDT_ID};
+pub use crate::{create_foreign_pool_with_native_on, ASSETS_PALLET_ID, USDT_ID};
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
@@ -670,6 +670,10 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				$amount * 2,
 			);
 
+			// Create pools to pay with `$asset_id`
+			create_foreign_pool_with_native_on!($sender_para, Location::from($asset_id), asset_owner.clone());
+			create_foreign_pool_with_native_on!($receiver_para, Location::from($asset_id), asset_owner.clone());
+
 			// Fund the parachain origin's SA on Asset Hub with the native tokens.
 			// TODO: consider fund_accounts to be part of xcm_emulator::Chain trait
 			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah.clone(), $amount * 2)]);
@@ -782,19 +786,6 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 				intermediate_delivery_fees = $crate::xcm_helpers::get_amount_from_versioned_assets(delivery_fees);
 			});
 
-			// Get the final execution fees in the destination.
-			let mut final_execution_fees = 0;
-			<$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-				type Runtime = <$sender_para as $crate::macros::Chain>::Runtime;
-
-				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
-					intermediate_remote_message.clone()).unwrap();
-				final_execution_fees =
-					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
-						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
-						.unwrap();
-			});
-
 			// Dry-running is done.
 			<$sender_para as $crate::macros::TestExt>::reset_ext();
 			<$asset_hub as $crate::macros::TestExt>::reset_ext();
@@ -802,21 +793,44 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 
 			// Fund accounts again.
 			$sender_para::mint_foreign_asset(
-				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(asset_owner),
+				<$sender_para as $crate::macros::Chain>::RuntimeOrigin::signed(asset_owner.clone()),
 				$asset_id.clone().into(),
 				sender.clone(),
 				$amount * 2,
 			);
+			$sender_para::fund_accounts(vec![(sender.clone(), $amount * 2)]);
+
+			// Create pools to pay with `$asset_id`
+			create_foreign_pool_with_native_on!($sender_para, Location::from($asset_id), asset_owner.clone());
+			create_foreign_pool_with_native_on!($receiver_para, Location::from($asset_id), asset_owner.clone());
+
 			$asset_hub::fund_accounts(vec![(sov_of_sender_on_ah, $amount * 2)]);
+
+			// Get the final execution fees at the destination.
+			//
+			// Note: We need to do this after resetting the externalities to get an accurate value here.
+			// This is because the dry-run on asset hub does affect the liquidity pool distribution on PenpalB
+			// which affects the assets amount we have to pay.
+			let mut final_execution_fees = 0;
+			<$receiver_para as $crate::macros::TestExt>::execute_with(|| {
+				type Runtime = <$receiver_para as $crate::macros::Chain>::Runtime;
+
+				let weight = <Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_xcm_weight(
+					intermediate_remote_message.clone()).expect("`query_xcm_weight` returned none");
+				final_execution_fees =
+					<Runtime as $crate::macros::XcmPaymentApiV2<_>>::query_weight_to_asset_fee(weight,
+						$crate::macros::VersionedAssetId::from($crate::macros::AssetId($crate::macros::Location::parent())))
+						.expect("`query_weight_to_asset_fee` returned none");
+			});
 
 			// Actually run the extrinsic.
 			let sender_assets_before = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
+				type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
 			});
 			let receiver_assets_before = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &beneficiary_id)
+				type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &beneficiary_id)
 			});
 
 			test.set_assertion::<$sender_para>(sender_assertions);
@@ -825,18 +839,18 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 			let call = get_call(
 				($crate::macros::Parent, local_execution_fees + local_delivery_fees),
 				($crate::macros::Parent, intermediate_execution_fees + intermediate_delivery_fees),
-				($crate::macros::Parent, final_execution_fees),
+				($crate::macros::Parent, final_execution_fees + 1),
 			);
 			test.set_call(call);
 			test.assert();
 
 			let sender_assets_after = <$sender_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$sender_para as [<$sender_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
+				type Assets = <$sender_para as [<$sender_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.clone().into(), &sender)
 			});
 			let receiver_assets_after = <$receiver_para as $crate::macros::TestExt>::execute_with(|| {
-				type ForeignAssets = <$receiver_para as [<$receiver_para Pallet>]>::ForeignAssets;
-				<ForeignAssets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
+				type Assets = <$receiver_para as [<$receiver_para Pallet>]>::Assets;
+				<Assets as $crate::macros::Inspect<_>>::balance($asset_id.into(), &beneficiary_id)
 			});
 
 			// We know the exact fees on every hop.
@@ -848,7 +862,7 @@ macro_rules! test_can_estimate_and_pay_exact_fees {
 					local_delivery_fees -
 					intermediate_execution_fees -
 					intermediate_delivery_fees -
-					final_execution_fees
+					final_execution_fees - 1
 			);
 		}
 	};
@@ -1062,83 +1076,6 @@ macro_rules! test_cross_chain_alias {
 					});
 				}
 			)+
-		}
-	};
-}
-
-/// note: $asset needs to be prefunded outside this function
-#[macro_export]
-macro_rules! create_pool_with_native_on {
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
-		$crate::create_pool_with_native_on!(
-			$chain,
-			$asset,
-			$is_foreign,
-			$asset_owner,
-			1_000_000_000_000,
-			2_000_000_000_000
-		);
-	};
-
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr, $native_amount:expr, $asset_amount:expr ) => {
-		$crate::macros::paste::paste! {
-			<$chain as $crate::macros::TestExt>::execute_with(|| {
-				type RuntimeEvent = <$chain as $crate::macros::Chain>::RuntimeEvent;
-				let owner = $asset_owner;
-				let signed_owner = <$chain as $crate::macros::Chain>::RuntimeOrigin::signed(owner.clone());
-				let native_asset: $crate::macros::Location = $crate::macros::Parent.into();
-
-				if $is_foreign {
-					$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
-						signed_owner.clone(),
-						$asset.clone().into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				} else {
-					let asset_id = match $asset.interior.last() {
-						Some($crate::macros::GeneralIndex(id)) => *id as u32,
-						_ => unreachable!(),
-					};
-					$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
-						signed_owner.clone(),
-						asset_id.into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				}
-
-				$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
-					signed_owner.clone(),
-					Box::new(native_asset.clone()),
-					Box::new($asset.clone()),
-				));
-
-				$crate::macros::assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion($crate::macros::pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-					]
-				);
-
-				$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
-					signed_owner,
-					Box::new(native_asset),
-					Box::new($asset),
-					$native_amount,
-					$asset_amount,
-					0,
-					0,
-					owner.into()
-				));
-
-				$crate::macros::assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion($crate::macros::pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-					]
-				);
-			});
 		}
 	};
 }

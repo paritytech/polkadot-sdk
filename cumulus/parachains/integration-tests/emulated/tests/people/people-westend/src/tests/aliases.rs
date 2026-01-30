@@ -16,7 +16,9 @@
 //! Tests related to XCM aliasing.
 
 use crate::imports::*;
-use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
+use emulated_integration_tests_common::{
+	create_foreign_pool_with_native_on, macros::AccountId, test_cross_chain_alias,
+};
 use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
@@ -31,7 +33,7 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 	// origin and target are the same account on different chains
 	let origin: AccountId = [1; 32].into();
 	let target = origin.clone();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	PenpalB::mint_foreign_asset(
 		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
@@ -39,6 +41,9 @@ fn account_on_sibling_syschain_aliases_into_same_local_account() {
 		origin.clone(),
 		fees * 10,
 	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// Aliasing same account on different chains
 	test_cross_chain_alias!(
@@ -65,7 +70,7 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 	// origin and target are different accounts on different chains
 	let origin: AccountId = [1; 32].into();
 	let target: AccountId = [2; 32].into();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	PenpalB::mint_foreign_asset(
 		<PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
@@ -73,6 +78,9 @@ fn account_on_sibling_syschain_cannot_alias_into_different_local_account() {
 		origin.clone(),
 		fees * 10,
 	);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
 
 	// Aliasing different account on different chains
 	test_cross_chain_alias!(
@@ -194,11 +202,15 @@ fn authorized_cross_chain_aliases() {
 	let origin: AccountId = [100; 32].into();
 	let bad_origin: AccountId = [150; 32].into();
 	let target: AccountId = [200; 32].into();
-	let fees = WESTEND_ED * 10;
+	let fees = WESTEND_ED * 20;
 
 	let pal_admin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get());
 	PenpalB::mint_foreign_asset(pal_admin.clone(), Location::parent(), origin.clone(), fees * 10);
 	PenpalB::mint_foreign_asset(pal_admin, Location::parent(), bad_origin.clone(), fees * 10);
+
+	// We need to create a pool to pay execution fees in WND
+	create_foreign_pool_with_native_on!(PenpalB, Location::parent(), PenpalAssetOwner::get());
+
 	PeopleWestend::fund_accounts(vec![(target.clone(), fees * 10)]);
 
 	// let's authorize `origin` on Penpal to alias `target` on People

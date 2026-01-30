@@ -14627,7 +14627,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "pallet-asset-conversion",
- "pallet-asset-tx-payment",
+ "pallet-asset-conversion-tx-payment",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",

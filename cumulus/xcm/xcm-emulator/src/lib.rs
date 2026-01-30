@@ -1557,17 +1557,17 @@ pub struct TestAccount<R: Chain> {
 
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
-pub struct TestArgs {
+pub struct TestArgs<AssetId = u32> {
 	pub dest: Location,
 	pub beneficiary: Location,
 	pub amount: Balance,
 	pub assets: Assets,
-	pub asset_id: Option<u32>,
+	pub asset_id: Option<AssetId>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
 }
 
-impl TestArgs {
+impl<AssetId> TestArgs<AssetId> {
 	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
 	pub fn new_relay(dest: Location, beneficiary_id: AccountId32, amount: Balance) -> Self {
 		Self {
@@ -1587,7 +1587,7 @@ impl TestArgs {
 		beneficiary_id: AccountId32,
 		amount: Balance,
 		assets: Assets,
-		asset_id: Option<u32>,
+		asset_id: Option<AssetId>,
 		fee_asset_item: u32,
 	) -> Self {
 		Self {

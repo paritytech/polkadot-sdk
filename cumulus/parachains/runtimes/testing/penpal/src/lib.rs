@@ -49,11 +49,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
-use assets_common::{
-	foreign_creators::ForeignCreators,
-	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
-	AssetIdForTrustBackedAssetsConvert,
-};
+use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
@@ -64,7 +60,10 @@ use frame_support::{
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{
-		tokens::{fungible, fungibles, imbalance::ResolveAssetTo},
+		tokens::{
+			fungible,
+			imbalance::{MaybeResolveAssetTo, ResolveAssetTo},
+		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Everything,
 		TransformOrigin,
 	},
@@ -80,7 +79,7 @@ use frame_system::{
 };
 use pallet_revive::evm::runtime::EthExtra;
 use parachains_common::{
-	impls::{AssetsToBlockAuthor, NonZeroIssuance},
+	impls::BlockAuthor,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 };
@@ -99,7 +98,7 @@ pub use sp_runtime::{traits::ConvertInto, MultiAddress, Perbill, Permill};
 use testnet_parachains_constants::westend::{consensus::*, time::*};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
-	latest::prelude::{AssetId as AssetLocationId, BodyId},
+	latest::prelude::{AssetId as AssetLocationId, BodyId, Location},
 	Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
 	VersionedXcm,
 };
@@ -114,7 +113,7 @@ pub use sp_runtime::BuildStorage;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
-	ForeignAssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
+	AssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
 };
 
 /// The address format for describing accounts.
@@ -142,7 +141,7 @@ pub type TxExtension = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_asset_tx_payment::ChargeAssetTxPayment<Runtime>,
+	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	frame_system::WeightReclaim<Runtime>,
@@ -166,7 +165,7 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckEra::<Runtime>::from(generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 			frame_system::WeightReclaim::<Runtime>::new(),
@@ -459,20 +458,22 @@ parameter_types! {
 	pub const MetadataDepositPerByte: Balance = 0;
 }
 
-// /// We allow root and the Relay Chain council to execute privileged asset operations.
-// pub type AssetsForceOrigin =
-// 	EnsureOneOf<EnsureRoot<AccountId>, EnsureXcm<IsMajorityOfBody<KsmLocation, ExecutiveBody>>>;
-
-pub type TrustBackedAssetsInstance = pallet_assets::Instance1;
-
-impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
+/// Pallet Assets instance to store local and foreign assets, where:
+///
+/// * Local assets are identified by `assets_common::matching::LocalLocationPattern`.
+/// * Foreign assets are the rest
+pub type AssetsInstance = pallet_assets::Instance2;
+impl pallet_assets::Config<AssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = AssetId;
-	type AssetIdParameter = codec::Compact<AssetId>;
-	type ReserveData = ();
+	type AssetId = AssetsAssetId;
+	type AssetIdParameter = AssetsAssetId;
+	type ReserveData = ForeignAssetReserveData;
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	// This is to allow any other location to create assets. Used in tests, not
+	// recommended on real chains.
+	type CreateOrigin =
+		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
@@ -485,46 +486,6 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type CallbackHandle = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
-	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
-parameter_types! {
-	// we just reuse the same deposits
-	pub const ForeignAssetsAssetDeposit: Balance = AssetDeposit::get();
-	pub const ForeignAssetsAssetAccountDeposit: Balance = AssetAccountDeposit::get();
-	pub const ForeignAssetsApprovalDeposit: Balance = ApprovalDeposit::get();
-	pub const ForeignAssetsAssetsStringLimit: u32 = AssetsStringLimit::get();
-	pub const ForeignAssetsMetadataDepositBase: Balance = MetadataDepositBase::get();
-	pub const ForeignAssetsMetadataDepositPerByte: Balance = MetadataDepositPerByte::get();
-}
-
-/// Another pallet assets instance to store foreign assets from bridgehub.
-pub type ForeignAssetsInstance = pallet_assets::Instance2;
-impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = ForeignAssetsAssetId;
-	type AssetIdParameter = ForeignAssetsAssetId;
-	type ReserveData = ForeignAssetReserveData;
-	type Currency = Balances;
-	// This is to allow any other remote location to create foreign assets. Used in tests, not
-	// recommended on real chains.
-	type CreateOrigin =
-		ForeignCreators<Everything, LocationToAccountId, AccountId, xcm::latest::Location>;
-	type ForceOrigin = EnsureRoot<AccountId>;
-	type AssetDeposit = ForeignAssetsAssetDeposit;
-	type MetadataDepositBase = ForeignAssetsMetadataDepositBase;
-	type MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
-	type ApprovalDeposit = ForeignAssetsApprovalDeposit;
-	type StringLimit = ForeignAssetsAssetsStringLimit;
-	type Holder = ();
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-	type CallbackHandle = ();
-	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::LocationAssetsBenchmarkHelper;
@@ -569,27 +530,11 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for `Assets` and `ForeignAssets`.
-pub type LocalAndForeignAssets = fungibles::UnionOf<
-	Assets,
-	ForeignAssets,
-	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<
-			xcm_config::TrustBackedAssetsPalletLocation,
-			xcm::latest::Location,
-		>,
-		parachains_common::AssetIdForTrustBackedAssets,
-		xcm::latest::Location,
-	>,
-	xcm::latest::Location,
-	AccountId,
->;
-
-/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+/// Union fungibles implementation for [`Assets`] and `Balances`.
 pub type NativeAndAssets = fungible::UnionOf<
 	Balances,
-	LocalAndForeignAssets,
-	TargetFromLeft<xcm_config::RelayLocation, xcm::latest::Location>,
+	Assets,
+	TargetFromLeft<xcm_config::PenpalNativeCurrency, xcm::latest::Location>,
 	xcm::latest::Location,
 	AccountId,
 >;
@@ -607,7 +552,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
-		xcm_config::RelayLocation,
+		xcm_config::PenpalNativeCurrency,
 		AccountId,
 		Self::AssetKind,
 		PoolIdToAccountId,
@@ -615,19 +560,19 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeAsset = xcm_config::RelayLocation;
+	type PoolSetupFeeAsset = xcm_config::PenpalNativeCurrency;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = ConstU32<0>; // Makes account balance tracking in tests a bit easier
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		xcm_config::RelayLocation,
+		xcm_config::PenpalNativeCurrency,
 		parachain_info::Pallet<Runtime>,
-		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm_config::AssetsPalletIndex,
 		xcm::latest::Location,
 	>;
 }
@@ -694,7 +639,7 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetLocationId = AssetLocationId(xcm_config::RelayLocation::get());
+	pub FeeAssetId: AssetLocationId = AssetLocationId(xcm_config::PenpalNativeCurrency::get());
 	/// The base fee for the message delivery fees (3 CENTS).
 	pub const BaseDeliveryFee: u128 = (1_000_000_000_000u128 / 100).saturating_mul(3);
 }
@@ -778,33 +723,33 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub struct AssetTxHelper;
+pub struct AssetTxConversionHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
-	fn create_asset_id_parameter(_id: u32) -> (u32, u32) {
+impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, Location, Location>
+	for AssetTxConversionHelper
+{
+	fn create_asset_id_parameter(_id: u32) -> (Location, Location) {
 		unimplemented!("Penpal uses default weights");
 	}
-	fn setup_balances_and_pool(_asset_id: u32, _account: AccountId) {
+	fn setup_balances_and_pool(_asset_id: Location, _account: AccountId) {
 		unimplemented!("Penpal uses default weights");
 	}
 }
 
-impl pallet_asset_tx_payment::Config for Runtime {
+impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = Assets;
-	type OnChargeAssetTransaction = pallet_asset_tx_payment::FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<
-			Balances,
-			Runtime,
-			ConvertInto,
-			TrustBackedAssetsInstance,
-		>,
-		AssetsToBlockAuthor<Runtime, TrustBackedAssetsInstance>,
+	type AssetId = Location;
+	type OnChargeAssetTransaction = pallet_asset_conversion_tx_payment::SwapAssetAdapter<
+		xcm_config::PenpalNativeCurrency,
+		NativeAndAssets,
+		AssetConversion,
+		MaybeResolveAssetTo<BlockAuthor<Runtime>, NativeAndAssets, AccountId>,
 	>;
 	type WeightInfo = ();
+
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AssetTxHelper;
+	type BenchmarkHelper = AssetTxConversionHelper;
 }
 
 parameter_types! {
@@ -870,7 +815,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		AssetTxPayment: pallet_asset_tx_payment = 12,
+		AssetTxPayment: pallet_asset_conversion_tx_payment = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -889,8 +834,10 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 
 		// The main stage.
-		Assets: pallet_assets::<Instance1> = 50,
-		ForeignAssets: pallet_assets::<Instance2> = 51,
+
+		// Removed, i.e. merged into the foreign assets pallet.
+		// Assets: pallet_assets::<Instance1> = 50,
+		Assets: pallet_assets::<Instance2> = 50,
 		PoolAssets: pallet_assets::<Instance3> = 52,
 		AssetConversion: pallet_asset_conversion = 53,
 
@@ -1068,7 +1015,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 	impl xcm_runtime_apis::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			let acceptable_assets = vec![AssetLocationId(xcm_config::RelayLocation::get())];
+			let acceptable_assets = vec![AssetLocationId(xcm_config::PenpalNativeCurrency::get())];
 			PolkadotXcm::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
