@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769790898903,
+  "lastUpdate": 1769800007074,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "olivarra1@gmail.com",
-            "name": "Victor Oliva",
-            "username": "voliva"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4a869b92b7d7397bfbb30bcafce103461714ec08",
-          "message": "feat(revive): add contract instantiated event (#8789)\n\n# Description\n\nThis PR adds the `Instantiated` event for pallet-revive for the top\nframe. Addresses issue #8677\n\nThis might need refreshing the weights of bot `instantiate` and\n`instantiate_with_code`, as it emits a new event.\n\n## Integration\n\nNo additional work is needed to integrate this feature. The pallet will\nemit on `Instantiated` event every time `instantiate` or\n`instantiate_with_code` successfully performs an instantiation.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n* External contributors: ask maintainers to put the right label on your\nPR.\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2025-06-25T16:38:35Z",
-          "tree_id": "0f3c48d1688322d218ac8af508e54aa115e30aa3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a869b92b7d7397bfbb30bcafce103461714ec08"
-        },
-        "date": 1750873603315,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1938921598666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.225561976666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.507472346666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a9c09b0bf857037584f8439908cf68e34abf1ee9",
+          "message": "collator-protocol: Re-advertise collations when peer authority IDs are updated (#10891)\n\nThe collator protocol contained a race-condition which could manifest as\n\"Collation wasn't advertised\".\n\nA given peer (\"A\") can connect before the new authority keys are\nreceived via `UpdatedAuthorityIds` (nk -- new key).\n\n- T0: peer A connects`PeerConnected`\n- T1: peer A sends its current view `PeerViewChange`\n  - Peer A wants the block N \n- T2: `validator_group.should_advertise_to`: checks peer A for key nK\n(the new key)\n- We don't have this key stored and therefore return\n`ShouldAdvertiseTo::NotAuthority`\n- T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])\n\nAt this point, we have the collation, peer A wants to collation, we know\npeer A is an authority but we never send the collation back. Then, the\ncollation will expire with \"Collation wasn't advertised\".\n\nTo close the gap, the `UpdatedAuthorityIds` events will trigger a\nre-advertisement of collations\n- note: if the advertisement was already sent, the logic does not resend\nit (achieved in should_advertise_to).\n\nPart of the stabilization of: \n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T17:46:48Z",
+          "tree_id": "7b10160fb0e0396af578d3a2a1489e8be3546d30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9c09b0bf857037584f8439908cf68e34abf1ee9"
+        },
+        "date": 1769799982334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1252633863333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.521366219899999,
             "unit": "seconds"
           }
         ]
