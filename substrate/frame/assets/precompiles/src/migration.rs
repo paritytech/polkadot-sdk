@@ -24,6 +24,7 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	weights::{Weight, WeightMeter},
 };
+use xcm::v5::Location;
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
 
@@ -83,12 +84,11 @@ pub struct MigrateForeignAssetPrecompileMappings<T, I = (), W = ()>(PhantomData<
 
 impl<T, I, W> SteppedMigration for MigrateForeignAssetPrecompileMappings<T, I, W>
 where
-	T: pallet_assets::Config<I>
-		+ pallet::Config<ForeignAssetId = <T as pallet_assets::Config<I>>::AssetId>,
+	T: pallet_assets::Config<I, AssetId = Location> + pallet::Config,
 	I: 'static,
 	W: WeightInfo,
 {
-	type Cursor = MigrationState<<T as pallet_assets::Config<I>>::AssetId>;
+	type Cursor = MigrationState<Location>;
 	type Identifier = MigrationId<32>;
 
 	fn id() -> Self::Identifier {
@@ -157,9 +157,8 @@ where
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::Decode;
 
-		let unmapped_assets: alloc::vec::Vec<<T as pallet_assets::Config<I>>::AssetId> =
-			Decode::decode(&mut &state[..])
-				.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode state"))?;
+		let unmapped_assets: alloc::vec::Vec<Location> = Decode::decode(&mut &state[..])
+			.map_err(|_| sp_runtime::TryRuntimeError::Other("Failed to decode state"))?;
 
 		let mut migrated = 0u64;
 
@@ -201,16 +200,13 @@ where
 
 impl<T, I, W> MigrateForeignAssetPrecompileMappings<T, I, W>
 where
-	T: pallet_assets::Config<I>
-		+ pallet::Config<ForeignAssetId = <T as pallet_assets::Config<I>>::AssetId>,
+	T: pallet_assets::Config<I, AssetId = Location> + pallet::Config,
 	I: 'static,
 	W: WeightInfo,
 {
 	/// Performs a single step of the migration.
 	/// Returns the new migration state and the weight consumed.
-	fn migrate_asset_step(
-		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
-	) -> (MigrationState<<T as pallet_assets::Config<I>>::AssetId>, Weight) {
+	fn migrate_asset_step(maybe_last_key: Option<&Location>) -> (MigrationState<Location>, Weight) {
 		let mut iter = if let Some(last_key) = maybe_last_key {
 			pallet_assets::Asset::<T, I>::iter_keys_from(
 				pallet_assets::Asset::<T, I>::hashed_key_for(last_key),

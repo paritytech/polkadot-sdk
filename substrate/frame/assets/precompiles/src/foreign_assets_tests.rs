@@ -20,7 +20,7 @@
 use super::*;
 use crate::{
 	foreign_assets::{pallet::Pallet as ForeignAssetsPallet, ForeignAssetId},
-	mock::{new_test_ext, Test},
+	mock::{new_test_ext, test_location, Test},
 };
 use frame_support::assert_ok;
 use pallet_assets::AssetsCallback;
@@ -28,7 +28,7 @@ use pallet_assets::AssetsCallback;
 #[test]
 fn asset_mapping_insert_works() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 123u32;
+		let asset_id = test_location(123);
 
 		// Insert mapping - now returns the allocated index
 		let asset_index = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id).unwrap();
@@ -37,7 +37,7 @@ fn asset_mapping_insert_works() {
 		assert_eq!(asset_index, 0);
 
 		// Verify both directions of lookup work
-		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id));
+		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id.clone()));
 		assert_eq!(ForeignAssetsPallet::<Test>::asset_index_of(&asset_id), Some(asset_index));
 	});
 }
@@ -45,9 +45,9 @@ fn asset_mapping_insert_works() {
 #[test]
 fn asset_mapping_insert_sequential_indices() {
 	new_test_ext().execute_with(|| {
-		let asset_id1 = 100u32;
-		let asset_id2 = 200u32;
-		let asset_id3 = 300u32;
+		let asset_id1 = test_location(100);
+		let asset_id2 = test_location(200);
+		let asset_id3 = test_location(300);
 
 		// Insert mappings - should get sequential indices
 		let index1 = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id1).unwrap();
@@ -68,7 +68,7 @@ fn asset_mapping_insert_sequential_indices() {
 #[test]
 fn asset_mapping_insert_prevents_duplicate_asset_id() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 123u32;
+		let asset_id = test_location(123);
 
 		// Insert first mapping
 		let index1 = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id).unwrap();
@@ -84,11 +84,11 @@ fn asset_mapping_insert_prevents_duplicate_asset_id() {
 #[test]
 fn asset_mapping_remove_works() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 123u32;
+		let asset_id = test_location(123);
 
 		// Insert and verify
 		let asset_index = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id).unwrap();
-		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id));
+		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id.clone()));
 
 		// Remove mapping
 		ForeignAssetsPallet::<Test>::remove_asset_mapping(&asset_id);
@@ -102,7 +102,7 @@ fn asset_mapping_remove_works() {
 #[test]
 fn asset_mapping_remove_nonexistent_is_safe() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 999u32;
+		let asset_id = test_location(999);
 
 		// Remove mapping that doesn't exist - should not panic
 		ForeignAssetsPallet::<Test>::remove_asset_mapping(&asset_id);
@@ -115,7 +115,7 @@ fn asset_mapping_remove_nonexistent_is_safe() {
 #[test]
 fn foreign_asset_callback_created_inserts_mapping() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 42u32;
+		let asset_id = test_location(42);
 		let owner = 123u64;
 
 		// Simulate asset creation callback
@@ -131,13 +131,13 @@ fn foreign_asset_callback_created_inserts_mapping() {
 #[test]
 fn foreign_asset_callback_destroyed_removes_mapping() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 42u32;
+		let asset_id = test_location(42);
 		let owner = 123u64;
 
 		// Setup: create asset mapping via callback
 		assert_ok!(ForeignAssetId::<Test>::created(&asset_id, &owner));
 		let asset_index = ForeignAssetsPallet::<Test>::asset_index_of(&asset_id).unwrap();
-		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id));
+		assert_eq!(ForeignAssetsPallet::<Test>::asset_id_of(asset_index), Some(asset_id.clone()));
 
 		// Simulate asset destruction callback
 		assert_ok!(ForeignAssetId::<Test>::destroyed(&asset_id));
@@ -151,7 +151,7 @@ fn foreign_asset_callback_destroyed_removes_mapping() {
 #[test]
 fn foreign_asset_id_extractor_works_with_valid_mapping() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 555u32;
+		let asset_id = test_location(555);
 
 		// Setup mapping - gets index 0
 		let asset_index = ForeignAssetsPallet::<Test>::insert_asset_mapping(&asset_id).unwrap();
@@ -205,17 +205,20 @@ fn next_asset_index_increments_correctly() {
 		assert_eq!(ForeignAssetsPallet::<Test>::next_asset_index(), 0);
 
 		// Insert first asset
-		let index1 = ForeignAssetsPallet::<Test>::insert_asset_mapping(&100u32).unwrap();
+		let index1 =
+			ForeignAssetsPallet::<Test>::insert_asset_mapping(&test_location(100)).unwrap();
 		assert_eq!(index1, 0);
 		assert_eq!(ForeignAssetsPallet::<Test>::next_asset_index(), 1);
 
 		// Insert second asset
-		let index2 = ForeignAssetsPallet::<Test>::insert_asset_mapping(&200u32).unwrap();
+		let index2 =
+			ForeignAssetsPallet::<Test>::insert_asset_mapping(&test_location(200)).unwrap();
 		assert_eq!(index2, 1);
 		assert_eq!(ForeignAssetsPallet::<Test>::next_asset_index(), 2);
 
 		// Insert third asset
-		let index3 = ForeignAssetsPallet::<Test>::insert_asset_mapping(&300u32).unwrap();
+		let index3 =
+			ForeignAssetsPallet::<Test>::insert_asset_mapping(&test_location(300)).unwrap();
 		assert_eq!(index3, 2);
 		assert_eq!(ForeignAssetsPallet::<Test>::next_asset_index(), 3);
 	});

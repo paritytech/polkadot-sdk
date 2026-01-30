@@ -18,16 +18,17 @@
 use super::*;
 use crate::{
 	alloy::hex,
-	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
+	mock::{
+		new_test_ext, test_location, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test,
+	},
 };
 use alloy::primitives::U256;
 use frame_support::{assert_ok, traits::Currency};
 use pallet_revive::{precompiles::TransactionLimits, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
-use test_case::test_case;
+use xcm::v5::Location;
 
-const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
 const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
 
 fn set_prefix_in_address(base_hex: &[u8; 40], prefix: u16) -> [u8; 20] {
@@ -46,11 +47,8 @@ fn assert_contract_event(contract: H160, event: IERC20Events) {
 	}));
 }
 
-fn setup_asset_for_prefix(asset_id: u32, _owner: u64, prefix: u16) {
-	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
-			.expect("Failed to insert asset mapping");
-	}
+fn setup_foreign_asset(asset_id: &Location) {
+	pallet::Pallet::<Test>::insert_asset_mapping(asset_id).expect("Failed to insert asset mapping");
 }
 
 #[test]
@@ -67,14 +65,13 @@ fn asset_id_extractor_works() {
 	);
 }
 
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn precompile_transfer_works(asset_index: u16) {
+#[test]
+fn precompile_transfer_works() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
+		let asset_id = test_location(2000);
 		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
-			asset_index,
+			PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		));
 
 		let from = 123456789;
@@ -85,9 +82,9 @@ fn precompile_transfer_works(asset_index: u16) {
 
 		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
-		setup_asset_for_prefix(asset_id, from, asset_index);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+		setup_foreign_asset(&asset_id);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id.clone(), from, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id.clone(), from, 100));
 
 		let data =
 			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
@@ -113,26 +110,25 @@ fn precompile_transfer_works(asset_index: u16) {
 			}),
 		);
 
-		assert_eq!(Assets::balance(asset_id, from), 90);
+		assert_eq!(Assets::balance(asset_id.clone(), from), 90);
 		assert_eq!(Assets::balance(asset_id, to), 10);
 	});
 }
 
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn total_supply_works(asset_index: u16) {
+#[test]
+fn total_supply_works() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
+		let asset_id = test_location(2000);
 		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
-			asset_index,
+			PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		));
 
 		let owner = 123456789;
 
 		Balances::make_free_balance_be(&owner, 100);
-		setup_asset_for_prefix(asset_id, owner, asset_index);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		setup_foreign_asset(&asset_id);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id.clone(), owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
 
 		let data = IERC20::totalSupplyCall {}.abi_encode();
@@ -157,19 +153,18 @@ fn total_supply_works(asset_index: u16) {
 	});
 }
 
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn balance_of_works(asset_index: u16) {
+#[test]
+fn balance_of_works() {
 	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
+		let asset_id = test_location(2000);
 		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
-			asset_index,
+			PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		));
 		let owner = 123456789;
 
-		setup_asset_for_prefix(asset_id, owner, asset_index);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		setup_foreign_asset(&asset_id);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id.clone(), owner, true, 1));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 1000));
 
 		let account = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner).0.into();
@@ -195,16 +190,15 @@ fn balance_of_works(asset_index: u16) {
 	});
 }
 
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn approval_works(asset_index: u16) {
+#[test]
+fn approval_works() {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
+		let asset_id = test_location(2000);
 		let asset_addr = H160::from(set_prefix_in_address(
 			b"0000000000000000000000000000000000000000",
-			asset_index,
+			PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		));
 
 		let owner = 123456789;
@@ -219,9 +213,9 @@ fn approval_works(asset_index: u16) {
 		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
 		let other_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&other);
 
-		setup_asset_for_prefix(asset_id, owner, asset_index);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+		setup_foreign_asset(&asset_id);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id.clone(), owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id.clone(), owner, 100));
 
 		let data = IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(25) }
 			.abi_encode();
@@ -287,8 +281,8 @@ fn approval_works(asset_index: u16) {
 			data,
 			ExecConfig::new_substrate_tx(),
 		);
-		assert_eq!(Assets::balance(asset_id, owner), 90);
-		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);
+		assert_eq!(Assets::balance(asset_id.clone(), owner), 90);
+		assert_eq!(Assets::allowance(asset_id.clone(), &owner, &spender), 15);
 		assert_eq!(Assets::balance(asset_id, other), 10);
 
 		assert_contract_event(

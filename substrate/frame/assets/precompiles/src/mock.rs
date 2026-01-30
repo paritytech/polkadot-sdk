@@ -15,11 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests mock for `pallet-assets-freezer`.
+//! Tests mock for `pallet-assets-precompiles`.
 
 pub use super::*;
-use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
+use frame_support::{derive_impl, parameter_types, traits::AsEnsureOriginWithArg};
 use sp_runtime::BuildStorage;
+use xcm::v5::{Junction, Location};
 
 #[frame_support::runtime]
 mod runtime {
@@ -60,32 +61,75 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
-#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig as pallet_assets::DefaultConfig)]
+parameter_types! {
+	pub const AssetDeposit: u64 = 1;
+	pub const AssetAccountDeposit: u64 = 1;
+	pub const ApprovalDeposit: u64 = 1;
+	pub const MetadataDepositBase: u64 = 1;
+	pub const MetadataDepositPerByte: u64 = 1;
+}
+
+/// A benchmark helper that creates Location instances from u32 IDs.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct LocationBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_assets::BenchmarkHelper<Location, ()> for LocationBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Junction::Parachain(id)])
+	}
+	fn create_reserve_id_parameter(_id: u32) -> () {
+		()
+	}
+}
+
 impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u64;
+	type AssetId = Location;
+	type AssetIdParameter = Location;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
+	type AssetDeposit = AssetDeposit;
+	type AssetAccountDeposit = AssetAccountDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = frame_support::traits::ConstU32<50>;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = ();
+	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
+	type CallbackHandle = ();
+	type ReserveData = ();
+	type Holder = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = LocationBenchmarkHelper;
 }
 
-impl foreign_assets::pallet::Config for Test {
-	type ForeignAssetId = u32;
-}
+impl foreign_assets::pallet::Config for Test {}
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Balance = u64;
 	type Currency = Balances;
-	type Precompiles =
-		(ERC20<Self, InlineIdConfig<0x0120>>, ERC20<Self, ForeignIdConfig<0x0220, Self>>);
+	type Precompiles = (ERC20<Self, ForeignIdConfig<0x0220, Self>>,);
+}
+
+/// Helper to create a test Location from a parachain ID.
+pub fn test_location(para_id: u32) -> Location {
+	Location::new(1, [Junction::Parachain(para_id)])
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	let asset_location = test_location(1000);
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
-			assets: vec![(1, 0, true, 1)],
+			assets: vec![(asset_location.clone(), 0, true, 1)],
 			metadata: vec![],
-			accounts: vec![(1, 1, 100)],
+			accounts: vec![(asset_location, 1, 100)],
 			next_asset_id: None,
 			reserves: vec![],
 		},

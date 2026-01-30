@@ -18,20 +18,21 @@
 use core::marker::PhantomData;
 use frame_support::LOG_TARGET;
 use pallet_assets::AssetsCallback;
+use xcm::v5::Location;
 
 pub use pallet::*;
 
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
+impl<T: Config, I> AssetsCallback<Location, T::AccountId> for ForeignAssetId<T, I>
 where
-	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
+	T: pallet::Config + pallet_assets::Config<I, AssetId = Location>,
 	I: 'static,
 {
-	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+	fn created(id: &Location, _: &T::AccountId) -> Result<(), ()> {
 		pallet::Pallet::<T>::insert_asset_mapping(id).map(|_| ())
 	}
 
-	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
+	fn destroyed(id: &Location) -> Result<(), ()> {
 		pallet::Pallet::<T>::remove_asset_mapping(id);
 		Ok(())
 	}
@@ -43,11 +44,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, Blake2_128Concat};
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// The foreign asset ID type. This must match the `AssetId` type used by the
-		/// `pallet_assets` instance for foreign assets.
-		type ForeignAssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
-	}
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -57,24 +54,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextAssetIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// Mapping an asset index (derived from the precompile address) to a `ForeignAssetId`.
+	/// Mapping an asset index (derived from the precompile address) to a `Location`.
 	#[pallet::storage]
 	pub type AssetIndexToForeignAssetId<T: Config> =
-		StorageMap<_, Blake2_128Concat, u32, T::ForeignAssetId, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, u32, Location, OptionQuery>;
 
-	/// Mapping a `ForeignAssetId` to an asset index (used for deriving precompile addresses).
+	/// Mapping a `Location` to an asset index (used for deriving precompile addresses).
 	#[pallet::storage]
 	pub type ForeignAssetIdToAssetIndex<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::ForeignAssetId, u32, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Location, u32, OptionQuery>;
 
 	impl<T: Config> Pallet<T> {
 		/// Get the foreign asset ID for a given asset index.
-		pub fn asset_id_of(asset_index: u32) -> Option<T::ForeignAssetId> {
+		pub fn asset_id_of(asset_index: u32) -> Option<Location> {
 			AssetIndexToForeignAssetId::<T>::get(asset_index)
 		}
 
 		/// Get the asset index for a given foreign asset ID.
-		pub fn asset_index_of(asset_id: &T::ForeignAssetId) -> Option<u32> {
+		pub fn asset_index_of(asset_id: &Location) -> Option<u32> {
 			ForeignAssetIdToAssetIndex::<T>::get(asset_id)
 		}
 
@@ -85,7 +82,7 @@ pub mod pallet {
 
 		/// Insert a new asset mapping, allocating a sequential index.
 		/// Returns the allocated asset index on success.
-		pub fn insert_asset_mapping(asset_id: &T::ForeignAssetId) -> Result<u32, ()> {
+		pub fn insert_asset_mapping(asset_id: &Location) -> Result<u32, ()> {
 			if ForeignAssetIdToAssetIndex::<T>::contains_key(asset_id) {
 				log::debug!(target: LOG_TARGET, "Asset id {:?} already mapped", asset_id);
 				return Err(());
@@ -105,7 +102,7 @@ pub mod pallet {
 			Ok(asset_index)
 		}
 
-		pub fn remove_asset_mapping(asset_id: &T::ForeignAssetId) {
+		pub fn remove_asset_mapping(asset_id: &Location) {
 			if let Some(asset_index) = ForeignAssetIdToAssetIndex::<T>::get(&asset_id) {
 				AssetIndexToForeignAssetId::<T>::remove(asset_index);
 				ForeignAssetIdToAssetIndex::<T>::remove(asset_id);

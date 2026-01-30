@@ -119,9 +119,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Test {
 	type BenchmarkHelper = LocationBenchmarkHelper;
 }
 
-impl pallet::Config for Test {
-	type ForeignAssetId = Location;
-}
+impl pallet::Config for Test {}
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

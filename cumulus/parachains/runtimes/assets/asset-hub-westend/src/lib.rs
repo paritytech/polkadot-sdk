@@ -570,10 +570,7 @@ parameter_types! {
 	pub const ForeignAssetsMetadataDepositPerByte: Balance = MetadataDepositPerByte::get();
 }
 
-impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
-	// must match the AssetId type used by the `ForeignAssets` instance
-	type ForeignAssetId = <Runtime as pallet_assets::Config<ForeignAssetsInstance>>::AssetId;
-}
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {}
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set

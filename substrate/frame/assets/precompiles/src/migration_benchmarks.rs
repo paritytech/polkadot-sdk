@@ -26,11 +26,9 @@
 
 use crate::foreign_assets::pallet::{Config, Pallet};
 use frame_benchmarking::v2::*;
+use xcm::v5::{Junction, Location};
 
-#[benchmarks(
-	where
-		T::ForeignAssetId: From<u32>,
-)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
@@ -44,7 +42,7 @@ mod benchmarks {
 	/// - 1 write: ForeignAssetIdToAssetIndex
 	#[benchmark]
 	fn migrate_asset_step_migrate() {
-		let asset_id: T::ForeignAssetId = 1u32.into();
+		let asset_id = Location::new(1, [Junction::Parachain(1)]);
 
 		// Ensure no mapping exists
 		assert!(Pallet::<T>::asset_index_of(&asset_id).is_none());
@@ -64,7 +62,7 @@ mod benchmarks {
 	/// - 1 read: ForeignAssetIdToAssetIndex
 	#[benchmark]
 	fn migrate_asset_step_skip() {
-		let asset_id: T::ForeignAssetId = 2u32.into();
+		let asset_id = Location::new(1, [Junction::Parachain(2)]);
 
 		// Pre-create the mapping
 		let _ = Pallet::<T>::insert_asset_mapping(&asset_id);
@@ -82,7 +80,7 @@ mod benchmarks {
 	/// This measures the weight of a simple storage read returning None.
 	#[benchmark]
 	fn migrate_asset_step_finished() {
-		let nonexistent_id: T::ForeignAssetId = 999u32.into();
+		let nonexistent_id = Location::new(1, [Junction::Parachain(999)]);
 
 		#[block]
 		{

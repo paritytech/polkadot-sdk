@@ -92,18 +92,18 @@ impl<const P: u16> AssetPrecompileConfig for InlineIdConfig<P> {
 }
 
 /// An `AssetIdExtractor` that maps a local asset id (4 bytes taken from the address) to a foreign
-/// asset id.
+/// asset id (Location).
 pub struct ForeignAssetIdExtractor<Runtime, Instance = ()> {
 	_phantom: PhantomData<(Runtime, Instance)>,
 }
 
 impl<Runtime, Instance: 'static> AssetIdExtractor for ForeignAssetIdExtractor<Runtime, Instance>
 where
-	Runtime: pallet_assets::Config<Instance>
-		+ pallet::Config<ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId>
+	Runtime: pallet_assets::Config<Instance, AssetId = xcm::v5::Location>
+		+ pallet::Config
 		+ pallet_revive::Config,
 {
-	type AssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId;
+	type AssetId = xcm::v5::Location;
 	fn asset_id_from_address(addr: &[u8; 20]) -> Result<Self::AssetId, Error> {
 		let bytes: [u8; 4] = addr[0..4].try_into().expect("slice is 4 bytes; qed");
 		let index = u32::from_be_bytes(bytes);
@@ -120,8 +120,8 @@ pub struct ForeignIdConfig<const PREFIX: u16, Runtime, Instance = ()> {
 impl<const P: u16, Runtime, Instance: 'static> AssetPrecompileConfig
 	for ForeignIdConfig<P, Runtime, Instance>
 where
-	Runtime: pallet_assets::Config<Instance>
-		+ pallet::Config<ForeignAssetId = <Runtime as pallet_assets::Config<Instance>>::AssetId>
+	Runtime: pallet_assets::Config<Instance, AssetId = xcm::v5::Location>
+		+ pallet::Config
 		+ pallet_revive::Config,
 {
 	const MATCHER: AddressMatcher = AddressMatcher::Prefix(core::num::NonZero::new(P).unwrap());
