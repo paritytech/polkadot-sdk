@@ -29,6 +29,7 @@ jobs:
     permissions:
       pull-requests: write
     strategy:
+      fail-fast: false
       matrix:
         platform:
           ["revive-dev-node-revm-solc", "revive-dev-node-polkavm-resolc"]
@@ -37,65 +38,26 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Update the Installed Python
         run: apt-get update && apt-get install -y python3-pip python3
-      - name: Installing the Latest Resolc
+      - name: Download artifact by ID
+        id: download
         run: |
-          VERSION="0.5.0"
-          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
-          echo "Downloading resolc v$VERSION from $ASSET_URL"
-          curl -Lsf --show-error -o resolc "$ASSET_URL"
-          chmod +x resolc
-          ./resolc --version
-      - name: Building the dependencies from the Polkadot SDK
-        run: forklift cargo build --locked --profile release -p pallet-revive-eth-rpc -p revive-dev-node
-      - name: Checkout the Differential Tests Repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+          curl -L --fail --show-error \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/paritytech/revive/actions/artifacts/5198357315/zip" \
+            -o resolc.zip
+          unzip -q resolc.zip -d resolc
+          chmod +x ./resolc/resolc-x86_64-unknown-linux-musl
+          echo "resolc-path=$(pwd)/resolc/resolc-x86_64-unknown-linux-musl" >> "$GITHUB_OUTPUT"
+      - name: Run revive differential tests
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
         with:
-          repository: paritytech/revive-differential-tests
-          ref: 3edaebdcae471119a1c1f0961567e8986b3e6199
-          path: revive-differential-tests
-          submodules: recursive
-      - name: Installing Retester
-        run: forklift cargo install --locked --path revive-differential-tests/crates/core
-      - name: Creating a workdir for retester
-        run: mkdir workdir
-      - name: Downloading & Initializing the compilation caches
-        run: |
-          curl -fL --retry 3 --retry-all-errors --connect-timeout 10 -o cache.tar.gz "https://github.com/paritytech/revive-differential-tests/releases/download/compilation-caches-v1.1/cache.tar.gz"
-          tar -zxf cache.tar.gz -C ./workdir > /dev/null 2>&1
-      - name: Running the Differential Tests
-        run: |
-          retester test \
-            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/simple \
-            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/complex \
-            --test ./revive-differential-tests/resolc-compiler-tests/fixtures/solidity/translated_semantic_tests \
-            --platform ${{ matrix.platform }} \
-            --concurrency.number-of-nodes 10 \
-            --concurrency.number-of-threads 10 \
-            --concurrency.number-of-concurrent-tasks 100 \
-            --working-directory ./workdir \
-            --revive-dev-node.consensus manual-seal-200 \
-            --revive-dev-node.path ./target/release/revive-dev-node \
-            --eth-rpc.path ./target/release/eth-rpc \
-            --resolc.path ./resolc
-      - name: Creating a markdown report of the test execution
-        run: |
-          mv ./workdir/*.json report.json
-          python3 ./.github/scripts/process-differential-tests-report.py report.json ${{ matrix.platform }}
-      # We upload the report as an artifact to the run since there could be
-      # certain cases where the report is too long to post as a Github comment.
-      # This happens if the all of the tests are failing and therefore the
-      # report exceeds the maximum allowed length of github comments
-      - name: Upload the Report to the CI
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
-        with:
-          name: report-${{ matrix.platform }}.md
-          path: report.md
-      - name: Posting the report as a comment on the PR
-        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405
-        if: ${{ contains(github.event.pull_request.labels.*.name, 'T7-smart_contracts') }}
-        with:
-          header: diff-tests-report-${{ matrix.platform }}
-          path: report.md
+          platform: ${{ matrix.platform }}
+          cargo-command: "forklift cargo"
+          revive-differential-tests-ref: "0e41f054405c054c37d524e5172ef8c514852e6b"
+          resolc-path: ${{ steps.download.outputs.resolc-path }}
+          expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
   evm-test-suite:
     needs: [preflight]
