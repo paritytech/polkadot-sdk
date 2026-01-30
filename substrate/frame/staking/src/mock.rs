@@ -34,6 +34,8 @@ use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::ConstBool;
 use sp_io;
 use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+#[allow(deprecated)]
+use sp_staking::EraPayout;
 use sp_staking::{
 	offence::{OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate, StakingAccount,
@@ -686,6 +688,7 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
+#[allow(deprecated)]
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),
@@ -696,6 +699,7 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	payout
 }
 
+#[allow(deprecated)]
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
 	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
 		pallet_staking::ErasTotalStake::<Test>::get(active_era()),

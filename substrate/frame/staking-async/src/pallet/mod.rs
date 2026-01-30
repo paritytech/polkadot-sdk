@@ -19,10 +19,9 @@
 
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
-	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	ActiveEraInfo, BalanceOf, EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -255,10 +254,25 @@ pub mod pallet {
 		#[pallet::no_default]
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The payout for validators and the system for the current era.
-		/// See [Era payout](./index.html#era-payout).
-		#[pallet::no_default]
-		type EraPayout: EraPayout<BalanceOf<Self>>;
+		/// Provider for era reward allocation.
+		///
+		/// This handles allocating rewards at era start by minting into the era system accounts.
+		#[pallet::no_default_bounds]
+		type RewardProvider: sp_staking::StakingRewardProvider<Self::AccountId, BalanceOf<Self>>;
+
+		/// Sink for unclaimed era rewards.
+		///
+		/// When era pot accounts are cleaned up after history depth expires, any remaining
+		/// unclaimed rewards are transferred to this sink.
+		#[pallet::no_default_bounds]
+		type UnclaimedRewardSink: sp_staking::UnclaimedRewardSink<Self::AccountId>;
+
+		/// Provider for generating era pot account IDs.
+		///
+		/// Use [`crate::Seed`] in production with a pallet ID.
+		/// Use [`crate::SequentialTest`] for testing with predictable sequential IDs.
+		#[pallet::no_default_bounds]
+		type EraPotAccountProvider: crate::EraPotAccountProvider<Self::AccountId>;
 
 		/// The maximum size of each `T::ExposurePage`.
 		///
@@ -400,6 +414,7 @@ pub mod pallet {
 			pub const BondingDuration: EraIndex = 3;
 			pub const NominatorFastUnbondDuration: EraIndex = 2;
 			pub const MaxPruningItems: u32 = 100;
+			pub const StakingAsyncPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stka ");
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -413,6 +428,9 @@ pub mod pallet {
 			type RewardRemainder = ();
 			type Slash = ();
 			type Reward = ();
+			type RewardProvider = ();
+			type UnclaimedRewardSink = ();
+			type EraPotAccountProvider = crate::Seed<StakingAsyncPalletId>;
 			type SessionsPerEra = SessionsPerEra;
 			type BondingDuration = BondingDuration;
 			type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
@@ -895,6 +913,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type EraPruningState<T: Config> = StorageMap<_, Twox64Concat, EraIndex, PruningStep>;
 
+	/// Era after which legacy minting is permanently disabled.
+	///
+	/// Set to the first era where reward provider is active. Once set, this value can only be
+	/// updated to a lower value (ensuring write-once semantics in production).
+	///
+	/// We use this as a way to hard deprecate minting tokens in this pallet and depend on
+	/// [`Config::RewardProvider`] to transfer staking rewards.
+	#[pallet::storage]
+	pub type DisableLegacyMintingEra<T: Config> = StorageValue<_, EraIndex>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1109,12 +1137,16 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
+		// Deprecated: Only emitted for `HistoryDepth` eras while transitioning to RewardProvider.
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
 			remainder: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.
+		///
+		/// NOTE: This event is emitted for legacy payouts (old eras where staking used to mint
+		/// rewards). For new eras that are paid via provider, see `RewardedFromProvider`.
 		Rewarded {
 			stash: T::AccountId,
 			dest: RewardDestination<T::AccountId>,
@@ -1250,6 +1282,14 @@ pub mod pallet {
 		EraPruned {
 			index: EraIndex,
 		},
+		/// The staker has been rewarded from a pre-allocated reward provider pot.
+		// This is essentially `RewardedV2`.
+		RewardedFromProvider {
+			era: EraIndex,
+			stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1348,6 +1388,11 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// Era reward pot not found and legacy minting is disabled.
+		///
+		/// This is an internal error caused by a potential bug. If observed, please create an
+		/// issue in `https://github.com/paritytech/polkadot-sdk/issues`.
+		LegacyMintingDisabled,
 	}
 
 	impl<T: Config> Pallet<T> {

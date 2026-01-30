@@ -19,9 +19,10 @@
 
 use crate::{self as pallet_dap, Config};
 use frame_support::{derive_impl, parameter_types, PalletId};
-use sp_runtime::BuildStorage;
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
+type AccountId = u128;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -34,6 +35,8 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
@@ -46,9 +49,22 @@ parameter_types! {
 	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
 }
 
+/// Simple test EraPayout implementation.
+///
+/// Returns total inflation of 100. The split is determined by BudgetConfig.
+pub struct TestEraPayout;
+impl sp_staking::EraPayoutV2<u64> for TestEraPayout {
+	fn era_payout(_total_staked: u64, _total_issuance: u64, _era_duration_millis: u64) -> u64 {
+		// Return total inflation of 100
+		100
+	}
+}
+
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type EraPayout = TestEraPayout;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

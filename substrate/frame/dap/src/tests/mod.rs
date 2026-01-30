@@ -17,6 +17,8 @@
 
 //! Tests for the DAP pallet.
 
+mod budget;
 mod genesis;
 mod migrations;
 mod on_unbalanced;
+mod reward_provider;

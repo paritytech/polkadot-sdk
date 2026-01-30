@@ -76,16 +76,16 @@
 //! * end 4, start 5, plan 6 // RC::session receives and queues this set.
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
-use crate::*;
+use crate::{reward::EraRewardManager, *};
 use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -736,6 +736,11 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Cleanup old era pot beyond history depth
+		if let Some(era_to_cleanup) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			EraRewardManager::<T>::cleanup_era(era_to_cleanup);
+		}
+
 		// Snapshot the current nominators slashable setting for this era.
 		// Cleanup will happen via lazy pruning at HistoryDepth.
 		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
@@ -827,7 +832,6 @@ impl<T: Config> Rotator<T> {
 
 	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
 		let staked = ErasTotalStake::<T>::get(ending_era.index);
-		let issuance = asset::total_issuance::<T>();
 
 		log!(
 			debug,
@@ -835,25 +839,37 @@ impl<T: Config> Rotator<T> {
 			ending_era.index,
 			era_duration
 		);
-		let (validator_payout, remainder) =
-			T::EraPayout::era_payout(staked, issuance, era_duration);
 
-		let total_payout = validator_payout.saturating_add(remainder);
-		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
+		// Allocate era rewards by creating pots and minting into them.
+		// This also emits an event equivalent to the legacy `Staking::EraPaid`.
+		let allocation =
+			EraRewardManager::<T>::allocate_rewards(ending_era.index, staked, era_duration);
 
-		// apply cap to validators payout and add difference to remainder.
-		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-		let remainder = total_payout.saturating_sub(validator_payout);
+		// Provider should return non-zero for new eras in production.
+		// Zero can happen in edge cases like benchmarks with zero era duration.
+		if allocation.staker_rewards.is_zero() {
+			log!(
+				warn,
+				"Era {:?} allocated zero staker rewards (era_duration: {:?})",
+				ending_era.index,
+				era_duration
+			);
+		}
 
-		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
-			era_index: ending_era.index,
-			validator_payout,
-			remainder,
-		});
+		// Set ending era reward (needed for payout calculation)
+		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);
 
-		// Set ending era reward.
-		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
-		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
+		// Update DisableLegacyMintingEra to prevent legacy minting.
+		// This only updates if the new value is lower than the existing one (write-once semantics)
+		// or if it hasn't been set yet. This ensures that once set in production, it can't be
+		// rolled back to re-enable legacy minting for future eras.
+		if !allocation.staker_rewards.is_zero() {
+			DisableLegacyMintingEra::<T>::mutate(|maybe_era| {
+				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
+					*maybe_era = Some(ending_era.index);
+				}
+			});
+		}
 	}
 
 	/// Plans a new era by kicking off the election process.

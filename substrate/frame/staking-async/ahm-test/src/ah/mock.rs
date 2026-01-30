@@ -454,10 +454,12 @@ impl pallet_staking_async::Config for Runtime {
 
 	type ElectionProvider = MultiBlock;
 
-	type EraPayout = ();
 	type EventListeners = ();
 	type Reward = ();
 	type RewardRemainder = ();
+	type RewardProvider = Dap;
+	type UnclaimedRewardSink = Dap;
+	type EraPotAccountProvider = pallet_staking_async::SequentialTest;
 	type Slash = Dap;
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
@@ -505,9 +507,29 @@ parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
 }
 
+pub struct TestEraPayout;
+impl sp_staking::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		// Simple test implementation: return a fixed amount for testing
+		// If era_duration is 0 (e.g., activation_timestamp is None), use a default amount
+		let total = if era_duration_millis == 0 {
+			10_000 // Default test amount when duration is unknown
+		} else {
+			era_duration_millis as Balance
+		};
+		(total / 2, total / 2)
+	}
+}
+
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type BudgetOrigin = EnsureRoot<AccountId>;
+	type EraPayout = TestEraPayout;
 }
 
 parameter_types! {
@@ -814,6 +836,10 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		pallet_dap::GenesisConfig::<Runtime>::default()
+			.assimilate_storage(&mut t)
+			.unwrap();
 
 		let mut state: TestState = t.into();
 

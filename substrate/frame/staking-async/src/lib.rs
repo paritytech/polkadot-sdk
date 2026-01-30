@@ -191,6 +191,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
@@ -214,7 +215,7 @@ use sp_runtime::{
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+pub use sp_staking::{Exposure, IndividualExposure, StakerStatus, StakingRewardProvider};
 pub use weights::WeightInfo;
 
 // public exports
@@ -223,6 +224,68 @@ pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking-async";
+
+/// Identifies different types of era pot accounts for reward distribution.
+///
+/// Each era can have multiple pot accounts for different reward purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum EraPotType {
+	/// Pot for staker rewards (nominators + validators).
+	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	ValidatorSelfStake,
+}
+
+/// Trait for generating era pot account IDs.
+///
+/// Implementors define how to generate account IDs for era reward pots.
+/// This trait is local to staking-async and used primarily for testing flexibility.
+pub trait EraPotAccountProvider<AccountId> {
+	/// Generate an era pot account ID for the given era and pot type.
+	///
+	/// # Parameters
+	/// - `era`: The era index
+	/// - `pot_type`: The type of reward pot
+	///
+	/// # Returns
+	/// The account ID for this era's reward pot of the specified type
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
+}
+
+/// Seed-based pot account provider for production use.
+///
+/// Generates deterministic account IDs using a seed (typically a pallet ID).
+pub struct Seed<S>(core::marker::PhantomData<S>);
+
+impl<AccountId, S> EraPotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating((era, pot_type))
+	}
+}
+
+/// Sequential pot account provider for testing.
+///
+/// Generates simple sequential account IDs for predictable testing.
+/// Base 100_000: era 0 → 100000, 100001; era 1 → 100010, 100011, etc.
+pub struct SequentialTest;
+
+impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+		let pot_type_offset = match pot_type {
+			EraPotType::StakerRewards => 0,
+			EraPotType::ValidatorSelfStake => 1,
+		};
+		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
+	}
+}
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -486,29 +549,6 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 
 	fn curve(_: Balance) -> u32 {
 		MAX
-	}
-}
-
-/// Handler for determining how much of a balance should be paid out on the current era.
-pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
-}
-
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
 	}
 }
 

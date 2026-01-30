@@ -383,7 +383,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 }
 
 pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
+impl sp_staking::EraPayout<Balance> for EraPayout {
 	fn era_payout(
 		_total_staked: Balance,
 		_total_issuance: Balance,
@@ -429,6 +429,7 @@ parameter_types! {
 	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	pub const StakingPalletId: PalletId = PalletId(*b"py/stkng");
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -446,7 +447,9 @@ impl pallet_staking_async::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type RewardProvider = Dap;
+	type UnclaimedRewardSink = Dap;
+	type EraPotAccountProvider = pallet_staking_async::Seed<StakingPalletId>;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -499,6 +502,8 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type BudgetOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	type EraPayout = EraPayout;
 }
 
 parameter_types! {
