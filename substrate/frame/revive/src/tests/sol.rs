@@ -19,18 +19,24 @@ use crate::{
 	assert_refcount,
 	call_builder::VmBinaryModule,
 	debug::DebugSettings,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
+	evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB},
 	tests::{
 		builder,
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
-		DebugFlag, ExtBuilder, Test,
+		AllowEvmBytecode, DebugFlag, ExtBuilder, RuntimeOrigin, Test,
 	},
-	Code, Config, Error, GenesisConfig, PristineCode,
+	tracing::trace,
+	BalanceOf, Code, Config, Error, EthBlockBuilderFirstValues, GenesisConfig, Origin, Pallet,
+	PristineCode,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
-use frame_support::{assert_err, assert_ok, traits::fungible::Mutate};
-use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
+};
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, NestedCounter};
 use pretty_assertions::assert_eq;
+use sp_runtime::Weight;
 use test_case::test_case;
 
 use revm::bytecode::opcode::*;
@@ -44,6 +50,7 @@ mod host;
 mod memory;
 mod stack;
 mod system;
+mod terminate;
 mod tx_info;
 
 fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
@@ -110,30 +117,35 @@ fn basic_evm_flow_tracing_works() {
 	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut tracer = CallTracer::new(Default::default());
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(None)
+				.build_and_unwrap_contract()
 		});
 
 		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
+		let call_trace = tracer.collect_trace().unwrap();
 		assert_eq!(
-			tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				from: ALICE_ADDR,
-				call_type: CallType::Create2,
+				call_type: CallType::Create,
 				to: addr,
 				input: code.into(),
 				output: runtime_code.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			}
 		);
 
-		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let mut call_tracer = CallTracer::new(Default::default());
 		let result = trace(&mut call_tracer, || {
 			builder::bare_call(addr)
 				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 10u64 }).abi_encode())
@@ -143,8 +155,9 @@ fn basic_evm_flow_tracing_works() {
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded);
 
+		let call_trace = call_tracer.collect_trace().unwrap();
 		assert_eq!(
-			call_tracer.collect_trace().unwrap(),
+			call_trace,
 			CallTrace {
 				call_type: CallType::Call,
 				from: ALICE_ADDR,
@@ -154,6 +167,8 @@ fn basic_evm_flow_tracing_works() {
 					.into(),
 				output: result.data.into(),
 				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
 				..Default::default()
 			},
 		);
@@ -175,7 +190,10 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size)),
+			debug_settings: Some(
+				DebugSettings::default()
+					.set_allow_unlimited_contract_size(allow_unlimited_contract_size),
+			),
 			..Default::default()
 		};
 
@@ -206,7 +224,7 @@ fn upload_evm_runtime_code_works() {
 		exec::Executable,
 		primitives::ExecConfig,
 		storage::{AccountInfo, ContractInfo},
-		Pallet,
+		Pallet, TransactionMeter,
 	};
 
 	let (runtime_code, _runtime_hash) =
@@ -217,11 +235,11 @@ fn upload_evm_runtime_code_works() {
 		let deployer_addr = ALICE_ADDR;
 		let _ = Pallet::<Test>::set_evm_balance(&deployer_addr, 1_000_000_000.into());
 
-		let (uploaded_blob, _) = Pallet::<Test>::try_upload_code(
+		let uploaded_blob = Pallet::<Test>::try_upload_code(
 			deployer,
 			runtime_code.clone(),
 			crate::vm::BytecodeType::Evm,
-			u64::MAX,
+			&mut TransactionMeter::new_from_limits(Weight::MAX, BalanceOf::<Test>::MAX).unwrap(),
 			&ExecConfig::new_substrate_tx(),
 		)
 		.unwrap();
@@ -239,6 +257,44 @@ fn upload_evm_runtime_code_works() {
 			.build_and_unwrap_result();
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn upload_and_remove_code_works_for_evm() {
+	let (code, code_hash) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = Pallet::<Test>::set_evm_balance(&ALICE_ADDR, 5_000_000_000u64.into());
+
+		// Ensure the code is not already stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+
+		// Upload the code.
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+
+		// Ensure the contract was stored.
+		ensure_stored(code_hash);
+
+		// Remove the code.
+		assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+
+		// Ensure the code is no longer stored.
+		assert!(!PristineCode::<Test>::contains_key(&code_hash));
+	});
+}
+
+#[test]
+fn upload_fails_if_evm_bytecode_disabled() {
+	let (code, _) = compile_module_with_type("Dummy", FixtureType::SolcRuntime).unwrap();
+
+	AllowEvmBytecode::set(false); // Disable support for EVM bytecode.
+	ExtBuilder::default().build().execute_with(|| {
+		// Upload should fail since support for EVM bytecode is disabled.
+		assert_err!(
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			<Error<Test>>::CodeRejected
+		);
 	});
 }
 
@@ -263,5 +319,532 @@ fn dust_work_with_child_calls(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		assert_eq!(crate::Pallet::<Test>::evm_balance(&addr), value);
+	});
+}
+
+#[test]
+fn prestate_diff_mode_tracing_works() {
+	use alloy_core::hex;
+
+	struct TestCase {
+		config: PrestateTracerConfig,
+		expected_instantiate_trace_json: &'static str,
+		expected_call_trace_json: &'static str,
+	}
+
+	let (counter_code, _) = compile_module_with_type("NestedCounter", FixtureType::Solc).unwrap();
+	let (contract_runtime_code, _) =
+		compile_module_with_type("NestedCounter", FixtureType::SolcRuntime).unwrap();
+	let (child_runtime_code, _) =
+		compile_module_with_type("Counter", FixtureType::SolcRuntime).unwrap();
+
+	let test_cases = [
+		TestCase {
+			config: PrestateTracerConfig {
+				diff_mode: false,
+				disable_storage: false,
+				disable_code: false,
+			},
+			expected_instantiate_trace_json: r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_PRE}}"
+					}
+				}"#,
+			expected_call_trace_json: r#"{
+					"{{ALICE_ADDR}}": {
+						"balance": "{{ALICE_BALANCE_POST}}",
+						"nonce": 1
+					},
+					"{{CONTRACT_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 2,
+						"code": "{{CONTRACT_CODE}}",
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+							"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+						}
+					},
+					"{{CHILD_ADDR}}": {
+						"balance": "0x0",
+						"nonce": 1,
+						"code": "{{CHILD_CODE}}",
+						"storage": {
+							"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+						}
+					}
+				}"#,
+		},
+		TestCase {
+			config: PrestateTracerConfig {
+				diff_mode: true,
+				disable_storage: false,
+				disable_code: false,
+			},
+			expected_instantiate_trace_json: r#"{
+					"pre": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_PRE}}"
+						}
+					},
+					"post": {
+						"{{ALICE_ADDR}}": {
+							"balance": "{{ALICE_BALANCE_POST}}",
+							"nonce": 1
+						},
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0",
+							"nonce": 2,
+							"code": "{{CONTRACT_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "{{CHILD_ADDR_PADDED}}",
+								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							}
+						},
+						"{{CHILD_ADDR}}": {
+							"balance": "0x0",
+							"nonce": 1,
+							"code": "{{CHILD_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+							}
+						}
+					}
+				}"#,
+			expected_call_trace_json: r#"{
+					"pre": {
+						"{{CONTRACT_ADDR}}": {
+							"balance": "0x0",
+							"nonce": 2,
+							"code": "{{CONTRACT_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							}
+						},
+						"{{CHILD_ADDR}}": {
+							"balance": "0x0",
+							"nonce": 1,
+							"code": "{{CHILD_CODE}}",
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000000a"
+							}
+						}
+					},
+					"post": {
+						"{{CONTRACT_ADDR}}": {
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000001": "0x0000000000000000000000000000000000000000000000000000000000000008"
+							}
+						},
+						"{{CHILD_ADDR}}": {
+							"storage": {
+								"0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000007"
+							}
+						}
+					}
+				}"#,
+		},
+	];
+
+	for test_case in test_cases {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+
+			let contract_addr = crate::address::create1(&ALICE_ADDR, 0u64);
+			let child_addr = crate::address::create1(&contract_addr, 1u64);
+
+			// Compute balances
+			let alice_balance_pre = Pallet::<Test>::convert_native_to_evm(
+				1_000_000_000_000 - Pallet::<Test>::min_balance(),
+			);
+
+			let replace_placeholders = |json: &str| -> String {
+				let alice_balance_post = Pallet::<Test>::evm_balance(&ALICE_ADDR);
+
+				let mut child_addr_bytes = [0u8; 32];
+				child_addr_bytes[12..32].copy_from_slice(child_addr.as_bytes());
+
+				json.replace("{{ALICE_ADDR}}", &format!("{:#x}", ALICE_ADDR))
+					.replace("{{CONTRACT_ADDR}}", &format!("{:#x}", contract_addr))
+					.replace("{{CHILD_ADDR}}", &format!("{:#x}", child_addr))
+					.replace("{{ALICE_BALANCE_PRE}}", &format!("{:#x}", alice_balance_pre))
+					.replace("{{ALICE_BALANCE_POST}}", &format!("{:#x}", alice_balance_post))
+					.replace(
+						"{{CONTRACT_CODE}}",
+						&format!("0x{}", hex::encode(&contract_runtime_code)),
+					)
+					.replace("{{CHILD_CODE}}", &format!("0x{}", hex::encode(&child_runtime_code)))
+					.replace(
+						"{{CHILD_ADDR_PADDED}}",
+						&format!("0x{}", hex::encode(child_addr_bytes)),
+					)
+			};
+
+			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());
+			let Contract { addr: contract_addr_actual, .. } = trace(&mut tracer, || {
+				builder::bare_instantiate(Code::Upload(counter_code.clone()))
+					.salt(None)
+					.build_and_unwrap_contract()
+			});
+			assert_eq!(contract_addr, contract_addr_actual, "contract address mismatch");
+
+			let instantiate_trace = tracer.collect_trace();
+
+			let expected_json = replace_placeholders(test_case.expected_instantiate_trace_json);
+			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			assert_eq!(
+				instantiate_trace, expected_trace,
+				"unexpected instantiate trace for {:?}",
+				test_case.config
+			);
+
+			let mut tracer = PrestateTracer::<Test>::new(test_case.config.clone());
+			trace(&mut tracer, || {
+				builder::bare_call(contract_addr)
+					.data(
+						NestedCounter::NestedCounterCalls::nestedNumber(
+							NestedCounter::nestedNumberCall {},
+						)
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			});
+
+			let call_trace = tracer.collect_trace();
+			let expected_json = replace_placeholders(test_case.expected_call_trace_json);
+			let expected_trace: PrestateTrace = serde_json::from_str(&expected_json).unwrap();
+			assert_eq!(
+				call_trace, expected_trace,
+				"unexpected call trace for {:?}",
+				test_case.config
+			);
+		});
+	}
+}
+
+#[test]
+fn eth_substrate_call_dispatches_successfully() {
+	use frame_support::traits::fungible::Inspect;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 100);
+
+		let transfer_call =
+			crate::tests::RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				dest: BOB,
+				value: 50,
+			});
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_none());
+
+		assert_ok!(Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(transfer_call),
+			vec![]
+		));
+
+		// Verify balance changed
+		assert_eq!(<Test as Config>::Currency::balance(&ALICE), 950);
+		assert_eq!(<Test as Config>::Currency::balance(&BOB), 150);
+
+		assert!(EthBlockBuilderFirstValues::<Test>::get().is_some());
+	});
+}
+
+#[test]
+fn eth_substrate_call_requires_eth_origin() {
+	ExtBuilder::default().build().execute_with(|| {
+		let inner_call = frame_system::Call::remark { remark: vec![] };
+
+		// Should fail with non-EthTransaction origin
+		assert_noop!(
+			Pallet::<Test>::eth_substrate_call(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(inner_call.into()),
+				vec![]
+			),
+			sp_runtime::traits::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn eth_substrate_call_tracks_weight_correctly() {
+	use crate::weights::WeightInfo;
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+
+		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
+		let transaction_encoded = vec![];
+		let transaction_encoded_len = transaction_encoded.len() as u32;
+
+		let result = Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(inner_call.clone().into()),
+			transaction_encoded,
+		);
+
+		assert_ok!(result);
+		let post_info = result.unwrap();
+
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
+		assert!(
+			expected_weight == post_info.actual_weight.unwrap(),
+			"expected_weight ({}) should be == actual_weight ({})",
+			expected_weight,
+			post_info.actual_weight.unwrap(),
+		);
+	});
+}
+
+#[test]
+fn execution_tracing_works_for_evm() {
+	use crate::{
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
+		},
+		tracing::trace,
+	};
+	use sp_core::U256;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = ExecutionTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: true,
+			disable_syscall_details: true,
+			limit: Some(5),
+			memory_word_limit: 16,
+		};
+
+		let mut tracer = ExecutionTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut actual_trace = tracer.collect_trace();
+		actual_trace.struct_logs.iter_mut().for_each(|step| {
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
+		});
+
+		let expected_trace = ExecutionTrace {
+			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 0,
+						op: PUSH1,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 2,
+						op: PUSH1,
+						stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 4,
+						op: MSTORE,
+						stack: vec![
+							crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
+							crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
+						],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 5,
+						op: CALLVALUE,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 6,
+						op: DUP1,
+						stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
+	});
+}
+
+#[test]
+fn execution_tracing_works_for_pvm() {
+	use crate::{
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
+		},
+		tracing::trace,
+		vm::pvm::env::lookup_syscall_index,
+	};
+	use sp_core::U256;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Resolc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = ExecutionTracerConfig {
+			enable_return_data: true,
+			limit: Some(5),
+			..Default::default()
+		};
+
+		let mut tracer = ExecutionTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut actual_trace = tracer.collect_trace();
+		actual_trace.struct_logs.iter_mut().for_each(|step| {
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
+			// Replace args with 42 as they contain memory addresses that may vary between runs
+			if let ExecutionStepKind::PVMSyscall { args, .. } = &mut step.kind {
+				args.iter_mut().for_each(|arg| *arg = 42);
+			}
+		});
+
+		let expected_trace = ExecutionTrace {
+			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
+						args: vec![],
+						returned: Some(36),
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
+						args: vec![42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("seal_return").unwrap_or_default(),
+						args: vec![42, 42, 42],
+						returned: None,
+					},
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
 	});
 }

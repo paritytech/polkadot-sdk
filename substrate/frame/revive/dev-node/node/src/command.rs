@@ -56,9 +56,13 @@ impl SubstrateCli for Cli {
 	}
 }
 
-/// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
-	let args = std::env::args_os().collect::<Vec<_>>();
+	let args = std::env::args_os().map(|s| s.to_string_lossy().to_string()).collect::<Vec<_>>();
+	return run_with_args(args);
+}
+
+/// Parse and run command line arguments
+pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 	let mut cli = Cli::from_iter(args);
 
 	match &cli.subcommand {
@@ -120,6 +124,10 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			// Enforce dev
 			cli.run.shared_params.dev = true;
+
+			// Increase max_response_size for large trace responses
+			cli.run.rpc_params.rpc_max_response_size =
+				cli.run.rpc_params.rpc_max_response_size.max(50);
 
 			// Pass Default logging settings if none are specified
 			if std::env::var("RUST_LOG").is_err() && cli.run.shared_params.log.is_empty() {

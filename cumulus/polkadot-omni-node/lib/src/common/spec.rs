@@ -39,14 +39,16 @@ use cumulus_client_service::{
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
-use log::info;
-use parachains_common::Hash;
+use log::{debug, info};
+use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
+use sc_network::{
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
+};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
@@ -58,6 +60,13 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+
+// Override default idle connection timeout of 10 seconds to give IPFS clients more
+// time to query data over Bitswap. This is needed when manually adding our node
+// to a swarm of an IPFS node, because the IPFS node doesn't keep any active
+// substreams with us and our node closes a connection after
+// `idle_connection_timeout`.
+const IPFS_WORKAROUND_TIMEOUT: Duration = Duration::from_secs(3600);
 
 pub(crate) trait BuildImportQueue<
 	Block: BlockT,
@@ -90,6 +99,7 @@ where
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
+		collator_peer_id: PeerId,
 		overseer_handle: OverseerHandle,
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
@@ -323,7 +333,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		Net: NetworkBackend<Self::Block, Hash>,
 	{
 		let fut = async move {
-			let parachain_config = prepare_node_config(parachain_config);
+			let mut parachain_config = prepare_node_config(parachain_config);
+
+			// Some additional customization in relation to starting the node as an ipfs server.
+			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
+				parachain_config.network.ipfs_server
+			{
+				debug!("Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.", parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT);
+				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
+			}
+
 			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
@@ -375,12 +394,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					transaction_pool: transaction_pool.clone(),
 					para_id,
 					spawn_handle: task_manager.spawn_handle(),
+					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
 					metrics,
 				})
 				.await?;
+			let peer_id = network.local_peer_id();
 
 			let statement_store = statement_handler_proto
 				.map(|statement_handler_proto| {
@@ -392,6 +413,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						sync_service.clone(),
 						params.keystore_container.local_keystore(),
 						statement_handler_proto,
+						node_extra_args.statement_network_workers,
 					)
 				})
 				.transpose()?;
@@ -445,6 +467,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
+
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
@@ -462,6 +486,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					client.clone(),
 				))),
 			})?;
+
+			// Spawn the storage monitor
+			if let Some(database_path) = database_path {
+				sc_storage_monitor::StorageMonitorService::try_spawn(
+					node_extra_args.storage_monitor.clone(),
+					database_path,
+					&task_manager.spawn_essential_handle(),
+				)
+				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			}
 
 			if let Some(hwbench) = hwbench {
 				sc_sysinfo::print_hwbench(&hwbench);
@@ -537,6 +571,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_slot_duration,
 					para_id,
 					collator_key.expect("Command line arguments do not allow this. qed"),
+					peer_id,
 					overseer_handle,
 					announce_block,
 					backend.clone(),

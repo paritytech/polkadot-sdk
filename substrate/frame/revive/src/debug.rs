@@ -20,7 +20,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(
@@ -29,7 +29,7 @@ use sp_runtime::RuntimeDebug;
 	Default,
 	Clone,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -38,16 +38,46 @@ use sp_runtime::RuntimeDebug;
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,
+	/// Whether to allow bypassing EIP-3607 (allowing transactions coming from contract or
+	/// precompile accounts).
+	bypass_eip_3607: bool,
+	/// Whether to enable PolkaVM logs.
+	pvm_logs: bool,
+	/// Whether to disable execution tracing.
+	disable_execution_tracing: bool,
 }
 
 impl DebugSettings {
-	pub fn new(allow_unlimited_contract_size: bool) -> Self {
-		Self { allow_unlimited_contract_size }
+	#[cfg(test)]
+	pub fn set_bypass_eip_3607(mut self, value: bool) -> Self {
+		self.bypass_eip_3607 = value;
+		self
+	}
+
+	#[cfg(test)]
+	pub fn set_allow_unlimited_contract_size(mut self, value: bool) -> Self {
+		self.allow_unlimited_contract_size = value;
+		self
+	}
+
+	pub fn is_execution_tracing_enabled<T: Config>() -> bool {
+		T::DebugEnabled::get() && !DebugSettingsOf::<T>::get().disable_execution_tracing
 	}
 
 	/// Returns true if unlimited contract size is allowed.
 	pub fn is_unlimited_contract_size_allowed<T: Config>() -> bool {
 		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().allow_unlimited_contract_size
+	}
+
+	/// Returns true if transactions coming from contract or precompile accounts are allowed
+	/// (bypassing EIP-3607)
+	pub fn bypass_eip_3607<T: Config>() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().bypass_eip_3607
+	}
+
+	/// Returns true if PolkaVM logs are enabled.
+	pub fn is_pvm_logs_enabled<T: Config>() -> bool {
+		T::DebugEnabled::get() && DebugSettingsOf::<T>::get().pvm_logs
 	}
 
 	/// Write the debug settings to storage.

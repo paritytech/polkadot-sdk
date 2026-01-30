@@ -460,7 +460,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/master/specs/altair/light-client/sync-protocol.md#apply_light_client_update>
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
 		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
@@ -494,10 +494,10 @@ pub mod pallet {
 					<CurrentSyncCommittee<T>>::set(<NextSyncCommittee<T>>::get());
 					<NextSyncCommittee<T>>::set(sync_committee_prepared);
 				}
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
-					"💫 SyncCommitteeUpdated at period {}.",
-					update_finalized_period
+					period=%update_finalized_period,
+					"💫 SyncCommitteeUpdated."
 				);
 				<LatestSyncCommitteeUpdatePeriod<T>>::set(update_finalized_period);
 				Self::deposit_event(Event::SyncCommitteeUpdated {
@@ -548,11 +548,11 @@ pub mod pallet {
 			);
 			<LatestFinalizedBlockRoot<T>>::set(header_root);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 Updated latest finalized block root {} at slot {}.",
-				header_root,
-				slot
+				root=%header_root,
+				%slot,
+				"💫 Updated latest finalized block."
 			);
 
 			Self::deposit_event(Event::BeaconHeaderImported { block_hash: header_root, slot });
@@ -675,8 +675,11 @@ pub mod pallet {
 			validators_root: H256,
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
+			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot -
+			// 1. See: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+			// In validate_light_client_update: fork_version_slot = max(signature_slot, 1) - 1
 			let fork_version = Self::compute_fork_version(compute_epoch(
-				signature_slot,
+				signature_slot.saturating_sub(1),
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();

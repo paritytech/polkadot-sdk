@@ -81,7 +81,7 @@ pub mod __private {
 	mod std_imports {
 		pub use hash_db::Hasher;
 		pub use sp_core::traits::CallContext;
-		pub use sp_externalities::{Extension, Extensions};
+		pub use sp_externalities::{Extension, Extensions, TransactionType};
 		pub use sp_runtime::StateVersion;
 		pub use sp_state_machine::{
 			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,

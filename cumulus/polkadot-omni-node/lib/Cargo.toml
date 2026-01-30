@@ -28,7 +28,7 @@ serde_json = { workspace = true, default-features = true }
 
 # Local
 jsonrpsee = { features = ["server"], workspace = true }
-parachains-common = { workspace = true, default-features = true }
+parachains-common-types = { workspace = true, default-features = true }
 scale-info = { workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
 
@@ -59,6 +59,7 @@ sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-statement-store = { workspace = true, default-features = true }
+sc-storage-monitor = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -79,6 +80,7 @@ sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
+sp-transaction-storage-proof = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
@@ -96,7 +98,6 @@ cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
 cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
@@ -123,7 +124,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
@@ -134,7 +134,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-try-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"parachains-common/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]

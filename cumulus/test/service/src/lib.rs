@@ -362,6 +362,7 @@ where
 			transaction_pool: transaction_pool.clone(),
 			para_id,
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			metrics: Net::register_notification_metrics(
@@ -431,8 +432,9 @@ where
 		prometheus_registry: None,
 	})?;
 
+	let collator_peer_id = network.local_peer_id();
 	if let Some(collator_key) = collator_key {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
@@ -470,9 +472,10 @@ where
 				reinitialize: false,
 				slot_offset: Duration::from_secs(1),
 				block_import_handle: slot_based_handle,
-				spawner: task_manager.spawn_handle(),
+				spawner: task_manager.spawn_essential_handle(),
 				export_pov: None,
 				max_pov_percentage: None,
+				collator_peer_id,
 			};
 
 			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
@@ -489,6 +492,7 @@ where
 				},
 				keystore,
 				collator_key,
+				collator_peer_id,
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,

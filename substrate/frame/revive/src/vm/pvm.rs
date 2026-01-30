@@ -19,24 +19,24 @@
 
 pub mod env;
 
-#[cfg(doc)]
-pub use env::SyscallDoc;
-
 use crate::{
-	exec::{ExecError, ExecResult, Ext, Key},
-	gas::ChargedAmount,
+	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
+	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	tracing::FrameTraceInfo,
+	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
+#[cfg(doc)]
+pub use env::SyscallDoc;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 
 /// Extracts the code and data from a given program blob.
 pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
@@ -225,7 +225,7 @@ impl From<&ExecReturnValue> for ReturnErrorCode {
 }
 
 /// The data passed through when a contract uses `seal_return`.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct ReturnData {
 	/// The flags as passed through by the contract. They are still unchecked and
 	/// will later be parsed into a `ReturnFlags` bitflags struct.
@@ -240,7 +240,7 @@ pub struct ReturnData {
 /// occurred (the SupervisorError variant).
 /// The other case is where the trap does not constitute an error but rather was invoked
 /// as a quick way to terminate the application (all other variants).
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum TrapReason {
 	/// The supervisor trapped the contract because of an error condition occurred during
 	/// execution in privileged code.
@@ -270,7 +270,7 @@ impl fmt::Display for TrapReason {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge($costs)
+		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
 	}};
 }
 
@@ -356,7 +356,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
+		self.ext.frame_meter_mut().adjust_weight(charged, actual_costs);
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -631,8 +631,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		flags: CallFlags,
 		call_type: CallType,
 		callee_ptr: u32,
-		deposit_ptr: u32,
-		weight: Weight,
+		resources: &CallResources<E::T>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -646,8 +645,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
-
-		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
 		// we do check this in exec.rs but we want to error out early
 		if input_data_len > limits::CALLDATA_BYTES {
@@ -686,21 +683,20 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
-				self.ext.call(
-					weight,
-					deposit_limit,
-					&callee,
-					value,
-					input_data,
-					flags.contains(CallFlags::ALLOW_REENTRY),
-					read_only,
-				)
+
+				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
+					ReentrancyProtection::AllowReentry
+				} else {
+					ReentrancyProtection::Strict
+				};
+
+				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
+				self.ext.delegate_call(resources, callee, input_data)
 			},
 		};
 
@@ -784,8 +780,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
-			weight,
-			deposit_limit,
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
@@ -819,6 +814,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	}
 }
 
+impl<'a, E: Ext, M: ?Sized + Memory<E::T>> FrameTraceInfo for Runtime<'a, E, M> {
+	fn gas_left(&self) -> u64 {
+		let meter = self.ext.frame_meter();
+		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
+	}
+	fn weight_consumed(&self) -> Weight {
+		let meter = self.ext.frame_meter();
+		meter.weight_consumed()
+	}
+
+	fn last_frame_output(&self) -> crate::evm::Bytes {
+		crate::evm::Bytes(self.ext.last_frame_output().data.clone())
+	}
+}
+
 pub struct PreparedCall<'a, E: Ext> {
 	module: polkavm::Module,
 	instance: polkavm::RawInstance,
@@ -835,7 +845,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result
 			}
 		};
-		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
+		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
 

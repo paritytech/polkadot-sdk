@@ -31,6 +31,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use xcm::latest::prelude::*;
+use xcm_executor::XcmExecutor as XcmExec;
 
 pub(crate) fn enable_dot_preset(fast: bool) {
 	Pages::set(&32);
@@ -180,9 +181,6 @@ parameter_types! {
 	/// lightweight per-page.
 	// TODO: this is currently 512 in all networks, but 64 might yield better PoV, need to check logs.
 	pub const MaxExposurePageSize: u32 = 512;
-
-	/// Each solution is considered "better" if it is an epsilon better than the previous one.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 // Signed phase parameters.
@@ -287,12 +285,14 @@ impl multi_block::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 	type DataProvider = Staking;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = multi_block::Continue<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
+	type Signed = MultiBlockElectionSigned;
 	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
@@ -303,7 +303,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
 
@@ -359,6 +358,9 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 	type MaxVotesPerVoter =
 		<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
 	type MaxLength = MinerMaxLength;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Solver = frame_election_provider_support::QuickDirtySolver<AccountId, Perbill>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
 	type Pages = Pages;
 	type Solution = NposCompactSolution16;
@@ -415,6 +417,8 @@ parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
+	// Nominators can unbond faster (2 eras) when not slashable.
+	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	// Note: this is not really correct as Max Nominators is (MaxExposurePageSize * page_count) but
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
@@ -435,11 +439,12 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
-	type Slash = ();
+	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -453,7 +458,6 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
-	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
@@ -461,11 +465,40 @@ impl pallet_staking_async::Config for Runtime {
 	type RcClientInterface = StakingRcClient;
 }
 
+// Relay chain session keys matching Westend configuration.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
+}
+
+// Relay chain session keys type for rc-client.
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
 	type MaxValidatorSetRetries = ConstU32<5>;
+	// export validator session at end of session 4 within an era.
+	type ValidatorSetExportSession = ConstU32<4>;
+	type RelayChainSessionKeys = RelayChainSessionKeys;
+	type Balance = Balance;
+	type MaxSessionKeysLength = ConstU32<256>;
+	type MaxSessionKeysProofLength = ConstU32<512>;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 parameter_types! {
@@ -483,24 +516,33 @@ pub enum RelayChainRuntimePallets {
 pub enum AhClientCalls {
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	#[codec(index = 3)]
+	SetKeysFromAh { stash: AccountId, keys: Vec<u8> },
+	#[codec(index = 4)]
+	PurgeKeysFromAh { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
 impl Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>> for ValidatorSetToXcm {
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
-					.encode()
-					.into(),
-			},
-		])
+		rc_client::build_transact_xcm(
+			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+		)
+	}
+}
+
+pub struct KeysMessageToXcm;
+impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
+	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
+		let encoded_call = match msg {
+			rc_client::KeysMessage::SetKeys { stash, keys } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
+					.encode(),
+			rc_client::KeysMessage::PurgeKeys { stash } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
+					.encode(),
+		};
+		rc_client::build_transact_xcm(encoded_call)
 	}
 }
 
@@ -508,6 +550,8 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
+	type Balance = Balance;
+
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
@@ -515,6 +559,43 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::set_keys(stash.clone(), keys), stash, max_fee, 0)
+	}
+
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			StakingXcmDestination,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			XcmExec<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(rc_client::KeysMessage::purge_keys(stash.clone()), stash, max_fee, 0)
 	}
 }
 
@@ -666,9 +747,7 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
+	use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 	use std::env::var;
 
 	fn weight_diff(block: Weight, op: Weight) {
@@ -684,6 +763,36 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_polkadot() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
+	}
+
+	#[test]
+	fn ensure_epmb_weights_sane_kusama() {
+		use sp_io::TestExternalities;
+		use sp_runtime::Percent;
+		sp_tracing::try_init_simple();
+		TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(Percent::from_percent(75)),
+				Some(Percent::from_percent(50)),
+			)
+		});
 	}
 
 	#[test]
@@ -773,8 +882,7 @@ mod tests {
 		}
 		sp_tracing::try_init_simple();
 
-		let transport: Transport =
-			var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string()).into();
+		let transport_uri = var("WS").unwrap_or("wss://westend-rpc.polkadot.io:443".to_string());
 		let maybe_state_snapshot: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
 
 		let mut ext = Builder::<Block>::default()
@@ -782,7 +890,7 @@ mod tests {
 				Mode::OfflineOrElseOnline(
 					OfflineConfig { state_snapshot: state_snapshot.clone() },
 					OnlineConfig {
-						transport,
+						transport_uris: vec![transport_uri.clone()],
 						hashed_prefixes: vec![vec![]],
 						state_snapshot: Some(state_snapshot),
 						..Default::default()
@@ -791,7 +899,7 @@ mod tests {
 			} else {
 				Mode::Online(OnlineConfig {
 					hashed_prefixes: vec![vec![]],
-					transport,
+					transport_uris: vec![transport_uri],
 					..Default::default()
 				})
 			})

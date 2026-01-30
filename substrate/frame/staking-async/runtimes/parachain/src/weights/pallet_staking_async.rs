@@ -73,7 +73,6 @@ pub trait WeightInfo {
 	fn force_no_eras() -> Weight;
 	fn force_new_era() -> Weight;
 	fn force_new_era_always() -> Weight;
-	fn set_invulnerables(v: u32, ) -> Weight;
 	fn deprecate_controller_batch(u: u32, ) -> Weight;
 	fn force_unstake() -> Weight;
 	fn cancel_deferred_slash(s: u32, ) -> Weight;
@@ -87,7 +86,7 @@ pub trait WeightInfo {
 	fn set_min_commission() -> Weight;
 	fn restore_ledger() -> Weight;
 	fn migrate_currency() -> Weight;
-	fn apply_slash() -> Weight;
+	fn apply_slash(n: u32, ) -> Weight;
 	fn process_offence_queue() -> Weight;
 	fn rc_on_offence(v: u32, ) -> Weight;
 	fn rc_on_session_report() -> Weight;
@@ -449,17 +448,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(11_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `Staking::Invulnerables` (r:0 w:1)
-	/// Proof: `Staking::Invulnerables` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
-	/// The range of component `v` is `[0, 20]`.
-	fn set_invulnerables(_v: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 	/// Storage: `Staking::Ledger` (r:1502 w:1502)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(753), added: 3228, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Bonded` (r:751 w:751)
@@ -786,7 +774,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:513 w:513)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1002216`
 		//  Estimated: `1656954`
@@ -822,8 +810,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::BondedEras` (r:1 w:0)
 	/// Proof: `Staking::BondedEras` (`max_values`: Some(1), `max_size`: Some(25), added: 520, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Invulnerables` (r:1 w:0)
-	/// Proof: `Staking::Invulnerables` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasStakersOverview` (r:500 w:0)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ValidatorSlashInEra` (r:500 w:500)
@@ -1342,17 +1328,6 @@ impl WeightInfo for () {
 		Weight::from_parts(11_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `Staking::Invulnerables` (r:0 w:1)
-	/// Proof: `Staking::Invulnerables` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
-	/// The range of component `v` is `[0, 20]`.
-	fn set_invulnerables(_v: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
 	/// Storage: `Staking::Ledger` (r:1502 w:1502)
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(753), added: 3228, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::Bonded` (r:751 w:751)
@@ -1679,7 +1654,7 @@ impl WeightInfo for () {
 	/// Proof: `Staking::VirtualStakers` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:513 w:513)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `MaxEncodedLen`)
-	fn apply_slash() -> Weight {
+	fn apply_slash(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1002216`
 		//  Estimated: `1656954`
@@ -1715,8 +1690,6 @@ impl WeightInfo for () {
 	/// Proof: `Staking::ActiveEra` (`max_values`: Some(1), `max_size`: Some(13), added: 508, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::BondedEras` (r:1 w:0)
 	/// Proof: `Staking::BondedEras` (`max_values`: Some(1), `max_size`: Some(25), added: 520, mode: `MaxEncodedLen`)
-	/// Storage: `Staking::Invulnerables` (r:1 w:0)
-	/// Proof: `Staking::Invulnerables` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ErasStakersOverview` (r:500 w:0)
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `MaxEncodedLen`)
 	/// Storage: `Staking::ValidatorSlashInEra` (r:500 w:500)

@@ -77,12 +77,14 @@
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::*;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	weights::WeightMeter,
 };
+use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
@@ -198,6 +200,15 @@ impl<T: Config> Eras<T> {
 		let claimed_pages = ClaimedRewards::<T>::get(era, validator);
 
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
+	}
+
+	/// Returns whether nominators are slashable for a specific era.
+	///
+	/// This checks the per-era storage [`ErasNominatorsSlashable`] which captures
+	/// the value of [`AreNominatorsSlashable`] at the start of that era.
+	/// If no entry exists for the era, nominators are assumed to be slashable (default).
+	pub(crate) fn are_nominators_slashable(era: EraIndex) -> bool {
+		ErasNominatorsSlashable::<T>::get(era).unwrap_or(true)
 	}
 
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
@@ -339,6 +350,9 @@ impl<T: Config> Eras<T> {
 
 			// insert metadata.
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
+
+			// Track that this validator was active in this era for slash liability tracking.
+			LastValidatorEra::<T>::insert(validator, era);
 
 			// insert validator's overview.
 			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
@@ -546,12 +560,27 @@ impl<T: Config> Rotator<T> {
 
 				// If we have an active era, bonded eras must always be the range
 				// [active - bonding_duration .. active_era]
+				let bonded_eras: Vec<_> = bonded.iter().map(|(era, _sess)| *era).collect();
 				ensure!(
-					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+					bonded_eras ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
 							.collect::<Vec<_>>(),
 					"BondedEras range incorrect"
 				);
+
+				// ErasNominatorsSlashable entries are cleaned up via lazy pruning at HistoryDepth +
+				// 1. Entries can exist from [active - HistoryDepth, active] inclusive.
+				// Entries older than HistoryDepth should have been pruned (or be in the process of
+				// pruning).
+				let oldest_allowed_era = active.index.saturating_sub(T::HistoryDepth::get()).max(1);
+				for (era, _) in ErasNominatorsSlashable::<T>::iter() {
+					// Allow entries being pruned (EraPruningState exists)
+					let being_pruned = EraPruningState::<T>::contains_key(era);
+					ensure!(
+						(era >= oldest_allowed_era && era <= active.index) || being_pruned,
+						"ErasNominatorsSlashable entry exists for era outside history depth range and not being pruned"
+					);
+				}
 			},
 			_ => {
 				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
@@ -707,6 +736,10 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Snapshot the current nominators slashable setting for this era.
+		// Cleanup will happen via lazy pruning at HistoryDepth.
+		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
+
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
@@ -756,7 +789,6 @@ impl<T: Config> Rotator<T> {
 					era_removed <= (starting_era.saturating_sub(bonding_duration)),
 					"should not delete an era that is not older than bonding duration"
 				);
-				slashing::clear_era_metadata::<T>(era_removed);
 			}
 
 			// must work -- we were not full, or just removed the oldest era.
@@ -902,9 +934,13 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	/// Hook to be used in the pallet's on-initialize.
-	pub(crate) fn maybe_fetch_election_results() {
-		if let Ok(true) = T::ElectionProvider::status() {
+	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
+			// no election ongoing
+			let weight = T::DbWeight::get().reads(1);
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+		};
+		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
 				"Election provider is ready, our status is {:?}",
@@ -925,10 +961,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			Self::do_elect_paged(current_page);
 			NextElectionPage::<T>::set(maybe_next_page);
 
-			// if current page was `Some`, and next is `None`, we have finished an election and
-			// we can report it now.
 			if maybe_next_page.is_none() {
-				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
@@ -940,10 +973,24 @@ impl<T: Config> EraElectionPlanner<T> {
 					id,
 					prune_up_to
 				);
-
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
-		}
+
+			// consume the reported worst case weight.
+			meter.consume(required_weight)
+		});
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
+		(required_weight, exec)
 	}
 
 	/// Get the right value of the first session that needs to be pruned on the RC's historical

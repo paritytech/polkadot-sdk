@@ -74,8 +74,8 @@ pub trait WeightInfo {
 	fn create() -> Weight;
 	fn force_create() -> Weight;
 	fn start_destroy() -> Weight;
-	fn destroy_accounts(c: u32, ) -> Weight;
-	fn destroy_approvals(a: u32, ) -> Weight;
+	fn destroy_accounts(c: u32) -> Weight;
+	fn destroy_approvals(a: u32) -> Weight;
 	fn finish_destroy() -> Weight;
 	fn mint() -> Weight;
 	fn burn() -> Weight;
@@ -88,9 +88,9 @@ pub trait WeightInfo {
 	fn thaw_asset() -> Weight;
 	fn transfer_ownership() -> Weight;
 	fn set_team() -> Weight;
-	fn set_metadata(n: u32, s: u32, ) -> Weight;
+	fn set_metadata(n: u32, s: u32) -> Weight;
 	fn clear_metadata() -> Weight;
-	fn force_set_metadata(n: u32, s: u32, ) -> Weight;
+	fn force_set_metadata(n: u32, s: u32) -> Weight;
 	fn force_clear_metadata() -> Weight;
 	fn force_asset_status() -> Weight;
 	fn approve_transfer() -> Weight;
@@ -107,10 +107,16 @@ pub trait WeightInfo {
 	fn total_issuance() -> Weight;
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
+	fn set_reserves(n: u32) -> Weight;
+	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight {
+		// disabled by default, force explicit benchmarking
+		Weight::MAX
+	}
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
@@ -158,7 +164,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::Account` (r:1000 w:1000)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `c` is `[0, 1000]`.
-	fn destroy_accounts(c: u32, ) -> Weight {
+	fn destroy_accounts(c: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `104 + c * (208 ±0)`
 		//  Estimated: `3675 + c * (2609 ±0)`
@@ -177,7 +183,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Assets::Approvals` (r:1001 w:1000)
 	/// Proof: `Assets::Approvals` (`max_values`: None, `max_size`: Some(148), added: 2623, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 1000]`.
-	fn destroy_approvals(a: u32, ) -> Weight {
+	fn destroy_approvals(a: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `555 + a * (86 ±0)`
 		//  Estimated: `3675 + a * (2623 ±0)`
@@ -353,7 +359,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn set_metadata(_n: u32, s: u32, ) -> Weight {
+	fn set_metadata(_n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `384`
 		//  Estimated: `3675`
@@ -383,7 +389,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn force_set_metadata(n: u32, s: u32, ) -> Weight {
+	fn force_set_metadata(n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `223`
 		//  Estimated: `3675`
@@ -601,6 +607,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
+	fn set_reserves(n: u32) -> Weight {
+		Weight::from_parts(31_972_000, 3675)
+			// Standard Error: 13_748
+			.saturating_add(Weight::from_parts(198_975, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -651,7 +667,7 @@ impl WeightInfo for () {
 	/// Storage: `System::Account` (r:1000 w:1000)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `c` is `[0, 1000]`.
-	fn destroy_accounts(c: u32, ) -> Weight {
+	fn destroy_accounts(c: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `104 + c * (208 ±0)`
 		//  Estimated: `3675 + c * (2609 ±0)`
@@ -670,7 +686,7 @@ impl WeightInfo for () {
 	/// Storage: `Assets::Approvals` (r:1001 w:1000)
 	/// Proof: `Assets::Approvals` (`max_values`: None, `max_size`: Some(148), added: 2623, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 1000]`.
-	fn destroy_approvals(a: u32, ) -> Weight {
+	fn destroy_approvals(a: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `555 + a * (86 ±0)`
 		//  Estimated: `3675 + a * (2623 ±0)`
@@ -846,7 +862,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn set_metadata(_n: u32, s: u32, ) -> Weight {
+	fn set_metadata(_n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `384`
 		//  Estimated: `3675`
@@ -876,7 +892,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 50]`.
 	/// The range of component `s` is `[0, 50]`.
-	fn force_set_metadata(n: u32, s: u32, ) -> Weight {
+	fn force_set_metadata(n: u32, s: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `223`
 		//  Estimated: `3675`
@@ -1093,5 +1109,15 @@ impl WeightInfo for () {
 		// Minimum execution time: 11_348_000 picoseconds.
 		Weight::from_parts(11_882_000, 3613)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
+	/// The range of component `n` is `[0, 5]`.
+	fn set_reserves(n: u32) -> Weight {
+		Weight::from_parts(31_972_000, 3675)
+			// Standard Error: 13_748
+			.saturating_add(Weight::from_parts(198_975, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
