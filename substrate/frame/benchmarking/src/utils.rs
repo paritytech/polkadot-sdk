@@ -293,13 +293,16 @@ pub trait Benchmarking {
 
 		// Warmup the memory allocator after bulk deallocation.
 		// After draining the overlay with many entries, the first new allocation can trigger memory
-		// defragmentation.
+		// defragmentation. The warmup key is whitelisted so these operations don't appear in
+		// benchmark results.
 		const WARMUP_KEY: &[u8] = b":benchmark_warmup:";
+		let mut whitelist = self.get_whitelist();
+		if !whitelist.iter().any(|k| k.key == WARMUP_KEY) {
+			whitelist.push(TrackedStorageKey::from(WARMUP_KEY.to_vec()));
+			self.set_whitelist(whitelist);
+		}
 		self.place_storage(WARMUP_KEY.to_vec(), Some(vec![0u8; 32]));
 		self.place_storage(WARMUP_KEY.to_vec(), None);
-
-		// Reset tracking so warmup operations don't appear in benchmark results.
-		self.reset_read_write_count();
 	}
 
 	/// Get the read/write count.

@@ -1117,14 +1117,13 @@ macro_rules! impl_benchmark {
 					let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
 					let diff_pov = recording.diff_pov().unwrap_or_default();
 
-					// Capture read/write count BEFORE commit_db resets the counters
-					let read_write_count = $crate::benchmarking::read_write_count();
-					// Commit the changes to the database
+					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"End Benchmark: {} ns", elapsed_extrinsic
 					);
+					let read_write_count = $crate::benchmarking::read_write_count();
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"Read/Write Count {:?}", read_write_count
