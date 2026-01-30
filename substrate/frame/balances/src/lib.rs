@@ -246,6 +246,11 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
+			/// No-op handler: burned funds are discarded without affecting issuance.
+			/// Tests needing realistic burn semantics should override `BurnDestination` with
+			/// either:
+			/// - `DirectBurn<Balances, AccountId>` - reduces total issuance
+			/// - `Dap` or `DapSatellite` - credits buffer account
 			type BurnDestination = ();
 		}
 	}
@@ -348,7 +353,7 @@ pub mod pallet {
 		/// - DAP satellite runtimes: `type BurnDestination = DapSatellite;`
 		/// - Other runtimes: `type BurnDestination = DirectBurn<Balances, AccountId>;`
 		#[pallet::no_default_bounds]
-		type BurnDestination: BurnHandler<Self::AccountId, Self::Balance>;
+		type BurnDestination: BurnHandler<Self::Balance>;
 	}
 
 	/// The in-code storage version.

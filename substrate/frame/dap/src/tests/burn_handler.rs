@@ -37,10 +37,10 @@ fn on_burned_credits_buffer_and_accumulates() {
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
 		// When: multiple burns occur (including zero amount which is a no-op).
-		<DapPallet as BurnHandler<_, _>>::on_burned(&1u64, 0);
-		<DapPallet as BurnHandler<_, _>>::on_burned(&1u64, 100);
-		<DapPallet as BurnHandler<_, _>>::on_burned(&2u64, 200);
-		<DapPallet as BurnHandler<_, _>>::on_burned(&3u64, 300);
+		<DapPallet as BurnHandler<_>>::on_burned(0);
+		<DapPallet as BurnHandler<_>>::on_burned(100);
+		<DapPallet as BurnHandler<_>>::on_burned(200);
+		<DapPallet as BurnHandler<_>>::on_burned(300);
 
 		// Then: buffer has ED + 600 (zero amount ignored, others accumulated).
 		assert_eq!(Balances::free_balance(buffer), ed + 600);
@@ -62,7 +62,7 @@ fn on_burned_handles_overflow_gracefully() {
 
 		// When: burn would cause overflow (near_max + 200 > u64::MAX).
 		// This should NOT panic due to defensive handling with Precision::BestEffort.
-		<DapPallet as BurnHandler<_, _>>::on_burned(&1u64, 200);
+		<DapPallet as BurnHandler<_>>::on_burned(200);
 
 		// Then: buffer balance should be capped at what's possible (best effort).
 		let final_balance = Balances::free_balance(buffer);

@@ -226,8 +226,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 ///
 /// Use this as `type BurnDestination = Dap;` in pallet-balances config on AssetHub
 /// to redirect burns to the DAP buffer instead of reducing total issuance.
-impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	fn on_burned(_who: &T::AccountId, amount: BalanceOf<T>) {
+impl<T: Config> BurnHandler<BalanceOf<T>> for Pallet<T> {
+	fn on_burned(amount: BalanceOf<T>) {
 		let buffer = Self::buffer_account();
 
 		// Credit the buffer account. The source account's balance has already been decreased

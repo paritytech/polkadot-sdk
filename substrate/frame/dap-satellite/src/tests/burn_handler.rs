@@ -37,10 +37,10 @@ fn on_burned_credits_satellite_and_accumulates() {
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
 		// When: multiple burns occur (including zero amount which is a no-op).
-		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&1u64, 0);
-		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&1u64, 100);
-		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&2u64, 200);
-		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&3u64, 300);
+		<DapSatellitePallet as BurnHandler<_>>::on_burned(0);
+		<DapSatellitePallet as BurnHandler<_>>::on_burned(100);
+		<DapSatellitePallet as BurnHandler<_>>::on_burned(200);
+		<DapSatellitePallet as BurnHandler<_>>::on_burned(300);
 
 		// Then: satellite has ED + 600 (zero amount ignored, others accumulated).
 		assert_eq!(Balances::free_balance(satellite), ed + 600);
@@ -62,7 +62,7 @@ fn on_burned_handles_overflow_gracefully() {
 
 		// When: burn would cause overflow (near_max + 200 > u64::MAX).
 		// This should NOT panic due to defensive handling with Precision::BestEffort.
-		<DapSatellitePallet as BurnHandler<_, _>>::on_burned(&1u64, 200);
+		<DapSatellitePallet as BurnHandler<_>>::on_burned(200);
 
 		// Then: satellite balance should be capped at max balance.
 		let final_balance = Balances::free_balance(satellite);

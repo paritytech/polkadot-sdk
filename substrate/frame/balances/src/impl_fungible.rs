@@ -205,7 +205,7 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 		// Use configurable handler instead of directly reducing total issuance.
 		// For DirectBurn: reduces total issuance (traditional burning)
 		// For DAP/DAP satellite: credits buffer account (tokens preserved)
-		T::BurnDestination::on_burned(who, actual);
+		T::BurnDestination::on_burned(actual);
 		Self::done_burn_from(who, actual);
 		Ok(actual)
 	}

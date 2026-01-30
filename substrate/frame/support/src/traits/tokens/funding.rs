@@ -90,11 +90,11 @@ use sp_runtime::Saturating;
 /// removed from the source account. Implementations can either:
 /// - Reduce total issuance (traditional burning via `DirectBurn`)
 /// - Credit to a buffer account (for DAP systems)
-pub trait BurnHandler<AccountId, Balance> {
+pub trait BurnHandler<Balance> {
 	/// Handle funds that have been burned from an account.
 	///
 	/// This operation is infallible.
-	fn on_burned(who: &AccountId, amount: Balance);
+	fn on_burned(amount: Balance);
 }
 
 /// Direct burning implementation of `BurnHandler`.
@@ -108,19 +108,22 @@ pub trait BurnHandler<AccountId, Balance> {
 /// * `AccountId` - The account identifier type
 pub struct DirectBurn<Currency, AccountId>(PhantomData<(Currency, AccountId)>);
 
-impl<Currency, AccountId> BurnHandler<AccountId, Currency::Balance>
-	for DirectBurn<Currency, AccountId>
+impl<Currency, AccountId> BurnHandler<Currency::Balance> for DirectBurn<Currency, AccountId>
 where
 	Currency: fungible::Unbalanced<AccountId>,
 	AccountId: Eq,
 {
-	fn on_burned(_who: &AccountId, amount: Currency::Balance) {
+	fn on_burned(amount: Currency::Balance) {
 		// Reduce total issuance - funds are permanently destroyed
 		Currency::set_total_issuance(Currency::total_issuance().saturating_sub(amount));
 	}
 }
 
 /// No-op implementation of `BurnHandler` for unit type.
-impl<AccountId, Balance> BurnHandler<AccountId, Balance> for () {
-	fn on_burned(_who: &AccountId, _amount: Balance) {}
+///
+/// This implementation discards burned funds without reducing total issuance or crediting any
+/// buffer. Useful for test configurations where burn behavior is irrelevant, but be aware that
+/// tests using this won't verify realistic burn semantics.
+impl<Balance> BurnHandler<Balance> for () {
+	fn on_burned(_amount: Balance) {}
 }

@@ -37,22 +37,22 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Track BurnHandler calls: (who, amount)
+// Track BurnHandler calls: amounts
 thread_local! {
-	pub static BURN_HANDLER_CALLS: RefCell<Vec<(u64, u64)>> = RefCell::new(Vec::new());
+	pub static BURN_HANDLER_CALLS: RefCell<Vec<u64>> = RefCell::new(Vec::new());
 }
 
 /// Mock BurnHandler that records all calls for verification.
 pub struct MockBurnHandler;
 
-impl BurnHandler<u64, u64> for MockBurnHandler {
-	fn on_burned(who: &u64, amount: u64) {
-		BURN_HANDLER_CALLS.with(|c| c.borrow_mut().push((*who, amount)));
+impl BurnHandler<u64> for MockBurnHandler {
+	fn on_burned(amount: u64) {
+		BURN_HANDLER_CALLS.with(|c| c.borrow_mut().push(amount));
 	}
 }
 
 /// Helper to get and clear recorded burn handler calls.
-fn take_burn_handler_calls() -> Vec<(u64, u64)> {
+fn take_burn_handler_calls() -> Vec<u64> {
 	BURN_HANDLER_CALLS.with(|c| c.take())
 }
 
@@ -121,10 +121,10 @@ fn burn_from_invokes_burn_handler() {
 			Fortitude::Polite,
 		));
 
-		// Then: BurnHandler was called for each burn with the correct parameters (who, amount),
+		// Then: BurnHandler was called for each burn with the correct amounts,
 		// including for the burn with an amount of 0.
 		let calls = take_burn_handler_calls();
-		assert_eq!(calls, vec![(1, 10), (2, 20), (3, 0)]);
+		assert_eq!(calls, vec![10, 20, 0]);
 
 		// And: balances were correctly reduced.
 		assert_eq!(Balances::free_balance(1), 90);
@@ -146,9 +146,9 @@ fn burn_extrinsic_invokes_burn_handler() {
 		// When: burn extrinsic is called.
 		assert_ok!(Balances::burn(frame_system::RawOrigin::Signed(1).into(), 25, false));
 
-		// Then: BurnHandler was called with correct (who, amount).
+		// Then: BurnHandler was called with correct amount.
 		let calls = take_burn_handler_calls();
-		assert_eq!(calls, vec![(1, 25)]);
+		assert_eq!(calls, vec![25]);
 
 		// And: balance was reduced.
 		assert_eq!(Balances::free_balance(1), 75);
@@ -167,7 +167,7 @@ fn burn_entire_balance_reaps_account() {
 
 		// Then: BurnHandler was called with entire balance.
 		let calls = take_burn_handler_calls();
-		assert_eq!(calls, vec![(1, 100)]);
+		assert_eq!(calls, vec![100]);
 
 		// And: account is reaped (balance is zero).
 		assert_eq!(Balances::free_balance(1), 0);

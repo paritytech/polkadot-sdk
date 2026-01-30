@@ -40,15 +40,15 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: westend-runtime
-  bump: minor
+  bump: major
 - name: bridge-hub-westend-runtime
   bump: minor
 - name: collectives-westend-runtime
-  bump: minor
+  bump: major
 - name: coretime-westend-runtime
-  bump: minor
+  bump: major
 - name: people-westend-runtime
-  bump: minor
+  bump: major
 - name: rococo-runtime
   bump: minor
 - name: asset-hub-rococo-runtime

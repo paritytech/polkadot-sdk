@@ -40,6 +40,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type BurnDestination = DapSatellite;
 }
 
 parameter_types! {

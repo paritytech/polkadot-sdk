@@ -283,8 +283,8 @@ where
 }
 
 /// Implementation of BurnHandler for pallet.
-impl<T: Config> BurnHandler<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	fn on_burned(_who: &T::AccountId, amount: BalanceOf<T>) {
+impl<T: Config> BurnHandler<BalanceOf<T>> for Pallet<T> {
+	fn on_burned(amount: BalanceOf<T>) {
 		let satellite = Self::satellite_account();
 
 		// Credit the satellite account. The source account's balance has already been decreased
