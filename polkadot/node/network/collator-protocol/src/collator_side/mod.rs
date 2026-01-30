@@ -1331,14 +1331,15 @@ async fn handle_peer_view_change<Context>(
 		advertise_collations_for_relay_parents(ctx, state, &peer_id, added).await;
 
 	if !unknown_relay_parents.is_empty() {
+		gum::trace!(
+			target: LOG_TARGET,
+			?peer_id,
+			new_leaves = ?unknown_relay_parents,
+			"New leaves in peer's view are unknown",
+		);
+
 		if let Some(PeerData { unknown_heads, .. }) = state.peer_data.get_mut(&peer_id) {
 			for unknown in unknown_relay_parents {
-				gum::trace!(
-					target: LOG_TARGET,
-					?peer_id,
-					new_leaf = ?unknown,
-					"New leaf in peer's view is unknown",
-				);
 				unknown_heads.insert(unknown, ());
 			}
 		}
