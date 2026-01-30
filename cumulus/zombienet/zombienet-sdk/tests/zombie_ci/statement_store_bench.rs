@@ -2,6 +2,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Benchmarking statement store performance
+//
+// ## Running Benchmarks Locally
+//
+// 1. Build the binaries
+// ```
+// cargo build --release --locked --features fast-runtime \
+//   --bin polkadot \
+//   --bin polkadot-prepare-worker \
+//   --bin polkadot-execute-worker \
+//   --bin polkadot-parachain
+// ```
+//
+// 2. Add the compiled binaries to your PATH
+// ```
+// export PATH="$PATH:$(pwd)/target/release"
+// ```
+//
+// 3. Run the desired benchmark
+// Pass the benchmark test name as an argument.
+// ```
+// ZOMBIE_PROVIDER=native cargo test -p cumulus-zombienet-sdk-tests --features zombie-ci \
+//   zombie_ci::statement_store_bench::statement_store_one_node_bench -- --exact --nocapture
+// ```
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
