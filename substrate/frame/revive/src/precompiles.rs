@@ -404,6 +404,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	}
 }
 
+// The collision check is verified by a trybuild test in `ui-tests/src/ui/precompiles_ui.rs`.
 #[impl_trait_for_tuples::impl_for_tuples(20)]
 #[tuple_types_custom_trait_bound(PrimitivePrecompile<T=T>)]
 impl<T: Config> Precompiles<T> for Tuple {
