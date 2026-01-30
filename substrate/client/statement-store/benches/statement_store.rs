@@ -19,10 +19,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use sc_statement_store::Store;
 use sp_core::Pair;
+use sp_runtime::codec::Encode;
 use sp_statement_store::{
-	runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-	DecryptionKey, Proof, SignatureVerificationResult, Statement, StatementSource, StatementStore,
-	SubmitResult, Topic,
+	DecryptionKey, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 };
 use std::sync::Arc;
 
@@ -43,40 +42,101 @@ const TOTAL_OPS: usize = NUM_THREADS * OPS_PER_THREAD;
 #[derive(Clone)]
 struct TestClient;
 
-struct RuntimeApi {
-	_inner: TestClient,
-}
+type TestBackend = sc_client_api::in_mem::Backend<Block>;
 
-impl sp_api::ProvideRuntimeApi<Block> for TestClient {
-	type Api = RuntimeApi;
-	fn runtime_api(&self) -> sp_api::ApiRef<Self::Api> {
-		RuntimeApi { _inner: self.clone() }.into()
+impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
+	fn storage(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+		Ok(Some(sc_client_api::StorageData((100_000, 1_000_000).encode())))
 	}
-}
 
-sp_api::mock_impl_runtime_apis! {
-	impl ValidateStatement<Block> for RuntimeApi {
-		fn validate_statement(
-			_source: StatementSource,
-			statement: Statement,
-		) -> std::result::Result<ValidStatement, InvalidStatement> {
-			match statement.verify_signature() {
-				SignatureVerificationResult::Valid(_) =>
-					Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				SignatureVerificationResult::NoSignature => {
-					if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-						if block_hash == &CORRECT_BLOCK_HASH {
-							Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 })
-						} else {
-							Err(InvalidStatement::BadProof)
-						}
-					} else {
-						Err(InvalidStatement::BadProof)
-					}
-				},
-			}
-		}
+	fn storage_hash(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<Hash>> {
+		unimplemented!()
+	}
+
+	fn storage_keys(
+		&self,
+		_hash: Hash,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn storage_pairs(
+		&self,
+		_hash: Hash,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::PairsIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn child_storage(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+		unimplemented!()
+	}
+
+	fn child_storage_keys(
+		&self,
+		_hash: Hash,
+		_child_info: sc_client_api::ChildInfo,
+		_prefix: Option<&sc_client_api::StorageKey>,
+		_start_key: Option<&sc_client_api::StorageKey>,
+	) -> sp_blockchain::Result<
+		sc_client_api::backend::KeysIter<
+			<TestBackend as sc_client_api::Backend<Block>>::State,
+			Block,
+		>,
+	> {
+		unimplemented!()
+	}
+
+	fn child_storage_hash(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<Hash>> {
+		unimplemented!()
+	}
+
+	fn closest_merkle_value(
+		&self,
+		_hash: Hash,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+		unimplemented!()
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		_hash: Hash,
+		_child_info: &sc_client_api::ChildInfo,
+		_key: &sc_client_api::StorageKey,
+	) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+		unimplemented!()
 	}
 }
 
@@ -148,7 +208,15 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let store = Store::new::<Block, TestClient, TestBackend>(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
 		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };
