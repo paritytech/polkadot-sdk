@@ -1,0 +1,9 @@
+title: 'benchmarking: fix DB read/write counts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    PR #10802 added `reset_read_write_count()` at the end of commit_db() to prevent warmup operations from appearing in benchmarking results. However, commit_db is called twice: one on `on_before_start()` closure before benchmark, and one after benchmark execution after benchmark.
+    This PR moves read_write_count() call before the post-benchmark commit_db() call.
+crates:
+- name: frame-benchmarking
+  bump: patch
