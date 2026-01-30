@@ -1025,7 +1025,7 @@ impl pallet_treasury::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
-	type BurnHandler = ();
+	type BurnDestination = ();
 	type MaxApprovals = MaxApprovals;
 	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
 	type SpendFunds = ();

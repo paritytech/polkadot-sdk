@@ -383,7 +383,7 @@ mod tests {
 		type RuntimeEvent = RuntimeEvent;
 		type SpendPeriod = ();
 		type Burn = ();
-		type BurnHandler = ();
+		type BurnDestination = ();
 		type PalletId = TreasuryPalletId;
 		type SpendFunds = ();
 		type MaxApprovals = MaxApprovals;
