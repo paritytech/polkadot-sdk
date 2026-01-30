@@ -120,7 +120,7 @@ impl SubscriptionsHandle {
 									target: LOG_TARGET,
 									"Statement subscription matcher channel closed"
 								);
-								break
+								break;
 							},
 						};
 					}
