@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769771977323,
+  "lastUpdate": 1769777484467,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22588,6 +22588,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.008946872639999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
+          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
+          "timestamp": "2026-01-30T11:43:34Z",
+          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
+        },
+        "date": 1769777459942,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002683047629999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00936360584999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006844922399999997,
             "unit": "seconds"
           }
         ]
