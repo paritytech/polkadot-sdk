@@ -27,7 +27,7 @@ use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser, ValueEnum};
-use log::info;
+use log::{info, warn};
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
@@ -159,6 +159,19 @@ pub struct StorageParams {
 	/// This is only used when `mode` is `validate-block`.
 	#[arg(long, default_value_t = 20)]
 	pub validate_block_rounds: u32,
+
+	/// Maximum number of keys to read.
+	///
+	/// Declares the number of random keys to read.
+	///
+	/// Default: Read all keys.
+	#[arg(long)]
+	pub keys_limit: Option<usize>,
+
+	/// Seed to use for benchs randomness, the same seed allow to replay
+	/// benchmarks under the same conditions.
+	#[arg(long)]
+	pub random_seed: Option<u64>,
 }
 
 impl StorageParams {
@@ -248,8 +261,35 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		let mut keys: Vec<_> = client.storage_keys(hash, None, None)?.collect();
-		let (mut rng, _) = new_rng(None);
+		// Use first_key + take(keys_limit) to avoid loading all keys on huge chains.
+		// If not enough keys after first_key, circle back and take keys from the start.
+		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
+			use sp_core::blake2_256;
+			let first_key = self
+				.params
+				.random_seed
+				.map(|seed| sp_storage::StorageKey(blake2_256(&seed.to_be_bytes()[..]).to_vec()));
+			let mut keys: Vec<_> =
+				client.storage_keys(hash, None, first_key.as_ref())?.take(keys_limit).collect();
+			if keys.len() < keys_limit {
+				let need_more = keys_limit - keys.len();
+				if let Some(ref fk) = first_key {
+					let keys_from_start: Vec<_> = client
+						.storage_keys(hash, None, None)?
+						.take_while(|k| k.0.as_slice() < fk.0.as_slice())
+						.take(need_more)
+						.collect();
+					keys.extend(keys_from_start);
+				}
+				if keys.len() < keys_limit {
+					warn!("Only {} keys available (requested {})", keys.len(), keys_limit);
+				}
+			}
+			keys
+		} else {
+			client.storage_keys(hash, None, None)?.collect()
+		};
+		let (mut rng, _) = new_rng(self.params.random_seed);
 		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
