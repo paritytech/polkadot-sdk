@@ -28,8 +28,6 @@ use westend_runtime_constants::system_parachain::coretime;
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
-/// Coretime revenue handler that sends funds to the DAP satellite account.
-///
 /// A type containing the encoding of the coretime pallet in the Relay chain runtime. Used to
 /// construct any remote calls. The codec index must correspond to the index of `Coretime` in the
 /// `construct_runtime` of the Relay chain.
@@ -231,11 +229,6 @@ impl CoretimeInterface for CoretimeAllocator {
 				"Core assignment failed to send"
 			),
 		}
-	}
-
-	fn on_new_timeslice(_timeslice: Timeslice) {
-		// Revenue is accumulated in the DAP satellite account via OnRevenue handler.
-		// The satellite pallet will eventually send accumulated funds to AssetHub DAP via XCM.
 	}
 }
 
