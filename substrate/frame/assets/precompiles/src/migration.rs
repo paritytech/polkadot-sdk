@@ -132,8 +132,8 @@ where
 				},
 			};
 
-			// Check if we have enough weight for this specific operation
-			if !meter.can_consume(required) {
+			// Try to consume the weight for this specific operation
+			if meter.try_consume(required).is_err() {
 				if cursor.is_none() {
 					// First iteration and we can't even start
 					return Err(SteppedMigrationError::InsufficientWeight { required });
@@ -143,10 +143,9 @@ where
 			}
 
 			// Perform the actual migration step
-			let (next, weight) = Self::migrate_asset_step(maybe_last_key);
+			let (next, _weight) = Self::migrate_asset_step(maybe_last_key);
 
 			cursor = Some(next);
-			meter.consume(weight);
 		}
 
 		Ok(cursor)
