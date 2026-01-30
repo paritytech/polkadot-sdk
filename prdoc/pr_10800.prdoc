@@ -1,0 +1,10 @@
+title: '[pallet-bounties] allow closing/awarding bounties with active child bounties'
+doc:
+- audience: Runtime Dev
+  description: |-
+    resolves https://github.com/paritytech/polkadot-sdk/issues/10790
+
+    Removed the restrictive checks in both `award_bounty()` and `close_bounty()` functions that prevented operations when child bounties exist.
+crates:
+- name: pallet-bounties
+  bump: minor
