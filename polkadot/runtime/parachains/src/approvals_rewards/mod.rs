@@ -16,43 +16,31 @@
 
 //! Approvals Rewards pallet.
 
-use alloc::vec::*;
 use crate::{
     configuration,
-    inclusion::{QueueFootprinter, UmpQueueId},
     initializer::SessionChangeNotification,
     session_info,
     shared,
 };
-use codec::{Decode, Encode};
-use core::{cmp, mem};
-use frame_support::{
-    pallet_prelude::*,
-    traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
-    DefaultNoBound,
-};
-use scale_info::{
-    Type, TypeInfo,
-    prelude::vec,
-};
-use sp_runtime::{
-    traits::{AppVerify, One, Saturating},
-    DispatchResult, SaturatedConversion,
-};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
     vstaging::ApprovalStatistics,
-    slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes},
-    CandidateHash,
-    DisputeOffenceKind,
-    SessionIndex, ValidatorId, ValidatorIndex, ValidatorSignature,
-    IndexedVec, byzantine_threshold
+	AppVerify,
+    SessionIndex, ValidatorIndex, ValidatorSignature,
+    byzantine_threshold
 };
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
+#[cfg(test)]
+mod tests;
+
 const LOG_TARGET: &str = "runtime::approvals_rewards";
+
+/// Transaction longevity for approval statistics submissions (in blocks)
+const APPROVAL_STATS_LONGEVITY: u64 = 64;
 
 pub use pallet::*;
 use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
@@ -72,6 +60,7 @@ impl WeightInfo for TestWeightInfo {
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use frame_support::dispatch::PostDispatchInfo;
     use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
     use sp_runtime::transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -93,16 +82,23 @@ pub mod pallet {
         #[allow(deprecated)]
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Weight information for extrinsics in this pallet.
-        // type WeightInfo: WeightInfo;
+        /// Maximum number of tallies that can be submitted in a single payload.
+        /// Should be set to the maximum expected validator count to prevent DoS attacks.
+        #[pallet::constant]
+        type MaxTalliesPerSubmission: Get<u32>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
-    /// Actual past code hash, indicated by the para id as well as the block number at which it
-    /// became outdated.
+    /// Maps (SessionIndex, ValidatorIndex) to the approval statistics tallies submitted by that
+    /// validator for that session. Pruned after the dispute period.
     #[pallet::storage]
     pub(super) type ApprovalsTallies<T: Config> =
         StorageMap<_, Twox64Concat, (SessionIndex, ValidatorIndex), Vec<ApprovalStatisticsTallyLine>>;
 
+    /// Stores the calculated median approval usage values for each validator in a session.
+    /// Only populated when at least byzantine threshold validators submitted tallies.
     #[pallet::storage]
     pub(super) type AvailableApprovalsMedians<T: Config> =
         StorageMap<_, Twox64Concat, SessionIndex, Vec<u32>>;
@@ -110,7 +106,18 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        ApprovalTalliesStored((SessionIndex, ValidatorIndex))
+        /// Approval tallies successfully stored
+        /// [session_index, validator_index]
+        ApprovalTalliesStored((SessionIndex, ValidatorIndex)),
+        /// Submission rejected due to excessive tallies
+        /// [session_index, validator_index, tallies_count, max_allowed]
+        TooManyTalliesRejected(SessionIndex, ValidatorIndex, u32, u32),
+        /// Approval medians calculated for a session
+        /// [session_index, validator_count, submissions_received]
+        MediansCalculated(SessionIndex, u32, u32),
+        /// Old approval tallies pruned
+        /// [min_session_kept, count_pruned]
+        TalliesPruned(SessionIndex, u32),
     }
 
     #[pallet::error]
@@ -132,13 +139,15 @@ pub mod pallet {
 
         /// The validator already have submitted a tally for that session
         ApprovalTalliesAlreadyStored,
+
+        /// Too many tallies in the submission payload
+        TooManyTallies,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(1)]
-        //#[pallet::weight(<T as Config>::WeightInfo::include_approvals_rewards_statistics())]
+        #[pallet::weight(<T as Config>::WeightInfo::include_approvals_rewards_statistics())]
         pub fn include_approvals_rewards_statistics(
             origin: OriginFor<T>,
             payload: ApprovalStatistics,
@@ -146,9 +155,22 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let current_session = shared::CurrentSessionIndex::<T>::get();
             let payload_session_index = payload.0;
             let payload_validator_index = payload.1;
+            let current_session = shared::CurrentSessionIndex::<T>::get();
+
+            // Validate payload size to prevent DoS attacks
+            let max_tallies = T::MaxTalliesPerSubmission::get();
+            if payload.2.len() > max_tallies as usize {
+                // Emit event for monitoring before rejecting
+                Self::deposit_event(Event::TooManyTalliesRejected(
+                    payload_session_index,
+                    payload_validator_index,
+                    payload.2.len() as u32,
+                    max_tallies,
+                ));
+                return Err(Error::<T>::TooManyTallies.into());
+            }
 
             let config = configuration::ActiveConfig::<T>::get();
 
@@ -192,8 +214,12 @@ pub mod pallet {
 
             ApprovalsTallies::<T>::insert(approvals_key, payload.2);
             Self::deposit_event(Event::ApprovalTalliesStored(approvals_key));
-            //Ok(Some(<T as Config>::WeightInfo::include_approvals_rewards_statistics()).into())
-            Ok(Pays::No.into())
+
+            // Return actual weight but don't charge fees (validators shouldn't pay)
+            Ok(PostDispatchInfo {
+                actual_weight: Some(<T as Config>::WeightInfo::include_approvals_rewards_statistics()),
+                pays_fee: Pays::No,
+            })
         }
     }
 
@@ -204,10 +230,13 @@ pub mod pallet {
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
                 Call::include_approvals_rewards_statistics { payload, signature } => {
+                    // Validate the payload and signature
+                    Self::validate_approval_statistics(payload, signature)?;
+
                     ValidTransaction::with_tag_prefix("ApprovalRewardsStatistics")
                         .priority(TransactionPriority::max_value())
-                        .longevity(64_u64)
-                        .and_provides((payload.0, payload.1, payload.2.clone()))
+                        .longevity(APPROVAL_STATS_LONGEVITY)
+                        .and_provides(vec![(b"ApprovalStats", payload.0, payload.1).encode()])
                         .propagate(true)
                         .build()
                 }
@@ -221,7 +250,81 @@ pub mod pallet {
     }
 }
 
-impl <T: Config> Pallet<T> {
+impl<T: Config> Pallet<T> {
+    /// Validates approval statistics payload and signature.
+    /// Returns Ok(()) if valid, or InvalidTransaction error if not.
+    fn validate_approval_statistics(
+        payload: &ApprovalStatistics,
+        signature: &ValidatorSignature,
+    ) -> Result<(), TransactionValidityError> {
+        let current_session = shared::CurrentSessionIndex::<T>::get();
+        let payload_session_index = payload.0;
+        let payload_validator_index = payload.1;
+
+        // Check payload size
+        if payload.2.len() > T::MaxTalliesPerSubmission::get() as usize {
+            return Err(InvalidTransaction::ExhaustsResources.into());
+        }
+
+        let config = configuration::ActiveConfig::<T>::get();
+
+        // Check session bounds
+        if payload_session_index > current_session {
+            return Err(InvalidTransaction::Future.into());
+        }
+
+        if payload_session_index < current_session.saturating_sub(config.dispute_period) {
+            return Err(InvalidTransaction::Stale.into());
+        }
+
+        // Get validator public key
+        let validator_public = if payload_session_index == current_session {
+            let validators = shared::ActiveValidatorKeys::<T>::get();
+            let validator_index = payload_validator_index.0 as usize;
+            validators
+                .get(validator_index)
+                .ok_or(InvalidTransaction::BadProof)?
+                .clone()
+        } else {
+            let session_info = session_info::Sessions::<T>::get(payload_session_index)
+                .ok_or(InvalidTransaction::Stale)?;
+
+            session_info.validators
+                .get(payload_validator_index)
+                .ok_or(InvalidTransaction::BadProof)?
+                .clone()
+        };
+
+        // Verify signature
+        let signing_payload = payload.signing_payload();
+        if !signature.verify(&signing_payload[..], &validator_public) {
+            return Err(InvalidTransaction::BadProof.into());
+        }
+
+        // Check for duplicate submission
+        let approvals_key = (payload_session_index, payload_validator_index);
+        if ApprovalsTallies::<T>::contains_key(&approvals_key) {
+            return Err(InvalidTransaction::Stale.into());
+        }
+
+        Ok(())
+    }
+
+	/// Returns the calculated median approval usage values for a given session.
+	/// Returns None if medians haven't been calculated yet (not enough submissions).
+	pub fn get_approval_medians(session_index: SessionIndex) -> Option<Vec<u32>> {
+		AvailableApprovalsMedians::<T>::get(session_index)
+	}
+
+	/// Returns the approval statistics tallies submitted by a specific validator
+	/// for a given session. Returns None if the validator hasn't submitted tallies.
+	pub fn get_validator_tallies(
+		session_index: SessionIndex,
+		validator_index: ValidatorIndex,
+	) -> Option<Vec<ApprovalStatisticsTallyLine>> {
+		ApprovalsTallies::<T>::get((session_index, validator_index))
+	}
+
     /// Handle an incoming session change.
     pub(crate) fn initializer_on_new_session(
         notification: &SessionChangeNotification<BlockNumberFor<T>>,
@@ -233,6 +336,19 @@ impl <T: Config> Pallet<T> {
         };
 
         let validators_len = session_info.validators.len();
+
+        // Bound the collection to prevent excessive computation
+        // This is a safety check; in practice validators_len should always be <= MaxTalliesPerSubmission
+        const MAX_VALIDATORS_FOR_MEDIAN: usize = 2000;
+        if validators_len > MAX_VALIDATORS_FOR_MEDIAN {
+            log::warn!(
+                target: LOG_TARGET,
+                "Skipping median calculation: validator count {} exceeds maximum {}",
+                validators_len,
+                MAX_VALIDATORS_FOR_MEDIAN
+            );
+            return;
+        }
 
         let mut rewards_matrix: Vec<Vec<ApprovalStatisticsTallyLine>> = vec![];
         for idx in 0..validators_len {
@@ -247,38 +363,96 @@ impl <T: Config> Pallet<T> {
             for (v_idx, _) in session_info.validators.into_iter().enumerate() {
                 let mut v: Vec<u32> = rewards_matrix.iter().map(|at| at[v_idx].approvals_usage).collect();
                 v.sort();
-                approval_usages_medians.push(v[validators_len/2]);
+
+                // Calculate proper median: average of two middle elements for even-sized vectors
+                let median = if v.len() % 2 == 0 {
+                    // Even length: average of two middle elements
+                    let mid1 = v[v.len() / 2 - 1];
+                    let mid2 = v[v.len() / 2];
+                    // Use saturating operations to prevent overflow
+                    mid1.saturating_add(mid2) / 2
+                } else {
+                    // Odd length: middle element
+                    v[v.len() / 2]
+                };
+
+                approval_usages_medians.push(median);
             }
 
             AvailableApprovalsMedians::<T>::insert(previous_session, approval_usages_medians);
+
+		// Emit event for monitoring
+		Self::deposit_event(Event::MediansCalculated(
+			previous_session,
+			validators_len as u32,
+			rewards_matrix.len() as u32,
+		));
         }
 
-        let mut drop_keys = vec![];
+        // Prune old approval tallies to prevent unbounded storage growth
         let config = configuration::ActiveConfig::<T>::get();
-        ApprovalsTallies::<T>::iter_keys().for_each(|(session_idx, validator_idx)| {
-            let min_session_to_keep = notification.session_index - config.dispute_period;
+        // Use saturating_sub to prevent underflow when session_index < dispute_period
+        let min_session_to_keep = notification.session_index.saturating_sub(config.dispute_period);
+
+        // Pre-allocate with reasonable capacity and limit deletions per block
+        const MAX_DELETIONS_PER_BLOCK: usize = 1000;
+        let mut drop_keys = Vec::with_capacity(MAX_DELETIONS_PER_BLOCK);
+
+        // Collect keys to drop, but limit the number to prevent excessive computation
+        for (session_idx, validator_idx) in ApprovalsTallies::<T>::iter_keys() {
             if session_idx < min_session_to_keep {
                 drop_keys.push((session_idx, validator_idx));
-            }
-        });
 
+                // Early exit if we've collected enough keys for this block
+                if drop_keys.len() >= MAX_DELETIONS_PER_BLOCK {
+                    break;
+                }
+            }
+        }
+
+        // Remove collected keys
+        let removed_count = drop_keys.len();
         for key in drop_keys {
             ApprovalsTallies::<T>::remove(key);
+        }
+
+		// Emit event for monitoring if any tallies were pruned
+		if removed_count > 0 {
+			Self::deposit_event(Event::TalliesPruned(
+				min_session_to_keep,
+				removed_count as u32,
+			));
+		}
+
+        // Log if we hit the limit (indicates more pruning needed in future blocks)
+        if removed_count == MAX_DELETIONS_PER_BLOCK {
+            log::debug!(
+                target: LOG_TARGET,
+                "Pruned {} approval tallies (limit reached, more may remain)",
+                removed_count
+            );
+        } else if removed_count > 0 {
+            log::debug!(
+                target: LOG_TARGET,
+                "Pruned {} approval tallies",
+                removed_count
+            );
         }
     }
 }
 
-impl <T> Pallet<T>
+impl<T> Pallet<T>
 where
     T: Config + frame_system::offchain::CreateBare<Call<T>>
 {
-    /// Submits a given PVF check statement with corresponding signature as an unsigned transaction
-    /// into the memory pool. Ultimately, that disseminates the transaction across the network.
+    /// Submits approval statistics with corresponding signature as an unsigned transaction
+    /// into the memory pool for dissemination across the network.
     ///
-    /// This function expects an offchain context and cannot be callable from the on-chain logic.
+    /// This function expects an offchain context and cannot be called from on-chain logic.
     ///
-    /// The signature assumed to pertain to `stmt`.
-    ///
+    /// # Arguments
+    /// * `payload` - The approval statistics data
+    /// * `signature` - Validator signature over the payload
     pub(crate) fn submit_approval_statistics(
         payload: ApprovalStatistics,
         signature: ValidatorSignature,
@@ -289,7 +463,7 @@ where
         let xt = <T as CreateBare<Call<T>>>::create_bare(call.into());
 
         if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
-            log::error!(target: LOG_TARGET, "Error submitting pvf check statement: {:?}", e,);
+            log::error!(target: LOG_TARGET, "Error submitting approval statistics: {:?}", e);
         }
     }
 }

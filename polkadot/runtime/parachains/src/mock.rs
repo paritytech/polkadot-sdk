@@ -17,7 +17,7 @@
 //! Mocks for all the traits.
 
 use crate::{
-	assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
+	approvals_rewards, assigner_coretime, configuration, coretime, disputes, dmp, hrmp,
 	inclusion::{self, AggregateMessageOrigin, UmpQueueId},
 	initializer, on_demand, origin, paras,
 	paras::ParaKind,
@@ -88,6 +88,7 @@ frame_support::construct_runtime!(
 		SessionInfo: session_info,
 		Disputes: disputes,
 		Babe: pallet_babe,
+		ApprovalsRewards: approvals_rewards,
 	}
 );
 
@@ -582,6 +583,16 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for ValidatorIdOf
 
 impl crate::session_info::Config for Test {
 	type ValidatorSet = MockValidatorSet;
+}
+
+parameter_types! {
+	pub const MaxTalliesPerSubmission: u32 = 1000;
+}
+
+impl crate::approvals_rewards::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxTalliesPerSubmission = MaxTalliesPerSubmission;
+	type WeightInfo = crate::approvals_rewards::TestWeightInfo;
 }
 
 thread_local! {
