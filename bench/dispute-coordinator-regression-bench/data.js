@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769782022280,
+  "lastUpdate": 1769786048638,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22686,6 +22686,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00937048356999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5168cadb2683174b891cbd33e37cd436bfdce1d",
+          "message": "collator-protocol: Readvertise collations after peer disconnects (#10464)\n\nThere's a possible race case between peer connectivity and collation\nadvertisement:\n- The advertisement was generated\n- peer disconnected before receiving the advertisement\n\nAs a result of that, when the peer reconnects, the previous collation\n(C0) is not sent.\nThis happens when the collator has produced another collation (C1).\nHowever, from the logs it looks like the collation C1 is advertising,\nbut C0 is skipped.\n\n- T0: peer disconnects without receiving C0\n- T1: peer reconnects\n- T2: collator advertises C1, but not C0\n\nThis PR aims to resubmit collations on `PeerConect` events to mitigate\nthese cases\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/10463\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-30T13:57:37Z",
+          "tree_id": "7068a46b2cd404d92390dc3bd0b3efa3b14b6638",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5168cadb2683174b891cbd33e37cd436bfdce1d"
+        },
+        "date": 1769786024386,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026949811400000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00921667447999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.006516256619999994,
             "unit": "seconds"
           }
         ]
