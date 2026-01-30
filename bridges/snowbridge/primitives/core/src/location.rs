@@ -85,7 +85,7 @@ impl DescribeLocation for DescribeTokenTerminal {
 			[PalletInstance(instance)] => Some((b"PalletInstance", *instance).encode()),
 			[PalletInstance(instance), GeneralIndex(index)] =>
 				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode()),
-			[PalletInstance(instance), GeneralKey { length, data, .. }] =>
+			[PalletInstance(instance), GeneralKey { length, data }] =>
 				Some((b"PalletInstance", *instance, b"GeneralKey", *length, *data).encode()),
 
 			[PalletInstance(instance), AccountKey20 { key, .. }] =>

@@ -1245,7 +1245,7 @@ fn xcm_converter_mints_registered_token_id_for_colliding_general_key_location() 
 	// Deterministic collision:
 	let victim_token_id = TokenIdOf::convert_location(&victim_location).unwrap();
 	let attacker_token_id = TokenIdOf::convert_location(&attacker_location).unwrap();
-	assert_ne!(victim_token_id, attacker_token_id, "TokenId must collide for this PoC");
+	assert_ne!(victim_token_id, attacker_token_id, "TokenIds should differ after the fix");
 
 	// Optional debug prints for report clarity
 	println!("victim_location     = {victim_location:?}");
