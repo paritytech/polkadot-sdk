@@ -64,7 +64,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 
 		// Should never happen, but just to be sure.
 		if ptr_offset > u16::MAX as usize || ptr.is_null() {
-			return ptr::null_mut()
+			return ptr::null_mut();
 		}
 
 		// Align the pointer.

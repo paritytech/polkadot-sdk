@@ -203,7 +203,7 @@ where
 
 				let _ = response_sender
 					.send(Err(ValidationFailed("Session index not found".to_string())));
-				return
+				return;
 			};
 
 			// This will return a default value for the limit if runtime API is not available.
@@ -225,7 +225,7 @@ where
 				let _ = response_sender.send(Err(ValidationFailed(
 					"Validation code bomb limit not available".to_string(),
 				)));
-				return
+				return;
 			};
 
 			let res = validate_candidate_exhaustive(
@@ -262,7 +262,7 @@ where
 				);
 
 				let _ = response_sender.send(PreCheckOutcome::Failed);
-				return
+				return;
 			};
 
 			// This will return a default value for the limit if runtime API is not available.
@@ -282,7 +282,7 @@ where
 				);
 
 				let _ = response_sender.send(PreCheckOutcome::Failed);
-				return
+				return;
 			};
 
 			let precheck_result = precheck_pvf(
@@ -486,7 +486,7 @@ where
 			?relay_parent,
 			"cannot fetch session index from runtime API",
 		);
-		return None
+		return None;
 	};
 
 	Some(session_index)
@@ -510,7 +510,7 @@ where
 			?relay_parent,
 			"cannot fetch authorities from runtime API",
 		);
-		return false
+		return false;
 	};
 
 	// We need to exclude at least current session authority from the previous request
@@ -522,7 +522,7 @@ where
 			?relay_parent,
 			"cannot fetch session info from runtime API",
 		);
-		return false
+		return false;
 	};
 
 	let is_past_present_or_future_authority = authorities
@@ -557,7 +557,7 @@ where
 			?relay_parent,
 			"cannot fetch candidate events from runtime API",
 		);
-		return None
+		return None;
 	};
 	let code_hashes = events
 		.into_iter()
@@ -582,7 +582,7 @@ where
 			?relay_parent,
 			"cannot fetch executor params for the session",
 		);
-		return None
+		return None;
 	};
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 
@@ -637,7 +637,7 @@ where
 	}
 
 	if active_pvfs.is_empty() {
-		return None
+		return None;
 	}
 
 	if let Err(err) = validation_backend.heads_up(active_pvfs).await {
@@ -647,7 +647,7 @@ where
 			?err,
 			"cannot prepare PVF for the next session",
 		);
-		return None
+		return None;
 	};
 
 	gum::debug!(
@@ -701,7 +701,7 @@ where
 			Ok(scheduling_lookahead) => scheduling_lookahead,
 			res => {
 				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
-				return vec![]
+				return vec![];
 			},
 		};
 
@@ -800,7 +800,7 @@ where
 					?validation_code_hash,
 					"precheck: requested validation code is not found on-chain!",
 				);
-				return PreCheckOutcome::Failed
+				return PreCheckOutcome::Failed;
 			},
 		};
 
@@ -822,7 +822,7 @@ where
 			?validation_code_hash,
 			"precheck: failed to acquire executor params for the session, thus voting against.",
 		);
-		return PreCheckOutcome::Invalid
+		return PreCheckOutcome::Invalid;
 	};
 
 	let timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Precheck);
@@ -877,7 +877,7 @@ async fn validate_candidate_exhaustive(
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
 		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
 			if session_index != expected_session_index {
-				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
+				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
 			},
 		(_, _) => {},
 	};
@@ -889,7 +889,7 @@ async fn validate_candidate_exhaustive(
 		&validation_code_hash,
 	) {
 		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
-		return Ok(ValidationResult::Invalid(e))
+		return Ok(ValidationResult::Invalid(e));
 	}
 
 	let persisted_validation_data = Arc::new(persisted_validation_data);
@@ -1039,7 +1039,7 @@ async fn validate_candidate_exhaustive(
 									error
 								);
 
-								return Err(ValidationFailed(error.into()))
+								return Err(ValidationFailed(error.into()));
 							};
 
 							if let Err(err) = committed_candidate_receipt
@@ -1053,7 +1053,7 @@ async fn validate_candidate_exhaustive(
 								);
 								return Ok(ValidationResult::Invalid(
 									InvalidCandidate::InvalidUMPSignals(err),
-								))
+								));
 							}
 						},
 						// No checks for approvals and disputes
@@ -1131,7 +1131,7 @@ trait ValidationBackend {
 			)
 			.await;
 		if validation_result.is_ok() {
-			return validation_result
+			return validation_result;
 		}
 
 		macro_rules! break_if_no_retries_left {
@@ -1139,7 +1139,7 @@ trait ValidationBackend {
 				if $counter > 0 {
 					$counter -= 1;
 				} else {
-					break
+					break;
 				}
 			};
 		}
@@ -1152,7 +1152,7 @@ trait ValidationBackend {
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
-				break
+				break;
 			}
 			let mut retry_immediately = false;
 			match validation_result {
@@ -1257,7 +1257,7 @@ impl ValidationBackend for ValidationHost {
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
 				err
 			))
-			.into())
+			.into());
 		}
 
 		rx.await.map_err(|_| {
@@ -1271,7 +1271,7 @@ impl ValidationBackend for ValidationHost {
 		let (tx, rx) = oneshot::channel();
 		if let Err(err) = self.precheck_pvf(pvf, tx).await {
 			// Return an IO error if there was an error communicating with the host.
-			return Err(PrepareError::IoErr(err))
+			return Err(PrepareError::IoErr(err));
 		}
 
 		let precheck_result = rx.await.map_err(|err| PrepareError::IoErr(err.to_string()))?;
@@ -1304,15 +1304,15 @@ fn perform_basic_checks(
 
 	let encoded_pov_size = pov.encoded_size();
 	if encoded_pov_size > max_pov_size as usize {
-		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64))
+		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64));
 	}
 
 	if pov_hash != candidate.pov_hash() {
-		return Err(InvalidCandidate::PoVHashMismatch)
+		return Err(InvalidCandidate::PoVHashMismatch);
 	}
 
 	if *validation_code_hash != candidate.validation_code_hash() {
-		return Err(InvalidCandidate::CodeHashMismatch)
+		return Err(InvalidCandidate::CodeHashMismatch);
 	}
 
 	Ok(())
@@ -1321,15 +1321,15 @@ fn perform_basic_checks(
 /// To determine the amount of timeout time for the pvf execution.
 ///
 /// Precheck
-///	The time period after which the preparation worker is considered
+/// 	The time period after which the preparation worker is considered
 /// unresponsive and will be killed.
 ///
 /// Prepare
-///The time period after which the preparation worker is considered
+/// The time period after which the preparation worker is considered
 /// unresponsive and will be killed.
 fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_prep_timeout(kind) {
-		return timeout
+		return timeout;
 	}
 	match kind {
 		PvfPrepKind::Precheck => DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
@@ -1349,7 +1349,7 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 /// considered executable by approval checkers or dispute participants.
 fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
-		return timeout
+		return timeout;
 	}
 	match kind {
 		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,

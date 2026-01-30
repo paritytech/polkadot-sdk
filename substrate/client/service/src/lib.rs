@@ -211,7 +211,7 @@ async fn build_network_future<
 					// If this stream is shut down, that means the client has shut down, and the
 					// most appropriate thing to do for the network future is to shut down too.
 					None => {
-						debug!("Block import stream has terminated, shutting down the network future.");
+						warn!("Block import stream has terminated, shutting down the network future. Ignore if the node is stopping.");
 						return
 					},
 				};
@@ -235,7 +235,7 @@ async fn build_network_future<
 
 			// Drive the network. Shut down the network future if `NetworkWorker` has terminated.
 			_ = network_run => {
-				debug!("`NetworkWorker` has terminated, shutting down the network future.");
+				warn!("`NetworkWorker` has terminated, shutting down the network future. Ignore if the node is stopping.");
 				return
 			}
 		}
@@ -269,7 +269,7 @@ pub async fn build_system_rpc_future<
 		// Answer incoming RPC requests.
 		let Some(req) = rpc_rx.next().await else {
 			debug!("RPC requests stream has terminated, shutting down the system RPC future.");
-			return
+			return;
 		};
 
 		match req {
@@ -318,7 +318,7 @@ pub async fn build_system_rpc_future<
 						let _ = sender.send(network_state);
 					}
 				} else {
-					break
+					break;
 				}
 			},
 			sc_rpc::system::Request::NetworkAddReservedPeer(peer_addr, sender) => {
@@ -521,7 +521,7 @@ where
 			Ok(uxt) => uxt,
 			Err(e) => {
 				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
-				return Box::pin(futures::future::ready(TransactionImport::Bad))
+				return Box::pin(futures::future::ready(TransactionImport::Bad));
 			},
 		};
 

@@ -378,7 +378,7 @@ async fn expect_determine_validator_group(
 				)))
 				.unwrap();
 				// This call is mandatory - we are done:
-				break
+				break;
 			},
 			other => panic!("Unexpected message received: {:?}", other),
 		}
@@ -1198,8 +1198,13 @@ fn collate_on_two_different_relay_chain_blocks() {
 	)
 }
 
+/// Test that when a validator disconnects and reconnects, we re-advertise collations to them.
+///
+/// This handles the race condition where we send an advertisement, but the peer disconnects
+/// before receiving it. When they reconnect, we need to re-advertise so they can fetch
+/// the collation.
 #[test]
-fn validator_reconnect_does_not_advertise_a_second_time() {
+fn validator_reconnect_readvertises_collation() {
 	let test_state = TestState::default();
 	let local_peer_id = test_state.local_peer_id;
 	let collator_pair = test_state.collator_pair.clone();
@@ -1251,14 +1256,26 @@ fn validator_reconnect_does_not_advertise_a_second_time() {
 			)
 			.await;
 
-			// Disconnect and reconnect directly
+			// Disconnect - this resets the advertised_to bit for this peer
 			disconnect_peer(virtual_overseer, peer).await;
+
+			// Reconnect the same validator
 			connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(validator_id)).await;
 			expect_declare_msg(virtual_overseer, &test_state, &peer).await;
 
+			// Send view change - since the advertised_to bit was reset on disconnect,
+			// the collation should be re-advertised
 			send_peer_view_change(virtual_overseer, &peer, vec![test_state.relay_parent]).await;
 
-			assert!(overseer_recv_with_timeout(virtual_overseer, TIMEOUT).await.is_none());
+			// We should receive the advertisement again after reconnect
+			expect_advertise_collation_msg(
+				virtual_overseer,
+				&[peer],
+				test_state.relay_parent,
+				vec![candidate.hash()],
+			)
+			.await;
+
 			test_harness
 		},
 	)

@@ -60,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.21.1-weekly2026w04";
+pub const NODE_VERSION: &'static str = "1.21.2-weekly2026w05";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -582,7 +582,7 @@ impl TryFrom<Vec<Vec<u8>>> for Proof {
 
 	fn try_from(input: Vec<Vec<u8>>) -> Result<Self, Self::Error> {
 		if input.len() > MERKLE_PROOF_MAX_DEPTH {
-			return Err(Self::Error::MerkleProofDepthExceeded(input.len()))
+			return Err(Self::Error::MerkleProofDepthExceeded(input.len()));
 		}
 		let mut out = Vec::new();
 		for element in input.into_iter() {

@@ -333,7 +333,7 @@ pub fn run() -> Result<()> {
 
 	#[cfg(not(feature = "pyroscope"))]
 	if cli.run.pyroscope_server.is_some() {
-		return Err(Error::PyroscopeNotCompiledIn)
+		return Err(Error::PyroscopeNotCompiledIn);
 	}
 
 	match &cli.subcommand {

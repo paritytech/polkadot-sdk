@@ -36,7 +36,6 @@
 //!
 //! ### Example
 #![doc = docify::embed!("src/tests.rs", sign_and_execute_meta_tx)]
-//!
 //! ## Low-Level / Implementation Details
 //!
 //! The structure of a meta transaction is identical to the

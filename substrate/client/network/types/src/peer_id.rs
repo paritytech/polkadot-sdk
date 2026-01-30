@@ -105,7 +105,7 @@ impl PeerId {
 		// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		if hash.code() != 0 {
 			// Hash is not identity
-			return None
+			return None;
 		}
 
 		let public = libp2p_identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;

@@ -72,26 +72,20 @@
 //!
 //! Here is an example of how to define some parameters, including their default values:
 #![doc = docify::embed!("src/tests/mock.rs", dynamic_params)]
-//!
 //! A permissioned origin can be define on a per-key basis like this:
 #![doc = docify::embed!("src/tests/mock.rs", custom_origin)]
-//!
 //! The pallet will also require a default value for benchmarking. Ideally this is the variant with
 //! the longest encoded length. Although in either case the PoV benchmarking will take the worst
 //! case over the whole enum.
 #![doc = docify::embed!("src/tests/mock.rs", benchmarking_default)]
-//!
 //! Now the aggregated parameter needs to be injected into the pallet config:
 #![doc = docify::embed!("src/tests/mock.rs", impl_config)]
-//!
 //! As last step, the parameters can now be used in other pallets 🙌
 #![doc = docify::embed!("src/tests/mock.rs", usage)]
-//!
 //! ### Examples Usage
 //!
 //! Now to demonstrate how the values can be updated:
 #![doc = docify::embed!("src/tests/unit.rs", set_parameters_example)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! The pallet stores the parameters in a storage map and implements the matching `Get<Value>` for

@@ -50,7 +50,7 @@ pub enum VersionedLocatableAccount {
 ///
 /// # Example
 ///
-///,ignore
+/// ,ignore
 /// type FundingSource = PalletIdAsFundingSource<
 ///     TreasuryPalletId,
 ///     Runtime,

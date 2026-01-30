@@ -350,30 +350,30 @@ impl<T: Config> Pallet<T> {
 
 		let Some(queue) = descriptor.queue else {
 			// No queue.
-			return
+			return;
 		};
 
 		let mut next_scheduled = queue.first;
 
 		if next_scheduled > now {
 			// Not yet ready.
-			return
+			return;
 		}
 
 		// Update is needed:
 		let update = loop {
 			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
-				break None
+				break None;
 			};
 			// Still good?
 			if update.end_hint.map_or(true, |e| e > now) {
-				break Some(update)
+				break Some(update);
 			}
 			// Move on if possible:
 			if let Some(n) = update.next_schedule {
 				next_scheduled = n;
 			} else {
-				break None
+				break None;
 			}
 		};
 

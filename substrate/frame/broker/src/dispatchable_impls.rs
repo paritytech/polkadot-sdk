@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::NotAllowed
 			);
 		} else {
-			return Err(Error::<T>::NotAllowed.into())
+			return Err(Error::<T>::NotAllowed.into());
 		}
 
 		// We are sorting auto renewals by `CoreIndex`.
@@ -617,6 +617,16 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		Self::deposit_event(Event::AutoRenewalDisabled { core, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -> DispatchResult {
+		let renewal_id = PotentialRenewalId { core, when };
+
+		PotentialRenewals::<T>::take(renewal_id).ok_or(Error::<T>::UnknownRenewal)?;
+
+		Self::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
+
 		Ok(())
 	}
 

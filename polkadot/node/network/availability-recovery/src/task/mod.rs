@@ -137,7 +137,7 @@ where
 	/// in-order and return whenever the first one recovers the full `AvailableData`.
 	pub async fn run(mut self) -> Result<AvailableData, RecoveryError> {
 		if let Some(data) = self.in_availability_store().await {
-			return Ok(data)
+			return Ok(data);
 		}
 
 		self.params.metrics.on_recovery_started();
@@ -166,7 +166,7 @@ where
 							"Recovery strategy `{}` did not conclude. Trying the next one.",
 							display_name
 						);
-						continue
+						continue;
 					},
 				Err(err) => {
 					match &err {
@@ -174,11 +174,11 @@ where
 							self.params.metrics.on_recovery_invalid(strategy_type),
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
-					return Err(err)
+					return Err(err);
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
-					return Ok(data)
+					return Ok(data);
 				},
 			}
 		}

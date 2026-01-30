@@ -27,7 +27,7 @@ use sp_core::{H160, H256, U256};
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct CallTracer {
 	/// Store all in-progress CallTrace instances.
-	traces: Vec<CallTrace<U256>>,
+	traces: Vec<CallTrace>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
 	/// The code and salt used to instantiate the next contract.
@@ -57,7 +57,7 @@ impl Tracing for CallTracer {
 		&mut self,
 		contract_address: H160,
 		beneficiary_address: H160,
-		gas_left: U256,
+		gas_left: u64,
 		value: U256,
 	) {
 		self.traces.last_mut().unwrap().calls.push(CallTrace {
@@ -78,7 +78,7 @@ impl Tracing for CallTracer {
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
-		gas_limit: U256,
+		gas_limit: u64,
 	) {
 		// Increment parent's child call count.
 		if let Some(&index) = self.current_stack.last() {
@@ -151,7 +151,7 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: U256) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -167,7 +167,7 @@ impl Tracing for CallTracer {
 			}
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent
@@ -177,7 +177,7 @@ impl Tracing for CallTracer {
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: U256) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -193,7 +193,7 @@ impl Tracing for CallTracer {
 			};
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent

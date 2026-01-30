@@ -94,7 +94,7 @@ fn benchmark_block(runtime: &str, base_path: &Path, block: u32) -> Result<(), St
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	Ok(())

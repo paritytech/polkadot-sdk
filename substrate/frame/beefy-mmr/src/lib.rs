@@ -198,7 +198,7 @@ where
 		// We don't check the proof size when running benchmarks, since we use mock proofs
 		// which would cause the test to fail.
 		if cfg!(feature = "runtime-benchmarks") {
-			return true
+			return true;
 		}
 
 		is_proof_optimal
@@ -232,7 +232,7 @@ where
 				Err(_) => {
 					// We can't prove that the commitment is non-canonical if the
 					// `commitment.block_number` is invalid.
-					return false
+					return false;
 				},
 			};
 		if commitment_leaf_count != proof.prev_leaf_count {
@@ -248,7 +248,7 @@ where
 				Err(_) => {
 					// Can't prove that the commitment is non-canonical if the proof
 					// is invalid.
-					return false
+					return false;
 				},
 			};
 

@@ -635,7 +635,7 @@ impl Assets {
 	/// `From::<Vec<Asset>>::from` which is infallible.
 	pub fn from_sorted_and_deduplicated(r: Vec<Asset>) -> Result<Self, ()> {
 		if r.is_empty() {
-			return Ok(Self(Vec::new()))
+			return Ok(Self(Vec::new()));
 		}
 		r.iter().skip(1).try_fold(&r[0], |a, b| -> Result<&Asset, ()> {
 			if a.id < b.id || a < b && (a.is_non_fungible(None) || b.is_non_fungible(None)) {
@@ -677,7 +677,7 @@ impl Assets {
 			match (&a.fun, &mut asset.fun) {
 				(Fungibility::Fungible(amount), Fungibility::Fungible(balance)) => {
 					*balance = balance.saturating_add(*amount);
-					return
+					return;
 				},
 				(Fungibility::NonFungible(inst1), Fungibility::NonFungible(inst2))
 					if inst1 == inst2 =>

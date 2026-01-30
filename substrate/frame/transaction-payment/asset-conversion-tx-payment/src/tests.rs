@@ -225,8 +225,8 @@ fn transaction_payment_in_asset_possible() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -305,8 +305,8 @@ fn transaction_payment_in_asset_fails_if_no_pool_for_that_asset() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -352,8 +352,8 @@ fn transaction_payment_without_fee() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -431,8 +431,8 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -528,8 +528,8 @@ fn payment_from_account_with_only_assets() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -600,8 +600,8 @@ fn converted_fee_is_never_zero_if_input_fee_is_not() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -688,8 +688,8 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 
@@ -808,8 +808,8 @@ fn transfer_add_and_remove_account() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance,
 			));
 
@@ -996,8 +996,8 @@ fn transaction_payment_rejects_reduced_to_zero_in_asset() {
 			assert_ok!(Assets::force_create(
 				RuntimeOrigin::root(),
 				asset_id.into(),
-				42,   /* owner */
-				true, /* is_sufficient */
+				42,   // owner
+				true, // is_sufficient
 				min_balance
 			));
 

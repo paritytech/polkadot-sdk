@@ -439,7 +439,7 @@ where
 							"`finality_target` max number is less than target number",
 						);
 					}
-					return Ok(target_hash)
+					return Ok(target_hash);
 				}
 				// find the current number.
 				let subchain_header = self.block_header(subchain_head)?;
@@ -533,7 +533,7 @@ where
 					subchain_number,
 					"Mismatch of anticipated block descriptions and block number difference.",
 				);
-				return Ok(target_hash)
+				return Ok(target_hash);
 			}
 			// 3. Constrain according to disputes:
 			let (tx, rx) = oneshot::channel();
@@ -571,7 +571,7 @@ where
 						// are not finalizing something that is being disputed or has been concluded
 						// as invalid. We will be conservative here and not vote for finality above
 						// the ancestor passed in.
-						return Ok(target_hash)
+						return Ok(target_hash);
 					},
 				};
 			(lag, subchain_head)

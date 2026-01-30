@@ -47,7 +47,7 @@ where
 		}
 
 		if *target_header.number() == target_number {
-			return Ok((target_hash, target_number))
+			return Ok((target_hash, target_number));
 		}
 
 		target_hash = *target_header.parent_hash();

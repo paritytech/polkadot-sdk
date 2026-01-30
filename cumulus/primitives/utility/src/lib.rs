@@ -176,7 +176,7 @@ impl<
 
 		// Make sure we don't enter twice
 		if self.0.is_some() {
-			return Err(XcmError::NotWithdrawable)
+			return Err(XcmError::NotWithdrawable);
 		}
 
 		// We take the very first asset from payment
@@ -444,7 +444,7 @@ where
 				"SwapFirstAssetTrader::buy_weight Asset was same as Target, swap not needed.",
 			);
 			// current trader is not applicable.
-			return Err(XcmError::FeesNotMet)
+			return Err(XcmError::FeesNotMet);
 		}
 
 		let credit_in = Fungibles::issue(fungibles_asset, balance);
@@ -474,7 +474,7 @@ where
 					"`total_fee.asset` must be equal to `credit_out.asset`",
 					(self.total_fee.asset(), credit_out.asset())
 				);
-				return Err(XcmError::FeesNotMet)
+				return Err(XcmError::FeesNotMet);
 			},
 			_ => (),
 		};
@@ -494,18 +494,18 @@ where
 		);
 		if self.total_fee.peek().is_zero() {
 			// noting yet paid to refund.
-			return None
+			return None;
 		}
 		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
 			// create an initial zero refund in the asset used in the last `buy_weight`.
 			(asset.clone(), Fungible(0)).into()
 		} else {
-			return None
+			return None;
 		};
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
 		if refund_amount >= self.total_fee.peek() {
 			// not enough was paid to refund the `weight`.
-			return None
+			return None;
 		}
 
 		let refund_swap_asset = FungiblesAssetMatcher::matches_fungibles(&refund_asset)
@@ -529,7 +529,7 @@ where
 						(self.total_fee.asset(), refund.asset())
 					);
 				});
-				return None
+				return None;
 			},
 		};
 
@@ -567,7 +567,7 @@ where
 {
 	fn drop(&mut self) {
 		if self.total_fee.peek().is_zero() {
-			return
+			return;
 		}
 		let total_fee = self.total_fee.extract(self.total_fee.peek());
 		OnUnbalanced::on_unbalanced(total_fee);

@@ -243,7 +243,7 @@ impl Junctions {
 	/// junctions in `self`, implying that relative refers into a different global consensus.
 	pub fn within_global(mut self, relative: Location) -> Result<Self, ()> {
 		if self.len() <= relative.parent_count() as usize {
-			return Err(())
+			return Err(());
 		}
 		for _ in 0..relative.parent_count() {
 			self.take_last();
@@ -508,7 +508,7 @@ impl Junctions {
 	pub fn append_with(&mut self, suffix: impl Into<Junctions>) -> Result<(), Junctions> {
 		let suffix = suffix.into();
 		if self.len().saturating_add(suffix.len()) > MAX_JUNCTIONS {
-			return Err(suffix)
+			return Err(suffix);
 		}
 		for j in suffix.into_iter() {
 			self.push(j).expect("Already checked the sum of the len()s; qed")
@@ -552,14 +552,14 @@ impl Junctions {
 	/// ```
 	pub fn match_and_split(&self, prefix: &Junctions) -> Option<&Junction> {
 		if prefix.len() + 1 != self.len() {
-			return None
+			return None;
 		}
 		for i in 0..prefix.len() {
 			if prefix.at(i) != self.at(i) {
-				return None
+				return None;
 			}
 		}
-		return self.at(prefix.len())
+		return self.at(prefix.len());
 	}
 
 	pub fn starts_with(&self, prefix: &Junctions) -> bool {

@@ -422,7 +422,7 @@ impl Parse for Input {
 		} else if lookahead.peek(Token![=]) {
 			None
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		let lookahead = input.lookahead1();
@@ -431,7 +431,7 @@ impl Parse for Input {
 		} else if lookahead.peek(Token![=]) {
 			None
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		let _equal = input.parse()?;
@@ -486,7 +486,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> Result<Toke
 	} else if syn::parse2::<prefix_types::dynamic>(attributes.clone()).is_ok() {
 		PrefixType::Dynamic
 	} else {
-		return Err(Error::new(attributes.span(), "Unknown attributes"))
+		return Err(Error::new(attributes.span(), "Unknown attributes"));
 	};
 
 	let storage_instance = generate_storage_instance(
@@ -537,7 +537,7 @@ fn generate_storage_instance(
 	prefix_type: PrefixType,
 ) -> Result<StorageInstance> {
 	if let Type::Infer(_) = prefix {
-		return Err(Error::new(prefix.span(), "`_` is not allowed as prefix by `storage_alias`."))
+		return Err(Error::new(prefix.span(), "`_` is not allowed as prefix by `storage_alias`."));
 	}
 
 	let impl_generics_used_by_prefix = storage_generics
@@ -570,7 +570,7 @@ fn generate_storage_instance(
 				return Err(Error::new_spanned(
 					prefix,
 					"If there are no generics, the prefix is only allowed to be an identifier.",
-				))
+				));
 			},
 		PrefixType::Verbatim => {
 			let prefix_str = match prefix.get_ident() {

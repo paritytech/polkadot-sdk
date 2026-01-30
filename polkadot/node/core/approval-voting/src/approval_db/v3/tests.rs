@@ -390,7 +390,7 @@ fn canonicalize_works() {
 					assert!(load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash)
 						.unwrap()
 						.is_none());
-					continue
+					continue;
 				},
 				Some(i) => (
 					load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash).unwrap().unwrap(),
@@ -413,7 +413,7 @@ fn canonicalize_works() {
 					assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash)
 						.unwrap()
 						.is_none());
-					continue
+					continue;
 				},
 				Some(i) =>
 					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i),

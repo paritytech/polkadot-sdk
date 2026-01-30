@@ -473,7 +473,7 @@ impl Peerset {
 		let Some(state) = self.peers.get_mut(&peer) else {
 			log::warn!(target: LOG_TARGET, "{}: substream opened for unknown peer {peer:?}", self.protocol);
 			debug_assert!(false);
-			return OpenResult::Reject
+			return OpenResult::Reject;
 		};
 
 		match state {
@@ -483,7 +483,7 @@ impl Peerset {
 				*state = PeerState::Connected { direction: *substream_direction };
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
 
-				return OpenResult::Accept { direction: real_direction }
+				return OpenResult::Accept { direction: real_direction };
 			},
 			// litep2p doesn't support the ability to cancel an opening substream so if the
 			// substream was closed while it was opening, it was marked as canceled and if the
@@ -498,7 +498,7 @@ impl Peerset {
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
 				*state = PeerState::Closing { direction: *substream_direction };
 
-				return OpenResult::Reject
+				return OpenResult::Reject;
 			},
 			// The peer was already rejected by the `report_inbound_substream` call and this
 			// should never happen. However, this code path is exercised by our fuzzer.
@@ -508,7 +508,7 @@ impl Peerset {
 					"{}: substream opened for a peer that was previously rejected {peer:?}",
 					self.protocol,
 				);
-				return OpenResult::Reject
+				return OpenResult::Reject;
 			},
 			state => {
 				log::error!(
@@ -535,7 +535,7 @@ impl Peerset {
 		let Some(state) = self.peers.get_mut(&peer) else {
 			log::warn!(target: LOG_TARGET, "{}: substream closed for unknown peer {peer:?}", self.protocol);
 			debug_assert!(false);
-			return
+			return;
 		};
 
 		match &state {
@@ -633,7 +633,7 @@ impl Peerset {
 					self.protocol,
 				);
 
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 			// disconnected peers proceed directly to inbound slot allocation
 			PeerState::Disconnected => {},
@@ -647,14 +647,14 @@ impl Peerset {
 						self.protocol,
 					);
 
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 
 				// The peer remains in the `PeerState::Backoff` state until the current timer
 				// expires. Then, the peer will be in the disconnected state, subject to further
 				// rejection if the peer is not reserved by then.
 				if should_reject {
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 			},
 
@@ -680,7 +680,7 @@ impl Peerset {
 					);
 
 					*state = PeerState::Canceled { direction: Direction::Outbound(*reserved) };
-					return ValidationResult::Reject
+					return ValidationResult::Reject;
 				}
 
 				log::trace!(
@@ -699,7 +699,7 @@ impl Peerset {
 				);
 
 				*state = PeerState::Canceled { direction: *direction };
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 			state => {
 				log::warn!(
@@ -708,7 +708,7 @@ impl Peerset {
 					self.protocol
 				);
 				debug_assert!(false);
-				return ValidationResult::Reject
+				return ValidationResult::Reject;
 			},
 		}
 
@@ -720,7 +720,7 @@ impl Peerset {
 			);
 
 			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
-			return ValidationResult::Accept
+			return ValidationResult::Accept;
 		}
 
 		if self.num_in < self.max_in {
@@ -733,7 +733,7 @@ impl Peerset {
 			self.num_in += 1;
 
 			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
-			return ValidationResult::Accept
+			return ValidationResult::Accept;
 		}
 
 		log::trace!(
@@ -743,7 +743,7 @@ impl Peerset {
 		);
 
 		*state = PeerState::Disconnected;
-		return ValidationResult::Reject
+		return ValidationResult::Reject;
 	}
 
 	/// Report to [`Peerset`] that there was an error opening a substream.
@@ -1228,7 +1228,7 @@ impl Stream for Peerset {
 									"{}: {peer:?} is already a reserved peer",
 									self.protocol,
 								);
-								return None
+								return None;
 							}
 
 							std::matches!(

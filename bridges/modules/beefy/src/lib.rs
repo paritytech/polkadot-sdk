@@ -58,8 +58,6 @@ pub type BridgedBlockHash<T, I> = bp_runtime::HashOf<BridgedChain<T, I>>;
 /// Pallet initialization data.
 pub type InitializationDataOf<T, I> =
 	InitializationData<BridgedBlockNumber<T, I>, bp_beefy::MmrHashOf<BridgedChain<T, I>>>;
-/// BEEFY commitment hasher, used by configured bridged chain.
-pub type BridgedBeefyCommitmentHasher<T, I> = bp_beefy::BeefyCommitmentHasher<BridgedChain<T, I>>;
 /// BEEFY validator id, used by configured bridged chain.
 pub type BridgedBeefyAuthorityId<T, I> = bp_beefy::BeefyAuthorityIdOf<BridgedChain<T, I>>;
 /// BEEFY validator set, used by configured bridged chain.
