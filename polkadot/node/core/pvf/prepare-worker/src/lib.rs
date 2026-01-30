@@ -514,11 +514,11 @@ fn handle_child_process(
 		"prepare worker",
 		move || {
 			#[allow(unused_mut)]
-			let mut result = prepare_artifact(pvf).map(|o| (o,));
+			let mut result = prepare_artifact(pvf).map(|o| (o, ()));
 
 			// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
 			#[cfg(target_os = "linux")]
-			let mut result = result.map(|outcome| (outcome.0, get_max_rss_thread()));
+			let mut result = result.map(|(outcome, _)| (outcome, get_max_rss_thread()));
 
 			// If we are pre-checking, check for runtime construction errors.
 			//
@@ -572,7 +572,7 @@ fn handle_child_process(
 						if #[cfg(target_os = "linux")] {
 							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, max_rss) = ok;
 						} else {
-							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len },) = ok;
+							let (PrepareOutcome { compiled_artifact, observed_wasm_code_len }, _) = ok;
 						}
 					}
 

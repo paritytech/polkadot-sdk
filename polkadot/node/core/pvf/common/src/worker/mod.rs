@@ -82,9 +82,26 @@ macro_rules! decl_worker_main {
 					return
 				},
 
-				"--check-can-enable-landlock" => {
+				"--check-can-enable-landlock-fs" => {
 					#[cfg(target_os = "linux")]
-					let status = if let Err(err) = security::landlock::check_can_fully_enable() {
+					let status = if let Err(err) = security::landlock::check_can_fully_enable(
+						security::landlock::LANDLOCK_ABI_FS,
+					) {
+						// Write the error to stderr, log it on the host-side.
+						eprintln!("{}", err);
+						-1
+					} else {
+						0
+					};
+					#[cfg(not(target_os = "linux"))]
+					let status = -1;
+					std::process::exit(status)
+				},
+				"--check-can-enable-landlock-net" => {
+					#[cfg(target_os = "linux")]
+					let status = if let Err(err) = security::landlock::check_can_fully_enable(
+						security::landlock::LANDLOCK_ABI_NET,
+					) {
 						// Write the error to stderr, log it on the host-side.
 						eprintln!("{}", err);
 						-1
@@ -342,7 +359,7 @@ pub fn run_worker<F>(
 				"Node and worker version mismatch, node needs restarting, forcing shutdown",
 			);
 			kill_parent_node_in_emergency();
-			worker_shutdown(worker_info, "Version mismatch");
+			worker_shutdown(&worker_info, "Version mismatch");
 		}
 	}
 
@@ -354,7 +371,7 @@ pub fn run_worker<F>(
 			gum::trace!(target: LOG_TARGET, ?worker_info, "content of worker dir: {:?}", entries),
 		Err(err) => {
 			let err = format!("Could not read worker dir: {}", err.to_string());
-			worker_shutdown_error(worker_info, &err);
+			worker_shutdown_error(&worker_info, &err);
 		},
 	}
 
@@ -366,53 +383,90 @@ pub fn run_worker<F>(
 	}();
 	let mut stream = match stream {
 		Ok(ok) => ok,
-		Err(err) => worker_shutdown_error(worker_info, &err.to_string()),
+		Err(err) => worker_shutdown_error(&worker_info, &err.to_string()),
 	};
 
 	let WorkerHandshake { security_status } = match recv_worker_handshake(&mut stream) {
 		Ok(ok) => ok,
-		Err(err) => worker_shutdown_error(worker_info, &err.to_string()),
+		Err(err) => worker_shutdown_error(&worker_info, &err.to_string()),
 	};
 
-	// Enable some security features.
+	sandbox_worker(&mut worker_info, &security_status);
+
+	// Run the main worker loop.
+	let err = event_loop(stream, &worker_info, security_status)
+		// It's never `Ok` because it's `Ok(Never)`.
+		.unwrap_err();
+
+	worker_shutdown(&worker_info, &err.to_string());
+}
+
+/// Provide a consistent message on worker shutdown. Workers may shut down either unexpectedly or,
+/// if running in Secure Validator Mode, because some required security features could not be
+/// enabled.
+fn worker_shutdown(worker_info: &WorkerInfo, err: &str) -> ! {
+	gum::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
+	std::process::exit(1);
+}
+
+/// Provide a consistent error on worker shutdown. Workers may shut down either unexpectedly or, if
+/// running in Secure Validator Mode, because some required security features could not be enabled.
+fn worker_shutdown_error(worker_info: &WorkerInfo, err: &str) -> ! {
+	gum::error!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
+	std::process::exit(1);
+}
+
+/// Enable some security features.
+fn sandbox_worker(worker_info: &mut WorkerInfo, security_status: &SecurityStatus) {
+	gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
+
+	// First, make sure env vars were cleared, to match the environment in which we perform the
+	// checks. (In theory, running checks with different env vars could result in different
+	// outcomes of the checks.)
+	if !security::check_env_vars_were_cleared(worker_info) {
+		let err = "not all env vars were cleared when spawning the process";
+		gum::error!(
+			target: LOG_TARGET,
+			?worker_info,
+			"{}",
+			err
+		);
+		if security_status.secure_validator_mode {
+			worker_shutdown(worker_info, err);
+		}
+	}
+
+	// Call based on whether we can change root. Error out if it should work but fails.
+	//
+	// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
+	// runtime). `unshare(2)`:
+	//
+	//       > CLONE_NEWUSER requires that the calling process is not threaded.
+	#[cfg(target_os = "linux")]
+	if security_status.can_unshare_user_namespace_and_change_root {
+		if let Err(err) = security::change_root::enable_for_worker(worker_info) {
+			// The filesystem may be in an inconsistent state, always bail out.
+			let err = format!("Could not change root to be the worker cache path: {}", err);
+			worker_shutdown_error(worker_info, &err);
+		}
+		worker_info.worker_dir_path = std::path::Path::new("/").to_owned();
+	}
+
+	#[cfg(target_os = "linux")]
 	{
-		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
+		use crate::worker::security::landlock::{LANDLOCK_ABI_FS, LANDLOCK_ABI_NET};
 
-		// First, make sure env vars were cleared, to match the environment we perform the checks
-		// within. (In theory, running checks with different env vars could result in different
-		// outcomes of the checks.)
-		if !security::check_env_vars_were_cleared(&worker_info) {
-			let err = "not all env vars were cleared when spawning the process";
-			gum::error!(
-				target: LOG_TARGET,
-				?worker_info,
-				"{}",
-				err
-			);
-			if security_status.secure_validator_mode {
-				worker_shutdown(worker_info, err);
-			}
-		}
+		// Use the ABI corresponding to the largest supported landlock security feature.
+		let abi = [
+			security_status.can_enable_landlock_fs.then_some(LANDLOCK_ABI_FS),
+			security_status.can_enable_landlock_net.then_some(LANDLOCK_ABI_NET),
+		]
+		.into_iter()
+		.flatten()
+		.max();
 
-		// Call based on whether we can change root. Error out if it should work but fails.
-		//
-		// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
-		// runtime). `unshare(2)`:
-		//
-		//       > CLONE_NEWUSER requires that the calling process is not threaded.
-		#[cfg(target_os = "linux")]
-		if security_status.can_unshare_user_namespace_and_change_root {
-			if let Err(err) = security::change_root::enable_for_worker(&worker_info) {
-				// The filesystem may be in an inconsistent state, always bail out.
-				let err = format!("Could not change root to be the worker cache path: {}", err);
-				worker_shutdown_error(worker_info, &err);
-			}
-			worker_info.worker_dir_path = std::path::Path::new("/").to_owned();
-		}
-
-		#[cfg(target_os = "linux")]
-		if security_status.can_enable_landlock {
-			if let Err(err) = security::landlock::enable_for_worker(&worker_info) {
+		if let Some(abi) = abi {
+			if let Err(err) = security::landlock::enable_for_worker(worker_info, abi) {
 				// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
 				let err = format!("could not fully enable landlock: {:?}", err);
@@ -427,46 +481,27 @@ pub fn run_worker<F>(
 				}
 			}
 		}
+	}
 
-		// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
-		//       job to catch regressions. See issue ci_cd/issues/609.
-		#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-		if security_status.can_enable_seccomp {
-			if let Err(err) = security::seccomp::enable_for_worker(&worker_info) {
-				// We previously were able to enable, so this should never happen. Shutdown if
-				// running in secure mode.
-				let err = format!("could not fully enable seccomp: {:?}", err);
-				gum::error!(
-					target: LOG_TARGET,
-					?worker_info,
-					"{}. This should not happen, please report an issue",
-					err
-				);
-				if security_status.secure_validator_mode {
-					worker_shutdown(worker_info, &err);
-				}
+	// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
+	//       job to catch regressions. See issue ci_cd/issues/609.
+	#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+	if security_status.can_enable_seccomp {
+		if let Err(err) = security::seccomp::enable_for_worker(worker_info) {
+			// We previously were able to enable, so this should never happen. Shutdown if
+			// running in secure mode.
+			let err = format!("could not fully enable seccomp: {:?}", err);
+			gum::error!(
+				target: LOG_TARGET,
+				?worker_info,
+				"{}. This should not happen, please report an issue",
+				err
+			);
+			if security_status.secure_validator_mode {
+				worker_shutdown(worker_info, &err);
 			}
 		}
 	}
-
-	// Run the main worker loop.
-	let err = event_loop(stream, &worker_info, security_status)
-		// It's never `Ok` because it's `Ok(Never)`.
-		.unwrap_err();
-
-	worker_shutdown(worker_info, &err.to_string());
-}
-
-/// Provide a consistent message on unexpected worker shutdown.
-fn worker_shutdown(worker_info: WorkerInfo, err: &str) -> ! {
-	gum::warn!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
-	std::process::exit(1);
-}
-
-/// Provide a consistent error on unexpected worker shutdown.
-fn worker_shutdown_error(worker_info: WorkerInfo, err: &str) -> ! {
-	gum::error!(target: LOG_TARGET, ?worker_info, "quitting pvf worker ({}): {}", worker_info.kind, err);
-	std::process::exit(1);
 }
 
 /// Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up
@@ -707,7 +742,7 @@ pub mod thread {
 		F: FnOnce() -> R,
 		F: panic::UnwindSafe,
 	{
-		let result = panic::catch_unwind(|| f());
+		let result = panic::catch_unwind(f);
 		cond_notify_all(cond, outcome);
 		match result {
 			Ok(inner) => return inner,
