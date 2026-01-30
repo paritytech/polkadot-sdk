@@ -18,8 +18,8 @@ pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
-		Everything, EverythingBut, Footprint, Nothing,
+		fungible::HoldConsideration, tokens::DirectBurn, AsEnsureOriginWithArg, ConstU128, ConstU32,
+		Contains, Equals, Everything, EverythingBut, Footprint, Nothing,
 	},
 	weights::Weight,
 };
@@ -284,6 +284,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type BurnHandler = DirectBurn<Balances>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

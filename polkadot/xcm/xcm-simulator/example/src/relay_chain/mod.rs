@@ -22,8 +22,8 @@ pub use xcm_config::*;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, Disabled, Everything, Nothing, ProcessMessage,
-		ProcessMessageError,
+		tokens::DirectBurn, AsEnsureOriginWithArg, ConstU128, Disabled, Everything, Nothing,
+		ProcessMessage, ProcessMessageError,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -61,6 +61,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
+	type BurnHandler = DirectBurn<Balances>;
 }
 
 impl pallet_uniques::Config for Runtime {
