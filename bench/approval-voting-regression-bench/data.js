@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769790965921,
+  "lastUpdate": 1769800073588,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "karol.k91@gmail.com",
-            "name": "Karol Kokoszka",
-            "username": "karolk91"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cc5065dab6ab4c40d2901981481afdad8e34d4c2",
-          "message": "transfer_assets benchmarking and weights for coretime chains (#8752)\n\nIntroduces implementation of `set_up_complex_asset_transfer()` to\ncorrectly benchmark weights for `transfer_assets` extrinsics on Rococo\nCoretime and Westend Coretime. Introducing also test scenarios to cover\ncommon xcm teleport use cases\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T10:15:30Z",
-          "tree_id": "b73dcd429b1c64f19dff4df585da6daa472bf178",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc5065dab6ab4c40d2901981481afdad8e34d4c2"
-        },
-        "date": 1750851447318,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.030000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020871739999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.4120855158500007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.37512070649,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3744458379499997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.877679540069994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.38861111518,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020871739999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001977142,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.887164580790005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4535867719200106,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001977142,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005635093330000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.35240571597249,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.672317567049998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a9c09b0bf857037584f8439908cf68e34abf1ee9",
+          "message": "collator-protocol: Re-advertise collations when peer authority IDs are updated (#10891)\n\nThe collator protocol contained a race-condition which could manifest as\n\"Collation wasn't advertised\".\n\nA given peer (\"A\") can connect before the new authority keys are\nreceived via `UpdatedAuthorityIds` (nk -- new key).\n\n- T0: peer A connects`PeerConnected`\n- T1: peer A sends its current view `PeerViewChange`\n  - Peer A wants the block N \n- T2: `validator_group.should_advertise_to`: checks peer A for key nK\n(the new key)\n- We don't have this key stored and therefore return\n`ShouldAdvertiseTo::NotAuthority`\n- T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])\n\nAt this point, we have the collation, peer A wants to collation, we know\npeer A is an authority but we never send the collation back. Then, the\ncollation will expire with \"Collation wasn't advertised\".\n\nTo close the gap, the `UpdatedAuthorityIds` events will trigger a\nre-advertisement of collations\n- note: if the advertisement was already sent, the logic does not resend\nit (achieved in should_advertise_to).\n\nPart of the stabilization of: \n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T17:46:48Z",
+          "tree_id": "7b10160fb0e0396af578d3a2a1489e8be3546d30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9c09b0bf857037584f8439908cf68e34abf1ee9"
+        },
+        "date": 1769800049493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63625.81,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3386334763899983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.60768478483302,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6740938340300002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002192842,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.641458411120001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.842442529199966,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6978825779599975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8215730249499676,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024182520000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005333517440000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024182520000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6634676873100016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002192842,
             "unit": "seconds"
           }
         ]
