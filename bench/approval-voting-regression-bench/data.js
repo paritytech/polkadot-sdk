@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769711191406,
+  "lastUpdate": 1769771911245,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "77e73b9b258a94a8c0a43fcc19ee6257100861da",
-          "message": "`fatxpool`: some more integration tests (#8152)\n\nSome extra tests for `fatxpool`, including long term test:\n- sending 5M transactions to relay/para,\n- transaction gossiping tests (for network protocol evaluation),\n- yet-another-parachain spemening test (2s / 7k),\n\nThe base directory can be specified by setting `TXPOOL_TEST_DIR` env\nvariable.\n\nIf set every individual test restults will be placed under this path in\na directory name formatted as `test_%Y%m%d_%H%M%S`. e.g.:\n```\nexport TXPOOL_TEST_DIR=/home/miszka/test-results\ncargo test  --release --test integration -- --ignored send_future_and_ready_from_many_accounts_to_parachain\n...\n2025-04-11T07:48:15.324966Z  INFO zombienet_orchestrator: 🧰 base_dir: \"/home/miszka/test-results/test_20250411_094815\"\n...\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
-          "timestamp": "2025-06-24T19:37:16Z",
-          "tree_id": "f169c3e56938a2920569959eef3005f2d3c530cf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/77e73b9b258a94a8c0a43fcc19ee6257100861da"
-        },
-        "date": 1750797476306,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.590000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.3724449705599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000180233,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000194071,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.3945653297300002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.4564627022800186,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.36078648161,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.361437887122448,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8806276364899877,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.831648123920006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000194071,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000180233,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00547496732,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3612860359300014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.6376377140700016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03ae1a76c77566c313736836d55ce50b16f5093e",
+          "message": "Bump pallet-staking-reward-fn (#10905)\n\nBump pallet-staking-reward-fn to patch. This forces it to use local path\nand the local sp-arithmetic instead of registry while running\n`parity-publish`.\nThis aims to fix the failure in `Check publish build` job (e.g.\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21359458014/job/61474963706?pr=10903#step:12:546)\nwhich started to appear since #10682 got merged.\n\nWhen parity-publish is used with --registry:\n- If the version exists on crates.io → remove path, use registry\n- If the version doesn't exist → keep path, use local\nThe issue is that --registry creates a hybrid state where some deps use\nregistry and some use local paths, causing version conflicts in case e.g\nof missing trait impl in on the two.\n\nExtended explanation, courtesy of @iulianbarbu : \nIn the parity-publish CI job example we have:\n- polkadot-runtime-common (crate A), depends on crate B indirectly &\ncrate C\n- sp-arithmetic (crate B), was bumped locally (due to #10682), but not\npublished on the registry yet\n- pallet-staking-reward-fn (crate C). depends on crate B.\n\npolkadot-runtime-common fails to compile due to a dependency graph using\ntwo versions of same type of crate B. What is an issue though is that\npallet-staking-reward-fn uses the previous crate B version (from the\nregistry), which misses a certain trait impl that is required by\npolkadot-runtime-common. If polkadot-runtime-common usage of\npallet-staking-reward-fn expects the new trait impl, it means that it is\nnot enough to just bump pallet-staking-reward-fn, but also\npolkadot-runtime-common, in this PR (to update it to depend on the new\nversion of pallet-staking-reward-fn). Everything compiles fine rn\nbecause polkadot-runtime-common is already bumped in a previous PR (e.g\n#10582 and maybe others), which did not make its way to a stable release\nyet.",
+          "timestamp": "2026-01-30T10:11:47Z",
+          "tree_id": "c324d8994cb2081f90929647158c15072033b701",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03ae1a76c77566c313736836d55ce50b16f5093e"
+        },
+        "date": 1769771887312,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63619.29999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.6841146323600023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.6561391801000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002144043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000022612470000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6316446921099987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3325621582499974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7834910621799804,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002144043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.73990714709998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000022612470000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005365708680000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6465897134200005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.596946205432959,
             "unit": "seconds"
           }
         ]
