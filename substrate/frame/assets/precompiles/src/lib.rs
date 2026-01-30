@@ -53,7 +53,6 @@ mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};
 pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
-pub use weights::{SubstrateWeight, WeightInfo as MigrationWeightInfo};
 
 /// Mean of extracting the asset id from the precompile address.
 pub trait AssetIdExtractor {
