@@ -58,6 +58,11 @@ impl DebugSettings {
 		self
 	}
 
+	pub fn set_enable_pvm_logs(mut self, value: bool) -> Self {
+		self.pvm_logs = value;
+		self
+	}
+
 	pub fn is_execution_tracing_enabled<T: Config>() -> bool {
 		T::DebugEnabled::get() && !DebugSettingsOf::<T>::get().disable_execution_tracing
 	}
