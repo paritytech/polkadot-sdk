@@ -8,6 +8,12 @@ doc:
     accurately account for the full block size, not just the extrinsics. Additionally, inherent
     digests are now limited to 20% of the maximum block size to prevent oversized headers.
 
+    The deprecated `BlockLength::max` and `BlockLength::max_with_normal_ratio` functions have been
+    replaced with the new builder pattern across the entire codebase. Use
+    `BlockLength::builder().max_length(value).build()` or
+    `BlockLength::builder().max_length(value).modify_max_length_for_class(DispatchClass::Normal, |m| *m = ratio * value).build()`
+    instead.
+
 crates:
 - name: frame-system
   bump: major
@@ -16,4 +22,44 @@ crates:
 - name: sc-network-sync
   bump: patch
 - name: frame-executive
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: bp-polkadot-core
+  bump: patch
+- name: bp-polkadot-bulletin
+  bump: patch
+- name: bp-cumulus
+  bump: patch
+- name: parachains-common
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: contracts-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: staging-node-cli
+  bump: patch
+- name: substrate-test-runtime
+  bump: patch
+- name: parachain-template-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
   bump: patch
