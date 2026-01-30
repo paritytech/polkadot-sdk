@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769777417785,
+  "lastUpdate": 1769781954885,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "63973ccc7108560b2d0a7d882e5c0e232d9396ac",
-          "message": "`fatxpool`: fix: remove invalid txs from the dropped stream controller (#8923)\n\nWhile testing mortal transaction I encountered exactly the same problem\nas in #8490.\nThis PR should fix the problem.\n\nfixes: #8490\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T06:40:14Z",
-          "tree_id": "8c3bd2efc80adf2565c66ce09d2316fdb258f433",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/63973ccc7108560b2d0a7d882e5c0e232d9396ac"
-        },
-        "date": 1750837288992,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63636.280000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3598266424124352,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021516820000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3763161802399986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.879495881230006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.467522014740024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.37260647105,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.899775530520028,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022778509999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022778509999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.3826661611100004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005595536970000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.415573285179999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021516820000000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.00002531872,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3487a54579dbfb96cde4168b012bf60438c93ef",
+          "message": "Enforce stricter rustfmt rules to prevent style ambiguity (#10939)\n\nby default rustfmt preserve local style, and Claude loves to add semi or\nbracket where there were none before,\nWe should make the formatting more strict as this is a bit annoying to\nremind it constantly not to make unnecessary diff.\n\n## Summary\n\nThe PR is just updating\nhttps://github.com/paritytech/polkadot-sdk/blob/pg/stricter-rustfmt-rules/.rustfmt.toml\nevery other changes are just the result of running the linter\n\n\n- Change `match_arm_leading_pipes` from \"Preserve\" to \"Never\" to enforce\na single style\n- Change `trailing_semicolon` from false to true to enforce `return 42;`\nfalse unfortunately preserve the local style\n- Add `normalize_comments = true` to normalize comment spacing (e.g.,\n`// comment` not `//comment`)\n- Add `normalize_doc_attributes = true` to enforce `///` over `#[doc =\n\"\"]`\n\nThese changes ensure only one valid formatting style exists, reducing\nunnecessary diffs in pull requests caused by different but equally valid\nformatting styles.\n\n## Not changed (for now)\nThe following options also default to \"Preserve\" but were intentionally\nnot changed due to (even) larger diff impact:\n\n- `group_imports` - Would enforce import grouping order (std → external\n→ crate) but causes massive import reordering across the codebase\n- `hex_literal_case` - Would enforce `0xABCD` vs `0xabcd` consistency\n- edition 2024 - not sure what that change but it also probably create a\nbig diff\n\nThese could be considered in a future PR if the one-time diff cost is\nacceptable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T12:58:02Z",
+          "tree_id": "272f1c9365f5d242b76d092585582773f220dbba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3487a54579dbfb96cde4168b012bf60438c93ef"
+        },
+        "date": 1769781930122,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63626.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3861785792300068,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00532661949,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002572591,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002731707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.938894782270015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8070771811900055,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.587504464083094,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002731707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002572591,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.697811862830002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.6675458263600005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7200758958599986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.654878817309999,
             "unit": "seconds"
           }
         ]
