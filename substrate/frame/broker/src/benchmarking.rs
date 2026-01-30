@@ -1313,6 +1313,36 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn add_potential_renewal() -> Result<(), BenchmarkError> {
+		// Setup: start sales and advance to a valid state
+		let sale_data = setup_and_start_sale::<T>()?;
+
+		let core = sale_data.first_core;
+		let when = SaleInfo::<T>::get().expect("Sale has started.").region_end;
+		let price = 1_000_000u32.into();
+
+		// Create a simple workload for the benchmark
+		let schedule = new_schedule();
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, core, when, price, schedule.clone());
+
+		// Verify the potential renewal was added
+		let renewal_id = PotentialRenewalId { core, when };
+		assert!(PotentialRenewals::<T>::get(renewal_id).is_some());
+
+		// Verify the Renewable event was emitted
+		assert_has_event::<T>(
+			Event::Renewable { core, price, begin: when, workload: schedule }.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn remove_potential_renewal() -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);

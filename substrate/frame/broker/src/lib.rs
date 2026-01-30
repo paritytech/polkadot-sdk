@@ -1058,6 +1058,26 @@ pub mod pallet {
 			Self::do_remove_potential_renewal(core, when)
 		}
 
+		/// Directly add or update a potential renewal record.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: The core to which the renewal refers.
+		/// - `when`: The timeslice when the renewal should be available.
+		/// - `price`: The price for renewal.
+		/// - `workload`: The workload completion status.
+		#[pallet::call_index(28)]
+		pub fn add_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+			price: BalanceOf<T>,
+			workload: Schedule,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_add_potential_renewal(core, when, price, workload)?;
+			Ok(Pays::No.into())
+		}
+
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
 		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {

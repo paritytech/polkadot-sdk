@@ -1,0 +1,12 @@
+title: '[pallet-broker] Add extrinsic to add a PotientialRenewal'
+doc:
+- audience: Runtime Dev
+  description: |-
+    part of https://github.com/paritytech/polkadot-sdk/issues/6929
+
+    This PR adds a new admin/sudo function `add_potential_renewal()` to the Coretime Broker pallet, allowing network administrators to directly create or update potential renewal records. This enhances coretime management capabilities, particularly useful for testnets and governance scenarios where direct control over coretime allocations is needed.
+crates:
+- name: pallet-broker
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch

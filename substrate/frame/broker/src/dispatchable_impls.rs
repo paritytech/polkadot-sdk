@@ -650,4 +650,29 @@ impl<T: Config> Pallet<T> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		Ok(Self::sale_price(&sale, now))
 	}
+
+	pub(crate) fn do_add_potential_renewal(
+		core: CoreIndex,
+		when: Timeslice,
+		price: BalanceOf<T>,
+		workload: Schedule,
+	) -> DispatchResult {
+		// Ensure the workload is valid (not empty)
+		ensure!(!workload.is_empty(), Error::<T>::NothingToDo);
+
+		let renewal_id = PotentialRenewalId { core, when };
+
+		let record = PotentialRenewalRecord {
+			price,
+			completion: CompletionStatus::Complete(workload.clone()),
+		};
+
+		// Insert or update the potential renewal
+		PotentialRenewals::<T>::insert(renewal_id, &record);
+
+		// Emit Renewable event so users know they can renew
+		Self::deposit_event(Event::Renewable { core, price, begin: when, workload });
+
+		Ok(())
+	}
 }

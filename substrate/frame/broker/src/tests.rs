@@ -2875,6 +2875,165 @@ fn remove_potential_renewal_works() {
 }
 
 #[test]
+fn add_potential_renewal_works() {
+	TestExt::new().execute_with(|| {
+		// Start sales to initialize the pallet
+		assert_ok!(Broker::do_start_sales(100, 0));
+		advance_to(2);
+
+		// Create a workload for the renewal
+		let workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1001),
+		}]);
+
+		let price = 50u64;
+		let core = 0;
+		let when = 10u32;
+
+		// Test that non-admin cannot call it
+		// Changed from signed(1) to signed(2) since account 1 is an admin
+		assert_noop!(
+			Broker::add_potential_renewal(
+				RuntimeOrigin::signed(2),
+				core,
+				when,
+				price,
+				workload.clone()
+			),
+			BadOrigin
+		);
+
+		// Test that admin can call it (account 1 is admin)
+		assert_ok!(Broker::add_potential_renewal(
+			RuntimeOrigin::signed(1),
+			core,
+			when,
+			price,
+			workload.clone()
+		));
+
+		// Verify the renewal was added
+		let renewal_id = PotentialRenewalId { core, when };
+		assert!(PotentialRenewals::<Test>::contains_key(renewal_id));
+
+		let record = PotentialRenewals::<Test>::get(renewal_id).unwrap();
+		assert_eq!(record.price, price);
+		assert_eq!(record.completion.complete(), Some(&workload));
+
+		// Verify the event was emitted
+		System::assert_has_event(
+			Event::<Test>::Renewable { core, price, begin: when, workload: workload.clone() }
+				.into(),
+		);
+
+		// Test updating an existing renewal
+		let new_workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1002),
+		}]);
+		let new_price = 75u64;
+
+		assert_ok!(Broker::add_potential_renewal(
+			RuntimeOrigin::signed(1),
+			core,
+			when,
+			new_price,
+			new_workload.clone()
+		));
+
+		let updated_record = PotentialRenewals::<Test>::get(renewal_id).unwrap();
+		assert_eq!(updated_record.price, new_price);
+		assert_eq!(updated_record.completion.complete(), Some(&new_workload));
+
+		// Test with empty workload (should fail)
+		let empty_workload = Schedule::default();
+		assert_noop!(
+			Broker::add_potential_renewal(
+				RuntimeOrigin::signed(1),
+				core,
+				when + 1,
+				price,
+				empty_workload
+			),
+			Error::<Test>::NothingToDo
+		);
+
+		// Test with complex workload (multiple schedule items)
+		let complex_workload = Schedule::truncate_from(vec![
+			ScheduleItem { mask: CoreMask::from_chunk(0, 40), assignment: Task(1003) },
+			ScheduleItem { mask: CoreMask::from_chunk(40, 80), assignment: Pool },
+		]);
+
+		assert_ok!(Broker::add_potential_renewal(
+			RuntimeOrigin::signed(1),
+			core + 1,
+			when + 5,
+			price * 2,
+			complex_workload.clone()
+		));
+
+		let complex_renewal_id = PotentialRenewalId { core: core + 1, when: when + 5 };
+		let complex_record = PotentialRenewals::<Test>::get(complex_renewal_id).unwrap();
+		assert_eq!(complex_record.price, price * 2);
+		assert_eq!(complex_record.completion.complete(), Some(&complex_workload));
+	});
+}
+
+#[test]
+fn add_potential_renewal_integration() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// Start sales
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		// Create and add a potential renewal
+		let workload = Schedule::truncate_from(vec![ScheduleItem {
+			mask: CoreMask::complete(),
+			assignment: Task(1001),
+		}]);
+
+		let price = 50u64;
+		let core = 0;
+		let when = SaleInfo::<Test>::get().unwrap().region_end; // Renew at end of current sale
+
+		assert_ok!(Broker::add_potential_renewal(
+			RuntimeOrigin::root(),
+			core,
+			when,
+			price,
+			workload.clone()
+		));
+
+		// Now a user should be able to renew using this potential renewal
+		advance_to(6); // Advance to when renewal is possible
+
+		// User purchases the renewal
+		let caller: u64 = 1;
+		assert_ok!(Broker::do_renew(caller, core));
+
+		// Verify the renewal happened by checking for the Renewed event
+		System::assert_has_event(
+			Event::<Test>::Renewed {
+				who: caller,
+				old_core: core,
+				core, // In this case it's the same core
+				price,
+				begin: when,
+				duration: 3, // Region length is 3 timeslices
+				workload: workload.clone(),
+			}
+			.into(),
+		);
+
+		// Check that a new potential renewal was created for the next period
+		let sale_info = SaleInfo::<Test>::get().unwrap();
+		let next_renewal_id = PotentialRenewalId { core: 0, when: sale_info.region_end };
+		assert!(PotentialRenewals::<Test>::contains_key(next_renewal_id));
+	});
+}
+
+#[test]
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 2));
