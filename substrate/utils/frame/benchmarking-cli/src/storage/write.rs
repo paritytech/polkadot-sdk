@@ -81,7 +81,8 @@ impl StorageCmd {
 		);
 
 		info!("Preparing keys from block {}", best_hash);
-		// Load KV pairs and randomly shuffle them.
+		// Use start_at + take(keys_limit) to avoid loading all KV pairs on huge chains.
+		// If not enough pairs after start_at, circle back and take pairs from the start.
 		let mut kvs: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
 			let start_at = self
 				.params
@@ -89,7 +90,24 @@ impl StorageCmd {
 				.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
 			let mut iter_args = sp_state_machine::IterArgs::default();
 			iter_args.start_at = start_at.as_deref();
-			trie.pairs(iter_args)?.take(keys_limit).collect()
+			let mut kvs: Vec<_> = trie.pairs(iter_args)?.take(keys_limit).collect();
+			if kvs.len() < keys_limit {
+				let need_more = keys_limit - kvs.len();
+				if let Some(ref start) = start_at {
+					let pairs_from_start: Vec<_> = trie
+						.pairs(Default::default())?
+						.take_while(|r| {
+							r.as_ref().map_or(false, |(k, _)| k.as_slice() < start.as_slice())
+						})
+						.take(need_more)
+						.collect();
+					kvs.extend(pairs_from_start);
+				}
+				if kvs.len() < keys_limit {
+					info!("Only {} KV pairs available (requested {})", kvs.len(), keys_limit);
+				}
+			}
+			kvs
 		} else {
 			trie.pairs(Default::default())?.collect()
 		};
