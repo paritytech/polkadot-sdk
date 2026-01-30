@@ -40,7 +40,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, Blake2_128Concat};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -65,7 +65,7 @@ pub mod pallet {
 	/// Mapping a `ForeignAssetId` to an asset index (used for deriving precompile addresses).
 	#[pallet::storage]
 	pub type ForeignAssetIdToAssetIndex<T: Config> =
-		StorageMap<_, Identity, T::ForeignAssetId, u32, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::ForeignAssetId, u32, OptionQuery>;
 
 	impl<T: Config> Pallet<T> {
 		/// Get the foreign asset ID for a given asset index.
