@@ -1311,7 +1311,11 @@ fn store_available_data(
 
 	// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
-	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
+	let chunks = polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(
+		n_validators, 
+		&available_data, 
+		&node_features
+	)?;
 	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {

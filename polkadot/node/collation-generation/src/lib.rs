@@ -44,12 +44,12 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
+	request_claim_queue, request_node_features, request_persisted_validation_data, request_session_index_for_child,
 	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
 	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2,
-	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
@@ -212,6 +212,7 @@ impl CollationGenerationSubsystem {
 
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
+		
 		let collation = PreparedCollation {
 			collation,
 			relay_parent,
@@ -221,6 +222,7 @@ impl CollationGenerationSubsystem {
 			n_validators: session_info.n_validators,
 			core_index,
 			session_index,
+			node_features: session_info.node_features,
 		};
 
 		construct_and_distribute_receipt(
@@ -262,6 +264,7 @@ impl CollationGenerationSubsystem {
 		let session_info =
 			self.session_info_cache.get(relay_parent, session_index, ctx.sender()).await?;
 		let n_validators = session_info.n_validators;
+		let node_features = session_info.node_features;
 
 		let claim_queue =
 			ClaimQueueSnapshot::from(request_claim_queue(relay_parent, ctx.sender()).await.await??);
@@ -330,6 +333,7 @@ impl CollationGenerationSubsystem {
 		let task_config = config.clone();
 		let metrics = self.metrics.clone();
 		let mut task_sender = ctx.sender().clone();
+		let node_features_clone = node_features.clone();
 
 		ctx.spawn(
 			"chained-collation-builder",
@@ -424,6 +428,7 @@ impl CollationGenerationSubsystem {
 
 					// Distribute the collation.
 					let parent_head = collation.head_data.clone();
+					
 					if let Err(err) = construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
@@ -434,6 +439,7 @@ impl CollationGenerationSubsystem {
 							n_validators,
 							core_index: descriptor_core_index,
 							session_index,
+							node_features: node_features_clone.clone(),
 						},
 						&mut task_sender,
 						result_sender,
@@ -477,6 +483,7 @@ impl<Context> CollationGenerationSubsystem {
 #[derive(Clone)]
 struct PerSessionInfo {
 	n_validators: usize,
+	node_features: NodeFeatures,
 }
 
 struct SessionInfoCache(LruMap<SessionIndex, PerSessionInfo>);
@@ -499,7 +506,11 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let info = PerSessionInfo { n_validators };
+		let node_features = request_node_features(relay_parent, session_index, &mut sender.clone())
+			.await
+			.await??;
+
+		let info = PerSessionInfo { n_validators, node_features };
 		self.0.insert(session_index, info);
 		Ok(self.0.get(&session_index).expect("Just inserted").clone())
 	}
@@ -514,6 +525,7 @@ struct PreparedCollation {
 	n_validators: usize,
 	core_index: CoreIndex,
 	session_index: SessionIndex,
+	node_features: NodeFeatures,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -534,6 +546,7 @@ async fn construct_and_distribute_receipt(
 		n_validators,
 		core_index,
 		session_index,
+		node_features,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -562,7 +575,7 @@ async fn construct_and_distribute_receipt(
 
 	let pov_hash = pov.hash();
 
-	let erasure_root = erasure_root(n_validators, validation_data, pov.clone())?;
+	let erasure_root = erasure_root(n_validators, validation_data, pov.clone(), &node_features)?;
 
 	let commitments = CandidateCommitments {
 		upward_messages: collation.upward_messages,
@@ -631,10 +644,15 @@ fn erasure_root(
 	n_validators: usize,
 	persisted_validation: PersistedValidationData,
 	pov: PoV,
+	node_features: &NodeFeatures,
 ) -> Result<Hash> {
 	let available_data =
 		AvailableData { validation_data: persisted_validation, pov: Arc::new(pov) };
 
-	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
+	let chunks = polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(
+		n_validators, 
+		&available_data, 
+		node_features
+	)?;
 	Ok(polkadot_erasure_coding::branches(&chunks).root())
 }

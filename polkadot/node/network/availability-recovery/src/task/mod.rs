@@ -33,7 +33,7 @@ use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 use codec::Encode;
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError};
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, NodeFeatures};
 use sc_network::ProtocolName;
 
 use futures::channel::{mpsc, oneshot};
@@ -83,6 +83,9 @@ pub struct RecoveryParams {
 
 	/// Channel to the erasure task handler.
 	pub erasure_task_tx: mpsc::Sender<ErasureTask>,
+
+	/// Node features for feature-aware erasure coding.
+	pub node_features: NodeFeatures,
 }
 
 /// A stateful reconstruction of availability data in reference to

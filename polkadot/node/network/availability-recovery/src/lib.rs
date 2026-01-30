@@ -42,7 +42,7 @@ use task::{
 };
 
 use polkadot_erasure_coding::{
-	branches, obtain_chunks_v1, recovery_threshold, systematic_recovery_threshold,
+	branches, recovery_threshold, systematic_recovery_threshold,
 	Error as ErasureEncodingError,
 };
 use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
@@ -67,7 +67,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
-	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	CoreIndex, GroupIndex, Hash, NodeFeatures, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -156,42 +156,32 @@ enum ErasureTask {
 		usize,
 		BTreeMap<ChunkIndex, Vec<u8>>,
 		oneshot::Sender<std::result::Result<AvailableData, ErasureEncodingError>>,
+		NodeFeatures,
 	),
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
 	/// the Merkle tree.
-	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>),
+	Reencode(usize, Hash, AvailableData, oneshot::Sender<Option<AvailableData>>, NodeFeatures),
 }
-
-/// Re-encode the data into erasure chunks in order to verify
-/// the root hash of the provided Merkle tree, which is built
-/// on-top of the encoded chunks.
-///
-/// This (expensive) check is necessary, as otherwise we can't be sure that some chunks won't have
-/// been tampered with by the backers, which would result in some validators considering the data
-/// valid and some invalid as having fetched different set of chunks. The checking of the Merkle
-/// proof for individual chunks only gives us guarantees, that we have fetched a chunk belonging to
-/// a set the backers have committed to.
-///
-/// NOTE: It is fine to do this check with already decoded data, because if the decoding failed for
-/// some validators, we can be sure that chunks have been tampered with (by the backers) or the
-/// data was invalid to begin with. In the former case, validators fetching valid chunks will see
-/// invalid data as well, because the root won't match. In the latter case the situation is the
-/// same for anyone anyways.
-fn reconstructed_data_matches_root(
+fn reconstructed_data_matches_root_feature_aware(
 	n_validators: usize,
 	expected_root: &Hash,
 	data: &AvailableData,
 	metrics: &Metrics,
+	node_features: &NodeFeatures,
 ) -> bool {
 	let _timer = metrics.time_reencode_chunks();
 
-	let chunks = match obtain_chunks_v1(n_validators, data) {
+	let chunks = match polkadot_erasure_coding::feature_aware::obtain_chunks_feature_aware(
+		n_validators, 
+		data, 
+		node_features
+	) {
 		Ok(chunks) => chunks,
 		Err(e) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				err = ?e,
-				"Failed to obtain chunks",
+				"Failed to obtain chunks with feature-aware encoding",
 			);
 			return false;
 		},
@@ -528,6 +518,7 @@ async fn handle_recover<Context>(
 			let session_info = session_info.clone();
 
 			let n_validators = session_info.validators.len();
+			let node_features_clone = node_features.clone();
 
 			launch_recovery_task(
 				state,
@@ -549,6 +540,7 @@ async fn handle_recover<Context>(
 					req_v2_protocol_name,
 					chunk_mapping_enabled,
 					erasure_task_tx,
+					node_features: node_features_clone,
 				},
 			)
 			.await
@@ -880,8 +872,8 @@ async fn erasure_task_thread(
 ) {
 	loop {
 		match ingress.next().await {
-			Some(ErasureTask::Reconstruct(n_validators, chunks, sender)) => {
-				let _ = sender.send(polkadot_erasure_coding::reconstruct_v1(
+			Some(ErasureTask::Reconstruct(n_validators, chunks, sender, node_features)) => {
+				let result = polkadot_erasure_coding::feature_aware::reconstruct_feature_aware(
 					n_validators,
 					chunks.iter().map(|(c_index, chunk)| {
 						(
@@ -890,16 +882,19 @@ async fn erasure_task_thread(
 								.expect("usize is at least u32 bytes on all modern targets."),
 						)
 					}),
-				));
+					&node_features,
+				);
+				let _ = sender.send(result);
 			},
-			Some(ErasureTask::Reencode(n_validators, root, available_data, sender)) => {
+			Some(ErasureTask::Reencode(n_validators, root, available_data, sender, node_features)) => {
 				let metrics = metrics.clone();
 
-				let maybe_data = if reconstructed_data_matches_root(
+				let maybe_data = if reconstructed_data_matches_root_feature_aware(
 					n_validators,
 					&root,
 					&available_data,
 					&metrics,
+					&node_features,
 				) {
 					Some(available_data)
 				} else {
