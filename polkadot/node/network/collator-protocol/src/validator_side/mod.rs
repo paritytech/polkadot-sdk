@@ -1695,6 +1695,11 @@ async fn handle_network_msg<Context>(
 		},
 		PeerDisconnected(peer_id) => {
 			state.peer_data.remove(&peer_id);
+			// Clean up any pending collations from this peer in all waiting queues.
+			// This prevents stale entries when the peer reconnects with empty advertisements.
+			for per_relay_parent in state.per_relay_parent.values_mut() {
+				per_relay_parent.collations.remove_pending_for_peer(&peer_id);
+			}
 			state.metrics.note_collator_peer_count(state.peer_data.len());
 		},
 		NewGossipTopology { .. } => {

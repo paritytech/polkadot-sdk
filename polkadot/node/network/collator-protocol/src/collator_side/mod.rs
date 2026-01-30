@@ -223,6 +223,20 @@ impl ValidatorGroup {
 			}
 		}
 	}
+
+	/// Resets the advertised state for the given peer. Should be called when peer disconnects
+	/// so that we re-advertise collations when they reconnect.
+	fn reset_advertised_to_peer(&mut self, authority_ids: &HashSet<AuthorityDiscoveryId>) {
+		for id in authority_ids {
+			let validator_index = match self.validators.iter().position(|v| v == id) {
+				Some(idx) => idx,
+				None => continue,
+			};
+			for advertised in self.advertised_to.values_mut() {
+				advertised.set(validator_index, false);
+			}
+		}
+	}
 }
 
 #[derive(Debug)]
@@ -1393,6 +1407,17 @@ async fn handle_network_msg<Context>(
 		},
 		PeerDisconnected(peer_id) => {
 			gum::trace!(target: LOG_TARGET, ?peer_id, "Peer disconnected");
+
+			// Reset advertised_to bits for this peer so that collations will be
+			// re-advertised when they reconnect.
+			if let Some(authority_ids) = state.peer_ids.get(&peer_id) {
+				for per_relay_parent in state.per_relay_parent.values_mut() {
+					for validator_group in per_relay_parent.validator_group.values_mut() {
+						validator_group.reset_advertised_to_peer(authority_ids);
+					}
+				}
+			}
+
 			state.peer_data.remove(&peer_id);
 			state.peer_ids.remove(&peer_id);
 		},
