@@ -180,12 +180,16 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_chain_spec_path("tests/zombie_ci/warp-sync-relaychain-spec.json")
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("alice").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN))
-				.with_node(|node| node.with_name("bob").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN))
-				.with_node(|node| {
+				.with_validator(|node| {
+					node.with_name("alice").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN)
+				})
+				.with_validator(|node| {
+					node.with_name("bob").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN)
+				})
+				.with_validator(|node| {
 					node.with_name("charlie").with_db_snapshot(DB_SNAPSHOT_RELAYCHAIN)
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("dave").with_args(vec![
 						("-lparachain=debug,sync=trace").into(),
 						("--no-beefy").into(),

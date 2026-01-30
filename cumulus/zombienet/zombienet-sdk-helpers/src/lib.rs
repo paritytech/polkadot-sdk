@@ -97,7 +97,7 @@ pub async fn assert_para_throughput(
 			log::debug!("Block backed for para_id {para_id}");
 
 			if !valid_para_ids.contains(&para_id) {
-				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
+				return Err(anyhow!("Invalid ParaId detected: {para_id}"));
 			};
 
 			*(candidate_count.entry(para_id).or_default()) += 1;
@@ -393,7 +393,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
 
 	match res {
 		Ok(Ok(_)) => Ok(()),
-		Ok(Err(e)) => Err(anyhow!("Error waiting for metric: {}", e)),
+		Ok(Err(e)) => Err(anyhow!("Error waiting for metric: {e}")),
 		// timeout
 		Err(_) => Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization")),
 	}
@@ -422,7 +422,7 @@ pub async fn assert_para_is_registered(
 			None => vec![],
 		};
 
-		log::debug!("Registered para_ids: {:?}", parachains);
+		log::debug!("Registered para_ids: {parachains:?}");
 
 		if parachains.iter().any(|p| para_id.eq(p)) {
 			log::debug!("para_id {para_id} registered");
@@ -471,7 +471,7 @@ pub async fn assign_cores(
 	para_id: u32,
 	cores: Vec<u32>,
 ) -> Result<(), anyhow::Error> {
-	log::info!("Assigning {:?} cores to parachain {}", cores, para_id);
+	log::info!("Assigning {cores:?} cores to parachain {para_id}");
 
 	let assign_cores_call =
 		create_assign_core_call(&cores.into_iter().map(|core| (core, para_id)).collect::<Vec<_>>());

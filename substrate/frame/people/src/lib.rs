@@ -561,7 +561,7 @@ pub mod pallet {
 			let op_res = with_storage_layer::<(), DispatchError, _>(|| Self::onboard_people());
 			weight_meter.consume(onboard_people_weight);
 			if let Err(e) = op_res {
-				log::debug!(target: LOG_TARGET, "failed to onboard people: {:?}", e);
+				log::debug!(target: LOG_TARGET, "failed to onboard people: {e:?}");
 			}
 
 			let current_ring = CurrentRingIndex::<T>::get();
@@ -583,7 +583,7 @@ pub mod pallet {
 				});
 				weight_meter.consume(build_ring_weight);
 				if let Err(e) = op_res {
-					log::error!(target: LOG_TARGET, "failed to build ring: {:?}", e);
+					log::error!(target: LOG_TARGET, "failed to build ring: {e:?}");
 				}
 			}
 
@@ -1656,7 +1656,7 @@ pub mod pallet {
 					},
 					Err(e) => {
 						meter.consume(weight);
-						log::error!(target: LOG_TARGET, "failed to migrate keys: {:?}", e);
+						log::error!(target: LOG_TARGET, "failed to migrate keys: {e:?}");
 						break;
 					},
 				}
@@ -1681,7 +1681,7 @@ pub mod pallet {
 				};
 				let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 				let Err(insert_idx) = suspended_indices.binary_search(&ring_position) else {
-					log::info!(target: LOG_TARGET, "key migration for person {} skipped as the person's key was already suspended", id);
+					log::info!(target: LOG_TARGET, "key migration for person {id} skipped as the person's key was already suspended");
 					return Ok(());
 				};
 				suspended_indices
@@ -1691,7 +1691,7 @@ pub mod pallet {
 				Keys::<T>::remove(&record.key);
 				Self::push_to_onboarding_queue(id, new_key, record.account)?;
 			} else {
-				log::info!(target: LOG_TARGET, "key migration for person {} skipped as no record was found", id);
+				log::info!(target: LOG_TARGET, "key migration for person {id} skipped as no record was found");
 			}
 			Ok(())
 		}
@@ -1776,7 +1776,7 @@ pub mod pallet {
 				Ok(())
 			});
 			if let Err(e) = op_res {
-				log::error!(target: LOG_TARGET, "failed to merge queue pages: {:?}", e);
+				log::error!(target: LOG_TARGET, "failed to merge queue pages: {e:?}");
 			}
 		}
 	}

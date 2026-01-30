@@ -318,8 +318,8 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_node(|node| node.with_name("validator-0"))
-				.with_node(|node| node.with_name("validator-1"))
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			let p = p

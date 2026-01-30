@@ -151,14 +151,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							}
 						}
 				}))
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("validator-0").validator(true).with_args(vec![
 						("-lparachain::availability=trace,sync=info,parachain=debug,libp2p_mdns=debug,info").into(),
 					])
 				});
 
 			(1..validator_cnt).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lparachain::availability=trace,sync=debug,parachain=debug,libp2p_mdns=debug").into(),
 						("--reserved-only").into(),

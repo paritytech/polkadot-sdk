@@ -745,16 +745,16 @@ where
 		let message_type_name = core::any::type_name::<Message>();
 		let dest = Destination::get();
 		let xcms = Self::prepare(message, maybe_max_steps).map_err(|e| {
-			log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+			log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {message_type_name}: {e:?}");
 		})?;
 
 		match with_transaction_opaque_err(|| {
 			let all_sent = xcms.into_iter().enumerate().try_for_each(|(idx, xcm)| {
 				log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
 				send_xcm::<Sender>(dest.clone(), xcm).map(|_| {
-					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx);
+					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {message_type_name} message part {idx} to relay chain");
 				}).inspect_err(|e| {
-					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e);
+					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {message_type_name} message to relay chain: {e:?}");
 				})
 			});
 
@@ -798,7 +798,7 @@ where
 			match <Sender as SendXcm>::validate(&mut Some(Destination::get()), &mut Some(first_xcm))
 			{
 				Ok((_ticket, price)) => {
-					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
+					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {price:?}");
 					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
 				},
 				Err(SendError::ExceedsMaxMessageSize) => {
@@ -816,7 +816,7 @@ where
 					}
 				},
 				Err(other) => {
-					log::error!(target: "runtime::staking-async::xcm", "📨 other error -- cannot send XCM: {:?}", other);
+					log::error!(target: "runtime::staking-async::xcm", "📨 other error -- cannot send XCM: {other:?}");
 					return Err(other);
 				},
 			}

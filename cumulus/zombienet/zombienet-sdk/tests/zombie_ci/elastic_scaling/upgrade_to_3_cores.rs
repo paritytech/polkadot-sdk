@@ -127,9 +127,9 @@ async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyh
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("validator0"))
-				.with_node(|node| node.with_name("validator1"))
-				.with_node(|node| node.with_name("validator2"))
+				.with_validator(|node| node.with_name("validator0"))
+				.with_validator(|node| node.with_name("validator1"))
+				.with_validator(|node| node.with_name("validator2"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
