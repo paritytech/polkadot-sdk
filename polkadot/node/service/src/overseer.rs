@@ -25,6 +25,7 @@ use polkadot_node_core_av_store::Config as AvailabilityConfig;
 use polkadot_node_core_candidate_validation::Config as CandidateValidationConfig;
 use polkadot_node_core_chain_selection::Config as ChainSelectionConfig;
 use polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig;
+use polkadot_node_core_rewards_statistics_collector::Config as RewardsStatisticsCollectorConfig;
 use polkadot_node_network_protocol::{
 	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
@@ -75,6 +76,7 @@ pub use polkadot_node_core_dispute_coordinator::DisputeCoordinatorSubsystem;
 pub use polkadot_node_core_prospective_parachains::ProspectiveParachainsSubsystem;
 pub use polkadot_node_core_provisioner::ProvisionerSubsystem;
 pub use polkadot_node_core_pvf_checker::PvfCheckerSubsystem;
+pub use polkadot_node_core_rewards_statistics_collector::RewardsStatisticsCollector;
 pub use polkadot_node_core_runtime_api::RuntimeApiSubsystem;
 pub use polkadot_statement_distribution::StatementDistributionSubsystem;
 
@@ -133,6 +135,7 @@ pub struct ExtendedOverseerGenArgs {
 	pub candidate_req_v2_receiver: IncomingRequestReceiver<request_v2::AttestedCandidateRequest>,
 	/// Configuration for the approval voting subsystem.
 	pub approval_voting_config: ApprovalVotingConfig,
+	pub rewards_statistics_collector_config: RewardsStatisticsCollectorConfig,
 	/// Receiver for incoming disputes.
 	pub dispute_req_receiver: IncomingRequestReceiver<request_v1::DisputeRequest>,
 	/// Configuration for the dispute coordinator subsystem.
@@ -183,6 +186,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
+		rewards_statistics_collector_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -192,7 +196,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		PvfCheckerSubsystem,
 		CandidateBackingSubsystem,
 		StatementDistributionSubsystem,
-		AvailabilityDistributionSubsystem,
+		AvailabilityDistributionSubsystem<AuthorityDiscoveryService>,
 		AvailabilityRecoverySubsystem,
 		BitfieldSigningSubsystem,
 		BitfieldDistributionSubsystem,
@@ -218,6 +222,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
 		ChainSelectionSubsystem,
 		ProspectiveParachainsSubsystem,
+		RewardsStatisticsCollector,
 	>,
 	Error,
 >
@@ -261,6 +266,7 @@ where
 				chunk_req_v2_receiver,
 			},
 			req_protocol_names.clone(),
+			authority_discovery_service.clone(),
 			Metrics::register(registry)?,
 		))
 		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
@@ -350,6 +356,11 @@ where
 		))
 		.chain_selection(ChainSelectionSubsystem::new(chain_selection_config, parachains_db))
 		.prospective_parachains(ProspectiveParachainsSubsystem::new(Metrics::register(registry)?))
+		.rewards_statistics_collector(RewardsStatisticsCollector::new(
+			keystore.clone(),
+			Metrics::register(registry)?,
+			rewards_statistics_collector_config,
+		))
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)
@@ -408,6 +419,7 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		ChainApiSubsystem<RuntimeClient>,
 		CollationGenerationSubsystem,
 		CollatorProtocolSubsystem,
+		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -495,6 +507,7 @@ where
 		.dispute_distribution(DummySubsystem)
 		.chain_selection(DummySubsystem)
 		.prospective_parachains(DummySubsystem)
+		.rewards_statistics_collector(DummySubsystem)
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.supports_parachains(runtime_client)

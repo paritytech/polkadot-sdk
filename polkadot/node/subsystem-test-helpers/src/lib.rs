@@ -564,6 +564,7 @@ pub fn derive_erasure_chunks_with_proofs_and_root(
 			chunk: chunk.to_vec(),
 			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
+			session_index: None,
 		})
 		.collect::<Vec<ErasureChunk>>();
 

@@ -662,6 +662,7 @@ pub(crate) enum RequestResult {
 	// This is a request with side-effects and no result, hence ().
 	#[allow(dead_code)]
 	SubmitPvfCheckStatement(()),
+	SubmitApprovalStatistics(()),
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),

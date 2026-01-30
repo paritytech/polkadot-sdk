@@ -95,7 +95,7 @@ use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
 };
-
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 mod approval_checking;
 pub mod approval_db;
 mod backend;
@@ -1249,6 +1249,7 @@ async fn run<
 	Sender: SubsystemSender<ChainApiMessage>
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ SubsystemSender<AvailabilityRecoveryMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
@@ -1484,6 +1485,7 @@ pub async fn start_approval_worker<
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
 		+ SubsystemSender<AvailabilityRecoveryMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
 		+ Clone,
@@ -1563,6 +1565,7 @@ async fn handle_actions<
 		+ SubsystemSender<AvailabilityRecoveryMessage>
 		+ SubsystemSender<DisputeCoordinatorMessage>
 		+ SubsystemSender<CandidateValidationMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ Clone,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
@@ -2029,6 +2032,7 @@ async fn handle_from_overseer<
 	Sender: SubsystemSender<ChainApiMessage>
 		+ SubsystemSender<RuntimeApiMessage>
 		+ SubsystemSender<ChainSelectionMessage>
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>
 		+ Clone,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
@@ -2609,11 +2613,10 @@ fn schedule_wakeup_action(
 	block_hash: Hash,
 	block_number: BlockNumber,
 	candidate_hash: CandidateHash,
-	block_tick: Tick,
+	approval_status: &ApprovalStatus,
 	tick_now: Tick,
-	required_tranches: RequiredTranches,
 ) -> Option<Action> {
-	let maybe_action = match required_tranches {
+	let maybe_action = match approval_status.required_tranches {
 		_ if approval_entry.is_approved() => None,
 		RequiredTranches::All => None,
 		RequiredTranches::Exact { next_no_show, last_assignment_tick, .. } => {
@@ -2652,7 +2655,7 @@ fn schedule_wakeup_action(
 
 				// Apply the clock drift to these tranches.
 				min_prefer_some(next_announced, our_untriggered)
-					.map(|t| t as Tick + block_tick + clock_drift)
+					.map(|t| t as Tick + approval_status.block_tick + clock_drift)
 			};
 
 			min_prefer_some(next_non_empty_tranche, next_no_show).map(|tick| {
@@ -2667,14 +2670,14 @@ fn schedule_wakeup_action(
 			tick,
 			?candidate_hash,
 			?block_hash,
-			block_tick,
+			approval_status.block_tick,
 			"Scheduling next wakeup.",
 		),
 		None => gum::trace!(
 			target: LOG_TARGET,
 			?candidate_hash,
 			?block_hash,
-			block_tick,
+			approval_status.block_tick,
 			"No wakeup needed.",
 		),
 		Some(_) => {}, // unreachable
@@ -2852,9 +2855,8 @@ where
 					block_entry.block_hash(),
 					block_entry.block_number(),
 					*assigned_candidate_hash,
-					status.block_tick,
+					&status,
 					tick_now,
-					status.required_tranches,
 				));
 			}
 
@@ -2906,7 +2908,7 @@ async fn import_approval<Sender>(
 	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
@@ -3059,7 +3061,7 @@ async fn advance_approval_state<Sender>(
 	wakeups: &Wakeups,
 ) -> Vec<Action>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	let validator_index = transition.validator_index();
 
@@ -3184,17 +3186,18 @@ where
 		if is_approved {
 			approval_entry.mark_approved();
 		}
+
 		if newly_approved {
 			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
 		}
+
 		actions.extend(schedule_wakeup_action(
 			&approval_entry,
 			block_hash,
 			block_number,
 			candidate_hash,
-			status.block_tick,
+			&status,
 			tick_now,
-			status.required_tranches,
 		));
 
 		if is_approved && transition.is_remote_approval() {
@@ -3234,6 +3237,35 @@ where
 				}
 			}
 		}
+
+		if newly_approved {
+			gum::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				?candidate_hash,
+				"Candidate newly approved, collecting useful approvals..."
+			);
+
+			collect_useful_approvals(sender, &status, block_hash, block_number, &candidate_entry);
+
+			if status.no_show_validators.len() > 0 {
+				_ = sender
+					.try_send_message(RewardsStatisticsCollectorMessage::NoShows(
+						block_hash,
+						block_number,
+						status.no_show_validators,
+					))
+					.map_err(|_| {
+						gum::warn!(
+							target: LOG_TARGET,
+							?candidate_hash,
+							?block_hash,
+							"Failed to send no shows to reward statistics subsystem",
+						);
+					});
+			}
+		}
+
 		// We have no need to write the candidate entry if all of the following
 		// is true:
 		//
@@ -3247,7 +3279,7 @@ where
 			// In all other cases, we need to write the candidate entry.
 			db.write_candidate_entry(candidate_entry);
 		}
-	}
+	};
 
 	actions
 }
@@ -3286,7 +3318,7 @@ fn should_trigger_assignment(
 	}
 }
 
-async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
+async fn process_wakeup<Sender>(
 	sender: &mut Sender,
 	state: &mut State,
 	db: &mut OverlayedBackend<'_, impl Backend>,
@@ -3295,7 +3327,10 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	candidate_hash: CandidateHash,
 	metrics: &Metrics,
 	wakeups: &Wakeups,
-) -> SubsystemResult<Vec<Action>> {
+) -> SubsystemResult<Vec<Action>>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
+{
 	let block_entry = db.load_block_entry(&relay_block)?;
 	let candidate_entry = db.load_candidate_entry(&candidate_hash)?;
 
@@ -3703,7 +3738,7 @@ async fn launch_approval<
 // have been done.
 #[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
 async fn issue_approval<
-	Sender: SubsystemSender<RuntimeApiMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<RewardsStatisticsCollectorMessage>,
 	ADSender: SubsystemSender<ApprovalDistributionMessage>,
 >(
 	sender: &mut Sender,
@@ -4074,4 +4109,81 @@ fn compute_delayed_approval_sending_tick(
 
 	metrics.on_delayed_approval(sign_no_later_than.checked_sub(tick_now).unwrap_or_default());
 	sign_no_later_than
+}
+
+// collect all the approvals required to approve the
+// candidate, ignoring any other approval that belongs
+// to not required tranches
+fn collect_useful_approvals<Sender>(
+	sender: &mut Sender,
+	status: &ApprovalStatus,
+	block_hash: Hash,
+	block_number: BlockNumber,
+	candidate_entry: &CandidateEntry,
+) where
+	Sender: SubsystemSender<RewardsStatisticsCollectorMessage>,
+{
+	let candidate_hash = candidate_entry.candidate.hash();
+	let candidate_approvals = candidate_entry.approvals();
+
+	let approval_entry = match candidate_entry.approval_entry(&block_hash) {
+		Some(approval_entry) => approval_entry,
+		None => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?block_number,
+				?candidate_hash,
+				"approval entry not found, cannot collect useful approvals."
+			);
+			return
+		},
+	};
+
+	let collected_useful_approvals: Vec<ValidatorIndex> = match status.required_tranches {
+		RequiredTranches::All =>
+			candidate_approvals.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect(),
+		RequiredTranches::Exact { needed, .. } => {
+			let mut assigned_mask = approval_entry.assignments_up_to(needed);
+			assigned_mask &= candidate_approvals;
+			assigned_mask.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect()
+		},
+		RequiredTranches::Pending { .. } => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				?block_number,
+				?candidate_hash,
+				"approval status required tranches still pending when collecting useful approvals"
+			);
+			return
+		},
+	};
+
+	if !collected_useful_approvals.is_empty() {
+		let useful_approvals = collected_useful_approvals.len();
+		gum::debug!(
+			target: LOG_TARGET,
+			?block_hash,
+			?block_number,
+			?candidate_hash,
+			?useful_approvals,
+			"collected useful approvals"
+		);
+
+		_ = sender
+			.try_send_message(RewardsStatisticsCollectorMessage::CandidateApproved(
+				block_hash,
+				block_number,
+				collected_useful_approvals,
+			))
+			.map_err(|_| {
+				gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?block_hash,
+					"Failed to send approvals to rewards statistics subsystem",
+				);
+			});
+	}
 }

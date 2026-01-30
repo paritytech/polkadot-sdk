@@ -305,6 +305,18 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.await?)
 	}
 
+	async fn submit_approval_statistics(
+		&self,
+		at: Hash,
+		payload: polkadot_primitives::vstaging::ApprovalStatistics,
+		signature: polkadot_primitives::ValidatorSignature,
+	) -> Result<(), sp_api::ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_submit_approval_statistics(at, payload, signature)
+			.await?)
+	}
+
 	async fn pvfs_require_precheck(
 		&self,
 		at: Hash,

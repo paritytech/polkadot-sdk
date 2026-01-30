@@ -54,6 +54,7 @@ use sp_version::RuntimeVersion;
 
 use crate::{metrics::RelaychainRpcMetrics, reconnecting_ws_client::ReconnectingWebsocketWorker};
 pub use url::Url;
+use cumulus_primitives_core::relay_chain::vstaging::ApprovalStatistics;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
 const NOTIFICATION_CHANNEL_SIZE_LIMIT: usize = 20;
@@ -259,6 +260,21 @@ impl RelayChainRpcClient {
 			Some((stmt, signature)),
 		)
 		.await
+	}
+
+	/// Submits approval voting rewards statistics into the transaction pool.
+	pub async fn parachain_host_submit_approval_statistics(
+		&self,
+		at: RelayHash,
+		payload: ApprovalStatistics,
+		signature: ValidatorSignature,
+	) -> Result<(), RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_submit_approval_statistics",
+			at,
+			Some((payload, signature)),
+		)
+			.await
 	}
 
 	/// Get system health information

@@ -28,6 +28,7 @@ use crate::{
 	network::new_network,
 	usage::BenchmarkUsage,
 };
+use async_trait::async_trait;
 use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 
@@ -40,6 +41,7 @@ use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStra
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
+	authority_discovery::AuthorityDiscovery,
 	request_response::{v1, v2, IncomingRequest},
 	OurView,
 };
@@ -49,15 +51,15 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkBridgeEvent};
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, CoreIndex, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
-use std::{ops::Sub, sync::Arc, time::Instant};
+use std::{collections::HashSet, ops::Sub, sync::Arc, time::Instant};
 use strum::Display;
 
+use sc_network_types::{multiaddr::Multiaddr, PeerId};
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 pub use test_state::TestState;
-
 mod av_store_helpers;
 mod test_state;
 
@@ -120,7 +122,7 @@ fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
-	availability_distribution: AvailabilityDistributionSubsystem,
+	availability_distribution: AvailabilityDistributionSubsystem<TestAuthorityDiscovery>,
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
 	bitfield_distribution: BitfieldDistribution,
@@ -267,6 +269,7 @@ pub fn prepare_test(
 					chunk_req_v2_receiver,
 				},
 				state.req_protocol_names.clone(),
+				TestAuthorityDiscovery,
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
@@ -505,4 +508,24 @@ pub async fn benchmark_availability_write(
 		&["availability-distribution", "bitfield-distribution", "availability-store"],
 		false,
 	)
+}
+
+#[derive(Debug, Clone)]
+pub struct TestAuthorityDiscovery;
+
+#[async_trait]
+impl AuthorityDiscovery for TestAuthorityDiscovery {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		_authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
+		None
+	}
+
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		_peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		None
+	}
 }

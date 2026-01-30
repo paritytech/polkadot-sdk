@@ -53,9 +53,13 @@ use polkadot_node_core_approval_voting_parallel::ApprovalVotingParallelSubsystem
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock,
 };
-
 use polkadot_node_core_approval_voting::{
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, RealAssignmentCriteria,
+};
+use polkadot_node_core_rewards_statistics_collector::{
+	RewardsStatisticsCollector as RewardsStatisticsCollectorSubsystem,
+	metrics::Metrics as RewardsStatisticsMetrics,
+	Config as RewardsStatisticsConfig
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
@@ -853,6 +857,16 @@ fn build_overseer(
 	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let task_handle = spawn_task_handle.clone();
+
+	let rewards_metrics = RewardsStatisticsMetrics::try_register(&dependencies.registry).unwrap();
+	let rewards_statistics_collector_subsystem = RewardsStatisticsCollectorSubsystem::new(
+		keystore.clone(),
+		rewards_metrics,
+		RewardsStatisticsConfig{
+			verbose_approval_metrics: false,
+		},
+	);
+
 	let dummy = dummy_builder!(task_handle, overseer_metrics)
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_chain_selection(|_| mock_chain_selection)
@@ -860,7 +874,8 @@ fn build_overseer(
 		.replace_network_bridge_tx(|_| mock_tx_bridge)
 		.replace_network_bridge_rx(|_| mock_rx_bridge)
 		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
-		.replace_candidate_validation(|_| MockCandidateValidation::new());
+		.replace_candidate_validation(|_| MockCandidateValidation::new())
+		.replace_rewards_statistics_collector(|_| rewards_statistics_collector_subsystem);
 
 	let (overseer, raw_handle) = if state.options.approval_voting_parallel_enabled {
 		let approval_voting_parallel = ApprovalVotingParallelSubsystem::with_config_and_clock(
@@ -1172,7 +1187,12 @@ pub async fn bench_approvals_run(
 	);
 
 	env.collect_resource_usage(
-		&["approval-distribution", "approval-voting", "approval-voting-parallel"],
+		&[
+			"approval-distribution",
+			"approval-voting",
+			"approval-voting-parallel",
+			"rewards-statistics-collector",
+		],
 		true,
 	)
 }

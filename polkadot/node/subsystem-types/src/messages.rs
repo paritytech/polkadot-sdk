@@ -64,6 +64,7 @@ use std::{
 /// Network events as transmitted to other subsystems, wrapped in their message types.
 pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
+use polkadot_primitives::vstaging::ApprovalStatistics;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
@@ -730,6 +731,8 @@ pub enum RuntimeApiRequest {
 	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
+	/// Submits the Rewards Approvals Statistics into the transaction pool.
+	SubmitApprovalStatistics(ApprovalStatistics, ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.
 	PvfsRequirePrecheck(RuntimeApiSender<Vec<ValidationCodeHash>>),
 	/// Get the validation code used by the specified para, taking the given
@@ -1470,4 +1473,26 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
+}
+
+/// Messages sent to the Statistics Collector subsystem.
+#[derive(Debug)]
+pub enum RewardsStatisticsCollectorMessage {
+	/// After retrieving chunks from validators we should collect
+	/// how many chunks we have downloaded and who provided
+	ChunksDownloaded(SessionIndex, HashMap<ValidatorIndex, u64>),
+
+	/// Uploading chunks to some validator after his request
+	/// we have the set of authority discovery id for the peer who
+	/// requested the chunk, and the session where the chunk belongs to
+	ChunkUploaded(SessionIndex, HashSet<AuthorityDiscoveryId>),
+
+	/// Candidate received enough approval from the validators,
+	/// and we receive the set of validators for which the approvals
+	/// effectively count in for the candidate approval
+	CandidateApproved(Hash, BlockNumber, Vec<ValidatorIndex>),
+
+	/// Set of candidates who was supposed to issue approvals for
+	/// a given candidate but was not sent or delivered in time
+	NoShows(Hash, BlockNumber, Vec<ValidatorIndex>),
 }

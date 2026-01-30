@@ -29,7 +29,7 @@ use zombienet_sdk::subxt::{
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
-fn find_event_and_decode_fields<T: Decode>(
+pub fn find_event_and_decode_fields<T: Decode>(
 	events: &Events<PolkadotConfig>,
 	pallet: &str,
 	variant: &str,
@@ -551,4 +551,17 @@ pub async fn wait_for_runtime_upgrade(
 	}
 
 	Err(anyhow!("Did not find a runtime upgrade"))
+}
+
+/// Builds the prometheus labels
+///
+/// This method receive the label and the attributes the label can have
+/// useful for querying prometheus metrics data for testing
+pub fn report_label_with_attributes(label: &str, attributes: Vec<(&str, &str)>) -> String {
+	let mut attrs: Vec<String> = vec![];
+	for (k, v) in attributes {
+		attrs.push(format!("{k}=\"{v}\""));
+	}
+	let final_attrs = attrs.join(",");
+	format!("{label}{{{final_attrs}}}")
 }

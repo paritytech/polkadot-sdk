@@ -61,6 +61,7 @@ fn test_harness<T: Future<Output = ()>>(
 		keystore,
 		IncomingRequestReceivers { pov_req_receiver, chunk_req_v1_receiver, chunk_req_v2_receiver },
 		req_protocol_names,
+		mock::MockEmptyAuthorityDiscovery,
 		Default::default(),
 	);
 	let subsystem = subsystem.run(context);

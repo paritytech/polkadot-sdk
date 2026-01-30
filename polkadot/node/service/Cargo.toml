@@ -130,6 +130,7 @@ polkadot-node-core-prospective-parachains = { optional = true, workspace = true,
 polkadot-node-core-provisioner = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-rewards-statistics-collector = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-runtime-api = { optional = true, workspace = true, default-features = true }
 polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
 
@@ -172,6 +173,7 @@ full-node = [
 	"polkadot-node-core-provisioner",
 	"polkadot-node-core-pvf",
 	"polkadot-node-core-pvf-checker",
+	"polkadot-node-core-rewards-statistics-collector",
 	"polkadot-node-core-runtime-api",
 	"polkadot-statement-distribution",
 ]

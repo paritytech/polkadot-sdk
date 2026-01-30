@@ -15050,6 +15050,7 @@ name = "polkadot-availability-distribution"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "async-trait",
  "fatality",
  "futures",
  "futures-timer",
@@ -15066,6 +15067,7 @@ dependencies = [
  "rand 0.8.5",
  "rstest",
  "sc-network",
+ "sc-network-types",
  "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
@@ -15742,6 +15744,28 @@ dependencies = [
  "staging-tracking-allocator",
  "tikv-jemalloc-ctl",
  "tikv-jemallocator",
+ "tracing-gum",
+]
+
+[[package]]
+name = "polkadot-node-core-rewards-statistics-collector"
+version = "7.0.0"
+dependencies = [
+ "assert_matches",
+ "fatality",
+ "futures",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
+ "polkadot-primitives",
+ "sp-application-crypto",
+ "sp-authority-discovery",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-keystore",
+ "sp-tracing 16.0.0",
+ "thiserror 1.0.65",
  "tracing-gum",
 ]
 
@@ -16536,6 +16560,7 @@ dependencies = [
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
  "polkadot-node-core-pvf-common",
+ "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-core-runtime-api",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
@@ -16895,6 +16920,7 @@ dependencies = [
  "polkadot-node-core-provisioner",
  "polkadot-node-core-pvf",
  "polkadot-node-core-pvf-checker",
+ "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-core-runtime-api",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
@@ -17033,6 +17059,7 @@ dependencies = [
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
  "polkadot-node-core-dispute-coordinator",
+ "polkadot-node-core-rewards-statistics-collector",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",

@@ -62,6 +62,7 @@ use polkadot_primitives::{
 	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	PARACHAIN_KEY_TYPE_ID,
+	vstaging::ApprovalStatistics,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -90,6 +91,7 @@ use polkadot_runtime_parachains::{
 	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
+	approvals_rewards as parachains_approvals_rewards,
 };
 use scale_info::TypeInfo;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1442,6 +1444,11 @@ impl parachains_paras::Config for Runtime {
 	>;
 }
 
+impl parachains_approvals_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
 	///
@@ -1976,6 +1983,8 @@ mod runtime {
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
 	#[runtime::pallet_index(57)]
 	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
+	#[runtime::pallet_index(58)]
+	pub type ApprovalsRewards = parachains_approvals_rewards;
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -2140,6 +2149,7 @@ mod benches {
 		[polkadot_runtime_parachains::paras_inherent, ParaInherent]
 		[polkadot_runtime_parachains::on_demand, OnDemandAssignmentProvider]
 		[polkadot_runtime_parachains::coretime, Coretime]
+		[polkadot_runtime_parachains::approvals_rewards, ApprovalsRewards]
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
@@ -2348,6 +2358,13 @@ sp_api::impl_runtime_apis! {
 			signature: ValidatorSignature,
 		) {
 			parachains_runtime_api_impl::submit_pvf_check_statement::<Runtime>(stmt, signature)
+		}
+
+		fn submit_approval_statistics(
+			payload: ApprovalStatistics,
+			signature: ValidatorSignature,
+		) {
+			parachains_staging_runtime_api_impl::submit_approval_statistics::<Runtime>(payload, signature)
 		}
 
 		fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

@@ -32,16 +32,22 @@ use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
 use codec::Encode;
 use polkadot_node_primitives::AvailableData;
-use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, RecoveryError};
-use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};
+use polkadot_node_subsystem::{
+	messages::AvailabilityStoreMessage, overseer, RecoveryError, SubsystemSender,
+};
+use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, SessionIndex};
 use sc_network::ProtocolName;
 
 use futures::channel::{mpsc, oneshot};
+use polkadot_node_subsystem::messages::RewardsStatisticsCollectorMessage;
 use std::collections::VecDeque;
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
 #[derive(Clone)]
 pub struct RecoveryParams {
+	/// Session index where the validators belong to
+	pub session_index: SessionIndex,
+
 	/// Discovery ids of `validators`.
 	pub validator_authority_keys: Vec<AuthorityDiscoveryId>,
 
@@ -96,7 +102,8 @@ pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {
 
 impl<Sender> RecoveryTask<Sender>
 where
-	Sender: overseer::AvailabilityRecoverySenderTrait,
+	Sender: overseer::AvailabilityRecoverySenderTrait
+		+ SubsystemSender<RewardsStatisticsCollectorMessage>,
 {
 	/// Instantiate a new recovery task.
 	pub fn new(
@@ -174,10 +181,17 @@ where
 							self.params.metrics.on_recovery_invalid(strategy_type),
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
+					_ = self.state.get_download_chunks_metrics();
 					return Err(err)
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
+					_ = self.sender.try_send_message(
+						RewardsStatisticsCollectorMessage::ChunksDownloaded(
+							self.params.session_index,
+							self.state.get_download_chunks_metrics(),
+						),
+					);
 					return Ok(data)
 				},
 			}
