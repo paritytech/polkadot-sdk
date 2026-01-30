@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769771878618,
+  "lastUpdate": 1769777384516,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "1728078+michalkucharczyk@users.noreply.github.com",
-            "name": "Michal Kucharczyk",
-            "username": "michalkucharczyk"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "63973ccc7108560b2d0a7d882e5c0e232d9396ac",
-          "message": "`fatxpool`: fix: remove invalid txs from the dropped stream controller (#8923)\n\nWhile testing mortal transaction I encountered exactly the same problem\nas in #8490.\nThis PR should fix the problem.\n\nfixes: #8490\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-06-25T06:40:14Z",
-          "tree_id": "8c3bd2efc80adf2565c66ce09d2316fdb258f433",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/63973ccc7108560b2d0a7d882e5c0e232d9396ac"
-        },
-        "date": 1750837260921,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.01282108346,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008637931646666746,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.15663278491333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022191699433333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009824630813333313,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "robertvaneerdewijk@gmail.com",
+            "name": "0xRVE",
+            "username": "0xRVE"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "02f16b7f9e9b5d5c889051286da6d2a36eb79e7a",
+          "message": "[pallet-revive] added trybuild test for precompile compile-time checks (#10698)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/8364\n\nThis PR adds compile-time tests using try_build to validate invariants\nenforced on registered precompiles. The tests ensure collision detection\nand related compile-time checks are correctly triggered and remain\nenforced.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: xermicus <cyrill@parity.io>",
+          "timestamp": "2026-01-30T11:43:34Z",
+          "tree_id": "f226a0b4b0136dc84a597a278f932d31a55fc684",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/02f16b7f9e9b5d5c889051286da6d2a36eb79e7a"
+        },
+        "date": 1769777360363,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00971231708666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007078951126666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02348576531333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14660447099333335,
             "unit": "seconds"
           }
         ]
