@@ -537,6 +537,10 @@ impl Default for Origin<Test> {
 	}
 }
 
+/// Dummy EVM bytecode for mocked addresses.
+/// This is minimal EVM bytecode (PUSH1 0, PUSH1 0, REVERT) that immediately reverts.
+pub const MOCK_CODE: [u8; 5] = [0x60, 0x00, 0x60, 0x00, 0xfd];
+
 /// A mock handler implementation for testing purposes.
 pub struct MockHandlerImpl<T: crate::pallet::Config> {
 	// Always return this caller if set.
@@ -565,6 +569,14 @@ impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 
 	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
+	}
+
+	fn mocked_code(&self, address: H160) -> Option<&'static [u8]> {
+		if self.mock_call.contains_key(&address) {
+			Some(&MOCK_CODE)
+		} else {
+			None
+		}
 	}
 }
 
