@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769777484467,
+  "lastUpdate": 1769782022280,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -22637,6 +22637,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.006844922399999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3487a54579dbfb96cde4168b012bf60438c93ef",
+          "message": "Enforce stricter rustfmt rules to prevent style ambiguity (#10939)\n\nby default rustfmt preserve local style, and Claude loves to add semi or\nbracket where there were none before,\nWe should make the formatting more strict as this is a bit annoying to\nremind it constantly not to make unnecessary diff.\n\n## Summary\n\nThe PR is just updating\nhttps://github.com/paritytech/polkadot-sdk/blob/pg/stricter-rustfmt-rules/.rustfmt.toml\nevery other changes are just the result of running the linter\n\n\n- Change `match_arm_leading_pipes` from \"Preserve\" to \"Never\" to enforce\na single style\n- Change `trailing_semicolon` from false to true to enforce `return 42;`\nfalse unfortunately preserve the local style\n- Add `normalize_comments = true` to normalize comment spacing (e.g.,\n`// comment` not `//comment`)\n- Add `normalize_doc_attributes = true` to enforce `///` over `#[doc =\n\"\"]`\n\nThese changes ensure only one valid formatting style exists, reducing\nunnecessary diffs in pull requests caused by different but equally valid\nformatting styles.\n\n## Not changed (for now)\nThe following options also default to \"Preserve\" but were intentionally\nnot changed due to (even) larger diff impact:\n\n- `group_imports` - Would enforce import grouping order (std → external\n→ crate) but causes massive import reordering across the codebase\n- `hex_literal_case` - Would enforce `0xABCD` vs `0xabcd` consistency\n- edition 2024 - not sure what that change but it also probably create a\nbig diff\n\nThese could be considered in a future PR if the one-time diff cost is\nacceptable.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-01-30T12:58:02Z",
+          "tree_id": "272f1c9365f5d242b76d092585582773f220dbba",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3487a54579dbfb96cde4168b012bf60438c93ef"
+        },
+        "date": 1769781997677,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00277230878,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0066413231500000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00937048356999998,
             "unit": "seconds"
           }
         ]
