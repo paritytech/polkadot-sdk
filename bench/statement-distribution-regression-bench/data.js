@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769781988376,
+  "lastUpdate": 1769786015141,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "drewsmpk@gmail.com",
-            "name": "Afounso Souza",
-            "username": "lechpzn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "05ca227536c1101e1083b88a9f57c7feccb84442",
-          "message": "Fix typo (#8966)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2025-06-24T21:45:14Z",
-          "tree_id": "5b0258a08592886d1b3123703f74d2f8779583a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/05ca227536c1101e1083b88a9f57c7feccb84442"
-        },
-        "date": 1750805254178,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.95199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.04540277745199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03433207189199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03826502469800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60601340+lexnv@users.noreply.github.com",
+            "name": "Alexandru Vasile",
+            "username": "lexnv"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5168cadb2683174b891cbd33e37cd436bfdce1d",
+          "message": "collator-protocol: Readvertise collations after peer disconnects (#10464)\n\nThere's a possible race case between peer connectivity and collation\nadvertisement:\n- The advertisement was generated\n- peer disconnected before receiving the advertisement\n\nAs a result of that, when the peer reconnects, the previous collation\n(C0) is not sent.\nThis happens when the collator has produced another collation (C1).\nHowever, from the logs it looks like the collation C1 is advertising,\nbut C0 is skipped.\n\n- T0: peer disconnects without receiving C0\n- T1: peer reconnects\n- T2: collator advertises C1, but not C0\n\nThis PR aims to resubmit collations on `PeerConect` events to mitigate\nthese cases\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/10463\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-01-30T13:57:37Z",
+          "tree_id": "7068a46b2cd404d92390dc3bd0b3efa3b14b6638",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5168cadb2683174b891cbd33e37cd436bfdce1d"
+        },
+        "date": 1769785990039,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.05999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038606440396,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.06478399467799992,
             "unit": "seconds"
           }
         ]
