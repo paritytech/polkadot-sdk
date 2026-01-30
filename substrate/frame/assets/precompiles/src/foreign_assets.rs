@@ -24,15 +24,15 @@ pub use pallet::*;
 pub struct ForeignAssetId<T, I = ()>(PhantomData<(T, I)>);
 impl<T: Config, I> AssetsCallback<T::AssetId, T::AccountId> for ForeignAssetId<T, I>
 where
-	T: pallet::Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
+	T: Config<ForeignAssetId = T::AssetId> + pallet_assets::Config<I>,
 	I: 'static,
 {
 	fn created(id: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
-		pallet::Pallet::<T>::insert_asset_mapping(id).map(|_| ())
+		Pallet::<T>::insert_asset_mapping(id).map(|_| ())
 	}
 
 	fn destroyed(id: &T::AssetId) -> Result<(), ()> {
-		pallet::Pallet::<T>::remove_asset_mapping(id);
+		Pallet::<T>::remove_asset_mapping(id);
 		Ok(())
 	}
 }
