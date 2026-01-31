@@ -52,7 +52,10 @@ extern crate alloc;
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame::{
 	prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::{
+		fungible::{Inspect, InspectHold, Mutate, MutateHold},
+		tokens::Precision,
+	},
 };
 use frame_system::RawOrigin;
 pub use weights::WeightInfo;
@@ -75,7 +78,7 @@ macro_rules! log {
 }
 
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -142,6 +145,13 @@ enum CallOrHash<T: Config> {
 pub mod pallet {
 	use super::*;
 
+	/// A reason for holding funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds held for a multisig operation deposit.
+		MultisigOperation,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -154,8 +164,11 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The currency type, used for deposits.
+		type Fungible: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The base amount of currency needed to reserve for creating a multisig execution or to
 		/// store a dispatch call for later.
@@ -533,8 +546,12 @@ pub mod pallet {
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
-			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
-			debug_assert!(err_amount.is_zero());
+			let _ = T::Fungible::release(
+				&HoldReason::MultisigOperation.into(),
+				&m.depositor,
+				m.deposit,
+				Precision::BestEffort,
+			);
 			<Multisigs<T>>::remove(&id, &call_hash);
 
 			Self::deposit_event(Event::MultisigCancelled {
@@ -592,17 +609,22 @@ pub mod pallet {
 						return Ok(Pays::Yes.into());
 					}
 
-					// Update the reserved amount
+					// Update the held amount
 					if new_deposit > old_deposit {
 						let extra = new_deposit.saturating_sub(old_deposit);
-						T::Currency::reserve(&who, extra)?;
+						T::Fungible::hold(&HoldReason::MultisigOperation.into(), &who, extra)?;
 					} else {
 						let excess = old_deposit.saturating_sub(new_deposit);
-						let remaining_unreserved = T::Currency::unreserve(&who, excess);
-						if !remaining_unreserved.is_zero() {
+						let released = T::Fungible::release(
+							&HoldReason::MultisigOperation.into(),
+							&who,
+							excess,
+							Precision::BestEffort,
+						)?;
+						if released != excess {
 							defensive!(
-								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ",
-								(call_hash, excess, excess.saturating_sub(remaining_unreserved))
+								"Failed to release for full amount for multisig. (Call Hash, Requested, Actual): ",
+								(call_hash, excess, released)
 							);
 						}
 					}
@@ -689,7 +711,12 @@ impl<T: Config> Pallet<T> {
 				// Clean up storage before executing call to avoid an possibility of reentrancy
 				// attack.
 				<Multisigs<T>>::remove(&id, call_hash);
-				T::Currency::unreserve(&m.depositor, m.deposit);
+				let _ = T::Fungible::release(
+					&HoldReason::MultisigOperation.into(),
+					&m.depositor,
+					m.deposit,
+					Precision::BestEffort,
+				);
 
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
@@ -742,7 +769,7 @@ impl<T: Config> Pallet<T> {
 			// Just start the operation by recording it in storage.
 			let deposit = Self::deposit(threshold);
 
-			T::Currency::reserve(&who, deposit)?;
+			T::Fungible::hold(&HoldReason::MultisigOperation.into(), &who, deposit)?;
 
 			let initial_approvals =
 				vec![who.clone()].try_into().map_err(|_| Error::<T>::TooManySignatories)?;

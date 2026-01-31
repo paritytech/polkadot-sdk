@@ -34,8 +34,9 @@ fn setup_multi<T: Config>(
 	for i in 0..s {
 		let signatory = account("signatory", i, SEED);
 		// Give them some balance for a possible deposit
-		let balance = BalanceOf::<T>::max_value();
-		T::Currency::make_free_balance_be(&signatory, balance);
+		// Use max_value / 10 to avoid potential overflow issues with fungible traits
+		let balance = BalanceOf::<T>::max_value() / 10u32.into();
+		let _ = T::Fungible::set_balance(&signatory, balance);
 		signatories.push(signatory);
 	}
 	signatories.sort();
@@ -320,14 +321,20 @@ mod benchmarks {
 			.ok_or("multisig not created")?;
 		// The original deposit
 		let old_deposit = multisig.deposit;
-		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			old_deposit
+		);
 
 		let additional_amount = 2u32.into();
 		let new_deposit = old_deposit.saturating_add(additional_amount);
 
-		// Reserve the additional amount from the caller's balance
-		T::Currency::reserve(&caller, additional_amount)?;
-		assert_eq!(T::Currency::reserved_balance(&caller), new_deposit);
+		// Hold the additional amount from the caller's balance
+		T::Fungible::hold(&HoldReason::MultisigOperation.into(), &caller, additional_amount)?;
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			new_deposit
+		);
 		// Update the storage with the new deposit
 		Multisigs::<T>::try_mutate(
 			&multi_account_id,
@@ -355,7 +362,10 @@ mod benchmarks {
 		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
 			.ok_or("Multisig not created")?;
 		assert_eq!(multisig.deposit, old_deposit);
-		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+		assert_eq!(
+			T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &caller),
+			old_deposit
+		);
 		Ok(())
 	}
 

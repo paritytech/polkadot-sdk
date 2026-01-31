@@ -45,6 +45,7 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub struct TestBaseCallFilter;
@@ -67,7 +68,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DepositBase = MultisigDepositBase;
 	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<3>;
@@ -75,7 +76,7 @@ impl Config for Test {
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
-use pallet_balances::{Call as BalancesCall, Error as BalancesError};
+use pallet_balances::Call as BalancesCall;
 
 pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -1011,7 +1012,7 @@ fn poke_deposit_handles_insufficient_balance() {
 		// Should fail due to insufficient balance
 		assert_noop!(
 			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
-			BalancesError::<Test, _>::InsufficientBalance
+			frame::runtime::prelude::TokenError::FundsUnavailable
 		);
 	});
 }
