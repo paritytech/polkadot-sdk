@@ -23,6 +23,7 @@ use crate::{CoreAssignment::Task, Pallet as Broker};
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{
+	assert_ok,
 	storage::bounded_vec::BoundedVec,
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -1308,6 +1309,46 @@ mod benches {
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, region);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn add_assignment() -> Result<(), BenchmarkError> {
+		let config = new_config_record::<T>();
+		Configuration::<T>::put(config.clone());
+
+		// Setup a sale to get valid status
+		assert_ok!(Broker::<T>::do_start_sales(100u32.into(), 1));
+		advance_to::<T>(2);
+
+		// Create a complex assignment for worst case scenario
+		let mut assignment_items = Vec::new();
+		// Add maximum number of items for worst case
+		for i in 0..CORE_MASK_BITS {
+			assignment_items.push(ScheduleItem {
+				mask: CoreMask::from_chunk(i as u32, (i + 1) as u32),
+				assignment: Task(1000 + i as u32),
+			});
+		}
+		let assignment = Schedule::truncate_from(assignment_items);
+
+		// Create an existing workplan entry to test conflict resolution
+		let existing_item =
+			ScheduleItem { mask: CoreMask::from_chunk(0, 20), assignment: Task(999) };
+		let existing_assignment = Schedule::truncate_from(vec![existing_item]);
+		Workplan::<T>::insert((4, 0), existing_assignment);
+
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, 4, 0, assignment.clone());
+
+		// Verify the workplan was updated
+		let updated_workplan = Workplan::<T>::get((4, 0)).unwrap();
+		// Should have all new items except those that conflicted
+		assert!(updated_workplan.len() >= assignment.len() - 1);
 
 		Ok(())
 	}

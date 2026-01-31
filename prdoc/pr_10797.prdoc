@@ -1,0 +1,12 @@
+title: '[pallet-broker] add extrinsic to add an assignment to the workplan'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Part of https://github.com/paritytech/polkadot-sdk/issues/6929
+
+    This PR expands the coretime management capabilities for sudo/admin operations, enabling direct manipulation of the workplan without requiring complex migrations or runtime upgrades.
+crates:
+- name: pallet-broker
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor

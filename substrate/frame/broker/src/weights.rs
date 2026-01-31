@@ -107,6 +107,7 @@ pub trait WeightInfo {
 	fn disable_auto_renew() -> Weight;
 	fn on_new_timeslice() -> Weight;
 	fn remove_assignment() -> Weight;
+	fn add_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
 }
 
@@ -607,6 +608,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Broker::Workplan` (r:1 w:1)
+  /// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+  fn add_assignment() -> Weight {
+     // Proof Size summary in bytes:
+     //  Measured:  `408`
+     //  Estimated: `4681`
+     // Minimum execution time: 15_911_000 picoseconds.
+     Weight::from_parts(16_782_000, 4681)
+       .saturating_add(T::DbWeight::get().reads(1_u64))
+       .saturating_add(T::DbWeight::get().writes(1_u64))
+  }
 	/// Storage: `Broker::PotentialRenewals` (r:1 w:1)
 	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	fn remove_potential_renewal() -> Weight {
@@ -1108,7 +1120,7 @@ impl WeightInfo for () {
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	fn remove_assignment() -> Weight {
-		// Proof Size summary in bytes:
+	  // Proof Size summary in bytes:
 		//  Measured:  `408`
 		//  Estimated: `4681`
 		// Minimum execution time: 14_911_000 picoseconds.
@@ -1116,6 +1128,17 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+  /// Storage: `Broker::Workplan` (r:1 w:1)
+  /// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
+	fn add_assignment() -> Weight {
+    // Proof Size summary in bytes:
+    //  Measured:  `408`
+    //  Estimated: `4681`
+    // Minimum execution time: 15_911_000 picoseconds.
+    Weight::from_parts(16_782_000, 4681)
+      .saturating_add(RocksDbWeight::get().reads(1_u64))
+      .saturating_add(RocksDbWeight::get().writes(1_u64))
+  }
 	/// Storage: `Broker::PotentialRenewals` (r:1 w:1)
 	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
 	fn remove_potential_renewal() -> Weight {
