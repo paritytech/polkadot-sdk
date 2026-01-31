@@ -82,6 +82,7 @@ use crate::{
 	BalanceOf,
 };
 
+use core::cmp::min;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::*,
@@ -93,7 +94,6 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_runtime::traits::Zero;
-use core::cmp::min;
 
 #[cfg(any(test, feature = "try-runtime"))]
 use alloc::collections::BTreeMap;
