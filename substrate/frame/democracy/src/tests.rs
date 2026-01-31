@@ -31,7 +31,7 @@ use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
 use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash},
-	BuildStorage, Perbill,
+	BuildStorage, Perbill, VersionedCall,
 };
 mod cancellation;
 mod decoders;
@@ -83,6 +83,7 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
+
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -105,7 +106,7 @@ impl pallet_scheduler::Config for Test {
 	type MaxScheduledPerBlock = ConstU32<100>;
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type Preimages = ();
+	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
@@ -113,10 +114,12 @@ impl pallet_scheduler::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
+
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
 	pub static InstantAllowed: bool = false;
 }
+
 ord_parameter_types! {
 	pub const One: u64 = 1;
 	pub const Two: u64 = 2;
@@ -125,6 +128,7 @@ ord_parameter_types! {
 	pub const Five: u64 = 5;
 	pub const Six: u64 = 6;
 }
+
 pub struct OneToFive;
 impl SortedMembers<u64> for OneToFive {
 	fn sorted_members() -> Vec<u64> {
@@ -194,13 +198,20 @@ fn params_should_work() {
 fn set_balance_proposal(value: u64) -> BoundedCallOf<Test> {
 	let inner = pallet_balances::Call::force_set_balance { who: 42, new_free: value };
 	let outer = RuntimeCall::Balances(inner);
-	Preimage::bound(outer).unwrap()
+	// Create a VersionedCall with the current transaction version
+	let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+	let versioned_call = VersionedCall::new(outer, current_version);
+	Preimage::bound(versioned_call).unwrap()
 }
 
 #[test]
 fn set_balance_proposal_is_correctly_filtered_out() {
 	for i in 0..10 {
-		let call = Preimage::realize(&set_balance_proposal(i)).unwrap().0;
+		let bounded_call = set_balance_proposal(i);
+		// Get the inner call from the bounded call
+		let (versioned_call, _) = Preimage::peek(&bounded_call).unwrap();
+		let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+		let call = versioned_call.into_inner(current_version).unwrap();
 		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
 	}
 }

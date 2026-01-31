@@ -88,14 +88,22 @@ pub mod v1 {
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 					log::info!(target: TARGET, "migrating referendum #{:?}", &index);
 					Some(match old {
-						ReferendumInfo::Ongoing(status) =>
+						ReferendumInfo::Ongoing(status) => {
+							// Create VersionedCall from legacy hash
+							let bounded_call = Bounded::from_legacy_hash(status.proposal);
+
+							// Get current transaction version for the VersionedCall
+							let current_version =
+								<frame_system::Pallet<T>>::runtime_version().transaction_version;
+
 							ReferendumInfo::Ongoing(ReferendumStatus {
 								end: status.end,
-								proposal: Bounded::from_legacy_hash(status.proposal),
+								proposal: bounded_call,
 								threshold: status.threshold,
 								delay: status.delay,
 								tally: status.tally,
-							}),
+							})
+						},
 						ReferendumInfo::Finished { approved, end } =>
 							ReferendumInfo::Finished { approved, end },
 					})

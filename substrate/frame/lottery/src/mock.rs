@@ -38,12 +38,23 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
+	pub const Version: sp_version::RuntimeVersion = sp_version::RuntimeVersion {
+		spec_name: alloc::borrow::Cow::Borrowed("test"),
+		impl_name: alloc::borrow::Cow::Borrowed("test"),
+		authoring_version: 1,
+		spec_version: 1,
+		impl_version: 1,
+		apis: sp_version::create_apis_vec!([]),
+		transaction_version: 1,
+		system_version: 1,
+	};
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type Version = Version;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

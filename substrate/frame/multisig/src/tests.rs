@@ -75,6 +75,12 @@ impl Config for Test {
 	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
+impl MaxEncodedLen for RuntimeCall {
+	fn max_encoded_len() -> usize {
+		4096
+	}
+}
+
 use pallet_balances::{Call as BalancesCall, Error as BalancesError};
 
 pub fn new_test_ext() -> TestState {
@@ -192,6 +198,7 @@ fn timepoint_checking_works() {
 			hash,
 			Weight::zero()
 		));
+		let timepoint = now();
 
 		assert_noop!(
 			Multisig::as_multi(
@@ -204,7 +211,7 @@ fn timepoint_checking_works() {
 			),
 			Error::<Test>::NoTimepoint,
 		);
-		let later = Timepoint { index: 1, ..now() };
+		let later = Timepoint { index: 1, ..timepoint };
 		assert_noop!(
 			Multisig::as_multi(
 				RuntimeOrigin::signed(2),
@@ -238,13 +245,14 @@ fn multisig_2_of_3_works() {
 			hash,
 			Weight::zero()
 		));
+		let timepoint = now();
 		assert_eq!(Balances::free_balance(6), 0);
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(now()),
+			Some(timepoint),
 			call,
 			call_weight
 		));
@@ -271,11 +279,12 @@ fn multisig_3_of_3_works() {
 			hash,
 			Weight::zero()
 		));
+		let timepoint = now();
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
+			Some(timepoint),
 			hash,
 			Weight::zero()
 		));
@@ -285,7 +294,7 @@ fn multisig_3_of_3_works() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(now()),
+			Some(timepoint),
 			call,
 			call_weight
 		));
@@ -424,11 +433,12 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			call.clone(),
 			Weight::zero()
 		));
+		let timepoint1 = now();
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
 			vec![1, 3],
-			Some(now()),
+			Some(timepoint1),
 			call.clone(),
 			call_weight
 		));
@@ -442,11 +452,12 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 			call.clone(),
 			Weight::zero()
 		));
+		let timepoint2 = now();
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(3),
 			2,
 			vec![1, 2],
-			Some(now()),
+			Some(timepoint2),
 			call.clone(),
 			call_weight
 		));
@@ -454,7 +465,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		System::assert_last_event(
 			pallet_multisig::Event::MultisigExecuted {
 				approving: 3,
-				timepoint: now(),
+				timepoint: timepoint2,
 				multisig: multi,
 				call_hash: hash,
 				result: Err(TokenError::FundsUnavailable.into()),
@@ -675,11 +686,12 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			hash,
 			Weight::zero()
 		));
+		let timepoint = now();
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(2),
 			3,
 			vec![1, 3],
-			Some(now()),
+			Some(timepoint),
 			hash,
 			Weight::zero()
 		));
@@ -687,7 +699,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(now()),
+			Some(timepoint),
 			hash,
 			Weight::zero()
 		));
@@ -697,7 +709,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			RuntimeOrigin::signed(3),
 			3,
 			vec![1, 2],
-			Some(now()),
+			Some(timepoint),
 			call,
 			call_weight
 		));

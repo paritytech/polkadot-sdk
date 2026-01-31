@@ -67,6 +67,7 @@ use frame_support::{
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
+use sp_runtime::VersionedCall;
 
 #[cfg(test)]
 mod tests;
@@ -429,7 +430,7 @@ pub mod pallet {
 	/// Actual proposal for a given hash, if it's current.
 	#[pallet::storage]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
+		StorageMap<_, Identity, T::Hash, VersionedCall<<T as Config<I>>::Proposal>, OptionQuery>;
 
 	/// Consideration cost created for publishing and storing a proposal.
 	///
@@ -493,6 +494,8 @@ pub mod pallet {
 		ProposalCostBurned { proposal_hash: T::Hash, who: T::AccountId },
 		/// Some cost for storing a proposal was released.
 		ProposalCostReleased { proposal_hash: T::Hash, who: T::AccountId },
+		/// A proposal's version doesn't match the current runtime version.
+		ProposalVersionMismatch { proposal_hash: T::Hash },
 	}
 
 	#[pallet::error]
@@ -521,6 +524,8 @@ pub mod pallet {
 		PrimeAccountNotMember,
 		/// Proposal is still active.
 		ProposalActive,
+		/// Proposal's transaction version doesn't match current runtime version.
+		ProposalVersionMismatch,
 	}
 
 	#[pallet::hooks]
@@ -908,28 +913,50 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// to update those if this is changed.
 		Members::<T, I>::get().contains(who)
 	}
+	/// Helper to create a versioned proposal
+	fn create_versioned_proposal(
+		proposal: <T as Config<I>>::Proposal,
+	) -> VersionedCall<<T as Config<I>>::Proposal> {
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		VersionedCall::new(proposal, current_version)
+	}
 
 	/// Execute immediately when adding a new proposal.
 	pub fn do_propose_execute(
 		proposal: Box<<T as Config<I>>::Proposal>,
 		length_bound: MemberCount,
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
-		let proposal_len = proposal.encoded_size();
+		let versioned_proposal = Self::create_versioned_proposal(*proposal);
+		let proposal_len = versioned_proposal.encode().len();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().call_weight;
+
+		let inner_proposal = versioned_proposal.call_ref();
+		let proposal_weight = inner_proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		// Validate version before execution
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		versioned_proposal.validate_version(current_version).map_err(|err| {
+			log::warn!(
+				target: LOG_TARGET,
+				"Proposal version mismatch in immediate execution: stored={}, current={}",
+				err.stored,
+				err.current
+			);
+			Error::<T, I>::ProposalVersionMismatch
+		})?;
+
+		let proposal_hash = T::Hashing::hash_of(&versioned_proposal);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
-		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
+		let result = inner_proposal.clone().dispatch(RawOrigin::Members(1, seats).into());
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
-			result: result.map(|_| ()).map_err(|e| e.error),
+			result: result.as_ref().map(|_| ()).map_err(|e| e.error),
 		});
 		Ok((proposal_len as u32, result))
 	}
@@ -941,15 +968,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		proposal: Box<<T as Config<I>>::Proposal>,
 		length_bound: MemberCount,
 	) -> Result<(u32, u32), DispatchError> {
-		let proposal_len = proposal.encoded_size();
+		let versioned_proposal = Self::create_versioned_proposal(*proposal);
+		let proposal_len = versioned_proposal.encode().len();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
-		let proposal_weight = proposal.get_dispatch_info().call_weight;
+
+		let inner_proposal = versioned_proposal.call_ref();
+		let proposal_weight = inner_proposal.get_dispatch_info().call_weight;
 		ensure!(
 			proposal_weight.all_lte(T::MaxProposalWeight::get()),
 			Error::<T, I>::WrongProposalWeight
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash = T::Hashing::hash_of(&versioned_proposal);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let active_proposals =
@@ -966,7 +996,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let index = ProposalCount::<T, I>::get();
 
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
-		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
+		<ProposalOf<T, I>>::insert(proposal_hash, versioned_proposal);
+
 		let votes = {
 			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
@@ -1051,14 +1082,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
 		// Allow (dis-)approving the proposal as soon as there are enough votes.
 		if approved {
-			let (proposal, len) = Self::validate_and_get_proposal(
+			let (versioned_proposal, len) = Self::validate_and_get_proposal(
 				&proposal_hash,
 				length_bound,
 				proposal_weight_bound,
 			)?;
 			Self::deposit_event(Event::Closed { proposal_hash, yes: yes_votes, no: no_votes });
 			let (proposal_weight, proposal_count) =
-				Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
+				Self::do_approve_proposal(seats, yes_votes, proposal_hash, versioned_proposal);
 			return Ok((
 				Some(
 					T::WeightInfo::close_early_approved(len as u32, seats, proposal_count)
@@ -1093,14 +1124,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let approved = yes_votes >= voting.threshold;
 
 		if approved {
-			let (proposal, len) = Self::validate_and_get_proposal(
+			let (versioned_proposal, len) = Self::validate_and_get_proposal(
 				&proposal_hash,
 				length_bound,
 				proposal_weight_bound,
 			)?;
 			Self::deposit_event(Event::Closed { proposal_hash, yes: yes_votes, no: no_votes });
 			let (proposal_weight, proposal_count) =
-				Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
+				Self::do_approve_proposal(seats, yes_votes, proposal_hash, versioned_proposal);
 			Ok((
 				Some(
 					T::WeightInfo::close_approved(len as u32, seats, proposal_count)
@@ -1124,16 +1155,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		hash: &T::Hash,
 		length_bound: u32,
 		weight_bound: Weight,
-	) -> Result<(<T as Config<I>>::Proposal, usize), DispatchError> {
+	) -> Result<(VersionedCall<<T as Config<I>>::Proposal>, usize), DispatchError> {
 		let key = ProposalOf::<T, I>::hashed_key_for(hash);
 		// read the length of the proposal storage entry directly
 		let proposal_len =
 			storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T, I>::ProposalMissing)?;
 		ensure!(proposal_len <= length_bound, Error::<T, I>::WrongProposalLength);
-		let proposal = ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
+
+		let versioned_proposal =
+			ProposalOf::<T, I>::get(hash).ok_or(Error::<T, I>::ProposalMissing)?;
+
+		// Validate version
+		Self::validate_and_extract_proposal(&versioned_proposal)?;
+		let proposal = versioned_proposal.call_ref(); // Get reference for weight check
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		ensure!(proposal_weight.all_lte(weight_bound), Error::<T, I>::WrongProposalWeight);
-		Ok((proposal, proposal_len as usize))
+
+		Ok((versioned_proposal, proposal_len as usize))
+	}
+
+	/// Validate and extract proposal from VersionedCall
+	fn validate_and_extract_proposal(
+		versioned_proposal: &VersionedCall<<T as Config<I>>::Proposal>,
+	) -> Result<<T as Config<I>>::Proposal, DispatchError> {
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
+		match versioned_proposal.validate_version(current_version) {
+			Ok(()) => Ok(versioned_proposal.call_ref().clone()),
+			Err(err) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"Proposal version mismatch: stored={}, current={}",
+					err.stored,
+					err.current
+				);
+				Err(Error::<T, I>::ProposalVersionMismatch.into())
+			},
+		}
 	}
 
 	/// Weight:
@@ -1154,20 +1212,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		seats: MemberCount,
 		yes_votes: MemberCount,
 		proposal_hash: T::Hash,
-		proposal: <T as Config<I>>::Proposal,
+		versioned_proposal: VersionedCall<<T as Config<I>>::Proposal>,
 	) -> (Weight, u32) {
 		Self::deposit_event(Event::Approved { proposal_hash });
+
+		// Validate and extract the proposal
+		let proposal = match Self::validate_and_extract_proposal(&versioned_proposal) {
+			Ok(p) => p,
+			Err(_) => {
+				// Version mismatch - emit event and return
+				Self::deposit_event(Event::ProposalVersionMismatch { proposal_hash });
+				let proposal_count = Self::remove_proposal(proposal_hash);
+				return (Weight::zero(), proposal_count);
+			},
+		};
 
 		let dispatch_weight = proposal.get_dispatch_info().call_weight;
 		let origin = RawOrigin::Members(yes_votes, seats).into();
 		let result = proposal.dispatch(origin);
 		Self::deposit_event(Event::Executed {
 			proposal_hash,
-			result: result.map(|_| ()).map_err(|e| e.error),
+			result: result.as_ref().map(|_| ()).map_err(|e| e.error),
 		});
 		// default to the dispatch info weight for safety
-		let proposal_weight = get_result_weight(result).unwrap_or(dispatch_weight); // P1
-
+		let proposal_weight = get_result_weight(result).unwrap_or(dispatch_weight);
 		let proposal_count = Self::remove_proposal(proposal_hash);
 		(proposal_weight, proposal_count)
 	}

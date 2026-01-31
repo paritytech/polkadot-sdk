@@ -1142,6 +1142,125 @@ impl OpaqueValue {
 	}
 }
 
+/// A call wrapper that includes the transaction version at which it was created.
+///
+/// This prevents issues when a runtime upgrade occurs between when a call is stored
+/// and when it is executed. The version check ensures that calls are only executed
+/// if they match the current transaction version.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(skip_type_params(Call))]
+pub struct VersionedCall<Call> {
+	/// The transaction version when this call was created
+	pub transaction_version: u32,
+	/// The actual call to be executed
+	pub call: Call,
+}
+
+impl<Call> VersionedCall<Call> {
+	/// Create a new VersionedCall with the current transaction version
+	pub fn new(call: Call, transaction_version: u32) -> Self {
+		Self { transaction_version, call }
+	}
+
+	/// Validate that the stored transaction version matches the current version
+	pub fn validate_version(&self, current_version: u32) -> Result<(), VersionMismatchError> {
+		if self.transaction_version == current_version {
+			Ok(())
+		} else {
+			Err(VersionMismatchError { stored: self.transaction_version, current: current_version })
+		}
+	}
+
+	/// Get the inner call if the version matches, otherwise return an error
+	pub fn into_inner(self, current_version: u32) -> Result<Call, VersionMismatchError> {
+		self.validate_version(current_version)?;
+		Ok(self.call)
+	}
+
+	/// Get a reference to the inner call without version validation
+	///
+	/// # Safety
+	/// This should only be used for inspection purposes, not execution
+	pub fn call_ref(&self) -> &Call {
+		&self.call
+	}
+
+	/// Get the transaction version
+	pub fn version(&self) -> u32 {
+		self.transaction_version
+	}
+}
+
+/// Error returned when a VersionedCall's transaction version doesn't match
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+pub struct VersionMismatchError {
+	/// The transaction version stored in the call
+	pub stored: u32,
+	/// The current transaction version
+	pub current: u32,
+}
+
+impl core::fmt::Display for VersionMismatchError {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		write!(
+			f,
+			"Transaction version mismatch: stored version {} does not match current version {}",
+			self.stored, self.current
+		)
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for VersionMismatchError {}
+
+impl<Call: MaxEncodedLen> MaxEncodedLen for VersionedCall<Call> {
+	fn max_encoded_len() -> usize {
+		// u32 version + Call
+		core::mem::size_of::<u32>() + Call::max_encoded_len()
+	}
+}
+
+#[cfg(test)]
+mod testss {
+	use super::*;
+
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+	struct DummyCall {
+		data: u32,
+	}
+
+	#[test]
+	fn versioned_call_validates_correctly() {
+		let call = DummyCall { data: 42 };
+		let versioned = VersionedCall::new(call.clone(), 1);
+
+		// Same version should succeed
+		assert!(versioned.validate_version(1).is_ok());
+		assert_eq!(versioned.clone().into_inner(1).unwrap(), call);
+
+		// Different version should fail
+		assert!(versioned.validate_version(2).is_err());
+		assert!(versioned.into_inner(2).is_err());
+	}
+
+	#[test]
+	fn versioned_call_accessors_work() {
+		let call = DummyCall { data: 42 };
+		let versioned = VersionedCall::new(call.clone(), 1);
+
+		assert_eq!(versioned.version(), 1);
+		assert_eq!(versioned.call_ref(), &call);
+	}
+
+	#[test]
+	fn version_mismatch_error_display() {
+		let error = VersionMismatchError { stored: 1, current: 2 };
+		let display = format!("{}", error);
+		assert!(display.contains("1"));
+		assert!(display.contains("2"));
+	}
+}
+
 // TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
 /// Deprecated `Cow::Borrowed()` wrapper.
 #[macro_export]

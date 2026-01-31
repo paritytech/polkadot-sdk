@@ -54,6 +54,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
+pub mod migrations;
+
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
@@ -69,7 +71,7 @@ use frame_support::{
 pub use pallet::*;
 use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
-	ArithmeticError, Debug, DispatchError,
+	ArithmeticError, Debug, DispatchError, VersionedCall,
 };
 pub use weights::WeightInfo;
 
@@ -96,17 +98,25 @@ pub struct LotteryConfig<BlockNumber, Balance> {
 }
 
 pub trait ValidateCall<T: Config> {
-	fn validate_call(call: &<T as Config>::RuntimeCall) -> bool;
+	fn validate_call(call: &VersionedCall<<T as Config>::RuntimeCall>) -> bool;
 }
 
 impl<T: Config> ValidateCall<T> for () {
-	fn validate_call(_: &<T as Config>::RuntimeCall) -> bool {
+	fn validate_call(_: &VersionedCall<<T as Config>::RuntimeCall>) -> bool {
 		false
 	}
 }
 
 impl<T: Config> ValidateCall<T> for Pallet<T> {
-	fn validate_call(call: &<T as Config>::RuntimeCall) -> bool {
+	fn validate_call(versioned_call: &VersionedCall<<T as Config>::RuntimeCall>) -> bool {
+		// First validate the version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		if versioned_call.validate_version(current_version).is_err() {
+			return false;
+		}
+
+		// Get the inner call
+		let call = versioned_call.call_ref();
 		let valid_calls = CallIndices::<T>::get();
 		let call_index = match Self::call_to_index(call) {
 			Ok(call_index) => call_index,
@@ -201,6 +211,8 @@ pub mod pallet {
 		TooManyCalls,
 		/// Failed to encode calls
 		EncodingFailed,
+		/// The call's transaction version doesn't match the current runtime version.
+		CallVersionMismatch,
 	}
 
 	#[pallet::storage]
@@ -299,14 +311,21 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			T::WeightInfo::buy_ticket()
-				.saturating_add(call.get_dispatch_info().call_weight)
+				.saturating_add(call.call.get_dispatch_info().call_weight)
 		)]
 		pub fn buy_ticket(
 			origin: OriginFor<T>,
-			call: Box<<T as Config>::RuntimeCall>,
+			call: Box<VersionedCall<<T as Config>::RuntimeCall>>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin.clone())?;
-			call.clone().dispatch(origin).map_err(|e| e.error)?;
+
+			// Validate version before dispatching
+			let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+			call.validate_version(current_version)
+				.map_err(|_| Error::<T>::CallVersionMismatch)?;
+
+			let inner_call = call.call_ref().clone();
+			inner_call.dispatch(origin).map_err(|e| e.error)?;
 
 			let _ = Self::do_buy_ticket(&caller, &call);
 			Ok(())
@@ -322,14 +341,27 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_calls(calls.len() as u32))]
 		pub fn set_calls(
 			origin: OriginFor<T>,
-			calls: Vec<<T as Config>::RuntimeCall>,
+			calls: Vec<VersionedCall<<T as Config>::RuntimeCall>>,
 		) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(calls.len() <= T::MaxCalls::get() as usize, Error::<T>::TooManyCalls);
+
+			// Validate all call versions
+			let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+			for versioned_call in calls.iter() {
+				versioned_call
+					.validate_version(current_version)
+					.map_err(|_| Error::<T>::CallVersionMismatch)?;
+			}
+
 			if calls.is_empty() {
 				CallIndices::<T>::kill();
 			} else {
-				let indices = Self::calls_to_indices(&calls)?;
+				// Extract inner calls from VersionedCalls
+				let inner_calls: Vec<<T as Config>::RuntimeCall> =
+					calls.iter().map(|vc| vc.call_ref().clone()).collect();
+
+				let indices = Self::calls_to_indices(&inner_calls)?;
 				CallIndices::<T>::put(indices);
 			}
 			Self::deposit_event(Event::<T>::CallsUpdated);
@@ -435,19 +467,25 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Logic for buying a ticket.
-	fn do_buy_ticket(caller: &T::AccountId, call: &<T as Config>::RuntimeCall) -> DispatchResult {
-		// Check the call is valid lottery
+	fn do_buy_ticket(
+		caller: &T::AccountId,
+		versioned_call: &VersionedCall<<T as Config>::RuntimeCall>,
+	) -> DispatchResult {
 		let config = Lottery::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 		let block_number = frame_system::Pallet::<T>::block_number();
 		ensure!(
 			block_number < config.start.saturating_add(config.length),
 			Error::<T>::AlreadyEnded
 		);
-		ensure!(T::ValidateCall::validate_call(call), Error::<T>::InvalidCall);
+
+		// Validate the call including version check
+		ensure!(T::ValidateCall::validate_call(versioned_call), Error::<T>::InvalidCall);
+
+		let call = versioned_call.call_ref();
 		let call_index = Self::call_to_index(call)?;
 		let ticket_count = TicketsCount::<T>::get();
 		let new_ticket_count = ticket_count.checked_add(1).ok_or(ArithmeticError::Overflow)?;
-		// Try to update the participant status
+
 		Participants::<T>::try_mutate(
 			&caller,
 			|(lottery_index, participating_calls)| -> DispatchResult {

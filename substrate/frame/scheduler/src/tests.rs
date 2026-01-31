@@ -30,6 +30,14 @@ use frame_support::{
 use sp_runtime::traits::Hash;
 use substrate_test_utils::assert_eq_uvec;
 
+fn bound_call(
+	call: RuntimeCall,
+) -> Bounded<VersionedCall<RuntimeCall>, <Test as frame_system::Config>::Hashing> {
+	let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+	let versioned_call = VersionedCall::new(call, current_version);
+	Preimage::bound(versioned_call).expect("Failed to bound versioned call")
+}
+
 #[test]
 #[docify::export]
 fn basic_scheduling_works() {
@@ -48,7 +56,7 @@ fn basic_scheduling_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap()
+			bound_call(call)
 		));
 
 		// `log` runtime call should not have executed yet
@@ -72,8 +80,13 @@ fn scheduling_with_preimages_works() {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
-		let len = call.using_encoded(|x| x.len()) as u32;
+		// Create VersionedCall first
+		let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+		let versioned_call = VersionedCall::new(call.clone(), current_version);
+
+		// Get hash of VersionedCall, not raw call
+		let hash = <Test as frame_system::Config>::Hashing::hash_of(&versioned_call);
+		let len = versioned_call.using_encoded(|x| x.len()) as u32;
 
 		// Important to use here `Bounded::Lookup` to ensure that that the Scheduler can request the
 		// hash from PreImage to dispatch the call
@@ -83,7 +96,7 @@ fn scheduling_with_preimages_works() {
 		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 127, root(), hashed));
 
 		// Register preimage on chain
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), versioned_call.encode()));
 		assert!(Preimage::is_requested(&hash));
 
 		// `log` runtime call should not have executed yet
@@ -91,7 +104,7 @@ fn scheduling_with_preimages_works() {
 		assert!(logger::log().is_empty());
 
 		System::run_to_block::<AllPalletsWithSystem>(4);
-		// preimage should not have been removed when executed by the scheduler
+		// preimage should have been removed when executed by the scheduler
 		assert!(!Preimage::len(&hash).is_some());
 		assert!(!Preimage::is_requested(&hash));
 		// `log` runtime call should have executed at block 4
@@ -115,7 +128,7 @@ fn schedule_after_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap()
+			bound_call(call)
 		));
 		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert!(logger::log().is_empty());
@@ -138,7 +151,7 @@ fn schedule_after_zero_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap()
+			bound_call(call)
 		));
 		// Will trigger on the next block.
 		System::run_to_block::<AllPalletsWithSystem>(3);
@@ -157,11 +170,10 @@ fn periodic_scheduling_works() {
 			Some((3, 3)),
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::log {
+			bound_call(RuntimeCall::Logger(logger::Call::log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		System::run_to_block::<AllPalletsWithSystem>(3);
 		assert!(logger::log().is_empty());
@@ -191,11 +203,10 @@ fn retry_scheduling_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// retry 10 times every 3 blocks
@@ -253,7 +264,7 @@ fn named_retry_scheduling_works() {
 				None,
 				127,
 				root(),
-				Preimage::bound(call).unwrap(),
+				bound_call(call)
 			)
 			.unwrap(),
 			(4, 0)
@@ -308,11 +319,10 @@ fn retry_scheduling_multiple_tasks_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 20,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		// task 42 at #4
 		assert_ok!(Scheduler::do_schedule(
@@ -320,11 +330,10 @@ fn retry_scheduling_multiple_tasks_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
@@ -396,11 +405,10 @@ fn retry_scheduling_multiple_named_tasks_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 20,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		// task 42 at #4
 		assert_ok!(Scheduler::do_schedule_named(
@@ -409,11 +417,10 @@ fn retry_scheduling_multiple_named_tasks_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
@@ -484,11 +491,10 @@ fn retry_scheduling_with_period_works() {
 			Some((3, 6)),
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -628,11 +634,10 @@ fn named_retry_scheduling_with_period_works() {
 			Some((3, 6)),
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -776,11 +781,10 @@ fn retry_scheduling_expires() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// task 42 will be retried 3 times every block
@@ -832,11 +836,10 @@ fn set_retry_bad_origin() {
 			None,
 			127,
 			101.into(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -857,11 +860,10 @@ fn set_named_retry_bad_origin() {
 			None,
 			127,
 			101.into(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -881,11 +883,10 @@ fn set_retry_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -908,11 +909,10 @@ fn set_named_retry_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
@@ -938,11 +938,10 @@ fn retry_periodic_full_cycle() {
 			Some((100, 4)),
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert!(Agenda::<Test>::get(10)[0].is_some());
@@ -1046,14 +1045,8 @@ fn reschedule_works() {
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
 		assert!(!<Test as frame_system::Config>::BaseCallFilter::contains(&call));
 		assert_eq!(
-			Scheduler::do_schedule(
-				DispatchTime::At(4),
-				None,
-				127,
-				root(),
-				Preimage::bound(call).unwrap()
-			)
-			.unwrap(),
+			Scheduler::do_schedule(DispatchTime::At(4), None, 127, root(), bound_call(call))
+				.unwrap(),
 			(4, 0)
 		);
 
@@ -1091,7 +1084,7 @@ fn reschedule_named_works() {
 				None,
 				127,
 				root(),
-				Preimage::bound(call).unwrap(),
+				bound_call(call)
 			)
 			.unwrap(),
 			(4, 0)
@@ -1131,7 +1124,7 @@ fn reschedule_named_periodic_works() {
 				Some((3, 3)),
 				127,
 				root(),
-				Preimage::bound(call).unwrap(),
+				bound_call(call)
 			)
 			.unwrap(),
 			(4, 0)
@@ -1178,11 +1171,10 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+			bound_call(RuntimeCall::Logger(LoggerCall::log {
 				i: 69,
 				weight: Weight::from_parts(10, 0),
-			}))
-			.unwrap(),
+			})),
 		)
 		.unwrap();
 		let i = Scheduler::do_schedule(
@@ -1190,11 +1182,10 @@ fn cancel_named_scheduling_works_with_normal_cancel() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+			bound_call(RuntimeCall::Logger(LoggerCall::log {
 				i: 42,
 				weight: Weight::from_parts(10, 0),
-			}))
-			.unwrap(),
+			})),
 		)
 		.unwrap();
 		System::run_to_block::<AllPalletsWithSystem>(3);
@@ -1216,11 +1207,10 @@ fn cancel_named_periodic_scheduling_works() {
 			Some((3, 3)),
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+			bound_call(RuntimeCall::Logger(LoggerCall::log {
 				i: 42,
 				weight: Weight::from_parts(10, 0),
-			}))
-			.unwrap(),
+			})),
 		)
 		.unwrap();
 		// same id results in error.
@@ -1230,11 +1220,10 @@ fn cancel_named_periodic_scheduling_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+			bound_call(RuntimeCall::Logger(LoggerCall::log {
 				i: 69,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap(),
 		)
 		.is_err());
 		// different id is ok.
@@ -1244,11 +1233,10 @@ fn cancel_named_periodic_scheduling_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+			bound_call(RuntimeCall::Logger(LoggerCall::log {
 				i: 69,
 				weight: Weight::from_parts(10, 0),
-			}))
-			.unwrap(),
+			})),
 		)
 		.unwrap();
 		System::run_to_block::<AllPalletsWithSystem>(3);
@@ -1272,7 +1260,7 @@ fn scheduler_respects_weight_limits() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 3 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1280,7 +1268,7 @@ fn scheduler_respects_weight_limits() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		// 69 and 42 do not fit together
 		System::run_to_block::<AllPalletsWithSystem>(4);
@@ -1301,7 +1289,7 @@ fn retry_respects_weight_limits() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		// schedule 20 with a call that will fail until we reach block 8
 		Threshold::<Test>::put((8, 100));
@@ -1311,7 +1299,7 @@ fn retry_respects_weight_limits() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		// set a retry config for 20 for 10 retries every block
 		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
@@ -1381,7 +1369,7 @@ fn try_schedule_retry_respects_weight_limits() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		// set a retry config for 20 for 10 retries every block
 		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
@@ -1413,7 +1401,7 @@ fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
 		// Fill block 7 (4 + retry_period) to capacity with dummy tasks.
 		let filler_call =
 			RuntimeCall::Logger(LoggerCall::log { i: 99, weight: Weight::from_parts(10, 0) });
-		let filler_bound = Preimage::bound(filler_call).unwrap();
+		let filler_bound = bound_call(filler_call);
 		for _ in 0..max {
 			assert_ok!(Scheduler::do_schedule(
 				DispatchTime::At(4 + retry_period),
@@ -1435,7 +1423,7 @@ fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
 				None,
 				127,
 				root(),
-				Preimage::bound(failing_call).unwrap(),
+				bound_call(failing_call),
 			));
 			// Set retry config for named task.
 			assert_ok!(Scheduler::set_retry_named(root().into(), task_name, 10, retry_period));
@@ -1445,7 +1433,7 @@ fn schedule_retry_fails_when_retry_target_block_is_full(named: bool) {
 				None,
 				127,
 				root(),
-				Preimage::bound(failing_call).unwrap(),
+				bound_call(failing_call),
 			));
 			// Set retry config for anonymous task.
 			assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, retry_period));
@@ -1497,7 +1485,7 @@ fn scheduler_does_not_delete_permanently_overweight_call() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call)
 		));
 		// Never executes.
 		System::run_to_block::<AllPalletsWithSystem>(100);
@@ -1520,7 +1508,7 @@ fn scheduler_handles_periodic_failure() {
 		let max_per_block = <Test as Config>::MaxScheduledPerBlock::get();
 
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
@@ -1561,8 +1549,13 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: (max_weight / 3) * 2 });
-		let hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
-		let len = call.using_encoded(|x| x.len()) as u32;
+
+		// Create VersionedCall first
+		let current_version = <frame_system::Pallet<Test>>::runtime_version().transaction_version;
+		let versioned_call = VersionedCall::new(call.clone(), current_version);
+
+		let hash = <Test as frame_system::Config>::Hashing::hash_of(&versioned_call);
+		let len = versioned_call.using_encoded(|x| x.len()) as u32;
 		// Important to use here `Bounded::Lookup` to ensure that we request the hash.
 		let bound = Bounded::Lookup { hash, len };
 		// The preimage isn't requested yet.
@@ -1579,8 +1572,8 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 		// The preimage is requested.
 		assert!(Preimage::is_requested(&hash));
 
-		// Note the preimage.
-		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), call.encode()));
+		// Note the preimage as VersionedCall
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(1), versioned_call.encode()));
 
 		// Executes 1 times till block 4.
 		System::run_to_block::<AllPalletsWithSystem>(4);
@@ -1606,21 +1599,9 @@ fn scheduler_respects_priority_ordering() {
 	new_test_ext().execute_with(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight / 3 });
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			1,
-			root(),
-			Preimage::bound(call).unwrap(),
-		));
+		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 1, root(), bound_call(call),));
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 3 });
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			0,
-			root(),
-			Preimage::bound(call).unwrap(),
-		));
+		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 0, root(), bound_call(call),));
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_eq!(logger::log(), vec![(root(), 69u32), (root(), 42u32)]);
 	});
@@ -1636,7 +1617,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 			None,
 			255,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 69, weight: max_weight / 5 * 2 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1644,7 +1625,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 		let call = RuntimeCall::Logger(LoggerCall::log { i: 2600, weight: max_weight / 5 * 4 });
 		assert_ok!(Scheduler::do_schedule(
@@ -1652,7 +1633,7 @@ fn scheduler_respects_priority_ordering_with_soft_deadlines() {
 			None,
 			126,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 
 		// 2600 does not fit with 69 or 42, but has higher priority, so will go through
@@ -1680,7 +1661,7 @@ fn on_initialize_weight_is_correct() {
 			None,
 			255,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 		let call = RuntimeCall::Logger(LoggerCall::log {
 			i: 42,
@@ -1692,7 +1673,7 @@ fn on_initialize_weight_is_correct() {
 			Some((1000, 3)),
 			128,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 		let call = RuntimeCall::Logger(LoggerCall::log {
 			i: 69,
@@ -1704,7 +1685,7 @@ fn on_initialize_weight_is_correct() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 		// Named Periodic
 		let call = RuntimeCall::Logger(LoggerCall::log {
@@ -1717,7 +1698,7 @@ fn on_initialize_weight_is_correct() {
 			Some((1000, 3)),
 			126,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 
 		// Will include the named periodic only
@@ -1964,11 +1945,10 @@ fn cancel_removes_retry_entry() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 20,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		// named task 42 at #4
 		assert_ok!(Scheduler::do_schedule_named(
@@ -1977,11 +1957,10 @@ fn cancel_removes_retry_entry() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
@@ -2039,11 +2018,10 @@ fn cancel_retries_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 20,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 		// named task 42 at #4
 		assert_ok!(Scheduler::do_schedule_named(
@@ -2052,11 +2030,10 @@ fn cancel_retries_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+			bound_call(RuntimeCall::Logger(logger::Call::timed_log {
 				i: 42,
 				weight: Weight::from_parts(10, 0)
 			}))
-			.unwrap()
 		));
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
@@ -2121,11 +2098,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: None,
 						priority: 10,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 96,
 							weight: Weight::from_parts(100, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: None,
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2134,11 +2110,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: Some(blake2_256(&b"test"[..])),
 						priority: 123,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 69,
 							weight: Weight::from_parts(10, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2151,11 +2126,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: None,
 						priority: 11,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 96,
 							weight: Weight::from_parts(100, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: None,
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2164,11 +2138,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: Some(blake2_256(&b"test"[..])),
 						priority: 123,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 69,
 							weight: Weight::from_parts(10, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2181,11 +2154,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: None,
 						priority: 12,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 96,
 							weight: Weight::from_parts(100, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: None,
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2194,11 +2166,10 @@ fn migration_to_v4_works() {
 					Some(ScheduledOf::<Test> {
 						maybe_id: Some(blake2_256(&b"test"[..])),
 						priority: 123,
-						call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+						call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 							i: 69,
 							weight: Weight::from_parts(10, 0),
-						}))
-						.unwrap(),
+						})),
 						maybe_periodic: Some((456u64, 10)),
 						origin: root(),
 						_phantom: PhantomData::<u64>::default(),
@@ -2239,11 +2210,10 @@ fn test_migrate_origin() {
 				Some(Scheduled {
 					maybe_id: None,
 					priority: i as u8 + 10,
-					call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+					call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 						i: 96,
 						weight: Weight::from_parts(100, 0),
-					}))
-					.unwrap(),
+					})),
 					origin: 3u32,
 					maybe_periodic: None,
 					_phantom: Default::default(),
@@ -2253,11 +2223,10 @@ fn test_migrate_origin() {
 					maybe_id: Some(blake2_256(&b"test"[..])),
 					priority: 123,
 					origin: 2u32,
-					call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+					call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 						i: 69,
 						weight: Weight::from_parts(10, 0),
-					}))
-					.unwrap(),
+					})),
 					maybe_periodic: Some((456u64, 10)),
 					_phantom: Default::default(),
 				}),
@@ -2276,11 +2245,10 @@ fn test_migrate_origin() {
 						Some(ScheduledOf::<Test> {
 							maybe_id: None,
 							priority: 10,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 96,
 								weight: Weight::from_parts(100, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2289,11 +2257,10 @@ fn test_migrate_origin() {
 						Some(Scheduled {
 							maybe_id: Some(blake2_256(&b"test"[..])),
 							priority: 123,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 69,
 								weight: Weight::from_parts(10, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2306,11 +2273,10 @@ fn test_migrate_origin() {
 						Some(Scheduled {
 							maybe_id: None,
 							priority: 11,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 96,
 								weight: Weight::from_parts(100, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2319,11 +2285,10 @@ fn test_migrate_origin() {
 						Some(Scheduled {
 							maybe_id: Some(blake2_256(&b"test"[..])),
 							priority: 123,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 69,
 								weight: Weight::from_parts(10, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2336,11 +2301,10 @@ fn test_migrate_origin() {
 						Some(Scheduled {
 							maybe_id: None,
 							priority: 12,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 96,
 								weight: Weight::from_parts(100, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: None,
 							origin: system::RawOrigin::Root.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2349,11 +2313,10 @@ fn test_migrate_origin() {
 						Some(Scheduled {
 							maybe_id: Some(blake2_256(&b"test"[..])),
 							priority: 123,
-							call: Preimage::bound(RuntimeCall::Logger(LoggerCall::log {
+							call: bound_call(RuntimeCall::Logger(LoggerCall::log {
 								i: 69,
 								weight: Weight::from_parts(10, 0)
-							}))
-							.unwrap(),
+							})),
 							maybe_periodic: Some((456u64, 10)),
 							origin: system::RawOrigin::None.into(),
 							_phantom: PhantomData::<u64>::default(),
@@ -2455,7 +2418,7 @@ fn scheduler_v3_anon_basic_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 
@@ -2477,7 +2440,7 @@ fn scheduler_v3_anon_cancel_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 
 		// Schedule a call.
 		let address = <Scheduler as Anon<_, _, _>>::schedule(
@@ -2511,7 +2474,7 @@ fn scheduler_v3_anon_reschedule_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 
@@ -2551,7 +2514,7 @@ fn scheduler_v3_anon_next_schedule_time_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 
 		// Schedule a call.
 		let address = <Scheduler as Anon<_, _, _>>::schedule(
@@ -2588,7 +2551,7 @@ fn scheduler_v3_anon_reschedule_and_next_schedule_time_work() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 
 		// Schedule a call.
 		let old_address = <Scheduler as Anon<_, _, _>>::schedule(
@@ -2630,7 +2593,7 @@ fn scheduler_v3_anon_schedule_agenda_overflows() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 
 		// Schedule the maximal number allowed per block.
 		for _ in 0..max {
@@ -2666,7 +2629,7 @@ fn scheduler_v3_anon_cancel_and_schedule_fills_holes() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 		let mut addrs = Vec::<_>::default();
 
 		// Schedule the maximal number allowed per block.
@@ -2715,7 +2678,7 @@ fn scheduler_v3_anon_reschedule_fills_holes() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 		let mut addrs = Vec::<_>::default();
 
 		// Schedule the maximal number allowed per block.
@@ -2768,7 +2731,7 @@ fn scheduler_v3_named_basic_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 
@@ -2791,7 +2754,7 @@ fn scheduler_v3_named_cancel_named_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 		let name = [1u8; 32];
 
 		// Schedule a call.
@@ -2823,7 +2786,7 @@ fn scheduler_v3_named_cancel_without_name_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 		let name = [1u8; 32];
 
 		// Schedule a call.
@@ -2864,7 +2827,7 @@ fn scheduler_v3_named_reschedule_named_works() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 
@@ -2914,7 +2877,7 @@ fn scheduler_v3_named_next_schedule_time_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = bound_call(call);
 		let name = [1u8; 32];
 
 		// Schedule a call.
@@ -2964,17 +2927,12 @@ fn cancel_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call.clone()).unwrap(),
+			bound_call(call.clone()),
 		)
 		.unwrap();
-		let address2 = Scheduler::do_schedule(
-			DispatchTime::At(when),
-			None,
-			127,
-			root(),
-			Preimage::bound(call).unwrap(),
-		)
-		.unwrap();
+		let address2 =
+			Scheduler::do_schedule(DispatchTime::At(when), None, 127, root(), bound_call(call))
+				.unwrap();
 		// two tasks at agenda.
 		assert!(Agenda::<Test>::get(when).len() == 2);
 		assert_ok!(Scheduler::do_cancel(None, address));
@@ -2999,7 +2957,7 @@ fn cancel_named_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call.clone()).unwrap(),
+			bound_call(call.clone()),
 		)
 		.unwrap();
 		Scheduler::do_schedule_named(
@@ -3008,7 +2966,7 @@ fn cancel_named_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 		// two tasks at agenda.
@@ -3034,17 +2992,12 @@ fn reschedule_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call.clone()).unwrap(),
+			bound_call(call.clone()),
 		)
 		.unwrap();
-		let address2 = Scheduler::do_schedule(
-			DispatchTime::At(when),
-			None,
-			127,
-			root(),
-			Preimage::bound(call).unwrap(),
-		)
-		.unwrap();
+		let address2 =
+			Scheduler::do_schedule(DispatchTime::At(when), None, 127, root(), bound_call(call))
+				.unwrap();
 		// two tasks at agenda.
 		assert!(Agenda::<Test>::get(when).len() == 2);
 		assert_ok!(Scheduler::do_cancel(None, address));
@@ -3072,7 +3025,7 @@ fn reschedule_named_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call.clone()).unwrap(),
+			bound_call(call.clone()),
 		)
 		.unwrap();
 		Scheduler::do_schedule_named(
@@ -3081,7 +3034,7 @@ fn reschedule_named_last_task_removes_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		)
 		.unwrap();
 		// two tasks at agenda.
@@ -3262,7 +3215,7 @@ fn not_permanently_overweight_when_task_from_not_first_agenda() {
 			None,
 			127,
 			root(),
-			Preimage::bound(call).unwrap(),
+			bound_call(call),
 		));
 
 		// scheduler `on_initialize` was not triggered at blocks `[now, schedule_at + 5)`.

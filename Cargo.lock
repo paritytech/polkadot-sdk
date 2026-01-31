@@ -12626,12 +12626,14 @@ dependencies = [
  "frame-support",
  "frame-support-test",
  "frame-system",
+ "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "sp-version",
 ]
 
 [[package]]
@@ -12778,6 +12780,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -13422,6 +13425,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "sp-version",
  "sp-weights",
  "substrate-test-utils",
 ]
