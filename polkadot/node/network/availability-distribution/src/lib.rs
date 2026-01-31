@@ -46,6 +46,7 @@ use responder::{run_chunk_receivers, run_pov_receiver};
 mod metrics;
 /// Prometheus `Metrics` for availability distribution.
 pub use metrics::Metrics;
+use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
 
 #[cfg(test)]
 mod tests;
@@ -53,9 +54,10 @@ mod tests;
 const LOG_TARGET: &'static str = "parachain::availability-distribution";
 
 /// The availability distribution subsystem.
-pub struct AvailabilityDistributionSubsystem {
+pub struct AvailabilityDistributionSubsystem<AD> {
 	/// Easy and efficient runtime access for this subsystem.
 	runtime: RuntimeInfo,
+	authority_discovery_service: AD,
 	/// Receivers to receive messages from.
 	recvs: IncomingRequestReceivers,
 	/// Mapping of the req-response protocols to the full protocol names.
@@ -75,7 +77,10 @@ pub struct IncomingRequestReceivers {
 }
 
 #[overseer::subsystem(AvailabilityDistribution, error=SubsystemError, prefix=self::overseer)]
-impl<Context> AvailabilityDistributionSubsystem {
+impl<AD, Context> AvailabilityDistributionSubsystem<AD>
+where
+	AD: AuthorityDiscovery + Clone + Sync,
+{
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self
 			.run(ctx)
@@ -87,21 +92,26 @@ impl<Context> AvailabilityDistributionSubsystem {
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
-impl AvailabilityDistributionSubsystem {
+impl<AD> AvailabilityDistributionSubsystem<AD>
+where
+	AD: AuthorityDiscovery + Clone + Sync,
+{
 	/// Create a new instance of the availability distribution.
 	pub fn new(
 		keystore: KeystorePtr,
 		recvs: IncomingRequestReceivers,
 		req_protocol_names: ReqProtocolNames,
+		authority_discovery_service: AD,
 		metrics: Metrics,
 	) -> Self {
 		let runtime = RuntimeInfo::new(Some(keystore));
-		Self { runtime, recvs, req_protocol_names, metrics }
+		Self { runtime, authority_discovery_service, recvs, req_protocol_names, metrics }
 	}
 
 	/// Start processing work as passed on from the Overseer.
 	async fn run<Context>(self, mut ctx: Context) -> std::result::Result<(), FatalError> {
-		let Self { mut runtime, recvs, metrics, req_protocol_names } = self;
+		let Self { mut runtime, authority_discovery_service, recvs, metrics, req_protocol_names } =
+			self;
 
 		let IncomingRequestReceivers {
 			pov_req_receiver,
@@ -123,6 +133,7 @@ impl AvailabilityDistributionSubsystem {
 				"chunk-receiver",
 				run_chunk_receivers(
 					sender,
+					authority_discovery_service,
 					chunk_req_v1_receiver,
 					chunk_req_v2_receiver,
 					metrics.clone(),

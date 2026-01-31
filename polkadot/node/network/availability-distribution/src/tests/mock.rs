@@ -16,21 +16,24 @@
 
 //! Helper functions and tools to generate mock data useful for testing this subsystem.
 
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
-use sp_keyring::Sr25519Keyring;
-
+use async_trait::async_trait;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
+use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
 use polkadot_primitives::{
-	CandidateCommitments, CandidateHash, ChunkIndex, CommittedCandidateReceiptV2, GroupIndex, Hash,
-	HeadData, Id as ParaId, IndexedVec, OccupiedCore, PersistedValidationData, SessionInfo,
-	ValidatorIndex,
+	AuthorityDiscoveryId, CandidateCommitments, CandidateHash, ChunkIndex,
+	CommittedCandidateReceiptV2, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
+	OccupiedCore, PersistedValidationData, SessionInfo, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, dummy_validation_code,
 	CandidateDescriptor, CommittedCandidateReceipt,
 };
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
+use sp_keyring::Sr25519Keyring;
 
 /// Create dummy session info with two validator groups.
 pub fn make_session_info() -> SessionInfo {
@@ -159,8 +162,29 @@ pub fn get_valid_chunk_data(
 			chunk: chunk.to_vec(),
 			index: ChunkIndex(index as _),
 			proof: Proof::try_from(proof).unwrap(),
+			session_index: None,
 		})
 		.nth(chunk_index.0 as usize)
 		.expect("There really should be enough chunks.");
 	(root, chunk)
+}
+
+#[derive(Debug, Clone)]
+pub struct MockEmptyAuthorityDiscovery;
+
+#[async_trait]
+impl AuthorityDiscovery for MockEmptyAuthorityDiscovery {
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		_authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
+		None
+	}
+
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		_peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		None
+	}
 }

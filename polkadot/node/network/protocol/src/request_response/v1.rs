@@ -82,7 +82,7 @@ pub struct ChunkResponse {
 }
 
 impl From<ErasureChunk> for ChunkResponse {
-	fn from(ErasureChunk { chunk, index: _, proof }: ErasureChunk) -> Self {
+	fn from(ErasureChunk { chunk, index: _, proof, session_index: _ }: ErasureChunk) -> Self {
 		ChunkResponse { chunk, proof }
 	}
 }
@@ -90,7 +90,12 @@ impl From<ErasureChunk> for ChunkResponse {
 impl ChunkResponse {
 	/// Re-build an `ErasureChunk` from response and request.
 	pub fn recombine_into_chunk(self, req: &ChunkFetchingRequest) -> ErasureChunk {
-		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index.into() }
+		ErasureChunk {
+			chunk: self.chunk,
+			proof: self.proof,
+			index: req.index.into(),
+			session_index: None,
+		}
 	}
 }
 

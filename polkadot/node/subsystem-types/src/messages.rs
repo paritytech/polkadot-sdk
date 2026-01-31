@@ -1471,3 +1471,25 @@ pub enum ProspectiveParachainsMessage {
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
 }
+
+/// Messages sent to the Statistics Collector subsystem.
+#[derive(Debug)]
+pub enum RewardsStatisticsCollectorMessage {
+	/// After retrieving chunks from validators we should collect
+	/// how many chunks we have downloaded and who provided
+	ChunksDownloaded(SessionIndex, HashMap<ValidatorIndex, u64>),
+
+	/// Uploading chunks to some validator after his request
+	/// we have the set of authority discovery id for the peer who
+	/// requested the chunk, and the session where the chunk belongs to
+	ChunkUploaded(SessionIndex, HashSet<AuthorityDiscoveryId>),
+
+	/// Candidate received enough approval from the validators,
+	/// and we receive the set of validators for which the approvals
+	/// effectively count in for the candidate approval
+	CandidateApproved(Hash, BlockNumber, Vec<ValidatorIndex>),
+
+	/// Set of candidates who was supposed to issue approvals for
+	/// a given candidate but was not sent or delivered in time
+	NoShows(Hash, BlockNumber, Vec<ValidatorIndex>),
+}
