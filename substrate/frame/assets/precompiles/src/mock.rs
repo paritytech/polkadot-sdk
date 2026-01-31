@@ -21,8 +21,6 @@ pub use super::*;
 use frame_support::{derive_impl, traits::AsEnsureOriginWithArg};
 use sp_runtime::BuildStorage;
 
-type Block = frame_system::mocking::MockBlock<Test>;
-
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -45,7 +43,11 @@ mod runtime {
 	pub type Assets = pallet_assets;
 	#[runtime::pallet_index(21)]
 	pub type Revive = pallet_revive;
+	#[runtime::pallet_index(22)]
+	pub type ForeignAssets = super::foreign_assets;
 }
+
+type Block = frame_system::mocking::MockBlock<Test>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -65,12 +67,17 @@ impl pallet_assets::Config for Test {
 	type Currency = Balances;
 }
 
+impl foreign_assets::pallet::Config for Test {
+	type ForeignAssetId = u32;
+}
+
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Balance = u64;
 	type Currency = Balances;
-	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
+	type Precompiles =
+		(ERC20<Self, InlineIdConfig<0x0120>>, ERC20<Self, ForeignIdConfig<0x0220, Self>>);
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
