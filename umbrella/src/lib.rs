@@ -779,6 +779,10 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME vaults pallet.
+#[cfg(feature = "pallet-vaults")]
+pub use pallet_vaults;
+
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
 pub use pallet_verify_signature;
@@ -1391,6 +1395,10 @@ pub use sp_offchain;
 /// Custom panic hook with bug report link.
 #[cfg(feature = "sp-panic-handler")]
 pub use sp_panic_handler;
+
+/// pUSD primitives and traits.
+#[cfg(feature = "sp-pusd")]
+pub use sp_pusd;
 
 /// Substrate RPC primitives and utilities.
 #[cfg(feature = "sp-rpc")]

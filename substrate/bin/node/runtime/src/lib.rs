@@ -32,7 +32,7 @@ use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
-use polkadot_sdk::*;
+use polkadot_sdk::{cumulus_primitives_core::Location, *};
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -2865,6 +2865,9 @@ mod runtime {
 	#[runtime::pallet_index(85)]
 	pub type Oracle = pallet_oracle::Pallet<Runtime>;
 
+	#[runtime::pallet_index(86)]
+	pub type Vaults = pallet_vaults::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -3040,6 +3043,183 @@ impl pallet_oracle::Config for Runtime {
 	type BenchmarkHelper = OracleBenchmarkingHelper;
 }
 
+parameter_types! {
+	/// The pUSD stablecoin asset ID.
+	pub const VaultsStablecoinAssetId: u32 = 1;
+	/// DOT collateral location.
+	pub VaultsCollateralLocation: Location = Location::here();
+	/// Maximum vaults to process in on_idle per block.
+	pub const VaultsMaxOnIdleItems: u32 = 16;
+}
+
+/// Insurance fund account that receives protocol revenue (interest and penalties).
+pub struct InsuranceFundAccount;
+impl frame_support::traits::Get<AccountId> for InsuranceFundAccount {
+	fn get() -> AccountId {
+		// Use a deterministic insurance fund account
+		sp_runtime::traits::AccountIdConversion::<AccountId>::into_account_truncating(
+			&frame_support::PalletId(*b"py/insur"),
+		)
+	}
+}
+
+/// Mock oracle adapter that provides a fixed price for now.
+///
+/// This adapter implements `ProvidePrice` with a hardcoded DOT price.
+/// For production, replace this with a real oracle integration.
+///
+/// **Price format (normalized):** smallest_pUSD_units / smallest_collateral_unit
+///
+/// Default DOT price: $4.21 normalized for DOT (10 decimals) and pUSD (6 decimals)
+/// Price = 4.21 * 10^6 / 10^10 = 0.000421
+/// As FixedU128: 421_000_000_000_000 (0.000421 * 10^18)
+pub const DEFAULT_DOT_PRICE: u128 = 421_000_000_000_000;
+
+#[cfg(feature = "runtime-benchmarks")]
+frame_support::parameter_types! {
+	/// Storage for benchmark price override.
+	/// When set, MockOracleAdapter will use this price instead of the default.
+	pub storage BenchmarkOraclePrice: Option<FixedU128> = None;
+}
+
+/// Example calculation for DOT at $4.21:
+/// - DOT has 10 decimals, pUSD has 6 decimals
+/// - 1 DOT = 4.21 pUSD
+/// - Normalized price = 4.21 × 10^6 / 10^10 = 0.000421
+/// - As FixedU128 (18 decimals): 0.000421 × 10^18 = 421_000_000_000_000
+pub struct MockOracleAdapter;
+impl pallet_vaults::ProvidePrice for MockOracleAdapter {
+	type Moment = u64;
+
+	fn get_price(asset: &Location) -> Option<(FixedU128, Self::Moment)> {
+		// Only support DOT (native asset) for now
+		if *asset != Location::here() {
+			return None;
+		}
+
+		// Check for benchmark price override
+		#[cfg(feature = "runtime-benchmarks")]
+		let price = BenchmarkOraclePrice::get().unwrap_or(FixedU128::from_inner(DEFAULT_DOT_PRICE));
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		let price = FixedU128::from_inner(DEFAULT_DOT_PRICE);
+
+		// Use current timestamp from the Timestamp pallet
+		let now = <Timestamp as frame_support::traits::Time>::now();
+
+		Some((price, now))
+	}
+}
+
+/// Stub implementation for the Auctions handler.
+///
+/// This is a placeholder until a proper Auctions pallet is implemented.
+/// Currently, liquidations will fail with `Unimplemented` error.
+///
+/// TODO: Replace with actual pallet_auctions integration when available.
+pub struct AuctionAdapter;
+impl pallet_vaults::AuctionsHandler<AccountId, Balance> for AuctionAdapter {
+	fn start_auction(
+		_vault_owner: AccountId,
+		_collateral_amount: Balance,
+		_debt: sp_pusd::DebtComponents<Balance>,
+		_keeper: AccountId,
+	) -> Result<u32, frame_support::pallet_prelude::DispatchError> {
+		// During benchmarks, return success to allow liquidation benchmarks to complete
+		#[cfg(feature = "runtime-benchmarks")]
+		return Ok(1);
+
+		// TODO: Implement actual auction logic when pallet_auctions is available
+		// For now, liquidations are disabled
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		Err(frame_support::pallet_prelude::DispatchError::Other("Auctions not yet implemented"))
+	}
+}
+
+/// EnsureOrigin implementation for vaults management that supports privilege levels.
+///
+/// - Root origin → `VaultsManagerLevel::Full` (can modify all parameters)
+///
+/// TODO: In the future, this can be extended to support Emergency privilege level
+/// via a (new) specific governance origin that can only lower the debt ceiling.
+pub struct EnsureVaultsManager;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureVaultsManager {
+	type Success = pallet_vaults::VaultsManagerLevel;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		use frame_system::RawOrigin;
+
+		match o.clone().into() {
+			Ok(RawOrigin::Root) => Ok(pallet_vaults::VaultsManagerLevel::Full),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+/// Benchmark helper for the Vaults pallet.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct VaultsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_vaults::BenchmarkHelper<u32> for VaultsBenchmarkHelper {
+	fn create_stablecoin_asset(asset_id: u32) {
+		use frame_support::traits::fungibles::Create;
+
+		// Ensure the owner account exists
+		let owner = InsuranceFundAccount::get();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&owner);
+
+		// Create the asset if it doesn't exist (ignore errors if already exists)
+		let _ = <Assets as Create<AccountId>>::create(
+			asset_id,
+			owner.clone(),
+			true, // is_sufficient
+			1,    // min_balance
+		);
+	}
+
+	fn advance_time(millis: u64) {
+		let current = pallet_timestamp::Now::<Runtime>::get();
+		let new_time = current.saturating_add(millis);
+		pallet_timestamp::Now::<Runtime>::put(new_time);
+	}
+
+	fn set_price(price: sp_runtime::FixedU128) {
+		BenchmarkOraclePrice::set(&Some(price));
+		log::info!(
+			target: "runtime::vaults::benchmark",
+			"set_price: {:?}",
+			price
+		);
+	}
+}
+
+/// Configure the Vaults pallet.
+impl pallet_vaults::Config for Runtime {
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Asset = Assets;
+	type AssetId = u32;
+	type StablecoinAssetId = VaultsStablecoinAssetId;
+	type InsuranceFund = InsuranceFundAccount;
+	type FeeHandler = ResolveTo<TreasuryAccount, Balances>;
+	type SurplusHandler = ResolveAssetTo<TreasuryAccount, Assets>;
+	type TimeProvider = Timestamp;
+	type ManagerOrigin = EnsureVaultsManager;
+	type MaxOnIdleItems = VaultsMaxOnIdleItems;
+	type Oracle = MockOracleAdapter;
+	type CollateralLocation = VaultsCollateralLocation;
+	type AuctionsHandler = AuctionAdapter;
+	type WeightInfo = pallet_vaults::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = VaultsBenchmarkHelper;
+}
+
 /// MMR helper types.
 mod mmr {
 	use super::*;
@@ -3177,6 +3357,7 @@ mod benches {
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
+		[pallet_vaults, Vaults]
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
