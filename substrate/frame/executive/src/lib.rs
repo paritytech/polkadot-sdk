@@ -133,6 +133,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	generic::Digest,
+	nested_mem,
 	traits::{
 		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, LazyBlock, NumberFor, One,
 		ValidateUnsigned, Zero,
@@ -333,88 +334,94 @@ where
 		signature_check: bool,
 		select: frame_try_runtime::TryStateSelect,
 	) -> Result<Weight, ExecutiveError> {
-		log::info!(
-			target: LOG_TARGET,
-			"try-runtime: executing block #{:?} / state root check: {:?} / signature check: {:?} / try-state-select: {:?}",
-			block.header().number(),
-			state_root_check,
-			signature_check,
-			select,
-		);
+		nested_mem::using_limiter_once(|| {
+			log::info!(
+				target: LOG_TARGET,
+				"try-runtime: executing block #{:?} / state root check: {:?} / signature check: {:?} / try-state-select: {:?}",
+				block.header().number(),
+				state_root_check,
+				signature_check,
+				select,
+			);
 
-		let mode = Self::initialize_block(block.header());
-		Self::initial_checks(block.header());
+			let mode = Self::initialize_block(block.header());
+			Self::initial_checks(block.header());
 
-		// Apply extrinsics:
-		let signature_check = if signature_check {
-			Block::Extrinsic::check
-		} else {
-			Block::Extrinsic::unchecked_into_checked_i_know_what_i_am_doing
-		};
-		Self::apply_extrinsics(mode, block.extrinsics(), |uxt, is_inherent| {
-			Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
-		})?;
+			// Apply extrinsics:
+			let signature_check = if signature_check {
+				Block::Extrinsic::check
+			} else {
+				Block::Extrinsic::unchecked_into_checked_i_know_what_i_am_doing
+			};
+			Self::apply_extrinsics(mode, block.extrinsics(), |uxt, is_inherent| {
+				Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
+			})?;
 
-		// In this case there were no transactions to trigger this state transition:
-		if !<frame_system::Pallet<System>>::inherents_applied() {
-			Self::inherents_applied();
-		}
-
-		// post-extrinsics book-keeping
-		<frame_system::Pallet<System>>::note_finished_extrinsics();
-		<System as frame_system::Config>::PostTransactions::post_transactions();
-
-		let header = block.header();
-		Self::on_idle_hook(*header.number());
-		Self::on_finalize_hook(*header.number());
-
-		// run the try-state checks of all pallets, ensuring they don't alter any state.
-		let _guard = frame_support::StorageNoopGuard::default();
-		<AllPalletsWithSystem as frame_support::traits::TryState<
-			BlockNumberFor<System>,
-		>>::try_state(*header.number(), select.clone())
-		.map_err(|e| {
-			log::error!(target: LOG_TARGET, "failure: {:?}", e);
-			ExecutiveError::Custom(e.into())
-		})?;
-		if select.any() {
-			let res = AllPalletsWithSystem::try_decode_entire_state();
-			Self::log_decode_result(res).map_err(|e| ExecutiveError::Custom(e.into()))?;
-		}
-		drop(_guard);
-
-		// do some of the checks that would normally happen in `final_checks`, but perhaps skip
-		// the state root check.
-		{
-			let new_header = <frame_system::Pallet<System>>::finalize();
-			let items_zip = header.digest().logs().iter().zip(new_header.digest().logs().iter());
-			for (header_item, computed_item) in items_zip {
-				header_item.check_equal(computed_item);
-				assert!(header_item == computed_item, "Digest item must match that calculated.");
+			// In this case there were no transactions to trigger this state transition:
+			if !<frame_system::Pallet<System>>::inherents_applied() {
+				Self::inherents_applied();
 			}
 
-			if state_root_check {
-				let storage_root = new_header.state_root();
-				header.state_root().check_equal(storage_root);
+			// post-extrinsics book-keeping
+			<frame_system::Pallet<System>>::note_finished_extrinsics();
+			<System as frame_system::Config>::PostTransactions::post_transactions();
+
+			let header = block.header();
+			Self::on_idle_hook(*header.number());
+			Self::on_finalize_hook(*header.number());
+
+			// run the try-state checks of all pallets, ensuring they don't alter any state.
+			let _guard = frame_support::StorageNoopGuard::default();
+			<AllPalletsWithSystem as frame_support::traits::TryState<
+				BlockNumberFor<System>,
+			>>::try_state(*header.number(), select.clone())
+				.map_err(|e| {
+					log::error!(target: LOG_TARGET, "failure: {:?}", e);
+					ExecutiveError::Custom(e.into())
+				})?;
+			if select.any() {
+				let res = AllPalletsWithSystem::try_decode_entire_state();
+				Self::log_decode_result(res).map_err(|e| ExecutiveError::Custom(e.into()))?;
+			}
+			drop(_guard);
+
+			// do some of the checks that would normally happen in `final_checks`, but perhaps skip
+			// the state root check.
+			{
+				let new_header = <frame_system::Pallet<System>>::finalize();
+				let items_zip =
+					header.digest().logs().iter().zip(new_header.digest().logs().iter());
+				for (header_item, computed_item) in items_zip {
+					header_item.check_equal(computed_item);
+					assert!(
+						header_item == computed_item,
+						"Digest item must match that calculated."
+					);
+				}
+
+				if state_root_check {
+					let storage_root = new_header.state_root();
+					header.state_root().check_equal(storage_root);
+					assert!(
+						header.state_root() == storage_root,
+						"Storage root must match that calculated."
+					);
+				}
+
 				assert!(
-					header.state_root() == storage_root,
-					"Storage root must match that calculated."
+					header.extrinsics_root() == new_header.extrinsics_root(),
+					"Transaction trie root must be valid.",
 				);
 			}
 
-			assert!(
-				header.extrinsics_root() == new_header.extrinsics_root(),
-				"Transaction trie root must be valid.",
+			log::info!(
+				target: LOG_TARGET,
+				"try-runtime: Block #{:?} successfully executed",
+				header.number(),
 			);
-		}
 
-		log::info!(
-			target: LOG_TARGET,
-			"try-runtime: Block #{:?} successfully executed",
-			header.number(),
-		);
-
-		Ok(frame_system::Pallet::<System>::block_weight().total())
+			Ok(frame_system::Pallet::<System>::block_weight().total())
+		})
 	}
 
 	/// Execute all Migrations of this runtime.
@@ -690,37 +697,39 @@ where
 
 	/// Actually execute all transitions for `block`.
 	pub fn execute_block(block: Block::LazyBlock) {
-		sp_io::init_tracing();
-		sp_tracing::within_span! {
-			sp_tracing::info_span!("execute_block", ?block);
-			// Execute `on_runtime_upgrade` and `on_initialize`.
-			let mode = Self::initialize_block(block.header());
-			Self::initial_checks(block.header());
+		nested_mem::using_limiter_once(|| {
+			sp_io::init_tracing();
+			sp_tracing::within_span! {
+				sp_tracing::info_span!("execute_block", ?block);
+				// Execute `on_runtime_upgrade` and `on_initialize`.
+				let mode = Self::initialize_block(block.header());
+				Self::initial_checks(block.header());
 
-			let extrinsics = block.extrinsics();
-			if let Err(e) = Self::apply_extrinsics(
-				mode,
-				extrinsics,
-				|uxt, is_inherent| {
-					Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
+				let extrinsics = block.extrinsics();
+				if let Err(e) = Self::apply_extrinsics(
+					mode,
+					extrinsics,
+					|uxt, is_inherent| {
+						Self::do_apply_extrinsic(uxt, is_inherent, Block::Extrinsic::check)
+					}
+				) {
+					panic!("{:?}", e)
 				}
-			) {
-				panic!("{:?}", e)
+
+				// In this case there were no transactions to trigger this state transition:
+				if !<frame_system::Pallet<System>>::inherents_applied() {
+					Self::inherents_applied();
+				}
+
+				<frame_system::Pallet<System>>::note_finished_extrinsics();
+				<System as frame_system::Config>::PostTransactions::post_transactions();
+
+				let header = block.header();
+				Self::on_idle_hook(*header.number());
+				Self::on_finalize_hook(*header.number());
+				Self::final_checks(&header);
 			}
-
-			// In this case there were no transactions to trigger this state transition:
-			if !<frame_system::Pallet<System>>::inherents_applied() {
-				Self::inherents_applied();
-			}
-
-			<frame_system::Pallet<System>>::note_finished_extrinsics();
-			<System as frame_system::Config>::PostTransactions::post_transactions();
-
-			let header = block.header();
-			Self::on_idle_hook(*header.number());
-			Self::on_finalize_hook(*header.number());
-			Self::final_checks(&header);
-		}
+		})
 	}
 
 	/// Logic that runs directly after inherent application.

@@ -66,7 +66,7 @@ pub const LEGACY_EXTRINSIC_FORMAT_VERSION: ExtrinsicVersion = 4;
 const EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// Maximum decoded heap size for a runtime call (in bytes).
-pub const DEFAULT_MAX_CALL_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
+pub const DEFAULT_CALL_SIZE_LIMIT: usize = 16 * 1024 * 1024 + 1; // 16 MiB
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
 pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
@@ -240,7 +240,7 @@ pub struct UncheckedExtrinsic<
 	Call,
 	Signature,
 	Extension,
-	const MAX_CALL_SIZE: usize = DEFAULT_MAX_CALL_SIZE,
+	const CALL_SIZE_LIMIT: usize = DEFAULT_CALL_SIZE_LIMIT,
 > {
 	/// Information regarding the type of extrinsic this is (inherent or transaction) as well as
 	/// associated extension (`Extension`) data if it's a transaction and a possible signature.
@@ -262,8 +262,8 @@ impl<
 		Call: Debug,
 		Signature: Debug,
 		Extension: Debug,
-		const MAX_CALL_SIZE: usize,
-	> Debug for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+		const CALL_SIZE_LIMIT: usize,
+	> Debug for UncheckedExtrinsic<Address, Call, Signature, Extension, CALL_SIZE_LIMIT>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("UncheckedExtrinsic")
@@ -278,8 +278,8 @@ impl<
 		Call: PartialEq,
 		Signature: PartialEq,
 		Extension: PartialEq,
-		const MAX_CALL_SIZE: usize,
-	> PartialEq for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+		const CALL_SIZE_LIMIT: usize,
+	> PartialEq for UncheckedExtrinsic<Address, Call, Signature, Extension, CALL_SIZE_LIMIT>
 {
 	fn eq(&self, other: &Self) -> bool {
 		self.preamble == other.preamble && self.function == other.function
@@ -320,8 +320,8 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize>
-	UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+impl<Address, Call, Signature, Extension, const CALL_SIZE_LIMIT: usize>
+	UncheckedExtrinsic<Address, Call, Signature, Extension, CALL_SIZE_LIMIT>
 {
 	/// New instance of a bare (ne unsigned) extrinsic. This could be used for an inherent or an
 	/// old-school "unsigned transaction" (which are new being deprecated in favour of general
@@ -409,10 +409,7 @@ impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize>
 
 		let mut clone_bytes = CloneBytes(&mut input, Vec::new());
 
-		// Adds 1 byte to the `MAX_CALL_SIZE` as the decoding fails exactly at the given value and
-		// the maximum should be allowed to fit in.
-		let function =
-			Call::decode_with_mem_limit(&mut clone_bytes, MAX_CALL_SIZE.saturating_add(1))?;
+		let function = Call::decode_with_mem_limit(&mut clone_bytes, CALL_SIZE_LIMIT)?;
 
 		let encoded_call = Some(clone_bytes.1);
 
@@ -553,8 +550,8 @@ impl<Address, Call: Dispatchable, Signature, Extension: TransactionExtension<Cal
 	}
 }
 
-impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> Decode
-	for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+impl<Address, Call, Signature, Extension, const CALL_SIZE_LIMIT: usize> Decode
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, CALL_SIZE_LIMIT>
 where
 	Address: Decode,
 	Signature: Decode,
@@ -734,8 +731,8 @@ where
 	}
 }
 
-impl<Address, Call, Signature, Extension, const MAX_CALL_SIZE: usize> LazyExtrinsic
-	for UncheckedExtrinsic<Address, Call, Signature, Extension, MAX_CALL_SIZE>
+impl<Address, Call, Signature, Extension, const CALL_SIZE_LIMIT: usize> LazyExtrinsic
+	for UncheckedExtrinsic<Address, Call, Signature, Extension, CALL_SIZE_LIMIT>
 where
 	Preamble<Address, Signature, Extension>: Decode,
 	Call: DecodeWithMemTracking,
@@ -1217,15 +1214,15 @@ mod tests {
 	}
 
 	#[test]
-	fn max_call_heap_size_should_be_checked() {
+	fn call_size_limit_should_be_checked() {
 		// Should be able to decode an `UncheckedExtrinsic` that contains a call with
-		// heap size < `MAX_CALL_HEAP_SIZE`
-		let ux = Ex::new_bare(Call::Raw(vec![0u8; DEFAULT_MAX_CALL_SIZE]).into());
+		// heap size < `CALL_SIZE_LIMIT`
+		let ux = Ex::new_bare(Call::Raw(vec![0u8; DEFAULT_CALL_SIZE_LIMIT - 1]).into());
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 
 		// Otherwise should fail
-		let ux = Ex::new_bare(Call::Raw(vec![0u8; DEFAULT_MAX_CALL_SIZE + 1]).into());
+		let ux = Ex::new_bare(Call::Raw(vec![0u8; DEFAULT_CALL_SIZE_LIMIT]).into());
 		let encoded = ux.encode();
 		assert_eq!(
 			Ex::decode(&mut &encoded[..]).unwrap_err().to_string(),

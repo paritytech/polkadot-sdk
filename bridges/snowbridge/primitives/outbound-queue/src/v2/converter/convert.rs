@@ -284,9 +284,8 @@ where
 		let transact_call = match_expression!(self.peek(), Ok(Transact { call, .. }), call);
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
-			let transact =
-				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
-					.map_err(|_| TransactDecodeFailed)?;
+			let transact = ContractCall::decode_all(&mut transact_call.encoded())
+				.map_err(|_| TransactDecodeFailed)?;
 			match transact {
 				ContractCall::V1 { target, calldata, gas, value } => commands
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),

@@ -1122,7 +1122,7 @@ impl<Call> Instruction<Call> {
 			HrmpChannelClosing { initiator, sender, recipient } =>
 				HrmpChannelClosing { initiator, sender, recipient },
 			Transact { origin_kind, require_weight_at_most, call } =>
-				Transact { origin_kind, require_weight_at_most, call: call.into() },
+				Transact { origin_kind, require_weight_at_most, call: call.transmute_encoded() },
 			ReportError(response_info) => ReportError(response_info),
 			DepositAsset { assets, beneficiary } => DepositAsset { assets, beneficiary },
 			DepositReserveAsset { assets, dest, xcm } => DepositReserveAsset { assets, dest, xcm },
@@ -1306,7 +1306,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 			Transact { origin_kind, mut call, fallback_max_weight } => {
 				// We first try to decode the call, if we can't, we use the fallback weight,
 				// if there's no fallback, we just return `Weight::MAX`.
-				let require_weight_at_most = match call.take_decoded() {
+				let require_weight_at_most = match call.ensure_decoded() {
 					Ok(decoded) => decoded.get_dispatch_info().call_weight,
 					Err(error) => {
 						let fallback_weight = fallback_max_weight.unwrap_or(Weight::MAX);
@@ -1319,7 +1319,7 @@ impl<Call: Decode + GetDispatchInfo> TryFrom<NewInstruction<Call>> for Instructi
 						fallback_weight
 					},
 				};
-				Self::Transact { origin_kind, require_weight_at_most, call: call.into() }
+				Self::Transact { origin_kind, require_weight_at_most, call }
 			},
 			ReportError(response_info) => Self::ReportError(QueryResponseInfo {
 				query_id: response_info.query_id,
