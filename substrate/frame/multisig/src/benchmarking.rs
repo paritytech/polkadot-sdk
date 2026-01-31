@@ -21,6 +21,7 @@
 
 use super::*;
 use frame::benchmarking::prelude::*;
+use frame::traits::ReservableCurrency;
 
 use crate::Pallet as Multisig;
 
@@ -46,7 +47,7 @@ fn setup_multi<T: Config>(
 	Ok((signatories, Box::new(call)))
 }
 
-#[benchmarks]
+#[benchmarks(where T::Fungible: ReservableCurrency<T::AccountId, Balance = BalanceOf<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -371,7 +372,10 @@ mod benchmarks {
 
 	/// Benchmark for the v2 migration step.
 	/// This benchmarks the core operations of a migration step:
-	/// reading a Multisigs entry and performing balance hold operations.
+	/// - Reading a Multisigs entry via iterator
+	/// - Unreserving old balance (OldCurrency::unreserve)
+	/// - Creating a new hold (T::Fungible::hold)
+	/// - Generating cursor key for next iteration
 	#[benchmark]
 	fn v2_migration_step(s: Linear<2, { T::MaxSignatories::get() }>) -> Result<(), BenchmarkError> {
 		let call_len = 10_000;
@@ -380,9 +384,9 @@ mod benchmarks {
 		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
 		let call_hash = call.using_encoded(blake2_256);
 		let deposit = Multisig::<T>::deposit(s as u16);
+		let timepoint = Multisig::<T>::timepoint();
 
 		// Insert a multisig entry directly into storage to simulate existing state
-		let timepoint = Multisig::<T>::timepoint();
 		Multisigs::<T>::insert(
 			&multi_account_id,
 			call_hash,
@@ -395,28 +399,45 @@ mod benchmarks {
 			},
 		);
 
+		// Reserve funds using ReservableCurrency (simulating pre-migration state)
+		<T::Fungible as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)
+			.map_err(|_| "failed to reserve")?;
+
 		// Whitelist caller account
 		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
 		add_to_whitelist(caller_key.into());
 
 		#[block]
 		{
-			// Simulate migration step: read the multisig and perform hold operation
-			// This approximates the migration work without needing ReservableCurrency
-			let multisig_data =
-				Multisigs::<T>::get(&multi_account_id, call_hash).ok_or("multisig not found")?;
+			// Step 1: Use iterator to get entry (matching migration logic)
+			let mut iter = Multisigs::<T>::iter();
+			let (iter_multi_account, iter_call_hash, multisig_data) =
+				iter.next().ok_or("no multisig entry found")?;
 
-			// The actual migration would unreserve then hold.
-			// For benchmarking purposes, we just measure the hold operation
-			// since unreserve and hold have similar weight characteristics.
 			if !multisig_data.deposit.is_zero() {
-				T::Fungible::hold(
-					&HoldReason::MultisigOperation.into(),
-					&multisig_data.depositor,
-					multisig_data.deposit,
-				)
-				.map_err(|_| "failed to hold")?;
+				let depositor = &multisig_data.depositor;
+				let deposit = multisig_data.deposit;
+
+				// Step 2: Unreserve old balance (simulating OldCurrency::unreserve)
+				let remaining =
+					<T::Fungible as ReservableCurrency<T::AccountId>>::unreserve(depositor, deposit);
+
+				// Step 3: Calculate amount to hold (same as migration)
+				let to_hold = deposit.saturating_sub(remaining);
+
+				// Step 4: Hold with fungible trait
+				if !to_hold.is_zero() {
+					T::Fungible::hold(
+						&HoldReason::MultisigOperation.into(),
+						depositor,
+						to_hold,
+					)
+					.map_err(|_| "failed to hold")?;
+				}
 			}
+
+			// Step 5: Generate cursor key (matching migration logic)
+			let _raw_key = Multisigs::<T>::hashed_key_for(&iter_multi_account, &iter_call_hash);
 		}
 
 		// Verify the hold was created
