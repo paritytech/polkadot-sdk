@@ -897,6 +897,7 @@ impl<T: Config> Pallet<T> {
 
 		// cache a few things.
 		let weight_of = Self::weight_of_fn();
+		let current_era = Self::current_era().unwrap_or(0);
 
 		let mut voters_seen = 0u32;
 		let mut validators_taken = 0u32;
@@ -915,18 +916,48 @@ impl<T: Config> Pallet<T> {
 				None => break,
 			};
 
-			let voter_weight = weight_of(&voter);
+			let mut voter_weight = weight_of(&voter);
+
 			// if voter weight is zero, do not consider this voter for the snapshot.
 			if voter_weight.is_zero() {
 				log!(debug, "voter's active balance is 0. skip this voter.");
 				continue;
 			}
 
-			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
+			if let Some(Nominations { targets, submitted_in, .. }) = <Nominators<T>>::get(&voter) {
 				if !targets.is_empty() {
 					// Note on lazy nomination quota: we do not check the nomination quota of the
 					// voter at this point and accept all the current nominations. The nomination
 					// quota is only enforced at `nominate` time.
+
+					/* VOTER WEIGHT MULTIPLIER START */
+					//This logic adjusts the voter weight to linearly decrease when the vote is
+					// stale.
+					let eras_since_last_nomination = current_era.saturating_sub(submitted_in);
+					// This allows 10 eras to pass before the vote is considered stale.
+					const ERAS_UNTIL_WEIGHT_DECREASE: EraIndex = 10;
+					let eras_counting_against_weight =
+						eras_since_last_nomination.saturating_sub(ERAS_UNTIL_WEIGHT_DECREASE);
+					// This says that once a vote is stale, it takes 10 eras until
+					const ERAS_UNTIL_WEIGHT_ZERO: EraIndex = 10;
+
+					// The numerator of the voter weight multiplier.
+					let numerator =
+						ERAS_UNTIL_WEIGHT_ZERO.saturating_sub(eras_counting_against_weight);
+					if numerator < ERAS_UNTIL_WEIGHT_ZERO {
+						let voter_weight_multiplier =
+							Perbill::from_rational(numerator, ERAS_UNTIL_WEIGHT_ZERO);
+						voter_weight = voter_weight_multiplier * voter_weight;
+						// if voter weight is zero, do not consider this voter for the snapshot.
+						if voter_weight.is_zero() {
+							log!(
+								debug,
+								"voter's weight is 0 after voter weight multiplier. skip this voter."
+							);
+							continue
+						}
+					}
+					/* VOTER WEIGHT MULTIPLIER END */
 
 					let voter = (voter, voter_weight, targets);
 					if voters_size_tracker.try_register_voter(&voter, &bounds).is_err() {
