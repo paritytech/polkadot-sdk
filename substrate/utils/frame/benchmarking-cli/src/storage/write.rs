@@ -34,8 +34,11 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
-use crate::shared::{new_rng, BenchRecord};
+use super::{
+	cmd::StorageCmd, get_wasm_module, keys_selection::select_entries,
+	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
+};
+use crate::shared::BenchRecord;
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to write a single Storage item.
@@ -81,41 +84,17 @@ impl StorageCmd {
 		);
 
 		info!("Preparing keys from block {}", best_hash);
-		// Use start_at + take(keys_limit) to avoid loading all KV pairs on huge chains.
-		// If not enough pairs after start_at, circle back and take pairs from the start.
-		let mut kvs: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
-			let start_at = self
-				.params
-				.random_seed
-				.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
-			let mut iter_args = sp_state_machine::IterArgs::default();
-			iter_args.start_at = start_at.as_deref();
-			let mut kvs: Vec<_> = trie.pairs(iter_args)?.take(keys_limit).collect();
-			if kvs.len() < keys_limit {
-				let need_more = keys_limit - kvs.len();
-				if let Some(ref start) = start_at {
-					let pairs_from_start: Vec<_> = trie
-						.pairs(Default::default())?
-						.take_while(|r| {
-							r.as_ref().map_or(false, |(k, _)| k.as_slice() < start.as_slice())
-						})
-						.take(need_more)
-						.collect();
-					kvs.extend(pairs_from_start);
-				}
-				if kvs.len() < keys_limit {
-					info!("Only {} KV pairs available (requested {})", kvs.len(), keys_limit);
-				}
-			}
-			kvs
-		} else {
-			trie.pairs(Default::default())?.collect()
-		};
-		let (mut rng, _) = new_rng(self.params.random_seed);
-		kvs.shuffle(&mut rng);
-		if kvs.is_empty() {
-			return Err("Can't process benchmarking with empty storage".into())
-		}
+		let (kvs, mut rng) = select_entries(
+			self.params.keys_limit,
+			self.params.random_seed,
+			|first_key_ref| {
+				let mut iter_args = sp_state_machine::IterArgs::default();
+				iter_args.start_at = first_key_ref;
+				Ok(trie.pairs(iter_args)?)
+			},
+			|| Ok(trie.pairs(Default::default())?),
+			|r| r.as_ref().map(|(k, _)| k.as_slice()).unwrap_or(&[]),
+		)?;
 
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
 		let remainder = kvs.len() % self.params.batch_size;

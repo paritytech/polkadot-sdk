@@ -27,14 +27,13 @@ use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser, ValueEnum};
-use log::{info, warn};
-use rand::prelude::*;
+use log::info;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
-use super::template::TemplateData;
-use crate::shared::{new_rng, HostInfoParams, WeightParams};
+use super::{keys_selection::select_entries, template::TemplateData};
+use crate::shared::{HostInfoParams, WeightParams};
 
 /// The mode in which to run the storage benchmark.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
@@ -261,36 +260,16 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		// Use first_key + take(keys_limit) to avoid loading all keys on huge chains.
-		// If not enough keys after first_key, circle back and take keys from the start.
-		let mut keys: Vec<_> = if let Some(keys_limit) = self.params.keys_limit {
-			use sp_core::blake2_256;
-			let first_key = self
-				.params
-				.random_seed
-				.map(|seed| sp_storage::StorageKey(blake2_256(&seed.to_be_bytes()[..]).to_vec()));
-			let mut keys: Vec<_> =
-				client.storage_keys(hash, None, first_key.as_ref())?.take(keys_limit).collect();
-			if keys.len() < keys_limit {
-				let need_more = keys_limit - keys.len();
-				if let Some(ref fk) = first_key {
-					let keys_from_start: Vec<_> = client
-						.storage_keys(hash, None, None)?
-						.take_while(|k| k.0.as_slice() < fk.0.as_slice())
-						.take(need_more)
-						.collect();
-					keys.extend(keys_from_start);
-				}
-				if keys.len() < keys_limit {
-					warn!("Only {} keys available (requested {})", keys.len(), keys_limit);
-				}
-			}
-			keys
-		} else {
-			client.storage_keys(hash, None, None)?.collect()
-		};
-		let (mut rng, _) = new_rng(self.params.random_seed);
-		keys.shuffle(&mut rng);
+		let (keys, _) = select_entries(
+			self.params.keys_limit,
+			self.params.random_seed,
+			|first_key_ref| {
+				let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+				Ok(client.storage_keys(hash, None, fk.as_ref())?)
+			},
+			|| Ok(client.storage_keys(hash, None, None)?),
+			|k: &sp_storage::StorageKey| k.0.as_slice(),
+		)?;
 
 		for i in 0..self.params.warmups {
 			info!("Warmup round {}/{}", i + 1, self.params.warmups);
