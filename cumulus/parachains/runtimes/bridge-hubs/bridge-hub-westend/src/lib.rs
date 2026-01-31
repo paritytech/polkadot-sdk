@@ -1409,7 +1409,10 @@ impl_runtime_apis! {
 					>::rewards_account(reward_kind);
 					Self::deposit_account(rewards_account, reward);
 
-					None
+					// Return a valid beneficiary for the benchmark
+					Some(bridge_common_config::BridgeRewardBeneficiaries::LocalAccount(
+						AccountId::from([2u8; 32]),
+					))
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
