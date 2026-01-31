@@ -83,6 +83,7 @@ pub use sc_chain_spec::{
 	ChainSpec, ChainType, Extension as ChainSpecExtension, GenericChainSpec, NoExtension,
 	Properties,
 };
+pub use sc_client_db::BlockPruningFilter;
 
 use crate::config::RpcConfiguration;
 use prometheus_endpoint::Registry;

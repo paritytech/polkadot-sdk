@@ -19,11 +19,13 @@
 #![cfg(feature = "full-node")]
 
 use crate::{
-	fake_runtime_api::RuntimeApi, grandpa_support, relay_chain_selection, Error, FullBackend,
-	FullClient, IdentifyVariant, GRANDPA_JUSTIFICATION_PERIOD,
+	grandpa_support, relay_chain_selection, Error, FullBackend, FullClient, IdentifyVariant,
+	GRANDPA_JUSTIFICATION_PERIOD,
 };
 use polkadot_primitives::Block;
-use sc_consensus_grandpa::FinalityProofProvider as GrandpaFinalityProofProvider;
+use sc_consensus_grandpa::{
+	FinalityProofProvider as GrandpaFinalityProofProvider, GrandpaBlockPruningFilter,
+};
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::{Configuration, Error as SubstrateServiceError, KeystoreContainer, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
@@ -120,12 +122,14 @@ pub(crate) fn new_partial_basics(
 		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
-	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(
-			&config,
-			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-			executor,
-		)?;
+	// Use GrandpaBlockPruningFilter to preserve blocks with GRANDPA justifications during
+	// pruning. This is required for warp sync to work on pruned nodes.
+	let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts(
+		&config,
+		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+		executor,
+		vec![Arc::new(GrandpaBlockPruningFilter)],
+	)?;
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {

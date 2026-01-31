@@ -125,6 +125,7 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 		state_pruning: Some(PruningMode::ArchiveAll),
 		source: DatabaseSource::ParityDb { path },
 		blocks_pruning: BlocksPruning::KeepAll,
+		block_pruning_filters: Default::default(),
 		metrics_registry: None,
 	};
 

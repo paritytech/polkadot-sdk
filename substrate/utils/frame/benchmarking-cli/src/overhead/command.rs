@@ -522,6 +522,7 @@ impl OverheadCmd {
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: None,
 			blocks_pruning: BlocksPruning::KeepAll,
+			block_pruning_filters: Default::default(),
 			source: database_source,
 			metrics_registry: None,
 		})?;

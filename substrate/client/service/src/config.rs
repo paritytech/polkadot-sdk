@@ -235,6 +235,7 @@ impl Configuration {
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
+			block_pruning_filters: Default::default(),
 			metrics_registry: self.prometheus_registry().cloned(),
 		}
 	}

@@ -77,6 +77,7 @@ impl ChainInfoCmd {
 			state_pruning: config.state_pruning.clone(),
 			source: config.database.clone(),
 			blocks_pruning: config.blocks_pruning,
+			block_pruning_filters: Default::default(),
 			metrics_registry: None,
 		};
 		let backend = sc_service::new_db_backend::<B>(db_config)?;

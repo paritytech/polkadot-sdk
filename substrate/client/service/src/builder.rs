@@ -143,26 +143,33 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts(config, telemetry, executor).map(|parts| parts.0)
+	new_full_parts(config, telemetry, executor, block_pruning_filters).map(|parts| parts.0)
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `block_pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	enable_import_proof_recording: bool,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	let backend = new_db_backend(config.db_config())?;
+	let mut db_config = config.db_config();
+	db_config.block_pruning_filters = block_pruning_filters;
+	let backend = new_db_backend(db_config)?;
 
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
@@ -180,17 +187,22 @@ where
 		enable_import_proof_recording,
 	)
 }
+
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `block_pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	block_pruning_filters: Vec<Arc<dyn sc_client_db::BlockPruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false)
+	new_full_parts_record_import(config, telemetry, executor, false, block_pruning_filters)
 }
 
 /// Create the initial parts of a full node.
@@ -374,7 +386,10 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.build()
 }
 
-/// Create an instance of default DB-backend backend.
+/// Create an instance of the default DB-backend.
+///
+/// Block pruning filters can be configured via `settings.block_pruning_filters`.
+/// If any filter returns `true` for a block's justifications, the block will not be pruned.
 pub fn new_db_backend<Block>(
 	settings: DatabaseSettings,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
