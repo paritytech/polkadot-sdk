@@ -64,11 +64,12 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
 		RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
+	use pallet_revive::is_eth_derived;
 	use serde_json::Value;
 
 	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
@@ -103,14 +104,23 @@ pub mod genesis_config_presets {
 
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
+		let endowed_accounts = well_known_accounts();
 		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: well_known_accounts()
-					.into_iter()
+				balances: endowed_accounts
+					.iter()
+					.cloned()
 					.map(|id| (id, ENDOWMENT))
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+			revive: ReviveConfig {
+				mapped_accounts: endowed_accounts
+					.iter()
+					.filter(|x| !is_eth_derived(x))
+					.cloned()
+					.collect(),
+			},
 		})
 	}
 
