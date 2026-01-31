@@ -1506,8 +1506,7 @@ impl_runtime_apis! {
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForLegacyLaneIdsMessagesInstance>>::deposit_account(rewards_account, reward);
 
-					// Return a valid beneficiary for the benchmark
-					Some(AccountId::from([2u8; 32]))
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
@@ -1537,8 +1536,7 @@ impl_runtime_apis! {
 					>::rewards_account(reward_kind);
 					<Runtime as BridgeRelayersConfig<bridge_common_config::RelayersForPermissionlessLanesInstance>>::deposit_account(rewards_account, reward);
 
-					// Return a valid beneficiary for the benchmark
-					Some(AccountId::from([2u8; 32]))
+					None
 				}
 
 				fn deposit_account(account: AccountId, balance: Balance) {
