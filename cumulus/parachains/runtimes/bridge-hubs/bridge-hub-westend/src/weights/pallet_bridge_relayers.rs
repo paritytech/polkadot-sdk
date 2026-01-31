@@ -61,23 +61,23 @@ impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<
 		// Proof Size summary in bytes:
 		//  Measured:  `245`
 		//  Estimated: `0`
-		// Minimum execution time: 38_000_000 picoseconds.
-		Weight::from_parts(39_000_000, 0)
+		// Minimum execution time: 39_000_000 picoseconds.
+		Weight::from_parts(40_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn claim_rewards_to() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `297`
 		//  Estimated: `0`
-		// Minimum execution time: 39_000_000 picoseconds.
-		Weight::from_parts(40_000_000, 0)
+		// Minimum execution time: 40_000_000 picoseconds.
+		Weight::from_parts(41_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `97`
 		//  Estimated: `0`
-		// Minimum execution time: 19_000_000 picoseconds.
+		// Minimum execution time: 20_000_000 picoseconds.
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
@@ -85,7 +85,7 @@ impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<
 		// Proof Size summary in bytes:
 		//  Measured:  `197`
 		//  Estimated: `0`
-		// Minimum execution time: 19_000_000 picoseconds.
+		// Minimum execution time: 20_000_000 picoseconds.
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
@@ -102,7 +102,7 @@ impl<T: frame_system::Config> pallet_bridge_relayers::WeightInfo for WeightInfo<
 		//  Measured:  `42`
 		//  Estimated: `0`
 		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(5_000_000, 0)
+		Weight::from_parts(6_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 }

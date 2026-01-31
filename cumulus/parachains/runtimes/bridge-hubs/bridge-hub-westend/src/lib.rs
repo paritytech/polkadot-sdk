@@ -1407,11 +1407,10 @@ impl_runtime_apis! {
 						bp_messages::LegacyLaneId,
 						u128,
 					>::rewards_account(reward_kind);
-					Self::deposit_account(rewards_account, reward);
+					Self::deposit_account(rewards_account.clone(), reward);
 
-					// Return a valid beneficiary for the benchmark
 					Some(bridge_common_config::BridgeRewardBeneficiaries::LocalAccount(
-						AccountId::from([2u8; 32]),
+						rewards_account,
 					))
 				}
 
