@@ -44,7 +44,7 @@ use sc_client_api::{
 	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportedState, ImportResult, StateAction,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -77,7 +77,7 @@ use sp_state_machine::{
 	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection,
 	MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, StorageProof};
+use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue, PrefixedMemoryDB, StorageProof};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
@@ -610,9 +610,13 @@ where
 
 						Some((main_sc, child_sc))
 					},
-					sc_consensus::StorageChanges::Import(changes) => {
+					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
+						operation.op.set_partial_state_completed();
+						None
+					},
+					sc_consensus::StorageChanges::Import(ImportedState::KeyValues { state: changes_state, .. }) => {
 						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
+						for state in changes_state.0.into_iter() {
 							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
 								for (key, value) in state.key_values.into_iter() {
 									storage.top.insert(key, value);
@@ -1799,6 +1803,18 @@ where
 
 		Ok(ImportResult::imported(false))
 	}
+
+	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		// Can't use `lock_import_and_run`.
+		// It requires block to write state changes along with the block.
+		// But partial state implies block is not ready for import yet.
+		let _import_lock = self.backend.get_import_lock().write();
+		self.backend.import_partial_state(block_hash, partial_state)
+		.map_err(|e| {
+			warn!("Partial state import error: {}", e);
+			ConsensusError::ClientImport(e.to_string())
+		})
+	}
 }
 
 #[async_trait::async_trait]
@@ -1825,6 +1841,10 @@ where
 		import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).import_block(import_block).await
+	}
+
+	async fn import_partial_state(&self, block_hash: Block::Hash, partial_state: PrefixedMemoryDB<HashingFor<Block>>) -> Result<(), Self::Error> {
+		(&self).import_partial_state(block_hash, partial_state).await
 	}
 }
 

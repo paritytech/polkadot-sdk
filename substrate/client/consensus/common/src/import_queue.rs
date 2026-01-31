@@ -32,12 +32,14 @@ use std::{
 	fmt,
 	time::{Duration, Instant},
 };
+use std::sync::Arc;
 
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
-	traits::{Block as BlockT, Header as _, NumberFor},
+	traits::{Block as BlockT, HashingFor, Header as _, NumberFor},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 
 use crate::{
 	block_import::{
@@ -62,6 +64,9 @@ pub mod mock;
 
 /// Shared block import struct used by the queue.
 pub type BoxBlockImport<B> = Box<dyn BlockImport<B, Error = ConsensusError> + Send + Sync>;
+
+/// Shared block import struct used by the queue.
+pub type ArcBlockImport<B> = Arc<dyn BlockImport<B, Error = ConsensusError> + Send + Sync>;
 
 /// Shared justification import struct used by the queue.
 pub type BoxJustificationImport<B> =
@@ -118,6 +123,18 @@ pub trait ImportQueueService<B: BlockT>: Send {
 		hash: B::Hash,
 		number: NumberFor<B>,
 		justifications: Justifications,
+	);
+
+	/// Import partial state.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	fn import_partial_state(
+		&mut self,
+		block_hash: B::Hash,
+		partial_state: PrefixedMemoryDB<HashingFor<B>>,
 	);
 }
 
@@ -403,7 +420,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 }
 
 pub(crate) async fn import_single_block_metered<Block: BlockT>(
-	import_handle: &mut impl BlockImport<Block, Error = ConsensusError>,
+	import_handle: &impl BlockImport<Block, Error = ConsensusError>,
 	import_parameters: SingleBlockImportParameters<Block>,
 	metrics: Option<&Metrics>,
 ) -> BlockImportResult<Block> {

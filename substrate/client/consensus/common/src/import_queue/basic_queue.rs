@@ -24,16 +24,17 @@ use prometheus_endpoint::Registry;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor},
 	Justification, Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 use std::pin::Pin;
 
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
 		import_single_block_metered, verify_single_block_metered, BlockImportError,
-		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
+		ArcBlockImport, BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
 		IncomingBlock, JustificationImportResult, Link, RuntimeOrigin,
 		SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
@@ -81,10 +82,10 @@ impl<B: BlockT> BasicQueue<B> {
 				.ok()
 		});
 
-		let (future, justification_sender, block_import_sender) = BlockImportWorker::new(
+		let (future, justification_sender, block_import_sender, partial_state_import_sender) = BlockImportWorker::new(
 			result_sender,
 			verifier,
-			block_import,
+			block_import.into(),
 			justification_import,
 			metrics,
 		);
@@ -96,7 +97,7 @@ impl<B: BlockT> BasicQueue<B> {
 		);
 
 		Self {
-			handle: BasicQueueHandle::new(justification_sender, block_import_sender),
+			handle: BasicQueueHandle::new(justification_sender, block_import_sender, partial_state_import_sender),
 			result_port,
 		}
 	}
@@ -108,14 +109,17 @@ struct BasicQueueHandle<B: BlockT> {
 	justification_sender: TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 	/// Channel to send block import messages to the background task.
 	block_import_sender: TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
+	/// Channel to send partial state import messages to the background task.
+	partial_state_import_sender: TracingUnboundedSender<worker_messages::ImportPartialState<B>>,
 }
 
 impl<B: BlockT> BasicQueueHandle<B> {
 	pub fn new(
 		justification_sender: TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 		block_import_sender: TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
+		partial_state_import_sender: TracingUnboundedSender<worker_messages::ImportPartialState<B>>,
 	) -> Self {
-		Self { justification_sender, block_import_sender }
+		Self { justification_sender, block_import_sender, partial_state_import_sender }
 	}
 
 	pub fn close(&mut self) {
@@ -161,6 +165,23 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 					"import_justification: Background import task is no longer alive"
 				);
 			}
+		}
+	}
+
+	fn import_partial_state(
+		&mut self,
+		block_hash: B::Hash,
+		partial_state: PrefixedMemoryDB<HashingFor<B>>,
+	) {
+		let res = self.partial_state_import_sender.unbounded_send(
+			worker_messages::ImportPartialState { block_hash, partial_state },
+		);
+
+		if res.is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"import_partial_state: Background import task is no longer alive"
+			);
 		}
 	}
 }
@@ -212,6 +233,10 @@ mod worker_messages {
 		pub NumberFor<B>,
 		pub Justification,
 	);
+	pub struct ImportPartialState<B: BlockT> {
+		pub block_hash: B::Hash,
+		pub partial_state: PrefixedMemoryDB<HashingFor<B>>,
+	}
 }
 
 /// The process of importing blocks.
@@ -222,7 +247,7 @@ mod worker_messages {
 ///
 /// Returns when `block_import` ended.
 async fn block_import_process<B: BlockT>(
-	mut block_import: BoxBlockImport<B>,
+	block_import: ArcBlockImport<B>,
 	verifier: impl Verifier<B>,
 	result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
@@ -242,7 +267,7 @@ async fn block_import_process<B: BlockT>(
 		};
 
 		let res =
-			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
+			import_many_blocks(&block_import, origin, blocks, &verifier, metrics.clone()).await;
 
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
@@ -258,13 +283,14 @@ impl<B: BlockT> BlockImportWorker<B> {
 	fn new<V>(
 		result_sender: BufferedLinkSender<B>,
 		verifier: V,
-		block_import: BoxBlockImport<B>,
+		block_import: ArcBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		metrics: Option<Metrics>,
 	) -> (
 		impl Future<Output = ()> + Send,
 		TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 		TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
+		TracingUnboundedSender<worker_messages::ImportPartialState<B>>,
 	)
 	where
 		V: Verifier<B> + 'static,
@@ -277,6 +303,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 		let (block_import_sender, block_import_receiver) =
 			tracing_unbounded("mpsc_import_queue_worker_blocks", 100_000);
 
+		let (partial_state_import_sender, mut partial_state_import_receiver) =
+			tracing_unbounded("mpsc_import_queue_worker_partial_state", 100_000);
+
 		let mut worker = BlockImportWorker { result_sender, justification_import, metrics };
 
 		let future = async move {
@@ -288,7 +317,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 			}
 
 			let block_import_process = block_import_process(
-				block_import,
+				block_import.clone(),
 				verifier,
 				worker.result_sender.clone(),
 				block_import_receiver,
@@ -322,6 +351,28 @@ impl<B: BlockT> BlockImportWorker<B> {
 					}
 				}
 
+				// Then process all partial states before importing block
+				while let Poll::Ready(partial_state) = futures::poll!(partial_state_import_receiver.next()) {
+					match partial_state {
+						Some(ImportPartialState { block_hash, partial_state }) => {
+							if let Err(e) = block_import.import_partial_state(block_hash, partial_state).await {
+								log::debug!(
+									target: LOG_TARGET,
+									"Import partial state failed with error: {}",
+									e,
+								);
+							}
+						},
+						None => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Stopping block import because partial state channel was closed!",
+							);
+							return
+						},
+					}
+				}
+
 				if let Poll::Ready(()) = futures::poll!(&mut block_import_process) {
 					return;
 				}
@@ -331,7 +382,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 			}
 		};
 
-		(future, justification_sender, block_import_sender)
+		(future, justification_sender, block_import_sender, partial_state_import_sender)
 	}
 
 	async fn import_justification(
@@ -392,7 +443,7 @@ struct ImportManyBlocksResult<B: BlockT> {
 /// This will yield after each imported block once, to ensure that other futures can
 /// be called as well.
 async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
-	import_handle: &mut BoxBlockImport<B>,
+	import_handle: &ArcBlockImport<B>,
 	blocks_origin: BlockOrigin,
 	blocks: Vec<IncomingBlock<B>>,
 	verifier: &V,

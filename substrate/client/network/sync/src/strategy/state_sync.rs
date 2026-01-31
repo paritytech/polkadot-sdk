@@ -29,9 +29,10 @@ use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{Block as BlockT, Header, NumberFor},
+	traits::{Block as BlockT, HashingFor, Header, NumberFor},
 	Justifications,
 };
+use sp_trie::PrefixedMemoryDB;
 use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -82,11 +83,29 @@ pub struct StateSyncProgress {
 /// Import state chunk result.
 pub enum ImportResult<B: BlockT> {
 	/// State is complete and ready for import.
-	Import(B::Hash, B::Header, ImportedState<B>, Option<Vec<B::Extrinsic>>, Option<Justifications>),
+	Import {
+		hash: B::Hash,
+		header: B::Header,
+		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
+		state: ImportedState<B>,
+		body: Option<Vec<B::Extrinsic>>,
+		justifications: Option<Justifications>,
+	},
 	/// Continue downloading.
-	Continue,
+	Continue {
+		partial_state: Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)>,
+	},
 	/// Bad state chunk.
 	BadResponse,
+}
+
+impl<B: BlockT> ImportResult<B> {
+	pub fn take_partial_state(&mut self) -> Option<(B::Hash, PrefixedMemoryDB<HashingFor<B>>)> {
+		match self {
+			ImportResult::Import { partial_state, .. } | ImportResult::Continue { partial_state } => partial_state.take(),
+			ImportResult::BadResponse => None,
+		}
+	}
 }
 
 struct StateSyncMetadata<B: BlockT> {
@@ -263,7 +282,7 @@ where
 			debug!(target: LOG_TARGET, "Missing proof");
 			return ImportResult::BadResponse;
 		}
-		let complete = if !self.metadata.skip_proof {
+		let (complete, partial_state) = if !self.metadata.skip_proof {
 			debug!(target: LOG_TARGET, "Importing state from {} trie nodes", response.proof.len());
 			let proof_size = response.proof.len() as u64;
 			let proof = match CompactProof::decode(&mut response.proof.as_ref()) {
@@ -273,9 +292,10 @@ where
 					return ImportResult::BadResponse;
 				},
 			};
+
 			let (values, completed) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
-				proof,
+				proof.clone(),
 				self.metadata.last_key.as_slice(),
 			) {
 				Err(e) => {
@@ -290,29 +310,50 @@ where
 			};
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
+			let mut partial_state = PrefixedMemoryDB::<HashingFor<B>>::new(&[]);
+			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
+				&mut partial_state,
+				proof.iter_compact_encoded_nodes(),
+				Some(&self.metadata.target_root()),
+			) {
+				debug!(
+					target: LOG_TARGET,
+					"Error decoding proof to prefixed db: {}",
+					e,
+				);
+				return ImportResult::BadResponse
+			}
+
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
 				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
 			};
 
-			self.process_state_verified(values);
 			self.metadata.imported_bytes += proof_size;
-			complete
+			(complete, Some((self.target_hash(), partial_state)))
 		} else {
-			self.process_state_unverified(response)
+			(self.process_state_unverified(response), None)
 		};
 		if complete {
 			self.metadata.complete = true;
 			let target_hash = self.metadata.target_hash();
-			ImportResult::Import(
-				target_hash,
-				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
-				self.metadata.target_body.clone(),
-				self.metadata.target_justifications.clone(),
-			)
+			let state = if partial_state.is_none() {
+				ImportedState::KeyValues { block: target_hash, state: std::mem::take(&mut self.state).into() }
+			} else {
+				ImportedState::Proof
+			};
+			ImportResult::Import {
+				hash: target_hash,
+				header: self.metadata.target_header.clone(),
+				partial_state,
+				state,
+				body: self.metadata.target_body.clone(),
+				justifications: self.metadata.target_justifications.clone(),
+			}
 		} else {
-			ImportResult::Continue
+			ImportResult::Continue {
+				partial_state,
+			}
 		}
 	}
 

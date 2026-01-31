@@ -1569,3 +1569,6 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+trie-db = { git = "https://github.com/turuslan/paritytech-trie.git", rev = "7b7b2663b63722ba60e8826f53fc48caa19ffdd8" }

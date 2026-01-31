@@ -19749,6 +19749,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-test-primitives",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "thiserror 1.0.65",
 ]
@@ -19828,6 +19829,7 @@ dependencies = [
  "sp-runtime",
  "sp-timestamp",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror 1.0.65",
@@ -19892,6 +19894,7 @@ dependencies = [
  "sp-mmr-primitives",
  "sp-runtime",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror 1.0.65",
@@ -19975,6 +19978,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror 1.0.65",
@@ -20402,8 +20406,10 @@ dependencies = [
  "sp-consensus",
  "sp-core 28.0.0",
  "sp-runtime",
+ "sp-state-machine",
  "sp-test-primitives",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror 1.0.65",
@@ -26155,8 +26161,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
+source = "git+https://github.com/turuslan/paritytech-trie.git?rev=7b7b2663b63722ba60e8826f53fc48caa19ffdd8#7b7b2663b63722ba60e8826f53fc48caa19ffdd8"
 dependencies = [
  "hash-db",
  "log",

@@ -36,6 +36,7 @@ sp-consensus-beefy = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
 wasm-timer = { workspace = true }
