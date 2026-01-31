@@ -652,4 +652,12 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `358`
+		//  Estimated: `0`
+		// Minimum execution time: 22_758_000 picoseconds.
+		Weight::from_parts(23_502_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }

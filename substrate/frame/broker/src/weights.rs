@@ -108,6 +108,7 @@ pub trait WeightInfo {
 	fn on_new_timeslice() -> Weight;
 	fn remove_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
+	fn force_transfer() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -618,6 +619,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `496`
+		//  Estimated: `0`
+		// Minimum execution time: 22_033_000 picoseconds.
+		Weight::from_parts(22_996_000, 0) 
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1126,5 +1134,12 @@ impl WeightInfo for () {
 		Weight::from_parts(22_584_000, 4698)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn force_transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `496`
+		//  Estimated: `0`
+		// Minimum execution time: 22_033_000 picoseconds.
+		Weight::from_parts(22_996_000, 0)
 	}
 }
