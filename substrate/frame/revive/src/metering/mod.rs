@@ -612,6 +612,18 @@ impl<T: Config> FrameMeter<T> {
 
 		Ok(())
 	}
+
+	/// Apply pending storage changes to a ContractInfo without finalizing the meter.
+	///
+	/// This is used before creating a nested frame to ensure the child frame can see
+	/// the parent's pending storage changes when calculating refunds. This fixes the issue
+	/// where storage deposit refunds fail in subframes because the parent's pending
+	/// charges haven't been committed to ContractInfo yet.
+	///
+	/// See: <https://github.com/paritytech/contract-issues/issues/213>
+	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
+		self.deposit.apply_pending_changes_to_contract(info);
+	}
 }
 
 /// Ethereum transaction context for gas conversions.

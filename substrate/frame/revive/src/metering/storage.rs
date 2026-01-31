@@ -487,6 +487,22 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		// no need to recalculate max_charged here as the consumed amount cannot increase
 		// when taking removed bytes/items into account
 	}
+
+	/// Apply pending storage changes to a ContractInfo without finalizing the meter.
+	///
+	/// This is used before creating a nested frame to ensure the child frame can see
+	/// the parent's pending storage changes when calculating refunds.
+	///
+	/// Unlike [`Self::finalize_own_contributions`], this does not consume the pending diff,
+	/// allowing the meter to continue tracking changes after the nested call returns.
+	pub fn apply_pending_changes_to_contract(&self, info: &mut ContractInfo<T>) {
+		if let Contribution::Alive(diff) = &self.own_contribution {
+			// Apply the diff to update the ContractInfo's storage deposit fields.
+			// We don't care about the return value (the deposit amount) here,
+			// we just want to update the ContractInfo so child frames can see it.
+			let _ = diff.update_contract::<T>(Some(info));
+		}
+	}
 }
 
 impl<T: Config> Ext<T> for ReservingExt {

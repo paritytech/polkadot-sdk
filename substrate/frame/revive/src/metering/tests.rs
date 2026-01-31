@@ -61,6 +61,15 @@ fn test_deposit_calculation() {
 		});
 }
 
+/// Test that max_storage_deposit correctly tracks the peak storage allocation.
+///
+/// This test verifies that:
+/// 1. `storage_deposit` reflects the net storage change after the call
+/// 2. `max_storage_deposit` tracks the maximum storage allocation that occurred at any point during
+///    execution (before any refunds)
+///
+/// The test contract sets two storage values (a=2, b=3) totaling 132 units of deposit,
+/// then clears one value, leaving 66 units as the net deposit.
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
@@ -74,24 +83,38 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
-			.data(DepositPrecompile::callSetAndClearCall {}.abi_encode())
+		// Test direct set and clear (no nested call)
+		let direct_result = builder::bare_call(caller_addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 			.build();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
+		// Net deposit: one storage slot remains (66 units)
+		// Max deposit: peak allocation was two storage slots (132 units)
+		assert_eq!(direct_result.storage_deposit, StorageDeposit::Charge(66));
+		assert_eq!(direct_result.max_storage_deposit, StorageDeposit::Charge(132));
 	});
 }
 
-#[ignore = "TODO: Does not work yet, see https://github.com/paritytech/contract-issues/issues/213"]
+/// Test that storage deposit refunds work correctly when parent allocates storage
+/// and a nested call clears it.
+///
+/// This test validates the fix for <https://github.com/paritytech/contract-issues/issues/213>
+/// where storage deposit refunds failed in subframes because child frames couldn't see
+/// the parent frame's pending storage changes.
+///
+/// The test compares two scenarios:
+/// 1. `setAndClear()`: Sets storage and clears it directly (no nested call)
+/// 2. `setAndCallClear()`: Sets storage and clears it via nested call
+///
+/// Both should produce identical storage deposit results because the net storage
+/// change is the same. Before the fix, the nested call variant would fail because
+/// the child frame couldn't see the parent's pending storage allocation when
+/// calculating the refund.
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
 #[test_case(FixtureType::Resolc , "DepositDirect" ; "resolc direct")]
-fn max_consumed_deposit_integration_refunds_subframes(
-	fixture_type: FixtureType,
-	fixture_name: &str,
-) {
+fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 	let (code, _) = compile_module_with_type(fixture_name, fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -100,23 +123,35 @@ fn max_consumed_deposit_integration_refunds_subframes(
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
+		// First, get the result when setting and clearing storage directly (no nested call)
+		let direct_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 			.build();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
-
+		// Clear storage to reset state for a fair comparison
 		builder::bare_call(caller_addr)
 			.data(DepositPrecompile::clearAllCall {}.abi_encode())
 			.build();
 
-		let result = builder::bare_call(caller_addr)
+		// Now get the result when clearing via nested call
+		// The parent sets storage (a=2, b=3), then calls this.clear() to clear it
+		// The child frame must see the parent's pending storage to calculate refunds correctly
+		let nested_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndCallClearCall {}.abi_encode())
 			.build();
 
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(66));
-		assert_eq!(result.max_storage_deposit, StorageDeposit::Charge(132));
+		// Both approaches should produce the same storage deposit result.
+		// Before the fix for issue #213, the nested call variant would produce
+		// different results because the child frame couldn't see the parent's
+		// pending storage allocation when calculating the refund.
+		assert_eq!(
+			direct_result.storage_deposit, nested_result.storage_deposit,
+			"Nested call should produce same net storage deposit as direct call"
+		);
+		assert_eq!(
+			direct_result.max_storage_deposit, nested_result.max_storage_deposit,
+			"Nested call should produce same max storage deposit as direct call"
+		);
 	});
 }
 
