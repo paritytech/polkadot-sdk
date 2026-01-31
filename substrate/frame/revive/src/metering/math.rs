@@ -46,7 +46,7 @@ pub mod substrate_execution {
 		deposit_limit: BalanceOf<T>,
 	) -> Result<TransactionMeter<T>, DispatchError> {
 		Ok(TransactionMeter {
-			weight: WeightMeter::new(Some(weight_limit), None),
+			weight: WeightMeter::new(weight_limit, None),
 			deposit: RootStorageMeter::new(Some(deposit_limit)),
 			// ignore max total gas for Substrate executions
 			max_total_gas: Default::default(),
@@ -84,10 +84,6 @@ pub mod substrate_execution {
 		let weight_left = meter
 			.weight
 			.weight_limit
-			.expect(
-				"Weight limits are always defined for `ResourceMeter` in Substrate \
-				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
-			)
 			.checked_sub(&self_consumed_weight)
 			.ok_or(<Error<T>>::OutOfGas)?;
 
@@ -161,7 +157,7 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(Some(nested_weight_limit), stipend),
+			weight: WeightMeter::new(nested_weight_limit, stipend),
 			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
@@ -195,11 +191,7 @@ pub mod substrate_execution {
 	///
 	/// Subtracts the weight already consumed in the current frame from the configured limit.
 	pub fn weight_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<Weight> {
-		let weight_limit = meter.weight.weight_limit.expect(
-			"Weight limits are always defined for `ResourceMeter` in Substrate \
-				execution mode (i.e., when its `transaction_limits` are `WeightAndDeposit`); qed",
-		);
-		weight_limit.checked_sub(&meter.weight.weight_consumed())
+		meter.weight.weight_limit.checked_sub(&meter.weight.weight_consumed())
 	}
 
 	/// Return remaining deposit available to the given meter.
@@ -269,18 +261,18 @@ pub mod ethereum_execution {
 	/// otherwise it returns an error.
 	pub fn new_root<T: Config>(
 		eth_gas_limit: BalanceOf<T>,
-		maybe_weight_limit: Option<Weight>,
+		weight_limit: Weight,
 		eth_tx_info: EthTxInfo<T>,
 	) -> Result<TransactionMeter<T>, DispatchError> {
 		let meter = TransactionMeter {
-			weight: WeightMeter::new(maybe_weight_limit, None),
+			weight: WeightMeter::new(weight_limit, None),
 			deposit: RootStorageMeter::new(None),
 			max_total_gas: SignedGas::from_ethereum_gas(eth_gas_limit),
 			total_consumed_weight_before: Default::default(),
 			total_consumed_deposit_before: Default::default(),
 			transaction_limits: TransactionLimits::EthereumGas {
 				eth_gas_limit,
-				maybe_weight_limit,
+				weight_limit,
 				eth_tx_info,
 			},
 			_phantom: PhantomData,
@@ -331,12 +323,13 @@ pub mod ethereum_execution {
 				)
 				.ok_or(<Error<T>>::OutOfGas)?;
 
-			match meter.weight.weight_limit {
-				Some(weight_limit) => unbounded_weight_left.min(
-					weight_limit.checked_sub(&self_consumed_weight).ok_or(<Error<T>>::OutOfGas)?,
-				),
-				None => unbounded_weight_left,
-			}
+			unbounded_weight_left.min(
+				meter
+					.weight
+					.weight_limit
+					.checked_sub(&self_consumed_weight)
+					.ok_or(<Error<T>>::OutOfGas)?,
+			)
 		};
 
 		let deposit_left = {
@@ -358,7 +351,7 @@ pub mod ethereum_execution {
 			match limit {
 				CallResources::NoLimits => (
 					remaining_gas,
-					if meter.weight.weight_limit.is_none() { None } else { Some(weight_left) },
+					weight_left,
 					if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 					None,
 				),
@@ -384,7 +377,7 @@ pub mod ethereum_execution {
 
 					(
 						remaining_gas.min(&gas_limit),
-						if meter.weight.weight_limit.is_none() { None } else { Some(weight_left) },
+						weight_left,
 						if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 						stipend,
 					)
@@ -404,7 +397,7 @@ pub mod ethereum_execution {
 
 					(
 						remaining_gas.min(&gas_limit),
-						Some(nested_weight_limit),
+						nested_weight_limit,
 						Some(nested_deposit_limit),
 						None,
 					)
@@ -463,10 +456,7 @@ pub mod ethereum_execution {
 			&total_consumed_deposit,
 		)?;
 
-		Some(match meter.weight.weight_limit {
-			Some(weight_limit) => weight_left.min(weight_limit.checked_sub(&self_consumed_weight)?),
-			None => weight_left,
-		})
+		Some(weight_left.min(meter.weight.weight_limit.checked_sub(&self_consumed_weight)?))
 	}
 
 	/// Return remaining deposit available to a nested frame under Ethereum-style execution.
