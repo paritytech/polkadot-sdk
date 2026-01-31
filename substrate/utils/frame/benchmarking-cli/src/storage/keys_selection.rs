@@ -25,9 +25,9 @@ use sc_cli::Result;
 /// - If `keys_limit` is `None`, collects all entries from `iter_from_start`.
 /// - Otherwise computes `first_key = blake2_256(random_seed.to_be_bytes())` and takes up to
 ///   `keys_limit` entries from `iter_from_first_key(Some(first_key))` (backend uses exclusive
-///   start, so entries strictly after `first_key`). If that yields fewer than `keys_limit`,
-///   circles back: takes entries from `iter_from_start()` with `key_of(entry) < first_key`
-///   until the limit is reached or no more such entries exist.
+///   start, so entries strictly after `first_key`). If that yields fewer than `keys_limit`, circles
+///   back: takes entries from `iter_from_start()` with `key_of(entry) < first_key` until the limit
+///   is reached or no more such entries exist.
 ///
 /// The three closures abstract the different ways to read entries:
 /// - **Keys only** (warmup, read): the two iterators use `client.storage_keys(..., start_at)`;
@@ -49,7 +49,8 @@ where
 	FKey: Fn(&E) -> &[u8],
 {
 	let mut entries: Vec<E> = if let Some(limit) = keys_limit {
-        let first_key = random_seed.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
+		let first_key =
+			random_seed.map(|seed| sp_core::blake2_256(&seed.to_be_bytes()[..]).to_vec());
 		let from_first = iter_from_first_key(first_key.as_deref())?;
 		let mut collected: Vec<E> = from_first.take(limit).collect();
 		if collected.len() < limit {
