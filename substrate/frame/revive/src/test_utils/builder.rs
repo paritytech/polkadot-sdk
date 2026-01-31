@@ -257,6 +257,7 @@ builder!(
 		transaction_encoded: Vec<u8>,
 		effective_gas_price: U256,
 		encoded_len: u32,
+		authorization_list: Vec<crate::evm::SignedAuthorizationListEntry>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -271,6 +272,7 @@ builder!(
 			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
 			effective_gas_price: 0u32.into(),
 			encoded_len: 0,
+			authorization_list: vec![],
 		}
 	}
 );

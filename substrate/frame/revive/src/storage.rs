@@ -81,6 +81,10 @@ pub enum AccountType<T: Config> {
 	/// An account that is an externally owned account (EOA).
 	#[default]
 	EOA,
+
+	/// An account that has delegated its code execution to another address (EIP-7702).
+	/// Contains the target address to which execution is delegated.
+	Delegated { target: H160 },
 }
 
 /// Information for managing an account and its sub trie abstraction.
@@ -184,6 +188,53 @@ impl<T: Config> AccountInfo<T> {
 				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
 			}
 		});
+	}
+
+	/// EIP-7702: Check if an account has a delegation indicator set
+	pub fn is_delegated(address: &H160) -> bool {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
+		matches!(info.account_type, AccountType::Delegated { .. })
+	}
+
+	/// EIP-7702: Get the delegation target for an address
+	pub fn get_delegation_target(address: &H160) -> Option<H160> {
+		let info = <AccountInfoOf<T>>::get(address)?;
+		match info.account_type {
+			AccountType::Delegated { target } => Some(target),
+			_ => None,
+		}
+	}
+
+	/// EIP-7702: Set a delegation indicator for an EOA
+	/// Marks the account as delegated to the target address
+	pub fn set_delegation(
+		address: &H160,
+		target: H160
+	) -> Result<(), DispatchError> {
+		// Update or create account info with Delegated type
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account {
+				account.account_type = AccountType::Delegated { target };
+			} else {
+				*account = Some(AccountInfo {
+					account_type: AccountType::Delegated { target },
+					dust: 0,
+				});
+			}
+		});
+		Ok(())
+	}
+
+	/// EIP-7702: Clear delegation indicator, resetting account to EOA
+	pub fn clear_delegation(address: &H160) -> Result<(), DispatchError> {
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account {
+				if matches!(account.account_type, AccountType::Delegated { .. }) {
+					account.account_type = AccountType::EOA;
+				}
+			}
+		});
+		Ok(())
 	}
 }
 

@@ -257,7 +257,7 @@ pub struct GenericTransaction {
 	/// authorizationList
 	/// List of account code authorizations (EIP-7702)
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
-	pub authorization_list: Vec<AuthorizationListEntry>,
+	pub authorization_list: Vec<SignedAuthorizationListEntry>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
 	#[serde(default)]
@@ -787,7 +787,7 @@ pub struct Transaction7702Unsigned {
 	pub access_list: AccessList,
 	/// authorizationList
 	/// List of account code authorizations
-	pub authorization_list: Vec<AuthorizationListEntry>,
+	pub authorization_list: Vec<SignedAuthorizationListEntry>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
 	pub chain_id: U256,
@@ -821,7 +821,8 @@ pub struct Transaction7702Unsigned {
 	pub value: U256,
 }
 
-/// Authorization list entry for EIP-7702
+/// Authorization list entry for EIP-7702 (unsigned)
+/// Contains the authorization tuple without signature components
 #[derive(
 	Debug,
 	Default,
@@ -843,12 +844,53 @@ pub struct AuthorizationListEntry {
 	pub address: Address,
 	/// Nonce of the authorization
 	pub nonce: U256,
+}
+
+/// Signed authorization list entry for EIP-7702
+/// Contains the authorization tuple with signature components
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct SignedAuthorizationListEntry {
+	/// Chain ID that this authorization is valid on
+	pub chain_id: U256,
+	/// Address to authorize
+	pub address: Address,
+	/// Nonce of the authorization
+	pub nonce: U256,
 	/// y-parity of the signature
 	pub y_parity: U256,
 	/// r component of signature
 	pub r: U256,
 	/// s component of signature
 	pub s: U256,
+}
+
+impl SignedAuthorizationListEntry {
+	/// Convert signature components (r, s, y_parity) into a 65-byte ECDSA signature.
+	///
+	/// # Returns
+	/// A 65-byte array containing: [r (32 bytes), s (32 bytes), recovery_id (1 byte)]
+	pub fn signature(&self) -> [u8; 65] {
+		let mut signature = [0u8; 65];
+		let r_bytes = self.r.to_big_endian();
+		let s_bytes = self.s.to_big_endian();
+		signature[..32].copy_from_slice(&r_bytes);
+		signature[32..64].copy_from_slice(&s_bytes);
+		signature[64] = self.y_parity.low_u32() as u8;
+		signature
+	}
 }
 
 #[derive(

@@ -82,6 +82,43 @@ const FRAME_ALWAYS_EXISTS_ON_INSTANTIATE: &str = "The return value is only `None
 pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
+/// EIP-7702: Resolve delegation to actual code hash
+///
+/// If the account has delegated its code execution (AccountType::Delegated),
+/// this function returns the code hash of the delegated contract.
+/// According to EIP-7702, we only follow one level of delegation to prevent loops.
+///
+/// # Parameters
+/// - `address`: The address to check for delegation
+/// - `default_code_hash`: The code hash to return if not delegated
+///
+/// # Returns
+/// The actual code hash to execute (either the default or the delegated target's code hash)
+fn resolve_delegation<T: Config>(address: &H160, default_code_hash: H256) -> H256 {
+	// Check if the account is delegated
+	let Some(target_address) = AccountInfo::<T>::get_delegation_target(address) else {
+		// Not delegated, return the default code hash
+		return default_code_hash;
+	};
+
+	// Per EIP-7702: If delegation points to a precompile, return empty code hash
+	// Precompiles should not execute their logic when delegated to
+	if T::Precompiles::code(target_address.as_fixed_bytes()).is_some() {
+		return EMPTY_CODE_HASH;
+	}
+
+	// Load the delegated contract's code hash
+	// Per EIP-7702: only follow one level of delegation (no chaining)
+	let Some(delegated_contract) = AccountInfo::<T>::load_contract(&target_address) else {
+		// If target is not a contract, return empty code hash
+		return EMPTY_CODE_HASH;
+	};
+
+	// Return the delegated code hash (don't follow further delegations)
+	delegated_contract.code_hash
+}
+
+
 /// Combined key type for both fixed and variable sized storage keys.
 #[derive(Debug)]
 pub enum Key {
@@ -1100,7 +1137,9 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = E::from_storage(info.code_hash, meter)?;
+						// EIP-7702: Resolve delegation if account is delegated
+						let actual_code_hash = resolve_delegation::<T>(&delegated_call.callee, info.code_hash);
+						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1110,13 +1149,12 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let executable = E::from_storage(
-							contract
-								.as_contract()
-								.expect("When not a precompile the contract was loaded above; qed")
-								.code_hash,
-							meter,
-						)?;
+						let contract_info = contract
+							.as_contract()
+							.expect("When not a precompile the contract was loaded above; qed");
+						// EIP-7702: Resolve delegation if account is delegated
+						let actual_code_hash = resolve_delegation::<T>(&address, contract_info.code_hash);
+						let executable = E::from_storage(actual_code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				};

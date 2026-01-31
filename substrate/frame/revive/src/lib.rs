@@ -1344,11 +1344,34 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
+			authorization_list: Vec<evm::SignedAuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
 
 			Self::ensure_non_contract_if_signed(&origin)?;
+
+			let (eth_gas_limit, weight_limit) = if !authorization_list.is_empty() {
+				let chain_id = U256::from(T::ChainId::get());
+				let (new_accounts, existing_accounts) = evm::eip7702::process_authorizations::<T>(&authorization_list, chain_id);
+
+				let auth_count = authorization_list.len() as u64;
+				let single_auth_weight = T::WeightInfo::process_single_authorization();
+				let auth_weight = single_auth_weight.saturating_mul(auth_count)
+					.saturating_add(T::WeightInfo::apply_delegations_existing(existing_accounts as u32))
+					.saturating_add(T::WeightInfo::apply_delegations_new(new_accounts as u32));
+
+				let gas_scale: u64 = T::GasScale::get().into();
+				let auth_gas = auth_weight.ref_time().saturating_div(gas_scale);
+
+				let adjusted_gas_limit = eth_gas_limit.saturating_sub(U256::from(auth_gas));
+				let adjusted_weight_limit = weight_limit.saturating_sub(auth_weight);
+
+				(adjusted_gas_limit, adjusted_weight_limit)
+			} else {
+				(eth_gas_limit, weight_limit)
+			};
+
 			let mut call = Call::<T>::eth_call {
 				dest,
 				value,
@@ -1358,6 +1381,7 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
+				authorization_list,
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
