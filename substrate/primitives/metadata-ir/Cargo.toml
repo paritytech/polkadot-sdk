@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame-metadata = { features = ["current"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+derive-where = { workspace = true }
 
 [features]
 default = ["std"]

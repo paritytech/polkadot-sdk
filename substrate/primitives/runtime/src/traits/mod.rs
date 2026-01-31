@@ -56,9 +56,15 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 pub mod transaction_extension;
+pub mod vers_tx_ext;
 pub use transaction_extension::{
 	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
+};
+pub use vers_tx_ext::{
+	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
+	MultiVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder, PipelineVersion,
+	PipelineWeight,
 };
 
 /// A lazy value.
@@ -1496,8 +1502,11 @@ pub trait ExtrinsicMetadata {
 	/// By format we mean the encoded representation of the `Extrinsic`.
 	const VERSIONS: &'static [u8];
 
-	/// Transaction extensions attached to this `Extrinsic`.
-	type TransactionExtensions;
+	/// All version of transaction extensions attached to this `Extrinsic`.
+	///
+	/// For the transaction extension pipeline used for the signed extrinsics it is defined as the
+	/// version 0, if defined.
+	type TransactionExtensionPipelines;
 }
 
 /// Extract the hashing type for a block.
