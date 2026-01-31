@@ -17,6 +17,8 @@
 
 //! Storage migrations for the referenda pallet.
 
+extern crate alloc;
+
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
@@ -290,6 +292,298 @@ pub mod switch_block_number_provider {
 	}
 }
 
+/// Multi-block migration from v1 to v2 for the referenda pallet.
+///
+/// This migration converts deposits from the old `Currency::reserve` system
+/// to the new `fungible::hold` system. It uses the `SteppedMigration` framework
+/// to spread the work across multiple blocks, avoiding weight limit issues on
+/// chains with many accumulated referenda.
+pub mod v2_mbm {
+	use super::*;
+	use frame_support::{
+		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+		traits::ReservableCurrency,
+		weights::{constants::RocksDbWeight, WeightMeter},
+	};
+
+	/// The log target for this migration.
+	const TARGET: &'static str = "runtime::referenda::migration::v2_mbm";
+
+	/// Unique identifier for this pallet's migrations.
+	const PALLET_MIGRATIONS_ID: &[u8; 18] = b"pallet-referenda  ";
+
+	/// Weight functions needed for the multi-block migration.
+	pub mod weights {
+		use super::*;
+		use frame_support::weights::Weight;
+
+		/// Weight functions for the migration step.
+		pub trait WeightInfo {
+			/// Weight for processing one referendum in the migration step.
+			///
+			/// This includes:
+			/// - 1 read for the referendum info
+			/// - Up to 2 deposits (submission + decision)
+			/// - Per deposit: unreserve (read + write) + hold (read + write)
+			fn step() -> Weight;
+		}
+
+		/// Weights using the Substrate node and recommended hardware.
+		pub struct SubstrateWeight<T>(core::marker::PhantomData<T>);
+		impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+			fn step() -> Weight {
+				// Per referendum worst case:
+				// - 1 read: fetch referendum info from storage
+				// - 2 deposits maximum (submission + decision)
+				// - Per deposit: unreserve (~2 reads, ~2 writes) + hold (~2 reads, ~2 writes)
+				// Total worst case: 1 + 2*(2+2) = 9 reads, 2*4 = 8 writes
+				Weight::from_parts(20_000_000, 6000)
+					.saturating_add(T::DbWeight::get().reads(9))
+					.saturating_add(T::DbWeight::get().writes(8))
+			}
+		}
+
+		/// For backwards compatibility and tests.
+		impl WeightInfo for () {
+			fn step() -> Weight {
+				Weight::from_parts(20_000_000, 6000)
+					.saturating_add(RocksDbWeight::get().reads(9))
+					.saturating_add(RocksDbWeight::get().writes(8))
+			}
+		}
+	}
+
+	/// Multi-block migration from v1 to v2.
+	///
+	/// Iterates through all referenda with deposits and converts them from the old
+	/// `Currency::reserve` system to the new `fungible::hold` system.
+	pub struct LazyMigrationV1ToV2<T, I, OldCurrency, W>(PhantomData<(T, I, OldCurrency, W)>);
+
+	impl<T, I, OldCurrency, W> SteppedMigration for LazyMigrationV1ToV2<T, I, OldCurrency, W>
+	where
+		T: Config<I>,
+		I: 'static,
+		OldCurrency: ReservableCurrency<T::AccountId, Balance = BalanceOf<T, I>>,
+		W: weights::WeightInfo,
+	{
+		/// The cursor is the last processed `ReferendumIndex`.
+		type Cursor = ReferendumIndex;
+
+		/// Migration identifier with pallet ID and version info.
+		type Identifier = MigrationId<18>;
+
+		fn id() -> Self::Identifier {
+			MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 1, version_to: 2 }
+		}
+
+		fn step(
+			cursor: Option<Self::Cursor>,
+			meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			let required = W::step();
+
+			// Check if we have enough weight for at least one item
+			if meter.remaining().any_lt(required) {
+				return Err(SteppedMigrationError::InsufficientWeight { required });
+			}
+
+			// Create iterator starting from cursor position or beginning
+			let mut iter = if let Some(last_key) = cursor {
+				// Resume from the key after the last processed one
+				v1::ReferendumInfoFor::<T, I>::iter_from(
+					v1::ReferendumInfoFor::<T, I>::hashed_key_for(last_key),
+				)
+			} else {
+				// Start from the beginning
+				v1::ReferendumInfoFor::<T, I>::iter()
+			};
+
+			let mut last_key = cursor;
+
+			// Process items while we have weight budget
+			loop {
+				// Check if we can process another item
+				if meter.try_consume(required).is_err() {
+					break;
+				}
+
+				// Get next item from iterator
+				let Some((index, info)) = iter.next() else {
+					// No more items - migration complete
+					log::info!(
+						target: TARGET,
+						"Migration complete. Last processed index: {:?}",
+						last_key
+					);
+					return Ok(None);
+				};
+
+				// Process this referendum's deposits
+				Self::migrate_referendum_deposits(index, &info);
+
+				// Update cursor
+				last_key = Some(index);
+			}
+
+			// Return cursor to continue in next block
+			log::info!(
+				target: TARGET,
+				"Step complete. Last processed index: {:?}",
+				last_key
+			);
+
+			Ok(last_key)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			use alloc::collections::btree_map::BTreeMap;
+
+			// Count all referenda and their deposits
+			let mut referendum_count = 0u32;
+			let mut deposit_count = 0u32;
+			let mut deposits_by_account: BTreeMap<Vec<u8>, BalanceOf<T, I>> = BTreeMap::new();
+
+			for (_index, info) in v1::ReferendumInfoFor::<T, I>::iter() {
+				referendum_count += 1;
+
+				let deposits = Self::collect_deposits(&info);
+				for Deposit { who, amount } in deposits {
+					if !amount.is_zero() {
+						deposit_count += 1;
+						let key = who.encode();
+						*deposits_by_account.entry(key).or_default() += amount;
+					}
+				}
+			}
+
+			log::info!(
+				target: TARGET,
+				"pre_upgrade: {} referenda, {} deposits to migrate",
+				referendum_count,
+				deposit_count
+			);
+
+			Ok((referendum_count, deposit_count).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let (pre_referendum_count, pre_deposit_count): (u32, u32) =
+				Decode::decode(&mut &state[..]).expect("failed to decode pre_upgrade state");
+
+			// Verify referendum count unchanged
+			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
+			frame_support::ensure!(
+				post_referendum_count == pre_referendum_count,
+				"Referendum count changed during migration"
+			);
+
+			log::info!(
+				target: TARGET,
+				"post_upgrade: Successfully verified {} referenda, {} deposits migrated",
+				pre_referendum_count,
+				pre_deposit_count
+			);
+
+			Ok(())
+		}
+	}
+
+	impl<T, I, OldCurrency, W> LazyMigrationV1ToV2<T, I, OldCurrency, W>
+	where
+		T: Config<I>,
+		I: 'static,
+		OldCurrency: ReservableCurrency<T::AccountId, Balance = BalanceOf<T, I>>,
+	{
+		/// Migrate deposits for a single referendum.
+		///
+		/// For each deposit (submission and decision):
+		/// 1. Unreserve from old Currency system
+		/// 2. Place hold with new HoldReason
+		fn migrate_referendum_deposits(index: ReferendumIndex, info: &v1::ReferendumInfoOf<T, I>) {
+			let deposits = Self::collect_deposits(info);
+
+			for Deposit { who, amount } in deposits {
+				if amount.is_zero() {
+					continue;
+				}
+
+				// Unreserve from old system
+				let remaining = OldCurrency::unreserve(&who, amount);
+				if !remaining.is_zero() {
+					log::warn!(
+						target: TARGET,
+						"referendum #{:?}: could not fully unreserve for {:?}. \
+						 Expected: {:?}, Remaining: {:?}",
+						index,
+						who,
+						amount,
+						remaining
+					);
+				}
+
+				// Place hold with new system
+				let amount_to_hold = amount.saturating_sub(remaining);
+				if !amount_to_hold.is_zero() {
+					if let Err(e) = T::NativeBalance::hold(
+						&HoldReason::DecisionDeposit.into(),
+						&who,
+						amount_to_hold,
+					) {
+						log::error!(
+							target: TARGET,
+							"referendum #{:?}: failed to hold {:?} for {:?}: {:?}",
+							index,
+							amount_to_hold,
+							who,
+							e
+						);
+					} else {
+						log::debug!(
+							target: TARGET,
+							"referendum #{:?}: migrated deposit of {:?} for {:?}",
+							index,
+							amount_to_hold,
+							who
+						);
+					}
+				}
+			}
+		}
+
+		/// Collect all deposits from a referendum that need migration.
+		fn collect_deposits(
+			info: &v1::ReferendumInfoOf<T, I>,
+		) -> Vec<Deposit<T::AccountId, BalanceOf<T, I>>> {
+			let mut deposits = Vec::new();
+
+			match info {
+				ReferendumInfo::Ongoing(status) => {
+					deposits.push(status.submission_deposit.clone());
+					if let Some(ref d) = status.decision_deposit {
+						deposits.push(d.clone());
+					}
+				},
+				ReferendumInfo::Approved(_, ref s, ref d) |
+				ReferendumInfo::Rejected(_, ref s, ref d) |
+				ReferendumInfo::Cancelled(_, ref s, ref d) |
+				ReferendumInfo::TimedOut(_, ref s, ref d) => {
+					if let Some(ref submission) = s {
+						deposits.push(submission.clone());
+					}
+					if let Some(ref decision) = d {
+						deposits.push(decision.clone());
+					}
+				},
+				ReferendumInfo::Killed(_) => {},
+			}
+
+			deposits
+		}
+	}
+}
+
 #[cfg(test)]
 pub mod test {
 	use super::*;
@@ -300,6 +594,8 @@ pub mod test {
 		mock::{Test as T, *},
 	};
 	use core::str::FromStr;
+	use frame_support::assert_ok;
+	use pallet_balances::Pallet as Balances;
 
 	// create referendum status v0.
 	fn create_status_v0() -> v0::ReferendumStatusOf<T, ()> {
@@ -405,5 +701,218 @@ pub mod test {
 				)
 			);
 		});
+	}
+
+	// Multi-block migration tests for v2_mbm.
+	mod v2_mbm_tests {
+		use super::*;
+		use frame_support::{
+			migrations::SteppedMigration,
+			traits::{fungible::InspectHold, Currency, ReservableCurrency},
+			weights::WeightMeter,
+		};
+		use v2_mbm::{weights::WeightInfo, LazyMigrationV1ToV2};
+
+		#[test]
+		fn mbm_migration_works_single_step() {
+			ExtBuilder::default().build_and_execute(|| {
+				// Setup: Fund accounts and reserve balances (simulating v1 state)
+				let submitter: u64 = 1;
+				let decision_depositor: u64 = 2;
+				let submission_amount: u64 = 10;
+				let decision_amount: u64 = 20;
+
+				// Give accounts enough balance
+				let _ = <Balances<T> as Currency<u64>>::deposit_creating(&submitter, 1000);
+				let _ = <Balances<T> as Currency<u64>>::deposit_creating(&decision_depositor, 1000);
+
+				// Reserve funds using old Currency trait (simulating v1 state)
+				assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(
+					&submitter,
+					submission_amount
+				));
+				assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(
+					&decision_depositor,
+					decision_amount
+				));
+
+				// Create an ongoing referendum with both deposits
+				let status_v1 = create_status_v0();
+				let ongoing_with_decision =
+					v1::ReferendumInfoOf::<T, ()>::Ongoing(ReferendumStatus {
+						submission_deposit: Deposit { who: submitter, amount: submission_amount },
+						decision_deposit: Some(Deposit {
+							who: decision_depositor,
+							amount: decision_amount,
+						}),
+						..status_v1
+					});
+
+				ReferendumCount::<T, ()>::put(1);
+				v1::ReferendumInfoFor::<T, ()>::insert(0, ongoing_with_decision);
+				StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+				// Run multi-block migration with enough weight for all items
+				let mut meter = WeightMeter::new();
+				let result = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(None, &mut meter);
+
+				// Should complete in one step
+				assert!(matches!(result, Ok(None)));
+
+				// Verify holds are now in place
+				let submitter_held = <Balances<T> as InspectHold<u64>>::balance_on_hold(
+					&HoldReason::DecisionDeposit.into(),
+					&submitter,
+				);
+				let depositor_held = <Balances<T> as InspectHold<u64>>::balance_on_hold(
+					&HoldReason::DecisionDeposit.into(),
+					&decision_depositor,
+				);
+
+				assert_eq!(submitter_held, submission_amount);
+				assert_eq!(depositor_held, decision_amount);
+			});
+		}
+
+		#[test]
+		fn mbm_migration_works_multiple_steps() {
+			ExtBuilder::default().build_and_execute(|| {
+				// Setup: Create multiple referenda
+				let submitter: u64 = 1;
+				let submission_amount: u64 = 10;
+
+				// Give account enough balance for multiple deposits
+				let _ = <Balances<T> as Currency<u64>>::deposit_creating(&submitter, 10000);
+
+				// Reserve funds for 5 referenda
+				for _ in 0..5 {
+					assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(
+						&submitter,
+						submission_amount
+					));
+				}
+
+				// Create 5 referenda
+				for i in 0..5u32 {
+					let status = create_status_v0();
+					let referendum = v1::ReferendumInfoOf::<T, ()>::Ongoing(ReferendumStatus {
+						submission_deposit: Deposit { who: submitter, amount: submission_amount },
+						decision_deposit: None,
+						..status
+					});
+					v1::ReferendumInfoFor::<T, ()>::insert(i, referendum);
+				}
+				ReferendumCount::<T, ()>::put(5);
+				StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+				// Run migration with limited weight (only enough for 2 items)
+				let step_weight = <() as WeightInfo>::step();
+				let limited_weight = step_weight.saturating_mul(2);
+				let mut meter = WeightMeter::with_limit(limited_weight);
+
+				// First step - should process 2 items
+				let result = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(None, &mut meter);
+				assert!(result.is_ok());
+				let cursor = result.unwrap();
+				assert!(cursor.is_some()); // Not complete yet
+
+				// Second step - process next 2 items
+				let mut meter = WeightMeter::with_limit(limited_weight);
+				let result =
+					LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(cursor, &mut meter);
+				assert!(result.is_ok());
+				let cursor = result.unwrap();
+				assert!(cursor.is_some()); // Still not complete
+
+				// Third step - process remaining 1 item
+				let mut meter = WeightMeter::with_limit(limited_weight);
+				let result =
+					LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(cursor, &mut meter);
+				assert!(result.is_ok());
+				let cursor = result.unwrap();
+				assert!(cursor.is_none()); // Complete!
+
+				// Verify all holds are in place
+				let total_held = <Balances<T> as InspectHold<u64>>::balance_on_hold(
+					&HoldReason::DecisionDeposit.into(),
+					&submitter,
+				);
+				assert_eq!(total_held, submission_amount * 5);
+			});
+		}
+
+		#[test]
+		fn mbm_migration_handles_insufficient_weight() {
+			ExtBuilder::default().build_and_execute(|| {
+				// Create a referendum
+				let submitter: u64 = 1;
+				let _ = <Balances<T> as Currency<u64>>::deposit_creating(&submitter, 1000);
+				assert_ok!(<Balances<T> as ReservableCurrency<u64>>::reserve(&submitter, 10));
+
+				let status = create_status_v0();
+				let referendum = v1::ReferendumInfoOf::<T, ()>::Ongoing(ReferendumStatus {
+					submission_deposit: Deposit { who: submitter, amount: 10 },
+					decision_deposit: None,
+					..status
+				});
+				v1::ReferendumInfoFor::<T, ()>::insert(0, referendum);
+				ReferendumCount::<T, ()>::put(1);
+
+				// Run migration with insufficient weight
+				let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 0));
+				let result = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(None, &mut meter);
+
+				// Should return InsufficientWeight error
+				assert!(matches!(
+					result,
+					Err(
+						frame_support::migrations::SteppedMigrationError::InsufficientWeight { .. }
+					)
+				));
+			});
+		}
+
+		#[test]
+		fn mbm_migration_handles_empty_storage() {
+			ExtBuilder::default().build_and_execute(|| {
+				// No referenda in storage
+				StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+				// Run migration
+				let mut meter = WeightMeter::new();
+				let result = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(None, &mut meter);
+
+				// Should complete immediately with None cursor
+				assert!(matches!(result, Ok(None)));
+			});
+		}
+
+		#[test]
+		fn mbm_migration_handles_killed_referendum() {
+			ExtBuilder::default().build_and_execute(|| {
+				// Create a killed referendum (no deposits to migrate)
+				let killed = ReferendumInfoOf::<T, ()>::Killed(42);
+
+				ReferendumCount::<T, ()>::put(1);
+				v1::ReferendumInfoFor::<T, ()>::insert(0, killed);
+				StorageVersion::new(1).put::<Pallet<T, ()>>();
+
+				// Run migration
+				let mut meter = WeightMeter::new();
+				let result = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::step(None, &mut meter);
+
+				// Should complete successfully
+				assert!(matches!(result, Ok(None)));
+			});
+		}
+
+		#[test]
+		fn mbm_migration_id_is_correct() {
+			// Verify the migration ID is set correctly
+			let id = LazyMigrationV1ToV2::<T, (), Balances<T>, ()>::id();
+			assert_eq!(id.version_from, 1);
+			assert_eq!(id.version_to, 2);
+			assert_eq!(&id.pallet_id, b"pallet-referenda  ");
+		}
 	}
 }

@@ -80,7 +80,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
-	type Currency = Balances;
+	type NativeBalance = Balances;
 	// Fellows can submit proposals.
 	type SubmitOrigin = EitherOf<
 		pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 3>,
