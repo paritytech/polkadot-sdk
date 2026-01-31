@@ -211,6 +211,54 @@ fn should_ban_invalid_transactions() {
 }
 
 #[test]
+fn remove_transactions_should_work() {
+	let (pool, api, _guard) = maintained_pool();
+
+	let xt1 = uxt(Alice, 209);
+	let xt2 = uxt(Alice, 210);
+
+	// Submit transactions with watchers
+	let watcher1 =
+		block_on(pool.submit_and_watch(api.expect_hash_from_number(0), SOURCE, xt1.clone()))
+			.expect("1. Imported");
+	let watcher2 =
+		block_on(pool.submit_and_watch(api.expect_hash_from_number(0), SOURCE, xt2.clone()))
+			.expect("2. Imported");
+
+	assert_eq!(pool.status().ready, 2);
+
+	let hash1 = api.hash_and_length(&xt1).0;
+	let hash2 = api.hash_and_length(&xt2).0;
+
+	// Remove transactions and verify return value
+	let removed = block_on(pool.remove_transactions(&[hash1, hash2]));
+
+	// Verify returned transactions match the removed ones
+	assert_eq!(removed.len(), 2);
+	let removed_hashes: Vec<_> = removed.iter().map(|tx| tx.hash).collect();
+	assert!(removed_hashes.contains(&hash1));
+	assert!(removed_hashes.contains(&hash2));
+
+	// Verify transactions are removed
+	assert_eq!(pool.status().ready, 0);
+
+	// Verify watchers received Dropped events
+	assert_eq!(
+		futures::executor::block_on_stream(watcher1).collect::<Vec<_>>(),
+		vec![TransactionStatus::Ready, TransactionStatus::Dropped],
+	);
+	assert_eq!(
+		futures::executor::block_on_stream(watcher2).collect::<Vec<_>>(),
+		vec![TransactionStatus::Ready, TransactionStatus::Dropped],
+	);
+
+	// Verify transactions can be resubmitted (not banned)
+	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, xt1.clone()))
+		.expect("Should be able to resubmit after remove_transactions");
+	assert_eq!(pool.status().ready, 1);
+}
+
+#[test]
 fn only_prune_on_new_best() {
 	let (pool, api, _) = maintained_pool();
 	let uxt = uxt(Alice, 209);

@@ -416,6 +416,16 @@ where
 	) -> ReadyIteratorFor<PoolApi> {
 		self.ready_at_with_timeout_internal(at, timeout).await
 	}
+
+	async fn remove_transactions(
+		&self,
+		hashes: &[TxHash<Self>],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		// Remove from pool without banning, triggering Dropped events for watchers
+		self.pool.validated_pool().remove_subtree(hashes, false, |dispatcher, hash| {
+			dispatcher.dropped(&hash);
+		})
+	}
 }
 
 impl<Block, Client> BasicPool<FullChainApi<Client, Block>, Block>
@@ -801,6 +811,7 @@ where
 			Ok(EnactmentAction::HandleEnactment(tree_route)) => {
 				self.handle_enactment(tree_route).await;
 			},
+			Ok(EnactmentAction::HandleReversion { new_head: _ }) => return,
 		};
 
 		if let ChainEvent::Finalized { hash, tree_route } = event {
