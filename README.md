@@ -61,6 +61,22 @@ Messages from either of these channels are bridged to the other, so you can use 
   * [Discord](https://discord.com/channels/722223075629727774/997505821955076196)
   * [Polkadot and Substrate StackExchange](https://substrate.stackexchange.com/)
 
+## Binaries
+
+This repo provides the source code to a number of useful binaries used throughout Polkadot SDK development. The most commonly used are:
+
+- `polkadot`: A node for the main Polkadot Relay Chain.
+- `polkadot-parachain`: A node for a generic Parachain. Can be combined with a custom chain specification to launch a custom Parachain.
+- `chain-spec-builder`: A tool to generate a custom chain specification. Can be combined with a Polkadot-SDK compatible Wasm runtime to build a custom chain specification.
+
+You can find released binaries for Linux in our [latest releases](https://github.com/paritytech/polkadot-sdk/releases/).
+
+For other platforms, you can compile the binaries yourself with:
+
+```bash
+cargo install --git https://github.com/paritytech/polkadot-sdk/ --tag polkadot-stable2407 polkadot polkadot-parachain-bin staging-chain-spec-builder
+```
+
 ## 🚀 Releases
 
 <!-- markdownlint-disable-next-line MD013 -->
