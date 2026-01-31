@@ -1389,6 +1389,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-recovery",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -13132,10 +13133,14 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
  "pallet-balances",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -27334,7 +27339,6 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
- "pallet-recovery",
  "pallet-referenda",
  "pallet-root-offences",
  "pallet-root-testing",

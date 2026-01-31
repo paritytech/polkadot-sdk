@@ -17,213 +17,252 @@
 
 //! # Recovery Pallet
 //!
-//! - [`Config`]
-//! - [`Call`]
+//! Pallet Recovery allows you to have friends or family recover access to your account if you lose
+//! your seed phrase or private key.
 //!
-//! ## Overview
+//! ## Terminology
 //!
-//! The Recovery pallet is an M-of-N social recovery tool for users to gain
-//! access to their accounts if the private key or other authentication mechanism
-//! is lost. Through this pallet, a user is able to make calls on-behalf-of another
-//! account which they have recovered. The recovery process is protected by trusted
-//! "friends" whom the original account owner chooses. A threshold (M) out of N
-//! friends are needed to give another account access to the recoverable account.
+//! - `lost`: An account that has lost access to its private key and needs to be recovered.
+//! - `friend`: A befriended account that can approve a recovery process.
+//! - `initiator`: An account that initiated a recovery attempt.
+//! - `recovered`: An account that has been successfully recovered.
+//! - `inheritor`: An account that is inheriting access to a lost account after recovery.
+//! - `attempt`: An attempt to recover a lost account by an initiator.
+//! - `order`: The level of trust that an account has in a friend group.
+//! - `deposit`: The amount that friends of this group needs to reserve to initiate an attempt.
+//! - `threshold`: The number of friends that need to approve an attempt.
+//! - `inheritance delay`: How long an attempt will be delayed before it can succeed.
+//! - `provided block`: The blocks that are *provided* by the `T::BlockNumberProvider`.
 //!
-//! ### Recovery Configuration
+//! ## Scenario: Recovering a lost account
 //!
-//! The recovery process for each recoverable account can be configured by the account owner.
-//! They are able to choose:
-//! * `friends` - The list of friends that the account owner trusts to protect the recovery process
-//!   for their account.
-//! * `threshold` - The number of friends that need to approve a recovery process for the account to
-//!   be successfully recovered.
-//! * `delay_period` - The minimum number of blocks after the beginning of the recovery process that
-//!   need to pass before the account can be successfully recovered.
+//! Story of how the user Alice user loses access and is recovered by her friends.
 //!
-//! There is a configurable deposit that all users need to pay to create a recovery
-//! configuration. This deposit is composed of a base deposit plus a multiplier for
-//! the number of friends chosen. This deposit is returned in full when the account
-//! owner removes their recovery configuration.
+//! 1. Alice uses the recovery pallet to configure one or more friends groups:
+//!   - Alice picks a suitable `inheritor` account that will inherit the access to her account for
+//!     each friend group. This could be a multisig.
+//!   - Alice configures all groups with via `set_friend_groups`.
+//! 2. Alice loses access to her account and becomes a `lost` account.
+//! 3. Any member (aka `initiator`) of Alice's friend groups become aware of the situation and
+//!    starts a recovery `attempt` via `initiate_attempt`.
+//! 4. The friend group self-organizes and one-by-one approve the ongoing attempt via
+//!    `approve_attempt`.
+//! 5. Exactly `threshold` friends approve the attempt (further approvals will fail since they are
+//!    useless).
+//! 6. Any account finishes the attempt via `finish_attempt` after at least *inheritance delay*
+//!    blocks since the initiation have passed.
+//! 7. Alice's account is now officially `recovered` and accessible by the `inheritor` account.
+//! 8. The `inheritor` may call `control_inherited_account` at any point to transfer Alice's funds
+//!    to her new account.
 //!
-//! ### Recovery Life Cycle
+//! ## Scenario: Multiple friend group try to recover an account
 //!
-//! The intended life cycle of a successful recovery takes the following steps:
-//! 1. The account owner calls `create_recovery` to set up a recovery configuration for their
-//!    account.
-//! 2. At some later time, the account owner loses access to their account and wants to recover it.
-//!    Likely, they will need to create a new account and fund it with enough balance to support the
-//!    transaction fees and the deposit for the recovery process.
-//! 3. Using this new account, they call `initiate_recovery`.
-//! 4. Then the account owner would contact their configured friends to vouch for the recovery
-//!    attempt. The account owner would provide their old account id and the new account id, and
-//!    friends would call `vouch_recovery` with those parameters.
-//! 5. Once a threshold number of friends have vouched for the recovery attempt, the account owner
-//!    needs to wait until the delay period has passed, starting when they initiated the recovery
-//!    process.
-//! 6. Now the account owner is able to call `claim_recovery`, which subsequently allows them to
-//!    call `as_recovered` and directly make calls on-behalf-of the lost account.
-//! 7. Using the now recovered account, the account owner can call `close_recovery` on the recovery
-//!    process they opened, reclaiming the recovery deposit they placed.
-//! 8. Then the account owner should then call `remove_recovery` to remove the recovery
-//!    configuration on the recovered account and reclaim the recovery configuration deposit they
-//!    placed.
-//! 9. Using `as_recovered`, the account owner is able to call any other pallets to clean up their
-//!    state and reclaim any reserved or locked funds. They can then transfer all funds from the
-//!    recovered account to the new account.
-//! 10. When the recovered account becomes reaped (i.e. its free and reserved balance drops to
-//!     zero), the final recovery link is removed.
+//! Alice may have configured multiple friend groups that all try to recover her account at the same
+//! time. This can lead to a conflict of which friend group should eventually inherit the access.
 //!
-//! ### Malicious Recovery Attempts
+//! 1. Alice configures groups *Family* (delay 10d, order 0) and *Friends* (delay 20d, order 1).
+//! 1. Day 0: Alice loses access to her account.
+//! 1. Day 6: *Friends* initiate a recovery attempt for Alice.
+//! 1. Day 15: *Family* finally understands Polkadot and initiates an attempt as well.
+//! 1. Day 25: *Family* inherits access to Alice account.
+//! 1. Day 26: *Friends* group gets nothing since inheritance order is higher the one from *Family*.
 //!
-//! Initializing the recovery process for a recoverable account is open and
-//! permissionless. However, the recovery deposit is an economic deterrent that
-//! should disincentivize would-be attackers from trying to maliciously recover
-//! accounts.
+//! In the case above you see how the *Friends* group is now unable to recover Alice account since
+//! the *Family* group already did it and has a higher inheritance order.  
+//! Now, imagine the case that the *Friends* group would have started on day 4 and would have
+//! already recovered the account on day 24. Two days later, the *Family* group can take access back
+//! and will replace the inheritor account with their own. The *Friends* group had access for two
+//! days since they were faster.  
+//! If Alice account has most balance locked in 28 day staking this would not make a big difference,
+//! since only the free balance would be immediately transferable.
 //!
-//! The recovery deposit can always be claimed by the account which is trying
-//! to be recovered. In the case of a malicious recovery attempt, the account
-//! owner who still has access to their account can claim the deposit and
-//! essentially punish the malicious user.
+//! After a recovery attempt was completed, friend groups with a higher inheritance order cannot
+//! open a new attempt to recover the account.
 //!
-//! Furthermore, the malicious recovery attempt can only be successful if the
-//! attacker is also able to get enough friends to vouch for the recovery attempt.
-//! In the case where the account owner prevents a malicious recovery process,
-//! this pallet makes it near-zero cost to re-configure the recovery settings and
-//! remove/replace friends who are acting inappropriately.
+//! ## Data Structures
 //!
-//! ### Safety Considerations
+//! The pallet has three storage items, see the in-code docs [`FriendGroups`], [`Attempts`] and
+//! [`Inheritor`]. Storage items may contain deposit "tickets" or similar noise and should therefore
+//! not be read directly but only through the API.
 //!
-//! It is important to note that this is a powerful pallet that can compromise the
-//! security of an account if used incorrectly. Some recommended practices for users
-//! of this pallet are:
+//! ## API
 //!
-//! * Configure a significant `delay_period` for your recovery process: As long as you have access
-//!   to your recoverable account, you need only check the blockchain once every `delay_period`
-//!   blocks to ensure that no recovery attempt is successful against your account. Using off-chain
-//!   notification systems can help with this, but ultimately, setting a large `delay_period` means
-//!   that even the most skilled attacker will need to wait this long before they can access your
-//!   account.
-//! * Use a high threshold of approvals: Setting a value of 1 for the threshold means that any of
-//!   your friends would be able to recover your account. They would simply need to start a recovery
-//!   process and approve their own process. Similarly, a threshold of 2 would mean that any 2
-//!   friends could work together to gain access to your account. The only way to prevent against
-//!   these kinds of attacks is to choose a high threshold of approvals and select from a diverse
-//!   friend group that would not be able to reasonably coordinate with one another.
-//! * Reset your configuration over time: Since the entire deposit of creating a recovery
-//!   configuration is returned to the user, the only cost of updating your recovery configuration
-//!   is the transaction fees for the calls. Thus, it is strongly encouraged to regularly update
-//!   your recovery configuration as your life changes and your relationship with new and existing
-//!   friends change as well.
+//! *Reading* data can be done through the view functions:
 //!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! #### For General Users
-//!
-//! * `create_recovery` - Create a recovery configuration for your account and make it recoverable.
-//! * `initiate_recovery` - Start the recovery process for a recoverable account.
-//!
-//! #### For Friends of a Recoverable Account
-//! * `vouch_recovery` - As a `friend` of a recoverable account, vouch for a recovery attempt on the
-//!   account.
-//!
-//! #### For a User Who Successfully Recovered an Account
-//!
-//! * `claim_recovery` - Claim access to the account that you have successfully completed the
-//!   recovery process for.
-//! * `as_recovered` - Send a transaction as an account that you have recovered. See other functions
-//!   below.
-//!
-//! #### For the Recoverable Account
-//!
-//! * `close_recovery` - Close an active recovery process for your account and reclaim the recovery
-//!   deposit.
-//! * `remove_recovery` - Remove the recovery configuration from the account, making it
-//!   un-recoverable.
-//!
-//! #### For Super Users
-//!
-//! * `set_recovered` - The ROOT origin is able to skip the recovery process and directly allow one
-//!   account to access another.
+//! - `provided_block_number`: The block number that will be used to measure time.
+//! - `friend_groups`: The friend groups of an account that can initiate recovery attempts.
+//! - `attempts`: Ongoing recovery attempts for a lost account.
+//! - `inheritor`: The account that inherited full access to the lost account.
+//! - `inheritance`: All the recovered accounts that an account inherited access to.
 
-// Ensure we're `no_std` when compiling for Wasm.
+#![recursion_limit = "1024"]
 #![cfg_attr(not(feature = "std"), no_std)]
-
 extern crate alloc;
-
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use frame::{
 	prelude::*,
-	traits::{Currency, ReservableCurrency},
+	traits::{
+		fungible::{Inspect, MutateHold},
+		Consideration, Footprint,
+	},
 };
+use types::{Bitfield, IdentifiedConsideration};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod types;
 pub mod weights;
 
-pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type BlockNumberFromProviderOf<T> =
-	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-pub type FriendsOf<T> =
-	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriends>;
+/// Maximum number of friend groups that an account can have.
+pub const MAX_GROUPS_PER_ACCOUNT: u32 = 10;
 
-/// An active recovery process.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ActiveRecovery<BlockNumber, Balance, Friends> {
-	/// The block number when the recovery process started.
-	pub created: BlockNumber,
-	/// The amount held in reserve of the `depositor`,
-	/// to be returned once this recovery process is closed.
-	pub deposit: Balance,
-	/// The friends which have vouched so far. Always sorted.
-	pub friends: Friends,
-}
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<AccountIdFor<T>>>::Balance;
+/// The block number type that will be used to measure time.
+pub type ProvidedBlockNumberOf<T> =
+	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+
+/// Friends of a friend group.
+pub type FriendsOf<T> =
+	BoundedVec<<T as frame_system::Config>::AccountId, <T as Config>::MaxFriendsPerConfig>;
+pub type HashOf<T> = <T as frame_system::Config>::Hash;
 
 /// Configuration for recovering an account.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
-pub struct RecoveryConfig<BlockNumber, Balance, Friends> {
-	/// The minimum number of blocks since the start of the recovery process before the account
-	/// can be recovered.
-	pub delay_period: BlockNumber,
-	/// The amount held in reserve of the `depositor`,
-	/// to be returned once this configuration is removed.
-	pub deposit: Balance,
-	/// The list of friends which can help recover an account. Always sorted.
-	pub friends: Friends,
-	/// The number of approving friends needed to recover an account.
-	pub threshold: u16,
-}
-
-/// The type of deposit
 #[derive(
 	Clone,
 	Eq,
 	PartialEq,
 	Encode,
 	Decode,
-	DebugNoBound,
+	Default,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
 )]
-pub enum DepositKind<T: Config> {
-	/// Recovery configuration deposit
-	RecoveryConfig,
-	/// Active recovery deposit for an account
-	ActiveRecoveryFor(<T as frame_system::Config>::AccountId),
+pub struct FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends> {
+	/// Slashable deposit that the rescuer needs to reserve.
+	pub deposit: Balance,
+
+	/// List of friends that can initiate the recovery process. Always sorted.
+	pub friends: Friends,
+
+	/// The number of approving friends needed to recover an account.
+	pub friends_needed: u32,
+
+	/// The account that inherited full access to a lost account after successful recovery.
+	pub inheritor: AccountId,
+
+	/// Minimum time that a recovery attempt must stay active before it can be finished.
+	///
+	/// Uses a provided block number to avoid possible clock skew of parachains.
+	pub inheritance_delay: ProvidedBlockNumber,
+
+	/// Used to resolve inheritance conflicts when multiple friend groups finish a recovery.
+	///
+	/// Lower order friend groups can replace the inheritor of a higher order group. For example:
+	/// You can set your family group as order 0, your friends group as order 1 and co-workers as
+	/// group 2. This in combination with the `inheritance_delay` enables you to ensure that the
+	/// correct group receives the inheritance.
+	pub inheritance_order: InheritanceOrder,
+
+	/// The delay since the last approval of an attempt before the attempt can be canceled.
+	///
+	/// It ensures that a malicious recoverer does not abuse the `cancel_attempt` call to dodge an
+	/// incoming slash from the lost account. They could otherwise monitor the TX pool and cancel
+	/// the attempt just in time for the slash transaction to fail. Now instead, the lost account
+	/// has at least `cancel_delay` provided blocks to slash the attempt.
+	pub cancel_delay: ProvidedBlockNumber,
 }
+
+/// Index of a friend group of a lost account.
+pub type FriendGroupIndex = u32;
+
+/// Order in that friend groups have priority over account inheritance.
+///
+/// Lower is more powerful.
+pub type InheritanceOrder = u32;
+
+/// A `FriendGroup` for a specific `Config`.
+pub type FriendGroupOf<T> =
+	FriendGroup<ProvidedBlockNumberOf<T>, AccountIdFor<T>, BalanceOf<T>, FriendsOf<T>>;
+
+/// Collection of friend groups of a lost account.
+pub type FriendGroupsOf<T> = BoundedVec<FriendGroupOf<T>, ConstU32<MAX_GROUPS_PER_ACCOUNT>>;
+
+/// Approval bitfield for a specific number of friends.
+pub type ApprovalBitfield<MaxFriends> = Bitfield<MaxFriends>;
+
+/// Bitfield to track approval per friend in a friend group.
+pub type ApprovalBitfieldOf<T> = ApprovalBitfield<<T as Config>::MaxFriendsPerConfig>;
+
+/// An attempt to recover an account.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, Debug, TypeInfo, MaxEncodedLen)]
+pub struct Attempt<ProvidedBlockNumber, ApprovalBitfield, AccountId> {
+	/// Index of the friend group that initiated the attempt.
+	///
+	/// This will never be more than `MAX_GROUPS_PER_ACCOUNT`.
+	pub friend_group_index: FriendGroupIndex,
+
+	/// The account that initiated the attempt.
+	pub initiator: AccountId,
+
+	/// The block number when the attempt was initiated.
+	///
+	/// Note that this can be a foreign (ie Relay) block number.
+	pub init_block: ProvidedBlockNumber,
+
+	/// The block number when the last friend approved the attempt.
+	///
+	/// Note that this can be a foreign (ie Relay) block number.
+	pub last_approval_block: ProvidedBlockNumber,
+
+	/// Bitfield tracking which friends approved.
+	///
+	/// Each bit corresponds to a friend in the `friend_group.friends` that has approved the
+	/// attempt.
+	pub approvals: ApprovalBitfield,
+}
+
+impl<ProvidedBlockNumber, ApprovalBitfield, AccountId>
+	Attempt<ProvidedBlockNumber, ApprovalBitfield, AccountId>
+where
+	ProvidedBlockNumber: CheckedAdd,
+{
+	/// Calculate the earliest block when the attempt can be canceled.
+	///
+	/// This is the last approval block plus the cancel delay from the friend group. Returns None if
+	/// overflow occurs.
+	pub fn cancelable_at<Balance, Friends>(
+		&self,
+		friend_groups: &[FriendGroup<ProvidedBlockNumber, AccountId, Balance, Friends>],
+	) -> Option<ProvidedBlockNumber> {
+		let fg = friend_groups.get(self.friend_group_index as usize)?;
+		self.last_approval_block.checked_add(&fg.cancel_delay)
+	}
+}
+
+/// Attempt to recover an account.
+pub type AttemptOf<T> = Attempt<ProvidedBlockNumberOf<T>, ApprovalBitfieldOf<T>, AccountIdFor<T>>;
+
+/// Ticket for an attempt to recover an account.
+pub type AttemptTicketOf<T> =
+	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::AttemptConsideration>;
+
+/// Ticket for the inheritor of an account.
+pub type InheritorTicketOf<T> =
+	IdentifiedConsideration<AccountIdFor<T>, Footprint, <T as Config>::InheritorConsideration>;
+
+/// Amount of a security deposit - as opposed to a storage deposit.
+pub type SecurityDepositOf<T> = BalanceOf<T>;
 
 #[frame::pallet]
 pub mod pallet {
@@ -232,26 +271,26 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
-
 		/// The overarching call type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// Query the current block number.
+		/// The overarching freeze reason.
+		type RuntimeHoldReason: Parameter
+			+ Member
+			+ MaxEncodedLen
+			+ Copy
+			+ VariantCount
+			+ From<HoldReason>;
+
+		/// Query the block number that will be used to measure time.
 		///
-		/// Must return monotonically increasing values when called from consecutive blocks.
-		/// Can be configured to return either:
+		/// Must return monotonically increasing values when called from consecutive blocks. Can be
+		/// configured to return either:
 		/// - the local block number of the runtime via `frame_system::Pallet`
 		/// - a remote block number, eg from the relay chain through `RelaychainDataProvider`
 		/// - an arbitrary value through a custom implementation of the trait
@@ -273,622 +312,686 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ frame::traits::fungible::Mutate<Self::AccountId>;
 
-		/// The base amount of currency needed to reserve for creating a recovery configuration.
-		///
-		/// This is held for an additional storage item whose value size is
-		/// `2 + sizeof(BlockNumber, Balance)` bytes.
-		#[pallet::constant]
-		type ConfigDepositBase: Get<BalanceOf<Self>>;
+		/// Storage consideration for holding friend group configs.
+		type FriendGroupsConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// The amount of currency needed per additional user when creating a recovery
-		/// configuration.
-		///
-		/// This is held for adding `sizeof(AccountId)` bytes more into a pre-existing storage
-		/// value.
-		#[pallet::constant]
-		type FriendDepositFactor: Get<BalanceOf<Self>>;
+		/// Storage consideration for holding an attempt.
+		type AttemptConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// The maximum amount of friends allowed in a recovery configuration.
-		///
-		/// NOTE: The threshold programmed in this Pallet uses u16, so it does
-		/// not really make sense to have a limit here greater than u16::MAX.
-		/// But also, that is a lot more than you should probably set this value
-		/// to anyway...
-		#[pallet::constant]
-		type MaxFriends: Get<u32>;
+		/// Storage consideration for holding an inheritor.
+		type InheritorConsideration: Consideration<Self::AccountId, Footprint>;
 
-		/// The base amount of currency needed to reserve for starting a recovery.
-		///
-		/// This is primarily held for deterring malicious recovery attempts, and should
-		/// have a value large enough that a bad actor would choose not to place this
-		/// deposit. It also acts to fund additional storage item whose value size is
-		/// `sizeof(BlockNumber, Balance + T * AccountId)` bytes. Where T is a configurable
-		/// threshold.
+		/// Security deposit taken for each attempt that the initiator needs to place.
 		#[pallet::constant]
-		type RecoveryDeposit: Get<BalanceOf<Self>>;
+		type SecurityDeposit: Get<BalanceOf<Self>>;
+
+		/// Receiver of slashed security deposits.
+		///
+		/// Set to `None` to burn the slashed security deposit.
+		#[pallet::constant]
+		type SlashReceiver: Get<Option<Self::AccountId>>;
+
+		/// DO NOT REDUCE THIS VALUE. Maximum number of friends per account config.
+		///
+		/// Reducing this value can cause decoding errors in the bounded vectors.
+		#[pallet::constant]
+		type MaxFriendsPerConfig: Get<u32>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
 	}
 
-	/// Events type.
+	/// The friend groups of an account that can conduct recovery attempts.
+	///
+	/// Modifying this storage does not impact ongoing recovery attempts.
+	#[pallet::storage]
+	pub type FriendGroups<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(FriendGroupsOf<T>, T::FriendGroupsConsideration),
+	>;
+
+	/// Ongoing recovery attempts of a lost account indexed by `(lost, friend_group)`.
+	#[pallet::storage]
+	pub type Attempt<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Blake2_128Concat,
+		FriendGroupIndex,
+		(AttemptOf<T>, AttemptTicketOf<T>, SecurityDepositOf<T>),
+	>;
+
+	/// The account that inherited full access to a lost account after successful recovery.
+	///
+	/// The key is the lost account and the value is the inheritor account.
+	///
+	/// NOTE: This could be a multisig or proxy account
+	#[pallet::storage]
+	pub type Inheritor<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		(InheritanceOrder, T::AccountId, InheritorTicketOf<T>),
+	>;
+
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Deposit for configuring recovery friend groups.
+		#[codec(index = 0)]
+		FriendGroupsStorage,
+
+		/// Deposit for an ongoing recovery attempt.
+		#[codec(index = 1)]
+		AttemptStorage,
+
+		/// Deposit for the inheritor of a lost account.
+		#[codec(index = 2)]
+		InheritorStorage,
+
+		/// Deposit for the security deposit of a recovery attempt.
+		#[codec(index = 3)]
+		SecurityDeposit,
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A recovery process has been set up for an account.
-		RecoveryCreated { account: T::AccountId },
-		/// A recovery process has been initiated for lost account by rescuer account.
-		RecoveryInitiated { lost_account: T::AccountId, rescuer_account: T::AccountId },
-		/// A recovery process for lost account by rescuer account has been vouched for by sender.
-		RecoveryVouched {
-			lost_account: T::AccountId,
-			rescuer_account: T::AccountId,
-			sender: T::AccountId,
+		/// A recovery attempt was approved by a friend.
+		AttemptApproved {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			friend: T::AccountId,
 		},
-		/// A recovery process for lost account by rescuer account has been closed.
-		RecoveryClosed { lost_account: T::AccountId, rescuer_account: T::AccountId },
-		/// Lost account has been successfully recovered by rescuer account.
-		AccountRecovered { lost_account: T::AccountId, rescuer_account: T::AccountId },
-		/// A recovery process has been removed for an account.
-		RecoveryRemoved { lost_account: T::AccountId },
-		/// A deposit has been updated.
-		DepositPoked {
-			who: T::AccountId,
-			kind: DepositKind<T>,
-			old_deposit: BalanceOf<T>,
-			new_deposit: BalanceOf<T>,
+		/// A recovery attempt was canceled by the lost account.
+		AttemptCanceled {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			canceler: T::AccountId,
+		},
+		/// A recovery attempt was initiated by a friend.
+		AttemptInitiated {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			initiator: T::AccountId,
+		},
+		/// A recovery attempt was finished by a friend.
+		AttemptFinished {
+			lost: T::AccountId,
+			friend_group_index: FriendGroupIndex,
+			inheritor: T::AccountId,
+			previous_inheritor: Option<T::AccountId>,
+		},
+		/// A recovery attempt was slashed by the lost account.
+		///
+		/// The initiator will lose their security deposit.
+		AttemptSlashed { lost: T::AccountId, friend_group_index: FriendGroupIndex },
+		/// The friend groups of a lost account were changed.
+		///
+		/// This will not interrupt any ongoing recovery attempts.
+		FriendGroupsChanged { lost: T::AccountId, old_friend_groups: FriendGroupsOf<T> },
+		/// A recovered account was controlled by its inheritor.
+		///
+		/// Check the `call_result` to see if it was successful.
+		RecoveredAccountControlled {
+			recovered: T::AccountId,
+			inheritor: T::AccountId,
+			call_hash: HashOf<T>,
+			call_result: DispatchResult,
 		},
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// User is not allowed to make a call on behalf of this account
-		NotAllowed,
-		/// Threshold must be greater than zero
-		ZeroThreshold,
-		/// Friends list must be greater than zero and threshold
-		NotEnoughFriends,
-		/// Friends list must be less than max friends
-		MaxFriends,
-		/// Friends list must be sorted and free of duplicates
-		NotSorted,
-		/// This account is not set up for recovery
-		NotRecoverable,
-		/// This account is already set up for recovery
-		AlreadyRecoverable,
-		/// A recovery process has already started for this account
-		AlreadyStarted,
-		/// A recovery process has not started for this rescuer
-		NotStarted,
-		/// This account is not a friend who can vouch
+		/// This attempt is already fully approved and does not need any more votes.
+		AlreadyApproved,
+		/// The recovery attempt has already been initiated.
+		AlreadyInitiated,
+		/// The friend already voted for this attempt.
+		AlreadyVoted,
+		/// The lost account has ongoing recovery attempts.
+		HasOngoingAttempts,
+		/// The lost account cannot be a friend of itself.
+		LostAccountInFriendGroup,
+		/// The account was already recovered by a friend group with lower inheritance order.
+		LowerOrderRecovered,
+		/// This account does not have any friend groups.
+		NoFriendGroups,
+		/// The friend group has no friends.
+		NoFriends,
+		/// The lost account does not have any inheritor.
+		NoInheritor,
+		/// Not enough friends approved this attempt.
+		NotApproved,
+		/// The referenced recovery attempt was not found.
+		NotAttempt,
+		/// The caller is not the initiator or the lost account.
+		NotCanceller,
+		/// The caller is not a friend of the lost account.
 		NotFriend,
-		/// The friend must wait until the delay period to vouch for this recovery
-		DelayPeriod,
-		/// This user has already vouched for this recovery
-		AlreadyVouched,
-		/// The threshold for recovering this account has not been met
-		Threshold,
-		/// There are still active recovery attempts that need to be closed
-		StillActive,
-		/// This account is already set up for recovery
-		AlreadyProxy,
-		/// Some internal state is broken.
-		BadState,
+		/// A specific referenced friend group was not found.
+		NotFriendGroup,
+		/// The caller is not the inheritor of the lost account.
+		NotInheritor,
+		/// The recovery attempt is not yet unlocked.
+		NotUnlocked,
+		/// The cancel delay since the last approval or initialization has not yet passed.
+		NotYetCancelable,
+		/// The inheritance delay of this attempt has not yet passed.
+		NotYetInheritable,
+		/// Only the lost account can slash an attempt.
+		OnlyLostCanSlash,
+		/// Too many concurrent recovery attempts for this recoverer.
+		TooManyAttempts,
+		/// Too many friend groups.
+		TooManyFriendGroups,
+		/// The number of friends needed is greater than the number of friends.
+		TooManyFriendsNeeded,
 	}
 
-	/// The set of recoverable accounts and their recovery configuration.
-	#[pallet::storage]
-	#[pallet::getter(fn recovery_config)]
-	pub type Recoverable<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		RecoveryConfig<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
-	>;
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// The provided block number that will be used to measure time.
+		pub fn provided_block_number() -> ProvidedBlockNumberOf<T> {
+			T::BlockNumberProvider::current_block_number()
+		}
 
-	/// Active recovery attempts.
-	///
-	/// First account is the account to be recovered, and the second account
-	/// is the user trying to recover the account.
-	#[pallet::storage]
-	#[pallet::getter(fn active_recovery)]
-	pub type ActiveRecoveries<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Twox64Concat,
-		T::AccountId,
-		ActiveRecovery<BlockNumberFromProviderOf<T>, BalanceOf<T>, FriendsOf<T>>,
-	>;
+		/// The friend groups of an account that can initiate recovery attempts.
+		pub fn friend_groups(lost: T::AccountId) -> Vec<FriendGroupOf<T>> {
+			FriendGroups::<T>::get(lost).map(|(g, _t)| g.into_inner()).unwrap_or_default()
+		}
 
-	/// The list of allowed proxy accounts.
-	///
-	/// Map from the user who can access it to the recovered account.
-	#[pallet::storage]
-	#[pallet::getter(fn proxy)]
-	pub type Proxy<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
+		/// Ongoing recovery attempts for a lost account.
+		pub fn attempts(lost: T::AccountId) -> Vec<(FriendGroupOf<T>, AttemptOf<T>)> {
+			let mut attempts = Vec::new();
+
+			for (friend_group_index, (attempt, _ticket, _deposit)) in
+				Attempt::<T>::iter_prefix(&lost)
+			{
+				let Ok(friend_group) = Self::friend_group_of(&lost, friend_group_index) else {
+					continue
+				};
+				attempts.push((friend_group, attempt));
+			}
+
+			attempts
+		}
+
+		/// The account that inherited full access to the lost account.
+		pub fn inheritor(lost: T::AccountId) -> Option<T::AccountId> {
+			Inheritor::<T>::get(lost).map(|(_, inheritor, _)| inheritor)
+		}
+
+		/// All the recovered accounts that `heir` inherited access to.
+		// TODO: This could be a bit heavy on the node.
+		pub fn inheritance(heir: T::AccountId) -> Vec<T::AccountId> {
+			let mut inheritance = Vec::new();
+
+			for (recovered, (_, inheritor, _)) in Inheritor::<T>::iter() {
+				if inheritor != heir {
+					continue;
+				}
+				let Err(pos) = inheritance.binary_search(&recovered) else { continue };
+
+				inheritance.insert(pos, recovered);
+			}
+
+			inheritance
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Send a call through a recovered account.
-		///
-		/// The dispatch origin for this call must be _Signed_ and registered to
-		/// be able to make calls on behalf of the recovered account.
-		///
-		/// Parameters:
-		/// - `account`: The recovered account you want to make a call on-behalf-of.
-		/// - `call`: The call you want to make with the recovered account.
+		/// Allows the inheritor of a recovered account to control it.
 		#[pallet::call_index(0)]
-		#[pallet::weight({
-			let dispatch_info = call.get_dispatch_info();
-			(
-				T::WeightInfo::as_recovered().saturating_add(dispatch_info.call_weight),
-				dispatch_info.class,
-			)})]
-		pub fn as_recovered(
+		#[pallet::weight(T::WeightInfo::control_inherited_account())]
+		pub fn control_inherited_account(
 			origin: OriginFor<T>,
-			account: AccountIdLookupOf<T>,
+			recovered: AccountIdLookupOf<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let account = T::Lookup::lookup(account)?;
-			// Check `who` is allowed to make a call on behalf of `account`
-			let target = Self::proxy(&who).ok_or(Error::<T>::NotAllowed)?;
-			ensure!(target == account, Error::<T>::NotAllowed);
-			call.dispatch(frame_system::RawOrigin::Signed(account).into())
-				.map(|_| ())
-				.map_err(|e| e.error)
-		}
+			let maybe_inheritor = ensure_signed(origin)?;
+			let recovered = T::Lookup::lookup(recovered)?;
 
-		/// Allow ROOT to bypass the recovery process and set a rescuer account
-		/// for a lost account directly.
-		///
-		/// The dispatch origin for this call must be _ROOT_.
-		///
-		/// Parameters:
-		/// - `lost`: The "lost account" to be recovered.
-		/// - `rescuer`: The "rescuer account" which can call as the lost account.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_recovered())]
-		pub fn set_recovered(
-			origin: OriginFor<T>,
-			lost: AccountIdLookupOf<T>,
-			rescuer: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let lost = T::Lookup::lookup(lost)?;
-			let rescuer = T::Lookup::lookup(rescuer)?;
-			// Create the recovery storage item.
-			<Proxy<T>>::insert(&rescuer, &lost);
-			Self::deposit_event(Event::<T>::AccountRecovered {
-				lost_account: lost,
-				rescuer_account: rescuer,
+			let inheritor = Inheritor::<T>::get(&recovered)
+				.map(|(_, inheritor, _ticket)| inheritor)
+				.ok_or(Error::<T>::NoInheritor)?;
+			ensure!(maybe_inheritor == inheritor, Error::<T>::NotInheritor);
+
+			// pretend to be the lost account
+			let origin = frame_system::RawOrigin::Signed(recovered.clone()).into();
+			let call_hash = call.using_encoded(&T::Hashing::hash);
+			let call_result = call.dispatch(origin).map(|_| ()).map_err(|r| r.error);
+
+			Self::deposit_event(Event::<T>::RecoveredAccountControlled {
+				recovered,
+				inheritor,
+				call_hash,
+				call_result,
 			});
+
+			// NOTE: We ALWAYS return okay if the caller had the permission to control the lost
+			// account regardless of the inner call result.
 			Ok(())
 		}
 
-		/// Create a recovery configuration for your account. This makes your account recoverable.
+		/// Set the friend groups of the calling account before it lost access.
 		///
-		/// Payment: `ConfigDepositBase` + `FriendDepositFactor` * #_of_friends balance
-		/// will be reserved for storing the recovery configuration. This deposit is returned
-		/// in full when the user calls `remove_recovery`.
+		/// This does not impact or cancel any ongoing recovery attempts. The friends of each group
+		/// will be sorted before being stored. Trying to insert two friend groups with the same set
+		/// of friends will result in an error.
 		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// Parameters:
-		/// - `friends`: A list of friends you trust to vouch for recovery attempts. Should be
-		///   ordered and contain no duplicate values.
-		/// - `threshold`: The number of friends that must vouch for a recovery attempt before the
-		///   account can be recovered. Should be less than or equal to the length of the list of
-		///   friends.
-		/// - `delay_period`: The number of blocks after a recovery attempt is initialized that
-		///   needs to pass before the account can be recovered.
+		/// An `FriendGroupsChanged` event is emitted only when the new friends groups differed from
+		/// the old ones.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::create_recovery(friends.len() as u32))]
-		pub fn create_recovery(
+		#[pallet::weight(T::WeightInfo::set_friend_groups(friend_groups.len() as u32))]
+		pub fn set_friend_groups(
 			origin: OriginFor<T>,
-			friends: Vec<T::AccountId>,
-			threshold: u16,
-			delay_period: BlockNumberFromProviderOf<T>,
+			friend_groups: Vec<FriendGroupOf<T>>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			// Check account is not already set up for recovery
-			ensure!(!<Recoverable<T>>::contains_key(&who), Error::<T>::AlreadyRecoverable);
-			// Check user input is valid
-			ensure!(threshold >= 1, Error::<T>::ZeroThreshold);
-			ensure!(!friends.is_empty(), Error::<T>::NotEnoughFriends);
-			ensure!(threshold as usize <= friends.len(), Error::<T>::NotEnoughFriends);
-			let bounded_friends: FriendsOf<T> =
-				friends.try_into().map_err(|_| Error::<T>::MaxFriends)?;
-			ensure!(Self::is_sorted_and_unique(&bounded_friends), Error::<T>::NotSorted);
-			// Calculate total deposit required
-			let total_deposit = Self::get_recovery_config_deposit(bounded_friends.len())?;
-			// Reserve the deposit
-			T::Currency::reserve(&who, total_deposit)?;
-			// Create the recovery configuration
-			let recovery_config = RecoveryConfig {
-				delay_period,
-				deposit: total_deposit,
-				friends: bounded_friends,
-				threshold,
-			};
-			// Create the recovery configuration storage item
-			<Recoverable<T>>::insert(&who, recovery_config);
+			let lost = ensure_signed(origin)?;
 
-			Self::deposit_event(Event::<T>::RecoveryCreated { account: who });
+			if Attempt::<T>::iter_prefix(&lost).next().is_some() {
+				return Err(Error::<T>::HasOngoingAttempts.into());
+			}
+
+			let (old_friend_groups, old_ticket) = match FriendGroups::<T>::get(&lost) {
+				Some((g, t)) => (g, Some(t)),
+				None => Default::default(),
+			};
+
+			let new_friend_groups = Self::bound_friend_groups(&lost, friend_groups)?;
+
+			// Easy case where all are removed:
+			if new_friend_groups.is_empty() {
+				if let Some(old_ticket) = old_ticket {
+					old_ticket.drop(&lost)?;
+				}
+				FriendGroups::<T>::remove(&lost);
+				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost, old_friend_groups });
+				return Ok(());
+			}
+
+			let new_footprint = Self::friend_group_footprint(&new_friend_groups);
+			let new_ticket = if let Some(old_ticket) = old_ticket {
+				old_ticket.update(&lost, new_footprint)?
+			} else {
+				T::FriendGroupsConsideration::new(&lost, new_footprint)?
+			};
+			FriendGroups::<T>::insert(&lost, (&new_friend_groups, &new_ticket));
+
+			if new_friend_groups != old_friend_groups {
+				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost, old_friend_groups });
+			}
+
 			Ok(())
 		}
 
-		/// Initiate the process for recovering a recoverable account.
+		/// Attempt to recover a lost account by a friend with the given friend group.
 		///
-		/// Payment: `RecoveryDeposit` balance will be reserved for initiating the
-		/// recovery process. This deposit will always be repatriated to the account
-		/// trying to be recovered. See `close_recovery`.
-		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// Parameters:
-		/// - `account`: The lost account that you want to recover. This account needs to be
-		///   recoverable (i.e. have a recovery configuration).
+		/// The friend group is passed in as witness to ensure that the recoverer is not operating
+		/// on stale friend group data and is making wrong assumptions about the delay or deposit
+		/// amounts.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::initiate_recovery())]
-		pub fn initiate_recovery(
-			origin: OriginFor<T>,
-			account: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let account = T::Lookup::lookup(account)?;
-			// Check that the account is recoverable
-			ensure!(<Recoverable<T>>::contains_key(&account), Error::<T>::NotRecoverable);
-			// Check that the recovery process has not already been started
-			ensure!(
-				!<ActiveRecoveries<T>>::contains_key(&account, &who),
-				Error::<T>::AlreadyStarted
-			);
-			// Take recovery deposit
-			let recovery_deposit = T::RecoveryDeposit::get();
-			T::Currency::reserve(&who, recovery_deposit)?;
-			// Create an active recovery status
-			let recovery_status = ActiveRecovery {
-				created: T::BlockNumberProvider::current_block_number(),
-				deposit: recovery_deposit,
-				friends: Default::default(),
-			};
-			// Create the active recovery storage item
-			<ActiveRecoveries<T>>::insert(&account, &who, recovery_status);
-			Self::deposit_event(Event::<T>::RecoveryInitiated {
-				lost_account: account,
-				rescuer_account: who,
-			});
-			Ok(())
-		}
-
-		/// Allow a "friend" of a recoverable account to vouch for an active recovery
-		/// process for that account.
-		///
-		/// The dispatch origin for this call must be _Signed_ and must be a "friend"
-		/// for the recoverable account.
-		///
-		/// Parameters:
-		/// - `lost`: The lost account that you want to recover.
-		/// - `rescuer`: The account trying to rescue the lost account that you want to vouch for.
-		///
-		/// The combination of these two parameters must point to an active recovery
-		/// process.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::vouch_recovery(T::MaxFriends::get()))]
-		pub fn vouch_recovery(
+		#[pallet::weight(T::WeightInfo::initiate_attempt())]
+		pub fn initiate_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			rescuer: AccountIdLookupOf<T>,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let initiator = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
-			let rescuer = T::Lookup::lookup(rescuer)?;
-			// Get the recovery configuration for the lost account.
-			let recovery_config = Self::recovery_config(&lost).ok_or(Error::<T>::NotRecoverable)?;
-			// Get the active recovery process for the rescuer.
-			let mut active_recovery =
-				Self::active_recovery(&lost, &rescuer).ok_or(Error::<T>::NotStarted)?;
-			// Make sure the voter is a friend
-			ensure!(Self::is_friend(&recovery_config.friends, &who), Error::<T>::NotFriend);
-			// Either insert the vouch, or return an error that the user already vouched.
-			match active_recovery.friends.binary_search(&who) {
-				Ok(_pos) => return Err(Error::<T>::AlreadyVouched.into()),
-				Err(pos) => active_recovery
-					.friends
-					.try_insert(pos, who.clone())
-					.map_err(|_| Error::<T>::MaxFriends)?,
+
+			if Self::attempt_of(&lost, friend_group_index).is_ok() {
+				return Err(Error::<T>::AlreadyInitiated.into());
 			}
-			// Update storage with the latest details
-			<ActiveRecoveries<T>>::insert(&lost, &rescuer, active_recovery);
-			Self::deposit_event(Event::<T>::RecoveryVouched {
-				lost_account: lost,
-				rescuer_account: rescuer,
-				sender: who,
+
+			let friend_group = Self::friend_group_of(&lost, friend_group_index)?;
+			ensure!(friend_group.friends.contains(&initiator), Error::<T>::NotFriend);
+
+			if let Some((inheritance_order, _, _)) = Inheritor::<T>::get(&lost) {
+				ensure!(
+					friend_group.inheritance_order < inheritance_order,
+					Error::<T>::LowerOrderRecovered
+				);
+			}
+
+			// Construct the attempt
+			let now = T::BlockNumberProvider::current_block_number();
+			let attempt = AttemptOf::<T> {
+				friend_group_index,
+				initiator: initiator.clone(),
+				init_block: now,
+				last_approval_block: now,
+				approvals: ApprovalBitfield::default(),
+			};
+
+			let deposit = T::SecurityDeposit::get();
+			let () = T::Currency::hold(&HoldReason::SecurityDeposit.into(), &initiator, deposit)?;
+
+			let ticket = AttemptTicketOf::<T>::new(&initiator, Self::attempt_footprint())?;
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket, &deposit));
+
+			Self::deposit_event(Event::<T>::AttemptInitiated {
+				lost,
+				friend_group_index,
+				initiator,
 			});
+
 			Ok(())
 		}
 
-		/// Allow a successful rescuer to claim their recovered account.
+		/// Approve the recovery for a lost account.
 		///
-		/// The dispatch origin for this call must be _Signed_ and must be a "rescuer"
-		/// who has successfully completed the account recovery process: collected
-		/// `threshold` or more vouches, waited `delay_period` blocks since initiation.
+		/// Must be called by a friend of the friend group that the recovery attempt belongs to that
+		/// did not yet vote. Voting is only allowed until the threshold is reached.
+		/// `finish_attempt` should be called after the last friend voted.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::approve_attempt())]
+		pub fn approve_attempt(
+			origin: OriginFor<T>,
+			lost: AccountIdLookupOf<T>,
+			friend_group_index: FriendGroupIndex,
+		) -> DispatchResult {
+			let friend = ensure_signed(origin)?;
+			let lost = T::Lookup::lookup(lost)?;
+			let now = T::BlockNumberProvider::current_block_number();
+
+			let (mut attempt, ticket, deposit) = Self::attempt_of(&lost, friend_group_index)?;
+			let friend_group = Self::friend_group_of(&lost, friend_group_index).defensive()?;
+
+			let friend_index = friend_group
+				.friends
+				.iter()
+				.position(|f| f == &friend)
+				.ok_or(Error::<T>::NotFriend)?;
+
+			let friends_voted = attempt.approvals.count_ones();
+			ensure!(friends_voted < friend_group.friends_needed, Error::<T>::AlreadyApproved);
+			attempt.last_approval_block = now;
+
+			attempt
+				.approvals
+				.set_if_not_set(friend_index)
+				.map_err(|_| Error::<T>::AlreadyVoted)?;
+
+			// NOTE: We do not update the ticket since the attempt has static size.
+			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket, &deposit));
+
+			Self::deposit_event(Event::<T>::AttemptApproved { lost, friend_group_index, friend });
+
+			Ok(())
+		}
+
+		/// Finish a recovery attempt and make the lost account accessible from the inheritor.
 		///
-		/// Parameters:
-		/// - `account`: The lost account that you want to claim has been successfully recovered by
-		///   you.
+		/// Can be called by anyone who is willing to pay for the inheritor deposit.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::claim_recovery(T::MaxFriends::get()))]
-		pub fn claim_recovery(
+		#[pallet::weight(T::WeightInfo::finish_attempt())]
+		pub fn finish_attempt(
 			origin: OriginFor<T>,
-			account: AccountIdLookupOf<T>,
+			lost: AccountIdLookupOf<T>,
+			attempt_index: u32,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let account = T::Lookup::lookup(account)?;
-			// Get the recovery configuration for the lost account
-			let recovery_config =
-				Self::recovery_config(&account).ok_or(Error::<T>::NotRecoverable)?;
-			// Get the active recovery process for the rescuer
-			let active_recovery =
-				Self::active_recovery(&account, &who).ok_or(Error::<T>::NotStarted)?;
-			ensure!(!Proxy::<T>::contains_key(&who), Error::<T>::AlreadyProxy);
-			// Make sure the delay period has passed
-			let current_block_number = T::BlockNumberProvider::current_block_number();
-			let recoverable_block_number = active_recovery
-				.created
-				.checked_add(&recovery_config.delay_period)
-				.ok_or(ArithmeticError::Overflow)?;
-			ensure!(recoverable_block_number <= current_block_number, Error::<T>::DelayPeriod);
-			// Make sure the threshold is met
+			let caller = ensure_signed(origin)?;
+			let lost = T::Lookup::lookup(lost)?;
+			let now = T::BlockNumberProvider::current_block_number();
+
+			let (attempt, attempts_ticket, deposit) =
+				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+
+			// We NEVER block a recovery on a buggy initiator account.
+			let _: Result<(), DispatchError> = attempts_ticket.try_drop().defensive();
+			let _: Result<BalanceOf<T>, DispatchError> = T::Currency::release(
+				&HoldReason::SecurityDeposit.into(),
+				&attempt.initiator,
+				deposit,
+				Precision::BestEffort,
+			)
+			.defensive();
+
+			// AUDIT: attempt_index == friend_group_index
+			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
+
+			// Check if the attempt is now complete
+			let approvals = attempt.approvals.count_ones();
 			ensure!(
-				recovery_config.threshold as usize <= active_recovery.friends.len(),
-				Error::<T>::Threshold
+				// We use >= defensively, but it should be at most ==
+				approvals >= friend_group.friends_needed,
+				Error::<T>::NotApproved
 			);
-			frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
-			// Create the recovery storage item
-			Proxy::<T>::insert(&who, &account);
-			Self::deposit_event(Event::<T>::AccountRecovered {
-				lost_account: account,
-				rescuer_account: who,
+
+			let inheritable_at = attempt
+				.init_block
+				.checked_add(&friend_group.inheritance_delay)
+				.ok_or(ArithmeticError::Overflow)?;
+			ensure!(now >= inheritable_at, Error::<T>::NotYetInheritable);
+			// NOTE: We dont need to check the cancel delay, since enough friends voted and we dont
+			// assume fully malicious behavior.
+
+			let inheritor = friend_group.inheritor;
+			let inheritance_order = friend_group.inheritance_order;
+
+			let previous_inheritor = match Inheritor::<T>::get(&lost) {
+				None => {
+					let ticket = Self::inheritor_ticket(&caller)?;
+					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					None
+				},
+				// new recovery has a lower inheritance order, we replace the existing inheritor
+				Some((old_order, old_inheritor, ticket)) if inheritance_order < old_order => {
+					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;
+					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					Some(old_inheritor)
+				},
+				Some(_) => {
+					// The existing inheritor stays since an equal or worse inheritor contested.
+					// We do not treat this as a poke but just do nothing.
+					None
+				},
+			};
+
+			Self::deposit_event(Event::<T>::AttemptFinished {
+				lost,
+				friend_group_index: attempt_index,
+				inheritor,
+				previous_inheritor,
 			});
+
 			Ok(())
 		}
 
-		/// As the controller of a recoverable account, close an active recovery
-		/// process for your account.
+		/// The initiator or the lost account can cancel an attempt at any moment.
 		///
-		/// Payment: By calling this function, the recoverable account will receive
-		/// the recovery deposit `RecoveryDeposit` placed by the rescuer.
-		///
-		/// The dispatch origin for this call must be _Signed_ and must be a
-		/// recoverable account with an active recovery process for it.
-		///
-		/// Parameters:
-		/// - `rescuer`: The account trying to rescue this recoverable account.
+		/// This will release the security deposit back to the initiator. The cancel delay must be
+		/// respected if the initiator calls it to prevent it from front-running the lost account
+		/// from finishing the attempt.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::close_recovery(T::MaxFriends::get()))]
-		pub fn close_recovery(
+		#[pallet::weight(T::WeightInfo::cancel_attempt())]
+		pub fn cancel_attempt(
 			origin: OriginFor<T>,
-			rescuer: AccountIdLookupOf<T>,
+			lost: AccountIdLookupOf<T>,
+			attempt_index: FriendGroupIndex,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let rescuer = T::Lookup::lookup(rescuer)?;
-			// Take the active recovery process started by the rescuer for this account.
-			let active_recovery =
-				<ActiveRecoveries<T>>::take(&who, &rescuer).ok_or(Error::<T>::NotStarted)?;
-			// Move the reserved funds from the rescuer to the rescued account.
-			// Acts like a slashing mechanism for those who try to maliciously recover accounts.
-			let res = T::Currency::repatriate_reserved(
-				&rescuer,
-				&who,
-				active_recovery.deposit,
-				BalanceStatus::Free,
-			);
-			debug_assert!(res.is_ok());
-			Self::deposit_event(Event::<T>::RecoveryClosed {
-				lost_account: who,
-				rescuer_account: rescuer,
-			});
-			Ok(())
-		}
+			let canceler = ensure_signed(origin)?;
+			let lost = T::Lookup::lookup(lost)?;
+			let now = T::BlockNumberProvider::current_block_number();
 
-		/// Remove the recovery process for your account. Recovered accounts are still accessible.
-		///
-		/// NOTE: The user must make sure to call `close_recovery` on all active
-		/// recovery attempts before calling this function else it will fail.
-		///
-		/// Payment: By calling this function the recoverable account will unreserve
-		/// their recovery configuration deposit.
-		/// (`ConfigDepositBase` + `FriendDepositFactor` * #_of_friends)
-		///
-		/// The dispatch origin for this call must be _Signed_ and must be a
-		/// recoverable account (i.e. has a recovery configuration).
-		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::remove_recovery(T::MaxFriends::get()))]
-		pub fn remove_recovery(origin: OriginFor<T>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			// Check there are no active recoveries
-			let mut active_recoveries = <ActiveRecoveries<T>>::iter_prefix_values(&who);
-			ensure!(active_recoveries.next().is_none(), Error::<T>::StillActive);
-			// Take the recovery configuration for this account.
-			let recovery_config = <Recoverable<T>>::take(&who).ok_or(Error::<T>::NotRecoverable)?;
+			let (attempt, ticket, deposit) =
+				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
 
-			// Unreserve the initial deposit for the recovery configuration.
-			T::Currency::unreserve(&who, recovery_config.deposit);
-			Self::deposit_event(Event::<T>::RecoveryRemoved { lost_account: who });
-			Ok(())
-		}
+			ensure!(canceler == attempt.initiator || canceler == lost, Error::<T>::NotCanceller);
 
-		/// Cancel the ability to use `as_recovered` for `account`.
-		///
-		/// The dispatch origin for this call must be _Signed_ and registered to
-		/// be able to make calls on behalf of the recovered account.
-		///
-		/// Parameters:
-		/// - `account`: The recovered account you are able to call on-behalf-of.
-		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::cancel_recovered())]
-		pub fn cancel_recovered(
-			origin: OriginFor<T>,
-			account: AccountIdLookupOf<T>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let account = T::Lookup::lookup(account)?;
-			// Check `who` is allowed to make a call on behalf of `account`
-			ensure!(Self::proxy(&who) == Some(account), Error::<T>::NotAllowed);
-			Proxy::<T>::remove(&who);
+			// Ignore the return value since we always want to allow to cancel an attempt.
+			let _ignored = ticket.try_drop().defensive();
+			let _: Result<BalanceOf<T>, DispatchError> = T::Currency::release(
+				&HoldReason::SecurityDeposit.into(),
+				&attempt.initiator,
+				deposit,
+				Precision::BestEffort,
+			)
+			.defensive();
 
-			frame_system::Pallet::<T>::dec_consumers(&who);
-			Ok(())
-		}
+			// AUDIT: attempt_index == friend_group_index
+			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
 
-		/// Poke deposits for recovery configurations and / or active recoveries.
-		///
-		/// This can be used by accounts to possibly lower their locked amount.
-		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// Parameters:
-		/// - `maybe_account`: Optional recoverable account for which you have an active recovery
-		/// and want to adjust the deposit for the active recovery.
-		///
-		/// This function checks both recovery configuration deposit and active recovery deposits
-		/// of the caller:
-		/// - If the caller has created a recovery configuration, checks and adjusts its deposit
-		/// - If the caller has initiated any active recoveries, and provides the account in
-		/// `maybe_account`, checks and adjusts those deposits
-		///
-		/// If any deposit is updated, the difference will be reserved/unreserved from the caller's
-		/// account.
-		///
-		/// The transaction is made free if any deposit is updated and paid otherwise.
-		///
-		/// Emits `DepositPoked` if any deposit is updated.
-		/// Multiple events may be emitted in case both types of deposits are updated.
-		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::poke_deposit(T::MaxFriends::get()))]
-		pub fn poke_deposit(
-			origin: OriginFor<T>,
-			maybe_account: Option<AccountIdLookupOf<T>>,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			let mut deposit_updated = false;
-
-			// Check and update recovery config deposit
-			deposit_updated |= Self::poke_recovery_config_deposit(&who)?;
-
-			// Check and update active recovery deposit
-			if let Some(lost_account) = maybe_account {
-				let lost_account = T::Lookup::lookup(lost_account)?;
-				deposit_updated |= Self::poke_active_recovery_deposit(&who, &lost_account)?;
+			if canceler != lost {
+				let cancelable_at = attempt
+					.last_approval_block
+					.checked_add(&friend_group.cancel_delay)
+					.ok_or(ArithmeticError::Overflow)?;
+				ensure!(now >= cancelable_at, Error::<T>::NotYetCancelable);
 			}
+			// NOTE: It is possible to cancel a fully approved attempt, but since we check the
+			// cancel delay, we ensure that every friend had enough time to call
+			// `finish_attempt`.
 
-			Ok(if deposit_updated { Pays::No } else { Pays::Yes }.into())
+			Self::deposit_event(Event::<T>::AttemptCanceled {
+				lost,
+				friend_group_index: attempt_index,
+				canceler,
+			});
+
+			Ok(())
+		}
+
+		/// Slash a malicious recovery attempt and burn the security deposit of the initiator.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::slash_attempt())]
+		pub fn slash_attempt(
+			origin: OriginFor<T>,
+			attempt_index: FriendGroupIndex,
+		) -> DispatchResult {
+			let lost = ensure_signed(origin)?;
+
+			let (attempt, ticket, deposit) =
+				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+
+			let _: Result<(), DispatchError> = ticket.try_drop().defensive();
+			let _ = Self::handle_slash(&attempt.initiator, deposit).defensive();
+
+			Self::deposit_event(Event::<T>::AttemptSlashed {
+				lost,
+				friend_group_index: attempt_index,
+			});
+
+			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(
+				T::MaxFriendsPerConfig::get() > 0,
+				"MaxFriendsPerConfig must be greater than 0"
+			);
+
+			let bitfield = ApprovalBitfieldOf::<T>::default();
+			assert!(bitfield.0.len() >= 1, "Default works");
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	/// Check that friends list is sorted and has no duplicates.
-	fn is_sorted_and_unique(friends: &Vec<T::AccountId>) -> bool {
-		friends.windows(2).all(|w| w[0] < w[1])
+	pub fn friend_group_footprint(friend_groups: &FriendGroupsOf<T>) -> Footprint {
+		if friend_groups.is_empty() {
+			defensive!("Do not call with empty friend groups");
+		}
+
+		Footprint::from_encodable(friend_groups)
 	}
 
-	/// Check that a user is a friend in the friends list.
-	fn is_friend(friends: &Vec<T::AccountId>, friend: &T::AccountId) -> bool {
-		friends.binary_search(&friend).is_ok()
+	pub fn attempt_footprint() -> Option<Footprint> {
+		Some(Footprint::from_mel::<AttemptOf<T>>())
 	}
 
-	/// Helper function to calculate recovery config deposit
-	/// Total deposit is base fee + number of friends * factor fee
-	fn get_recovery_config_deposit(friends_count: usize) -> Result<BalanceOf<T>, DispatchError> {
-		let friend_deposit = T::FriendDepositFactor::get()
-			.checked_mul(&friends_count.saturated_into())
-			.ok_or(ArithmeticError::Overflow)?;
-		T::ConfigDepositBase::get()
-			.checked_add(&friend_deposit)
-			.ok_or(ArithmeticError::Overflow.into())
+	pub fn inheritor_footprint() -> Footprint {
+		Footprint::from_mel::<(InheritanceOrder, T::AccountId)>()
 	}
 
-	/// Helper function to poke the deposit reserved for creating a recovery config
-	fn poke_recovery_config_deposit(who: &T::AccountId) -> Result<bool, DispatchError> {
-		<Recoverable<T>>::try_mutate(&who, |maybe_config| -> Result<bool, DispatchError> {
-			let Some(config) = maybe_config.as_mut() else { return Ok(false) };
-			let old_deposit = config.deposit;
-			let new_deposit = Self::get_recovery_config_deposit(config.friends.len())?;
-
-			if old_deposit == new_deposit {
-				return Ok(false);
-			}
-
-			if new_deposit > old_deposit {
-				let extra = new_deposit.saturating_sub(old_deposit);
-				T::Currency::reserve(&who, extra)?;
-			} else {
-				let excess = old_deposit.saturating_sub(new_deposit);
-				let remaining_unreserved = T::Currency::unreserve(&who, excess);
-				if !remaining_unreserved.is_zero() {
-					defensive!(
-						"Failed to unreserve full amount. (Requested, Actual)",
-						(excess, excess.saturating_sub(remaining_unreserved))
-					);
-				}
-			}
-			config.deposit = new_deposit;
-
-			Self::deposit_event(Event::<T>::DepositPoked {
-				who: who.clone(),
-				kind: DepositKind::RecoveryConfig,
-				old_deposit,
-				new_deposit,
-			});
-			Ok(true)
-		})
+	pub fn inheritor_ticket(who: &T::AccountId) -> Result<InheritorTicketOf<T>, DispatchError> {
+		InheritorTicketOf::<T>::new(&who, Self::inheritor_footprint())
 	}
 
-	/// Helper function to poke the deposit reserved for an active recovery
-	fn poke_active_recovery_deposit(
+	pub fn friend_group_of(
+		lost: &T::AccountId,
+		friend_group_index: u32,
+	) -> Result<FriendGroupOf<T>, Error<T>> {
+		let friend_groups = match FriendGroups::<T>::get(lost) {
+			Some((g, _t)) => g,
+			None => return Err(Error::<T>::NoFriendGroups),
+		};
+		friend_groups
+			.get(friend_group_index as usize)
+			.cloned()
+			.ok_or(Error::<T>::NotFriendGroup)
+	}
+
+	pub fn attempt_of(
+		lost: &T::AccountId,
+		friend_group_index: u32,
+	) -> Result<(AttemptOf<T>, AttemptTicketOf<T>, SecurityDepositOf<T>), Error<T>> {
+		pallet::Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
+	}
+
+	pub fn update_ticket<C: Consideration<T::AccountId, Footprint>>(
 		who: &T::AccountId,
-		lost_account: &T::AccountId,
-	) -> Result<bool, DispatchError> {
-		let new_deposit = T::RecoveryDeposit::get();
-		<ActiveRecoveries<T>>::try_mutate(
-			lost_account,
-			who,
-			|maybe_recovery| -> Result<bool, DispatchError> {
-				let recovery = maybe_recovery.as_mut().ok_or(Error::<T>::NotStarted)?;
-				let old_deposit = recovery.deposit;
+		old_ticket: Option<C>,
+		new_footprint: Footprint,
+	) -> Result<C, DispatchError> {
+		match old_ticket {
+			Some(old_ticket) => old_ticket.update(who, new_footprint),
+			None => C::new(who, new_footprint),
+		}
+	}
 
-				// Skip if deposit hasn't changed
-				if recovery.deposit == new_deposit {
-					return Ok(false);
-				}
+	/// Sanity check the friend groups and bound them into a bounded vector.
+	pub fn bound_friend_groups(
+		lost: &T::AccountId,
+		mut friend_groups: Vec<FriendGroupOf<T>>,
+	) -> Result<FriendGroupsOf<T>, Error<T>> {
+		for friend_group in &mut friend_groups {
+			ensure!(
+				friend_group.friends_needed as usize <= friend_group.friends.len(),
+				Error::<T>::TooManyFriendsNeeded
+			);
+			ensure!(!friend_group.friends.is_empty(), Error::<T>::NoFriends);
+			// cannot contain the lost account itself
+			ensure!(!friend_group.friends.contains(&lost), Error::<T>::LostAccountInFriendGroup);
+		}
 
-				// Update deposit
-				if new_deposit > old_deposit {
-					let extra = new_deposit.saturating_sub(old_deposit);
-					T::Currency::reserve(who, extra)?;
-				} else {
-					let excess = old_deposit.saturating_sub(new_deposit);
-					let remaining_unreserved = T::Currency::unreserve(who, excess);
-					if !remaining_unreserved.is_zero() {
-						defensive!(
-							"Failed to unreserve full amount. (Requested, Actual)",
-							(excess, excess.saturating_sub(remaining_unreserved))
-						);
-					}
-				}
-				recovery.deposit = new_deposit;
+		friend_groups.try_into().map_err(|_| Error::<T>::TooManyFriendGroups)
+	}
 
-				Self::deposit_event(Event::<T>::DepositPoked {
-					who: who.clone(),
-					kind: DepositKind::ActiveRecoveryFor(lost_account.clone()),
-					old_deposit,
-					new_deposit,
-				});
-				Ok(true)
-			},
-		)
+	/// Slash a security deposit by either burning or transferring to the slash receiver.
+	fn handle_slash(who: &T::AccountId, amount: SecurityDepositOf<T>) -> DispatchResult {
+		match T::SlashReceiver::get() {
+			Some(receiver) => T::Currency::transfer_on_hold(
+				&HoldReason::SecurityDeposit.into(),
+				who,
+				&receiver,
+				amount,
+				Precision::BestEffort,
+				frame::token::tokens::Restriction::Free,
+				Fortitude::Polite,
+			)
+			.map(|_| ()),
+			None => T::Currency::burn_held(
+				&HoldReason::SecurityDeposit.into(),
+				who,
+				amount,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)
+			.map(|_| ()),
+		}
 	}
 }
