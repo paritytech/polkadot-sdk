@@ -28,6 +28,9 @@ pub mod runtime;
 pub mod tx_extension;
 pub use alloy_core::sol_types::decode_revert_reason;
 
+/// EIP-7702: Set EOA Account Code
+pub(crate) mod eip7702;
+
 /// Ethereum block hash builder related types.
 pub(crate) mod block_hash;
 pub use block_hash::ReceiptGasInfo;

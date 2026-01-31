@@ -115,6 +115,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 		OriginFor<T>: From<Origin<T>>,
 )]
+#[benchmarks(where T: Config)]
 mod benchmarks {
 	use super::*;
 
@@ -125,6 +126,65 @@ mod benchmarks {
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
+	}
+
+	// Benchmark for EIP-7702 single authorization validation
+	// Measures the weight of validating a single authorization tuple
+	#[benchmark(pov_mode = Measured)]
+	fn validate_authorization() -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+		use k256::ecdsa::SigningKey;
+		use sp_core::keccak_256;
+
+		let signing_key = SigningKey::from_slice(&keccak_256(&[0u8; 32])).expect("valid key");
+		let chain_id = U256::from(T::ChainId::get());
+
+		let signed_auth = eip7702::sign_authorization(
+			&signing_key,
+			chain_id,
+			H160::from_low_u64_be(1),
+			U256::zero(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = eip7702::validate_authorization::<T>(&signed_auth, chain_id);
+		}
+
+		assert!(result.is_some(), "Authorization validation should succeed");
+		let (_authority, is_new_account) = result.unwrap();
+		assert!(is_new_account, "Account should be new since we didn't create it");
+		Ok(())
+	}
+
+	// Benchmark for EIP-7702 delegation application
+	// Parameter `n`: 0 = existing account, 1 = new account
+	#[benchmark(pov_mode = Measured)]
+	fn apply_delegation(n: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		use crate::evm::eip7702;
+
+		let authority = H160::from_low_u64_be(1);
+		let target = H160::from_low_u64_be(100);
+		let authority_id = T::AddressMapper::to_account_id(&authority);
+
+		if n == 0 {
+			// Create existing account by giving it the existential deposit
+			T::Currency::set_balance(&authority_id, Pallet::<T>::min_balance());
+			assert!(
+				frame_system::Account::<T>::contains_key(&authority_id),
+				"Account should exist after setting balance"
+			);
+		} else {
+			assert!(!frame_system::Account::<T>::contains_key(&authority_id));
+		}
+
+		#[block]
+		{
+			eip7702::apply_delegation::<T>(&authority, target);
+		}
+
+		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]

@@ -664,6 +664,12 @@ struct Frame<T: Config> {
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
+	/// The address where the code (and immutable data) originates from.
+	///
+	/// For regular contracts, this equals the contract's own address.
+	/// For delegated accounts (EIP-7702), this is the delegation target's address.
+	/// For explicit delegate_call, this is the callee's address.
+	code_address: H160,
 	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
 	/// The set of contracts that were created during this call stack.
@@ -1054,107 +1060,126 @@ where
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
-		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
-			FrameArgs::Call { dest, cached_info, delegated_call } => {
-				let address = T::AddressMapper::to_address(&dest);
-				let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
+		let (account_id, contract_info, executable, delegate, code_address, entry_point) =
+			match frame_args {
+				FrameArgs::Call { dest, cached_info, delegated_call } => {
+					let address = T::AddressMapper::to_address(&dest);
+					let precompile = <AllPrecompiles<T>>::get(address.as_fixed_bytes());
 
-				// which contract info to load is unaffected by the fact if this
-				// is a delegate call or not
-				let mut contract = match (cached_info, &precompile) {
-					(Some(info), _) => CachedContract::Cached(info),
-					(None, None) =>
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
-							CachedContract::Cached(info)
-						} else {
-							return Ok(None);
+					// which contract info to load is unaffected by the fact if this
+					// is a delegate call or not
+					let contract = match (cached_info, &precompile) {
+						(Some(info), _) => CachedContract::Cached(info),
+						(None, None) => {
+							if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+								CachedContract::Cached(info)
+							} else {
+								CachedContract::None
+							}
 						},
-					(None, Some(precompile)) if precompile.has_contract_info() => {
-						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
-							CachedContract::Cached(info)
-						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
-							CachedContract::Cached(info)
-						}
-					},
-					(None, Some(_)) => CachedContract::None,
-				};
+						(None, Some(precompile)) if precompile.has_contract_info() => {
+							log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
+							if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+								CachedContract::Cached(info)
+							} else {
+								let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
+								CachedContract::Cached(info)
+							}
+						},
+						(None, Some(_)) => CachedContract::None,
+					};
 
-				let delegated_call = delegated_call.or_else(|| {
-					exec_config.mock_handler.as_ref().and_then(|mock_handler| {
-						mock_handler.mock_delegated_caller(address, input_data)
-					})
-				});
-				// in case of delegate the executable is not the one at `address`
-				let executable = if let Some(delegated_call) = &delegated_call {
-					if let Some(precompile) =
-						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
-					{
-						ExecutableOrPrecompile::Precompile {
-							instance: precompile,
-							_phantom: Default::default(),
+					let delegated_call = delegated_call.or_else(|| {
+						exec_config.mock_handler.as_ref().and_then(|mock_handler| {
+							mock_handler.mock_delegated_caller(address, input_data)
+						})
+					});
+					// in case of delegate the executable is not the one at `address`
+					// code_address tracks where the code (and immutable data) comes from
+					let (executable, code_address) = if let Some(delegated_call) = &delegated_call {
+						if let Some(precompile) =
+							<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
+						{
+							(
+								ExecutableOrPrecompile::Precompile {
+									instance: precompile,
+									_phantom: Default::default(),
+								},
+								delegated_call.callee,
+							)
+						} else {
+							let Some(info) =
+								AccountInfo::<T>::load_contract(&delegated_call.callee)
+							else {
+								return Ok(None);
+							};
+							let executable = E::from_storage(info.code_hash, meter)?;
+							(ExecutableOrPrecompile::Executable(executable), delegated_call.callee)
 						}
 					} else {
-						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
-						else {
-							return Ok(None);
-						};
-						let executable = E::from_storage(info.code_hash, meter)?;
-						ExecutableOrPrecompile::Executable(executable)
-					}
-				} else {
-					if let Some(precompile) = precompile {
-						ExecutableOrPrecompile::Precompile {
-							instance: precompile,
-							_phantom: Default::default(),
-						}
-					} else {
-						let executable = E::from_storage(
-							contract
-								.as_contract()
-								.expect("When not a precompile the contract was loaded above; qed")
-								.code_hash,
-							meter,
-						)?;
-						ExecutableOrPrecompile::Executable(executable)
-					}
-				};
-
-				(dest, contract, executable, delegated_call, ExportedFunction::Call)
-			},
-			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
-				let deployer = T::AddressMapper::to_address(&sender);
-				let account_nonce = <System<T>>::account_nonce(&sender);
-				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
-				} else {
-					use sp_runtime::Saturating;
-					address::create1(
-						&deployer,
-						// the Nonce from the origin has been incremented pre-dispatch, so we
-						// need to subtract 1 to get the nonce at the time of the call.
-						if origin_is_caller {
-							account_nonce.saturating_sub(1u32.into()).saturated_into()
+						// For regular calls, check if the address is delegated (EIP-7702)
+						// If so, use the delegation target as the code source
+						let code_addr =
+							AccountInfo::<T>::get_delegation_target(&address).unwrap_or(address);
+						if let Some(precompile) = precompile {
+							(
+								ExecutableOrPrecompile::Precompile {
+									instance: precompile,
+									_phantom: Default::default(),
+								},
+								code_addr,
+							)
 						} else {
-							account_nonce.saturated_into()
-						},
+							let Some(info) = AccountInfo::<T>::load_contract(&address) else {
+								return Ok(None);
+							};
+							let executable = E::from_storage(info.code_hash, meter)?;
+							(ExecutableOrPrecompile::Executable(executable), code_addr)
+						}
+					};
+
+					(
+						dest,
+						contract,
+						executable,
+						delegated_call,
+						code_address,
+						ExportedFunction::Call,
 					)
-				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
-				(
-					T::AddressMapper::to_fallback_account_id(&address),
-					CachedContract::Cached(contract),
-					ExecutableOrPrecompile::Executable(executable),
-					None,
-					ExportedFunction::Constructor,
-				)
-			},
-		};
+				},
+				FrameArgs::Instantiate { sender, executable, salt, input_data } => {
+					let deployer = T::AddressMapper::to_address(&sender);
+					let account_nonce = <System<T>>::account_nonce(&sender);
+					let address = if let Some(salt) = salt {
+						address::create2(&deployer, executable.code(), input_data, salt)
+					} else {
+						use sp_runtime::Saturating;
+						address::create1(
+							&deployer,
+							// the Nonce from the origin has been incremented pre-dispatch, so we
+							// need to subtract 1 to get the nonce at the time of the call.
+							if origin_is_caller {
+								account_nonce.saturating_sub(1u32.into()).saturated_into()
+							} else {
+								account_nonce.saturated_into()
+							},
+						)
+					};
+					let contract = ContractInfo::new(
+						&address,
+						<System<T>>::account_nonce(&sender),
+						*executable.code_hash(),
+					)?;
+					(
+						T::AddressMapper::to_fallback_account_id(&address),
+						CachedContract::Cached(contract),
+						ExecutableOrPrecompile::Executable(executable),
+						None,
+						address, // For instantiate, code_address is the new contract's address
+						ExportedFunction::Constructor,
+					)
+				},
+			};
 
 		let frame = Frame {
 			delegate,
@@ -1162,6 +1187,7 @@ where
 			contract_info,
 			account_id,
 			entry_point,
+			code_address,
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
@@ -1941,13 +1967,9 @@ where
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 
-		// Immutable is read from contract code being executed
-		let address = self
-			.top_frame()
-			.delegate
-			.as_ref()
-			.map(|d| d.callee)
-			.unwrap_or(T::AddressMapper::to_address(self.account_id()));
+		// Immutable data is read from the address where the code originates.
+		// This handles regular contracts, delegated accounts (EIP-7702), and delegate_call.
+		let address = self.top_frame().code_address;
 		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
@@ -2236,6 +2258,7 @@ where
 			return code.len() as u64;
 		}
 
+		// load_contract follows EIP-7702 delegation (one level)
 		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())

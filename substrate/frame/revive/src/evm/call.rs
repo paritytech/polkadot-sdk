@@ -21,7 +21,7 @@ use crate::{
 	evm::{
 		fees::{compute_max_integer_quotient, InfoT},
 		runtime::SetWeightLimit,
-		TYPE_LEGACY,
+		TYPE_EIP7702, TYPE_LEGACY,
 	},
 	extract_code_and_data, BalanceOf, CallOf, Config, GenericTransaction, Pallet, Weight, Zero,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
@@ -48,6 +48,8 @@ pub struct CallInfo<T: Config> {
 	pub storage_deposit: BalanceOf<T>,
 	/// The ethereum gas limit of the transaction.
 	pub eth_gas_limit: U256,
+	/// EIP-7702: List of authorization tuples to process
+	pub authorization_list: Vec<crate::evm::AuthorizationListEntry>,
 }
 
 /// Mode for creating a call from an ethereum transaction.
@@ -95,6 +97,34 @@ impl GenericTransaction {
 			log::debug!(target: LOG_TARGET, "No gas provided");
 			return Err(InvalidTransaction::Call);
 		};
+
+		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
+		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
+			if self.to.is_none() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
+				return Err(InvalidTransaction::Call);
+			}
+
+			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
+			if self.authorization_list.is_empty() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
+				return Err(InvalidTransaction::Call);
+			}
+		}
+
+		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
+		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
+			if self.to.is_none() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
+				return Err(InvalidTransaction::Call);
+			}
+
+			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
+			if self.authorization_list.is_empty() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
+				return Err(InvalidTransaction::Call);
+			}
+		}
 
 		// Currently, effective_gas_price will always be the same as base_fee
 		// Because all callers of `into_call` will prepare `tx` that way. Some of the subsequent
@@ -155,7 +185,7 @@ impl GenericTransaction {
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
 					.into()
 			} else {
-				let call = crate::Call::eth_call::<T> {
+				crate::Call::eth_call::<T> {
 					dest,
 					value,
 					weight_limit: Zero::zero(),
@@ -164,9 +194,9 @@ impl GenericTransaction {
 					transaction_encoded,
 					effective_gas_price,
 					encoded_len,
+					authorization_list: self.authorization_list.clone(),
 				}
-				.into();
-				call
+				.into()
 			}
 		} else {
 			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
@@ -252,6 +282,7 @@ impl GenericTransaction {
 			tx_fee,
 			storage_deposit,
 			eth_gas_limit: gas,
+			authorization_list: self.authorization_list,
 		})
 	}
 }

@@ -240,6 +240,17 @@ impl Decodable for AuthorizationListEntry {
 	}
 }
 
+impl AuthorizationListEntry {
+	/// RLP encode only the unsigned part (chain_id, address, nonce) for signing
+	pub fn rlp_encode_unsigned(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new_list(3);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+		s.out().to_vec()
+	}
+}
+
 /// See <https://eips.ethereum.org/EIPS/eip-1559>
 impl Encodable for Transaction1559Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {

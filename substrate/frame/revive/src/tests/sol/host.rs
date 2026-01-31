@@ -18,17 +18,23 @@
 //! The pallet-revive shared VM integration test suite.
 use crate::{
 	address::AddressMapper,
+	exec::EMPTY_CODE_HASH,
 	metering::TransactionLimits,
+	storage::AccountInfo,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, test_utils::get_contract, ExtBuilder, RuntimeEvent, Test},
-	Code, Config, Error, Key, System, H256, U256,
+	tests::{
+		builder, dummy_evm_contract, test_utils, test_utils::get_contract, Contracts, ExtBuilder,
+		RuntimeEvent, Test, TestSigner,
+	},
+	Code, Config, Error, Key, PristineCode, System, H256, U256,
 };
-use frame_support::assert_err_ignore_postinfo;
+use frame_support::{assert_err_ignore_postinfo, assert_ok};
 
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::{fungible::Mutate, Get};
 use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType, Host};
 use pretty_assertions::assert_eq;
+use sp_core::H160;
 use test_case::test_case;
 
 fn convert_to_free_balance(total_balance: u128) -> U256 {
@@ -36,6 +42,64 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 		<Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
 	let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
 	U256::from((total_balance - existential_deposit_planck) * native_to_eth)
+}
+
+/// Create a delegated EOA that points to the given target contract
+fn create_delegated_eoa(target: &H160) -> H160 {
+	let chain_id = U256::from(<Test as Config>::ChainId::get());
+	let seed = H256::random();
+	let signer = TestSigner::new(&seed.0);
+	let authority = signer.address;
+
+	let authority_id = <Test as Config>::AddressMapper::to_account_id(&authority);
+	let _ = <Test as Config>::Currency::set_balance(&authority_id, 100_000_000);
+
+	let nonce = U256::from(frame_system::Pallet::<Test>::account_nonce(&authority_id));
+	let auth = signer.sign_authorization(chain_id, *target, nonce);
+
+	// Process the authorization to set up delegation
+	let result = builder::eth_call(*target)
+		.authorization_list(vec![auth])
+		.eth_gas_limit(1_000_000u64.into())
+		.build();
+	assert_ok!(result);
+
+	assert!(AccountInfo::<Test>::is_delegated(&authority));
+	authority
+}
+
+/// Create a funded EOA (not delegated, not a contract)
+fn create_funded_eoa() -> H160 {
+	let seed = H256::random();
+	let address = H160::from_slice(&sp_io::hashing::keccak_256(&seed.0)[12..]);
+	let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+	let _ = <Test as Config>::Currency::set_balance(&account_id, 100_000_000);
+	address
+}
+
+/// Call EXTCODEHASH opcode via the Host contract
+fn call_extcodehash(host: &H160, target: &H160) -> H256 {
+	let result = builder::bare_call(*host)
+		.data(
+			Host::HostCalls::extcodehashOp(Host::extcodehashOpCall { account: target.0.into() })
+				.abi_encode(),
+		)
+		.build_and_unwrap_result();
+	assert!(!result.did_revert(), "extcodehash call reverted");
+	let decoded = Host::extcodehashOpCall::abi_decode_returns(&result.data).unwrap();
+	H256::from_slice(decoded.as_slice())
+}
+
+/// Call EXTCODESIZE opcode via the Host contract
+fn call_extcodesize(host: &H160, target: &H160) -> u64 {
+	let result = builder::bare_call(*host)
+		.data(
+			Host::HostCalls::extcodesizeOp(Host::extcodesizeOpCall { account: target.0.into() })
+				.abi_encode(),
+		)
+		.build_and_unwrap_result();
+	assert!(!result.did_revert(), "extcodesize call reverted");
+	Host::extcodesizeOpCall::abi_decode_returns(&result.data).unwrap()
 }
 
 #[test_case(FixtureType::Solc)]
@@ -112,33 +176,55 @@ fn extcodesize_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		let Contract { addr, .. } =
+		// Deploy the Host contract (used to call EXTCODESIZE)
+		let Contract { addr: host_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let expected_code_size = {
-			let contract_info = test_utils::get_contract(&addr);
-			let code_hash = contract_info.code_hash;
-			U256::from(test_utils::ensure_stored(code_hash))
+		// Deploy a target contract for delegation tests
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let host_code_size = {
+			let info = test_utils::get_contract(&host_addr);
+			test_utils::ensure_stored(info.code_hash) as u64
 		};
 
+		let target_code_size = {
+			let info = test_utils::get_contract(&target_addr);
+			test_utils::ensure_stored(info.code_hash) as u64
+		};
+
+		// Test case 1: Regular contract - returns its own code size
 		{
-			let result = builder::bare_call(addr)
-				.data(
-					Host::HostCalls::extcodesizeOp(Host::extcodesizeOpCall {
-						account: addr.0.into(),
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert!(!result.did_revert(), "test reverted");
-
-			let decoded = Host::extcodesizeOpCall::abi_decode_returns(&result.data).unwrap();
-
+			let result = call_extcodesize(&host_addr, &host_addr);
 			assert_eq!(
-				expected_code_size.as_u64(),
-				decoded,
-				"EXTCODESIZE should return the code size for {fixture_type:?}",
+				result, host_code_size,
+				"EXTCODESIZE for regular contract should return its code size"
 			);
+		}
+
+		// Test case 2: Delegated EOA - returns target's code size (EIP-7702)
+		{
+			let delegated_eoa = create_delegated_eoa(&target_addr);
+			let result = call_extcodesize(&host_addr, &delegated_eoa);
+			assert_eq!(
+				result, target_code_size,
+				"EXTCODESIZE for delegated EOA should return target's code size"
+			);
+		}
+
+		// Test case 3: Regular EOA - returns 0
+		{
+			let eoa = create_funded_eoa();
+			let result = call_extcodesize(&host_addr, &eoa);
+			assert_eq!(result, 0, "EXTCODESIZE for regular EOA should return 0");
+		}
+
+		// Test case 4: Non-existent address - returns 0
+		{
+			let result = call_extcodesize(&host_addr, &H160::from_low_u64_be(0xdead));
+			assert_eq!(result, 0, "EXTCODESIZE for non-existent address should return 0");
 		}
 	});
 }
@@ -151,32 +237,111 @@ fn extcodehash_works(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		let Contract { addr, .. } =
+		// Deploy the Host contract (used to call EXTCODEHASH)
+		let Contract { addr: host_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let expected_code_hash = {
-			let contract_info = test_utils::get_contract(&addr);
-			contract_info.code_hash
-		};
+		// Deploy a target contract for delegation tests
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
 
+		let host_code_hash = test_utils::get_contract(&host_addr).code_hash;
+		let target_code_hash = test_utils::get_contract(&target_addr).code_hash;
+
+		// Test case 1: Regular contract - returns its own code hash
 		{
-			let result = builder::bare_call(addr)
-				.data(
-					Host::HostCalls::extcodehashOp(Host::extcodehashOpCall {
-						account: addr.0.into(),
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert!(!result.did_revert(), "test reverted");
-
-			let decoded = Host::extcodehashOpCall::abi_decode_returns(&result.data).unwrap();
-
+			let result = call_extcodehash(&host_addr, &host_addr);
 			assert_eq!(
-				expected_code_hash,
-				H256::from_slice(decoded.as_slice()),
-				"EXTCODEHASH should return the code hash for {fixture_type:?}",
+				result, host_code_hash,
+				"EXTCODEHASH for regular contract should return its code hash"
 			);
+		}
+
+		// Test case 2: Delegated EOA - returns target's code hash (EIP-7702)
+		{
+			let delegated_eoa = create_delegated_eoa(&target_addr);
+			let result = call_extcodehash(&host_addr, &delegated_eoa);
+			assert_eq!(
+				result, target_code_hash,
+				"EXTCODEHASH for delegated EOA should return target's code hash"
+			);
+		}
+
+		// Test case 3: Regular EOA - returns EMPTY_CODE_HASH
+		{
+			let eoa = create_funded_eoa();
+			let result = call_extcodehash(&host_addr, &eoa);
+			assert_eq!(
+				result, EMPTY_CODE_HASH,
+				"EXTCODEHASH for regular EOA should return EMPTY_CODE_HASH"
+			);
+		}
+
+		// Test case 4: Non-existent address - returns zero
+		{
+			let result = call_extcodehash(&host_addr, &H160::from_low_u64_be(0xdead));
+			assert_eq!(
+				result,
+				H256::zero(),
+				"EXTCODEHASH for non-existent address should return zero"
+			);
+		}
+	});
+}
+
+/// Test Pallet::code() behavior for different account types
+#[test]
+fn pallet_code_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Deploy a target contract
+		let Contract { addr: contract_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		// Test case 1: Regular contract - returns actual code
+		{
+			let code = Contracts::code(&contract_addr);
+			assert!(!code.is_empty(), "Pallet::code for contract should return code");
+			// The code should be the pristine code stored
+			let expected =
+				PristineCode::<Test>::get(test_utils::get_contract(&contract_addr).code_hash)
+					.unwrap();
+			assert_eq!(code, expected, "Pallet::code for contract should return pristine code");
+		}
+
+		// Test case 2: Delegated EOA - returns delegation indicator (0xef0100 || target)
+		{
+			let delegated_eoa = create_delegated_eoa(&contract_addr);
+			let code = Contracts::code(&delegated_eoa);
+
+			// EIP-7702: delegation indicator is 0xef0100 followed by the target address
+			assert_eq!(code.len(), 23, "Delegation indicator should be 23 bytes (3 + 20)");
+			assert_eq!(
+				&code[0..3],
+				&[0xef, 0x01, 0x00],
+				"Delegation indicator should start with 0xef0100"
+			);
+			assert_eq!(
+				&code[3..23],
+				contract_addr.as_bytes(),
+				"Delegation indicator should contain target address"
+			);
+		}
+
+		// Test case 3: Regular EOA - returns empty
+		{
+			let eoa = create_funded_eoa();
+			let code = Contracts::code(&eoa);
+			assert!(code.is_empty(), "Pallet::code for regular EOA should return empty");
+		}
+
+		// Test case 4: Non-existent address - returns empty
+		{
+			let code = Contracts::code(&H160::from_low_u64_be(0xdead));
+			assert!(code.is_empty(), "Pallet::code for non-existent address should return empty");
 		}
 	});
 }
