@@ -25,11 +25,14 @@ mod mock;
 mod tests;
 pub mod weights;
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod migration;
+
 extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::Codec;
-use frame_support::traits::{BalanceStatus::Reserved, Currency, ReservableCurrency};
+use frame_support::traits::fungible::{Inspect, InspectHold, Mutate, MutateHold};
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
@@ -37,7 +40,7 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::NativeBalance as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
@@ -45,8 +48,21 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::tokens::{Fortitude, Precision, Restriction},
+	};
 	use frame_system::pallet_prelude::*;
+
+	const LOG_TARGET: &str = "runtime::indices";
+
+	/// A reason for holding funds.
+	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The account has deposited tokens to reserve an index.
+		DepositForIndex,
+	}
 
 	/// The module's config trait.
 	#[pallet::config]
@@ -63,7 +79,10 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type NativeBalance: Inspect<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -84,7 +103,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Assign an previously unassigned index.
 		///
-		/// Payment: `Deposit` is reserved from the sender account.
+		/// Payment: `Deposit` is held from the sender account.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
@@ -102,13 +121,13 @@ pub mod pallet {
 			Accounts::<T>::try_mutate(index, |maybe_value| {
 				ensure!(maybe_value.is_none(), Error::<T>::InUse);
 				*maybe_value = Some((who.clone(), T::Deposit::get(), false));
-				T::Currency::reserve(&who, T::Deposit::get())
+				T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &who, T::Deposit::get())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who, index });
 			Ok(())
 		}
 
-		/// Assign an index already owned by the sender to another account. The balance reservation
+		/// Assign an index already owned by the sender to another account. The balance hold
 		/// is effectively transferred to the new account.
 		///
 		/// The dispatch origin for this call must be _Signed_.
@@ -135,8 +154,19 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				let lost = T::Currency::repatriate_reserved(&who, &new, amount, Reserved)?;
-				*maybe_value = Some((new.clone(), amount.saturating_sub(lost), false));
+
+				// We transfer the hold from the current owner to the new owner
+				let actual_amount = T::NativeBalance::transfer_on_hold(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					&new,
+					amount,
+					Precision::BestEffort,
+					Restriction::OnHold,
+					Fortitude::Polite,
+				)?;
+
+				*maybe_value = Some((new.clone(), actual_amount, false));
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who: new, index });
@@ -145,7 +175,7 @@ pub mod pallet {
 
 		/// Free up an index owned by the sender.
 		///
-		/// Payment: Any previous deposit placed for the index is unreserved in the sender account.
+		/// Payment: Any previous deposit placed for the index is released in the sender account.
 		///
 		/// The dispatch origin for this call must be _Signed_ and the sender must own the index.
 		///
@@ -164,7 +194,12 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::unreserve(&who, amount);
+				T::NativeBalance::release(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					amount,
+					Precision::BestEffort,
+				)?;
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFreed { index });
@@ -197,7 +232,21 @@ pub mod pallet {
 
 			Accounts::<T>::mutate(index, |maybe_value| {
 				if let Some((account, amount, _)) = maybe_value.take() {
-					T::Currency::unreserve(&account, amount);
+					// Release hold from current owner if any
+					if let Err(e) = T::NativeBalance::release(
+						&HoldReason::DepositForIndex.into(),
+						&account,
+						amount,
+						Precision::BestEffort,
+					) {
+						log::error!(
+							target: LOG_TARGET,
+							"Failed to release hold for account {:?}, amount {:?}: {:?}",
+							account,
+							amount,
+							e
+						);
+					}
 				}
 				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
 			});
@@ -226,7 +275,16 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				let _ = T::Currency::slash_reserved(&who, amount);
+
+				// Burn the held amount (consume it permanently)
+				T::NativeBalance::burn_held(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					amount,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+
 				*maybe_value = Some((account, Zero::zero(), true));
 				Ok(())
 			})?;
@@ -234,7 +292,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Poke the deposit reserved for an index.
+		/// Poke the deposit held for an index.
 		///
 		/// The dispatch origin for this call must be _Signed_ and the signing account must have a
 		/// non-frozen account `index`.
@@ -264,20 +322,18 @@ pub mod pallet {
 					*maybe_value = Some((account, old_amount, perm));
 					return Ok(Pays::Yes.into());
 				} else if new_amount > old_amount {
-					// Need to reserve more
+					// Need to hold more
 					let extra = new_amount.saturating_sub(old_amount);
-					T::Currency::reserve(&who, extra)?;
+					T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &who, extra)?;
 				} else if new_amount < old_amount {
-					// Need to unreserve some
+					// Need to release some
 					let excess = old_amount.saturating_sub(new_amount);
-					let remaining_unreserved = T::Currency::unreserve(&who, excess);
-					// Defensive logging if we can't unreserve the full amount.
-					if !remaining_unreserved.is_zero() {
-						defensive!(
-							"Failed to unreserve full amount. (Index, Requested, Actual): ",
-							(index, excess, excess - remaining_unreserved)
-						);
-					}
+					T::NativeBalance::release(
+						&HoldReason::DepositForIndex.into(),
+						&who,
+						excess,
+						Precision::Exact,
+					)?;
 				}
 
 				*maybe_value = Some((account, new_amount, perm));
