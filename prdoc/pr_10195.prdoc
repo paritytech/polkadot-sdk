@@ -1,0 +1,89 @@
+title: Added #[stored] macro for simplifying storage type definitions
+doc:
+- audience: Todo
+  description: |
+    # Description
+
+    This PR introduces a new `#[stored]` attribute macro that simplifies the definition of storage types in FRAME pallets by automatically generating appropriate derive macros and trait bounds. This reduces boilerplate code and makes storage type definitions more maintainable.
+
+    **Problem:** Currently, defining storage types requires extensive boilerplate with multiple derives, `scale_info` attributes, `codec` attributes, and manual trait bounds, making the code verbose and error-prone.
+
+    **Solution:** The new `#[stored]` macro automatically applies all necessary derives and uses field-based bounds (consistent with codec derives) to handle trait requirements intelligently.
+
+    **Example:**
+
+    ```diff
+    - #[derive(
+    -     CloneNoBound,
+    -     PartialEqNoBound,
+    -     EqNoBound,
+    -     RuntimeDebugNoBound,
+    -     TypeInfo,
+    -     Encode,
+    -     Decode,
+    -     DecodeWithMemTracking,
+    -     MaxEncodedLen,
+    - )]
+    - #[scale_info(skip_type_params(Total))]
+    - #[codec(mel_bound(Votes: MaxEncodedLen))]
+    - pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
+    + #[stored]
+    + pub struct Tally<Votes, Total> {
+          pub ayes: Votes,
+          pub nays: Votes,
+          dummy: PhantomData<Total>,
+      }
+    ```
+
+    ## Integration
+
+    **This PR is backward compatible and does not require immediate migration.** The `#[stored]` macro is a new optional feature that can be adopted gradually.
+
+    ### For Downstream Projects
+
+    No changes are required to existing code. The traditional manual approach continues to work. However, new storage types can benefit from the simplified syntax:
+
+    **Basic Usage:**
+    ```rust
+    use frame_support::stored;
+
+    #[stored]
+    pub struct SimpleData {
+        pub value: u32,
+        pub count: u64,
+    }
+    ```
+
+    **With Generic Parameters:**
+    ```rust
+    #[stored]
+    pub struct Account<Balance> {
+        pub free: Balance,
+        pub reserved: Balance,
+    }
+    ```
+
+    **With Phantom Types:**
+    ```rust
+    #[stored]
+    pub struct ConfigData<T, Value> {
+        pub data: Value,
+        _phantom: PhantomData<T>,
+    }
+    ```
+
+    The macro automatically:
+    - Extracts field types (`Balance`, `Value`) for field-based bounds
+    - Skips all generic type parameters in `scale_info` metadata
+    - Uses `derive_where` to apply bounds to field types consistently with codec derives
+
+    ### Migration Notes
+
+    - **No breaking changes:** Existing code continues to work without modification
+    - **Optional adoption:** Teams can adopt `#[stored]` incrementally for new types or during refactoring
+    - **Functionally equivalent:** The macro generates the same code as the manual approach
+crates:
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major

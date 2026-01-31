@@ -37,6 +37,7 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true, default-features = true }
+derive-where = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
