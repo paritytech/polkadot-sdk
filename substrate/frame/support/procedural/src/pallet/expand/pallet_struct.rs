@@ -185,17 +185,26 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		.filter_map(|s| s.whitelisted.then(|| s.ident.clone()))
 		.collect();
 
-	let whitelisted_storage_keys_impl = quote::quote![
-		use #frame_support::traits::{StorageInfoTrait, TrackedStorageKey, WhitelistedStorageKeys};
-		impl<#type_impl_gen> WhitelistedStorageKeys for #pallet_ident<#type_use_gen> #storages_where_clauses {
-			fn whitelisted_storage_keys() -> #frame_support::__private::Vec<TrackedStorageKey> {
+	let whitelisted_storage_keys_impl = quote::quote! {
+	use #frame_support::traits::{PartialStorageInfoTrait, TrackedStorageKey, WhitelistedStorageKeys};
+	impl<#type_impl_gen> WhitelistedStorageKeys for #pallet_ident<#type_use_gen> #storages_where_clauses {
+		fn whitelisted_storage_keys() -> #frame_support::__private::Vec<TrackedStorageKey> {
 				use #frame_support::__private::vec;
-				vec![#(
-					TrackedStorageKey::new(#whitelisted_storage_idents::<#type_use_gen>::hashed_key().to_vec())
-				),*]
+
+				let mut keys = vec![];
+
+				#(
+					let storage_info = <#whitelisted_storage_idents::<#type_use_gen> as PartialStorageInfoTrait>::partial_storage_info();
+					keys.extend(
+						storage_info.into_iter().map(|info| {
+							TrackedStorageKey::new(info.prefix.clone())
+						})
+					);
+				)*
+				keys
 			}
 		}
-	];
+	};
 
 	quote::quote_spanned!(def.pallet_struct.attr_span =>
 		#pallet_error_metadata
