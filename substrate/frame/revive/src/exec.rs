@@ -890,6 +890,7 @@ where
 					value,
 					&input_data,
 					Default::default(),
+					None,
 				);
 			});
 
@@ -1232,6 +1233,11 @@ where
 		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
+			let parent_gas_left = self
+				.frames()
+				.nth(1)
+				.and_then(|f| f.frame_meter.eth_gas_left())
+				.map(|g| g.try_into().unwrap_or_default());
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 				T::AddressMapper::to_address(&frame.account_id),
@@ -1245,6 +1251,7 @@ where
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or_default(),
+				parent_gas_left,
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -2098,6 +2105,7 @@ where
 						value,
 						&input_data,
 						Default::default(),
+						None,
 					);
 				});
 				let result = if let Some(mock_answer) =

@@ -259,6 +259,7 @@ where
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: u64,
+		_parent_gas_left: Option<u64>,
 	) {
 		if let Some(delegate_call) = delegate_call {
 			self.calls.push(self.current_addr());

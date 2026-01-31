@@ -1,0 +1,83 @@
+{
+  "gas": 43429049,
+  "weightConsumed": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "baseCallWeight": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "failed": false,
+  "returnValue": "0x0000000000000000000000000000000000000000000000000000000000000002",
+  "structLogs": [
+    {
+      "gas": 249961111334,
+      "gasCost": 33000,
+      "weightCost": {
+        "ref_time": 330000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_size",
+      "returned": "0x24"
+    },
+    {
+      "gas": 249960429545,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfec0",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249960317525,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "value_transferred",
+      "args": [
+        "0xfffdff80"
+      ]
+    },
+    {
+      "gas": 249960198059,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdffa0",
+        "0x4"
+      ]
+    },
+    {
+      "gas": 249957624538,
+      "gasCost": 53586,
+      "weightCost": {
+        "ref_time": 535865,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "seal_return",
+      "args": [
+        "0x0",
+        "0x20090",
+        "0x20"
+      ]
+    }
+  ]
+}
+

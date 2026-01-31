@@ -1,0 +1,293 @@
+{
+  "gas": 549956372,
+  "weightConsumed": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "baseCallWeight": {
+    "ref_time": 0,
+    "proof_size": 0
+  },
+  "failed": false,
+  "returnValue": "0x000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002a",
+  "structLogs": [
+    {
+      "gas": 249686684201,
+      "gasCost": 33000,
+      "weightCost": {
+        "ref_time": 330000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_size",
+      "returned": "0xe4"
+    },
+    {
+      "gas": 249685987644,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf960",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249685851008,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "value_transferred",
+      "args": [
+        "0xfffdffa0"
+      ]
+    },
+    {
+      "gas": 249685539545,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf800",
+        "0x4"
+      ]
+    },
+    {
+      "gas": 249685215835,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf800",
+        "0x24"
+      ]
+    },
+    {
+      "gas": 249684980740,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf820",
+        "0x44"
+      ]
+    },
+    {
+      "gas": 249684455188,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf680",
+        "0x84"
+      ]
+    },
+    {
+      "gas": 249681418905,
+      "gasCost": 50064,
+      "weightCost": {
+        "ref_time": 500644,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_copy",
+      "args": [
+        "0x200e0",
+        "0x24",
+        "0xa4"
+      ]
+    },
+    {
+      "gas": 249680424672,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdf7e0",
+        "0x64"
+      ]
+    },
+    {
+      "gas": 249678599448,
+      "gasCost": 217637376,
+      "weightCost": {
+        "ref_time": 349515238,
+        "proof_size": 9578
+      },
+      "depth": 1,
+      "op": "call_evm",
+      "args": [
+        "0x8",
+        "0x40040",
+        "0xfffdf820",
+        "0xffffffffffffffff",
+        "0x24000200e0",
+        "0xfffdf80000020040"
+      ],
+      "returned": "0x0"
+    },
+    {
+      "gas": 249464270743,
+      "gasCost": 33000,
+      "weightCost": {
+        "ref_time": 330000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_size",
+      "returned": "0x24"
+    },
+    {
+      "gas": 249463574186,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfce0",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249463398166,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "value_transferred",
+      "args": [
+        "0xfffdffa0"
+      ]
+    },
+    {
+      "gas": 249463180240,
+      "gasCost": 34300,
+      "weightCost": {
+        "ref_time": 343000,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "call_data_load",
+      "args": [
+        "0xfffdfca0",
+        "0x4"
+      ]
+    },
+    {
+      "gas": 249461064559,
+      "gasCost": 53587,
+      "weightCost": {
+        "ref_time": 535865,
+        "proof_size": 0
+      },
+      "depth": 2,
+      "op": "seal_return",
+      "args": [
+        "0x0",
+        "0x200a0",
+        "0x20"
+      ]
+    },
+    {
+      "gas": 249460894198,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249460799346,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249458385762,
+      "gasCost": 31900,
+      "weightCost": {
+        "ref_time": 319000,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_size",
+      "returned": "0x20"
+    },
+    {
+      "gas": 249458093991,
+      "gasCost": 49550,
+      "weightCost": {
+        "ref_time": 495496,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "return_data_copy",
+      "args": [
+        "0x20140",
+        "0xfffdf720",
+        "0x0"
+      ]
+    },
+    {
+      "gas": 249451099136,
+      "gasCost": 55507,
+      "weightCost": {
+        "ref_time": 555065,
+        "proof_size": 0
+      },
+      "depth": 1,
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "op": "seal_return",
+      "args": [
+        "0x0",
+        "0x20160",
+        "0x80"
+      ]
+    }
+  ]
+}
+

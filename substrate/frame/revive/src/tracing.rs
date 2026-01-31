@@ -69,7 +69,12 @@ pub trait Tracing {
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 
-	/// Called before a contract call is executed
+	/// Called before a contract call is executed.
+	///
+	/// For CALL/DELEGATECALL opcodes:
+	/// - `gas_limit`: gas forwarded to the child call
+	/// - `parent_gas_left`: parent's remaining gas after opcode costs (used to calculate opcode gas
+	///   cost)
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
@@ -79,6 +84,7 @@ pub trait Tracing {
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: u64,
+		_parent_gas_left: Option<u64>,
 	) {
 	}
 
