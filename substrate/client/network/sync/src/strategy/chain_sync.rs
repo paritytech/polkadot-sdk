@@ -1553,10 +1553,12 @@ where
 			);
 		}
 
-		let origin = if !gap && !self.status().state.is_major_syncing() {
+		let origin = if !self.status().state.is_major_syncing() {
 			BlockOrigin::NetworkBroadcast
+		} else if gap {
+			BlockOrigin::GapSync
 		} else {
-			BlockOrigin::NetworkInitialSync
+			BlockOrigin::StateSync { is_verified: false }
 		};
 
 		if let Some((h, n)) = new_blocks
@@ -2009,7 +2011,7 @@ where
 
 		match import_result {
 			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
+				let origin = BlockOrigin::StateSync { is_verified: !self.skip_execution() };
 				let block = IncomingBlock {
 					hash,
 					header: Some(header),
