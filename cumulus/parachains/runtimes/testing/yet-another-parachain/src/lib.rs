@@ -100,7 +100,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_000,
+	spec_version: 1_003_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -141,14 +141,19 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 10;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
 
-/// Build with an offset of 1 behind the relay chain.
+/// Build with an offset behind the relay chain.
+/// In dev mode, this is set to 0 for easier local testing.
+#[cfg(feature = "dev")]
+const RELAY_PARENT_OFFSET: u32 = 0;
+#[cfg(not(feature = "dev"))]
 const RELAY_PARENT_OFFSET: u32 = 1;
 
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+const BLOCK_PROCESSING_VELOCITY: u32 = 12;
+
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -475,6 +480,12 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
 }
 
+impl cumulus_tic_tac_toe::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RcBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -502,6 +513,9 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(4)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
+
+	#[runtime::pallet_index(5)]
+	pub type TicTacToe = cumulus_tic_tac_toe;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
@@ -556,7 +570,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The TransactionExtension to the basic transaction logic.
+/// The extension to the basic transaction logic.
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
@@ -572,6 +586,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
 >;
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -771,6 +786,13 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
+		}
+	}
+
+	impl cumulus_tic_tac_toe::TicTacToeApi<Block, AccountId> for Runtime {
+		fn get_player_game(player: AccountId) -> Option<(u32, cumulus_tic_tac_toe::Game<AccountId>)> {
+			TicTacToe::get_player_game(&player)
+				.map(|(game_id, game)| (game_id, cumulus_tic_tac_toe::Game::from_pallet_game(game)))
 		}
 	}
 }
