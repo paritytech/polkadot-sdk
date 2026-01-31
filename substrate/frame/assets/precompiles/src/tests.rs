@@ -81,7 +81,7 @@ fn precompile_transfer_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -122,7 +122,7 @@ fn total_supply_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -157,7 +157,7 @@ fn balance_of_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -205,7 +205,7 @@ fn approval_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		assert_contract_event(
@@ -230,7 +230,7 @@ fn approval_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		)
 		.result
 		.unwrap()
@@ -255,7 +255,7 @@ fn approval_works() {
 				deposit_limit: u64::MAX,
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		assert_eq!(Assets::balance(asset_id, owner), 90);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 15);

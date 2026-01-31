@@ -100,12 +100,14 @@ pub use crate::{
 		ReceiptInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
+	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
 		TransactionMeter,
 	},
 	pallet::{genesis, *},
 	storage::{AccountInfo, ContractInfo},
+	transient_storage::{MeterEntry, StorageMeter as TransientStorageMeter, TransientStorage},
 	vm::{BytecodeType, ContractBlob},
 };
 pub use codec;
@@ -1103,7 +1105,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -1148,7 +1150,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1216,7 +1218,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				ExecConfig::new_substrate_tx(),
+				&ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -1298,7 +1300,7 @@ pub mod pallet {
 					Code::Upload(code),
 					data,
 					None,
-					ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -1376,7 +1378,7 @@ pub mod pallet {
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
 					},
 					data,
-					ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -1592,7 +1594,7 @@ impl<T: Config> Pallet<T> {
 		evm_value: U256,
 		transaction_limits: TransactionLimits<T>,
 		data: Vec<u8>,
-		exec_config: ExecConfig<T>,
+		exec_config: &ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
@@ -1669,7 +1671,7 @@ impl<T: Config> Pallet<T> {
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		exec_config: ExecConfig<T>,
+		exec_config: &ExecConfig<T>,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut transaction_meter = match TransactionMeter::new(transaction_limits) {
 			Ok(transaction_meter) => transaction_meter,
@@ -1886,7 +1888,7 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						exec_config,
+						&exec_config,
 					);
 
 					let data = match result.result {
@@ -1928,7 +1930,7 @@ impl<T: Config> Pallet<T> {
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					exec_config,
+					&exec_config,
 				);
 
 				let returned_data = match result.result {
@@ -2819,7 +2821,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
 						},
 						input_data,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 
@@ -2847,7 +2849,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						code,
 						data,
 						salt,
-						$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
 					)
 				}
 

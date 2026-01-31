@@ -34,14 +34,43 @@ macro_rules! builder {
         $($extra:item)*
 	) => {
 		paste!{
-			builder!([< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+			builder!(true, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+		}
+	};
+	(
+		$full_expand:literal,
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+        $($extra:item)*
+	) => {
+		paste!{
+			builder!($full_expand, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
 		}
 	};
 	// Generate the builder struct and its methods.
 	(
+		true,
 		$name:ident,
 		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
+	) => {
+		builder!(false, $name, $method($($field: $type,)* ) -> $result; $($extra)*);
+
+		#[allow(dead_code)]
+		impl<T: Config> $name<T> {
+			#[doc = concat!("Build the ", stringify!($method), " call")]
+			pub fn build(self) -> $result {
+				Pallet::<T>::$method(
+					$(self.$field,)*
+				)
+			}
+		}
+	};
+	// Generate the builder struct and its methods.
+	(
+		false,
+		$name:ident,
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
+		$($extra:item)*
 	) => {
 		#[doc = concat!("A builder to construct a ", stringify!($method), " call")]
 		pub struct $name<T: Config> {
@@ -58,16 +87,9 @@ macro_rules! builder {
 				}
 			)*
 
-			#[doc = concat!("Build the ", stringify!($method), " call")]
-			pub fn build(self) -> $result {
-				Pallet::<T>::$method(
-					$(self.$field,)*
-				)
-			}
-
-            $($extra)*
+			$($extra)*
 		}
-	}
+	};
 }
 
 pub struct Contract<T: Config> {
@@ -126,6 +148,7 @@ builder!(
 );
 
 builder!(
+	false,
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
@@ -148,6 +171,18 @@ builder!(
 		}
 	}
 
+	/// Build the "bare_instantiate" call
+	pub fn build(self) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_instantiate(
+			self.origin,
+			self.evm_value,
+			self.transaction_limits,
+			self.code,
+			self.data,
+			self.salt,
+			&self.exec_config
+		)
+	}
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {
 		self.evm_value = Pallet::<T>::convert_native_to_evm(value);
@@ -210,6 +245,7 @@ builder!(
 );
 
 builder!(
+	false,
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
@@ -218,6 +254,18 @@ builder!(
 		data: Vec<u8>,
 		exec_config: ExecConfig<T>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
+
+	/// Build the "bare_call" call
+	pub fn build(self) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		Pallet::<T>::bare_call(
+			self.origin,
+			self.dest,
+			self.evm_value,
+			self.transaction_limits,
+			self.data,
+			&self.exec_config
+		)
+	}
 
 	/// Set the call's evm_value using a native_value amount.
 	pub fn native_value(mut self, value: BalanceOf<T>) -> Self {

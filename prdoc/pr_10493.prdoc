@@ -1,0 +1,18 @@
+title: add external transient_storage to pallet_revive::ExecConfig
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.
+    This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover 
+    the transient storage to other following calls as they happen within an external tx
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor 
+- name: assets-common
+  bump: minor
