@@ -181,7 +181,7 @@ where
 			?relayer,
 			"Relayer has submitted invalid parachain finality proof"
 		);
-		return false
+		return false;
 	}
 
 	true

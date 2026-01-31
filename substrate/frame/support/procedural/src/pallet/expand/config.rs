@@ -20,7 +20,6 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, Item};
 
-///
 /// * Generate default rust doc
 pub fn expand_config(def: &mut Def) -> TokenStream {
 	let config = &def.config;

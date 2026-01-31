@@ -113,7 +113,7 @@ impl<H: ExHashT> Future for PendingTransaction<H> {
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
 		if let Poll::Ready(import_result) = self.validation.poll_unpin(cx) {
-			return Poll::Ready((self.tx_hash.clone(), import_result))
+			return Poll::Ready((self.tx_hash.clone(), import_result));
 		}
 
 		Poll::Pending
@@ -344,7 +344,7 @@ where
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
 				let Some(role) = self.network.peer_role(peer, handshake) else {
 					log::debug!(target: "sub-libp2p", "role for {peer} couldn't be determined");
-					return
+					return;
 				};
 
 				let _was_in = self.peers.insert(
@@ -405,7 +405,7 @@ where
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
 			trace!(target: LOG_TARGET, "{} Ignoring transactions while major syncing", who);
-			return
+			return;
 		}
 
 		trace!(target: LOG_TARGET, "Received {} transactions from {}", transactions.len(), who);
@@ -417,7 +417,7 @@ where
 						"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit",
 						MAX_PENDING_TRANSACTIONS,
 					);
-					break
+					break;
 				}
 
 				let hash = self.transaction_pool.hash_of(&t);
@@ -455,7 +455,7 @@ where
 	pub fn propagate_transaction(&mut self, hash: &H) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
@@ -477,7 +477,7 @@ where
 		for (who, peer) in self.peers.iter_mut() {
 			// never send transactions to the light node
 			if matches!(peer.role, ObservedRole::Light) {
-				continue
+				continue;
 			}
 
 			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
@@ -521,13 +521,13 @@ where
 	fn propagate_transactions(&mut self) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		let transactions = self.transaction_pool.transactions();
 
 		if transactions.is_empty() {
-			return
+			return;
 		}
 
 		debug!(target: LOG_TARGET, "Propagating transactions");

@@ -342,7 +342,6 @@ async fn test_once() {
 					let _ = to_peerset
 						.unbounded_send(PeersetCommand::SetReservedOnly { reserved_only });
 				},
-				//
 				// discover a new node.
 				13 => {
 					let new_peer = PeerId::random();

@@ -332,7 +332,7 @@ where
 	> {
 		use pallet_transaction_payment::ChargeTransactionPayment;
 		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
@@ -379,7 +379,7 @@ where
 				(tip, who, initial_payment, asset_id, weight),
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(refund)
+				return Ok(refund);
 			},
 		};
 

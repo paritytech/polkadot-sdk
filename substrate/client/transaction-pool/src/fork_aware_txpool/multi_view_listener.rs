@@ -591,7 +591,7 @@ where
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
 					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
-					return None
+					return None;
 				}
 				loop {
 					tokio::select! {
@@ -1038,7 +1038,7 @@ mod tests {
 		let tx_hash = H256::repeat_byte(0x0a);
 		let external_watcher = listener.create_external_watcher_for_tx(tx_hash).unwrap();
 
-		//views will keep transaction valid, invalidation shall not happen
+		// views will keep transaction valid, invalidation shall not happen
 		let view_stream0 = futures::stream::iter(std::iter::repeat(tx_hash).zip(events0.clone()))
 			.chain(stream::pending().boxed());
 		let view_stream1 = futures::stream::iter(std::iter::repeat(tx_hash).zip(events1.clone()))

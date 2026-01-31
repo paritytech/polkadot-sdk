@@ -369,7 +369,7 @@ pub mod pallet {
 			let mut pruned_messages = 0;
 			for _ in outbound_lane.queued_messages() {
 				if pruned_messages == may_prune_messages {
-					break
+					break;
 				}
 
 				outbound_lane.remove_oldest_unpruned_message();
@@ -402,7 +402,7 @@ pub mod pallet {
 					enqueued_messages,
 				});
 
-				return Ok(())
+				return Ok(());
 			}
 
 			// else we have pruned all messages, so lanes and the bridge itself may gone

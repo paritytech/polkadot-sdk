@@ -1035,7 +1035,7 @@ fn supermajority_bitfields_trigger_availability() {
 					bare_bitfield
 				} else {
 					// sign nothing.
-					return None
+					return None;
 				};
 
 				Some(

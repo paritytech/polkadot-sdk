@@ -634,7 +634,7 @@ mod helpers {
 	) {
 		// Expect no messages if no cores is assigned to the para
 		if cores_assigned.is_empty() {
-			return
+			return;
 		}
 
 		// Some hardcoded data - if needed, extract to parameters

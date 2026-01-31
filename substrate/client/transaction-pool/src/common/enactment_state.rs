@@ -115,13 +115,13 @@ where
 		if skip_maintenance {
 			debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
-			return Ok(EnactmentAction::Skip)
+			return Ok(EnactmentAction::Skip);
 		}
 
 		// block was already finalized
 		if self.recent_finalized_block == new_hash {
 			trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
-			return Ok(EnactmentAction::Skip)
+			return Ok(EnactmentAction::Skip);
 		}
 
 		// compute actual tree route from best_block to notified block, and use
@@ -148,7 +148,7 @@ where
 				?new_hash,
 				"Recently finalized block would be retracted by ChainEvent, skipping"
 			);
-			return Ok(EnactmentAction::Skip)
+			return Ok(EnactmentAction::Skip);
 		}
 
 		if finalized {
@@ -160,7 +160,7 @@ where
 			// remains valid.
 			if tree_route.enacted().is_empty() {
 				trace!(target: LOG_TARGET, "handle_enactment: no newly enacted blocks since recent best block");
-				return Ok(EnactmentAction::HandleFinalization)
+				return Ok(EnactmentAction::HandleFinalization);
 			}
 
 			// otherwise enacted finalized block becomes best block...

@@ -118,7 +118,7 @@ impl TraitPair for Pair {
 	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, public: &Public) -> bool {
 		let Ok(public) = VerificationKey::try_from(public.as_slice()) else { return false };
 		let Ok(signature) = ed25519_zebra::Signature::try_from(sig.as_slice()) else {
-			return false
+			return false;
 		};
 		public.verify(&signature, message.as_ref()).is_ok()
 	}

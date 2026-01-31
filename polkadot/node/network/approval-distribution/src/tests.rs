@@ -2431,7 +2431,7 @@ fn race_condition_in_local_vs_remote_view_update() {
 
 			for i in 0..candidates_count {
 				// Previously, this has caused out-of-view assignments/approvals
-				//expect_reputation_change(overseer, peer, COST_UNEXPECTED_MESSAGE).await;
+				// expect_reputation_change(overseer, peer, COST_UNEXPECTED_MESSAGE).await;
 
 				assert_matches!(
 					overseer_recv(overseer).await,

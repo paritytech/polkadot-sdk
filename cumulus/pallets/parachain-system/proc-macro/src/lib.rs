@@ -67,7 +67,7 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::CheckInherents) {
 				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 

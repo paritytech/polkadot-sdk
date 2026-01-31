@@ -126,7 +126,7 @@ where
 			Ok(sd) => sd,
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-				return None
+				return None;
 			},
 		};
 
@@ -249,7 +249,7 @@ where
 					"Failed to initialize consensus: no relay chain import notification stream"
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -288,7 +288,7 @@ where
 					"Para is not scheduled on any core, skipping import notification",
 				);
 
-				continue
+				continue;
 			};
 
 			let max_pov_size = match params
@@ -304,7 +304,7 @@ where
 				Ok(Some(pvd)) => pvd.max_pov_size,
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-					continue
+					continue;
 				},
 			};
 
@@ -349,7 +349,7 @@ where
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			// Trigger pre-conect to backing groups if necessary.
@@ -404,7 +404,7 @@ where
 				{
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 					Ok(x) => x,
 				};
@@ -413,7 +413,7 @@ where
 					params.code_hash_provider.code_hash_at(parent_hash)
 				else {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				};
 
 				super::check_validation_code_or_log(
@@ -450,7 +450,7 @@ where
 							block_data.blocks().first().map(|b| b.header().clone())
 						else {
 							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
-							break
+							break;
 						};
 
 						let new_block_hash = new_block_header.hash();
@@ -498,11 +498,11 @@ where
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
+						break;
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 				}
 			}

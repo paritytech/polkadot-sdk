@@ -94,7 +94,7 @@ impl ClaimQueueState {
 	// Appends a new leaf
 	pub(crate) fn add_leaf(&mut self, hash: &Hash, claim_queue: &Vec<ParaId>) {
 		if self.block_state.iter().any(|s| s.hash == Some(*hash)) {
-			return
+			return;
 		}
 
 		// First check if our view for the future blocks is consistent with the one in the claim
@@ -181,7 +181,7 @@ impl ClaimQueueState {
 		for w in window {
 			if !w.claimed && w.claim == Some(*para_id) {
 				w.claimed = claim_it;
-				return true
+				return true;
 			}
 		}
 

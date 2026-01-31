@@ -147,7 +147,7 @@ where
 		authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
 	) -> Result<Self, Error> {
 		if authorities.is_empty() {
-			return Err(Error::StringError("Cannot supply empty authority set!".into()))
+			return Err(Error::StringError("Cannot supply empty authority set!".into()));
 		}
 
 		let config = sc_consensus_babe::configuration(&*client)?;

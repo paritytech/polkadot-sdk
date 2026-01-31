@@ -733,7 +733,6 @@ fn can_quote_price() {
 			Some(2302)
 		);
 
-		//
 		// same tests as above but for quote_price_tokens_for_exact_tokens:
 		//
 		assert_eq!(
@@ -798,7 +797,6 @@ fn can_quote_price() {
 			Some(86)
 		);
 
-		//
 		// roundtrip: Without fees one should get the original number
 		//
 		let amount_in = 100;

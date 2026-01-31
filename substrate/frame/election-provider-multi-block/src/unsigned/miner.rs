@@ -655,7 +655,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 						"no more pages to trim from at page {}, already trimmed",
 						current_trimming_page
 					);
-					break
+					break;
 				}
 			}
 		}

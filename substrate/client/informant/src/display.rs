@@ -222,17 +222,17 @@ impl fmt::Display for TransferRateFormat {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		// Special case 0.
 		if self.0 == 0 {
-			return write!(f, "0")
+			return write!(f, "0");
 		}
 
 		// Under 0.1 kiB, display plain bytes.
 		if self.0 < 100 {
-			return write!(f, "{} B/s", self.0)
+			return write!(f, "{} B/s", self.0);
 		}
 
 		// Under 1.0 MiB/sec, display the value in kiB/sec.
 		if self.0 < 1024 * 1024 {
-			return write!(f, "{:.1}kiB/s", self.0 as f64 / 1024.0)
+			return write!(f, "{:.1}kiB/s", self.0 as f64 / 1024.0);
 		}
 
 		write!(f, "{:.1}MiB/s", self.0 as f64 / (1024.0 * 1024.0))

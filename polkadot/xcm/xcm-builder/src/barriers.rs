@@ -207,7 +207,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 					},
 					DescendOrigin(j) => {
 						let Ok(_) = actual_origin.append_with(j.clone()) else {
-							return Err(ProcessMessageError::Unsupported)
+							return Err(ProcessMessageError::Unsupported);
 						};
 					},
 					_ => return Ok(ControlFlow::Break(())),
