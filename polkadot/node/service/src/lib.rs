@@ -487,7 +487,7 @@ pub fn revert_backend(
 	revert_approval_voting(parachains_db.clone(), hash, task_handle)?;
 	revert_chain_selection(parachains_db, hash)?;
 	// Revert Substrate consensus related components
-	sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+	sc_consensus_babe::revert(client.clone(), backend, blocks, None)?;
 	sc_consensus_grandpa::revert(client, blocks)?;
 
 	Ok(())

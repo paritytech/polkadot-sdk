@@ -66,8 +66,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use parking_lot::RwLock;
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	future::Future,
 	ops::{Deref, DerefMut},
 	pin::Pin,
@@ -538,6 +539,7 @@ where
 fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: BlockT>(
 	client: &C,
 	notification: &FinalityNotification<Block>,
+	weight_storage: &SharedBlockWeightStorage<Block>,
 ) -> AuxDataOperations {
 	let mut hashes = HashSet::new();
 
@@ -562,6 +564,11 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 	);
 
 	hashes.extend(notification.stale_blocks.iter().map(|b| b.hash));
+
+	// Prune finalized blocks from shared storage based on block number
+	// This is more efficient than removing individual hashes
+	let finalized_number = notification.header.number();
+	weight_storage.prune_finalized(*finalized_number);
 
 	hashes
 		.into_iter()
@@ -956,11 +963,65 @@ fn find_next_config_digest<B: BlockT>(
 	Ok(config_digest)
 }
 
+/// Shared storage for block weights to ensure consistent fork-choice.
+///
+/// This stores block weights in memory to provide immediate access for
+/// fork-choice decisions, preventing race conditions that occur when
+/// weights are loaded from the database.
+#[derive(Clone)]
+pub struct SharedBlockWeightStorage<Block: BlockT> {
+	/// Maps block hash to (weight, block_number)
+	weights: Arc<RwLock<HashMap<Block::Hash, (BabeBlockWeight, NumberFor<Block>)>>>,
+}
+
+impl<Block: BlockT> SharedBlockWeightStorage<Block> {
+	/// Create a new shared weight storage
+	pub fn new() -> Self {
+		Self { weights: Arc::new(RwLock::new(HashMap::new())) }
+	}
+
+	/// Store a block weight with its block number
+	pub fn store(&self, hash: Block::Hash, weight: BabeBlockWeight, number: NumberFor<Block>) {
+		self.weights.write().insert(hash, (weight, number));
+	}
+
+	/// Load a block weight
+	pub fn load(&self, hash: &Block::Hash) -> Option<BabeBlockWeight> {
+		self.weights.read().get(hash).map(|(weight, _)| *weight)
+	}
+
+	/// Remove blocks up to and including the given finalized block number.
+	/// This keeps the cache bounded by removing finalized blocks from memory.
+	pub fn prune_finalized(&self, finalized_number: NumberFor<Block>) {
+		self.weights.write().retain(|_, (_, number)| *number > finalized_number);
+	}
+
+	/// Remove blocks with block number greater than the given block number.
+	///
+	/// This is used during chain revert operations to remove weights for blocks
+	/// that have been reverted
+	pub fn prune_after(&self, block_number: NumberFor<Block>) {
+		self.weights.write().retain(|_, (_, number)| *number <= block_number);
+	}
+
+	/// Clear all weights
+	#[cfg(test)]
+	pub fn clear(&self) {
+		self.weights.write().clear();
+	}
+
+	/// Remove a specific block weight
+	pub fn remove(&self, hash: &Block::Hash) {
+		self.weights.write().remove(hash);
+	}
+}
+
 /// State that must be shared between the import queue and the authoring logic.
 #[derive(Clone)]
 pub struct BabeLink<Block: BlockT> {
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
 	config: BabeConfiguration,
+	weight_storage: SharedBlockWeightStorage<Block>,
 }
 
 impl<Block: BlockT> BabeLink<Block> {
@@ -972,6 +1033,11 @@ impl<Block: BlockT> BabeLink<Block> {
 	/// Get the config of this link.
 	pub fn config(&self) -> &BabeConfiguration {
 		&self.config
+	}
+
+	/// Get the weight storage of this link.
+	pub fn weight_storage(&self) -> &SharedBlockWeightStorage<Block> {
+		&self.weight_storage
 	}
 }
 
@@ -1121,6 +1187,8 @@ pub struct BabeBlockImport<Block: BlockT, Client, I, CIDP, SC> {
 	//
 	// Will be used when sending equivocation reports.
 	offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+	// Shared block weight storage for consistent fork-choice
+	weight_storage: SharedBlockWeightStorage<Block>,
 }
 
 impl<Block: BlockT, I: Clone, Client, CIDP: Clone, SC: Clone> Clone
@@ -1135,6 +1203,7 @@ impl<Block: BlockT, I: Clone, Client, CIDP: Clone, SC: Clone> Clone
 			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
 			select_chain: self.select_chain.clone(),
 			offchain_tx_pool_factory: self.offchain_tx_pool_factory.clone(),
+			weight_storage: self.weight_storage.clone(),
 		}
 	}
 }
@@ -1148,6 +1217,7 @@ impl<Block: BlockT, Client, I, CIDP, SC> BabeBlockImport<Block, Client, I, CIDP,
 		create_inherent_data_providers: CIDP,
 		select_chain: SC,
 		offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+		weight_storage: SharedBlockWeightStorage<Block>,
 	) -> Self {
 		BabeBlockImport {
 			client,
@@ -1157,6 +1227,7 @@ impl<Block: BlockT, Client, I, CIDP, SC> BabeBlockImport<Block, Client, I, CIDP,
 			create_inherent_data_providers,
 			select_chain,
 			offchain_tx_pool_factory,
+			weight_storage,
 		}
 	}
 }
@@ -1671,6 +1742,9 @@ where
 				});
 			}
 
+			// Store weight in shared storage WITH block number for efficient pruning
+			self.weight_storage.store(hash, total_weight, number);
+
 			aux_schema::write_block_weight(hash, total_weight, |values| {
 				block
 					.auxiliary
@@ -1688,8 +1762,12 @@ where
 					// so we don't need to cover again here.
 					parent_weight
 				} else {
-					aux_schema::load_block_weight(&*self.client, last_best)
-						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+					// Try to get weight from shared storage first, then from aux storage
+					self.weight_storage
+						.load(&last_best)
+						.or_else(|| {
+							aux_schema::load_block_weight(&*self.client, last_best).ok().flatten()
+						})
 						.ok_or_else(|| {
 							ConsensusError::ChainLookup(
 								"No block weight for parent header.".to_string(),
@@ -1788,7 +1866,12 @@ where
 		+ 'static,
 {
 	let epoch_changes = aux_schema::load_epoch_changes::<Block, _>(&*client, &config)?;
-	let link = BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone() };
+
+	// Create shared weight storage
+	let weight_storage = SharedBlockWeightStorage::new();
+
+	let link =
+		BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone(), weight_storage };
 
 	// NOTE: this isn't entirely necessary, but since we didn't use to prune the
 	// epoch tree it is useful as a migration, so that nodes prune long trees on
@@ -1796,9 +1879,10 @@ where
 	prune_finalized(client.clone(), &mut epoch_changes.shared_data())?;
 
 	let client_weak = Arc::downgrade(&client);
+	let weight_storage_for_closure = link.weight_storage.clone();
 	let on_finality = move |summary: &FinalityNotification<Block>| {
 		if let Some(client) = client_weak.upgrade() {
-			aux_storage_cleanup(client.as_ref(), summary)
+			aux_storage_cleanup(client.as_ref(), summary, &weight_storage_for_closure)
 		} else {
 			Default::default()
 		}
@@ -1813,6 +1897,7 @@ where
 		create_inherent_data_providers,
 		select_chain,
 		offchain_tx_pool_factory,
+		link.weight_storage.clone(),
 	);
 
 	Ok((import, link))
@@ -1901,6 +1986,7 @@ pub fn revert<Block, Client, Backend>(
 	client: Arc<Client>,
 	backend: Arc<Backend>,
 	blocks: NumberFor<Block>,
+	weight_storage: Option<SharedBlockWeightStorage<Block>>,
 ) -> ClientResult<()>
 where
 	Block: BlockT,
@@ -1940,8 +2026,9 @@ where
 	}
 
 	// Remove block weights added after the revert point.
+	// We collect hashes of blocks that should be removed from both aux storage and shared storage.
 
-	let mut weight_keys = HashSet::with_capacity(revertible.saturated_into());
+	let mut weight_keys_to_remove = HashSet::with_capacity(revertible.saturated_into());
 
 	let leaves = backend.blockchain().leaves()?.into_iter().filter(|&leaf| {
 		sp_blockchain::tree_route(&*client, revert_up_to_hash, leaf)
@@ -1953,21 +2040,32 @@ where
 		let mut hash = leaf;
 		loop {
 			let meta = client.header_metadata(hash)?;
-			if meta.number <= revert_up_to_number ||
-				!weight_keys.insert(aux_schema::block_weight_key(hash))
-			{
+			if meta.number <= revert_up_to_number || !weight_keys_to_remove.insert(hash) {
 				// We've reached the revert point or an already processed branch, stop here.
 				break;
 			}
+
 			hash = meta.parent;
 		}
 	}
 
-	let weight_keys: Vec<_> = weight_keys.iter().map(|val| val.as_slice()).collect();
+	// Remove these specific blocks from shared storage if provided
+	// This ensures shared storage matches the database after revert
+	if let Some(storage) = weight_storage {
+		for hash in &weight_keys_to_remove {
+			storage.remove(hash);
+		}
+	}
+
+	let weight_keys: Vec<_> = weight_keys_to_remove
+		.iter()
+		.map(|hash| aux_schema::block_weight_key(*hash))
+		.collect();
+	let weight_keys_refs: Vec<_> = weight_keys.iter().map(|k| k.as_slice()).collect();
 
 	// Write epoch changes and remove weights in one shot.
 	aux_schema::write_epoch_changes::<Block, _, _>(&epoch_changes, |values| {
-		client.insert_aux(values, weight_keys.iter())
+		client.insert_aux(values, weight_keys_refs.iter())
 	})
 }
 

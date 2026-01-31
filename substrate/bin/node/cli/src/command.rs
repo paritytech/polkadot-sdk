@@ -220,10 +220,23 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, backend, .. } =
-					new_partial(&config, None)?;
-				let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
-					sc_consensus_babe::revert(client.clone(), backend, blocks)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					backend,
+					other: (_, (_, _, babe_link, _), _, _, _, _),
+					..
+				} = new_partial(&config, None)?;
+
+				let weight_storage = babe_link.weight_storage().clone();
+
+				let aux_revert = Box::new(move |client: Arc<FullClient>, backend, blocks| {
+					sc_consensus_babe::revert(
+						client.clone(),
+						backend,
+						blocks,
+						Some(weight_storage.clone()),
+					)?;
 					sc_consensus_grandpa::revert(client, blocks)?;
 					Ok(())
 				});

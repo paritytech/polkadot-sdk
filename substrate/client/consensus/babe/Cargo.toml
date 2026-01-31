@@ -53,5 +53,6 @@ sc-block-builder = { workspace = true, default-features = true }
 sc-network-test = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-test-primitives = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

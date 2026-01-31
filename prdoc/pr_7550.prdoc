@@ -1,0 +1,13 @@
+title: Fix inconsistent BABE fork-choice by storing block weights in shared state.
+
+doc:
+- audience: Runtime User
+  description: |-
+    Fixed a race condition where validators could incorrectly choose their own secondary blocks
+    over others' primary blocks due to inconsistent weight visibility during parallel block imports.
+    Added shared in-memory storage for block weights to ensure immediate availability for
+    fork-choice decisions, while maintaining backward compatibility with database fallback.
+
+crates:
+  - name: sc-consensus-babe
+    bump: minor 
