@@ -236,7 +236,7 @@ impl Litep2pNetworkBackend {
 			.filter_map(|(peer, addresses)| {
 				// `peers` contained multiaddress in the form `/p2p/<peer ID>`
 				if addresses.is_empty() {
-					return Some(peer)
+					return Some(peer);
 				}
 
 				if self.litep2p.add_known_address(peer.into(), addresses.clone().into_iter()) == 0 {
@@ -244,7 +244,7 @@ impl Litep2pNetworkBackend {
 						target: LOG_TARGET,
 						"couldn't add any addresses for {peer:?} and it won't be added as reserved peer",
 					);
-					return None
+					return None;
 				}
 
 				self.peerstore_handle.add_known_peer(peer);
@@ -294,7 +294,7 @@ impl Litep2pNetworkBackend {
 							"unknown protocol {protocol:?}, ignoring {address:?}",
 						);
 
-						return None
+						return None;
 					},
 				}
 

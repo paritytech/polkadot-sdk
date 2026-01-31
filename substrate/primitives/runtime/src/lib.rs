@@ -175,7 +175,7 @@ impl Justifications {
 	/// not inserted.
 	pub fn append(&mut self, justification: Justification) -> bool {
 		if self.get(justification.0).is_some() {
-			return false
+			return false;
 		}
 		self.0.push(justification);
 		true
@@ -255,7 +255,7 @@ impl BuildStorage for sp_core::storage::Storage {
 			if let Some(map) = storage.children_default.get_mut(&k) {
 				map.data.extend(other_map.data.iter().map(|(k, v)| (k.clone(), v.clone())));
 				if !map.child_info.try_update(&other_map.child_info) {
-					return Err("Incompatible child info update".to_string())
+					return Err("Incompatible child info update".to_string());
 				}
 			} else {
 				storage.children_default.insert(k, other_map.clone());

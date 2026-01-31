@@ -28,7 +28,7 @@ use sp_runtime::DispatchError;
 const TEST_HASH: [u8; 32] =
 	hex!["5f6f02af29218292d21a69b64a794a7c0873b3e0f54611972863706e8cbdf371"];
 
-/* UNIT TESTS */
+// UNIT TESTS
 
 #[test]
 pub fn sum_sync_committee_participation() {
@@ -308,7 +308,7 @@ fn find_present_keys() {
 	});
 }
 
-/* SYNC PROCESS TESTS */
+// SYNC PROCESS TESTS
 
 #[test]
 fn process_initial_checkpoint() {
@@ -752,7 +752,7 @@ fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
 	});
 }
 
-/* IMPLS */
+// IMPLS
 
 #[test]
 fn verify_message() {

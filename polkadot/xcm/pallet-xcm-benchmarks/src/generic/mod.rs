@@ -42,7 +42,7 @@ pub mod pallet {
 		/// This is useful for testing and checking.
 		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
 
-		///	The response which causes the most runtime weight.
+		/// 	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);
 
 		/// The pair of asset collections which causes the most runtime weight if demanded to be

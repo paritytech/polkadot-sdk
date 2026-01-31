@@ -55,7 +55,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 			if enum_.variants.is_empty() {
 				return syn::Error::new_spanned(name, "cannot derive Default for an empty enum")
 					.to_compile_error()
-					.into()
+					.into();
 			}
 
 			// all #[default] attrs with the variant they're on; i.e. a var
@@ -93,7 +93,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 							},
 						));
 
-						return err.into_compile_error().into()
+						return err.into_compile_error().into();
 					}
 
 					let variant_ident = &default_variant.ident;
@@ -134,7 +134,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 							.map(|variant| syn::Error::new_spanned(variant, "additional default")),
 					);
 
-					return err.into_compile_error().into()
+					return err.into_compile_error().into();
 				},
 			}
 		},

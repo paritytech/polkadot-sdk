@@ -99,7 +99,7 @@ pub mod v1 {
 					"skipping MovePreimagesIntoBuckets: executed on wrong storage version.\
 				Expected version 0"
 				);
-				return weight
+				return weight;
 			}
 
 			let status = v0::StatusFor::<T>::drain().collect::<Vec<_>>();
@@ -113,7 +113,7 @@ pub mod v1 {
 					preimage
 				} else {
 					log::error!(target: TARGET, "preimage not found for hash {:?}", &hash);
-					continue
+					continue;
 				};
 				let len = preimage.len() as u32;
 				if len > MAX_SIZE {
@@ -123,7 +123,7 @@ pub mod v1 {
 						&hash,
 						len
 					);
-					continue
+					continue;
 				}
 
 				let status = match status {
@@ -135,7 +135,7 @@ pub mod v1 {
 					},
 					v0::OldRequestStatus::Requested(0) => {
 						log::error!(target: TARGET, "preimage has counter of zero: {:?}", hash);
-						continue
+						continue;
 					},
 					v0::OldRequestStatus::Requested(count) =>
 						OldRequestStatus::Requested { deposit: None, count, len: Some(len) },

@@ -58,7 +58,7 @@ where
 		// This is done for example when gap syncing and it is expected that the block after the gap
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
-			return Ok(block_params)
+			return Ok(block_params);
 		}
 
 		if let Some(inner_body) = block_params.body.take() {

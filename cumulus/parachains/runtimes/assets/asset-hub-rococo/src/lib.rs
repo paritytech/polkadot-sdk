@@ -1274,8 +1274,8 @@ impl
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.clone().into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 

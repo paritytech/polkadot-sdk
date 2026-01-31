@@ -144,7 +144,7 @@ impl MockCandidateBacking {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");

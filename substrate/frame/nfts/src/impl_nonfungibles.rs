@@ -256,7 +256,7 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId, ItemConfig
 		Self::do_burn(*collection, *item, |d| {
 			if let Some(check_owner) = maybe_check_owner {
 				if &d.owner != check_owner {
-					return Err(Error::<T, I>::NoPermission.into())
+					return Err(Error::<T, I>::NoPermission.into());
 				}
 			}
 			Ok(())
@@ -421,7 +421,7 @@ impl<T: Config<I>, I: 'static> Transfer<T::AccountId> for Pallet<T, I> {
 			Self::has_system_attribute(&collection, &item, PalletAttributes::TransferDisabled)?;
 		// Can't lock the item twice
 		if transfer_disabled {
-			return Err(Error::<T, I>::ItemLocked.into())
+			return Err(Error::<T, I>::ItemLocked.into());
 		}
 
 		<Self as Mutate<T::AccountId, ItemConfig>>::set_attribute(

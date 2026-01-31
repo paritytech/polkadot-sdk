@@ -208,7 +208,7 @@ async fn handle_pvf_check(
 				?validation_code_hash,
 				"received judgement for an unknown (or removed) PVF hash",
 			);
-			return
+			return;
 		},
 	}
 
@@ -276,7 +276,7 @@ async fn handle_leaves_update(
 			{
 				None => {
 					// None indicates that the pre-checking runtime API is not supported.
-					return
+					return;
 				},
 				Some(e) => e,
 			};
@@ -418,7 +418,7 @@ async fn check_signing_credentials(
 				"error occurred during requesting validators: {:?}",
 				e
 			);
-			return None
+			return None;
 		},
 	};
 
@@ -459,7 +459,7 @@ async fn sign_and_submit_pvf_check_statement(
 			"already voted for this validation code",
 		);
 		metrics.on_vote_duplicate();
-		return
+		return;
 	}
 
 	voted.insert(validation_code_hash);
@@ -484,7 +484,7 @@ async fn sign_and_submit_pvf_check_statement(
 				?validation_code_hash,
 				"private key for signing is not available",
 			);
-			return
+			return;
 		},
 		Err(e) => {
 			gum::warn!(
@@ -495,7 +495,7 @@ async fn sign_and_submit_pvf_check_statement(
 				"error signing the statement: {:?}",
 				e,
 			);
-			return
+			return;
 		},
 	};
 

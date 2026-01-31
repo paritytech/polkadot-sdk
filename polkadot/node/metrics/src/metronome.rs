@@ -55,10 +55,10 @@ impl futures::Stream for Metronome {
 				},
 				MetronomeState::Snooze => {
 					if !Pin::new(&mut self.delay).poll(cx).is_ready() {
-						break
+						break;
 					}
 					self.state = MetronomeState::SetAlarm;
-					return Poll::Ready(Some(()))
+					return Poll::Ready(Some(()));
 				},
 			}
 		}

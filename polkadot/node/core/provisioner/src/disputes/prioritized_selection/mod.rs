@@ -215,7 +215,7 @@ where
 						onchain_state
 					} else {
 						// onchain knows nothing about this dispute - add all votes
-						return (session_index, candidate_hash, votes)
+						return (session_index, candidate_hash, votes);
 					};
 
 				votes.valid.retain(|validator_idx, (statement_kind, _)| {
@@ -251,7 +251,7 @@ where
 					"vote_selection DisputeCoordinatorMessage::QueryCandidateVotes counter",
 				);
 
-				return result
+				return result;
 			}
 
 			result.insert((session_index, candidate_hash), selected_votes);
@@ -410,13 +410,13 @@ fn is_vote_worth_to_keep(
 
 	if in_validators_for && in_validators_against {
 		// The validator has double voted and runtime knows about this. Ignore this vote.
-		return false
+		return false;
 	}
 
 	if offchain_vote && in_validators_against || !offchain_vote && in_validators_for {
 		// offchain vote differs from the onchain vote
 		// we need this vote to punish the offending validator
-		return true
+		return true;
 	}
 
 	// The vote is valid. Return true if it is not seen onchain.

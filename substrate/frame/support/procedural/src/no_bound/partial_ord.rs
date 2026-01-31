@@ -68,11 +68,11 @@ pub fn derive_partial_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro
 			},
 		syn::Data::Enum(_) => {
 			let msg = "Enum type not supported by `derive(PartialOrdNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 		syn::Data::Union(_) => {
 			let msg = "Union type not supported by `derive(PartialOrdNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 	};
 

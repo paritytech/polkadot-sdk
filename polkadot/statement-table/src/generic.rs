@@ -230,7 +230,7 @@ impl<Ctx: Context> CandidateData<Ctx> {
 	{
 		let valid_votes = self.validity_votes.len();
 		if valid_votes < validity_threshold {
-			return None
+			return None;
 		}
 
 		let validity_votes = self
@@ -375,7 +375,7 @@ impl<Ctx: Context> Table<Ctx> {
 					statement: Statement::Seconded(candidate),
 					sender: authority,
 				},
-			}))
+			}));
 		}
 
 		// check that authority hasn't already specified another candidate.
@@ -440,7 +440,7 @@ impl<Ctx: Context> Table<Ctx> {
 					sender: from,
 					statement: Statement::Valid(digest),
 				},
-			}))
+			}));
 		}
 
 		// check for double votes.
@@ -468,7 +468,7 @@ impl<Ctx: Context> Table<Ctx> {
 					})
 				} else {
 					Ok(None)
-				}
+				};
 			},
 			Entry::Vacant(vacant) => {
 				vacant.insert(vote);

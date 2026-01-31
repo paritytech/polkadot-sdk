@@ -96,14 +96,14 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				"Won't disable: reached disabling limit {:?}",
 				Self::disable_limit(active_set.len())
 			);
-			return DisablingDecision { disable: None, reenable: None }
+			return DisablingDecision { disable: None, reenable: None };
 		}
 
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
 			log!(debug, "Won't disable: offender not in active set",);
-			return DisablingDecision { disable: None, reenable: None }
+			return DisablingDecision { disable: None, reenable: None };
 		};
 
 		log!(debug, "Will disable {:?}", offender_idx);
@@ -149,7 +149,7 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 			idx as u32
 		} else {
 			log!(debug, "Won't disable: offender not in active set",);
-			return DisablingDecision { disable: None, reenable: None }
+			return DisablingDecision { disable: None, reenable: None };
 		};
 
 		// Check if offender is already disabled
@@ -185,15 +185,15 @@ impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 				return DisablingDecision {
 					disable: Some(offender_idx),
 					reenable: Some(*smallest_idx),
-				}
+				};
 			} else {
 				log!(debug, "No smaller offender found to re-enable");
-				return DisablingDecision { disable: None, reenable: None }
+				return DisablingDecision { disable: None, reenable: None };
 			}
 		} else {
 			// If we are not at the limit, just disable the new offender and dont re-enable anyone
 			log!(debug, "Will disable {:?}", offender_idx);
-			return DisablingDecision { disable: Some(offender_idx), reenable: None }
+			return DisablingDecision { disable: Some(offender_idx), reenable: None };
 		}
 	}
 }

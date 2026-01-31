@@ -49,7 +49,7 @@ fn benchmark_overhead(runtime: &str) -> Result<(), String> {
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	// Weight files have been created.

@@ -185,7 +185,7 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn finality_timeout(&self, tx: ExtrinsicHash<C>, hash: BlockHash<C>) {
-		//todo: do we need this? [related issue: #5482]
+		// todo: do we need this? [related issue: #5482]
 		self.send_to_aggregated_stream_sink(tx, TransactionStatus::FinalityTimeout(hash));
 	}
 }
@@ -429,9 +429,9 @@ where
 		let batch: Vec<_> = validated_pool.ready().collect();
 		let batch_len = batch.len();
 
-		//todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
-		//out of the view...
-		//todo: revalidate future, remove if invalid [#5496]
+		// todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
+		// out of the view...
+		// todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
 		let mut revalidated = IndexMap::new();
@@ -610,7 +610,7 @@ where
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
 			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
-			return
+			return;
 		};
 
 		let FinishRevalidationLocalChannels {

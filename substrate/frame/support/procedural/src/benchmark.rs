@@ -166,15 +166,15 @@ impl syn::parse::Parse for PovEstimationMode {
 		let lookahead = input.lookahead1();
 		if lookahead.peek(keywords::MaxEncodedLen) {
 			let _max_encoded_len: keywords::MaxEncodedLen = input.parse()?;
-			return Ok(PovEstimationMode::MaxEncodedLen)
+			return Ok(PovEstimationMode::MaxEncodedLen);
 		} else if lookahead.peek(keywords::Measured) {
 			let _measured: keywords::Measured = input.parse()?;
-			return Ok(PovEstimationMode::Measured)
+			return Ok(PovEstimationMode::Measured);
 		} else if lookahead.peek(keywords::Ignored) {
 			let _ignored: keywords::Ignored = input.parse()?;
-			return Ok(PovEstimationMode::Ignored)
+			return Ok(PovEstimationMode::Ignored);
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		}
 	}
 }
@@ -210,19 +210,19 @@ impl syn::parse::Parse for BenchmarkAttrs {
 			match arg {
 				BenchmarkAttr::Extra => {
 					if extra {
-						return Err(input.error("`extra` can only be specified once"))
+						return Err(input.error("`extra` can only be specified once"));
 					}
 					extra = true;
 				},
 				BenchmarkAttr::SkipMeta => {
 					if skip_meta {
-						return Err(input.error("`skip_meta` can only be specified once"))
+						return Err(input.error("`skip_meta` can only be specified once"));
 					}
 					skip_meta = true;
 				},
 				BenchmarkAttr::PoV(mode) => {
 					if pov_mode.is_some() {
-						return Err(input.error("`pov_mode` can only be specified once"))
+						return Err(input.error("`pov_mode` can only be specified once"));
 					}
 					pov_mode = Some(mode);
 				},
@@ -281,7 +281,7 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 			return Err(Error::new(
 					typ.span(),
 					"Only `Result<(), BenchmarkError>` or a blank return type is allowed on benchmark function definitions",
-				))
+				));
 		};
 		let seg = path
 			.segments
@@ -291,7 +291,7 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 		// ensure T in Result<T, E> is ()
 		let Type::Tuple(tup) = res.unit else { return non_unit(res.unit.span()) };
 		if !tup.elems.is_empty() {
-			return non_unit(tup.span())
+			return non_unit(tup.span());
 		}
 		let TypePath { path, qself: _ } = res.e_type;
 		let seg = path
@@ -329,7 +329,7 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 			return Err(Error::new(
 				span,
 				"Invalid benchmark function param. A valid example would be `x: Linear<5, 10>`.",
-			))
+			));
 		};
 
 		let FnArg::Typed(arg) = arg else { return invalid_param(arg.span()) };
@@ -345,11 +345,11 @@ fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 		};
 		let name = ident.ident.to_token_stream().to_string();
 		if name.len() > 1 {
-			return invalid_param_name()
+			return invalid_param_name();
 		};
 		let Some(name_char) = name.chars().next() else { return invalid_param_name() };
 		if !name_char.is_alphabetic() || !name_char.is_lowercase() {
-			return invalid_param_name()
+			return invalid_param_name();
 		}
 
 		// parse type
@@ -444,7 +444,7 @@ impl BenchmarkDef {
 						defined a return type. You should return something compatible \
 						with Result<(), BenchmarkError> (i.e. `Ok(())`) as the last statement \
 						or change your signature to a blank return type.",
-					))
+					));
 				}
 				let Some(stmt) = item_fn.block.stmts.last() else { return missing_call(item_fn) };
 				(

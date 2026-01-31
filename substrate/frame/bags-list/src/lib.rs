@@ -87,7 +87,6 @@
 extern crate alloc;
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
-///
 /// In this example, assuming each node has an equal id and score (eg. node 21 has a score of 21),
 /// the node 22 can be moved from bag 1 to bag 0 with the `rebag` operation.
 ///
@@ -336,7 +335,6 @@ pub mod pallet {
 		/// aware of, which may or may not be up to date, and the latter being the real score, as
 		/// provided by
 		// [`Config::ScoreProvider`].
-		///
 		/// If the two differ, it means this node is eligible for [`Call::rebag`].
 		pub fn scores(who: T::AccountId) -> (Option<T::Score>, Option<T::Score>) {
 			(ListNodes::<T, I>::get(&who).map(|node| node.score), T::ScoreProvider::score(&who))
@@ -708,13 +706,16 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked().inspect_err(|_| {
+		if Pallet::<T, I>::ensure_unlocked().is_err() {
 			// Pallet is locked - store in PendingRebag for later processing
 			// Only queue if auto-rebagging is enabled
 			if T::MaxAutoRebagPerBlock::get() > 0u32 {
 				PendingRebag::<T, I>::insert(&id, ());
+				return Ok(());
 			}
-		})?;
+
+			return Err(ListError::Locked);
+		};
 		List::<T, I>::insert(id, score)
 	}
 

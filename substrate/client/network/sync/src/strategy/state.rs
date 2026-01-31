@@ -285,7 +285,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.state_sync.is_complete() {
-			return None
+			return None;
 		}
 
 		if self
@@ -294,7 +294,7 @@ impl<B: BlockT> StateStrategy<B> {
 			.any(|peer| matches!(peer.state, PeerState::DownloadingState))
 		{
 			// Only one state request at a time is possible.
-			return None
+			return None;
 		}
 
 		let peer_id =
@@ -314,7 +314,7 @@ impl<B: BlockT> StateStrategy<B> {
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
 		if targets.is_empty() {
-			return None
+			return None;
 		}
 		targets.sort();
 		let median = targets[targets.len() / 2];
@@ -327,7 +327,7 @@ impl<B: BlockT> StateStrategy<B> {
 				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
-				return Some(*peer_id)
+				return Some(*peer_id);
 			}
 		}
 		None

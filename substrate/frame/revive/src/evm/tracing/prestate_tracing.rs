@@ -109,14 +109,14 @@ where
 			// If the address was created and destructed we do not trace it
 			post.retain(|addr, _| {
 				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
-					return false
+					return false;
 				}
 				true
 			});
 
 			pre.retain(|addr, pre_info| {
 				if is_empty(&pre_info) {
-					return false
+					return false;
 				}
 
 				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
@@ -129,7 +129,7 @@ where
 
 				if post_info == pre_info {
 					post.remove(addr);
-					return false
+					return false;
 				}
 
 				if post_info.code == pre_info.code {
@@ -167,7 +167,7 @@ macro_rules! get_entry {
 	($self:expr, $addr:expr) => {
 		if $self.created_addrs.contains(&$addr) {
 			if !$self.config.diff_mode {
-				return
+				return;
 			}
 			$self.trace.1.entry($addr)
 		} else {
@@ -184,7 +184,7 @@ where
 	fn bytecode(address: &H160) -> Option<Bytes> {
 		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
-		return Some(code.into())
+		return Some(code.into());
 	}
 
 	/// Update the prestate info for the given address.
@@ -282,7 +282,7 @@ where
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: u64) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
-			return
+			return;
 		}
 
 		let code = if self.config.disable_code { None } else { Self::bytecode(&current_addr) };
@@ -305,7 +305,7 @@ where
 			.or_insert_with(|| old_value.map(Into::into));
 
 		if !self.config.diff_mode {
-			return
+			return;
 		}
 
 		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {

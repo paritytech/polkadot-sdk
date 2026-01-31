@@ -997,7 +997,7 @@ fn test_populate_and_check_potential() {
 	// F is unconnected and seconded.
 	// A1 has same parent as A, is backed but has a higher candidate hash. It'll therefore be
 	// deleted.
-	//	A1 has underneath a subtree that will all need to be trimmed. A1 -> B1. B1 -> C1
+	// 	A1 has underneath a subtree that will all need to be trimmed. A1 -> B1. B1 -> C1
 	// 	and B1 -> C2. (C1 is backed).
 	// A2 is seconded but is kept because it has a lower candidate hash than A.
 	// A2 points to B2, which is backed.
