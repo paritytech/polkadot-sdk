@@ -1,0 +1,43 @@
+title: 'feat: @bkchr feedback for #9272'
+doc:
+- audience: Node Operator
+  description: Refactoring PR as follow up to https://github.com/paritytech/polkadot-sdk/pull/9272#pullrequestreview-3174417506.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-node-core-chain-api
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: sc-client-api
+  bump: patch
+- name: sc-authority-discovery
+  bump: patch
+- name: sc-consensus-aura
+  bump: major
+- name: sc-client-db
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sc-service
+  bump: minor
+- name: sc-statement-store
+  bump: patch
+- name: sp-blockchain
+  bump: major
+- name: mmr-gadget
+  bump: patch
+- name: sp-consensus-aura
+  bump: major
+- name: sp-consensus
+  bump: minor
+- name: fork-tree
+  bump: minor
+- name: cumulus-client-consensus-common
+  bump: patch
+- name: sc-consensus-babe
+  bump: patch

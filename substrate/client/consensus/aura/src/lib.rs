@@ -59,8 +59,8 @@ pub mod standalone;
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use authorities_tracker::AuthoritiesTracker;
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, import_queue, AuraBlockImport, AuraVerifier, BuildVerifierParams,
+	CheckForEquivocation, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -546,19 +546,23 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::Encode;
 	use parking_lot::Mutex;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::BlockchainEvents;
 	use sc_consensus::BoxJustificationImport;
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
 	use sc_keystore::LocalKeystore;
-	use sc_network_test::{Block as TestBlock, *};
+	use sc_network_test::{Block as TestBlock, Header as TestHeader, *};
 	use sp_application_crypto::{key_types::AURA, AppCrypto};
 	use sp_consensus::{NoNetwork as DummyOracle, Proposal, ProposeArgs};
 	use sp_consensus_aura::sr25519::AuthorityPair;
 	use sp_keyring::sr25519::Keyring;
 	use sp_keystore::Keystore;
-	use sp_runtime::traits::{Block as BlockT, Header as _};
+	use sp_runtime::{
+		traits::{Block as BlockT, Header as _},
+		Digest, DigestItem,
+	};
 	use sp_timestamp::Timestamp;
 	use std::{
 		task::Poll,
@@ -635,8 +639,8 @@ mod tests {
 			let slot_duration = slot_duration(&*client).expect("slot duration available");
 
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
-			import_queue::AuraVerifier::new(
-				client,
+			AuraVerifier::new(
+				client.clone(),
 				Box::new(|_, _| async {
 					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
 						Timestamp::current(),
@@ -646,8 +650,9 @@ mod tests {
 				}),
 				CheckForEquivocation::Yes,
 				None,
-				CompatibilityMode::None,
+				Arc::new(AuthoritiesTracker::new(client, &CompatibilityMode::None).unwrap()),
 			)
+			.unwrap()
 		}
 
 		fn make_block_import(
@@ -865,5 +870,44 @@ mod tests {
 
 		// The returned block should be imported and we should be able to get its header by now.
 		assert!(client.header(block.hash()).unwrap().is_some());
+	}
+
+	#[tokio::test]
+	async fn authorities_tracker_importing_blocks() {
+		let mut net = AuraTestNet::new(3);
+		let peer = net.peer(0);
+		let client = peer.client().as_client();
+		let tracker = AuthoritiesTracker::<AuthorityPair, _, _>::new_empty(client);
+		let parent_header = TestHeader {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Digest {
+				logs: vec![DigestItem::Consensus(
+					AURA_ENGINE_ID,
+					ConsensusLog::AuthoritiesChange(vec![AuthorityId::<AuthorityPair>::from(
+						Keyring::Alice.public(),
+					)])
+					.encode(),
+				)],
+			},
+		};
+		let current_header = TestHeader {
+			parent_hash: parent_header.hash(),
+			number: 1,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+		assert!(tracker.is_empty());
+
+		tracker.import_from_header(&parent_header).unwrap();
+		let authorities = tracker.fetch(&current_header).unwrap();
+		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
+
+		tracker.import_from_header(&current_header).unwrap();
+		let authorities = tracker.fetch(&current_header).unwrap();
+		assert_eq!(authorities, vec![AuthorityId::<AuthorityPair>::from(Keyring::Alice.public())]);
 	}
 }

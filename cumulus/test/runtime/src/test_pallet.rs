@@ -27,12 +27,17 @@ pub mod pallet {
 	use alloc::vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_core::Pair;
+	use sp_keyring::Sr25519Keyring;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + cumulus_pallet_parachain_system::Config {}
+	pub trait Config:
+		frame_system::Config + cumulus_pallet_parachain_system::Config + pallet_aura::Config
+	{
+	}
 
 	/// A simple storage map for testing purposes.
 	#[pallet::storage]
@@ -103,6 +108,16 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn remove_value_from_map(_: OriginFor<T>, key: u32) -> DispatchResult {
 			TestMap::<T>::remove(key);
+			Ok(())
+		}
+
+		/// Changes the authority set to a specific authority.
+		#[pallet::weight(0)]
+		pub fn change_authorities(_: OriginFor<T>) -> DispatchResult {
+			let key = Sr25519Keyring::Ferdie.pair().public().encode();
+			pallet_aura::Pallet::<T>::change_authorities(BoundedVec::truncate_from(vec![
+				T::AuthorityId::decode(&mut &key[..]).unwrap(),
+			]));
 			Ok(())
 		}
 	}

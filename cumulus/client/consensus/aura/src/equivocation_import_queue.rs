@@ -79,8 +79,7 @@ pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	// Unused for now. Will be plugged in with a later PR.
-	_authorities_tracker: AuthoritiesTracker<P, Block, Client>,
+	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -89,7 +88,11 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
@@ -100,14 +103,15 @@ where
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
 		telemetry: Option<TelemetryHandle>,
-	) -> Self {
-		Self {
+		authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
+	) -> Result<Self, String> {
+		Ok(Self {
 			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			_authorities_tracker: AuthoritiesTracker::new(client),
-		}
+			authorities_tracker,
+		})
 	}
 }
 
@@ -145,10 +149,10 @@ where
 
 		// check seal and update pre-hash/post-hash
 		{
-			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
-				.map_err(|e| {
-				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
-			})?;
+			let authorities = self
+				.authorities_tracker
+				.fetch(&block_params.header)
+				.map_err(|e| format!("Could not fetch authorities: {e}"))?;
 
 			let slot_duration = self
 				.client
@@ -271,16 +275,18 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
+	authorities_tracker: Arc<AuthoritiesTracker<P, Block, Client>>,
 ) -> BasicQueue<Block>
 where
-	P: Pair + 'static,
+	P: Pair + 'static + Clone,
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	I: BlockImport<Block, Error = ConsensusError>
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
-		+ 'static,
+		+ 'static
+		+ Clone,
 	Client: HeaderBackend<Block>
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ ProvideRuntimeApi<Block>
@@ -291,14 +297,13 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {
-		client: client.clone(),
+		client,
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		_authorities_tracker: AuthoritiesTracker::new(client.clone()),
+		authorities_tracker,
 	};
-
-	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
+	BasicQueue::new(verifier, Box::new(block_import.clone()), None, spawner, registry)
 }
 
 #[cfg(test)]
@@ -313,6 +318,7 @@ mod test {
 	use futures::FutureExt;
 	use polkadot_primitives::{HeadData, PersistedValidationData};
 	use sc_client_api::HeaderBackend;
+	use sc_consensus_aura::{AuraBlockImport, CompatibilityMode};
 	use sp_consensus_aura::sr25519;
 	use sp_tracing::try_init_simple;
 	use std::{collections::HashSet, sync::Arc};
@@ -323,6 +329,8 @@ mod test {
 
 		let client = Arc::new(TestClientBuilder::default().build());
 
+		let (_, authorities_tracker) =
+			AuraBlockImport::new(client.clone(), client.clone(), &CompatibilityMode::None).unwrap();
 		let verifier = Verifier::<sr25519::AuthorityPair, Client, Block, _> {
 			client: client.clone(),
 			create_inherent_data_providers: |_, _| async move {
@@ -330,7 +338,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			_authorities_tracker: AuthoritiesTracker::new(client.clone()),
+			authorities_tracker,
 		};
 
 		let genesis = client.info().best_hash;

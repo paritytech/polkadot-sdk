@@ -104,6 +104,10 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
 	) -> std::result::Result<Option<Block::Hash>, sp_blockchain::Error> {
 		Ok(None)
 	}
+
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		Ok(vec![])
+	}
 }
 
 pub(crate) struct RuntimeApi {

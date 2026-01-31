@@ -38,9 +38,7 @@ use sc_client_api::{
 use sc_rpc::utils::Subscription;
 use schnellru::{ByLength, LruMap};
 use sp_api::CallApiAt;
-use sp_blockchain::{
-	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
-};
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata, Info};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion, Saturating,

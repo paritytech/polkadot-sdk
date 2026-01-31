@@ -719,6 +719,10 @@ impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for Blockcha
 		)?
 		.map(|header| header.hash()))
 	}
+
+	fn leaves(&self) -> ClientResult<Vec<<Block as BlockT>::Hash>> {
+		Ok(self.leaves.read().hashes())
+	}
 }
 
 impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<Block> {
@@ -742,10 +746,6 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 
 	fn last_finalized(&self) -> ClientResult<Block::Hash> {
 		Ok(self.meta.read().finalized_hash)
-	}
-
-	fn leaves(&self) -> ClientResult<Vec<Block::Hash>> {
-		Ok(self.leaves.read().hashes())
 	}
 
 	fn children(&self, parent_hash: Block::Hash) -> ClientResult<Vec<Block::Hash>> {

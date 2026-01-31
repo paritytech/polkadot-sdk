@@ -370,6 +370,10 @@ impl<Block: BlockT> HeaderBackend<Block> for Blockchain<Block> {
 	) -> sp_blockchain::Result<Option<Block::Hash>> {
 		Ok(self.id(BlockId::Number(number)))
 	}
+
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		Ok(self.storage.read().leaves.hashes())
+	}
 }
 
 impl<Block: BlockT> HeaderMetadata<Block> for Blockchain<Block> {
@@ -413,10 +417,6 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 
 	fn last_finalized(&self) -> sp_blockchain::Result<Block::Hash> {
 		Ok(self.storage.read().finalized_hash)
-	}
-
-	fn leaves(&self) -> sp_blockchain::Result<Vec<Block::Hash>> {
-		Ok(self.storage.read().leaves.hashes())
 	}
 
 	fn children(&self, _parent_hash: Block::Hash) -> sp_blockchain::Result<Vec<Block::Hash>> {

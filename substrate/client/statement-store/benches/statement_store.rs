@@ -105,6 +105,9 @@ impl sp_blockchain::HeaderBackend<Block> for TestClient {
 	fn hash(&self, _number: BlockNumber) -> sp_blockchain::Result<Option<Hash>> {
 		unimplemented!()
 	}
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as sp_runtime::traits::Block>::Hash>> {
+		unimplemented!()
+	}
 }
 
 fn topic(data: u64) -> Topic {

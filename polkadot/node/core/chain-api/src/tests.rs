@@ -144,6 +144,9 @@ impl sp_blockchain::HeaderBackend<Block> for TestClient {
 	fn status(&self, _hash: Hash) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
 		unimplemented!()
 	}
+	fn leaves(&self) -> sp_blockchain::Result<Vec<Hash>> {
+		unimplemented!()
+	}
 }
 
 fn test_harness(
