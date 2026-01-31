@@ -109,4 +109,10 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			unimplemented!()
+		}
+	}
 }
