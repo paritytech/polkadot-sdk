@@ -1,0 +1,11 @@
+title: Expose the BlockNumberProvider used for a given pallet
+doc:
+- audience: Runtime Dev
+  description: Exposes the block number provider used for a given pallet.
+crates:
+- name: sp-runtime
+  bump: minor
+- name: frame-system
+  bump: minor
+- name: pallet-treasury
+  bump: minor

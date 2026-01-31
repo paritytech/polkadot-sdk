@@ -1868,6 +1868,7 @@ pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
+	const IDENTIFIER: &'static str = "RelayChain";
 	type BlockNumber = relay_chain::BlockNumber;
 
 	fn current_block_number() -> relay_chain::BlockNumber {
