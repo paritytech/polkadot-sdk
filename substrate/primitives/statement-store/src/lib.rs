@@ -178,12 +178,42 @@ impl Field {
 /// Statement structure.
 #[derive(DecodeWithMemTracking, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Statement {
+	/// Proof used for authorizing the statement.
 	proof: Option<Proof>,
+	/// An identifier for the key that `Data` field may be decrypted with.
+	#[deprecated(note = "Experimental feature, may be removed in future releases")]
 	decryption_key: Option<DecryptionKey>,
+	/// Used for identifying a distinct communication channel, only a message per channel is
+	/// stored.
+	///
+	/// This can be used to implement message replacement, submitting a new message with a
+	/// different topic/data on the same channel and a greater expiry replaces the previous one.
+	///
+	/// If the new statement data is bigger than the old one, submitting a statement with the same
+	/// channel does not guarantee that **ONLY** the old one will be replaced, as it might not fit
+	/// in the account quota. In that case, other statements from the same account with the lowest
+	/// expiry will be removed.
 	channel: Option<Channel>,
-	priority: Option<u32>,
+	/// Message expiry, used for determining which statements to keep.
+	///
+	/// The most significant 32 bits represents the expiration timestamp (in seconds since
+	/// UNIX epoch) after which the statement gets removed. These ensure that statements with a
+	/// higher expiration time have a higher priority.
+	/// The lower 32 bits represents an arbitrary sequence number used to order statements with the
+	/// same expiration time.
+	///
+	/// Higher values indicate a higher priority.
+	/// This is used in two cases:
+	/// 1) When an account exceeds its quota and some statements need to be removed. Statements
+	///    with the lowest `expiry` are removed first.
+	/// 2) When multiple statements are submitted on the same channel, the one with the highest
+	///    expiry replaces the one with the same channel.
+	expiry: u64,
+	/// Number of topics present.
 	num_topics: u8,
+	/// Topics, used for querying and filtering statements.
 	topics: [Topic; MAX_TOPICS],
+	/// Statement data.
 	data: Option<Vec<u8>>,
 }
 
@@ -439,9 +469,9 @@ impl Statement {
 		self.channel
 	}
 
-	/// Get priority, if any.
-	pub fn priority(&self) -> Option<u32> {
-		self.priority
+	/// Get expiry.
+	pub fn expiry(&self) -> u64 {
+		self.expiry
 	}
 
 	/// Return encoded fields that can be signed to construct or verify a proof
@@ -459,9 +489,9 @@ impl Statement {
 		self.proof = Some(proof)
 	}
 
-	/// Set statement priority.
-	pub fn set_priority(&mut self, priority: u32) {
-		self.priority = Some(priority)
+	/// Set statement expiry.
+	pub fn set_expiry(&mut self, expiry: u64) {
+		self.expiry = expiry;
 	}
 
 	/// Set statement channel.
