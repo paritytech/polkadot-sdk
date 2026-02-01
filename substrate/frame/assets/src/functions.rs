@@ -447,19 +447,37 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		maybe_check_issuer: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::increase_balance(id.clone(), beneficiary, amount, |details| -> DispatchResult {
+
+		// Retrieve asset details to check if the asset is frozen
+		let asset_details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+
+		// Check if the asset is frozen
+		let is_asset_frozen = asset_details.status == AssetStatus::Frozen;
+	
+		// Check if the beneficiary account is frozen
+		let is_account_frozen = Account::<T, I>::get(&id, beneficiary)
+			.map_or(false, |account| account.status == AccountStatus::Frozen);
+	
+		// If the asset or account is frozen, ensure the caller is the owner
+		if is_asset_frozen || is_account_frozen {
+			ensure!(maybe_check_issuer == Some(asset_details.owner), Error::<T, I>::NoPermission);
+		} else {
+			// Perform the regular issuer check for non-frozen assets/accounts
 			if let Some(check_issuer) = maybe_check_issuer {
-				ensure!(check_issuer == details.issuer, Error::<T, I>::NoPermission);
+				ensure!(check_issuer == asset_details.issuer, Error::<T, I>::NoPermission);
 			}
+		}
+	
+		// Proceed with increasing the balance and updating the supply
+		Self::increase_balance(id.clone(), beneficiary, amount, |details| -> DispatchResult {
 			debug_assert!(details.supply.checked_add(&amount).is_some(), "checked in prep; qed");
-
 			details.supply = details.supply.saturating_add(amount);
-
 			Ok(())
 		})?;
-
+	
+		// Emit the Issued event
 		Self::deposit_event(Event::Issued { asset_id: id, owner: beneficiary.clone(), amount });
-
+	
 		Ok(())
 	}
 

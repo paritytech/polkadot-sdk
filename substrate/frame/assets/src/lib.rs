@@ -721,7 +721,7 @@ pub mod pallet {
 		/// The asset is a live asset and is actively being used. Usually emit for operations such
 		/// as `start_destroy` which require the asset to be in a destroying state.
 		LiveAsset,
-		/// The asset is not live, and likely being destroyed.
+		/// The asset is not live, and has been frozen or likely being destroyed.
 		AssetNotLive,
 		/// The asset status is not the expected status.
 		IncorrectStatus,
@@ -939,6 +939,7 @@ pub mod pallet {
 		/// Mint assets of a particular class.
 		///
 		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		/// If the Asset or account is frozen then only the Owner of the entire asset can still mint. 
 		///
 		/// - `id`: The identifier of the asset to have some amount minted.
 		/// - `beneficiary`: The account to be credited with the minted assets.
@@ -960,7 +961,7 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 			Self::do_mint(id, &beneficiary, amount, Some(origin))?;
 			Ok(())
-		}
+		} 
 
 		/// Reduce the balance of `who` by as much as possible up to `amount` assets of `id`.
 		///
