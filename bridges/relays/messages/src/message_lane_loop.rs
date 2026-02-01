@@ -393,7 +393,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut source_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::SOURCE_NAME),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -424,7 +424,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::TARGET_NAME),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -949,7 +949,11 @@ pub(crate) mod tests {
 		target_post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		exit_signal: impl Future<Output = ()> + 'static + Send,
 	) -> TestClientData {
-		async_std::task::block_on(async {
+		tokio::runtime::Builder::new_multi_thread()
+			.enable_all()
+			.build()
+			.unwrap()
+			.block_on(async {
 			let source_client = TestSourceClient {
 				data: data.clone(),
 				tick: source_tick,

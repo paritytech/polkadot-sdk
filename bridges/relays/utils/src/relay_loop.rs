@@ -49,7 +49,7 @@ pub trait Client: 'static + Clone + Send + Sync {
 						"Failed to reconnect to client. Going to retry"
 					);
 
-					async_std::task::sleep(delay).await;
+					tokio::time::sleep(delay).await;
 				},
 			}
 		}
@@ -138,9 +138,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 		TC: 'static + Client,
 		LM: 'static + Send + Clone,
 	{
-		let run_loop_task = async move {
-			crate::initialize::initialize_loop(loop_name);
-
+		let run_loop_task = crate::initialize::run_in_loop_context(loop_name, async move {
 			loop {
 				let loop_metric = self.loop_metric.clone();
 				let future_result =
@@ -163,9 +161,9 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 				}
 			}
 			Ok(())
-		};
+		});
 
-		async_std::task::spawn(run_loop_task).await
+		tokio::task::spawn(run_loop_task).await.map_err(|e| Error::TaskJoin(e.to_string()))?
 	}
 }
 
@@ -206,7 +204,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 			);
 
 			let registry = self.registry;
-			async_std::task::spawn(async move {
+			tokio::task::spawn(async move {
 				let runtime =
 					match tokio::runtime::Builder::new_current_thread().enable_all().build() {
 						Ok(runtime) => runtime,

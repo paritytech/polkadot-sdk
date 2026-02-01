@@ -12,7 +12,6 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true, default-features = true }
-async-std = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }
 futures = { workspace = true }
@@ -25,7 +24,7 @@ sp-tracing = { workspace = true, default-features = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 time = { features = ["formatting", "local-offset", "std"], workspace = true }
-tokio = { features = ["rt"], workspace = true, default-features = true }
+tokio = { features = ["macros", "rt", "rt-multi-thread", "sync", "time"], workspace = true, default-features = true }
 tracing = { workspace = true }
 
 # Bridge dependencies
