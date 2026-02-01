@@ -623,7 +623,7 @@ impl<B: Backend> State<B> {
 impl State<PersistentDb> {
 	/// Persist the reputation database to disk.
 	/// Called periodically by the main loop timer.
-	pub fn persist_to_disk(&self) {
+	pub fn persist_to_disk(&mut self) {
 		if let Err(e) = self.peer_manager.db.persist(None) {
 			gum::error!(
 				target: LOG_TARGET,

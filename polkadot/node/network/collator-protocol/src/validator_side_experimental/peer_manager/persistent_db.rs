@@ -54,6 +54,9 @@ use crate::{
 ///   2. When `persist()` is called explicitly by the main loop (periodic timer)
 ///   3. On paras pruning (immediate)
 ///
+/// - Only modified paras are persisted during periodic persistence
+/// - Paras are marked dirty when `process_bumps` modifies their reputation (bumps/decays)
+///
 /// The main loop is responsible for calling `persist()` periodically (currently, every 10 minutes).
 pub struct PersistentDb {
 	/// In-memory database (does all the actual logic).
@@ -62,6 +65,8 @@ pub struct PersistentDb {
 	disk_db: Arc<dyn Database>,
 	/// Column configuration.
 	config: ReputationConfig,
+	/// Paras whose reputation has changed since last persistence.
+	dirty_paras: BTreeSet<ParaId>,
 }
 
 impl PersistentDb {
@@ -75,7 +80,7 @@ impl PersistentDb {
 		let inner = Db::new(stored_limit_per_para).await;
 
 		// Load data from disk into the in-memory DB
-		let mut instance = Self { inner, disk_db, config };
+		let mut instance = Self { inner, disk_db, config, dirty_paras: BTreeSet::new() };
 		let (para_count, total_entries) = instance.load_from_disk().await?;
 
 		let last_finalized = instance.inner.processed_finalized_block_number().await;
@@ -201,10 +206,10 @@ impl PersistentDb {
 		self.disk_db.write(tx).map_err(PersistenceError::Io)
 	}
 
-	/// Persist all in-memory data to disk.
+	/// Persist dirty (modified) paras to disk.
 	///
-	/// This should be called periodically by the main loop (currently, every 10 minutes)
-	pub fn persist(&self, tx_opt: Option<&mut DBTransaction>) -> Result<(), PersistenceError> {
+	/// This should be called periodically by the main loop (currently, every 10 minutes).
+	pub fn persist(&mut self, tx_opt: Option<&mut DBTransaction>) -> Result<(), PersistenceError> {
 		let should_write = tx_opt.is_none();
 		let mut owned_tx = DBTransaction::new();
 		let tx = tx_opt.unwrap_or(&mut owned_tx);
@@ -213,20 +218,24 @@ impl PersistentDb {
 		let meta = StoredMetadata { last_finalized: self.inner.get_last_finalized() };
 		tx.put_vec(self.config.col_reputation_data, metadata_key(), meta.encode());
 
-		// Write all para data
+		// Write dirty para data
 		let mut total_entries = 0;
 		let mut para_count = 0;
-		let all_reps: Vec<_> = self.inner.all_reputations().collect();
 
-		for (para_id, peer_scores) in all_reps {
+		for para_id in &self.dirty_paras {
 			let key = para_reputation_key(*para_id);
-			if peer_scores.is_empty() {
-				tx.delete(self.config.col_reputation_data, &key);
+			if let Some(peer_scores) = self.inner.get_para_reputations(para_id) {
+				if peer_scores.is_empty() {
+					tx.delete(self.config.col_reputation_data, &key);
+				} else {
+					let stored = StoredParaReputations::from_hashmap(&peer_scores);
+					tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
+					total_entries += peer_scores.len();
+					para_count += 1;
+				}
 			} else {
-				let stored = StoredParaReputations::from_hashmap(peer_scores);
-				tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-				total_entries += peer_scores.len();
-				para_count += 1;
+				// Para has no reputation data, delete from disk
+				tx.delete(self.config.col_reputation_data, &key);
 			}
 		}
 
@@ -237,9 +246,13 @@ impl PersistentDb {
 				target: LOG_TARGET,
 				total_peer_entries = total_entries,
 				para_count,
+				dirty_para_count = self.dirty_paras.len(),
 				last_finalized = ?meta.last_finalized,
 				"Periodic persistence completed: reputation DB written to disk"
 			);
+
+			// Clear dirty set after successful persistence
+			self.dirty_paras.clear();
 		}
 
 		Ok(())
@@ -260,9 +273,14 @@ impl Backend for PersistentDb {
 		// Delegate to inner DB
 		self.inner.slash(peer_id, para_id, value).await;
 
+		self.dirty_paras.insert(*para_id);
+
 		// Immediately persist to disk after slash (security-critical)
 		match self.persist_para(para_id) {
 			Ok(()) => {
+				// Remove from dirty set since we just persisted it
+				self.dirty_paras.remove(para_id);
+
 				gum::debug!(
 					target: LOG_TARGET,
 					?para_id,
@@ -319,6 +337,9 @@ impl Backend for PersistentDb {
 
 		match self.disk_db.write(tx).map_err(PersistenceError::Io) {
 			Ok(()) => {
+				// Clear dirty paras since they were just persisted
+				self.dirty_paras.clear();
+
 				gum::debug!(
 					target: LOG_TARGET,
 					pruned_para_count = pruned_count,
@@ -344,6 +365,11 @@ impl Backend for PersistentDb {
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate> {
+		// Mark all paras in bumps as dirty.
+		for para_id in bumps.keys() {
+			self.dirty_paras.insert(*para_id);
+		}
+
 		// Delegate to inner DB - NO PERSISTENCE HERE
 		// Persistence happens via the periodic timer calling persist()
 		self.inner.process_bumps(leaf_number, bumps, decay_value).await
@@ -777,5 +803,184 @@ mod tests {
 				}
 			}
 		}
+	}
+
+	#[tokio::test]
+	async fn dirty_tracking_only_persists_modified_paras() {
+		let disk_db = make_db();
+		let config = make_config();
+
+		let peer1 = PeerId::random();
+		let para_id_100 = ParaId::from(100);
+		let para_id_200 = ParaId::from(200);
+
+		let mut db =
+			PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+
+		assert!(db.dirty_paras.is_empty(), "Fresh DB should have no dirty paras");
+
+		let bumps_para_100 =
+			[(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
+				.into_iter()
+				.collect();
+		db.process_bumps(10, bumps_para_100, None).await;
+
+		assert!(db.dirty_paras.contains(&para_id_100), "Para 100 should be dirty after bump");
+		assert!(!db.dirty_paras.contains(&para_id_200), "Para 200 should NOT be dirty");
+		assert_eq!(db.dirty_paras.len(), 1, "Only one para should be dirty");
+
+		db.persist(None).expect("should persist");
+
+		assert!(db.dirty_paras.is_empty(), "Dirty paras should be cleared after persist");
+
+		drop(db);
+
+		let reloaded_db =
+			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+
+		assert_eq!(
+			reloaded_db.query(&peer1, &para_id_100).await,
+			Some(Score::new(50).unwrap()),
+			"Para 100 data should be persisted correctly"
+		);
+
+		assert_eq!(
+			reloaded_db.inner.len(), 1
+		);
+
+		assert_eq!(
+			reloaded_db.processed_finalized_block_number().await,
+			Some(10),
+			"Last finalized block should be 20"
+		);
+	}
+
+	#[tokio::test]
+	async fn dirty_tracking_cleared_after_prune() {
+		let disk_db = make_db();
+		let config = make_config();
+
+		let peer1 = PeerId::random();
+		let para_id_100 = ParaId::from(100);
+		let para_id_200 = ParaId::from(200);
+
+		let mut db =
+			PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+
+		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
+			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
+			(para_id_200, [(peer1, Score::new(75).unwrap())].into_iter().collect()),
+		]
+		.into_iter()
+		.collect();
+		db.process_bumps(10, bumps, None).await;
+
+		assert_eq!(db.dirty_paras.len(), 2);
+		assert!(db.dirty_paras.contains(&para_id_100));
+		assert!(db.dirty_paras.contains(&para_id_200));
+
+		let registered = [para_id_100].into_iter().collect();
+		db.prune_paras(registered).await;
+
+		assert!(
+			db.dirty_paras.is_empty(),
+			"Dirty paras should be cleared after prune_paras persists"
+		);
+
+		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
+		assert_eq!(db.query(&peer1, &para_id_200).await, None);
+
+		drop(db);
+		let reloaded =
+			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+
+		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
+		assert_eq!(reloaded.query(&peer1, &para_id_200).await, None);
+	}
+
+	#[tokio::test]
+	async fn dirty_tracking_cleared_after_slash() {
+		let disk_db = make_db();
+		let config = make_config();
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let para_id_100 = ParaId::from(100);
+		let para_id_200 = ParaId::from(200);
+
+		let mut db =
+			PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+
+		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
+			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
+			(para_id_200, [(peer2, Score::new(75).unwrap())].into_iter().collect()),
+		]
+		.into_iter()
+		.collect();
+		db.process_bumps(10, bumps, None).await;
+
+		assert!(db.dirty_paras.contains(&para_id_100));
+		assert!(db.dirty_paras.contains(&para_id_200));
+		assert_eq!(db.dirty_paras.len(), 2);
+
+		db.slash(&peer1, &para_id_100, Score::new(30).unwrap()).await;
+
+		assert!(!db.dirty_paras.contains(&para_id_100));
+		assert!(db.dirty_paras.contains(&para_id_200));
+		assert_eq!(db.dirty_paras.len(), 1);
+
+		assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
+		assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
+
+		drop(db);
+		let reloaded =
+			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+
+		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
+		assert_eq!(reloaded.query(&peer2, &para_id_200).await, None);
+	}
+
+	#[tokio::test]
+	async fn crash_before_persist_loses_bumps_but_not_slashes() {
+		let disk_db = make_db();
+		let config = make_config();
+
+		let peer1 = PeerId::random();
+		let para_id_100 = ParaId::from(100);
+
+		{
+			let mut db =
+				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+
+			let bumps1: BTreeMap<ParaId, HashMap<PeerId, Score>> =
+				[(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
+					.into_iter()
+					.collect();
+			db.process_bumps(10, bumps1, None).await;
+
+			db.slash(&peer1, &para_id_100, Score::new(20).unwrap()).await;
+
+			let bumps2: BTreeMap<ParaId, HashMap<PeerId, Score>> =
+				[(para_id_100, [(peer1, Score::new(15).unwrap())].into_iter().collect())]
+					.into_iter()
+					.collect();
+			db.process_bumps(20, bumps2, None).await;
+
+			assert_eq!(db.query(&peer1, &para_id_100).await, Some(Score::new(45).unwrap()));
+
+			// Simulate crash - drop DB without calling persist()
+			// The slash is on disk (30), but the second bump is NOT (should be 45)
+		}
+
+		// Reload from disk
+		let reloaded =
+			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+
+		// Should see 30 (slash persisted), NOT 45 (bump lost in crash)
+		assert_eq!(
+			reloaded.query(&peer1, &para_id_100).await,
+			Some(Score::new(30).unwrap()),
+			"After crash: slash should be persisted (30), but final bump should be lost (not 45)"
+		);
 	}
 }
