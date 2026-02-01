@@ -369,7 +369,7 @@ mod tests {
 	}
 
 	fn make_config() -> ReputationConfig {
-		ReputationConfig { col_reputation_data: DATA_COL }
+		ReputationConfig { col_reputation_data: DATA_COL, persist_interval: None }
 	}
 
 	#[tokio::test]

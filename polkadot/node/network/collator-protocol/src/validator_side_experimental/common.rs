@@ -84,15 +84,6 @@ pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
 /// advertised collations.
 pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(150);
 
-/// How often to persist the reputation database to disk.
-/// Using 10 minutes in production as a balance between data safety and disk I/O.
-/// Using 30 seconds in test mode for faster test execution.
-pub const REPUTATION_PERSIST_INTERVAL: Duration = if cfg!(feature = "test-persistence") {
-	Duration::from_secs(30)
-} else {
-	Duration::from_secs(10 * 60)
-};
-
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Encode, Decode)]
 pub struct Score(u16);

@@ -69,6 +69,8 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace").into(),
 					("--experimental-collator-protocol").into(),
+					("--collator-reputation-persist-interval").into(),
+					("30").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {

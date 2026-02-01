@@ -23,10 +23,7 @@ mod state;
 mod tests;
 
 use crate::{
-	validator_side_experimental::{
-		common::{MIN_FETCH_TIMER_DELAY, REPUTATION_PERSIST_INTERVAL},
-		peer_manager::PersistentDb,
-	},
+	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
 	LOG_TARGET,
 };
 use collation_manager::CollationManager;
@@ -58,6 +55,8 @@ pub use crate::validator_side_metrics::Metrics;
 pub struct ReputationConfig {
 	/// The data column in the store to use for reputation data.
 	pub col_reputation_data: u32,
+	/// How often to persist the reputation database to disk. If None, defaults to 600 seconds.
+	pub persist_interval: Option<Duration>,
 }
 
 /// The main run loop.
@@ -69,13 +68,15 @@ pub(crate) async fn run<Context>(
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
+	let persist_interval =
+		reputation_config.persist_interval.unwrap_or(Duration::from_secs(600));
 	gum::info!(
 		LOG_TARGET,
-		persist_interval_secs = REPUTATION_PERSIST_INTERVAL.as_secs(),
+		persist_interval_secs = persist_interval.as_secs(),
 		"Running experimental collator protocol"
 	);
 	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_config).await? {
-		run_inner(ctx, state, REPUTATION_PERSIST_INTERVAL).await?;
+		run_inner(ctx, state, persist_interval).await?;
 	}
 
 	Ok(())

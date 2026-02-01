@@ -53,4 +53,3 @@ polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []
-test-persistence = []

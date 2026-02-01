@@ -64,6 +64,8 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace").into(),
 					("--experimental-collator-protocol").into(),
+					("--collator-reputation-persist-interval").into(),
+					("30").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
