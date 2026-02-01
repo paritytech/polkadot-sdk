@@ -53,7 +53,7 @@ use zombienet_sdk::{
 const PARA_ID: u32 = 2000;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn basic_persistence_test() -> Result<(), anyhow::Error> {
+async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

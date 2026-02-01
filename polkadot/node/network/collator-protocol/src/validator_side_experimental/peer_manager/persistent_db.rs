@@ -80,7 +80,6 @@ impl PersistentDb {
 
 		let last_finalized = instance.inner.processed_finalized_block_number().await;
 
-		// Use info level for clear observability in tests and production
 		if para_count > 0 || last_finalized.is_some() {
 			gum::trace!(
 				target: LOG_TARGET,
@@ -109,8 +108,6 @@ impl PersistentDb {
 
 		// Load metadata
 		if let Some(meta) = self.load_metadata()? {
-			// We need to directly access the inner fields to restore state
-			// This requires making Db fields pub(super) or adding setter methods
 			self.inner.set_last_finalized(meta.last_finalized);
 			gum::debug!(
 				target: LOG_TARGET,
@@ -197,7 +194,7 @@ impl PersistentDb {
 			gum::trace!(
 				target: LOG_TARGET,
 				?para_id,
-				"Deleted removed para reputation entry from disk"
+				"Deleted para reputation entry from disk"
 			);
 		}
 
@@ -206,10 +203,11 @@ impl PersistentDb {
 
 	/// Persist all in-memory data to disk.
 	///
-	/// This should be called periodically by the main loop (currently, every 10 minutes).
-	/// It writes all reputation data and metadata in a single transaction.
-	pub fn persist(&self) -> Result<(), PersistenceError> {
-		let mut tx = DBTransaction::new();
+	/// This should be called periodically by the main loop (currently, every 10 minutes)
+	pub fn persist(&self, tx_opt: Option<&mut DBTransaction>) -> Result<(), PersistenceError> {
+		let should_write = tx_opt.is_none();
+		let mut owned_tx = DBTransaction::new();
+		let tx = tx_opt.unwrap_or(&mut owned_tx);
 
 		// Write metadata
 		let meta = StoredMetadata { last_finalized: self.inner.get_last_finalized() };
@@ -232,15 +230,17 @@ impl PersistentDb {
 			}
 		}
 
-		self.disk_db.write(tx).map_err(PersistenceError::Io)?;
+		if should_write {
+			self.disk_db.write(owned_tx).map_err(PersistenceError::Io)?;
 
-		gum::debug!(
-			target: LOG_TARGET,
-			total_peer_entries = total_entries,
-			para_count,
-			last_finalized = ?meta.last_finalized,
-			"Periodic persistence completed: reputation DB written to disk"
-		);
+			gum::debug!(
+				target: LOG_TARGET,
+				total_peer_entries = total_entries,
+				para_count,
+				last_finalized = ?meta.last_finalized,
+				"Periodic persistence completed: reputation DB written to disk"
+			);
+		}
 
 		Ok(())
 	}
@@ -272,12 +272,12 @@ impl Backend for PersistentDb {
 				);
 			},
 			Err(e) => {
-				gum::error!(
+				gum::warn!(
 					target: LOG_TARGET,
 					?para_id,
 					?peer_id,
 					error = ?e,
-					"CRITICAL: Failed to persist reputation after slash to disk. \
+					"Failed to persist reputation after slash to disk. \
 					Slash is recorded in-memory and will be persisted by periodic timer."
 				);
 			},
@@ -292,7 +292,6 @@ impl Backend for PersistentDb {
 			.filter(|(para_id, _)| !registered_paras.contains(para_id))
 			.map(|(para_id, _)| *para_id)
 			.collect();
-		gum::trace!(target: LOG_TARGET, ?paras_to_prune, "Alex: prune_paras");
 
 		let pruned_count = paras_to_prune.len();
 
@@ -309,16 +308,13 @@ impl Backend for PersistentDb {
 			tx.delete(self.config.col_reputation_data, &key);
 		}
 
-		// Write remaining paras and metadata
-		let meta = StoredMetadata { last_finalized: self.inner.get_last_finalized() };
-		tx.put_vec(self.config.col_reputation_data, metadata_key(), meta.encode());
-
-		for (para_id, peer_scores) in self.inner.all_reputations() {
-			let key = para_reputation_key(*para_id);
-			if !peer_scores.is_empty() {
-				let stored = StoredParaReputations::from_hashmap(peer_scores);
-				tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-			}
+		if let Err(e) = self.persist(Some(&mut tx)) {
+			gum::warn!(
+				target: LOG_TARGET,
+				error = ?e,
+				"Failed to add state to transaction during prune_paras"
+			);
+			return;
 		}
 
 		match self.disk_db.write(tx).map_err(PersistenceError::Io) {
@@ -332,7 +328,7 @@ impl Backend for PersistentDb {
 				);
 			},
 			Err(e) => {
-				gum::error!(
+				gum::warn!(
 					target: LOG_TARGET,
 					error = ?e,
 					"Failed to persist reputation after pruning paras. \
@@ -386,6 +382,8 @@ mod tests {
 
 		// Fresh start should have no finalized block
 		assert_eq!(db.processed_finalized_block_number().await, None);
+
+		assert_eq!(db.inner.len(), 0);
 	}
 
 	#[tokio::test]
@@ -415,7 +413,7 @@ mod tests {
 			db.process_bumps(10, bumps, None).await;
 
 			// Persist to disk
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Now create a new DB instance and verify data was loaded
@@ -452,7 +450,7 @@ mod tests {
 			db.process_bumps(10, bumps, None).await;
 
 			// Persist initial state
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 
 			// Now slash - this should persist immediately
 			db.slash(&peer, &para_id, Score::new(30).unwrap()).await;
@@ -485,7 +483,7 @@ mod tests {
 				.into_iter()
 				.collect();
 			db.process_bumps(10, bumps, None).await;
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 
 			// Slash more than the current score - should remove entry
 			db.slash(&peer, &para_id, Score::new(100).unwrap()).await;
@@ -525,7 +523,7 @@ mod tests {
 			.into_iter()
 			.collect();
 			db.process_bumps(10, bumps, None).await;
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 
 			// Prune - only keep para 200 registered
 			let registered_paras = [para_id_200].into_iter().collect();
@@ -569,7 +567,7 @@ mod tests {
 			db.process_bumps(15, bumps, None).await;
 
 			// Now call periodic persist
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Reload and verify
@@ -616,7 +614,7 @@ mod tests {
 			db.slash(&peer2, &para_id_100, Score::new(25).unwrap()).await;
 
 			// Final persist before "shutdown"
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Session 2: "Restart" - create new instance
@@ -635,7 +633,7 @@ mod tests {
 				.into_iter()
 				.collect();
 			db.process_bumps(25, bumps, None).await;
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Session 3: Verify continued state
@@ -674,7 +672,7 @@ mod tests {
 					.into_iter()
 					.collect();
 			db.process_bumps(100, bumps, None).await;
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Reload and verify exact values
@@ -759,7 +757,7 @@ mod tests {
 				.collect();
 
 			db.process_bumps(50, bumps, None).await;
-			db.persist().expect("should persist");
+			db.persist(None).expect("should persist");
 		}
 
 		// Verify all data

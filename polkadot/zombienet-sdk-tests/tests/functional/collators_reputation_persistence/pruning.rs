@@ -19,10 +19,9 @@
 //! 5. **Deregister parachain 2001 using sudo**
 //! 6. Wait for session boundary (triggers pruning check)
 //! 7. Verify pruning logs show para 2001 was pruned
-//! 8. Wait for periodic persistence (pruned state written to disk)
-//! 9. Restart validator-0
-//! 10. Verify only para 2000's reputation was loaded (para 2001 pruned)
-//! 11. Verify validator continues normal operation with para 2000
+//! 8. Restart validator-0
+//! 9. Verify only para 2000's reputation was loaded (para 2001 pruned)
+//! 10. Verify validator continues normal operation with para 2000
 //!
 //! ## Success Criteria
 //!
@@ -257,7 +256,7 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 		count
 	);
 
-	log::info!("Verifying para 2000 continues normal operation (para 2001 is deregistered)");
+	log::info!("Verifying para 2000 continues normal operation (para 2001 is deregistered and has no throughput)");
 	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 4..6)])
 		.await?;
 

@@ -257,7 +257,7 @@ impl Db {
 	}
 
 	#[cfg(test)]
-	fn len(&self) -> usize {
+	pub(crate) fn len(&self) -> usize {
 		self.db.len()
 	}
 }

@@ -94,7 +94,7 @@ pub enum ProtocolSide {
 		metrics: validator_side_experimental::Metrics,
 		/// Database used for reputation house keeping.
 		db: Arc<dyn Database>,
-		/// Reputation configuration (column number and persist interval).
+		/// Reputation configuration (column number).
 		reputation_config: validator_side_experimental::ReputationConfig,
 	},
 	/// Collators operate on a parachain.
