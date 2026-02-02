@@ -130,7 +130,7 @@ impl Future for CollationFetchRequest {
 		// First check if this fetch request was cancelled.
 		let cancelled = self.cancellation_future.poll_unpin(cx).is_ready();
 		if cancelled {
-			return Poll::Ready((self.advertisement, Err(CollationFetchError::Cancelled)))
+			return Poll::Ready((self.advertisement, Err(CollationFetchError::Cancelled)));
 		}
 
 		let res = self

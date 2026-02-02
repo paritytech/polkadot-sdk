@@ -158,7 +158,7 @@ impl CollationManager {
 				.map_err(Error::FailedToActivateLeafInImplicitView)
 			{
 				err.split()?.log();
-				continue
+				continue;
 			}
 		}
 
@@ -223,13 +223,13 @@ impl CollationManager {
 				.known_allowed_relay_parents_under(leaf, None)
 				.map(|v| v.to_vec())
 			else {
-				continue
+				continue;
 			};
 
 			// Includes the leaf
 			for (idx, ancestor) in allowed_ancestry.iter().enumerate() {
 				if self.per_relay_parent.contains_key(&ancestor) {
-					continue
+					continue;
 				}
 
 				let session_index =
@@ -240,7 +240,7 @@ impl CollationManager {
 						Ok(session_index) => session_index,
 						Err(err) => {
 							err.split()?.log();
-							continue
+							continue;
 						},
 					};
 
@@ -287,14 +287,14 @@ impl CollationManager {
 		advertisement: Advertisement,
 	) -> std::result::Result<(), AdvertisementError> {
 		let Some(per_rp) = self.per_relay_parent.get_mut(&advertisement.relay_parent) else {
-			return Err(AdvertisementError::OutOfOurView)
+			return Err(AdvertisementError::OutOfOurView);
 		};
 
 		// V1 advertisements are only allowed on active leaves.
 		if advertisement.prospective_candidate.is_none() &&
 			!self.implicit_view.contains_leaf(&advertisement.relay_parent)
 		{
-			return Err(AdvertisementError::V1AdvertisementForImplicitParent)
+			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
 		}
 
 		let now = Instant::now();
@@ -304,26 +304,26 @@ impl CollationManager {
 			.count_all_slots_for_para_at(&advertisement.relay_parent, &advertisement.para_id);
 
 		if max_assignments == 0 {
-			return Err(AdvertisementError::InvalidAssignment)
+			return Err(AdvertisementError::InvalidAssignment);
 		}
 
 		if let Some(ProspectiveCandidate { candidate_hash, .. }) =
 			advertisement.prospective_candidate
 		{
 			if per_rp.fetched_collations.contains_key(&candidate_hash) {
-				return Err(AdvertisementError::Duplicate)
+				return Err(AdvertisementError::Duplicate);
 			}
 		}
 
 		if self.fetching.contains(&advertisement) {
-			return Err(AdvertisementError::Duplicate)
+			return Err(AdvertisementError::Duplicate);
 		}
 
 		per_rp.can_keep_advertisement(advertisement, max_assignments)?;
 
 		let can_second = backing_allows_seconding(sender, &advertisement).await;
 		if !can_second {
-			return Err(AdvertisementError::BlockedByBacking)
+			return Err(AdvertisementError::BlockedByBacking);
 		}
 
 		per_rp.add_advertisement(advertisement, now);
@@ -354,7 +354,7 @@ impl CollationManager {
 			let Some(allowed_parents) =
 				self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
 			else {
-				continue
+				continue;
 			};
 
 			if !free_slots.is_empty() {
@@ -382,7 +382,7 @@ impl CollationManager {
 					Either::Right(delay) => {
 						let min_delay = maybe_min_delay.get_or_insert(delay);
 						maybe_min_delay = Some(std::cmp::min(*min_delay, delay));
-						continue
+						continue;
 					},
 				};
 
@@ -402,7 +402,7 @@ impl CollationManager {
 					);
 					let req = self.fetching.launch(&advertisement, create_timer_fn());
 					requests.push(req);
-					continue
+					continue;
 				} else {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -452,7 +452,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
 			);
-			return CanSecond::No(None, reject_info)
+			return CanSecond::No(None, reject_info);
 		};
 
 		per_rp.remove_advertisement(&advertisement);
@@ -465,7 +465,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent whose session index is unknown"
 			);
-			return CanSecond::No(None, reject_info)
+			return CanSecond::No(None, reject_info);
 		};
 
 		match process_collation_fetch_result(res) {
@@ -487,7 +487,7 @@ impl CollationManager {
 						"Invalid fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info)
+					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
 				// Sanity check of the candidate receipt version.
@@ -503,7 +503,7 @@ impl CollationManager {
 						"Failed descriptor version sanity check for fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info)
+					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
 				self.can_begin_seconding(sender, fetched_collation, true, reject_info).await
@@ -895,18 +895,18 @@ impl FetchedCollation {
 			// This implies a check on the declared para if this was a v2 advertisement
 			Some(ProspectiveCandidate { candidate_hash, .. }) => {
 				if candidate_hash != candidate_receipt.hash() {
-					return Err(SecondingError::CandidateHashMismatch)
+					return Err(SecondingError::CandidateHashMismatch);
 				}
 			},
 			// Otherwise, do the explicit check for the para_id.
 			None =>
 				if advertised.para_id != candidate_receipt.descriptor.para_id() {
-					return Err(SecondingError::ParaIdMismatch)
+					return Err(SecondingError::ParaIdMismatch);
 				},
 		}
 
 		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {
-			return Err(SecondingError::RelayParentMismatch)
+			return Err(SecondingError::RelayParentMismatch);
 		}
 
 		Ok(())
@@ -1003,11 +1003,11 @@ impl PerRelayParent {
 		peer_advertisements.total += 1;
 
 		if peer_advertisements.total > max_assignments {
-			return Err(AdvertisementError::PeerLimitReached)
+			return Err(AdvertisementError::PeerLimitReached);
 		}
 
 		if peer_advertisements.advertisements.contains_key(&advertisement) {
-			return Err(AdvertisementError::Duplicate)
+			return Err(AdvertisementError::Duplicate);
 		}
 
 		Ok(())
@@ -1059,7 +1059,7 @@ where
 {
 	let Some(prospective_candidate) = advertisement.prospective_candidate else {
 		// Nothing to check for v1 protocol.
-		return true
+		return true;
 	};
 
 	let request = CanSecondRequest {
@@ -1111,7 +1111,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 				(None, _) => return Err(SecondingError::PersistedValidationDataNotFound),
 			};
 			if parent_head_data_hash != expected_hash {
-				return Err(SecondingError::ParentHeadDataMismatch)
+				return Err(SecondingError::ParentHeadDataMismatch);
 			}
 			pvd
 		},
@@ -1127,7 +1127,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 	};
 
 	if pvd.hash() != receipt.descriptor.persisted_validation_data_hash() {
-		return Err(SecondingError::PersistedValidationDataMismatch)
+		return Err(SecondingError::PersistedValidationDataMismatch);
 	}
 
 	Ok(pvd)

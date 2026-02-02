@@ -115,7 +115,7 @@ impl ClaimQueueState {
 	pub(super) fn fork(&self, target_relay_parent: &Hash) -> Option<Self> {
 		// don't fork from the last block!
 		if self.block_state.back().and_then(|state| state.hash) == Some(*target_relay_parent) {
-			return None
+			return None;
 		}
 
 		let (window, maybe_target_index) = Self::get_window_and_start_idx(
@@ -162,7 +162,7 @@ impl ClaimQueueState {
 	/// Appends a new leaf with its corresponding claim queue to the state.
 	pub(crate) fn add_leaf(&mut self, hash: &Hash, claim_queue: &VecDeque<ParaId>) {
 		if self.block_state.iter().any(|s| s.hash == Some(*hash)) {
-			return
+			return;
 		}
 
 		// First check if our view for the future blocks is consistent with the one in the claim
@@ -260,7 +260,7 @@ impl ClaimQueueState {
 					?candidate_hash,
 					"Claim already exists"
 				);
-				return true
+				return true;
 			}
 		}
 
@@ -348,7 +348,7 @@ impl ClaimQueueState {
 			);
 
 			if info.claim == Some(*para_id) && lookup.contains(&info.claimed) {
-				return Some(info)
+				return Some(info);
 			}
 		}
 
@@ -438,7 +438,7 @@ impl ClaimQueueState {
 		candidate_hash: CandidateHash,
 	) -> bool {
 		if self.trace_has_claim(relay_parent, para_id, Some(&candidate_hash)) {
-			return true
+			return true;
 		}
 
 		self.find_and_replace_claim(
@@ -515,7 +515,7 @@ impl ClaimQueueState {
 		);
 
 		if self.trace_has_claim(relay_parent, para_id, maybe_candidate_hash.as_ref()) {
-			return true
+			return true;
 		}
 		self.find_claim(relay_parent, para_id, &[ClaimState::Free], true).is_some()
 	}
@@ -586,7 +586,7 @@ impl ClaimQueueState {
 		for (relay_parent, candidates) in &mut self.candidates_per_rp {
 			if candidates.remove(candidate_hash) {
 				maybe_relay_parent = Some(*relay_parent);
-				break
+				break;
 			}
 		}
 		let relay_parent = match maybe_relay_parent {
@@ -600,7 +600,7 @@ impl ClaimQueueState {
 				w.claimed == ClaimState::Seconded(*candidate_hash)
 			{
 				w.claimed = ClaimState::Free;
-				return true
+				return true;
 			}
 		}
 
@@ -620,7 +620,7 @@ impl ClaimQueueState {
 				}
 			}
 			claim.claimed = ClaimState::Free;
-			return true
+			return true;
 		}
 
 		false

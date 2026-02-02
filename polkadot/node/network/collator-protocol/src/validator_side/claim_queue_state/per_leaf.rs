@@ -57,7 +57,7 @@ impl PerLeafClaimQueueState {
 					?claim_queue,
 					"add_leaf: adding to existing path"
 				);
-				return
+				return;
 			}
 
 			// The new leaf could be a fork from a previous non-leaf block
@@ -72,7 +72,7 @@ impl PerLeafClaimQueueState {
 						?claim_queue,
 						"add_leaf: adding fork from a previous non-leaf block"
 					);
-					return
+					return;
 				}
 			}
 		}

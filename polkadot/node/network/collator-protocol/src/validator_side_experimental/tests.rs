@@ -318,7 +318,7 @@ impl TestState {
 
 	async fn handle_view_update(&mut self, active_leaves: Vec<Hash>) {
 		if active_leaves.is_empty() {
-			return
+			return;
 		}
 
 		for active in active_leaves.iter() {
@@ -333,7 +333,7 @@ impl TestState {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
-						break None
+						break None;
 					},
 			};
 
@@ -434,7 +434,7 @@ impl TestState {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
-						break Some(other)
+						break Some(other);
 					},
 			};
 		};
@@ -461,7 +461,7 @@ impl TestState {
 			MAX_STARTUP_ANCESTRY_LOOKBACK,
 		);
 		if diff == 0 {
-			return
+			return;
 		}
 
 		let msg = match self.buffered_msg.take() {
@@ -496,7 +496,7 @@ impl TestState {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
-						break None
+						break None;
 					},
 			};
 
@@ -543,7 +543,7 @@ impl TestState {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
-						break Some(other)
+						break Some(other);
 					},
 			};
 		};
@@ -568,7 +568,7 @@ impl TestState {
 		let msg = if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 			msg
 		} else {
-			return
+			return;
 		};
 
 		assert_matches!(
