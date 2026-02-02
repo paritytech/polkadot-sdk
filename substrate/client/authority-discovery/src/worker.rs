@@ -478,10 +478,9 @@ where
 			.into_iter()
 			.filter_map(|address| {
 				// Only publish addresses that have a port and are global.
-				address_has_port(&address) &&
-					(publish_non_global_ips || (address_is_global(&address))).then(|| {
-						AddressType::ExternalAddress(address).without_p2p(local_peer_id)
-					})
+				(address_has_port(&address) &&
+					(publish_non_global_ips || address_is_global(&address)))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();
 
