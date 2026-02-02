@@ -196,7 +196,7 @@ pub enum PaymentState<AssetKind, Balance, Id> {
 	Clone,
 	PartialEq,
 	Eq,
-    RuntimeDebug,
+    Debug,
     TypeInfo,
     MaxEncodedLen,
 )]
@@ -216,7 +216,7 @@ pub enum SpendAsset<AssetKind> {
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
