@@ -446,6 +446,13 @@ where
 			})
 		};
 
+		// Addresses without a port cannot be dialed.
+		let address_has_port = |address: &Multiaddr| {
+			address.iter().any(|protocol| {
+				matches!(protocol, multiaddr::Protocol::Tcp(_) | multiaddr::Protocol::Udp(_))
+			})
+		};
+
 		// These are the addresses the node is listening for incoming connections,
 		// as reported by installed protocols (tcp / websocket etc).
 		//
@@ -458,7 +465,7 @@ where
 			.listen_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				address_is_global(&address)
+				(address_is_global(&address) && address_has_port(&address))
 					.then(|| AddressType::GlobalListenAddress(address).without_p2p(local_peer_id))
 			})
 			.take(MAX_GLOBAL_LISTEN_ADDRESSES)
@@ -470,8 +477,9 @@ where
 			.external_addresses()
 			.into_iter()
 			.filter_map(|address| {
-				(publish_non_global_ips || address_is_global(&address))
-					.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
+				(publish_non_global_ips ||
+					(address_is_global(&address) && address_has_port(&address)))
+				.then(|| AddressType::ExternalAddress(address).without_p2p(local_peer_id))
 			})
 			.peekable();
 
@@ -490,6 +498,7 @@ where
 			.public_addresses
 			.clone()
 			.into_iter()
+			.filter(address_has_port)
 			.chain(global_listen_addresses)
 			.chain(external_addresses)
 			// Deduplicate addresses.
