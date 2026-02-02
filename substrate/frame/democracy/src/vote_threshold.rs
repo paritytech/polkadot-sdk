@@ -69,18 +69,18 @@ fn compare_rationals<
 		let q1 = n1 / d1;
 		let q2 = n2 / d2;
 		if q1 < q2 {
-			return true
+			return true;
 		}
 		if q2 < q1 {
-			return false
+			return false;
 		}
 		let r1 = n1 % d1;
 		let r2 = n2 % d2;
 		if r2.is_zero() {
-			return false
+			return false;
 		}
 		if r1.is_zero() {
-			return true
+			return true;
 		}
 		n1 = d2;
 		n2 = d1;
@@ -104,7 +104,7 @@ impl<
 		let sqrt_voters = tally.turnout.integer_sqrt();
 		let sqrt_electorate = electorate.integer_sqrt();
 		if sqrt_voters.is_zero() {
-			return false
+			return false;
 		}
 		match *self {
 			VoteThreshold::SuperMajorityApprove =>

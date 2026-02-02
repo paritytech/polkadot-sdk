@@ -105,10 +105,13 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				message,
 				publicKey,
 			}) => {
+				env.frame_meter_mut()
+					.charge_weight_token(RuntimeCosts::Sr25519Verify(message.len() as _))?;
 				let ok = env.sr25519_verify(signature, message, publicKey);
 				Ok(ok.abi_encode())
 			},
 			ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall { publicKey }) => {
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::EcdsaToEthAddress)?;
 				let address =
 					env.ecdsa_to_eth_address(publicKey).map_err(Error::try_to_revert::<T>)?;
 				Ok(address.abi_encode())
@@ -123,6 +126,7 @@ mod tests {
 	use crate::{
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
+		metering::Token,
 		pallet,
 		precompiles::{
 			alloy::sol_types::{sol_data::Bytes, SolType},
@@ -131,6 +135,7 @@ mod tests {
 		},
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
+		vm::RuntimeCosts,
 	};
 
 	use alloy_core::primitives::FixedBytes;
@@ -233,13 +238,25 @@ mod tests {
 					133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
 				];
 
+				let weight_before = ext.frame_meter().weight_consumed();
+
 				let input = ISystem::ISystemCalls::sr25519Verify(ISystem::sr25519VerifyCall {
 					signature,
 					message: (*message).into(),
 					publicKey: public_key.into(),
 				});
-				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
-					.unwrap()
+				let result =
+					<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+						.unwrap();
+
+				let weight_used = ext.frame_meter().weight_consumed() - weight_before;
+				assert!(weight_used.ref_time() > 0, "sr25519_verify should charge weight");
+				assert_eq!(
+					weight_used,
+					Token::<Test>::weight(&RuntimeCosts::Sr25519Verify(message.len() as u32)),
+					"sr25519_verify should charge the expected weight"
+				);
+				result
 			};
 			let result = Bool::abi_decode(&call_with(&b"hello world")).expect("decoding failed");
 			assert!(result);
@@ -260,6 +277,8 @@ mod tests {
 				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91",
 			);
 
+			let weight_before = ext.frame_meter().weight_consumed();
+
 			let input = ISystem::ISystemCalls::ecdsaToEthAddress(ISystem::ecdsaToEthAddressCall {
 				publicKey: pubkey_compressed,
 			});
@@ -272,6 +291,14 @@ mod tests {
 			)
 			.into();
 			assert_eq!(result, expected.abi_encode());
+
+			let weight_used = ext.frame_meter().weight_consumed() - weight_before;
+			assert!(weight_used.ref_time() > 0, "ecdsa_to_eth_address should charge weight");
+			assert_eq!(
+				weight_used,
+				Token::<Test>::weight(&RuntimeCosts::EcdsaToEthAddress),
+				"ecdsa_to_eth_address should charge the expected weight"
+			);
 		});
 	}
 }

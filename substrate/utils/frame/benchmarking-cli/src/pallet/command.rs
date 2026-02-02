@@ -112,7 +112,7 @@ fn combine_batches(
 	db_batches: Vec<BenchmarkBatch>,
 ) -> Vec<BenchmarkBatchSplitResults> {
 	if time_batches.is_empty() && db_batches.is_empty() {
-		return Default::default()
+		return Default::default();
 	}
 
 	let mut all_benchmarks =
@@ -181,7 +181,7 @@ impl PalletCmd {
 			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source));
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -195,7 +195,7 @@ impl PalletCmd {
 
 			let source = genesis_builder_to_source();
 
-			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source));
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -211,7 +211,7 @@ impl PalletCmd {
 					runtime_blob,
 					Some(self.genesis_builder_preset.clone()),
 				))
-			}
+			};
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
@@ -253,7 +253,7 @@ impl PalletCmd {
 				Err(error) =>
 					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
 			};
-			return self.output_from_results(&batches)
+			return self.output_from_results(&batches);
 		}
 		super::logging::init(self.runtime_log.clone());
 
@@ -360,7 +360,7 @@ impl PalletCmd {
 
 		if let Some(list_output) = self.list {
 			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
-			return Ok(())
+			return Ok(());
 		}
 
 		// Run the benchmarks
@@ -395,7 +395,7 @@ impl PalletCmd {
 					// The slope logic needs at least two points
 					// to compute a slope.
 					if self.steps < 2 {
-						return Err("`steps` must be at least 2.".into())
+						return Err("`steps` must be at least 2.".into());
 					}
 
 					let step_size = (diff as f32 / (self.steps - 1) as f32).max(0.0);
@@ -476,12 +476,12 @@ impl PalletCmd {
 						Err(e) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Err(e)) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Ok(b)) => b,
 					};
@@ -509,12 +509,12 @@ impl PalletCmd {
 						Err(e) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Err(e)) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Ok(b)) => b,
 					};
@@ -586,7 +586,7 @@ impl PalletCmd {
 				failed.len(),
 				failed.iter().map(|(p, e)| format!("- {p}::{e}")).collect::<Vec<_>>().join("\n")
 			);
-			return Err(format!("{} benchmarks failed", failed.len()).into())
+			return Err(format!("{} benchmarks failed", failed.len()).into());
 		}
 
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
@@ -636,7 +636,7 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into());
 		}
 
 		Ok(benchmarks_to_run)
@@ -841,7 +841,7 @@ impl PalletCmd {
 				fs::write(path, json)?;
 			} else {
 				print!("{json}");
-				return Ok(true)
+				return Ok(true);
 			}
 		}
 
@@ -872,7 +872,7 @@ impl PalletCmd {
 
 			// Skip raw data + analysis if there are no results
 			if batch.time_results.is_empty() {
-				continue
+				continue;
 			}
 
 			if !self.no_storage_info {
@@ -967,7 +967,7 @@ impl PalletCmd {
 						"Expected 'Pallet::Storage' as storage name but got: {}",
 						pallet_storage
 					)
-					.into())
+					.into());
 				}
 				let (pov_pallet, pov_storage) =
 					(splits[0].trim(), splits.get(1).unwrap_or(&"ALL").trim());
@@ -1040,7 +1040,7 @@ impl PalletCmd {
 				ErrorKind::MissingRequiredArgument,
 				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
 					.to_string(),
-			))
+			));
 		}
 
 		match self.genesis_builder {
@@ -1049,7 +1049,7 @@ impl PalletCmd {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
-					))
+					));
 				},
 			_ => {},
 		}

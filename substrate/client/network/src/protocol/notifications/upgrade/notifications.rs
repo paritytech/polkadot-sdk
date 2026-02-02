@@ -169,7 +169,7 @@ where
 				return Err(NotificationsHandshakeError::TooLarge {
 					requested: handshake_len,
 					max: MAX_HANDSHAKE_SIZE,
-				})
+				});
 			}
 
 			let mut handshake = vec![0u8; handshake_len];
@@ -222,7 +222,7 @@ where
 	pub fn send_handshake(&mut self, message: impl Into<Vec<u8>>) {
 		if !matches!(self.handshake, NotificationsInSubstreamHandshake::NotSent) {
 			error!(target: LOG_TARGET, "Tried to send handshake twice");
-			return
+			return;
 		}
 
 		self.handshake = NotificationsInSubstreamHandshake::PendingSend(message.into());
@@ -246,7 +246,7 @@ where
 						},
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::PendingSend(msg);
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					}
 				},
@@ -258,7 +258,7 @@ where
 						},
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::Flush;
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					}
 				},
@@ -289,7 +289,7 @@ where
 			match mem::replace(this.handshake, NotificationsInSubstreamHandshake::Sent) {
 				NotificationsInSubstreamHandshake::NotSent => {
 					*this.handshake = NotificationsInSubstreamHandshake::NotSent;
-					return Poll::Pending
+					return Poll::Pending;
 				},
 				NotificationsInSubstreamHandshake::PendingSend(msg) => {
 					match Sink::poll_ready(this.socket.as_mut(), cx) {
@@ -302,7 +302,7 @@ where
 						},
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::PendingSend(msg);
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					}
 				},
@@ -312,7 +312,7 @@ where
 							*this.handshake = NotificationsInSubstreamHandshake::Sent,
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::Flush;
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					}
 				},
@@ -324,11 +324,11 @@ where
 								NotificationsInSubstreamHandshake::ClosingInResponseToRemote,
 						Poll::Ready(Some(msg)) => {
 							*this.handshake = NotificationsInSubstreamHandshake::Sent;
-							return Poll::Ready(Some(msg))
+							return Poll::Ready(Some(msg));
 						},
 						Poll::Pending => {
 							*this.handshake = NotificationsInSubstreamHandshake::Sent;
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					}
 				},
@@ -340,7 +340,7 @@ where
 						Poll::Pending => {
 							*this.handshake =
 								NotificationsInSubstreamHandshake::ClosingInResponseToRemote;
-							return Poll::Pending
+							return Poll::Pending;
 						},
 					},
 
@@ -405,7 +405,7 @@ where
 				return Err(NotificationsHandshakeError::TooLarge {
 					requested: handshake_len,
 					max: MAX_HANDSHAKE_SIZE,
-				})
+				});
 			}
 
 			let mut handshake = vec![0u8; handshake_len];
