@@ -449,7 +449,12 @@ where
 		// Addresses without a port cannot be dialed.
 		let address_has_port = |address: &Multiaddr| {
 			address.iter().any(|protocol| {
-				matches!(protocol, multiaddr::Protocol::Tcp(_) | multiaddr::Protocol::Udp(_))
+				matches!(
+					protocol,
+					multiaddr::Protocol::Tcp(_) |
+						multiaddr::Protocol::Udp(_) |
+						multiaddr::Protocol::Memory(_)
+				)
 			})
 		};
 
