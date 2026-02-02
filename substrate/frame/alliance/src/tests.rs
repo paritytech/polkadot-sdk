@@ -189,7 +189,12 @@ fn propose_works() {
 			proposal_len
 		));
 		assert_eq!(*pallet_collective::Proposals::<Test, Instance1>::get(), vec![hash]);
-		assert_eq!(pallet_collective::ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
+		let versioned_proposal =
+			pallet_collective::Pallet::<Test, Instance1>::create_versioned_proposal(proposal);
+		assert_eq!(
+			pallet_collective::ProposalOf::<Test, Instance1>::get(&hash),
+			Some(versioned_proposal)
+		);
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {

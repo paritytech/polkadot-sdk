@@ -71,7 +71,7 @@ pub type TrackIdOf<T, I> =
 	<<T as Config<I>>::Tracks as TracksInfo<BalanceOf<T, I>, BlockNumberFor<T, I>>>::Id;
 pub type ScheduleAddressOf<T, I> = <<T as Config<I>>::Scheduler as Anon<
 	BlockNumberFor<T, I>,
-	CallOf<T, I>,
+	sp_runtime::VersionedCall<CallOf<T, I>>,
 	PalletsOriginOf<T>,
 >>::Address;
 

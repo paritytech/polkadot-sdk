@@ -882,7 +882,9 @@ impl<T: Config> Pallet<T> {
 										}
 										weight.saturating_accrue(T::DbWeight::get().reads(1));
 										log::info!("Migrated call by hash, hash: {:?}", h);
-										bounded
+
+										// Convert to versioned bounded call
+										Self::convert_to_versioned_bounded_call(bounded)
 									},
 									MaybeHashed::Value(v) => {
 										// Create bounded call with VersionedCall wrapper
@@ -1221,6 +1223,37 @@ impl<T: Config> Pallet<T> {
 		Retries::<T>::remove((when, index));
 		Ok(())
 	}
+
+	/// Convert a legacy bounded call to a versioned bounded call
+	fn convert_to_versioned_bounded_call(
+		bounded: Bounded<<T as pallet::Config>::RuntimeCall, T::Hashing>,
+	) -> BoundedCallOf<T> {
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
+		// Fetch the actual call
+		match T::Preimages::peek::<<T as pallet::Config>::RuntimeCall>(&bounded) {
+			Ok((call, _)) => {
+				let versioned_call = VersionedCall::new(call.clone(), current_version);
+				T::Preimages::bound(versioned_call).unwrap_or_else(|e| {
+					log::error!("Failed to bound versioned call: {:?}", e);
+					let dummy_call = VersionedCall::new(call.clone(), current_version);
+					T::Preimages::bound(dummy_call).unwrap_or_else(|_| {
+						panic!(
+							"Failed to create bounded call even with dummy data during migration"
+						);
+					})
+				})
+			},
+			Err(e) => {
+				log::error!("Could not fetch call from preimage during migration: {:?}", e);
+				let dummy_call = system::Call::<T>::remark { remark: vec![] }.into();
+				let versioned_call = VersionedCall::new(dummy_call, current_version);
+				T::Preimages::bound(versioned_call)
+					.expect("Failed to create fallback bounded call during migration")
+			},
+		}
+	}
 }
 
 enum ServiceTaskError {
@@ -1396,7 +1429,7 @@ impl<T: Config> Pallet<T> {
 							current_version,
 						});
 						T::Preimages::drop(&task.call);
-						return Err((Unavailable, Some(task)))
+						return Err((Unavailable, Some(task)));
 					},
 				};
 

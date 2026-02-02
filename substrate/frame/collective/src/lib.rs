@@ -914,7 +914,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Members::<T, I>::get().contains(who)
 	}
 	/// Helper to create a versioned proposal
-	fn create_versioned_proposal(
+	pub fn create_versioned_proposal(
 		proposal: <T as Config<I>>::Proposal,
 	) -> VersionedCall<<T as Config<I>>::Proposal> {
 		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;

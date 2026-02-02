@@ -152,12 +152,12 @@ pub mod pallet {
 		/// The Scheduler.
 		type Scheduler: ScheduleAnon<
 				BlockNumberFor<Self, I>,
-				CallOf<Self, I>,
+				sp_runtime::VersionedCall<CallOf<Self, I>>,
 				PalletsOriginOf<Self>,
 				Hasher = Self::Hashing,
 			> + ScheduleNamed<
 				BlockNumberFor<Self, I>,
-				CallOf<Self, I>,
+				sp_runtime::VersionedCall<CallOf<Self, I>>,
 				PalletsOriginOf<Self>,
 				Hasher = Self::Hashing,
 			>;
@@ -910,13 +910,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Earliest allowed block is always at minimum the next block.
 		let earliest_allowed = now.saturating_add(track.min_enactment_period.max(One::one()));
 		let desired = desired.evaluate(now);
+
+		// Get the actual call from the bounded call
+		let (inner_call, _) = match T::Preimages::peek(&call) {
+			Ok(c) => c,
+			Err(_) => {
+				debug_assert!(false, "Unable to peek call for scheduler");
+				return;
+			},
+		};
+
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		let versioned_call = sp_runtime::VersionedCall::new(inner_call, current_version);
+		let bounded_versioned_call = T::Preimages::bound(versioned_call)
+			.expect("Failed to bound versioned call for scheduler");
+
 		let ok = T::Scheduler::schedule_named(
 			(ASSEMBLY_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			None,
 			63,
 			origin,
-			call,
+			bounded_versioned_call,
 		)
 		.is_ok();
 		debug_assert!(ok, "LOGIC ERROR: bake_referendum/schedule_named failed");
@@ -933,12 +948,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let when = (when.saturating_add(alarm_interval.saturating_sub(One::one())) /
 			alarm_interval)
 			.saturating_mul(alarm_interval);
+
+		// Get the actual call from the bounded call
+		let (inner_call, _) = match T::Preimages::peek(&call) {
+			Ok(c) => c,
+			Err(_) => {
+				debug_assert!(false, "Unable to peek call for scheduler");
+				return None;
+			},
+		};
+
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		let versioned_call = sp_runtime::VersionedCall::new(inner_call, current_version);
+		let bounded_versioned_call = T::Preimages::bound(versioned_call)
+			.expect("Failed to bound versioned call for scheduler");
+
 		let result = T::Scheduler::schedule(
 			DispatchTime::At(when),
 			None,
 			128u8,
 			frame_system::RawOrigin::Root.into(),
-			call,
+			bounded_versioned_call,
 		);
 		debug_assert!(
 			result.is_ok(),
@@ -1038,16 +1068,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Set an alarm call for the next block to nudge the track along.
 		let now = T::BlockNumberProvider::current_block_number();
 		let next_block = now + One::one();
-		let call = match T::Preimages::bound(CallOf::<T, I>::from(Call::one_fewer_deciding {
-			track,
-		})) {
+
+		// Create the call
+		let call = Call::<T, I>::one_fewer_deciding { track };
+		let bounded_call = match T::Preimages::bound(call.into()) {
 			Ok(c) => c,
 			Err(_) => {
 				debug_assert!(false, "Unable to create a bounded call from `one_fewer_deciding`??",);
 				return;
 			},
 		};
-		Self::set_alarm(call, next_block);
+
+		Self::set_alarm(bounded_call, next_block);
 	}
 
 	/// Ensure that a `service_referendum` alarm happens for the referendum `index` at `alarm`.

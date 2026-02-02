@@ -211,6 +211,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
 		pallet_collective::ProposalOf::<Test, Instance1>::get(proposal_hash)
+			.map(|versioned| versioned.call_ref().clone())
 	}
 }
 
@@ -410,8 +411,10 @@ pub fn make_kick_member_proposal(who: AccountId) -> (RuntimeCall, u32, H256) {
 }
 
 pub fn make_proposal(proposal: RuntimeCall) -> (RuntimeCall, u32, H256) {
-	let len: u32 = proposal.using_encoded(|p| p.len() as u32);
-	let hash = BlakeTwo256::hash_of(&proposal);
+	let versioned =
+		pallet_collective::Pallet::<Test, Instance1>::create_versioned_proposal(proposal.clone());
+	let len = versioned.encode().len() as u32;
+	let hash = BlakeTwo256::hash_of(&versioned);
 	(proposal, len, hash)
 }
 
