@@ -1,3 +1,5 @@
+//! Functions for partial state.
+
 use super::PrefixedMemoryDB;
 use hash_db::Hasher;
 
