@@ -903,7 +903,7 @@ pub mod pallet {
 				let contract = if let Some(contract) = contract {
 					contract
 				} else {
-					return Err(<Error<T>>::ContractNotFound.into())
+					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
@@ -1511,7 +1511,7 @@ trait Invokable<T: Config>: Sized {
 				gas_meter: GasMeter::new(gas_limit),
 				storage_deposit: Default::default(),
 				result: Err(ExecError { error: e.into(), origin: ErrorOrigin::Caller }),
-			}
+			};
 		}
 
 		executing_contract::using_once(&mut false, || {
@@ -1661,7 +1661,7 @@ macro_rules! ensure_no_migration_in_progress {
 				debug_message: Vec::new(),
 				result: Err(Error::<T>::MigrationInProgress.into()),
 				events: None,
-			}
+			};
 		}
 	};
 }
@@ -1860,7 +1860,7 @@ impl<T: Config> Pallet<T> {
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: T::AccountId, key: Vec<u8>) -> GetStorageResult {
 		if Migration::<T>::in_progress() {
-			return Err(ContractAccessError::MigrationInProgress)
+			return Err(ContractAccessError::MigrationInProgress);
 		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;

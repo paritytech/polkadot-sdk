@@ -24,7 +24,7 @@ use relay_substrate_client::{ChainRuntimeVersion, ChainWithRuntimeVersion, Simpl
 
 use crate::TransactionParams;
 
-#[doc = "Runtime version params."]
+/// Runtime version params.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Parser, EnumString, VariantNames)]
 pub enum RuntimeVersionType {
 	/// Auto query version from chain

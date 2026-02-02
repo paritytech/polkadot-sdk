@@ -46,7 +46,7 @@ use tokio::sync::mpsc;
 pub fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
 	// Methods can accept empty parameters.
 	if param.is_empty() {
-		return Ok(Default::default())
+		return Ok(Default::default());
 	}
 
 	array_bytes::hex2bytes(&param).map_err(|_| ArchiveError::InvalidParam(param))
@@ -146,7 +146,7 @@ where
 	fn belongs_to_query(key: &StorageKey, items: &[DiffDetails]) -> Option<FetchStorageType> {
 		// User has requested all keys, by default this fallbacks to fetching the value.
 		if items.is_empty() {
-			return Some(FetchStorageType::Value)
+			return Some(FetchStorageType::Value);
 		}
 
 		let mut value = false;
@@ -192,7 +192,7 @@ where
 				child_trie_key: child_trie_key.clone(),
 			});
 			if tx.blocking_send(res).is_err() {
-				return false
+				return false;
 			}
 		}
 
@@ -249,7 +249,7 @@ where
 						fetch_type,
 					)?
 					else {
-						continue
+						continue;
 					};
 
 					let Some(previous_storage_result) = self.fetch_storage(
@@ -259,12 +259,12 @@ where
 						fetch_type,
 					)?
 					else {
-						continue
+						continue;
 					};
 
 					// For modified records we need to check the actual storage values.
 					if storage_result == previous_storage_result {
-						continue
+						continue;
 					}
 
 					Some(storage_result)
@@ -278,7 +278,7 @@ where
 					operation_type,
 					maybe_child_trie_str.clone(),
 				) {
-					return Ok(())
+					return Ok(());
 				}
 			}
 		}
@@ -304,7 +304,7 @@ where
 				Ok(items) => items,
 				Err(error) => {
 					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error.to_string()));
-					return
+					return;
 				},
 			};
 			// Default to using the main storage trie if no items are provided.
@@ -333,7 +333,7 @@ where
 
 					let _ = tx.blocking_send(ArchiveStorageDiffEvent::err(error));
 
-					return
+					return;
 				} else {
 					log::trace!(
 						target: LOG_TARGET,
@@ -433,12 +433,12 @@ fn deduplicate_storage_diff_items(
 				for existing in entry.get() {
 					// This points to a different return type.
 					if existing.return_type != diff_item.return_type {
-						continue
+						continue;
 					}
 					// Keys and return types are identical.
 					if existing.key == diff_item.key {
 						should_insert = false;
-						break
+						break;
 					}
 
 					// The following two conditions ensure that we keep the shortest key.
@@ -446,7 +446,7 @@ fn deduplicate_storage_diff_items(
 					// The current key is a longer prefix of the existing key.
 					if diff_item.key.as_ref().starts_with(&existing.key.as_ref()) {
 						should_insert = false;
-						break
+						break;
 					}
 
 					// The existing key is a longer prefix of the current key.

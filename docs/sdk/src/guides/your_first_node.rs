@@ -43,7 +43,6 @@
 //! ```
 //! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_runtime.rs", build_runtime)]
-//!
 //! This creates the wasm file under `./target/{release}/wbuild/release` directory.
 //!
 //! ### Building Chain Spec
@@ -66,8 +65,6 @@
 //!
 //! Equivalent code in tests:
 #![doc = docify::embed!("./src/guides/your_first_node.rs", csb)]
-//!
-//!
 //! ### Running `polkadot-omni-node`
 //!
 //! Finally, we can run the node with the generated chain-spec file. We can also specify the block
@@ -316,7 +313,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn omni_node_dev_mode_works() {
-		//Omni Node in dev mode works with parachain's template `dev_chain_spec`
+		// Omni Node in dev mode works with parachain's template `dev_chain_spec`
 		let dev_chain_spec = std::env::current_dir()
 			.unwrap()
 			.parent()

@@ -68,7 +68,7 @@ pub struct MockVerifier;
 impl Verifier for MockVerifier {
 	fn verify(log: &Log, _: &Proof) -> Result<(), VerificationError> {
 		if log.address == ERROR_ADDRESS.into() {
-			return Err(VerificationError::InvalidProof)
+			return Err(VerificationError::InvalidProof);
 		}
 		Ok(())
 	}

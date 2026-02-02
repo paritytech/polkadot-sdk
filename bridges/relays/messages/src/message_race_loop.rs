@@ -731,7 +731,7 @@ where
 
 	let need_update = now_time.saturating_duration_since(prev_time) > Duration::from_secs(10);
 	if !need_update {
-		return prev_time
+		return prev_time;
 	}
 
 	let now_best_nonce_at_source = strategy.best_at_source();

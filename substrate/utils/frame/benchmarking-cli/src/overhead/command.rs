@@ -292,7 +292,7 @@ impl OverheadCmd {
 			log::debug!(target: LOG_TARGET, "Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id));
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -309,7 +309,7 @@ impl OverheadCmd {
 			return Ok((
 				GenesisStateHandler::ChainSpec(chain_spec, source),
 				self.params.para_id.or(para_id_from_chain_spec),
-			))
+			));
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are

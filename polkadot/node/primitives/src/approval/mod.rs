@@ -210,7 +210,7 @@ pub mod v1 {
 					vrf_pre_output: sig.pre_output.clone(),
 					slot,
 					authority_index,
-				})
+				});
 			}
 		}
 
@@ -348,7 +348,7 @@ pub mod v2 {
 
 		fn try_from(mut value: Vec<T>) -> Result<Self, Self::Error> {
 			if value.is_empty() {
-				return Err(BitfieldError::NullAssignment)
+				return Err(BitfieldError::NullAssignment);
 			}
 
 			let initial_bitfield =
@@ -508,7 +508,7 @@ pub mod v2 {
 			if value.candidate_indices.count_ones() != 1 {
 				return Err(ApprovalConversionError::MoreThanOneCandidate(
 					value.candidate_indices.count_ones(),
-				))
+				));
 			}
 			Ok(Self {
 				block_hash: value.block_hash,
@@ -559,7 +559,7 @@ mod test {
 		// Test 0 bits.
 		for index in 0..max_index {
 			if candidate_indices.contains(&BitIndex(index as usize)) {
-				continue
+				continue;
 			}
 			assert!(!bitfield.bit_at(BitIndex(index as usize)));
 		}

@@ -150,7 +150,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(None) => {
 										gum::debug!(
@@ -160,7 +160,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(Some(c)) => c,
 								}

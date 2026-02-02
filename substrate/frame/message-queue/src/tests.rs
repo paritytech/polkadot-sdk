@@ -333,7 +333,7 @@ fn reap_page_permanent_overweight_works() {
 			let watermark = b.begin.saturating_sub(backlog);
 
 			if i >= watermark {
-				break
+				break;
 			}
 			assert_ok!(MessageQueue::do_reap_page(&Here, i));
 			assert_eq!(QueueChanges::take(), vec![(Here, b.message_count - 1, b.size - 23)]);
@@ -871,7 +871,7 @@ fn page_try_append_message_basic_works() {
 	for i in 0..u32::MAX {
 		let r = i.using_encoded(|i| page.try_append_message::<Test>(i.try_into().unwrap()));
 		if r.is_err() {
-			break
+			break;
 		} else {
 			msgs += 1;
 		}

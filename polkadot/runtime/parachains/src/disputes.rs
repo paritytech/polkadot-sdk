@@ -870,7 +870,7 @@ impl<T: Config> Pallet<T> {
 		let config = configuration::ActiveConfig::<T>::get();
 
 		if notification.session_index <= config.dispute_period + 1 {
-			return
+			return;
 		}
 
 		let pruning_target = notification.session_index - config.dispute_period - 1;
@@ -962,7 +962,7 @@ impl<T: Config> Pallet<T> {
 		let dispute_state = {
 			if let Some(dispute_state) = Disputes::<T>::get(&set.session, &set.candidate_hash) {
 				if dispute_state.concluded_at.as_ref().map_or(false, |c| c < &oldest_accepted) {
-					return StatementSetFilter::RemoveAll
+					return StatementSetFilter::RemoveAll;
 				}
 
 				dispute_state
@@ -989,7 +989,7 @@ impl<T: Config> Pallet<T> {
 				let validator_public = match session_info.validators.get(*validator_index) {
 					None => {
 						filter.remove_index(i);
-						continue
+						continue;
 					},
 					Some(v) => v,
 				};
@@ -1000,7 +1000,7 @@ impl<T: Config> Pallet<T> {
 					Ok(u) => u,
 					Err(_) => {
 						filter.remove_index(i);
-						continue
+						continue;
 					},
 				};
 
@@ -1029,7 +1029,7 @@ impl<T: Config> Pallet<T> {
 
 					importer.undo(undo);
 					filter.remove_index(i);
-					continue
+					continue;
 				};
 			}
 
@@ -1040,14 +1040,14 @@ impl<T: Config> Pallet<T> {
 		if summary.state.validators_for.count_ones() == 0 ||
 			summary.state.validators_against.count_ones() == 0
 		{
-			return StatementSetFilter::RemoveAll
+			return StatementSetFilter::RemoveAll;
 		}
 
 		// Reject disputes containing less votes than needed for confirmation.
 		if (summary.state.validators_for.clone() | &summary.state.validators_against).count_ones() <=
 			byzantine_threshold(summary.state.validators_for.len())
 		{
-			return StatementSetFilter::RemoveAll
+			return StatementSetFilter::RemoveAll;
 		}
 
 		filter
@@ -1212,7 +1212,7 @@ impl<T: Config> Pallet<T> {
 		included_in: BlockNumberFor<T>,
 	) {
 		if included_in.is_zero() {
-			return
+			return;
 		}
 
 		let revert_to = included_in - One::one();
@@ -1294,7 +1294,7 @@ fn check_signature(
 			if approval_multiple_candidates_enabled && candidates.contains(&candidate_hash) {
 				ApprovalVoteMultipleCandidates(candidates).signing_payload(session)
 			} else {
-				return Err(())
+				return Err(());
 			},
 		DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
 			ExplicitDisputeStatement { valid: false, candidate_hash, session }.signing_payload(),

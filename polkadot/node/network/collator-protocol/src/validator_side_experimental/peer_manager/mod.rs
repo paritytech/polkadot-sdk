@@ -166,7 +166,7 @@ impl<B: Backend> PeerManager<B> {
 			.unwrap_or(true);
 
 		if !needs_update {
-			return
+			return;
 		}
 
 		self.latest_finalized_session = Some(finalized_session);
@@ -182,11 +182,11 @@ impl<B: Backend> PeerManager<B> {
 					target: LOG_TARGET,
 					"Using a runtime which does not support querying the registered paras, this should not be used in production with the `--enable-experimental-collator-protocol` flag."
 				);
-				return
+				return;
 			},
 			Err(err) => {
 				JfyiError::Runtime(err).log();
-				return
+				return;
 			},
 		};
 
@@ -207,7 +207,7 @@ impl<B: Backend> PeerManager<B> {
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
-			return HashSet::new()
+			return HashSet::new();
 		}
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
@@ -267,7 +267,7 @@ impl<B: Backend> PeerManager<B> {
 		para_id: ParaId,
 	) -> bool {
 		if self.connected.peer_info(&peer_id).is_none() {
-			return false
+			return false;
 		}
 
 		let outcome = self.connected.declared(peer_id, para_id);
@@ -389,7 +389,7 @@ impl<B: Backend> PeerManager<B> {
 	) {
 		let peers: Vec<_> = peers.collect();
 		if peers.is_empty() {
-			return
+			return;
 		}
 		gum::trace!(
 			target: LOG_TARGET,
@@ -449,7 +449,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 			"Peer manager stored finalized block number {} is higher than the latest finalized block.",
 			processed_finalized_block_number,
 		);
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let ancestry_len = std::cmp::min(
@@ -458,7 +458,7 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 	);
 
 	if ancestry_len == 0 {
-		return Ok(BTreeMap::new())
+		return Ok(BTreeMap::new());
 	}
 
 	let mut ancestors =

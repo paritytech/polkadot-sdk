@@ -19,7 +19,6 @@
 //! Similar to types that implement [`PerThing`](crate::per_things), these are also
 //! fixed-point types, however, they are able to represent larger fractions:
 #![doc = docify::embed!("./src/lib.rs", fixed_u64)]
-//!
 //! ### Fixed Point Types in Practice
 //!
 //! If one needs to exceed the value of one (1), then
@@ -30,7 +29,6 @@
 	"./src/lib.rs",
 	fixed_u64_block_computation_example
 )]
-//!
 //! For a much more comprehensive example, be sure to look at the source for broker (the "coretime")
 //! pallet.
 //!
@@ -183,7 +181,7 @@ pub trait FixedPointNumber:
 		d: D,
 	) -> Option<Self> {
 		if d == D::zero() {
-			return None
+			return None;
 		}
 
 		let n: I129 = n.into();
@@ -591,10 +589,10 @@ macro_rules! implement_fixed {
 			/// Compute the square root. If it overflows or is negative, then `None` is returned.
 			pub const fn checked_sqrt(self) -> Option<Self> {
 				if self.0 == 0 {
-					return Some(Self(0))
+					return Some(Self(0));
 				}
 				if self.0 < 1 {
-					return None
+					return None;
 				}
 				let v = self.0 as u128;
 
@@ -685,7 +683,7 @@ macro_rules! implement_fixed {
 				} else {
 					let unsigned_inner = n.value as $inner_type;
 					if unsigned_inner as u128 != n.value || (unsigned_inner > 0) != (n.value > 0) {
-						return None
+						return None;
 					};
 					if n.negative {
 						match unsigned_inner.checked_neg() {
@@ -779,7 +777,7 @@ macro_rules! implement_fixed {
 				rounding: SignedRounding,
 			) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs = self.into_i129();
@@ -813,7 +811,7 @@ macro_rules! implement_fixed {
 
 			fn saturating_pow(self, exp: usize) -> Self {
 				if exp == 0 {
-					return Self::saturating_from_integer(1)
+					return Self::saturating_from_integer(1);
 				}
 
 				let exp = exp as u32;
@@ -891,7 +889,7 @@ macro_rules! implement_fixed {
 		impl CheckedDiv for $name {
 			fn checked_div(&self, other: &Self) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs: I129 = self.0.into();
