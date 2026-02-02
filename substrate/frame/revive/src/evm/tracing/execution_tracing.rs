@@ -31,6 +31,18 @@ use alloc::{
 };
 use sp_core::{H160, U256};
 
+/// Tracks a pending step (opcode/syscall) that hasn't completed yet.
+/// Used to accumulate child call consumption for CALL-like opcodes.
+#[derive(Default, Debug, Clone, PartialEq)]
+struct PendingStep {
+	/// Index of this step in the `steps` vector.
+	step_index: usize,
+	/// Accumulated gas consumed by child calls.
+	child_gas: u64,
+	/// Accumulated weight consumed by child calls.
+	child_weight: Weight,
+}
+
 /// A tracer that traces opcode and syscall execution step-by-step.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct ExecutionTracer {
@@ -40,10 +52,10 @@ pub struct ExecutionTracer {
 	/// The collected trace steps.
 	steps: Vec<ExecutionStep>,
 
-	/// Stack of pending step indices awaiting their exit_step call.
-	/// When entering an opcode/syscall, we push the step index here.
-	/// When exit_step is called, we pop to find the correct step to update.
-	pending_steps: Vec<usize>,
+	/// Stack of pending steps awaiting their exit_step call.
+	/// When entering an opcode/syscall, we push here.
+	/// When exit_step is called, we pop and finalize the step's gas/weight costs.
+	pending: Vec<PendingStep>,
 
 	/// Current call depth.
 	depth: u16,
@@ -66,7 +78,7 @@ pub struct ExecutionTracer {
 	/// The return value of the transaction.
 	return_value: Bytes,
 
-	/// List of storage per call
+	/// List of storage per call depth.
 	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
 
@@ -76,7 +88,7 @@ impl ExecutionTracer {
 		Self {
 			config,
 			steps: Vec::new(),
-			pending_steps: Vec::new(),
+			pending: Vec::new(),
 			depth: 0,
 			step_count: 0,
 			total_gas_used: 0,
@@ -146,7 +158,7 @@ impl Tracing for ExecutionTracer {
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
 			gas_cost: Default::default(),
-			weight_cost: trace_info.weight_consumed(),
+			weight_cost: trace_info.weight_consumed(), // Store initial weight, will be updated later
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -159,10 +171,9 @@ impl Tracing for ExecutionTracer {
 			},
 		};
 
-		// Track this step's index so exit_step can find it even after nested steps are added
 		let step_index = self.steps.len();
 		self.steps.push(step);
-		self.pending_steps.push(step_index);
+		self.pending.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
 		self.step_count += 1;
 	}
 
@@ -185,7 +196,7 @@ impl Tracing for ExecutionTracer {
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
 			gas_cost: Default::default(),
-			weight_cost: trace_info.weight_consumed(),
+			weight_cost: trace_info.weight_consumed(), // Store initial weight, will be updated later
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -198,25 +209,25 @@ impl Tracing for ExecutionTracer {
 
 		let step_index = self.steps.len();
 		self.steps.push(step);
-		self.pending_steps.push(step_index);
+		self.pending.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
 		self.step_count += 1;
 	}
 
 	fn exit_step(&mut self, trace_info: &dyn FrameTraceInfo, returned: Option<u64>) {
-		if let Some(step_index) = self.pending_steps.pop() {
-			if let Some(step) = self.steps.get_mut(step_index) {
-				// For call/instantiation opcodes, gas_cost was already set in enter_child_span
-				// (opcode_cost + gas_forwarded). For other opcodes, calculate it here.
-				if step.gas_cost == 0 {
-					step.gas_cost = step.gas.saturating_sub(trace_info.gas_left());
-				}
-				// weight_cost is the total weight consumed (including child calls)
-				step.weight_cost = trace_info.weight_consumed().saturating_sub(step.weight_cost);
-				if !self.config.disable_syscall_details {
-					if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
-						*ret = returned;
-					}
-				}
+		let Some(pending) = self.pending.pop() else { return };
+		let Some(step) = self.steps.get_mut(pending.step_index) else { return };
+
+		// Calculate opcode cost: total consumption minus child consumption
+		let total_gas = step.gas.saturating_sub(trace_info.gas_left());
+		step.gas_cost = total_gas.saturating_sub(pending.child_gas);
+
+		// weight_cost currently holds initial weight; calculate total then subtract child
+		let total_weight = trace_info.weight_consumed().saturating_sub(step.weight_cost);
+		step.weight_cost = total_weight.saturating_sub(pending.child_weight);
+
+		if !self.config.disable_syscall_details {
+			if let ExecutionStepKind::PVMSyscall { returned: ref mut ret, .. } = step.kind {
+				*ret = returned;
 			}
 		}
 	}
@@ -229,24 +240,25 @@ impl Tracing for ExecutionTracer {
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		gas_limit: u64,
-		parent_gas_left: Option<u64>,
+		_gas_limit: u64,
 	) {
-		// Set gas_cost of the pending call/instantiation step.
-		// gas_cost = opcode_gas_cost + gas_forwarded
-		if let Some(&step_index) = self.pending_steps.last() {
-			if let Some(step) = self.steps.get_mut(step_index) {
-				if let Some(parent_gas) = parent_gas_left {
-					let opcode_gas_cost = step.gas.saturating_sub(parent_gas);
-					step.gas_cost = opcode_gas_cost.saturating_add(gas_limit);
-				}
-			}
-		}
+		// Costs will be calculated in exit_step by subtracting child consumption from total.
 		self.storages_per_call.push(Default::default());
 		self.depth += 1;
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		gas_used: u64,
+		weight_consumed: Weight,
+	) {
+		// Accumulate child consumption to the parent step
+		if let Some(parent) = self.pending.last_mut() {
+			parent.child_gas = parent.child_gas.saturating_add(gas_used);
+			parent.child_weight = parent.child_weight.saturating_add(weight_consumed);
+		}
+
 		if output.did_revert() {
 			self.record_error("execution reverted".to_string());
 			if self.depth == 0 {
@@ -267,7 +279,18 @@ impl Tracing for ExecutionTracer {
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
+	fn exit_child_span_with_error(
+		&mut self,
+		error: DispatchError,
+		gas_used: u64,
+		weight_consumed: Weight,
+	) {
+		// Accumulate child consumption to the parent step
+		if let Some(parent) = self.pending.last_mut() {
+			parent.child_gas = parent.child_gas.saturating_add(gas_used);
+			parent.child_weight = parent.child_weight.saturating_add(weight_consumed);
+		}
+
 		self.record_error(format!("{:?}", error));
 
 		// Mark as failed if this is the top-level call

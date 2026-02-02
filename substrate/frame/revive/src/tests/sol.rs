@@ -749,16 +749,12 @@ fn execution_tracing_works() {
 	/// Verifies gas consistency for execution traces.
 	///
 	/// Gas equations:
-	/// - gasCost = forwarded_gas + opcode_cost (for call/create opcodes)
+	/// - gasCost = opcode_cost only (excluding forwarded gas for call/create opcodes)
 	/// - For consecutive steps at the same depth:
 	///   - EVM: gas - gas_cost == next_step.gas (exact)
 	///   - PVM: gas - gas_cost >= next_step.gas (inequality, PVM instructions consume extra gas)
-	/// - At call boundaries (depth increases):
-	///   - call.gasCost > subcall_first_step.gas (difference is the call opcode cost)
-	/// - Subcall gas totals:
-	///   - Sum of gasCost in subcall <= parent call's gasCost
 	fn verify_gas_consistency(trace: &ExecutionTrace, is_evm: bool, name: &str) {
-		// 1. Verify consecutive steps at the same depth
+		// Verify consecutive steps at the same depth
 		let same_depth_violations: Vec<_> = trace
 			.struct_logs
 			.iter()
@@ -776,66 +772,6 @@ fn execution_tracing_works() {
 			same_depth_violations.is_empty(),
 			"{name}: same-depth gas violations (step, depth, gas, gas_cost, expected, actual): {same_depth_violations:?}",
 		);
-
-		// 2. Verify call boundaries: call.gasCost > subcall_first_step.gas
-		// The difference is the call opcode cost (gasCost = forwarded_gas + opcode_cost)
-		let call_boundary_violations: Vec<_> = trace
-			.struct_logs
-			.iter()
-			.zip(trace.struct_logs.iter().skip(1))
-			.enumerate()
-			.filter(|(_, (curr, next))| next.depth == curr.depth + 1)
-			.filter_map(|(i, (call_step, subcall_first))| {
-				// call.gasCost should be > subcall_first.gas
-				// because gasCost = forwarded_gas + opcode_cost
-				let valid = call_step.gas_cost > subcall_first.gas;
-				(!valid).then_some((
-					i,
-					call_step.depth,
-					call_step.gas_cost,
-					subcall_first.gas,
-					call_step.gas_cost.saturating_sub(subcall_first.gas),
-				))
-			})
-			.collect();
-
-		assert!(
-			call_boundary_violations.is_empty(),
-			"{name}: call boundary violations (step, depth, call.gasCost, subcall.gas, opcode_cost): {call_boundary_violations:?}",
-		);
-
-		// 3. Verify subcall gas totals: sum of gasCost in subcall <= parent call's gasCost
-		// Find all call steps (where next step has higher depth) and verify their subcalls
-		let logs = &trace.struct_logs;
-		for (i, (call_step, next_step)) in logs.iter().zip(logs.iter().skip(1)).enumerate() {
-			if next_step.depth != call_step.depth + 1 {
-				continue;
-			}
-
-			// Find the range of the subcall (all steps at depth > call_step.depth until we return)
-			let subcall_start = i + 1;
-			let subcall_end = logs[subcall_start..]
-				.iter()
-				.position(|s| s.depth <= call_step.depth)
-				.map(|pos| subcall_start + pos)
-				.unwrap_or(logs.len());
-
-			// Sum all gasCost at the immediate subcall depth
-			let subcall_depth = call_step.depth + 1;
-			let subcall_gas_sum: u64 = logs[subcall_start..subcall_end]
-				.iter()
-				.filter(|s| s.depth == subcall_depth)
-				.map(|s| s.gas_cost)
-				.sum();
-
-			// The sum of subcall gasCost should be <= parent call's gasCost
-			assert!(
-				subcall_gas_sum <= call_step.gas_cost,
-				"{name}: subcall gas sum ({subcall_gas_sum}) > parent call gasCost ({}) at step {i}, depth {}",
-				call_step.gas_cost,
-				call_step.depth,
-			);
-		}
 	}
 
 	for test_case in test_cases {

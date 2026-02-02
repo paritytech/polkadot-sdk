@@ -18,7 +18,7 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError,
+	Code, DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
@@ -79,7 +79,6 @@ impl Tracing for CallTracer {
 		value: U256,
 		input: &[u8],
 		gas_limit: u64,
-		_parent_gas_left: Option<u64>,
 	) {
 		// Increment parent's child call count.
 		if let Some(&index) = self.current_stack.last() {
@@ -152,7 +151,12 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -178,7 +182,13 @@ impl Tracing for CallTracer {
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
+
+	fn exit_child_span_with_error(
+		&mut self,
+		error: DispatchError,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace

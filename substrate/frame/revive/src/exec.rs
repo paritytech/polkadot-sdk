@@ -890,7 +890,6 @@ where
 					value,
 					&input_data,
 					Default::default(),
-					None,
 				);
 			});
 
@@ -911,8 +910,10 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Default::default()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+				Ok(ref output) =>
+					t.exit_child_span(&output, Default::default(), Default::default()),
+				Err(e) => t
+					.exit_child_span_with_error(e.error.into(), Default::default(), Default::default()),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1233,11 +1234,6 @@ where
 		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
-			let parent_gas_left = self
-				.frames()
-				.nth(1)
-				.and_then(|f| f.frame_meter.eth_gas_left())
-				.map(|g| g.try_into().unwrap_or_default());
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 				T::AddressMapper::to_address(&frame.account_id),
@@ -1251,7 +1247,6 @@ where
 					.unwrap_or_default()
 					.try_into()
 					.unwrap_or_default(),
-				parent_gas_left,
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1476,10 +1471,16 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
 
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) =>
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed),
+						Err(e) => tracer.exit_child_span_with_error(
+							e.error.into(),
+							gas_consumed,
+							weight_consumed,
+						),
 					}
 				});
 
@@ -1500,7 +1501,8 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let weight_consumed = frame_meter.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed, weight_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -2105,7 +2107,6 @@ where
 						value,
 						&input_data,
 						Default::default(),
-						None,
 					);
 				});
 				let result = if let Some(mock_answer) =
@@ -2132,8 +2133,13 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Default::default()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+					Ok(ref output) =>
+						t.exit_child_span(&output, Default::default(), Default::default()),
+					Err(e) => t.exit_child_span_with_error(
+						e.error.into(),
+						Default::default(),
+						Default::default(),
+					),
 				});
 
 				result.map(|_| ())

@@ -914,7 +914,7 @@ where
 				.iter()
 				.position(|&b| b != 0)
 				.map(|pos| bytes[pos..].to_vec())
-				.unwrap_or_else(|| vec![0u8]);
+				.unwrap_or_else(|| alloc::vec![0u8]);
 			Ok(Bytes::from(trimmed))
 		})
 		.collect()
