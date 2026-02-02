@@ -513,42 +513,6 @@ fn retroactive_deferred_slashes_one_before() {
 }
 
 #[test]
-fn invulnerables_are_not_slashed() {
-	// For invulnerable validators no slashing is performed.
-	ExtBuilder::default()
-		.invulnerables(vec![11])
-		.nominate(false)
-		.build_and_execute(|| {
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000);
-
-			let initial_balance = Staking::slashable_balance_of(&21);
-
-			// slash both
-			add_slash(11);
-			add_slash(21);
-			Session::roll_next();
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![
-					Event::OffenceReported {
-						offence_era: 1,
-						validator: 21,
-						fraction: Perbill::from_percent(10)
-					},
-					Event::SlashComputed { offence_era: 1, slash_era: 1, offender: 21, page: 0 },
-					Event::Slashed { staker: 21, amount: 100 }
-				]
-			);
-
-			// The validator 11 hasn't been slashed, but 21 has been.
-			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
-			// 1000 - (0.1 * initial_balance)
-			assert_eq!(asset::stakeable_balance::<T>(&21), 1000 - (initial_balance / 10));
-		});
-}
-
-#[test]
 fn dont_slash_if_fraction_is_zero() {
 	// Don't slash if the fraction is zero.
 	ExtBuilder::default().nominate(false).build_and_execute(|| {
@@ -907,10 +871,16 @@ fn garbage_collection_on_window_pruning() {
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 
-		// + 1 because we have to exit the bonding window.
-		for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
+		for era in (0..(HistoryDepth::get() + 1)).map(|offset| offset + now + 1) {
 			assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 			Session::roll_until_active_era(era);
+		}
+
+		// After HistoryDepth + 1 eras, lazy pruning is triggered.
+		// We need to manually call prune_era_step to actually remove the data.
+		let prune_era = now;
+		while EraPruningState::<T>::get(prune_era).is_some() {
+			assert_ok!(Staking::prune_era_step(RuntimeOrigin::signed(10), prune_era));
 		}
 
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_none());

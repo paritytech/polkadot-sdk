@@ -49,15 +49,7 @@ pub mod v0 {
 
 	/// Info regarding a referendum, present or past.
 	#[derive(
-		Encode,
-		Decode,
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
-		DecodeWithMemTracking,
+		Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen, DecodeWithMemTracking,
 	)]
 	pub enum ReferendumInfo<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -147,7 +139,7 @@ pub mod v1 {
 			);
 			if on_chain_version != 0 {
 				log::warn!(target: TARGET, "skipping migration from v0 to v1.");
-				return weight
+				return weight;
 			}
 			v0::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
 				let maybe_new_value = match value {
@@ -261,7 +253,7 @@ pub mod switch_block_number_provider {
 		);
 		if on_chain_version == 0 {
 			log::error!(target: TARGET, "skipping migration from v0 to switch_block_number_provider.");
-			return weight
+			return weight;
 		}
 
 		// Migration logic here

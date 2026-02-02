@@ -25,10 +25,10 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchClass;
-use sp_runtime::{RuntimeDebug, StateVersion};
+use sp_runtime::StateVersion;
 
 /// BridgeHubWestend parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubWestend;
 
 impl Chain for BridgeHubWestend {

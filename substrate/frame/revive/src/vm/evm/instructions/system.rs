@@ -28,7 +28,6 @@ use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
-// TODO: Fix the gas handling for the memory operations
 
 /// The Keccak-256 hash of the empty string `""`.
 pub const KECCAK_EMPTY: [u8; 32] =
@@ -42,7 +41,7 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 	let len = as_usize_or_halt::<E::T>(*top)?;
 	interpreter
 		.ext
-		.gas_meter_mut()
+		.frame_meter_mut()
 		.charge_or_halt(RuntimeCosts::HashKeccak256(len as u32))?;
 
 	let hash = if len == 0 {
@@ -94,7 +93,7 @@ pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
-		return ControlFlow::Continue(())
+		return ControlFlow::Continue(());
 	};
 	let code_offset = as_usize_saturated(code_offset);
 
@@ -182,7 +181,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 	}
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
-		return ControlFlow::Continue(())
+		return ControlFlow::Continue(());
 	};
 
 	// Note: This can't panic because we resized memory.
@@ -213,7 +212,7 @@ pub fn memory_resize<'a, E: Ext>(
 	len: usize,
 ) -> ControlFlow<Halt, Option<usize>> {
 	if len == 0 {
-		return ControlFlow::Continue(None)
+		return ControlFlow::Continue(None);
 	}
 
 	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;

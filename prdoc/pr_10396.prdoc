@@ -1,0 +1,26 @@
+title: '`ExecuteBlock` split up seal verification and actual execution'
+doc:
+- audience: Runtime Dev
+  description: "`ExecuteBlock` exposes the `execute_block` function that is used by\
+    \ `validate_block` to execute a block. In case auf AuRa the block execution includes\
+    \ the verification of the seal and the removal of the seal. To verify the seal,\
+    \ the block executor needs to load the current authority set. The problem is that\
+    \ when we have storage proof reclaim enabled and the host function is used in\
+    \ `on_initialize` before `pallet_aura_ext::on_initialize` (this is where we fetch\
+    \ the authority set to ensure it appears in the proof) is called, it leads to\
+    \ `validate_block` returning a different size and thus, breaking the block. To\
+    \ solve this issue `ExecuteBlock` is now split into seal verification and execution\
+    \ of the verified block. In `validate_block` the seal verification is then run\
+    \ outside of the block execution, not leading to the issues of reporting different\
+    \ proof sizes.\r\n"
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: frame-executive
+  bump: major
+- name: frame-support
+  bump: major
+- name: sp-state-machine
+  bump: major

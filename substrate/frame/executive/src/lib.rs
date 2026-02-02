@@ -229,10 +229,7 @@ pub struct Executive<
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
-	#[deprecated(
-		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
-		Use type `SingleBlockMigrations` in frame_system::Config instead."
-	)] OnRuntimeUpgrade = (),
+	OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
@@ -274,7 +271,11 @@ where
 	OriginOf<Block::Extrinsic, Context>: From<Option<System::AccountId>>,
 	UnsignedValidator: ValidateUnsigned<Call = CallOf<Block::Extrinsic, Context>>,
 {
-	fn execute_block(block: Block::LazyBlock) {
+	fn verify_and_remove_seal(_: &mut <Block as traits::Block>::LazyBlock) {
+		// Nothing to do here.
+	}
+
+	fn execute_verified_block(block: Block::LazyBlock) {
 		Executive::<
 			System,
 			Block,
@@ -760,7 +761,7 @@ where
 			} else {
 				// Check if there are any forbidden non-inherents in the block.
 				if mode == ExtrinsicInclusionMode::OnlyInherents {
-					return Err(ExecutiveError::OnlyInherentsAllowed)
+					return Err(ExecutiveError::OnlyInherentsAllowed);
 				}
 			}
 
@@ -802,7 +803,7 @@ where
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
-			return
+			return;
 		}
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
@@ -896,7 +897,7 @@ where
 		// The entire block should be discarded if an inherent fails to apply. Otherwise
 		// it may open an attack vector.
 		if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::BadMandatory.into())
+			return Err(InvalidTransaction::BadMandatory.into());
 		}
 
 		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -981,7 +982,7 @@ where
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::MandatoryValidation.into())
+			return Err(InvalidTransaction::MandatoryValidation.into());
 		}
 
 		within_span! {

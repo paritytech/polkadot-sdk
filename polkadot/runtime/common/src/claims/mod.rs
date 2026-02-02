@@ -42,7 +42,6 @@ use sp_runtime::{
 		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
 		ValidTransaction,
 	},
-	RuntimeDebug,
 };
 
 type CurrencyOf<T> = <<T as Config>::VestingSchedule as VestingSchedule<
@@ -90,7 +89,7 @@ impl WeightInfo for TestWeightInfo {
 	Copy,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Serialize,
 	Deserialize,
@@ -137,7 +136,7 @@ impl Default for StatementKind {
 	Decode,
 	DecodeWithMemTracking,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -594,7 +593,7 @@ impl<T: Config> Pallet<T> {
 
 		let vesting = Vesting::<T>::get(&signer);
 		if vesting.is_some() && T::VestingSchedule::vesting_balance(&dest).is_some() {
-			return Err(Error::<T>::VestedBalanceExists.into())
+			return Err(Error::<T>::VestedBalanceExists.into());
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.

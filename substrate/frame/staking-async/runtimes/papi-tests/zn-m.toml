@@ -31,6 +31,7 @@ id = 1100
 chain_spec_path = "./parachain.json"
 
 [parachains.collator]
+command = "polkadot-parachain"
 name = "charlie"
 rpc_port = 9946
 args = [

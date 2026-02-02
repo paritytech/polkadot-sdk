@@ -5,14 +5,12 @@
 // elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::assert_relay_parent_offset;
+use cumulus_zombienet_sdk_helpers::{assert_relay_parent_offset, assign_cores};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
 };
-
-use cumulus_zombienet_sdk_helpers::assign_cores;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), anyhow::Error> {
@@ -79,9 +77,9 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 
 	let para_client = para_node_rp_offset.wait_client().await?;
 
-	assign_cores(relay_node, 2400, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2400, vec![0, 1]).await?;
 
-	assert_relay_parent_offset(&relay_client, &para_client, 2, 30).await?;
+	assert_relay_parent_offset(&relay_client, &para_client, 2, 45).await?;
 
 	log::info!("Test finished successfully");
 

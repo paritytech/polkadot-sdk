@@ -615,7 +615,9 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
 				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					))),
 			}
 		}
 
@@ -839,6 +841,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
 	create_gap: bool,
+	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -934,6 +937,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	) -> ClientResult<Block::Hash> {
 		let root = self.apply_new_state(storage, state_version)?;
 		self.commit_state = true;
+		self.reset_storage = true;
 		Ok(root)
 	}
 
@@ -1841,6 +1845,14 @@ impl<Block: BlockT> Backend<Block> {
 
 		self.storage.db.commit(transaction)?;
 
+		// `reset_storage == true` means the entire state got replaced.
+		// In this case we optimize the `STATE` column to improve read performance.
+		if operation.reset_storage {
+			if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
+				warn!(target: "db", "Failed to optimize database after state import: {e:?}");
+			}
+		}
+
 		// Apply all in-memory state changes.
 		// Code beyond this point can't fail.
 
@@ -2152,6 +2164,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			set_head: None,
 			commit_state: false,
 			create_gap: true,
+			reset_storage: false,
 			index_ops: Default::default(),
 		})
 	}
@@ -3967,9 +3980,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize_and_reorg() {
-		//	0 - 1b
-		//	\ - 1a - 2a - 3a
-		//	     \ - 2b
+		// 	0 - 1b
+		// 	\ - 1a - 2a - 3a
+		// 	     \ - 2b
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 

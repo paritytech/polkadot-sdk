@@ -71,7 +71,7 @@ use sc_network_sync::{
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
-			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
+			EncodedProof, VerificationResult, Verifier as WarpVerifier, WarpSyncConfig,
 			WarpSyncProvider,
 		},
 	},
@@ -656,6 +656,29 @@ impl<B: BlockT> VerifierAdapter<B> {
 
 struct TestWarpSyncProvider<B: BlockT>(Arc<dyn HeaderBackend<B>>);
 
+struct TestVerifier<B: BlockT> {
+	genesis_hash: B::Hash,
+}
+
+impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
+	fn verify(
+		&mut self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
+		let EncodedProof(encoded) = proof;
+		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
+		Ok(VerificationResult::Complete(header, Default::default()))
+	}
+
+	fn next_proof_context(&self) -> B::Hash {
+		self.genesis_hash
+	}
+
+	fn status(&self) -> Option<String> {
+		None
+	}
+}
+
 impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	fn generate(
 		&self,
@@ -665,18 +688,10 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 		let best_header = self.0.header(info.best_hash).unwrap().unwrap();
 		Ok(EncodedProof(best_header.encode()))
 	}
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		_set_id: SetId,
-		_authorities: AuthorityList,
-	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
-		let EncodedProof(encoded) = proof;
-		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
-	}
-	fn current_authorities(&self) -> AuthorityList {
-		Default::default()
+
+	fn create_verifier(&self) -> Box<dyn WarpVerifier<B>> {
+		let genesis_hash = self.0.info().genesis_hash;
+		Box::new(TestVerifier { genesis_hash })
 	}
 }
 
@@ -1043,10 +1058,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 			if peer.sync_service.is_major_syncing() ||
 				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 			match (highest, peer.client.info().best_hash) {
 				(None, b) => highest = Some(b),
@@ -1062,10 +1077,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let peers = self.peers_mut();
 		for peer in peers {
 			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 		}
 
@@ -1086,7 +1101,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.await;
 
 				if self.is_in_sync().await {
-					break
+					break;
 				}
 			}
 		})
@@ -1106,7 +1121,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.await;
 
 			if self.is_idle().await {
-				break
+				break;
 			}
 		}
 	}
@@ -1125,11 +1140,11 @@ pub trait TestNetFactory: Default + Sized + Send {
 						Poll::Ready(())
 					})
 					.await;
-					continue 'outer
+					continue 'outer;
 				}
 			}
 
-			break
+			break;
 		}
 	}
 
@@ -1147,7 +1162,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 					let net_poll_future = peer.network.next_action();
 					pin_mut!(net_poll_future);
 					if let Poll::Pending = net_poll_future.poll(cx) {
-						break
+						break;
 					}
 				}
 				trace!(target: "sync", "-- Polling complete {}: {}", i, peer.id());

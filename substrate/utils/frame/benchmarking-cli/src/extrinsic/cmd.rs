@@ -107,7 +107,7 @@ impl ExtrinsicCmd {
 				list.len(),
 				list.join("\n")
 			);
-			return Ok(())
+			return Ok(());
 		}
 
 		let pallet = self.params.pallet.clone().unwrap_or_default();

@@ -36,7 +36,7 @@ use sc_cli::{
 use sc_service::{config::PrometheusConfig, BasePath};
 use sc_storage_monitor::StorageMonitorParams;
 use std::{
-	fmt::{Debug, Display, Formatter},
+	fmt::{Display, Formatter},
 	marker::PhantomData,
 	path::PathBuf,
 };
@@ -223,6 +223,12 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 1)]
+	pub statement_network_workers: usize,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -268,6 +274,7 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
+			statement_network_workers: self.statement_network_workers,
 			storage_monitor: self.storage_monitor.clone(),
 		}
 	}

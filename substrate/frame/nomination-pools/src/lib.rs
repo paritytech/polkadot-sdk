@@ -423,14 +423,7 @@ pub const POINTS_TO_BALANCE_INIT_RATIO: u32 = 1;
 
 /// Possible operations on the configuration values of this pallet.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	TypeInfo,
-	RuntimeDebugNoBound,
-	PartialEq,
-	Clone,
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
 )]
 pub enum ConfigOp<T: Codec + Debug> {
 	/// Don't change.
@@ -516,7 +509,7 @@ impl ClaimPermission {
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -699,7 +692,7 @@ impl<T: Config> PoolMember<T> {
 	MaxEncodedLen,
 	TypeInfo,
 	PartialEq,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Clone,
 	Copy,
 )]
@@ -745,7 +738,7 @@ pub struct PoolRoles<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -811,13 +804,13 @@ impl<T: Config> Commission<T> {
 
 			// do not throttle if `to` is the same or a decrease in commission.
 			if *to <= commission_as_percent {
-				return false
+				return false;
 			}
 			// Test for `max_increase` throttling.
 			//
 			// Throttled if the attempted increase in commission is greater than `max_increase`.
 			if (*to).saturating_sub(commission_as_percent) > t.max_increase {
-				return true
+				return true;
 			}
 
 			// Test for `min_delay` throttling.
@@ -840,7 +833,7 @@ impl<T: Config> Commission<T> {
 						blocks_surpassed < t.min_delay
 					}
 				},
-			)
+			);
 		}
 		false
 	}
@@ -898,7 +891,7 @@ impl<T: Config> Commission<T> {
 		);
 		if let Some(old) = self.max.as_mut() {
 			if new_max > *old {
-				return Err(Error::<T>::MaxCommissionRestricted.into())
+				return Err(Error::<T>::MaxCommissionRestricted.into());
 			}
 			*old = new_max;
 		} else {
@@ -1004,7 +997,7 @@ pub struct BondedPoolInner<T: Config> {
 ///
 /// The main purpose of this is to wrap a [`BondedPoolInner`], with the account
 /// + id of the pool, for easier access.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 pub struct BondedPool<T: Config> {
 	/// The identifier of the pool.
@@ -1280,7 +1273,7 @@ impl<T: Config> BondedPool<T> {
 			},
 			(false, true) => {
 				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into())
+				return Err(Error::<T>::DoesNotHavePermission.into());
 			},
 		};
 
@@ -1362,7 +1355,7 @@ impl<T: Config> BondedPool<T> {
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 )]
 #[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
@@ -1530,7 +1523,7 @@ impl<T: Config> RewardPool<T> {
 	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -1583,7 +1576,7 @@ impl<T: Config> UnbondPool<T> {
 	DecodeWithMemTracking,
 	TypeInfo,
 	DefaultNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -2075,9 +2068,7 @@ pub mod pallet {
 		Restricted,
 	}
 
-	#[derive(
-		Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, RuntimeDebug,
-	)]
+	#[derive(Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, PalletError, Debug)]
 	pub enum DefensiveError {
 		/// There isn't enough space in the unbond pool.
 		NotEnoughSpaceInUnbondPool,
@@ -3445,7 +3436,7 @@ impl<T: Config> Pallet<T> {
 		let balance = T::U256ToBalance::convert;
 		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
 			// There is nothing to unbond
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		// Equivalent of (current_balance / current_points) * points
@@ -3482,7 +3473,7 @@ impl<T: Config> Pallet<T> {
 		// will be zero.
 		let pending_rewards = member.pending_rewards(current_reward_counter)?;
 		if pending_rewards.is_zero() {
-			return Ok(pending_rewards)
+			return Ok(pending_rewards);
 		}
 
 		// IFF the reward is non-zero alter the member and reward pool info.
@@ -3712,15 +3703,23 @@ impl<T: Config> Pallet<T> {
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {
-			return Err(Error::<T>::NothingToAdjust.into())
+			return Err(Error::<T>::NothingToAdjust.into());
 		}
 
 		// Update frozen amount with current ED.
 		Self::freeze_pool_deposit(reward_acc)?;
 
 		if pre_frozen_balance > min_balance {
+			// Ensure the caller is the depositor or the root.
+			ensure!(
+				who == bonded_pool.roles.depositor ||
+					bonded_pool.roles.root.as_ref().map_or(false, |root| &who == root),
+				Error::<T>::DoesNotHavePermission
+			);
+
 			// Transfer excess back to depositor.
 			let excess = pre_frozen_balance.saturating_sub(min_balance);
+
 			T::Currency::transfer(reward_acc, &who, excess, Preservation::Preserve)?;
 			Self::deposit_event(Event::<T>::MinBalanceExcessAdjusted {
 				pool_id: pool,
@@ -3783,7 +3782,7 @@ impl<T: Config> Pallet<T> {
 		// if the pool doesn't have any pending slash, it implies the member also does not have any
 		// pending slash.
 		if T::StakeAdapter::pending_slash(Pool::from(pool_account.clone())).is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		// this is their actual held balance that may or may not have been slashed.
@@ -3851,7 +3850,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn do_try_state(level: u8) -> Result<(), TryRuntimeError> {
 		if level.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		// note: while a bit wacky, since they have the same key, even collecting to vec should
 		// result in the same set of keys, in the same order.
@@ -3996,7 +3995,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if level <= 1 {
-			return Ok(())
+			return Ok(());
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
@@ -4091,7 +4090,7 @@ impl<T: Config> Pallet<T> {
 				let (current_reward_counter, _) = reward_pool
 					.current_reward_counter(pool_member.pool_id, bonded_pool.points, commission)
 					.ok()?;
-				return pool_member.pending_rewards(current_reward_counter).ok()
+				return pool_member.pending_rewards(current_reward_counter).ok();
 			}
 		}
 
@@ -4150,12 +4149,12 @@ impl<T: Config> Pallet<T> {
 	pub fn api_pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		// if pool does not exist, return false.
 		if !BondedPools::<T>::contains_key(pool_id) {
-			return false
+			return false;
 		}
 
 		let pool_account = Self::generate_bonded_account(pool_id);
@@ -4173,14 +4172,14 @@ impl<T: Config> Pallet<T> {
 	pub fn api_member_needs_delegate_migration(who: T::AccountId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
 				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
 					// the pool needs to be migrated before members can be migrated.
-					return false
+					return false;
 				}
 
 				let member_balance = pool_member.total_balance();

@@ -104,7 +104,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	traits::{AtLeast32BitUnsigned, Convert, Saturating, TrailingZeroInput},
-	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
+	Debug, PerThing, Perbill, Permill, SaturatedConversion,
 };
 use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
@@ -158,7 +158,7 @@ const INCLUDE_THRESHOLD: u32 = 3;
 /// This stores the block number at which heartbeat was requested and when the worker
 /// has actually managed to produce it.
 /// Note we store such status for every `authority_index` separately.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 struct HeartbeatStatus<BlockNumber> {
 	/// An index of the session that we are supposed to send heartbeat for.
 	pub session_index: SessionIndex,
@@ -218,7 +218,7 @@ impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber
 pub type AuthIndex = u32;
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct Heartbeat<BlockNumber>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,
@@ -455,19 +455,19 @@ pub mod pallet {
 			if let Call::heartbeat { heartbeat, signature } = call {
 				if <Pallet<T>>::is_online(heartbeat.authority_index) {
 					// we already received a heartbeat for this authority
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// check if session index from heartbeat is recent
 				let current_session = T::ValidatorSet::session_index();
 				if heartbeat.session_index != current_session {
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// verify that the incoming (unverified) pubkey is actually an authority id
 				let keys = Keys::<T>::get();
 				if keys.len() as u32 != heartbeat.validators_len {
-					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into()
+					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into();
 				}
 				let authority_id = match keys.get(heartbeat.authority_index as usize) {
 					Some(id) => id,
@@ -480,7 +480,7 @@ pub mod pallet {
 				});
 
 				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
+					return InvalidTransaction::BadProof.into();
 				}
 
 				ValidTransaction::with_tag_prefix("ImOnline")
@@ -520,7 +520,7 @@ impl<T: Config> Pallet<T> {
 		let current_validators = T::ValidatorSet::validators();
 
 		if authority_index >= current_validators.len() as u32 {
-			return false
+			return false;
 		}
 
 		let authority = &current_validators[authority_index as usize];
@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if !should_heartbeat {
-			return Err(OffchainErr::TooEarly)
+			return Err(OffchainErr::TooEarly);
 		}
 
 		let session_index = T::ValidatorSet::session_index();
@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if Self::is_online(authority_index) {
-			return Err(OffchainErr::AlreadyOnline(authority_index))
+			return Err(OffchainErr::AlreadyOnline(authority_index));
 		}
 
 		// acquire lock for that authority at current heartbeat to make sure we don't
@@ -702,7 +702,7 @@ impl<T: Config> Pallet<T> {
 			},
 		);
 		if let Err(MutateStorageError::ValueFunctionFailed(err)) = res {
-			return Err(err)
+			return Err(err);
 		}
 
 		let mut new_status = res.map_err(|_| OffchainErr::FailedToAcquireLock)?;
@@ -817,7 +817,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 }
 
 /// An offence that is filed if a validator didn't send a heartbeat message.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
 pub struct UnresponsivenessOffence<Offender> {
 	/// The current session index in which we report the unresponsive validators.

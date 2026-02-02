@@ -587,13 +587,10 @@ impl MaxEncodedLen for MultiAssets {
 
 impl Decode for MultiAssets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let mut bounded_instructions =
+		let bounded_instructions =
 			BoundedVec::<MultiAsset, ConstU32<{ MAX_ITEMS_IN_MULTIASSETS as u32 }>>::decode(input)?;
-
-		bounded_instructions.sort();
-
 		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Duplicate items".into())
+			.map_err(|()| "Out of order".into())
 	}
 }
 
@@ -663,7 +660,7 @@ impl MultiAssets {
 	/// `From::<Vec<MultiAsset>>::from` which is infallible.
 	pub fn from_sorted_and_deduplicated(r: Vec<MultiAsset>) -> Result<Self, ()> {
 		if r.is_empty() {
-			return Ok(Self(Vec::new()))
+			return Ok(Self(Vec::new()));
 		}
 		r.iter().skip(1).try_fold(&r[0], |a, b| -> Result<&MultiAsset, ()> {
 			if a.id < b.id || a < b && (a.is_non_fungible(None) || b.is_non_fungible(None)) {
@@ -685,7 +682,6 @@ impl MultiAssets {
 	pub fn from_sorted_and_deduplicated_skip_checks(r: Vec<MultiAsset>) -> Self {
 		Self::from_sorted_and_deduplicated(r).expect("Invalid input r is not sorted/deduped")
 	}
-
 	/// Create a new instance of `MultiAssets` from a `Vec<MultiAsset>` whose contents are sorted
 	/// and which contain no duplicates.
 	///
@@ -706,7 +702,7 @@ impl MultiAssets {
 			match (&a.fun, &mut asset.fun) {
 				(Fungibility::Fungible(amount), Fungibility::Fungible(balance)) => {
 					*balance = balance.saturating_add(*amount);
-					return
+					return;
 				},
 				(Fungibility::NonFungible(inst1), Fungibility::NonFungible(inst2))
 					if inst1 == inst2 =>

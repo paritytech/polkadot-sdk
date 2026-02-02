@@ -23,7 +23,6 @@ extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_debug_derive::RuntimeDebug;
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -34,7 +33,7 @@ use core::{
 use ref_cast::RefCast;
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageKey(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
@@ -47,7 +46,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, Debug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -95,7 +94,7 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 #[derive(RefCast)]
@@ -136,7 +135,7 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageData(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
@@ -174,7 +173,7 @@ pub struct Storage {
 }
 
 /// Storage change set
-#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {

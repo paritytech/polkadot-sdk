@@ -36,7 +36,6 @@
 //!
 //! ### Example
 #![doc = docify::embed!("src/tests.rs", sign_and_execute_meta_tx)]
-//!
 //! ## Low-Level / Implementation Details
 //!
 //! The structure of a meta transaction is identical to the
@@ -82,7 +81,7 @@ use sp_std::prelude::*;
 /// Meta Transaction type.
 ///
 /// The data that is provided and signed by the signer and shared with the relayer.
-#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, RuntimeDebug, DecodeWithMemTracking)]
+#[derive(Encode, Decode, PartialEq, Eq, TypeInfo, Clone, Debug, DecodeWithMemTracking)]
 pub struct MetaTx<Call, Extension> {
 	/// The target call to be executed on behalf of the signer.
 	call: Call,

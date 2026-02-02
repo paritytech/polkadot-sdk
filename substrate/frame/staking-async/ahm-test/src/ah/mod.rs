@@ -17,6 +17,7 @@
 
 pub mod mock;
 pub mod test;
+pub mod weights;
 
 // re-export for easier use in dual runtime tests.
 pub use mock::*;

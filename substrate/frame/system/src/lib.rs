@@ -118,7 +118,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 use sp_version::RuntimeVersion;
 
@@ -285,16 +285,7 @@ where
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
 #[derive(
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Default,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
+	Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
 )]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
@@ -672,7 +663,7 @@ pub mod pallet {
 
 		/// The migrator that is used to run Multi-Block-Migrations.
 		///
-		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// Can be set to `pallet_migrations` or an alternative implementation of the interface.
 		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
@@ -820,13 +811,13 @@ pub mod pallet {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
 			if let Err(err) = task.run() {
 				Self::deposit_event(Event::TaskFailed { task, err });
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			// Emit a success event, if your design includes events for this pallet.
@@ -897,7 +888,7 @@ pub mod pallet {
 					});
 
 					// Not the fault of the caller of call.
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 			};
 			T::OnSetCode::set_code(code)?;
@@ -1146,7 +1137,7 @@ pub mod pallet {
 							provides: vec![res.code_hash.encode()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: true,
-						})
+						});
 					}
 				}
 			}
@@ -1168,7 +1159,7 @@ pub mod pallet {
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: false,
-						})
+						});
 					}
 				}
 			}
@@ -1185,7 +1176,7 @@ pub type Key = Vec<u8>;
 pub type KeyValue = (Vec<u8>, Vec<u8>);
 
 /// A phase of a block's execution.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
 	/// Applying an extrinsic.
@@ -1203,7 +1194,7 @@ impl Default for Phase {
 }
 
 /// Record of an event happening.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub struct EventRecord<E: Parameter + Member, T> {
 	/// The phase of the block it happened in.
@@ -1232,7 +1223,7 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
@@ -1252,7 +1243,7 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
@@ -1510,14 +1501,14 @@ where
 }
 
 /// Reference status; can be either referenced or unreferenced.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum RefStatus {
 	Referenced,
 	Unreferenced,
 }
 
 /// Some resultant status relevant to incrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum IncRefStatus {
 	/// Account was created.
 	Created,
@@ -1526,7 +1517,7 @@ pub enum IncRefStatus {
 }
 
 /// Some resultant status relevant to decrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum DecRefStatus {
 	/// Account was destroyed.
 	Reaped,
@@ -1856,7 +1847,7 @@ impl<T: Config> Pallet<T> {
 
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return
+			return;
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();
@@ -2341,7 +2332,7 @@ impl<T: Config> Pallet<T> {
 	/// - `check_version`: Should the runtime version be checked?
 	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return CanSetCodeResult::MultiBlockMigrationsOngoing
+			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
 		if check_version {
@@ -2349,7 +2340,7 @@ impl<T: Config> Pallet<T> {
 			let Some(new_version) = sp_io::misc::runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
-				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
 			};
 
 			cfg_if::cfg_if! {

@@ -24,16 +24,16 @@ use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	pallet_prelude::ValueQuery, traits::StorageVersion, weights::Weight, Twox64Concat,
 };
-use sp_runtime::RuntimeDebug;
+use Debug;
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq)]
 struct SeatHolder<AccountId, Balance> {
 	who: AccountId,
 	stake: Balance,
 	deposit: Balance,
 }
 
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq)]
 struct Voter<AccountId, Balance> {
 	votes: Vec<AccountId>,
 	stake: Balance,

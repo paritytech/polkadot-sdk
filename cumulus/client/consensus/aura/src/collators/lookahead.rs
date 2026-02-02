@@ -35,10 +35,10 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -66,7 +66,7 @@ use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -93,8 +93,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
+	/// The proposer for building blocks.
+	pub proposer: ProposerFactory,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
@@ -126,7 +126,7 @@ where
 			Ok(sd) => sd,
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-				return None
+				return None;
 			},
 		};
 
@@ -171,7 +171,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -223,7 +223,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -249,7 +249,7 @@ where
 					"Failed to initialize consensus: no relay chain import notification stream"
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -288,7 +288,7 @@ where
 					"Para is not scheduled on any core, skipping import notification",
 				);
 
-				continue
+				continue;
 			};
 
 			let max_pov_size = match params
@@ -304,7 +304,7 @@ where
 				Ok(Some(pvd)) => pvd.max_pov_size,
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-					continue
+					continue;
 				},
 			};
 
@@ -349,7 +349,7 @@ where
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			// Trigger pre-conect to backing groups if necessary.
@@ -404,7 +404,7 @@ where
 				{
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 					Ok(x) => x,
 				};
@@ -413,7 +413,7 @@ where
 					params.code_hash_provider.code_hash_at(parent_hash)
 				else {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				};
 
 				super::check_validation_code_or_log(
@@ -450,7 +450,7 @@ where
 							block_data.blocks().first().map(|b| b.header().clone())
 						else {
 							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
-							break
+							break;
 						};
 
 						let new_block_hash = new_block_header.hash();
@@ -498,11 +498,11 @@ where
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
+						break;
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 				}
 			}

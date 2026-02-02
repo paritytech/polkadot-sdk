@@ -61,7 +61,7 @@ where
 		let client = &client;
 
 		if last < block {
-			return Poll::Ready(Err("Invalid block range specified".into()))
+			return Poll::Ready(Err("Invalid block range specified".into()));
 		}
 
 		if !wrote_header {
@@ -94,7 +94,7 @@ where
 			info!("#{}", block);
 		}
 		if block == last {
-			return Poll::Ready(Ok(()))
+			return Poll::Ready(Ok(()));
 		}
 		block += One::one();
 

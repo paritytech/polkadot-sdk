@@ -45,11 +45,9 @@
 //!
 //! 1. Scheduling a runtime call at a specific block.
 #![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
-//!
 //! 2. Scheduling a preimage hash of a runtime call at a specific block
 #![doc = docify::embed!("src/tests.rs", scheduling_with_preimages_works)]
 
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -105,7 +103,7 @@ use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{BadOrigin, BlockNumberProvider, Dispatchable, One, Saturating, Zero},
-	BoundedVec, DispatchError, RuntimeDebug,
+	BoundedVec, Debug, DispatchError,
 };
 
 pub use pallet::*;
@@ -129,7 +127,7 @@ pub type BlockNumberFor<T> =
 #[derive(
 	Clone,
 	Copy,
-	RuntimeDebug,
+	Debug,
 	PartialEq,
 	Eq,
 	Encode,
@@ -148,7 +146,7 @@ pub struct RetryConfig<Period> {
 }
 
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
-#[derive(Clone, RuntimeDebug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 struct ScheduledV1<Call, BlockNumber> {
 	maybe_id: Option<Vec<u8>>,
 	priority: schedule::Priority,
@@ -158,15 +156,7 @@ struct ScheduledV1<Call, BlockNumber> {
 
 /// Information regarding an item to be executed in the future.
 #[derive(
-	Clone,
-	RuntimeDebug,
-	PartialEq,
-	Eq,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct Scheduled<Name, Call, BlockNumber, PalletsOrigin, AccountId> {
 	/// The unique identity for this task, if there is one.
@@ -484,7 +474,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Cancel an anonymously scheduled task.
+		/// Cancel a scheduled task (named or anonymous), by providing the block it is scheduled for
+		/// execution in, as well as the index of the task in that block's agenda.
+		///
+		/// In the case of a named task, it will remove it from the lookup table as well.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel(T::MaxScheduledPerBlock::get()))]
 		pub fn cancel(origin: OriginFor<T>, when: BlockNumberFor<T>, index: u32) -> DispatchResult {
@@ -586,6 +579,8 @@ pub mod pallet {
 		/// clones of the original task. Their retry configuration will be derived from the
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
+		///
+		/// This call **cannot** be used to set a retry configuration for a named task.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -623,6 +618,8 @@ pub mod pallet {
 		/// clones of the original task. Their retry configuration will be derived from the
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
+		///
+		/// This is the only way to set a retry configuration for a named task.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
@@ -872,7 +869,7 @@ impl<T: Config> Pallet<T> {
 												&h,
 												&err
 											);
-											return None
+											return None;
 										}
 										weight.saturating_accrue(T::DbWeight::get().reads(1));
 										log::info!("Migrated call by hash, hash: {:?}", h);
@@ -975,7 +972,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if when <= now {
-			return Err(Error::<T>::TargetBlockNumberInPast.into())
+			return Err(Error::<T>::TargetBlockNumberInPast.into());
 		}
 
 		Ok(when)
@@ -1009,7 +1006,7 @@ impl<T: Config> Pallet<T> {
 				agenda[hole_index] = Some(what);
 				hole_index as u32
 			} else {
-				return Err((DispatchError::Exhausted, what))
+				return Err((DispatchError::Exhausted, what));
 			}
 		};
 		Agenda::<T>::insert(when, agenda);
@@ -1021,11 +1018,16 @@ impl<T: Config> Pallet<T> {
 	fn cleanup_agenda(when: BlockNumberFor<T>) {
 		let mut agenda = Agenda::<T>::get(when);
 		match agenda.iter().rposition(|i| i.is_some()) {
+			// Note that `agenda.len() > i + 1` implies that the agenda ends on a sequence of at
+			// least one `None` item(s).
 			Some(i) if agenda.len() > i + 1 => {
 				agenda.truncate(i + 1);
 				Agenda::<T>::insert(when, agenda);
 			},
+			// This branch is taken if `agenda.len() <= i + 1 ==> agenda.len() == i + 1 <==>
+			// agenda.len() - 1 == i` i.e. the agenda's last item is `Some`.
 			Some(_) => {},
+			// All items in the agenda are `None`.
 			None => {
 				Agenda::<T>::remove(when);
 			},
@@ -1091,7 +1093,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::Canceled { when, index });
 			Ok(())
 		} else {
-			return Err(Error::<T>::NotFound.into())
+			return Err(Error::<T>::NotFound.into());
 		}
 	}
 
@@ -1102,7 +1104,7 @@ impl<T: Config> Pallet<T> {
 		let new_time = Self::resolve_time(new_time)?;
 
 		if new_time == when {
-			return Err(Error::<T>::RescheduleNoChange.into())
+			return Err(Error::<T>::RescheduleNoChange.into());
 		}
 
 		let task = Agenda::<T>::try_mutate(when, |agenda| {
@@ -1126,7 +1128,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<TaskAddress<BlockNumberFor<T>>, DispatchError> {
 		// ensure id it is unique
 		if Lookup::<T>::contains_key(&id) {
-			return Err(Error::<T>::FailedToSchedule.into())
+			return Err(Error::<T>::FailedToSchedule.into());
 		}
 
 		let when = Self::resolve_time(when)?;
@@ -1176,7 +1178,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::Canceled { when, index });
 				Ok(())
 			} else {
-				return Err(Error::<T>::NotFound.into())
+				return Err(Error::<T>::NotFound.into());
 			}
 		})
 	}
@@ -1191,7 +1193,7 @@ impl<T: Config> Pallet<T> {
 		let (when, index) = lookup.ok_or(Error::<T>::NotFound)?;
 
 		if new_time == when {
-			return Err(Error::<T>::RescheduleNoChange.into())
+			return Err(Error::<T>::RescheduleNoChange.into());
 		}
 
 		let task = Agenda::<T>::try_mutate(when, |agenda| {
@@ -1230,7 +1232,7 @@ impl<T: Config> Pallet<T> {
 	/// Service up to `max` agendas queue starting from earliest incompletely executed agenda.
 	fn service_agendas(weight: &mut WeightMeter, now: BlockNumberFor<T>, max: u32) {
 		if weight.try_consume(T::WeightInfo::service_agendas_base()).is_err() {
-			return
+			return;
 		}
 
 		let mut incomplete_since = now + One::one();
@@ -1299,7 +1301,7 @@ impl<T: Config> Pallet<T> {
 			if !weight.can_consume(base_weight) {
 				postponed += 1;
 				agenda[agenda_index as usize] = Some(task);
-				break
+				break;
 			}
 			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
@@ -1363,7 +1365,7 @@ impl<T: Config> Pallet<T> {
 					task.maybe_periodic.is_some(),
 				));
 
-				return Err((Unavailable, Some(task)))
+				return Err((Unavailable, Some(task)));
 			},
 		};
 
@@ -1451,7 +1453,7 @@ impl<T: Config> Pallet<T> {
 		let max_weight = base_weight.saturating_add(call_weight);
 
 		if !weight.can_consume(max_weight) {
-			return Err(())
+			return Err(());
 		}
 
 		let dispatch_origin = origin.into();

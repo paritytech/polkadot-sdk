@@ -70,7 +70,7 @@ impl<T: Config> Stack<T> {
 	}
 
 	/// Get a reference to the top stack item without removing it
-	#[cfg(test)]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn top(&self) -> Option<&U256> {
 		self.stack.last()
 	}
@@ -174,6 +174,17 @@ impl<T: Config> Stack<T> {
 
 		self.stack.push(U256::from_big_endian(&word_bytes));
 		return ControlFlow::Continue(());
+	}
+
+	/// Returns a snapshot of the stack as bytes.
+	pub fn snapshot(&self) -> Vec<crate::evm::Bytes> {
+		let mut stack_bytes = Vec::new();
+		for value in self.stack.iter() {
+			let bytes = value.to_big_endian().to_vec();
+			stack_bytes.push(crate::evm::Bytes(bytes));
+		}
+
+		stack_bytes
 	}
 }
 

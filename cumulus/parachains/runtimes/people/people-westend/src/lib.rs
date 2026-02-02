@@ -64,7 +64,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use sp_statement_store::{
 	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
 	SignatureVerificationResult, Statement,
@@ -148,7 +148,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_021_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -440,7 +440,7 @@ impl pallet_multisig::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -742,8 +742,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -940,7 +940,12 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 			use xcm_config::RelayLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
@@ -973,7 +978,7 @@ impl_runtime_apis! {
 					None
 				}
 
-				fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
 					let dest = AssetHubLocation::get();
 
@@ -1147,30 +1152,9 @@ impl_runtime_apis! {
 			_source: StatementSource,
 			statement: Statement,
 		) -> Result<ValidStatement, InvalidStatement> {
-			let account = match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => account.into(),
-				SignatureVerificationResult::Invalid => {
-					tracing::debug!(target: "runtime", "Bad statement signature.");
-					return Err(InvalidStatement::BadProof)
-				},
-				SignatureVerificationResult::NoSignature => {
-					tracing::debug!(target: "runtime", "Missing statement signature.");
-					return Err(InvalidStatement::NoProof)
-				},
-			};
-
-			// For now just allow validators to store some statements.
-			// In the future we will allow people.
-			if pallet_session::Validators::<Runtime>::get().contains(&account) {
-				Ok(ValidStatement {
-					max_count: 2,
-					max_size: 1024,
-				})
-			} else {
-				Ok(ValidStatement {
-					max_count: 0,
-					max_size: 0,
-				})
+			match statement.verify_signature() {
+				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
+				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
 			}
 		}
 	}

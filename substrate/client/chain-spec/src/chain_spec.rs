@@ -620,7 +620,10 @@ where
 			},
 			(true, Genesis::Raw(raw)) => raw,
 			(_, genesis) =>
-				return Ok(ChainSpecJsonContainer { client_spec: self.client_spec.clone(), genesis }),
+				return Ok(ChainSpecJsonContainer {
+					client_spec: self.client_spec.clone(),
+					genesis,
+				}),
 		};
 
 		Ok(ChainSpecJsonContainer {
@@ -970,7 +973,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_preset.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 
 		assert_eq!(actual, expected);
@@ -1014,7 +1017,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch_raw.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
@@ -1045,7 +1048,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config_raw.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 

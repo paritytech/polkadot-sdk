@@ -25,7 +25,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
 use core::{cmp::Ordering, fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
-use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
+use sp_runtime::{traits::Convert, BoundedSlice};
 use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
@@ -71,7 +71,7 @@ pub trait ProcessMessage {
 
 /// Errors that can happen when attempting to execute an overweight message with
 /// [`ServiceQueues::execute_overweight()`].
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum ExecuteOverweightError {
 	/// The referenced message was not found.
 	NotFound,
@@ -155,7 +155,7 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 }
 
 /// The resource footprint of a queue.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct QueueFootprint {
 	/// The number of pages in the queue (including overweight pages).
 	pub pages: u32,
@@ -166,7 +166,7 @@ pub struct QueueFootprint {
 }
 
 /// The resource footprint of a batch of messages.
-#[derive(Default, Copy, Clone, PartialEq, RuntimeDebug)]
+#[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct BatchFootprint {
 	/// The number of messages in the batch.
 	pub msgs_count: usize,
@@ -181,7 +181,7 @@ pub struct BatchFootprint {
 /// For a set of messages `xcms[0..n]`, each `footprints[i]` contains the footprint
 /// of the batch `xcms[0..i]`, so as `i` increases `footprints[i]` contains the footprint
 /// of a bigger batch.
-#[derive(Default, RuntimeDebug)]
+#[derive(Default, Debug)]
 pub struct BatchesFootprints {
 	/// The position in the first available MQ page where the batch will start being appended.
 	///

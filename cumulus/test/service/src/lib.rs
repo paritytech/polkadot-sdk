@@ -362,6 +362,7 @@ where
 			transaction_pool: transaction_pool.clone(),
 			para_id,
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			metrics: Net::register_notification_metrics(
@@ -433,7 +434,7 @@ where
 
 	let collator_peer_id = network.local_peer_id();
 	if let Some(collator_key) = collator_key {
-		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),

@@ -340,8 +340,8 @@ impl ElectionProvider for MockFallback {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
-		Ok(true)
+	fn status() -> Result<Option<Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 
@@ -497,7 +497,7 @@ impl ElectionDataProvider for StakingMock {
 		if !DataProviderAllowBadData::get() &&
 			bounds.count.map_or(false, |max_len| targets.len() > max_len.0 as usize)
 		{
-			return Err("Targets too big")
+			return Err("Targets too big");
 		}
 
 		Ok(targets)

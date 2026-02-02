@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Staking, and election related pallet configurations.
+/// ! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
@@ -67,9 +67,6 @@ parameter_types! {
 
 	/// Size of the exposures. This should be small enough to make the reward payouts feasible.
 	pub MaxExposurePageSize: u32 = 64;
-
-	/// Each solution is considered "better" if it is 0.01% better.
-	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -135,6 +132,7 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
+	type Signed = MultiBlockElectionSigned;
 	type WeightInfo = weights::pallet_election_provider_multi_block::WeightInfo<Runtime>;
 }
 
@@ -143,7 +141,6 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockElectionSigned;
-	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = weights::pallet_election_provider_multi_block_verifier::WeightInfo<Runtime>;
 }
 
@@ -264,6 +261,8 @@ parameter_types! {
 	pub const RelaySessionDuration: BlockNumber = 1 * HOURS;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
+	// Nominators can unbond faster when not slashable (2 eras = 12 hours).
+	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
@@ -281,10 +280,11 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 	type RewardRemainder = ();
-	type Slash = ();
+	type Slash = Dap;
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
+	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
@@ -298,13 +298,25 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type PlanningEraOffset =
-		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
+	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+}
+
+// Relay Chain session keys type for validating session keys on AssetHub.
+// This must match the exact structure of Westend's `SessionKeys` to ensure
+// proper encoding/decoding compatibility.
+sp_runtime::impl_opaque_keys! {
+	pub struct RelayChainSessionKeys {
+		pub grandpa: sp_consensus_grandpa::AuthorityId,
+		pub babe: sp_consensus_babe::AuthorityId,
+		pub para_validator: polkadot_primitives::ValidatorId,
+		pub para_assignment: polkadot_primitives::AssignmentId,
+		pub authority_discovery: sp_authority_discovery::AuthorityId,
+		pub beefy: sp_consensus_beefy::ecdsa_crypto::AuthorityId,
+	}
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -312,6 +324,32 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
 	type MaxValidatorSetRetries = ConstU32<64>;
+	// export validator session at end of session 4 within an era.
+	type ValidatorSetExportSession = ConstU32<4>;
+	type RelayChainSessionKeys = RelayChainSessionKeys;
+	type Balance = Balance;
+	// | Key                 | Crypto  | Public Key | Signature |
+	// |---------------------|---------|------------|-----------|
+	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
+	// | babe                | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_validator      | Sr25519 | 32 bytes   | 64 bytes  |
+	// | para_assignment     | Sr25519 | 32 bytes   | 64 bytes  |
+	// | authority_discovery | Sr25519 | 32 bytes   | 64 bytes  |
+	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
+	// | Total               |         | 193 bytes  | 385 bytes |
+	// We add some buffer for SCALE encoding overhead and future expansions
+	type MaxSessionKeysLength = ConstU32<256>;
+	type MaxSessionKeysProofLength = ConstU32<512>;
+	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
 }
 
 #[derive(Encode, Decode)]
@@ -324,9 +362,16 @@ pub enum RelayChainRuntimePallets {
 
 #[derive(Encode, Decode)]
 pub enum AhClientCalls {
-	// index of `fn validator_set` in `staking-async-ah-client`. It has only one call.
+	// index of `fn validator_set` in `staking-async-ah-client`.
 	#[codec(index = 0)]
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
+	// index of `fn set_keys_from_ah` in `staking-async-ah-client`.
+	// Note: proof is validated on AH side, so only keys are sent to RC.
+	#[codec(index = 3)]
+	SetKeys { stash: AccountId, keys: Vec<u8> },
+	// index of `fn purge_keys_from_ah` in `staking-async-ah-client`.
+	#[codec(index = 4)]
+	PurgeKeys { stash: AccountId },
 }
 
 pub struct ValidatorSetToXcm;
@@ -334,30 +379,39 @@ impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<(
 	for ValidatorSetToXcm
 {
 	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
-		Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Native,
-				fallback_max_weight: None,
-				call: RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report))
-					.encode()
-					.into(),
-			},
-		])
+		rc_client::build_transact_xcm(
+			RelayChainRuntimePallets::AhClient(AhClientCalls::ValidatorSet(report)).encode(),
+		)
+	}
+}
+
+pub struct KeysMessageToXcm;
+impl sp_runtime::traits::Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
+	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
+		let encoded_call = match msg {
+			rc_client::KeysMessage::SetKeys { stash, keys } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeys { stash, keys }).encode(),
+			rc_client::KeysMessage::PurgeKeys { stash } =>
+				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeys { stash }).encode(),
+		};
+		rc_client::build_transact_xcm(encoded_call)
 	}
 }
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
+	/// Conservative RC execution cost for set/purge keys operations.
+	/// Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
+	/// Slight overpaymennt is the price we pay for maintainability here.
+	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
 pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
+	type Balance = Balance;
+
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
@@ -365,6 +419,61 @@ impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
 		>::send(report)
+	}
+
+	fn set_keys(
+		stash: Self::AccountId,
+		keys: Vec<u8>,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
+			&RemoteKeysExecutionWeight::get(),
+		);
+
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(
+			rc_client::KeysMessage::set_keys(stash.clone(), keys),
+			stash,
+			max_delivery_and_remote_execution_fee,
+			execution_cost,
+		)
+	}
+
+	fn purge_keys(
+		stash: Self::AccountId,
+		max_delivery_and_remote_execution_fee: Option<Self::Balance>,
+	) -> Result<Self::Balance, rc_client::SendKeysError<Self::Balance>> {
+		let execution_cost = <WeightToFee as frame_support::weights::WeightToFee>::weight_to_fee(
+			&RemoteKeysExecutionWeight::get(),
+		);
+
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			rc_client::KeysMessage<Self::AccountId>,
+			KeysMessageToXcm,
+		>::send_with_fees::<
+			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+			RuntimeCall,
+			AccountId,
+			rc_client::AccountId32ToLocation,
+			Self::Balance,
+		>(
+			rc_client::KeysMessage::purge_keys(stash.clone()),
+			stash,
+			max_delivery_and_remote_execution_fee,
+			execution_cost,
+		)
 	}
 }
 
@@ -496,5 +605,22 @@ where
 {
 	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn all_epmb_weights_sane() {
+		sp_tracing::try_init_simple();
+		sp_io::TestExternalities::default().execute_with(|| {
+			pallet_election_provider_multi_block::Pallet::<Runtime>::check_all_weights(
+				<Runtime as frame_system::Config>::BlockWeights::get().max_block,
+				Some(sp_runtime::Percent::from_percent(75)),
+				Some(sp_runtime::Percent::from_percent(50)),
+			);
+		})
 	}
 }

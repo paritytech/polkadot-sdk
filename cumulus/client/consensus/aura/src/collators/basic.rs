@@ -28,9 +28,9 @@ use cumulus_client_collator::{
 	relay_chain_driven::CollationRequest, service::ServiceInterface as CollatorServiceInterface,
 };
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_core::{relay_chain::BlockId as RBlockId, CollectCollationInfo};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::CollationResult;
 use polkadot_overseer::Handle as OverseerHandle;
@@ -77,7 +77,7 @@ pub struct Params<BI, CIDP, Client, RClient, Proposer, CS> {
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -109,7 +109,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -171,7 +171,7 @@ where
 			let parent_hash = parent_header.hash();
 
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			let Ok(Some(code)) =
@@ -228,7 +228,7 @@ where
 			if last_processed_slot >= *claim.slot() &&
 				last_relay_chain_block < *relay_parent_header.number()
 			{
-				continue
+				continue;
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
@@ -260,7 +260,7 @@ where
 
 			if let Some((collation, block_data)) = maybe_collation {
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
-					continue
+					continue;
 				};
 				let result_sender =
 					Some(collator.collator_service().announce_with_barrier(block_hash));

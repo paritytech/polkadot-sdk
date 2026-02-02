@@ -19,7 +19,7 @@ use codec::{Codec, Encode};
 
 use super::CollatorMessage;
 use crate::{
-	collator as collator_util,
+	collator::{self as collator_util, BuildBlockAndImportParams},
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -32,7 +32,6 @@ use crate::{
 };
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -50,6 +49,7 @@ use sc_network_types::PeerId;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
@@ -89,7 +89,7 @@ pub struct BuilderTaskParams<
 	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// The underlying block proposer this should call into.
+	/// The proposer for building blocks.
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
@@ -134,7 +134,7 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
 	P: Pair + Send + Sync + 'static,
@@ -202,7 +202,7 @@ where
 
 			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-				continue
+				continue;
 			};
 
 			let best_hash = para_client.info().best_hash;
@@ -221,7 +221,7 @@ where
 			)
 			.await
 			else {
-				continue
+				continue;
 			};
 
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
@@ -239,7 +239,7 @@ where
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
-				continue
+				continue;
 			};
 
 			let parent_hash = parent.hash;
@@ -262,7 +262,7 @@ where
 						"Failed to determine core"
 					);
 
-					continue
+					continue;
 				},
 				Ok(Some(cores)) => {
 					tracing::debug!(
@@ -282,7 +282,7 @@ where
 						"No core scheduled"
 					);
 
-					continue
+					continue;
 				},
 			};
 
@@ -336,7 +336,7 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -373,7 +373,7 @@ where
 			{
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break
+					break;
 				},
 				Ok(x) => x,
 			};
@@ -381,7 +381,7 @@ where
 			let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
 				None => {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				},
 				Some(v) => v,
 			};
@@ -425,14 +425,19 @@ where
 			};
 
 			let Ok(Some(candidate)) = collator
-				.build_block_and_import(
-					&parent_header,
-					&slot_claim,
-					Some(vec![CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()]),
-					(parachain_inherent_data, other_inherent_data),
-					adjusted_authoring_duration,
-					allowed_pov_size,
-				)
+				.build_block_and_import(BuildBlockAndImportParams {
+					parent_header: &parent_header,
+					slot_claim: &slot_claim,
+					additional_pre_digest: vec![
+						CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()
+					],
+					parachain_inherent_data,
+					extra_inherent_data: other_inherent_data,
+					proposal_duration: adjusted_authoring_duration,
+					max_pov_size: allowed_pov_size,
+					storage_proof_recorder: None,
+					extra_extensions: Default::default(),
+				})
 				.await
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
@@ -449,13 +454,13 @@ where
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
 				parent_header: parent_header.clone(),
-				parachain_candidate: candidate,
+				parachain_candidate: candidate.into(),
 				validation_code_hash,
 				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-				return
+				return;
 			}
 		}
 	}
@@ -508,7 +513,7 @@ where
 		.map(|d| d.relay_parent_header.clone())
 	else {
 		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(())
+		return Err(());
 	};
 
 	if relay_parent_offset == 0 {

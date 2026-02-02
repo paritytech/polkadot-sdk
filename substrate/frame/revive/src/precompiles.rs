@@ -31,10 +31,9 @@ mod tests;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
-	gas::{GasMeter, Token},
-	storage::meter::Diff,
+	metering::{Diff, Token},
 	vm::RuntimeCosts,
-	AddressMapper,
+	AddressMapper, TransactionLimits,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
@@ -136,6 +135,19 @@ impl From<DispatchError> for Error {
 impl<T: Config> From<CrateError<T>> for Error {
 	fn from(error: CrateError<T>) -> Self {
 		Self::Error(DispatchError::from(error).into())
+	}
+}
+
+impl Error {
+	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
+		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
+		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let message = match () {
+			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
+			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ => return e.into(),
+		};
+		Self::Revert(message.into())
 	}
 }
 
@@ -392,6 +404,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	}
 }
 
+/// The collision check is verified by a trybuild test in `ui-tests/src/ui/precompiles_ui.rs`.
 #[impl_trait_for_tuples::impl_for_tuples(20)]
 #[tuple_types_custom_trait_bound(PrimitivePrecompile<T=T>)]
 impl<T: Config> Precompiles<T> for Tuple {
@@ -455,6 +468,13 @@ impl<T: Config> Precompiles<T> for Tuple {
 		);
 		instance
 	}
+}
+
+/// This references the private trait inside the crate.
+#[cfg(feature = "trybuild")]
+#[allow(private_bounds)]
+pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
+	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
@@ -540,7 +560,7 @@ impl BuiltinAddressMatcher {
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}

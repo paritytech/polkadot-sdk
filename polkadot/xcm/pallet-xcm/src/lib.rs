@@ -55,7 +55,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, BlockNumberProvider, Dispatchable, Hash,
 		Saturating, Zero,
 	},
-	Either, RuntimeDebug, SaturatedConversion,
+	Debug, Either, SaturatedConversion,
 };
 use storage::{with_transaction, TransactionOutcome};
 use xcm::{latest::QueryResponseInfo, prelude::*};
@@ -636,15 +636,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		PartialEq,
-		Eq,
-		Clone,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		RuntimeDebug,
-		TypeInfo,
-		MaxEncodedLen,
+		PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
 	)]
 	pub enum Origin {
 		/// It comes from somewhere in the XCM space wanting to transact.
@@ -757,7 +749,7 @@ pub mod pallet {
 	}
 
 	/// The status of a query.
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum QueryStatus<BlockNumber> {
 		/// The query was sent but no response has yet been received.
 		Pending {
@@ -1026,7 +1018,7 @@ pub mod pallet {
 					if Self::request_version_notify(dest).is_ok() {
 						// TODO: correct weights.
 						weight_used.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-						break
+						break;
 					}
 				}
 			}
@@ -1048,7 +1040,7 @@ pub mod pallet {
 		use super::*;
 		use frame_support::traits::{PalletInfoAccess, StorageVersion};
 
-		#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+		#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 		enum QueryStatusV0<BlockNumber> {
 			Pending {
 				responder: VersionedLocation,
@@ -1132,7 +1124,7 @@ pub mod pallet {
 		/// **This function is deprecated: Use `limited_teleport_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// id `fee_asset_id`. The weight limit for fees is not provided and thus is unlimited,
+		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
 		/// with all fees taken as needed from the asset.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1143,7 +1135,8 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` chain.
-		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
+		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
+		///   fees.
 		#[pallet::call_index(1)]
 		#[allow(deprecated)]
 		#[deprecated(
@@ -1154,9 +1147,9 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
-			fee_asset_id: Box<VersionedAssetId>,
+			fee_asset_item: u32,
 		) -> DispatchResult {
-			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_id, Unlimited)
+			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_item, Unlimited)
 		}
 
 		/// Transfer some assets from the local chain to the destination chain through their local,
@@ -1176,7 +1169,7 @@ pub mod pallet {
 		/// **This function is deprecated: Use `limited_reserve_transfer_assets` instead.**
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// id `fee_asset_id`. The weight limit for fees is not provided and thus is unlimited,
+		/// index `fee_asset_item`. The weight limit for fees is not provided and thus is unlimited,
 		/// with all fees taken as needed from the asset.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
@@ -1187,7 +1180,8 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
+		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
+		///   fees.
 		#[pallet::call_index(2)]
 		#[allow(deprecated)]
 		#[deprecated(
@@ -1198,14 +1192,14 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
-			fee_asset_id: Box<VersionedAssetId>,
+			fee_asset_item: u32,
 		) -> DispatchResult {
 			Self::do_reserve_transfer_assets(
 				origin,
 				dest,
 				beneficiary,
 				assets,
-				fee_asset_id,
+				fee_asset_item,
 				Unlimited,
 			)
 		}
@@ -1341,7 +1335,7 @@ pub mod pallet {
 		///    to mint and deposit reserve-based assets to `beneficiary`.
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// id `fee_asset_id`, up to enough to pay for `weight_limit` of weight. If more weight
+		/// index `fee_asset_item`, up to enough to pay for `weight_limit` of weight. If more weight
 		/// is needed than `weight_limit`, then the operation will fail and the sent assets may be
 		/// at risk.
 		///
@@ -1353,7 +1347,8 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
+		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
+		///   fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::reserve_transfer_assets())]
@@ -1362,7 +1357,7 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
-			fee_asset_id: Box<VersionedAssetId>,
+			fee_asset_item: u32,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
 			Self::do_reserve_transfer_assets(
@@ -1370,7 +1365,7 @@ pub mod pallet {
 				dest,
 				beneficiary,
 				assets,
-				fee_asset_id,
+				fee_asset_item,
 				weight_limit,
 			)
 		}
@@ -1378,7 +1373,7 @@ pub mod pallet {
 		/// Teleport some assets from the local chain to some destination chain.
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// id `fee_asset_id`, up to enough to pay for `weight_limit` of weight. If more weight
+		/// index `fee_asset_item`, up to enough to pay for `weight_limit` of weight. If more weight
 		/// is needed than `weight_limit`, then the operation will fail and the sent assets may be
 		/// at risk.
 		///
@@ -1390,7 +1385,8 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` chain.
-		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
+		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
+		///   fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::teleport_assets())]
@@ -1399,10 +1395,17 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
-			fee_asset_id: Box<VersionedAssetId>,
+			fee_asset_item: u32,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
-			Self::do_teleport_assets(origin, dest, beneficiary, assets, fee_asset_id, weight_limit)
+			Self::do_teleport_assets(
+				origin,
+				dest,
+				beneficiary,
+				assets,
+				fee_asset_item,
+				weight_limit,
+			)
 		}
 
 		/// Set or unset the global suspension state of the XCM executor.
@@ -1420,7 +1423,7 @@ pub mod pallet {
 		/// destination or remote reserve, or through teleports.
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
-		/// id `fee_asset_id` (hence referred to as `fees`), up to enough to pay for
+		/// index `fee_asset_item` (hence referred to as `fees`), up to enough to pay for
 		/// `weight_limit` of weight. If more weight is needed than `weight_limit`, then the
 		/// operation will fail and the sent assets may be at risk.
 		///
@@ -1446,7 +1449,8 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
-		/// - `fee_asset_id`: Id of the asset from `assets` which should be used to pay fees.
+		/// - `fee_asset_item`: The index into `assets` of the item which should be used to pay
+		///   fees.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(11)]
 		pub fn transfer_assets(
@@ -1454,7 +1458,7 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
-			fee_asset_id: Box<VersionedAssetId>,
+			fee_asset_item: u32,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
 			let origin = T::ExecuteXcmOrigin::ensure_origin(origin)?;
@@ -1479,30 +1483,24 @@ pub mod pallet {
 				);
 				Error::<T>::BadVersion
 			})?;
-			let fee_asset_id: AssetId = (*fee_asset_id).try_into().map_err(|()| {
-				tracing::debug!(
-					target: "xcm::pallet_xcm::transfer_assets",
-					"Failed to convert VersionedAssetId",
-				);
-				Error::<T>::BadVersion
-			})?;
 			tracing::debug!(
 				target: "xcm::pallet_xcm::transfer_assets",
-				?origin, ?dest, ?beneficiary, ?assets, ?fee_asset_id, ?weight_limit,
+				?origin, ?dest, ?beneficiary, ?assets, ?fee_asset_item, ?weight_limit,
 			);
 
 			ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 			let assets = assets.into_inner();
+			let fee_asset_item = fee_asset_item as usize;
 			// Find transfer types for fee and non-fee assets.
 			let (fees_transfer_type, assets_transfer_type) =
-				Self::find_fee_and_assets_transfer_types(&assets, &fee_asset_id, &dest)?;
+				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
 			// We check for network native asset reserve transfers in preparation for the Asset Hub
 			// Migration. This check will be removed after the migration and the determined
 			// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
 			Self::ensure_network_asset_reserve_transfer_allowed(
 				&assets,
-				&fee_asset_id,
+				fee_asset_item,
 				&assets_transfer_type,
 				&fees_transfer_type,
 			)?;
@@ -1513,7 +1511,7 @@ pub mod pallet {
 				Either::Left(beneficiary),
 				assets,
 				assets_transfer_type,
-				fee_asset_id,
+				fee_asset_item,
 				fees_transfer_type,
 				weight_limit,
 			)
@@ -1672,13 +1670,15 @@ pub mod pallet {
 			let assets = assets.into_inner();
 			ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 
+			let fee_asset_index =
+				assets.iter().position(|a| a.id == fees_id).ok_or(Error::<T>::FeesNotMet)?;
 			Self::do_transfer_assets(
 				origin_location,
 				dest,
 				Either::Right(remote_xcm),
 				assets,
 				*assets_transfer_type,
-				fees_id,
+				fee_asset_index,
 				*fees_transfer_type,
 				weight_limit,
 			)
@@ -1990,25 +1990,25 @@ impl<T: Config> Pallet<T> {
 		AssetTraps::<T>::get(trap_id)
 	}
 
-	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_id`, when
+	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
 	/// transferring to `dest`.
 	///
 	/// Validate `assets` to all have same `TransferType`.
 	fn find_fee_and_assets_transfer_types(
 		assets: &[Asset],
-		fee_asset_id: &AssetId,
+		fee_asset_item: usize,
 		dest: &Location,
 	) -> Result<(TransferType, TransferType), Error<T>> {
 		let mut fees_transfer_type = None;
 		let mut assets_transfer_type = None;
-		for asset in assets.iter() {
+		for (idx, asset) in assets.iter().enumerate() {
 			if let Fungible(x) = asset.fun {
 				// If fungible asset, ensure non-zero amount.
 				ensure!(!x.is_zero(), Error::<T>::Empty);
 			}
 			let transfer_type =
 				T::XcmExecutor::determine_for(&asset, dest).map_err(Error::<T>::from)?;
-			if asset.id == *fee_asset_id {
+			if idx == fee_asset_item {
 				fees_transfer_type = Some(transfer_type);
 			} else {
 				if let Some(existing) = assets_transfer_type.as_ref() {
@@ -2036,7 +2036,7 @@ impl<T: Config> Pallet<T> {
 		dest: Box<VersionedLocation>,
 		beneficiary: Box<VersionedLocation>,
 		assets: Box<VersionedAssets>,
-		fee_asset_id: Box<VersionedAssetId>,
+		fee_asset_item: u32,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
@@ -2061,16 +2061,9 @@ impl<T: Config> Pallet<T> {
 			);
 			Error::<T>::BadVersion
 		})?;
-		let fee_asset_id: AssetId = (*fee_asset_id).try_into().map_err(|()| {
-			tracing::debug!(
-				target: "xcm::pallet_xcm::do_reserve_transfer_assets",
-				"Failed to convert VersionedAssetId",
-			);
-			Error::<T>::BadVersion
-		})?;
 		tracing::debug!(
 			target: "xcm::pallet_xcm::do_reserve_transfer_assets",
-			?origin_location, ?dest, ?beneficiary, ?assets, ?fee_asset_id,
+			?origin_location, ?dest, ?beneficiary, ?assets, ?fee_asset_item,
 		);
 
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
@@ -2078,11 +2071,12 @@ impl<T: Config> Pallet<T> {
 		ensure!(T::XcmReserveTransferFilter::contains(&value), Error::<T>::Filtered);
 		let (origin, assets) = value;
 
-		let fees = assets.iter().find(|a| a.id == fee_asset_id).ok_or(Error::<T>::Empty)?.clone();
+		let fee_asset_item = fee_asset_item as usize;
+		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
 
 		// Find transfer types for fee and non-fee assets.
 		let (fees_transfer_type, assets_transfer_type) =
-			Self::find_fee_and_assets_transfer_types(&assets, &fee_asset_id, &dest)?;
+			Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 		// Ensure assets (and fees according to check below) are not teleportable to `dest`.
 		ensure!(assets_transfer_type != TransferType::Teleport, Error::<T>::Filtered);
 		// Ensure all assets (including fees) have same reserve location.
@@ -2093,7 +2087,7 @@ impl<T: Config> Pallet<T> {
 		// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
 		Self::ensure_network_asset_reserve_transfer_allowed(
 			&assets,
-			&fee_asset_id,
+			fee_asset_item,
 			&assets_transfer_type,
 			&fees_transfer_type,
 		)?;
@@ -2115,7 +2109,7 @@ impl<T: Config> Pallet<T> {
 		dest: Box<VersionedLocation>,
 		beneficiary: Box<VersionedLocation>,
 		assets: Box<VersionedAssets>,
-		fee_asset_id: Box<VersionedAssetId>,
+		fee_asset_item: u32,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
@@ -2140,33 +2134,21 @@ impl<T: Config> Pallet<T> {
 			);
 			Error::<T>::BadVersion
 		})?;
-		let fee_asset_id: AssetId = (*fee_asset_id).try_into().map_err(|()| {
-			tracing::debug!(
-				target: "xcm::pallet_xcm::do_teleport_assets",
-				"Failed to convert VersionedAssetId",
-			);
-			Error::<T>::BadVersion
-		})?;
-
 		tracing::debug!(
 			target: "xcm::pallet_xcm::do_teleport_assets",
-			?origin_location, ?dest, ?beneficiary, ?assets, ?fee_asset_id, ?weight_limit,
+			?origin_location, ?dest, ?beneficiary, ?assets, ?fee_asset_item, ?weight_limit,
 		);
 
 		ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 		let value = (origin_location, assets.into_inner());
 		ensure!(T::XcmTeleportFilter::contains(&value), Error::<T>::Filtered);
 		let (origin_location, assets) = value;
-		let mut maybe_fee_asset = None;
 		for asset in assets.iter() {
 			let transfer_type =
 				T::XcmExecutor::determine_for(asset, &dest).map_err(Error::<T>::from)?;
 			ensure!(transfer_type == TransferType::Teleport, Error::<T>::Filtered);
-			if asset.id == fee_asset_id {
-				maybe_fee_asset = Some(asset)
-			}
 		}
-		let fees = maybe_fee_asset.ok_or(Error::<T>::Empty)?.clone();
+		let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
 
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin_location.clone(),
@@ -2186,14 +2168,13 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Either<Location, Xcm<()>>,
 		mut assets: Vec<Asset>,
 		assets_transfer_type: TransferType,
-		fee_asset_id: AssetId,
+		fee_asset_index: usize,
 		fees_transfer_type: TransferType,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		// local and remote XCM programs to potentially handle fees separately
 		let fees = if fees_transfer_type == assets_transfer_type {
-			let fees =
-				assets.iter().find(|a| a.id == fee_asset_id).ok_or(Error::<T>::Empty)?.clone();
+			let fees = assets.get(fee_asset_index).ok_or(Error::<T>::Empty)?.clone();
 			// no need for custom fees instructions, fees are batched with assets
 			FeesHandling::Batched { fees }
 		} else {
@@ -2209,8 +2190,6 @@ impl<T: Config> Pallet<T> {
 			let weight_limit = weight_limit.clone();
 			// remove `fees` from `assets` and build separate fees transfer instructions to be
 			// added to assets transfers XCM programs
-			let fee_asset_index =
-				assets.iter().position(|a| a.id == fee_asset_id).ok_or(Error::<T>::FeesNotMet)?;
 			let fees = assets.remove(fee_asset_index);
 			let (local_xcm, remote_xcm) = match fees_transfer_type {
 				TransferType::LocalReserve => Self::local_reserve_fees_instructions(
@@ -2853,7 +2832,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(sv_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2867,7 +2846,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(vn_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2889,7 +2868,7 @@ impl<T: Config> Pallet<T> {
 						// We don't early return here since we need to be certain that we
 						// make some progress.
 						weight_used.saturating_accrue(vnt_already_notified_weight);
-						continue
+						continue;
 					},
 				};
 				let response = Response::Version(xcm_version);
@@ -2915,7 +2894,7 @@ impl<T: Config> Pallet<T> {
 				weight_used.saturating_accrue(vnt_notify_weight);
 				if weight_used.any_gte(weight_cutoff) {
 					let last = Some(iter.last_raw_key().into());
-					return (weight_used, Some(NotifyCurrentTargets(last)))
+					return (weight_used, Some(NotifyCurrentTargets(last)));
 				}
 			}
 			stage = MigrateAndNotifyOldTargets;
@@ -2933,9 +2912,9 @@ impl<T: Config> Pallet<T> {
 							});
 							weight_used.saturating_accrue(vnt_migrate_fail_weight);
 							if weight_used.any_gte(weight_cutoff) {
-								return (weight_used, Some(stage))
+								return (weight_used, Some(stage));
 							}
-							continue
+							continue;
 						},
 					};
 
@@ -2976,7 +2955,7 @@ impl<T: Config> Pallet<T> {
 						weight_used.saturating_accrue(vnt_notify_migrate_weight);
 					}
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -3632,7 +3611,7 @@ impl<T: Config> Pallet<T> {
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// if migration has NOT been scheduled yet, we need to check all operational data
@@ -3933,7 +3912,7 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 impl<T: Config> DropAssets for Pallet<T> {
 	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		if assets.is_empty() {
-			return Weight::zero()
+			return Weight::zero();
 		}
 		let versioned = VersionedAssets::from(Assets::from(assets));
 		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
@@ -3976,7 +3955,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			origin: origin.clone(),
 			assets: versioned,
 		});
-		return true
+		return true;
 	}
 }
 
@@ -4022,7 +4001,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							query_id,
 							expected_location: Some(o),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 					_ => {
 						Self::deposit_event(Event::InvalidResponder {
@@ -4031,7 +4010,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_location: None,
 						});
 						// TODO #3735: Correct weight for this.
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				// TODO #3735: Check max_weight is correct.
@@ -4064,7 +4043,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 								origin: origin.clone(),
 								query_id,
 							});
-							return Weight::zero()
+							return Weight::zero();
 						},
 					};
 					if querier.map_or(true, |q| q != &match_querier) {
@@ -4074,7 +4053,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_querier: match_querier,
 							maybe_actual_querier: querier.cloned(),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					}
 				}
 				let responder = match Location::try_from(responder) {
@@ -4084,7 +4063,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							origin: origin.clone(),
 							query_id,
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				if origin != responder {
@@ -4093,7 +4072,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						query_id,
 						expected_location: Some(responder),
 					});
-					return Weight::zero()
+					return Weight::zero();
 				}
 				match maybe_notify {
 					Some((pallet_index, call_index)) => {
@@ -4115,7 +4094,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 									max_budgeted_weight: max_weight,
 								};
 								Self::deposit_event(e);
-								return Weight::zero()
+								return Weight::zero();
 							}
 							let dispatch_origin = Origin::Response(origin.clone()).into();
 							match call.dispatch(dispatch_origin) {

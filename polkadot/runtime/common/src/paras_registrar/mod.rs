@@ -44,7 +44,7 @@ use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},
-	RuntimeDebug,
+	Debug,
 };
 
 #[derive(
@@ -54,7 +54,7 @@ use sp_runtime::{
 	PartialEq,
 	Eq,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	DecodeWithMemTracking,
@@ -578,7 +578,7 @@ impl<T: Config> Pallet<T> {
 
 			if para_info.manager == who {
 				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -591,7 +591,7 @@ impl<T: Config> Pallet<T> {
 		id: ParaId,
 	) -> DispatchResult {
 		if ensure_root(origin.clone()).is_ok() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let caller_id = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;

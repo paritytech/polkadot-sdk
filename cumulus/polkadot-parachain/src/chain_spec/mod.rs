@@ -31,7 +31,6 @@ pub mod coretime;
 pub mod glutton;
 pub mod penpal;
 pub mod people;
-pub mod rococo_parachain;
 pub mod yet_another_parachain;
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
@@ -58,7 +57,7 @@ impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
 		Ok(match id {
 			// - Default-like
-			"staging" => Box::new(rococo_parachain::staging_rococo_parachain_local_config()),
+			"staging" => Box::new(penpal::staging_penpal_local_config()),
 			"tick" => Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/tick.json")[..],
 			)?),
@@ -202,8 +201,10 @@ impl LoadSpec for ChainSpecLoader {
 
 			// -- Fallback (generic chainspec)
 			"" => {
-				log::warn!("No ChainSpec.id specified, so using default one, based on rococo-parachain runtime");
-				Box::new(rococo_parachain::rococo_parachain_local_config())
+				log::warn!(
+					"No ChainSpec.id specified, so using default one, based on Penpal runtime"
+				);
+				Box::new(penpal::staging_penpal_local_config())
 			},
 
 			// -- Loading a specific spec from disk
@@ -322,8 +323,7 @@ mod tests {
 		extension: E,
 	) -> DummyChainSpec<E> {
 		DummyChainSpec::builder(
-			rococo_parachain_runtime::WASM_BINARY
-				.expect("WASM binary was not built, please build it!"),
+			penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 			extension,
 		)
 		.with_name("Dummy local testnet")
@@ -338,8 +338,5 @@ mod tests {
 		let chain_spec =
 			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
 		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
-
-		let chain_spec = crate::chain_spec::rococo_parachain::rococo_parachain_local_config();
-		assert_eq!(LegacyRuntime::Omni, LegacyRuntime::from_id(chain_spec.id()));
 	}
 }

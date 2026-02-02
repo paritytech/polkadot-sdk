@@ -58,10 +58,8 @@
 //!
 //! 1. Fund a bounty approved by spend origin of some asset kind with a proposed curator.
 #![doc = docify::embed!("src/tests.rs", fund_bounty_works)]
-//!
 //! 2. Award a bounty to a beneficiary.
 #![doc = docify::embed!("src/tests.rs", award_bounty_works)]
-//!
 //! ## Pallet API
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
@@ -99,19 +97,21 @@ use frame_system::pallet_prelude::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
-	Permill, RuntimeDebug,
+	Debug, Permill,
 };
 
-pub type BalanceOf<T, I = ()> = <<T as Config<I>>::Paymaster as PayWithSource>::Balance;
+/// Lookup type for beneficiary addresses.
 pub type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
+/// Lookup type for account addresses.
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+/// The payment identifier type used by the [`Config::Paymaster`].
 pub type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as PayWithSource>::Id;
 /// Convenience alias for `Bounty`.
 pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
-	BalanceOf<T, I>,
+	<T as Config<I>>::Balance,
 	<T as Config<I>>::AssetKind,
 	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
@@ -120,14 +120,14 @@ pub type BountyOf<T, I> = Bounty<
 /// Convenience alias for `ChildBounty`.
 pub type ChildBountyOf<T, I> = ChildBounty<
 	<T as frame_system::Config>::AccountId,
-	BalanceOf<T, I>,
+	<T as Config<I>>::Balance,
 	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
 
 /// A funded bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
@@ -146,7 +146,7 @@ pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 }
 
 /// A funded child-bounty.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
@@ -164,7 +164,7 @@ pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 }
 
 /// The status of a child-/bounty proposal.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// The child-/bounty funding has been attempted and is waiting to confirm the funds
 	/// allocation.
@@ -229,7 +229,7 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 /// When a payment is initiated via `Paymaster::pay`, it begins in the `Pending` state. The
 /// `check_status` call updates the payment state and advances the child-/bounty status. The
 /// `retry_payment` call can be used to reattempt payments in either `Pending` or `Failed` states.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, Debug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
 	Pending,
@@ -271,12 +271,12 @@ pub mod pallet {
 		/// The type in which the assets are measured.
 		type Balance: Balance;
 
-		/// Origin from which rejections must come.
+		/// Origin from which bounties rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The origin required for funding the bounty. The `Success` value is the maximum amount in
 		/// a native asset that this origin is allowed to spend at a time.
-		type SpendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = BalanceOf<Self, I>>;
+		type SpendOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::Balance>;
 
 		/// Type parameter representing the asset kinds used to fund, refund and spend from
 		/// bounties.
@@ -290,11 +290,11 @@ pub mod pallet {
 
 		/// Minimum value for a bounty.
 		#[pallet::constant]
-		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
+		type BountyValueMinimum: Get<Self::Balance>;
 
 		/// Minimum value for a child-bounty.
 		#[pallet::constant]
-		type ChildBountyValueMinimum: Get<BalanceOf<Self, I>>;
+		type ChildBountyValueMinimum: Get<Self::Balance>;
 
 		/// Maximum number of child bounties that can be added to a parent bounty.
 		#[pallet::constant]
@@ -311,7 +311,7 @@ pub mod pallet {
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
 		>;
 
-		/// Converts a bounty index and `AssetKind` into its account/location.
+		/// Converts a bounty index and `AssetKind` into its funding source account/location.
 		///
 		/// Used when initiating the funding, refund, and payout payments to and from a bounty.
 		type BountySource: TryConvert<
@@ -344,8 +344,8 @@ pub mod pallet {
 		///
 		/// The conversion from the native asset balance to the balance of an [`Self::AssetKind`] is
 		/// used in benchmarks to convert [`Self::BountyValueMinimum`] to the asset kind amount.
-		type BalanceConverter: ConversionFromAssetBalance<Self::Balance, Self::AssetKind, BalanceOf<Self, I>>
-			+ ConversionToAssetBalance<BalanceOf<Self, I>, Self::AssetKind, Self::Balance>;
+		type BalanceConverter: ConversionFromAssetBalance<Self::Balance, Self::AssetKind, Self::Balance>
+			+ ConversionToAssetBalance<Self::Balance, Self::AssetKind, Self::Balance>;
 
 		/// The preimage provider used for child-/bounty metadata.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
@@ -353,9 +353,12 @@ pub mod pallet {
 		/// Means of associating a cost with committing to the curator role, which is incurred by
 		/// the child-/bounty curator.
 		///
-		/// The footprint accounts for the child-/bounty value in the native asset (returned in the
-		/// `Success` type of [`Self::SpendOrigin`]). The cost taken from the curator `AccountId`
-		/// may vary based on this balance.
+		/// The footprint accounts for the child-/bounty value converted to the native balance
+		/// type (using [`Self::BalanceConverter`]). The native balance type corresponds to the
+		/// `Success` type returned by [`Self::SpendOrigin`], which represents the maximum
+		/// spendable amount. The bounty amount must be converted with [`Self::BalanceConverter`]
+		/// before comparison against this maximum. The cost taken from the curator `AccountId`
+		/// may vary based on this converted balance.
 		type Consideration: Consideration<Self::AccountId, Self::Balance>;
 
 		/// Helper type for benchmarks.
@@ -363,7 +366,7 @@ pub mod pallet {
 		type BenchmarkHelper: benchmarking::ArgumentsFactory<
 			Self::AssetKind,
 			Self::Beneficiary,
-			BalanceOf<Self, I>,
+			Self::Balance,
 		>;
 	}
 
@@ -434,7 +437,7 @@ pub mod pallet {
 			index: BountyIndex,
 			child_index: Option<BountyIndex>,
 			asset_kind: T::AssetKind,
-			value: BalanceOf<T, I>,
+			value: T::Balance,
 			beneficiary: T::Beneficiary,
 		},
 		/// Funding payment has concluded successfully.
@@ -471,7 +474,7 @@ pub mod pallet {
 
 	/// Number of bounty proposals that have been made.
 	#[pallet::storage]
-	pub type BountyCount<T: Config<I>, I: 'static = ()> = StorageValue<_, BountyIndex, ValueQuery>;
+	pub type BountyCount<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
 	/// Bounties that have been made.
 	#[pallet::storage]
@@ -511,7 +514,7 @@ pub mod pallet {
 	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesValuePerParent<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T, I>, ValueQuery>;
+		StorageMap<_, Twox64Concat, BountyIndex, T::Balance, ValueQuery>;
 
 	/// The consideration cost incurred by the child-/bounty curator for committing to the role.
 	///
@@ -548,12 +551,14 @@ pub mod pallet {
 		/// ## Dispatch Origin
 		///
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
-		/// the converted native amount of the bounty. The bounty value is validated
-		/// against the maximum spendable amount of the [`Config::SpendOrigin`].
+		/// the bounty value converted to native balance using [`Config::BalanceConverter`].
+		/// The converted native amount is validated against the maximum spendable amount
+		/// returned by [`Config::SpendOrigin`].
 		///
 		/// ## Details
 		///
 		/// - The `SpendOrigin` must have sufficient permissions to fund the bounty.
+		/// - The bounty `value` (in asset balance) is converted to native balance for validation.
 		/// - In case of a funding failure, the bounty status must be updated with the
 		///   `check_status` call before retrying with `retry_payment` call.
 		///
@@ -571,7 +576,7 @@ pub mod pallet {
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			#[pallet::compact] value: BalanceOf<T, I>,
+			#[pallet::compact] value: T::Balance,
 			curator: AccountIdLookupOf<T>,
 			metadata: T::Hash,
 		) -> DispatchResult {
@@ -584,7 +589,7 @@ pub mod pallet {
 			ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
-			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
+			with_context::<SpendContext<T::Balance>, _>(|v| {
 				let context = v.or_default();
 				let funding = context.spend_in_context.entry(max_amount).or_default();
 
@@ -634,8 +639,8 @@ pub mod pallet {
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty for which child-bounty is being added.
 		/// - `value`: The payment amount of this child-bounty.
-		/// - `curator`: Address of child-bounty curator.
 		/// - `metadata`: The hash of an on-chain stored preimage with child-bounty metadata.
+		/// - `curator`: Address of child-bounty curator.
 		///
 		/// ## Events
 		///
@@ -645,9 +650,9 @@ pub mod pallet {
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
-			#[pallet::compact] value: BalanceOf<T, I>,
-			curator: Option<AccountIdLookupOf<T>>,
+			#[pallet::compact] value: T::Balance,
 			metadata: T::Hash,
+			curator: Option<AccountIdLookupOf<T>>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 			ensure!(T::Preimages::len(&metadata).is_some(), Error::<T, I>::PreimageNotExist);
@@ -664,7 +669,7 @@ pub mod pallet {
 			);
 			ensure!(
 				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <
-					T::MaxActiveChildBountyCount::get() as u32,
+					T::MaxActiveChildBountyCount::get(),
 				Error::<T, I>::TooManyChildBounties,
 			);
 
@@ -831,7 +836,7 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
-				return Err(Error::<T, I>::UnexpectedStatus.into())
+				return Err(Error::<T, I>::UnexpectedStatus.into());
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
@@ -1000,7 +1005,7 @@ pub mod pallet {
 			}
 
 			let BountyStatus::Active { ref curator } = status else {
-				return Err(Error::<T, I>::UnexpectedStatus.into())
+				return Err(Error::<T, I>::UnexpectedStatus.into());
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
@@ -1218,7 +1223,7 @@ pub mod pallet {
 							}
 							// refund succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into())
+							return Ok(Pays::No.into());
 						},
 						PaymentState::Pending |
 						PaymentState::Failed |
@@ -1254,7 +1259,7 @@ pub mod pallet {
 							}
 							// payout succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
-							return Ok(Pays::No.into())
+							return Ok(Pays::No.into());
 						},
 						PaymentState::Pending |
 						PaymentState::Failed |
@@ -1471,7 +1476,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<
 		(
 			T::AssetKind,
-			BalanceOf<T, I>,
+			T::Balance,
 			T::Hash,
 			BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
 			Option<T::AccountId>,
@@ -1538,8 +1543,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn calculate_payout(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
-		value: BalanceOf<T, I>,
-	) -> BalanceOf<T, I> {
+		value: T::Balance,
+	) -> T::Balance {
 		match child_bounty_id {
 			None => {
 				// Get total child bounties value, and subtract it from the parent
@@ -1582,7 +1587,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: T::Balance,
 		maybe_payment_status: Option<PaymentState<PaymentIdOf<T, I>>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		if let Some(payment_status) = maybe_payment_status {
@@ -1637,7 +1642,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					child_index: child_bounty_id,
 					payment_id,
 				});
-				return Ok(PaymentState::Failed)
+				return Ok(PaymentState::Failed);
 			},
 		}
 	}
@@ -1648,7 +1653,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: T::Balance,
 		payment_status: Option<PaymentState<PaymentIdOf<T, I>>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		if let Some(payment_status) = payment_status {
@@ -1715,7 +1720,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: T::Balance,
 		beneficiary: T::Beneficiary,
 		payment_status: Option<PaymentState<PaymentIdOf<T, I>>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
@@ -1732,7 +1737,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		};
 
 		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, payout)
-			.map_err(|_| Error::<T, I>::RefundError)?;
+			.map_err(|_| Error::<T, I>::PayoutError)?;
 
 		Self::deposit_event(Event::<T, I>::Paid {
 			index: parent_bounty_id,
@@ -1749,7 +1754,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: T::Balance,
 		beneficiary: T::Beneficiary,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
@@ -1817,59 +1822,80 @@ where
 	}
 }
 
-/// Derives the funding account used as the source of funds for bounties.
+/// Derives the funding `AccountId` from the `PalletId` and converts it into the
+/// bounty `Beneficiary`, used as the source of bounty funds.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct PalletIdAsFundingSource<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSource<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct PalletIdAsFundingSource<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<T::AssetKind, T::Beneficiary> for PalletIdAsFundingSource<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(_asset_kind: T::AssetKind) -> Result<T::Beneficiary, T::AssetKind> {
-		let account = Id::get().into_account_truncating();
-		Ok(account)
+		let account: T::AccountId = Id::get().into_account_truncating();
+		Ok(C::convert(account))
 	}
 }
 
-/// Derives the bounty account from its index.
+/// Derives a bounty `AccountId` from the `PalletId` and the `BountyIndex`,
+/// then converts it into the corresponding bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct BountySourceAccount<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
-	for BountySourceAccount<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct BountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary>
+	for BountySourceFromPalletId<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, T::AssetKind)> {
-		let account = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
-		Ok(account)
+		let account: T::AccountId = Id::get().into_sub_account_truncating(("bt", parent_bounty_id));
+		Ok(C::convert(account))
 	}
 }
 
-/// Derives the child-bounty account from its index and the parent bounty index.
+/// Derives a child-bounty `AccountId` from the `PalletId`, the parent index,
+/// and the child index, then converts it into the child-bounty `Beneficiary`.
 ///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
-pub struct ChildBountySourceAccount<Id, T, I = ()>(PhantomData<(Id, T, I)>);
-impl<Id, T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for ChildBountySourceAccount<Id, T, I>
+/// # Type Parameters
+/// - `Id`: The pallet ID getter
+/// - `T`: The pallet configuration
+/// - `C`: Converter from `T::AccountId` to `T::Beneficiary`. Use `Identity` when types are the
+///   same.
+/// - `I`: Instance parameter (default: `()`)
+pub struct ChildBountySourceFromPalletId<Id, T, C, I = ()>(PhantomData<(Id, T, C, I)>);
+impl<Id, T, C, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
+	for ChildBountySourceFromPalletId<Id, T, C, I>
 where
 	Id: Get<PalletId>,
 	T: crate::Config<I>,
-	T::Beneficiary: From<T::AccountId>,
+	C: Convert<T::AccountId, T::Beneficiary>,
 {
 	fn try_convert(
 		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
 	) -> Result<T::Beneficiary, (BountyIndex, BountyIndex, T::AssetKind)> {
 		// The prefix is changed to have different AccountId when the index of
 		// parent and child is same.
-		let account =
+		let account: T::AccountId =
 			Id::get().into_sub_account_truncating(("cb", parent_bounty_id, child_bounty_id));
-		Ok(account)
+		Ok(C::convert(account))
 	}
 }

@@ -182,7 +182,7 @@ fn bench_submit(c: &mut Criterion) {
 						s.spawn(move || {
 							for statement in thread_statements {
 								let result = store.submit(statement, StatementSource::Local);
-								assert!(matches!(result, SubmitResult::New(_)));
+								assert!(matches!(result, SubmitResult::New));
 							}
 						});
 					}
@@ -383,7 +383,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
 							for statement in thread_statements {
 								// Submit a statement
 								let result = store.submit(statement, StatementSource::Local);
-								assert!(matches!(result, SubmitResult::New(_)));
+								assert!(matches!(result, SubmitResult::New));
 
 								// Query broadcasts
 								let _ = store.broadcasts(&topics);

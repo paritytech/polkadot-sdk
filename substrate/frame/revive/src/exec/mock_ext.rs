@@ -17,28 +17,39 @@
 
 #![cfg(test)]
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
-	gas::GasMeter,
+	exec::{
+		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
+	metering::{FrameMeter, TransactionLimits, TransactionMeter},
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
+	ReentrancyProtection,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::weights::Weight;
+use num_traits::Bounded;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
-	gas_meter: GasMeter<T>,
+	frame_meter: FrameMeter<T>,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
-		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
+		let transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits).unwrap();
+		Self { frame_meter, _phantom: PhantomData }
 	}
 }
 
@@ -47,12 +58,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_to: &H160,
 		_value: U256,
 		_input_data: Vec<u8>,
-		_allows_reentry: bool,
+		_reentrancy: ReentrancyProtection,
 		_read_only: bool,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::call")
@@ -151,12 +161,20 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::chain_id")
 	}
 
-	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		&self.gas_meter
+	fn gas_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		&mut self.gas_meter
+	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
+	}
+
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.frame_meter
+	}
+
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.frame_meter
 	}
 
 	fn ecdsa_recover(
@@ -171,7 +189,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::sr25519_verify")
 	}
 
-	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], ()> {
+	fn ecdsa_to_eth_address(&self, _pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
 		panic!("MockExt::ecdsa_to_eth_address")
 	}
 
@@ -238,14 +256,15 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn charge_storage(&mut self, _diff: &Diff) {}
+	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
+		Ok(())
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	fn instantiate(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
@@ -258,8 +277,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 impl<T: Config> Ext for MockExt<T> {
 	fn delegate_call(
 		&mut self,
-		_gas_limit: Weight,
-		_deposit_limit: U256,
+		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
@@ -272,10 +290,6 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn own_code_hash(&mut self) -> &H256 {
 		panic!("MockExt::own_code_hash")
-	}
-
-	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::set_code_hash")
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {

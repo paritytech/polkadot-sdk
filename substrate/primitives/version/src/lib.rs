@@ -162,7 +162,7 @@ macro_rules! create_apis_vec {
 /// In particular: bug fixes should result in an increment of `spec_version` and possibly
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Default, Debug, TypeInfo)]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
@@ -528,7 +528,9 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 						},
 						Field::Apis => {
 							if apis.is_some() {
-								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"apis",
+								));
 							}
 							apis = Some({
 								struct DeserializeWith<'de> {

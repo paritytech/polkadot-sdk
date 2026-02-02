@@ -41,7 +41,7 @@ where
 				"host doesn't provide any imports from non-env module: {}:{}",
 				import_ty.module(),
 				name,
-			)))
+			)));
 		}
 
 		match import_ty.ty() {
@@ -80,7 +80,7 @@ where
 			return Err(WasmError::Other(format!(
 				"runtime requires function imports which are not present on the host: {}",
 				names
-			)))
+			)));
 		}
 	}
 
