@@ -912,8 +912,11 @@ where
 			if_tracing(|t| match result {
 				Ok(ref output) =>
 					t.exit_child_span(&output, Default::default(), Default::default()),
-				Err(e) => t
-					.exit_child_span_with_error(e.error.into(), Default::default(), Default::default()),
+				Err(e) => t.exit_child_span_with_error(
+					e.error.into(),
+					Default::default(),
+					Default::default(),
+				),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");

@@ -158,7 +158,8 @@ impl Tracing for ExecutionTracer {
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
 			gas_cost: Default::default(),
-			weight_cost: trace_info.weight_consumed(), // Store initial weight, will be updated later
+			weight_cost: trace_info.weight_consumed(), /* Store initial weight, will be updated
+			                                            * later */
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -173,7 +174,8 @@ impl Tracing for ExecutionTracer {
 
 		let step_index = self.steps.len();
 		self.steps.push(step);
-		self.pending.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
+		self.pending
+			.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
 		self.step_count += 1;
 	}
 
@@ -196,7 +198,8 @@ impl Tracing for ExecutionTracer {
 		let step = ExecutionStep {
 			gas: trace_info.gas_left(),
 			gas_cost: Default::default(),
-			weight_cost: trace_info.weight_consumed(), // Store initial weight, will be updated later
+			weight_cost: trace_info.weight_consumed(), /* Store initial weight, will be updated
+			                                            * later */
 			depth: self.depth,
 			return_data,
 			error: None,
@@ -209,7 +212,8 @@ impl Tracing for ExecutionTracer {
 
 		let step_index = self.steps.len();
 		self.steps.push(step);
-		self.pending.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
+		self.pending
+			.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
 		self.step_count += 1;
 	}
 
