@@ -1,4 +1,4 @@
-title: '[pallet-revive] Aggregate gas_cost for nested calls in execution tracer'
+title: '[pallet-revive] Fix gas_cost and weight_cost for nested calls in execution tracer'
 doc:
 - audience: Runtime Dev
   description: |-
