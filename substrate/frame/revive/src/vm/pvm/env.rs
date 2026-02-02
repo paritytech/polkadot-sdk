@@ -158,7 +158,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));

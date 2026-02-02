@@ -55,7 +55,7 @@ macro_rules! define_error_codes {
         )*
     ) => {
         /// Every error that can be returned to a contract when it calls any of the host functions.
-        #[derive(Debug, PartialEq, Eq)]
+        #[derive(Debug, PartialEq, Eq, Copy, Clone)]
         #[repr(u32)]
         pub enum ReturnErrorCode {
             /// API call successful.

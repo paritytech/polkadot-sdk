@@ -242,6 +242,7 @@ where
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
 				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
 				import_queue,
 				net_config,
 				block_announce_validator_builder: None,

@@ -169,7 +169,7 @@ where
 
 			if key.len() < hash_len {
 				log::warn!("Invalid key in `from_raw_snapshot`: {key:?}");
-				continue
+				continue;
 			}
 
 			hash.as_mut().copy_from_slice(&key[(key.len() - hash_len)..]);

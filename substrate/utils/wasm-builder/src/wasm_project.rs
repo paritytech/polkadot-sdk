@@ -394,11 +394,11 @@ fn find_cargo_lock(cargo_manifest: &Path) -> Option<PathBuf> {
 	fn find_impl(mut path: PathBuf) -> Option<PathBuf> {
 		loop {
 			if path.join("Cargo.lock").exists() {
-				return Some(path.join("Cargo.lock"))
+				return Some(path.join("Cargo.lock"));
 			}
 
 			if !path.pop() {
-				return None
+				return None;
 			}
 		}
 	}
@@ -407,7 +407,7 @@ fn find_cargo_lock(cargo_manifest: &Path) -> Option<PathBuf> {
 		let path = PathBuf::from(workspace);
 
 		if path.join("Cargo.lock").exists() {
-			return Some(path.join("Cargo.lock"))
+			return Some(path.join("Cargo.lock"));
 		} else {
 			build_helper::warning!(
 				"`{}` env variable doesn't point to a directory that contains a `Cargo.lock`.",
@@ -417,7 +417,7 @@ fn find_cargo_lock(cargo_manifest: &Path) -> Option<PathBuf> {
 	}
 
 	if let Some(path) = find_impl(build_helper::out_dir()) {
-		return Some(path)
+		return Some(path);
 	}
 
 	build_helper::warning!(
@@ -481,7 +481,7 @@ fn get_wasm_workspace_root() -> PathBuf {
 			Some(parent) if out_dir.ends_with("build") => return parent.to_path_buf(),
 			_ =>
 				if !out_dir.pop() {
-					break
+					break;
 				},
 		}
 	}
@@ -622,7 +622,7 @@ fn find_package_by_manifest_path<'a>(
 	crate_metadata: &'a cargo_metadata::Metadata,
 ) -> &'a cargo_metadata::Package {
 	if let Some(pkg) = crate_metadata.packages.iter().find(|p| p.manifest_path == manifest_path) {
-		return pkg
+		return pkg;
 	}
 
 	let pkgs_by_name = crate_metadata
@@ -638,7 +638,7 @@ fn find_package_by_manifest_path<'a>(
 				pkgs_by_name
 			);
 		} else {
-			return pkg
+			return pkg;
 		}
 	} else {
 		panic!("Failed to find entry for package {pkg_name} ({manifest_path:?}).");
@@ -675,7 +675,7 @@ fn project_enabled_features(
 				v.get(0).map_or(false, |v| *v == format!("dep:{}", f)) &&
 				std_enabled.as_ref().map(|e| e.iter().any(|ef| ef == *f)).unwrap_or(false)
 			{
-				return false
+				return false;
 			}
 
 			// We don't want to enable the `std`/`default` feature for the wasm build and
@@ -1219,7 +1219,7 @@ fn generate_rerun_if_changed_instructions(
 	while let Some(dependency) = dependencies.pop() {
 		// Ignore all dev dependencies
 		if dependency.kind == DependencyKind::Development {
-			continue
+			continue;
 		}
 
 		let path_or_git_dep =
