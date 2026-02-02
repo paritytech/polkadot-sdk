@@ -26,6 +26,7 @@ pub mod execution_extensions;
 pub mod in_mem;
 pub mod leaves;
 pub mod notifications;
+pub mod partial_state;
 pub mod proof_provider;
 
 pub use backend::*;

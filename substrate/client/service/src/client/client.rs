@@ -611,6 +611,8 @@ where
 						Some((main_sc, child_sc))
 					},
 					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
+						let state_root = *import_headers.post().state_root();
+						self.backend.check_have_complete_state(state_root)?;
 						operation.op.set_partial_state_completed();
 						None
 					},

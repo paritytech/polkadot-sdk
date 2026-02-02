@@ -640,6 +640,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State>;
 
+	/// Checks that database has all state trie nodes for given state root.
+	fn check_have_complete_state(
+		&self,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()>;
+
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
 	/// inconsistent state. All blocks higher than the best block are also reverted and not counting

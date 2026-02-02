@@ -753,6 +753,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		Ok(TrieBackendBuilder::new(self.state_db.read().clone(), *header.state_root()).build())
 	}
 
+	fn check_have_complete_state(
+		&self,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		let state = TrieBackendBuilder::new(self.state_db.read().clone(), state_root).build();
+		crate::partial_state::check_have_complete_state(state)
+	}
+
 	fn revert(
 		&self,
 		_n: NumberFor<Block>,

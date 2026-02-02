@@ -2605,6 +2605,14 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		}
 	}
 
+	fn check_have_complete_state(
+		&self,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
+		sc_client_api::partial_state::check_have_complete_state(state)
+	}
+
 	fn have_state_at(&self, hash: Block::Hash, number: NumberFor<Block>) -> bool {
 		if self.is_archive {
 			match self.blockchain.header_metadata(hash) {
