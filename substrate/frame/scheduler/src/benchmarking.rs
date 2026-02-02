@@ -25,6 +25,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::{EventRecord, RawOrigin};
+use sp_runtime::VersionedCall;
 
 use crate::*;
 
@@ -89,7 +90,12 @@ fn make_task<T: Config>(
 fn bounded<T: Config>(len: u32) -> Option<BoundedCallOf<T>> {
 	let call =
 		<<T as Config>::RuntimeCall>::from(SystemCall::remark { remark: vec![0; len as usize] });
-	T::Preimages::bound(call).ok()
+
+	// Wrap the call in VersionedCall before bounding it
+	let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+	let versioned_call = VersionedCall::new(call, current_version);
+
+	T::Preimages::bound(versioned_call).ok()
 }
 
 fn make_call<T: Config>(maybe_lookup_len: Option<u32>) -> BoundedCallOf<T> {
@@ -107,7 +113,20 @@ fn make_call<T: Config>(maybe_lookup_len: Option<u32>) -> BoundedCallOf<T> {
 				continue;
 			},
 		};
-		if c.lookup_needed() == maybe_lookup_len.is_some() {
+
+		// We need to peek the VersionedCall type since that's what's stored in the bounded call
+		let lookup_needed = if let Ok((versioned_call, _)) =
+			T::Preimages::peek::<VersionedCall<<T as Config>::RuntimeCall>>(&c)
+		{
+			// For benchmarking, we consider it needs lookup if maybe_lookup_len is Some
+			// We also need to check if the versioned call has a valid inner call
+			let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+			versioned_call.validate_version(current_version).is_ok() && maybe_lookup_len.is_some()
+		} else {
+			false
+		};
+
+		if lookup_needed == maybe_lookup_len.is_some() {
 			break c;
 		}
 		if maybe_lookup_len.is_some() {
@@ -187,9 +206,9 @@ mod benchmarks {
 	// `service_task` when the task is a non-periodic, non-named, fetched call (with a known
 	// preimage length) and which is not dispatched (e.g. due to being overweight).
 	#[benchmark(pov_mode = MaxEncodedLen {
-		// Use measured PoV size for the Preimages since we pass in a length witness.
-		Preimage::PreimageFor: Measured
-	})]
+        // Use measured PoV size for the Preimages since we pass in a length witness.
+        Preimage::PreimageFor: Measured
+    })]
 	fn service_task_fetched(
 		s: Linear<{ BoundedInline::bound() as u32 }, { T::Preimages::MAX_LENGTH as u32 }>,
 	) {
@@ -248,7 +267,21 @@ mod benchmarks {
 	fn execute_dispatch_signed() -> Result<(), BenchmarkError> {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(true);
-		let call = T::Preimages::realize(&make_call::<T>(None))?.0;
+		let bounded_call = make_call::<T>(None);
+
+		// Get the versioned call from the preimage
+		let (versioned_call, _) =
+			T::Preimages::peek::<VersionedCall<<T as Config>::RuntimeCall>>(&bounded_call)
+				.map_err(|_| BenchmarkError::Stop("Failed to peek preimage"))?;
+
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
+		// Extract the inner call using the current version
+		let call = versioned_call
+			.into_inner(current_version)
+			.map_err(|_| BenchmarkError::Stop("Version mismatch"))?;
+
 		let result;
 
 		#[block]
@@ -266,7 +299,21 @@ mod benchmarks {
 	fn execute_dispatch_unsigned() -> Result<(), BenchmarkError> {
 		let mut counter = WeightMeter::new();
 		let origin = make_origin::<T>(false);
-		let call = T::Preimages::realize(&make_call::<T>(None))?.0;
+		let bounded_call = make_call::<T>(None);
+
+		// Get the versioned call from the preimage
+		let (versioned_call, _) =
+			T::Preimages::peek::<VersionedCall<<T as Config>::RuntimeCall>>(&bounded_call)
+				.map_err(|_| BenchmarkError::Stop("Failed to peek preimage"))?;
+
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
+		// Extract the inner call using the current version
+		let call = versioned_call
+			.into_inner(current_version)
+			.map_err(|_| BenchmarkError::Stop("Version mismatch"))?;
+
 		let result;
 
 		#[block]

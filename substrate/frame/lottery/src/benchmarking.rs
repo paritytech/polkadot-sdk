@@ -39,13 +39,25 @@ fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 	let price = T::Currency::minimum_balance();
 	let length = 10u32.into();
 	let delay = 5u32.into();
+
+	// Get current transaction version
+	let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
 	// Calls will be maximum length...
 	let mut calls = vec![
-		frame_system::Call::<T>::set_code { code: vec![] }.into();
+		VersionedCall::new(
+			frame_system::Call::<T>::set_code { code: vec![] }.into(),
+			current_version
+		);
 		T::MaxCalls::get().saturating_sub(1) as usize
 	];
+
 	// Last call will be the match for worst case scenario.
-	calls.push(frame_system::Call::<T>::remark { remark: vec![] }.into());
+	calls.push(VersionedCall::new(
+		frame_system::Call::<T>::remark { remark: vec![] }.into(),
+		current_version,
+	));
+
 	let origin = T::ManagerOrigin::try_successful_origin()
 		.expect("ManagerOrigin has no successful origin required for the benchmark");
 	Lottery::<T>::set_calls(origin.clone(), calls)?;
@@ -62,6 +74,10 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		setup_lottery::<T>(false)?;
+
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
 		// force user to have a long vec of calls participating
 		let set_code_index: CallIndex = Lottery::<T>::call_to_index(
 			&frame_system::Call::<T>::set_code { code: vec![] }.into(),
@@ -77,10 +93,13 @@ mod benchmarks {
 		);
 		Participants::<T>::insert(&caller, already_called);
 
-		let call = frame_system::Call::<T>::remark { remark: vec![] };
+		let call = VersionedCall::new(
+			frame_system::Call::<T>::remark { remark: vec![] }.into(),
+			current_version,
+		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), Box::new(call.into()));
+		_(RawOrigin::Signed(caller), Box::new(call));
 
 		assert_eq!(TicketsCount::<T>::get(), 1);
 
@@ -89,7 +108,14 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_calls(n: Linear<0, { T::MaxCalls::get() }>) -> Result<(), BenchmarkError> {
-		let calls = vec![frame_system::Call::<T>::remark { remark: vec![] }.into(); n as usize];
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+		let calls = vec![
+			VersionedCall::new(
+				frame_system::Call::<T>::remark { remark: vec![] }.into(),
+				current_version
+			);
+			n as usize
+		];
 		let origin =
 			T::ManagerOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		assert!(CallIndices::<T>::get().is_empty());
@@ -147,9 +173,16 @@ mod benchmarks {
 			&lottery_account,
 			T::Currency::minimum_balance() * 10u32.into(),
 		);
+
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
 		// Buy a ticket
-		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
+		let call = VersionedCall::new(
+			frame_system::Call::<T>::remark { remark: vec![] }.into(),
+			current_version,
+		);
+		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call))?;
 		// Kill user account for worst case
 		T::Currency::make_free_balance_be(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
@@ -186,9 +219,16 @@ mod benchmarks {
 			&lottery_account,
 			T::Currency::minimum_balance() * 10u32.into(),
 		);
+
+		// Get current transaction version
+		let current_version = <frame_system::Pallet<T>>::runtime_version().transaction_version;
+
 		// Buy a ticket
-		let call = frame_system::Call::<T>::remark { remark: vec![] };
-		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
+		let call = VersionedCall::new(
+			frame_system::Call::<T>::remark { remark: vec![] }.into(),
+			current_version,
+		);
+		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call))?;
 		// Kill user account for worst case
 		T::Currency::make_free_balance_be(&winner, 0u32.into());
 		// Assert that lotto is set up for winner

@@ -44,7 +44,10 @@ fn funded_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
 
 fn make_proposal<T: Config>(n: u32) -> BoundedCallOf<T> {
 	let call: CallOf<T> = frame_system::Call::remark { remark: n.encode() }.into();
-	<T as Config>::Preimages::bound(call).unwrap()
+	// Wrap the call in VersionedCall before bounding it
+	let versioned_call =
+		VersionedCall::new(call, <T as frame_system::Config>::Version::get().transaction_version);
+	<T as Config>::Preimages::bound(versioned_call).unwrap()
 }
 
 fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
