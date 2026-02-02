@@ -49,7 +49,7 @@ pub struct Log {
 /// Inclusion proof for a transaction receipt
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Proof {
-	// Proof keys and values (receipts tree)
+	// Proof values from receipts tree
 	pub receipt_proof: Vec<Vec<u8>>,
 	// Proof that an execution header was finalized by the beacon chain
 	pub execution_proof: ExecutionProof,
