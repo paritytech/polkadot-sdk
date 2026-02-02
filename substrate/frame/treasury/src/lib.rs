@@ -210,13 +210,13 @@ pub enum PaymentState<AssetKind, Balance, Id> {
 #[derive(
 	Encode,
 	Decode,
-	DecodeWithMemTracking,
+    DecodeWithMemTracking,
 	Clone,
 	PartialEq,
 	Eq,
-	MaxEncodedLen,
-	RuntimeDebug,
-	TypeInfo,
+    RuntimeDebug,
+    TypeInfo,
+    MaxEncodedLen,
 )]
 pub enum SpendAsset<AssetKind> {
 	/// Spend a specific asset
@@ -750,7 +750,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::spend())]
 		pub fn spend(
 			origin: OriginFor<T>,
-			asset: Box<SpendAsset<T::AssetKind>>,
+			asset: SpendAsset<T::AssetKind>,
 			#[pallet::compact] amount: AssetBalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T, I>>,
@@ -763,7 +763,7 @@ pub mod pallet {
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
 
-			match *asset {
+			match asset {
 				SpendAsset::Category(ref category) => {
 					let assets = Self::validate_category_spend(category, amount)?;
 
@@ -821,7 +821,7 @@ pub mod pallet {
 				},
 			}
 
-			let native_amount = match *asset {
+			let native_amount = match asset {
 				SpendAsset::Specific(ref asset_kind) =>
 					T::BalanceConverter::from_asset_balance(amount, asset_kind.clone())
 						.map_err(|_| Error::<T, I>::BalanceConversionFailed)?,
@@ -864,7 +864,7 @@ pub mod pallet {
 			Spends::<T, I>::insert(
 				index,
 				SpendStatus {
-					asset: *asset.clone(),
+					asset: asset.clone(),
 					amount,
 					beneficiary: beneficiary.clone(),
 					valid_from,
@@ -876,7 +876,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::AssetSpendApproved {
 				index,
-				asset: *asset,
+				asset: asset,
 				amount,
 				beneficiary,
 				valid_from,

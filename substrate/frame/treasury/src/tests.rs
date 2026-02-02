@@ -652,13 +652,13 @@ fn spending_in_batch_respects_max_total() {
 		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
 			calls: vec![
 				RuntimeCall::from(TreasuryCall::spend {
-					asset: Box::new(SpendAsset::Specific(1)),
+					asset: SpendAsset::Specific(1),
 					amount: 1,
 					beneficiary: Box::new(100),
 					valid_from: None,
 				}),
 				RuntimeCall::from(TreasuryCall::spend {
-					asset: Box::new(SpendAsset::Specific(1)),
+					asset: SpendAsset::Specific(1),
 					amount: 1,
 					beneficiary: Box::new(101),
 					valid_from: None,
@@ -671,13 +671,13 @@ fn spending_in_batch_respects_max_total() {
 			RuntimeCall::from(UtilityCall::batch_all {
 				calls: vec![
 					RuntimeCall::from(TreasuryCall::spend {
-						asset: Box::new(SpendAsset::Specific(1)),
+						asset: SpendAsset::Specific(1),
 						amount: 2,
 						beneficiary: Box::new(100),
 						valid_from: None,
 					}),
 					RuntimeCall::from(TreasuryCall::spend {
-						asset: Box::new(SpendAsset::Specific(1)),
+						asset: SpendAsset::Specific(1),
 						amount: 2,
 						beneficiary: Box::new(101),
 						valid_from: None,
@@ -695,14 +695,14 @@ fn spend_origin_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			1,
 			Box::new(6),
 			None
 		));
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -710,7 +710,7 @@ fn spend_origin_works() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				3,
 				Box::new(6),
 				None
@@ -719,7 +719,7 @@ fn spend_origin_works() {
 		);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(11),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			5,
 			Box::new(6),
 			None
@@ -727,7 +727,7 @@ fn spend_origin_works() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(11),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				6,
 				Box::new(6),
 				None
@@ -736,7 +736,7 @@ fn spend_origin_works() {
 		);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(12),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			10,
 			Box::new(6),
 			None
@@ -744,7 +744,7 @@ fn spend_origin_works() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(12),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				11,
 				Box::new(6),
 				None
@@ -763,7 +763,7 @@ fn spend_works() {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -804,7 +804,7 @@ fn spend_expires() {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -816,7 +816,7 @@ fn spend_expires() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				2,
 				Box::new(6),
 				Some(0)
@@ -834,7 +834,7 @@ fn spend_payout_works() {
 		// approve a `2` coins spend of asset `1` to beneficiary `6`, the spend valid from now.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -869,7 +869,7 @@ fn payout_extends_expiry() {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -902,7 +902,7 @@ fn payout_retry_works() {
 		System::set_block_number(1);
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -936,7 +936,7 @@ fn spend_valid_from_works() {
 		// spend valid from block `2`.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			Some(2)
@@ -949,7 +949,7 @@ fn spend_valid_from_works() {
 		// spend approved even if `valid_from` in the past since the payout period has not passed.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			Some(4)
@@ -966,7 +966,7 @@ fn void_spend_works() {
 		// spend cannot be voided if already attempted.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			Some(1)
@@ -980,7 +980,7 @@ fn void_spend_works() {
 		// void spend.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			Some(10)
@@ -999,7 +999,7 @@ fn check_status_works() {
 		// spend `0` expired and can be removed.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -1012,7 +1012,7 @@ fn check_status_works() {
 		// spend `1` payment failed and expired hence can be removed.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -1036,7 +1036,7 @@ fn check_status_works() {
 		// spend `2` payment succeed.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -1051,7 +1051,7 @@ fn check_status_works() {
 		// spend `3` payment in process.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -1067,7 +1067,7 @@ fn check_status_works() {
 		// spend `4` removed since the payment status is unknown.
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Specific(1)),
+			SpendAsset::Specific(1),
 			2,
 			Box::new(6),
 			None
@@ -1173,7 +1173,7 @@ fn try_state_spends_invariant_1_works() {
 		assert_ok!({
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				1,
 				Box::new(6),
 				None,
@@ -1199,7 +1199,7 @@ fn try_state_spends_invariant_2_works() {
 		use frame_support::pallet_prelude::DispatchError::Other;
 		// Propose and approve a spend
 		assert_ok!({
-			Treasury::spend(RuntimeOrigin::signed(10), Box::new(SpendAsset::Specific(1)), 1, Box::new(6), None)
+			Treasury::spend(RuntimeOrigin::signed(10), SpendAsset::Specific(1), 1, Box::new(6), None)
 		});
 		assert_eq!(Spends::<Test>::iter().count(), 1);
 		let current_spend_count = SpendCount::<Test>::get();
@@ -1230,7 +1230,7 @@ fn try_state_spends_invariant_3_works() {
 		assert_ok!({
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Specific(1)),
+				SpendAsset::Specific(1),
 				1,
 				Box::new(6),
 				None,
@@ -1302,7 +1302,7 @@ fn category_spend_works() {
 
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Category(bounded_category.clone())),
+			SpendAsset::Category(bounded_category.clone()),
 			2,
 			Box::new(6),
 			None
@@ -1347,7 +1347,7 @@ fn category_payout_distributes_across_assets() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				50,
 				Box::new(6),
 				None
@@ -1392,7 +1392,7 @@ fn category_payout_partial_fulfillment() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				50,
 				Box::new(6),
 				None
@@ -1437,7 +1437,7 @@ fn category_payout_skips_assets_with_no_balance() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				30,
 				Box::new(6),
 				None
@@ -1475,7 +1475,7 @@ fn category_spend_with_unknown_category() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				10,
 				Box::new(6),
 				None
@@ -1494,7 +1494,7 @@ fn mixed_specific_and_category_spends() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Specific(4)),
+				SpendAsset::Specific(4),
 				25,
 				Box::new(7),
 				None
@@ -1506,7 +1506,7 @@ fn mixed_specific_and_category_spends() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				30,
 				Box::new(8),
 				None
@@ -1538,7 +1538,7 @@ fn category_check_status_with_multiple_executions() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				40,
 				Box::new(6),
 				None
@@ -1566,7 +1566,7 @@ fn category_spend_with_custom_category() {
 
 			assert_ok!(Treasury::spend(
 				RuntimeOrigin::signed(14),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				80,
 				Box::new(6),
 				None
@@ -1600,7 +1600,7 @@ fn category_spend_respects_spend_origin_limit() {
 
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(10),
-			Box::new(SpendAsset::Category(bounded_category.clone())),
+			SpendAsset::Category(bounded_category.clone()),
 			2,
 			Box::new(6),
 			None
@@ -1609,7 +1609,7 @@ fn category_spend_respects_spend_origin_limit() {
 		assert_noop!(
 			Treasury::spend(
 				RuntimeOrigin::signed(10),
-				Box::new(SpendAsset::Category(bounded_category)),
+				SpendAsset::Category(bounded_category),
 				3,
 				Box::new(6),
 				None
@@ -1634,7 +1634,7 @@ fn category_spend_with_empty_category_assets() {
 			assert_noop!(
 				Treasury::spend(
 					RuntimeOrigin::signed(14),
-					Box::new(SpendAsset::Category(bounded_category)),
+					SpendAsset::Category(bounded_category),
 					10,
 					Box::new(6),
 					None
@@ -1655,7 +1655,7 @@ fn category_spend_cannot_void_after_payout() {
 
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(14),
-			Box::new(SpendAsset::Category(bounded_category)),
+			SpendAsset::Category(bounded_category),
 			50,
 			Box::new(6),
 			None
@@ -1684,7 +1684,7 @@ fn category_spend_expiry_works() {
 		// Create category spend
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(14),
-			Box::new(SpendAsset::Category(bounded_category)),
+			SpendAsset::Category(bounded_category),
 			50,
 			Box::new(6),
 			None
@@ -1708,7 +1708,7 @@ fn category_spend_valid_from_works() {
 		// Create category spend valid from block 3
 		assert_ok!(Treasury::spend(
 			RuntimeOrigin::signed(14),
-			Box::new(SpendAsset::Category(bounded_category)),
+			SpendAsset::Category(bounded_category),
 			50,
 			Box::new(6),
 			Some(3)
