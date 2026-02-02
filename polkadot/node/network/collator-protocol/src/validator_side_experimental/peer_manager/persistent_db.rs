@@ -835,8 +835,7 @@ mod tests {
 
 		drop(db);
 
-		let reloaded_db =
-			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+		let reloaded_db = PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
 		assert_eq!(
 			reloaded_db.query(&peer1, &para_id_100).await,
@@ -844,9 +843,7 @@ mod tests {
 			"Para 100 data should be persisted correctly"
 		);
 
-		assert_eq!(
-			reloaded_db.inner.len(), 1
-		);
+		assert_eq!(reloaded_db.inner.len(), 1);
 
 		assert_eq!(
 			reloaded_db.processed_finalized_block_number().await,
@@ -891,8 +888,7 @@ mod tests {
 		assert_eq!(db.query(&peer1, &para_id_200).await, None);
 
 		drop(db);
-		let reloaded =
-			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+		let reloaded = PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
 		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(50).unwrap()));
 		assert_eq!(reloaded.query(&peer1, &para_id_200).await, None);
@@ -933,8 +929,7 @@ mod tests {
 		assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
 
 		drop(db);
-		let reloaded =
-			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+		let reloaded = PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
 		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
 		assert_eq!(reloaded.query(&peer2, &para_id_200).await, None);
@@ -973,8 +968,7 @@ mod tests {
 		}
 
 		// Reload from disk
-		let reloaded =
-			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
+		let reloaded = PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
 		// Should see 30 (slash persisted), NOT 45 (bump lost in crash)
 		assert_eq!(

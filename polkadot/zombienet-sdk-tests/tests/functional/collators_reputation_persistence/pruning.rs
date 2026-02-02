@@ -79,8 +79,7 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 				}))
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..4)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID_1)
@@ -91,7 +90,10 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
 						.as_str(),
 				)
-				.with_default_args(vec![("-lparachain=debug").into(), ("--experimental-send-approved-peer").into()])
+				.with_default_args(vec![
+					("-lparachain=debug").into(),
+					("--experimental-send-approved-peer").into(),
+				])
 				.with_collator(|n| n.with_name("collator-1"))
 		})
 		.with_parachain(|p| {
@@ -103,7 +105,10 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 						.unwrap_or("docker.io/paritypr/colander:latest".to_string())
 						.as_str(),
 				)
-				.with_default_args(vec![("-lparachain=debug").into(), ("--experimental-send-approved-peer").into()])
+				.with_default_args(vec![
+					("-lparachain=debug").into(),
+					("--experimental-send-approved-peer").into(),
+				])
 				.with_collator(|n| n.with_name("collator-2"))
 		})
 		.build()
@@ -152,7 +157,7 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 	// Parse logs to verify both paras have reputation entries before pruning
 	let logs_before_pruning = validator_0.logs().await?;
 	let persistence_para_count_re = Regex::new(
-		r"Periodic persistence completed: reputation DB written to disk.*para_count=(\d+)"
+		r"Periodic persistence completed: reputation DB written to disk.*para_count=(\d+)",
 	)?;
 	let mut para_count_before_pruning: Option<u32> = None;
 	for line in logs_before_pruning.lines() {
@@ -169,7 +174,6 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 		"Expected 2 paras with reputation before pruning (2000 and 2001), but found {}",
 		para_count
 	);
-
 
 	log::info!("Cleaning up parachain 2001 using ParasSudoWrapper::sudo_schedule_para_cleanup + Paras::force_queue_action");
 	// Get Alice's signer
@@ -252,15 +256,10 @@ async fn pruning_test() -> Result<(), anyhow::Error> {
 	}
 	let count = para_count.unwrap();
 	log::info!("After restart: para_count={}", count);
-	assert!(
-		count <= 1,
-		"Expected at most 1 para after pruning, but found {}",
-		count
-	);
+	assert!(count <= 1, "Expected at most 1 para after pruning, but found {}", count);
 
 	log::info!("Verifying para 2000 continues normal operation (para 2001 is deregistered and has no throughput)");
-	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 4..6)])
-		.await?;
+	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 4..6)]).await?;
 
 	log::info!("Pruning test completed successfully");
 	Ok(())

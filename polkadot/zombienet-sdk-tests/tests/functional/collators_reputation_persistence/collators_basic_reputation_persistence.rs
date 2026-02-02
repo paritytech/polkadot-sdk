@@ -26,7 +26,8 @@
 //! 11. Pause validator-0 again
 //! 12. Wait for ~10 finalized blocks (smaller gap)
 //! 13. Restart validator-0 again
-//! 14. Verify the startup lookback processes the entire gap (not limited by MAX_STARTUP_ANCESTRY_LOOKBACK)
+//! 14. Verify the startup lookback processes the entire gap (not limited by
+//!     MAX_STARTUP_ANCESTRY_LOOKBACK)
 //! 15. Verify processed block count matches the actual gap size
 //!
 //! ## Success Criteria
@@ -84,8 +85,7 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 				}))
 				.with_node(|node| node.with_name("validator-0"));
 
-			(1..4)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -97,9 +97,9 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 						.as_str(),
 				)
 				.with_default_args(vec![
-				("-lparachain=debug").into(),
-				("--experimental-send-approved-peer").into(),
-			])
+					("-lparachain=debug").into(),
+					("--experimental-send-approved-peer").into(),
+				])
 				.with_collator(|n| n.with_name("collator"))
 		})
 		.build()
@@ -142,7 +142,7 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 
 	let logs_before_pause = validator_0.logs().await?;
 	let persistence_re = Regex::new(
-		r"Periodic persistence completed: reputation DB written to disk.*last_finalized=Some\((\d+)\)"
+		r"Periodic persistence completed: reputation DB written to disk.*last_finalized=Some\((\d+)\)",
 	)?;
 
 	let mut block_at_persistence: Option<u32> = None;
@@ -169,7 +169,11 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 	while block_at_restart < block_at_persistence + target_gap {
 		if let Some(Ok(block)) = finalized_blocks_1.next().await {
 			block_at_restart = block.number();
-			log::info!("Finalized block {} (gap: {})", block_at_restart, block_at_restart.saturating_sub(block_at_persistence));
+			log::info!(
+				"Finalized block {} (gap: {})",
+				block_at_restart,
+				block_at_restart.saturating_sub(block_at_persistence)
+			);
 		}
 	}
 	log::info!(
@@ -208,9 +212,7 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 	);
 
 	let logs = validator_0.logs().await?;
-	let lookback_completed_re = Regex::new(
-		r"Startup lookback completed.*blocks_processed=(\d+)"
-	)?;
+	let lookback_completed_re = Regex::new(r"Startup lookback completed.*blocks_processed=(\d+)")?;
 
 	let mut found_lookback_completed = false;
 	let mut blocks_processed: Option<u32> = None;
@@ -236,11 +238,13 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 	assert!(
 		processed == 20,
 		"Expected blocks_processed ({}) == MAX_STARTUP_ANCESTRY_LOOKBACK ({})",
-		processed, target_gap
+		processed,
+		target_gap
 	);
 	log::info!(
 		"Lookback verification passed: processed {} blocks (< existing gap {})",
-		processed, target_gap
+		processed,
+		target_gap
 	);
 
 	log::info!("Verifying validator resumes normal operation");
@@ -248,7 +252,8 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 	let relay_client_after: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
 	assert_para_throughput(&relay_client_after, 5, [(ParaId::from(PARA_ID), 4..6)]).await?;
 
-	// === Phase 2: Verify lookback processes entire gap when gap < MAX_STARTUP_ANCESTRY_LOOKBACK ===
+	// === Phase 2: Verify lookback processes entire gap when gap < MAX_STARTUP_ANCESTRY_LOOKBACK
+	// ===
 	log::info!("Phase 2: Testing lookback with smaller gap (< 20 blocks)");
 
 	// Wait for another periodic persistence to get a precise starting point
@@ -279,8 +284,10 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 
 	let block_before_second_pause = block_before_second_pause
 		.ok_or(anyhow!("Could not parse last_finalized from second persistence log"))?;
-	log::info!("Second periodic persistence completed at finalized block {}", block_before_second_pause);
-	
+	log::info!(
+		"Second periodic persistence completed at finalized block {}",
+		block_before_second_pause
+	);
 
 	let small_gap_target = 10u32;
 	let mut block_at_second_restart = block_before_second_pause;
@@ -329,7 +336,8 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 		}
 	}
 
-	let processed_second = last_blocks_processed.expect("Should find second lookback completed log");
+	let processed_second =
+		last_blocks_processed.expect("Should find second lookback completed log");
 	log::info!("Second lookback processed {} blocks", processed_second);
 
 	let expected_gap = block_at_second_restart.saturating_sub(block_before_second_pause);
@@ -348,14 +356,15 @@ async fn collators_basic_reputation_persistence_test() -> Result<(), anyhow::Err
 	);
 
 	assert!(
-		processed_second >= expected_gap.saturating_sub(4) &&
-			processed_second <= expected_gap + 4,
+		processed_second >= expected_gap.saturating_sub(4) && processed_second <= expected_gap + 4,
 		"Expected second lookback to process entire gap (~{} blocks), but got {}",
 		expected_gap,
 		processed_second
 	);
 
-	log::info!("Basic persistence test completed successfully - both large and small gap tests passed");
+	log::info!(
+		"Basic persistence test completed successfully - both large and small gap tests passed"
+	);
 
 	Ok(())
 }

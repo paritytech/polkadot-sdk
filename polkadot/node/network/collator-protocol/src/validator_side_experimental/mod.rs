@@ -68,8 +68,7 @@ pub(crate) async fn run<Context>(
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
-	let persist_interval =
-		reputation_config.persist_interval.unwrap_or(Duration::from_secs(600));
+	let persist_interval = reputation_config.persist_interval.unwrap_or(Duration::from_secs(600));
 	gum::info!(
 		LOG_TARGET,
 		persist_interval_secs = persist_interval.as_secs(),
