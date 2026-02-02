@@ -34,6 +34,7 @@ pub mod bench;
 
 mod children;
 mod parity_db;
+mod partial_state;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
@@ -53,6 +54,7 @@ use std::{
 };
 
 use crate::{
+	partial_state::PartialStateTrackingFor,
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -1011,6 +1013,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	pub state_db: StateDb<Block::Hash, Vec<u8>, StateMetaDb>,
+	partial_state_tracking: PartialStateTrackingFor<Block>,
 	prefix_keys: bool,
 }
 
@@ -1230,7 +1233,7 @@ impl<Block: BlockT> Backend<Block> {
 		let map_e = sp_blockchain::Error::from_state_db;
 
 		let (state_db_init_commit_set, state_db) = StateDb::open(
-			state_meta_db,
+			state_meta_db.clone(),
 			requested_state_pruning,
 			!db.supports_ref_counting(),
 			should_init,
@@ -1242,9 +1245,15 @@ impl<Block: BlockT> Backend<Block> {
 		let state_pruning_used = state_db.pruning_mode();
 		let is_archive_pruning = state_pruning_used.is_archive();
 		let blockchain = BlockchainDb::new(db.clone())?;
+		
+		let partial_state_tracking = PartialStateTrackingFor::<Block>::new(state_meta_db)?;
 
-		let storage_db =
-			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
+		let storage_db = StorageDb {
+			db: db.clone(),
+			state_db,
+			partial_state_tracking,
+			prefix_keys: !db.supports_ref_counting(),
+		};
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -1576,7 +1585,7 @@ impl<Block: BlockT> Backend<Block> {
 
 			let finalized = if operation.commit_state {
 				if operation.reset_storage {
-					let commit = self.storage.state_db.remove_completed_partial_state(&hash);
+					let commit = self.storage.partial_state_tracking.remove_completed_partial_state(&hash);
 					apply_state_commit(&mut transaction, commit);
 				}
 
@@ -2654,15 +2663,9 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		)
 	}
 
-	fn import_partial_state(&self, mut partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
+	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
 		let mut transaction = Transaction::new();
-		let commit = self.storage.state_db.import_partial_state(
-			&partial_state.block_hash,
-			partial_state.nodes
-				.drain()
-				.into_iter()
-				.map(|(key, (value, _))| (key, value)),
-		);
+		let commit = self.storage.partial_state_tracking.import_partial_state(partial_state);
 		apply_state_commit(&mut transaction, commit);
 		self.storage.db.commit(transaction)?;
 		Ok(())
