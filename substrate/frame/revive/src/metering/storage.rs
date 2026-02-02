@@ -477,7 +477,7 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// separately from the storage charge.
 	///
 	/// If this functions is used the amount of the charge has to be stored by the caller somewhere
-	/// alese in order to be able to refund it.
+	/// else in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
 		// will not fail in a nested meter
 		self.record_charge(&amount);

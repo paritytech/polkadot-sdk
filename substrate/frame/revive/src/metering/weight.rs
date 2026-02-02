@@ -143,6 +143,12 @@ pub struct WeightMeter<T: Config> {
 	/// We have to track it separately in order to avoid the loss of precision that happens when
 	/// converting from ref_time to the execution engine unit.
 	engine_meter: EngineMeter<T>,
+	/// Cumulative correction for EIP-150 dry-run gas estimation.
+	///
+	/// Each nesting level contributes `ceil(weight/63)` to account for the 63/64 gas
+	/// forwarding rule. This field accumulates corrections from nested calls when they
+	/// are absorbed, ensuring accurate gas estimation for arbitrarily deep call stacks.
+	weight_correction: Weight,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -156,6 +162,7 @@ impl<T: Config> WeightMeter<T> {
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
+			weight_correction: Default::default(),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -167,12 +174,36 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
+	///
+	/// Automatically computes and accumulates the EIP-150 64/63 correction for dry-run estimation.
 	pub fn absorb_nested(&mut self, nested: Self) {
+		// Compute EIP-150 correction before consuming nested meter
+		let eip150_correction = nested.eip150_63_64_total_correction();
+
 		self.weight_consumed_highest = self
 			.weight_consumed
 			.saturating_add(nested.weight_required())
 			.max(self.weight_consumed_highest);
-		self.weight_consumed += nested.weight_consumed;
+		self.weight_consumed = self.weight_consumed.saturating_add(nested.weight_consumed);
+		// Add the EIP-150 correction (includes both this level and nested levels)
+		self.weight_correction = self.weight_correction.saturating_add(eip150_correction);
+	}
+
+	/// Compute the total EIP-150 64/63 correction for this meter.
+	///
+	/// When a contract calls another, only 63/64 of remaining gas is forwarded.
+	/// For dry-run estimation, we apply the inverse (64/63) to ensure the estimated
+	/// gas is sufficient.
+	///
+	/// Returns the total correction to pass to `absorb_nested`, which includes:
+	/// - The 64/63 correction for this nesting level
+	/// - Any accumulated corrections from deeper nesting levels
+	pub fn eip150_63_64_total_correction(&self) -> Weight {
+		use super::math::reverse_eip_150_to_weight;
+
+		// Return total: correction for this level + existing corrections from nested calls
+		self.weight_correction
+			.saturating_add(reverse_eip_150_to_weight(self.weight_required()))
 	}
 
 	/// Account for used weight.
@@ -265,6 +296,11 @@ impl<T: Config> WeightMeter<T> {
 	/// spent weight can temporarily drop and be refunded later.
 	pub fn weight_required(&self) -> Weight {
 		self.weight_consumed_highest.max(self.weight_consumed)
+	}
+
+	/// Returns the amount of weight required including the EIP-150 64/63 correction.
+	pub fn weight_required_with_correction(&self) -> Weight {
+		self.weight_required().saturating_add(self.weight_correction)
 	}
 
 	/// Returns how much weight was spent

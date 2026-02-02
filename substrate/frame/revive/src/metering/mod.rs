@@ -140,11 +140,18 @@ impl<T: Config> Default for TransactionLimits<T> {
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Create a new nested meter with derived resource limits.
-	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
+	///
+	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
+	pub fn new_nested(
+		&self,
+		limit: &CallResources<T>,
+		should_apply_eip_150: bool,
+	) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
 				limit={limit:?}, \
+				should_apply_eip_150={should_apply_eip_150}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
@@ -157,10 +164,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		let mut new_meter = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info)
+				math::ethereum_execution::new_nested_meter(
+					self,
+					limit,
+					eth_tx_info,
+					should_apply_eip_150,
+				)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
-				math::substrate_execution::new_nested_meter(self, limit)
+				math::substrate_execution::new_nested_meter(self, limit, should_apply_eip_150)
 			},
 		}?;
 
@@ -424,10 +436,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 	/// Get total weight required
 	/// This is the maximum amount of weight consumption that occurred during execution so far
-	/// This is relevant because consumed weight can decrease in case it is asjusted a posteriori
+	/// This is relevant because consumed weight can decrease in case it is adjusted a posteriori
 	/// for some operations
+	///
+	/// For Ethereum gas mode, this includes the EIP-150 64/63 correction for nested calls.
 	pub fn weight_required(&self) -> Weight {
-		self.weight.weight_required()
+		self.weight.weight_required_with_correction()
 	}
 
 	/// Get total storage deposit consumed in the current frame.

@@ -48,7 +48,7 @@ impl<T: Config> MockExt<T> {
 			deposit_limit: BalanceOf::<T>::max_value(),
 		})
 		.unwrap();
-		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits).unwrap();
+		let frame_meter = transaction_meter.new_nested(&CallResources::NoLimits, true).unwrap();
 		Self { frame_meter, _phantom: PhantomData }
 	}
 }

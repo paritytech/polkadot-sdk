@@ -721,7 +721,8 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			deposit_limit: deposit_limit::<Test>(),
 			gas_divisor: 1,
 			callee_input: Callee::consumeAllReftimeCall {}.abi_encode(),
-			result: Err(<Error<Test>>::OutOfGas.into()),
+			// Callee reverts (out of gas), but caller has 1/64 of full gas for cleanup
+			result: Ok(false),
 			is_store_call: false,
 		},
 		Case {
@@ -762,6 +763,14 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 		Case {
 			deposit_limit: deposit_limit::<Test>(),
 			gas_divisor: 2,
+			callee_input: Callee::storeCall { _data: 42 }.abi_encode(),
+			result: Ok(true),
+			is_store_call: true,
+		},
+		// With EIP-150 63/64 rule Caller retains 1/64 of 4160 which is exactly 65
+		Case {
+			deposit_limit: 4160,
+			gas_divisor: 1,
 			callee_input: Callee::storeCall { _data: 42 }.abi_encode(),
 			result: Ok(true),
 			is_store_call: true,

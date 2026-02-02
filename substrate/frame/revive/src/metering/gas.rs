@@ -64,6 +64,20 @@ impl<T: Config> SignedGas<T> {
 		Self::Positive(gas.saturating_mul(gas_scale.into()))
 	}
 
+	/// Apply EIP-150 63/64 rule: reduces gas by 1/64th.
+	/// Returns `floor(gas * 63/64)`.
+	pub fn apply_eip_150(&self) -> Self {
+		match self {
+			Positive(gas) => {
+				// gas - ceil(gas/64) = floor(gas * 63/64)
+				// Strict: callee gets at most 63/64 of remaining gas
+				Positive(gas.saturating_sub(gas.saturating_add(63u32.into()) / 64u32.into()))
+			},
+			// Negative gas remains unchanged
+			Negative(amount) => Self::safe_new_negative(*amount),
+		}
+	}
+
 	/// Transform a storage deposit into a gas value. The value will be adjusted by dividing it
 	/// through the next fee multiplier. Charges are treated as a positive numbers and refunds as
 	/// negative numbers.
