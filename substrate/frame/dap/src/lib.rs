@@ -42,7 +42,7 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate},
+		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
 		Imbalance, OnUnbalanced,
 	},
 	PalletId,
@@ -119,6 +119,8 @@ pub mod pallet {
 
 			match T::Currency::mint_into(&buffer, ed) {
 				Ok(_) => {
+					// Mark ED as inactive so it doesn't participate in governance.
+					<T::Currency as Unbalanced<T::AccountId>>::deactivate(ed);
 					log::info!(
 						target: LOG_TARGET,
 						"🏦 Created DAP buffer account: {buffer:?}"
@@ -212,5 +214,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+
+		// Mark funds as inactive so they don't participate in governance voting.
+		<T::Currency as Unbalanced<T::AccountId>>::deactivate(numeric_amount);
 	}
 }

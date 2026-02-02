@@ -20,6 +20,7 @@
 use crate::mock::*;
 use frame_support::traits::{
 	fungible::{Balanced, Inspect},
+	tokens::{Fortitude, Precision, Preservation},
 	OnUnbalanced,
 };
 
@@ -33,19 +34,44 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 
 		// Given: buffer has ED (funded at genesis)
 		assert_eq!(Balances::free_balance(buffer), ed);
+		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
 		// When: multiple slashes occur via OnUnbalanced (simulating a staking slash)
-		let credit1 = <Balances as Balanced<u64>>::issue(30);
+		let credit1 = <Balances as Balanced<u64>>::withdraw(
+			&1,
+			30,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
 		DapPallet::on_unbalanced(credit1);
 
-		let credit2 = <Balances as Balanced<u64>>::issue(20);
+		let credit2 = <Balances as Balanced<u64>>::withdraw(
+			&2,
+			20,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
 		DapPallet::on_unbalanced(credit2);
 
-		let credit3 = <Balances as Balanced<u64>>::issue(50);
+		let credit3 = <Balances as Balanced<u64>>::withdraw(
+			&3,
+			50,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
 		DapPallet::on_unbalanced(credit3);
 
 		// Then: buffer has ED + all slashes (1 + 30 + 20 + 50 = 101)
 		assert_eq!(Balances::free_balance(buffer), ed + 100);
+
+		// And: active issuance decreased by 100 (funds deactivated in DAP buffer)
+		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 100);
 
 		// When: slash with zero amount (no-op)
 		let credit = <Balances as Balanced<u64>>::issue(0);
