@@ -122,9 +122,9 @@
     },
     {
       "gas": 249679105308,
-      "gasCost": 184709797,
+      "gasCost": 181382151,
       "weightCost": {
-        "ref_time": 152800180,
+        "ref_time": 119523725,
         "proof_size": 8883
       },
       "depth": 1,
