@@ -364,7 +364,7 @@ where
 				best_finalized_source_header_id_at_best_target,
 			);
 
-			return self.select_race_action(race_state).await.is_some()
+			return self.select_race_action(race_state).await.is_some();
 		}
 
 		false
@@ -376,12 +376,12 @@ where
 	) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		let best_target_nonce = self.strategy.best_at_target()?;
@@ -425,7 +425,7 @@ where
 			let enough_rewards_being_proved = number_of_rewards_being_proved >=
 				target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
 			if !enough_rewards_being_proved {
-				return None
+				return None;
 			}
 		}
 
@@ -535,13 +535,13 @@ where
 	) -> Option<SourceHeaderIdOf<P>> {
 		// we have already submitted something - let's wait until it is mined
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// if we can deliver something using current race state, go on
 		let selected_nonces = self.select_race_action(race_state.clone()).await;
 		if selected_nonces.is_some() {
-			return None
+			return None;
 		}
 
 		// check if we may deliver some messages if we'll relay require source header
@@ -555,7 +555,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_delivery
+			return maybe_source_header_for_delivery;
 		}
 
 		// ok, we can't delivery anything even if we relay some source blocks first. But maybe
@@ -569,7 +569,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_reward_confirmation
+			return maybe_source_header_for_reward_confirmation;
 		}
 
 		None
@@ -1035,7 +1035,6 @@ mod tests {
 		// let's prepare situation when:
 		// - all messages [20; 23] have been generated at source block#1;
 		let (mut state, mut strategy) = prepare_strategy();
-		//
 		// - messages [20; 23] have been delivered
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state.clone()).await,
@@ -1068,7 +1067,6 @@ mod tests {
 
 		// now let's generate two more nonces [24; 25] at the source;
 		strategy.source_nonces_updated(header_id(2), source_nonces(24..=25, 19, 0));
-		//
 		// we don't need to relay more headers to target, because messages [20; 23] have
 		// not confirmed to source yet
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);

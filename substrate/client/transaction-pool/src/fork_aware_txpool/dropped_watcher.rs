@@ -178,12 +178,12 @@ where
 	) -> Option<OccupiedEntry<'_, ExtrinsicHash<C>, HashSet<BlockHash<C>>>> {
 		if let Entry::Occupied(views_keeping_tx_valid) = self.ready_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		if let Entry::Occupied(views_keeping_tx_valid) =
 			self.future_transaction_views.entry(tx_hash)
 		{
-			return Some(views_keeping_tx_valid)
+			return Some(views_keeping_tx_valid);
 		}
 		None
 	}
@@ -289,11 +289,11 @@ where
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+						return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 					}
 				} else {
 					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked dropped) tx");
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 				}
 			},
 			TransactionStatus::Usurped(by) =>
@@ -302,11 +302,11 @@ where
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);
 					if views_keeping_tx_valid.get().is_empty() {
-						return Some(DroppedTransaction::new_invalid(tx_hash))
+						return Some(DroppedTransaction::new_invalid(tx_hash));
 					}
 				} else {
 					debug!(target: LOG_TARGET, ?tx_hash, "dropped_watcher: removing (non-tracked invalid) tx");
-					return Some(DroppedTransaction::new_invalid(tx_hash))
+					return Some(DroppedTransaction::new_invalid(tx_hash));
 				}
 			},
 			_ => {},
@@ -320,13 +320,13 @@ where
 			// never drop transaction that was seen as ready. It may not have a referencing
 			// view now, but such fork can appear.
 			if self.ready_transaction_views.get(&tx_hash).is_some() {
-				continue
+				continue;
 			}
 
 			if let Some(views) = self.future_transaction_views.get(&tx_hash) {
 				if views.is_empty() {
 					self.future_transaction_views.remove(&tx_hash);
-					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash))
+					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 				}
 			}
 		}
@@ -339,7 +339,7 @@ where
 	/// transactions. Returns a tuple containing this stream and the controller for managing
 	/// this stream.
 	fn event_stream() -> (StreamOfDropped<C>, Controller<Command<C>>) {
-		//note: 64 allows to avoid warning messages during execution of unit tests.
+		// note: 64 allows to avoid warning messages during execution of unit tests.
 		const CHANNEL_SIZE: usize = 64;
 		let (sender, command_receiver) = sc_utils::mpsc::tracing_unbounded::<Command<C>>(
 			"tx-pool-dropped-watcher-cmd-stream",

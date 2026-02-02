@@ -228,7 +228,7 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 		Ok(value) => value,
 		Err(error) => {
 			let name = function.name();
-			return Err(format!("call into the host function '{name}' failed: {error}"))
+			return Err(format!("call into the host function '{name}' failed: {error}"));
 		},
 	};
 

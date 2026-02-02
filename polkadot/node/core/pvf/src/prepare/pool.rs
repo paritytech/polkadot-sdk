@@ -190,7 +190,7 @@ async fn purge_dead(
 			// The idle token is missing, meaning this worker is now occupied: skip it. This is
 			// because the worker process is observed by the work task and should it reach the
 			// deadline or be terminated it will be handled by the corresponding mux event.
-			continue
+			continue;
 		}
 
 		if let Poll::Ready(()) = futures::poll!(&mut data.handle) {
@@ -473,7 +473,7 @@ fn handle_concluded_no_rip(
 		None => {
 			// Perhaps the worker was killed meanwhile and the result is no longer relevant. We
 			// already send `Rip` when purging if we detect that the worker is dead.
-			return Ok(())
+			return Ok(());
 		},
 		Some(data) => data,
 	};

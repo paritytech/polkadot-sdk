@@ -231,7 +231,7 @@ pub fn worker_entrypoint(
 						let result: PrepareWorkerResult =
 							Err(error_from_errno("getrusage before", errno));
 						send_result(&mut stream, result, worker_info)?;
-						continue
+						continue;
 					},
 				};
 
@@ -675,7 +675,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Err(PrepareError::TimedOut)
+		return Err(PrepareError::TimedOut);
 	}
 
 	match status {
@@ -692,7 +692,7 @@ fn handle_parent_process(
 						return Err(PrepareError::JobError(format!(
 							"unexpected exit status: {}",
 							exit_status
-						)))
+						)));
 					}
 
 					// Write the serialized artifact into a temp file.
@@ -711,7 +711,7 @@ fn handle_parent_process(
 					);
 					// Write to the temp file created by the host.
 					if let Err(err) = fs::write(temp_artifact_dest, &artifact) {
-						return Err(PrepareError::IoErr(err.to_string()))
+						return Err(PrepareError::IoErr(err.to_string()));
 					};
 
 					let checksum = compute_checksum(&artifact.as_ref());

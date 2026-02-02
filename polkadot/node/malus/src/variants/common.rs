@@ -254,7 +254,7 @@ where
 									exec_kind,
 									response_sender,
 								},
-							})
+							});
 						}
 						// Create the fake response with probability `p` if the `PoV` is malicious,
 						// where 'p' defaults to 100% for suggest-garbage-candidate variant.
