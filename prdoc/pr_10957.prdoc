@@ -1,0 +1,8 @@
+title: 'pallet-dap: mark funds as inactive '
+doc:
+- audience: Runtime Dev
+  description: |-
+    In pallet-dap, mark funds  in the issuance buffer as inactive so they do not participate in governance.
+crates:
+- name: pallet-dap
+  bump: major
