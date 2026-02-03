@@ -39,7 +39,7 @@ mod tests;
 extern crate alloc;
 
 use frame_support::{
-	defensive, defensive_assert,
+	defensive,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
@@ -91,48 +91,60 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
-		/// Create the buffer account with a provider reference and fund it with ED.
+		/// Initialize the buffer account.
 		///
-		/// Called once at genesis (for new chains and test/benchmark setup) or via migration
-		/// (for existing chains). Safe to call multiple times - will early exit if account
-		/// already exists with sufficient balance.
-		pub fn create_buffer_account() {
+		/// - **Production**: Verifies the account is pre-funded (via genesis allocation or
+		///   transfer) and deactivates its balance so it doesn't participate in governance.
+		/// - **Tests/benchmarks**: Creates the account by minting ED.
+		///
+		/// Safe to call multiple times - will early exit if account already exists with
+		/// sufficient balance.
+		pub fn init_buffer_account() {
 			let buffer = Self::buffer_account();
 			let ed = T::Currency::minimum_balance();
+			let balance = T::Currency::balance(&buffer);
+			let is_funded = frame_system::Pallet::<T>::providers(&buffer) > 0 && balance >= ed;
 
-			if frame_system::Pallet::<T>::providers(&buffer) > 0 &&
-				T::Currency::balance(&buffer) >= ed
+			// Production: verify pre-funded account and deactivate balance.
+			#[cfg(not(any(test, feature = "runtime-benchmarks")))]
 			{
-				log::debug!(
-					target: LOG_TARGET,
-					"DAP buffer account already initialized: {buffer:?}"
+				frame_support::defensive_assert!(
+					is_funded,
+					"DAP buffer account must be pre-funded with at least ED"
 				);
-				return;
+				<T::Currency as Unbalanced<T::AccountId>>::deactivate(balance);
+				log::info!(
+					target: LOG_TARGET,
+					"🏦 DAP buffer account verified and deactivated: {buffer:?}"
+				);
 			}
 
-			// Ensure the account exists by incrementing its provider count.
-			frame_system::Pallet::<T>::inc_providers(&buffer);
-			log::info!(
-				target: LOG_TARGET,
-				"Attempting to mint ED ({ed:?}) into DAP buffer: {buffer:?}"
-			);
-
-			match T::Currency::mint_into(&buffer, ed) {
-				Ok(minted) => {
-					defensive_assert!(minted == ed, "mint_into should mint exact amount");
-					// Mark ED as inactive so it doesn't participate in governance.
-					<T::Currency as Unbalanced<T::AccountId>>::deactivate(minted);
-					log::info!(
-						target: LOG_TARGET,
-						"🏦 Created DAP buffer account: {buffer:?}"
-					);
-				},
-				Err(e) => {
-					log::error!(
-						target: LOG_TARGET,
-						"🚨 Failed to mint ED into DAP buffer: {e:?}"
-					);
-				},
+			// Tests/benchmarks: create and fund the account.
+			#[cfg(any(test, feature = "runtime-benchmarks"))]
+			{
+				if is_funded {
+					return;
+				}
+				frame_system::Pallet::<T>::inc_providers(&buffer);
+				match T::Currency::mint_into(&buffer, ed) {
+					Ok(minted) => {
+						frame_support::defensive_assert!(
+							minted == ed,
+							"mint_into should mint exact amount"
+						);
+						<T::Currency as Unbalanced<T::AccountId>>::deactivate(minted);
+						log::info!(
+							target: LOG_TARGET,
+							"🏦 Created DAP buffer account: {buffer:?}"
+						);
+					},
+					Err(e) => {
+						log::error!(
+							target: LOG_TARGET,
+							"🚨 Failed to mint ED into DAP buffer: {e:?}"
+						);
+					},
+				}
 			}
 		}
 	}
@@ -148,8 +160,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			// Create and fund the buffer account at genesis.
-			Pallet::<T>::create_buffer_account();
+			Pallet::<T>::init_buffer_account();
 		}
 	}
 }
@@ -166,14 +177,14 @@ pub mod migrations {
 			use super::*;
 			use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
-			/// Inner migration that creates the buffer account.
+			/// Inner migration that initializes the buffer account.
 			pub struct InitBufferAccountInner<T>(core::marker::PhantomData<T>);
 
 			impl<T: Config> UncheckedOnRuntimeUpgrade for InitBufferAccountInner<T> {
 				fn on_runtime_upgrade() -> Weight {
-					Pallet::<T>::create_buffer_account();
-					// Weight: inc_providers (1 read, 1 write) + mint_into (2 reads, 2 writes)
-					T::DbWeight::get().reads_writes(3, 3)
+					Pallet::<T>::init_buffer_account();
+					// Weight: reads (providers, balance) + writes (deactivate)
+					T::DbWeight::get().reads_writes(2, 1)
 				}
 			}
 		}
