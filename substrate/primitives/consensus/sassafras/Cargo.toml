@@ -52,3 +52,7 @@ serde = [
 	"sp-core/serde",
 	"sp-runtime/serde",
 ]
+
+ec-crypto-hostcalls = [
+	"sp-core/ec-crypto-hostcalls"
+]
