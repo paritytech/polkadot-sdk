@@ -118,7 +118,7 @@ pub mod foreign_assets_reserves {
 					// After the last asset, migration is finished.
 					Some(MigrationState::Finished) => {
 						tracing::info!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
-						return Ok(None)
+						return Ok(None);
 					},
 				};
 

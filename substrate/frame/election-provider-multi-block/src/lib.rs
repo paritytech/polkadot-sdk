@@ -61,7 +61,6 @@
 //! * [`crate::verifier::Verifier`]: Parent talking to verifier.
 //! * [`crate::verifier::SolutionDataProvider`]: Verifier talking to signed.
 
-//!
 //! ## Pagination
 //!
 //! Most of the external APIs of this pallet are paginated. All pagination follow a pattern where if
@@ -1044,7 +1043,7 @@ pub mod pallet {
 	#[allow(unused)]
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	impl<T: Config> Snapshot<T> {
-		///Ensure target snapshot exists.
+		/// Ensure target snapshot exists.
 		pub(crate) fn ensure_target_snapshot(exists: bool) -> Result<(), &'static str> {
 			ensure!(exists ^ Self::desired_targets().is_none(), "desired target mismatch");
 			ensure!(exists ^ Self::targets().is_none(), "targets mismatch");

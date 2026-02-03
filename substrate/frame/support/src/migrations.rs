@@ -358,7 +358,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 		match contains_prefixed_key(&hashed_prefix) {
 			true => {
 				log::error!("{} has keys remaining post-removal ❗", P::get());
-				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
 			},
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
 		};
@@ -466,7 +466,7 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 		match contains_prefixed_key(&hashed_prefix) {
 			true => {
 				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
-				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
 			},
 			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
 		};
@@ -853,7 +853,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		if !n.is_zero() {
 			defensive!("nth_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {
@@ -874,7 +874,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		if n != 0 {
 			defensive!("nth_transactional_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {

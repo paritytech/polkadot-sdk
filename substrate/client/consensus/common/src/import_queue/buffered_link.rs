@@ -160,7 +160,7 @@ impl<B: BlockT> BufferedLinkReceiver<B> {
 	pub async fn next_action(&mut self, link: &dyn Link<B>) -> Result<(), ()> {
 		if let Some(msg) = self.rx.next().await {
 			self.send_actions(msg, link);
-			return Ok(())
+			return Ok(());
 		}
 		Err(())
 	}

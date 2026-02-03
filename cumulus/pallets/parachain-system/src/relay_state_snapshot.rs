@@ -172,7 +172,7 @@ impl RelayChainStateProof {
 	) -> Result<Self, Error> {
 		let db = proof.into_memory_db::<HashingFor<relay_chain::Block>>();
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
-			return Err(Error::RootMismatch)
+			return Err(Error::RootMismatch);
 		}
 		let trie_backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
 

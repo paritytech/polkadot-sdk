@@ -219,7 +219,7 @@ impl PeerInfo {
 			self.reputation = self.reputation.saturating_sub(diff);
 
 			if self.reputation == 0 {
-				break
+				break;
 			}
 		}
 	}
@@ -354,7 +354,7 @@ impl PeerStoreInner {
 
 	fn progress_time(&mut self, seconds_passed: u64) {
 		if seconds_passed == 0 {
-			return
+			return;
 		}
 
 		// Drive reputation values towards 0.

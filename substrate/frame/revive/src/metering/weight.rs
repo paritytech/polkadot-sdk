@@ -199,7 +199,7 @@ impl<T: Config> WeightMeter<T> {
 		// any action
 		let new_consumed = self.weight_consumed.saturating_add(amount);
 		if new_consumed.any_gt(self.effective_weight_limit) {
-			return Err(<Error<T>>::OutOfGas.into())
+			return Err(<Error<T>>::OutOfGas.into());
 		}
 
 		self.weight_consumed = new_consumed;
@@ -241,7 +241,7 @@ impl<T: Config> WeightMeter<T> {
 		self.weight_consumed.saturating_accrue(weight_consumed);
 		if self.weight_consumed.any_gt(self.effective_weight_limit) {
 			self.weight_consumed = self.effective_weight_limit;
-			return Err(<Error<T>>::OutOfGas.into())
+			return Err(<Error<T>>::OutOfGas.into());
 		}
 
 		Ok(())

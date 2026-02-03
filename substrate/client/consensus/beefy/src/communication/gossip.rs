@@ -220,7 +220,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> Filter<B, AuthorityId> {
 /// Allows messages for 'rounds >= last concluded' to flow, everything else gets
 /// rejected/expired.
 ///
-///All messaging is handled in a single BEEFY global topic.
+/// All messaging is handled in a single BEEFY global topic.
 pub(crate) struct GossipValidator<B, N, AuthorityId: AuthorityIdBound>
 where
 	B: Block,

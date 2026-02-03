@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
 			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
-				return // out of bounds. harmless.
+				return; // out of bounds. harmless.
 			}
 
 			(start..up_to).for_each(HistoricalSessions::<T>::remove);
@@ -376,7 +376,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 		if count != proof.validator_count {
 			print_error("InvalidCount");
-			return None
+			return None;
 		}
 
 		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)

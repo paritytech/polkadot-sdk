@@ -340,7 +340,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			.is_ok();
 
 			if is_valid_set_id {
-				break
+				break;
 			}
 
 			initial_authorities_set_id += 1;
@@ -349,7 +349,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 				// there can't be more authorities set changes than headers => if we have reached
 				// `initial_block_number` and still have not found correct value of
 				// `initial_authorities_set_id`, then something else is broken => fail
-				return Err(Error::GuessInitialAuthorities(C::NAME, initial_header_number))
+				return Err(Error::GuessInitialAuthorities(C::NAME, initial_header_number));
 			}
 		}
 

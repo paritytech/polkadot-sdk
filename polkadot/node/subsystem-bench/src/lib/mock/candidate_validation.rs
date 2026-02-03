@@ -52,7 +52,7 @@ impl MockCandidateValidation {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					CandidateValidationMessage::ValidateFromExhaustive {
