@@ -34,6 +34,8 @@ use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
 	scale::{Decode, Encode},
 };
+use core::marker::PhantomData;
+use sp_runtime_interface::RIType;
 
 /// Unexpected failure message.
 pub const FAIL_MSG: &str = "Unexpected failure, bad arguments, broken host/runtime contract; qed";
@@ -49,8 +51,6 @@ pub type BigInteger = Vec<u64>;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
-	// Reserved for no-error hostcall result.
-	_Reserved = 0,
 	/// Encoding error due to small output buffer.
 	Encode = 1,
 	/// Input data decoding error
@@ -62,49 +62,37 @@ pub enum Error {
 	Unknown = 255,
 }
 
-/// Newtype for host call results, wrapping the raw u8 value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HostcallResult(pub u8);
+/// Return a `Result<(), Error>` as a single `u32` through the FFI boundary.
+pub struct HostcallResult;
 
-impl HostcallResult {
-	/// Success result.
-	pub const OK: Self = HostcallResult(0);
-	/// Returns `true` if the result is success.
-	pub fn is_ok(&self) -> bool {
-		*self == Self::OK
+impl RIType for HostcallResult {
+	type FFIType = u32;
+	type Inner = Result<(), Error>;
+}
+
+#[cfg(not(substrate_runtime))]
+impl sp_runtime_interface::host::IntoFFIValue for HostcallResult {
+	fn into_ffi_value(
+		value: Self::Inner,
+		_context: &mut dyn sp_runtime_interface::sp_wasm_interface::FunctionContext,
+	) -> sp_runtime_interface::sp_wasm_interface::Result<Self::FFIType> {
+		Ok(match value {
+			Ok(()) => 0,
+			Err(e) => e as u32,
+		})
 	}
 }
 
-impl From<Result<(), Error>> for HostcallResult {
-	fn from(r: Result<(), Error>) -> Self {
-		match r {
-			Ok(()) => HostcallResult(0),
-			Err(e) => HostcallResult(e as u8),
-		}
-	}
-}
-
-impl From<HostcallResult> for Result<(), Error> {
-	fn from(r: HostcallResult) -> Self {
-		match r.0 {
+#[cfg(substrate_runtime)]
+impl sp_runtime_interface::wasm::FromFFIValue for HostcallResult {
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		match arg {
 			0 => Ok(()),
 			1 => Err(Error::Encode),
 			2 => Err(Error::Decode),
 			3 => Err(Error::LengthMismatch),
 			_ => Err(Error::Unknown),
 		}
-	}
-}
-
-impl From<HostcallResult> for u8 {
-	fn from(r: HostcallResult) -> u8 {
-		r.0
-	}
-}
-
-impl From<u8> for HostcallResult {
-	fn from(v: u8) -> Self {
-		HostcallResult(v)
 	}
 }
 
