@@ -10,7 +10,3 @@ crates:
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
-- name: pallet-conviction-voting
-  bump: patch
-- name: pallet-staking-async
-  bump: patch
