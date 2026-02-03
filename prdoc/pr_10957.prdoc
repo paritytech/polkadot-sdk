@@ -1,9 +1,12 @@
-title: 'pallet-dap: mark funds as inactive  and expect buffer account to be pre-funded'
+title: 'pallet-dap: mark funds as inactive and expect buffer account to be pre-funded'
 doc:
 - audience: Runtime Dev
   description: |-
     In pallet-dap, mark funds in the issuance buffer as inactive so they do not participate in governance.
-    In production, the buffer account must be pre-funded (e.g., via genesis allocation or transfer) before the migration runs.
+    In production, the buffer account must be pre-funded (e.g., via genesis allocation or transfer) before the pallet receives any funds.
+    Removed the InitBufferAccount migration since the buffer account is now expected to be pre-funded externally.
 crates:
 - name: pallet-dap
   bump: major
+- name: asset-hub-westend-runtime
+  bump: patch

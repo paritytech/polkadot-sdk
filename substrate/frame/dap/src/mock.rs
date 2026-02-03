@@ -18,7 +18,9 @@
 //! Test mock for the DAP pallet.
 
 use crate::{self as pallet_dap, Config};
-use frame_support::{derive_impl, parameter_types, PalletId};
+use frame_support::{
+	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion, PalletId,
+};
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -52,15 +54,15 @@ impl Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	let buffer: u64 = DapPalletId::get().into_account_truncating();
+	let ed = 1u64;
+
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 100), (2, 200), (3, 300)],
+		balances: vec![(1, 100), (2, 200), (3, 300), (buffer, ed)],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	crate::pallet::GenesisConfig::<Test>::default()
-		.assimilate_storage(&mut t)
-		.unwrap();
 	t.into()
 }
