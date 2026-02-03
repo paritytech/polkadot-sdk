@@ -143,7 +143,7 @@ pub fn decode<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
 /// Receives encoded:
 /// - `g1`: `Vec<G1Affine>`.
 /// - `g2`: `Vec<G2Affine>`.
-/// Returns encoded `TargetField`.
+/// Writes encoded `TargetField` to `out`.
 pub fn multi_miller_loop<T: Pairing>(g1: &[u8], g2: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
 	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
@@ -154,7 +154,7 @@ pub fn multi_miller_loop<T: Pairing>(g1: &[u8], g2: &[u8], out: &mut [u8]) -> Re
 /// Pairing final exponentiation.
 ///
 /// Receives encoded `TargetField`.
-/// Returns encoded `TargetField`.
+/// Writes encoded `TargetField` to `in_out`.
 pub fn final_exponentiation<T: Pairing>(in_out: &mut [u8]) -> Result<(), Error> {
 	let target = decode::<<T as Pairing>::TargetField>(in_out)?;
 	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(Error::Unknown)?;
@@ -166,7 +166,7 @@ pub fn final_exponentiation<T: Pairing>(in_out: &mut [u8]) -> Result<(), Error> 
 /// Expects encoded:
 /// - `bases`: `Vec<SWAffine<SWCurveConfig>>`.
 /// - `scalars`: `Vec<SWCurveConfig::ScalarField>`.
-/// Returns encoded: `SWAffine<SWCurveConfig>`.
+/// Writes encoded `SWAffine<SWCurveConfig>` to `out`.
 pub fn msm_sw<T: SWCurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<SWAffine<T>>>(bases)?;
 	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
@@ -179,7 +179,7 @@ pub fn msm_sw<T: SWCurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) ->
 /// Expects encoded:
 /// - `base`: `SWAffine<SWCurveConfig>`.
 /// - `scalar`: `BigInteger`.
-/// Returns encoded: `SWAffine<SWCurveConfig>`.
+/// Writes encoded `SWAffine<SWCurveConfig>` to `out`.
 pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let base = decode::<SWAffine<T>>(base)?;
 	let scalar = decode::<BigInteger>(scalar)?;
