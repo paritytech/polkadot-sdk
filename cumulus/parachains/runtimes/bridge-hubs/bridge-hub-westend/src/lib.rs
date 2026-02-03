@@ -43,7 +43,7 @@ use bridge_runtime_common::extensions::{
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, MaxEncodedLen, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
@@ -545,6 +545,12 @@ impl pallet_multisig::Config for Runtime {
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+}
+
+impl MaxEncodedLen for RuntimeCall {
+	fn max_encoded_len() -> usize {
+		16 * 1024
+	}
 }
 
 impl pallet_utility::Config for Runtime {

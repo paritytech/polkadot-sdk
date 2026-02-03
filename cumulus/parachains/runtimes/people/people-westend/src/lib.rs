@@ -429,6 +429,12 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
+impl MaxEncodedLen for RuntimeCall {
+	fn max_encoded_len() -> usize {
+		16 * 1024
+	}
+}
+
 /// The type used to represent the kinds of proxying allowed.
 #[derive(
 	Copy,

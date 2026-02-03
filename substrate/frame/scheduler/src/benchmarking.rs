@@ -206,9 +206,9 @@ mod benchmarks {
 	// `service_task` when the task is a non-periodic, non-named, fetched call (with a known
 	// preimage length) and which is not dispatched (e.g. due to being overweight).
 	#[benchmark(pov_mode = MaxEncodedLen {
-        // Use measured PoV size for the Preimages since we pass in a length witness.
-        Preimage::PreimageFor: Measured
-    })]
+		// Use measured PoV size for the Preimages since we pass in a length witness.
+		Preimage::PreimageFor: Measured
+	})]
 	fn service_task_fetched(
 		s: Linear<{ BoundedInline::bound() as u32 }, { T::Preimages::MAX_LENGTH as u32 }>,
 	) {
