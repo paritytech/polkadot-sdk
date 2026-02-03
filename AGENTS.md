@@ -1,1 +1,0 @@
-/home/paolo/github/dotfiles/config/claude/polkadot-sdk/CLAUDE.local.md
