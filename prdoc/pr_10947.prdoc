@@ -12,3 +12,5 @@ crates:
   bump: patch
 - name: pallet-conviction-voting
   bump: patch
+- name: pallet-staking-async
+  bump: patch
