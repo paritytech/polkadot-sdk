@@ -39,7 +39,7 @@ mod tests;
 extern crate alloc;
 
 use frame_support::{
-	defensive,
+	defensive, defensive_assert,
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
@@ -118,9 +118,10 @@ pub mod pallet {
 			);
 
 			match T::Currency::mint_into(&buffer, ed) {
-				Ok(_) => {
+				Ok(minted) => {
+					defensive_assert!(minted == ed, "mint_into should mint exact amount");
 					// Mark ED as inactive so it doesn't participate in governance.
-					<T::Currency as Unbalanced<T::AccountId>>::deactivate(ed);
+					<T::Currency as Unbalanced<T::AccountId>>::deactivate(minted);
 					log::info!(
 						target: LOG_TARGET,
 						"🏦 Created DAP buffer account: {buffer:?}"
