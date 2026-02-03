@@ -208,6 +208,11 @@ pub trait ChildBountyManager<Balance> {
 
 	/// Hook called when a parent bounty is removed.
 	fn bounty_removed(bounty_id: BountyIndex);
+
+	/// Close all active child bounties for a parent bounty.
+	/// This is called when the parent bounty is being closed to ensure
+	/// no orphaned child bounties remain.
+	fn close_child_bounties(bounty_id: BountyIndex) -> DispatchResult;
 }
 
 /// Transfer all assets that an account holds.
@@ -700,6 +705,10 @@ pub mod pallet {
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
 				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
+				// Close any active child bounties before awarding the parent bounty.
+				// This prevents curators from blocking the award by keeping child bounties active.
+				T::ChildBountyManager::close_child_bounties(bounty_id)?;
+
 				match &bounty.status {
 					BountyStatus::Active { curator, .. } => {
 						ensure!(signer == *curator, Error::<T, I>::RequireCurator);
@@ -801,6 +810,11 @@ pub mod pallet {
 				bounty_id,
 				|maybe_bounty| -> DispatchResultWithPostInfo {
 					let bounty = maybe_bounty.as_ref().ok_or(Error::<T, I>::InvalidIndex)?;
+
+					// Close any active child bounties before closing the parent bounty.
+					// This prevents curators from blocking governance by keeping child bounties
+					// active.
+					T::ChildBountyManager::close_child_bounties(bounty_id)?;
 
 					match &bounty.status {
 						BountyStatus::Proposed => {
@@ -1211,4 +1225,9 @@ impl<Balance: Zero> ChildBountyManager<Balance> for () {
 	}
 
 	fn bounty_removed(_bounty_id: BountyIndex) {}
+
+	fn close_child_bounties(_bounty_id: BountyIndex) -> DispatchResult {
+		// No-op when child bounties are not being used
+		Ok(())
+	}
 }
