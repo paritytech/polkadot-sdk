@@ -56,7 +56,7 @@ jobs:
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
+            uri: "wss://westend-asset-hub-rpc.polkadot.io:443 --uri wss://asset-hub-westend-rpc.dwellir.com --uri wss://sys.ibp.network/westmint --uri wss://asset-hub-westend.dotters.network --uri wss://westmint-rpc-tn.dwellir.com"
             subcommand_extra_args: " --blocktime 6000"
             command_extra_args: ""
           - network: bridge-hub-westend
