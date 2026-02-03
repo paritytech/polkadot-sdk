@@ -1,0 +1,12 @@
+title: 'cumulus: Remove `max_depth` for the parent search'
+doc:
+- audience: Node Dev
+  description: |-
+    We were just incrementing this number all the time and there is actually no need to have it, as the search is already automatically bounded. For chains with 500ms blocks and relay offset of 1 we easily go above this limit and this then leads to forks.
+
+    So, let's remove the value.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-client-consensus-common
+  bump: major
