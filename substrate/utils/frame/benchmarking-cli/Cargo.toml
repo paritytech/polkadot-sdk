@@ -84,6 +84,7 @@ westend-runtime = { workspace = true, default-features = true }
 [features]
 default = []
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
