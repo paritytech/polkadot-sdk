@@ -402,9 +402,13 @@ fn cancel_as_multi_not_found_with_wrong_signatories() {
 		);
 
 		// Verify it would work with the correct signatories
-		hypothetically_ok!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 2, vec![2, 3], now(), hash)
-		);
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
 	});
 }
 
@@ -430,9 +434,13 @@ fn cancel_as_multi_not_found_with_wrong_call_hash() {
 		);
 
 		// Verify it would work with the correct hash
-		hypothetically_ok!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 2, vec![2, 3], now(), hash)
-		);
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
 	});
 }
 
@@ -466,16 +474,14 @@ fn approve_as_multi_unexpected_timepoint_with_wrong_signatories() {
 		);
 
 		// Verify it would work with the correct signatories
-		hypothetically_ok!(
-			Multisig::approve_as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(now()),
-				hash,
-				Weight::zero()
-			)
-		);
+		hypothetically_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
 	});
 }
 
@@ -510,16 +516,14 @@ fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
 		);
 
 		// Verify it would work with the correct hash
-		hypothetically_ok!(
-			Multisig::approve_as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(now()),
-				hash,
-				Weight::zero()
-			)
-		);
+		hypothetically_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
 	});
 }
 
@@ -555,16 +559,14 @@ fn as_multi_unexpected_timepoint_with_wrong_signatories() {
 		// Verify it would work with the correct signatories
 		let correct_call = call_transfer(6, 15);
 		let call_weight = correct_call.get_dispatch_info().call_weight;
-		hypothetically_ok!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				Some(now()),
-				correct_call,
-				call_weight
-			)
-		);
+		hypothetically_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			correct_call,
+			call_weight
+		));
 	});
 }
 
@@ -823,9 +825,13 @@ fn cancel_as_multi_with_signatories_out_of_order_fails() {
 		);
 
 		// Verify it would work with correctly ordered signatories
-		hypothetically_ok!(
-			Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 2, vec![2, 3], now(), hash)
-		);
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
 	});
 }
 
