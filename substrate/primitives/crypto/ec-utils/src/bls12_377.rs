@@ -17,12 +17,12 @@
 
 //! *BLS12-377* types and host functions.
 
-use crate::utils::{self, FAIL_MSG};
+use crate::utils::{self, HostcallResult, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	pass_by::{PassFatPointerAndRead, PassFatPointerAndReadWrite, PassFatPointerAndWrite},
 	runtime_interface,
 };
 
@@ -65,43 +65,61 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = G1Prepared>,
 		g2: impl Iterator<Item = G2Prepared>,
 	) -> TargetField {
-		host_calls::bls12_377_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
-			.and_then(|res| utils::decode::<TargetField>(res))
-			.expect(FAIL_MSG)
+		let mut out = utils::buffer_for::<TargetField>();
+		host_calls::bls12_377_multi_miller_loop(
+			&utils::encode_iter(g1),
+			&utils::encode_iter(g2),
+			&mut out,
+		)
+		.and_then(|_| utils::decode::<TargetField>(out.as_slice()))
+		.expect(FAIL_MSG)
 	}
 
 	fn final_exponentiation(target: TargetField) -> TargetField {
-		host_calls::bls12_377_final_exponentiation(utils::encode(target))
-			.and_then(|res| utils::decode::<TargetField>(res))
+		let mut in_out = utils::encode(target);
+		host_calls::bls12_377_final_exponentiation(&mut in_out)
+			.and_then(|_| utils::decode::<TargetField>(&in_out))
 			.expect(FAIL_MSG)
 	}
 
 	fn msm_g1(bases: &[G1Affine], scalars: &[ScalarField]) -> G1Projective {
-		host_calls::bls12_377_msm_g1(utils::encode(bases), utils::encode(scalars))
-			.and_then(|res| utils::decode::<G1Affine>(res))
+		let mut out = utils::buffer_for::<G1Affine>();
+		host_calls::bls12_377_msm_g1(&utils::encode(bases), &utils::encode(scalars), &mut out)
+			.and_then(|_| utils::decode::<G1Affine>(&out[..]))
 			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn msm_g2(bases: &[G2Affine], scalars: &[ScalarField]) -> G2Projective {
-		host_calls::bls12_377_msm_g2(utils::encode(bases), utils::encode(scalars))
-			.and_then(|res| utils::decode::<G2Affine>(res))
+		let mut out = utils::buffer_for::<G2Affine>();
+		host_calls::bls12_377_msm_g2(&utils::encode(bases), &utils::encode(scalars), &mut out)
+			.and_then(|_| utils::decode::<G2Affine>(&out))
 			.expect(FAIL_MSG)
 			.into_group()
 	}
 
 	fn mul_projective_g1(base: &G1Projective, scalar: &[u64]) -> G1Projective {
-		host_calls::bls12_377_mul_g1(utils::encode(base.into_affine()), utils::encode(scalar))
-			.and_then(|res| utils::decode::<G1Affine>(res))
-			.expect(FAIL_MSG)
-			.into_group()
+		let mut out = utils::buffer_for::<G1Affine>();
+		host_calls::bls12_377_mul_g1(
+			&utils::encode(base.into_affine()),
+			&utils::encode(scalar),
+			&mut out,
+		)
+		.and_then(|_| utils::decode::<G1Affine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 
 	fn mul_projective_g2(base: &G2Projective, scalar: &[u64]) -> G2Projective {
-		host_calls::bls12_377_mul_g2(utils::encode(base.into_affine()), utils::encode(scalar))
-			.and_then(|res| utils::decode::<G2Affine>(res))
-			.expect(FAIL_MSG)
-			.into_group()
+		let mut out = utils::buffer_for::<G2Affine>();
+		host_calls::bls12_377_mul_g2(
+			&utils::encode(base.into_affine()),
+			&utils::encode(scalar),
+			&mut out,
+		)
+		.and_then(|_| utils::decode::<G2Affine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 }
 
@@ -119,22 +137,23 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `a`: `Vec<G1Affine>`.
 	/// - `b`: `Vec<G2Affine>`.
-	/// Returns encoded: `TargetField`.
+	/// Writes encoded `TargetField` to `out`.
 	fn bls12_377_multi_miller_loop(
-		a: PassFatPointerAndRead<Vec<u8>>,
-		b: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b)
+		a: PassFatPointerAndRead<&[u8]>,
+		b: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::multi_miller_loop::<ark_bls12_377::Bls12_377>(a, b, out)
 	}
 
 	/// Pairing final exponentiation for *BLS12-377*.
 	///
 	/// Receives encoded: `TargetField`.
-	/// Returns encoded: `TargetField`.
+	/// Writes encoded `TargetField` to `in_out`.
 	fn bls12_377_final_exponentiation(
-		f: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::final_exponentiation::<ark_bls12_377::Bls12_377>(f)
+		in_out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::final_exponentiation::<ark_bls12_377::Bls12_377>(in_out)
 	}
 
 	/// Multi scalar multiplication on *G1* for *BLS12-377*.
@@ -144,10 +163,11 @@ pub trait HostCalls {
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `G1Affine`.
 	fn bls12_377_msm_g1(
-		bases: PassFatPointerAndRead<Vec<u8>>,
-		scalars: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::msm_sw::<ark_bls12_377::g1::Config>(bases, scalars)
+		bases: PassFatPointerAndRead<&[u8]>,
+		scalars: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::msm_sw::<ark_bls12_377::g1::Config>(bases, scalars, out)
 	}
 
 	/// Multi scalar multiplication on *G2* for *BLS12-377*.
@@ -157,10 +177,11 @@ pub trait HostCalls {
 	/// - `scalars`: `Vec<ScalarField>`.
 	/// Returns encoded: `G2Affine`.
 	fn bls12_377_msm_g2(
-		bases: PassFatPointerAndRead<Vec<u8>>,
-		scalars: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::msm_sw::<ark_bls12_377::g2::Config>(bases, scalars)
+		bases: PassFatPointerAndRead<&[u8]>,
+		scalars: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::msm_sw::<ark_bls12_377::g2::Config>(bases, scalars, out)
 	}
 
 	/// Affine multiplication on *G1* for *BLS12-377*.
@@ -170,10 +191,11 @@ pub trait HostCalls {
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `G1Affine`.
 	fn bls12_377_mul_g1(
-		base: PassFatPointerAndRead<Vec<u8>>,
-		scalar: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_sw::<ark_bls12_377::g1::Config>(base, scalar)
+		base: PassFatPointerAndRead<&[u8]>,
+		scalar: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::mul_sw::<ark_bls12_377::g1::Config>(base, scalar, out)
 	}
 
 	/// Affine multiplication on *G2* for *BLS12-377*.
@@ -183,10 +205,11 @@ pub trait HostCalls {
 	/// - `scalar`: `BigInteger`.
 	/// Returns encoded: `G2Affine`.
 	fn bls12_377_mul_g2(
-		base: PassFatPointerAndRead<Vec<u8>>,
-		scalar: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_sw::<ark_bls12_377::g2::Config>(base, scalar)
+		base: PassFatPointerAndRead<&[u8]>,
+		scalar: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::mul_sw::<ark_bls12_377::g2::Config>(base, scalar, out)
 	}
 }
 
