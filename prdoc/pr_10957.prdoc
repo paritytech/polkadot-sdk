@@ -6,4 +6,4 @@ doc:
     In production, the buffer account must be pre-funded (e.g., via genesis allocation or transfer) before the migration runs.
 crates:
 - name: pallet-dap
-  bump: patch
+  bump: major
