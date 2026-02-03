@@ -45,6 +45,69 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
 
+/// Error type for host call operations.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+	// Reserved for no-error hostcall result.
+	_Reserved = 0,
+	/// Encoding error due to small output buffer.
+	Encode = 1,
+	/// Input data decoding error
+	Decode = 2,
+	/// Input sequences have different lengths.
+	/// Applies to `msm` operations.
+	LengthMismatch = 3,
+	/// Unknown error.
+	Unknown = 255,
+}
+
+/// Newtype for host call results, wrapping the raw u8 value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HostcallResult(pub u8);
+
+impl HostcallResult {
+	/// Success result.
+	pub const OK: Self = HostcallResult(0);
+	/// Returns `true` if the result is success.
+	pub fn is_ok(&self) -> bool {
+		*self == Self::OK
+	}
+}
+
+impl From<Result<(), Error>> for HostcallResult {
+	fn from(r: Result<(), Error>) -> Self {
+		match r {
+			Ok(()) => HostcallResult(0),
+			Err(e) => HostcallResult(e as u8),
+		}
+	}
+}
+
+impl From<HostcallResult> for Result<(), Error> {
+	fn from(r: HostcallResult) -> Self {
+		match r.0 {
+			0 => Ok(()),
+			1 => Err(Error::Encode),
+			2 => Err(Error::Decode),
+			3 => Err(Error::LengthMismatch),
+			_ => Err(Error::Unknown),
+		}
+	}
+}
+
+impl From<HostcallResult> for u8 {
+	fn from(r: HostcallResult) -> u8 {
+		r.0
+	}
+}
+
+impl From<u8> for HostcallResult {
+	fn from(v: u8) -> Self {
+		HostcallResult(v)
+	}
+}
+
 #[inline(always)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
 	encode(iter.collect::<Vec<_>>())
@@ -60,17 +123,33 @@ pub fn decode<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
 	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
 }
 
+#[inline(always)]
+pub fn encode2<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
+	let val = ArkScale::from(val);
+	// Size hint uses arkworks `serialized_size`, which is accurate
+	if val.size_hint() < buf.len() {
+		return Err(Error::Encode)
+	}
+	val.encode_to(&mut buf);
+	Ok(())
+}
+
+#[inline(always)]
+pub fn decode2<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
+	ArkScale::<T>::decode(&mut buf).map_err(|_| Error::Decode).map(|v| v.0)
+}
+
 /// Pairing multi Miller loop.
 ///
 /// Receives encoded:
 /// - `g1`: `Vec<G1Affine>`.
 /// - `g2`: `Vec<G2Affine>`.
 /// Returns encoded `TargetField`.
-pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
-	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
+pub fn multi_miller_loop<T: Pairing>(g1: &[u8], g2: &[u8], out: &mut [u8]) -> Result<(), Error> {
+	let g1 = decode2::<Vec<<T as Pairing>::G1Affine>>(g1)?;
+	let g2 = decode2::<Vec<<T as Pairing>::G2Affine>>(g2)?;
 	let res = T::multi_miller_loop(g1, g2);
-	Ok(encode(res.0))
+	encode2(res.0, out)
 }
 
 /// Pairing final exponentiation.
@@ -250,8 +329,10 @@ pub mod testing {
 		// Pairing via direct arkworks calls
 		let g1_enc = encode(vec![g1]);
 		let g2_enc = encode(vec![g2]);
-		let r2_enc = multi_miller_loop::<ArkPairing>(g1_enc, g2_enc).unwrap();
-		let r2_enc = final_exponentiation::<ArkPairing>(r2_enc).unwrap();
+		let mut miller_out =
+			vec![0u8; core::mem::size_of::<<ArkPairing as Pairing>::TargetField>()];
+		multi_miller_loop::<ArkPairing>(&g1_enc[..], &g2_enc[..], &mut miller_out[..]).unwrap();
+		let r2_enc = final_exponentiation::<ArkPairing>(miller_out).unwrap();
 		let r2 = decode::<<SubPairing as Pairing>::TargetField>(r2_enc).unwrap();
 
 		assert_eq!(r1, r2);

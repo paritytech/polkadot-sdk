@@ -17,12 +17,14 @@
 
 //! *BLS12-381* types and host functions.
 
-use crate::utils::{self, FAIL_MSG};
+use crate::utils::{self, HostcallResult, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	pass_by::{
+		AllocateAndReturnByCodec, PassFatPointerAndRead, PassFatPointerAndReadWrite, ReturnAs,
+	},
 	runtime_interface,
 };
 
@@ -65,9 +67,14 @@ impl CurveHooks for HostHooks {
 		g1: impl Iterator<Item = G1Prepared>,
 		g2: impl Iterator<Item = G2Prepared>,
 	) -> TargetField {
-		host_calls::bls12_381_multi_miller_loop(utils::encode_iter(g1), utils::encode_iter(g2))
-			.and_then(|res| utils::decode::<TargetField>(res))
-			.expect(FAIL_MSG)
+		let mut out = [0u8; core::mem::size_of::<TargetField>()];
+		let result = host_calls::bls12_381_multi_miller_loop(
+			utils::encode_iter(g1).as_slice(),
+			utils::encode_iter(g2).as_slice(),
+			out.as_mut_slice(),
+		);
+		assert!(result.is_ok(), "{}", FAIL_MSG);
+		utils::decode2::<TargetField>(&out[..]).expect(FAIL_MSG)
 	}
 
 	fn final_exponentiation(target: TargetField) -> TargetField {
@@ -119,12 +126,13 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `a`: `Vec<G1Affine>`.
 	/// - `b`: `Vec<G2Affine>`.
-	/// Returns encoded: `TargetField`.
+	/// Writes encoded `TargetField` to `out`.
 	fn bls12_381_multi_miller_loop(
-		a: PassFatPointerAndRead<Vec<u8>>,
-		b: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
+		a: PassFatPointerAndRead<&[u8]>,
+		b: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> ReturnAs<HostcallResult, u8> {
+		utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b, out).into()
 	}
 
 	/// Pairing final exponentiation for *BLS12-381*.
