@@ -64,14 +64,14 @@ pub(crate) fn export_pov_to_path<Block: BlockT>(
 ) {
 	if let Err(error) = fs::create_dir_all(&path) {
 		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
+		return;
 	}
 
 	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
 		Ok(f) => f,
 		Err(error) => {
 			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
+			return;
 		},
 	};
 

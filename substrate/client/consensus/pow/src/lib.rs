@@ -273,7 +273,7 @@ where
 		use sp_block_builder::CheckInherentsError;
 
 		if *block.header().number() < self.check_inherents_after {
-			return Ok(())
+			return Ok(());
 		}
 
 		sp_block_builder::check_inherents(
@@ -366,7 +366,7 @@ where
 			&inner_seal,
 			difficulty,
 		)? {
-			return Err(Error::<B>::InvalidSeal.into())
+			return Err(Error::<B>::InvalidSeal.into());
 		}
 
 		aux.difficulty = difficulty;
@@ -415,7 +415,7 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 				if id == POW_ENGINE_ID {
 					(DigestItem::Seal(id, seal.clone()), seal)
 				} else {
-					return Err(Error::WrongEngine(id))
+					return Err(Error::WrongEngine(id));
 				},
 			_ => return Err(Error::HeaderUnsealed(hash)),
 		};
@@ -423,7 +423,7 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 		let pre_hash = header.hash();
 
 		if !self.algorithm.preliminary_verify(&pre_hash, &inner_seal)?.unwrap_or(true) {
-			return Err(Error::FailedPreliminaryVerify)
+			return Err(Error::FailedPreliminaryVerify);
 		}
 
 		Ok((header, seal))
@@ -516,13 +516,13 @@ where
 	let task = async move {
 		loop {
 			if timer.next().await.is_none() {
-				break
+				break;
 			}
 
 			if sync_oracle.is_major_syncing() {
 				debug!(target: LOG_TARGET, "Skipping proposal due to sync.");
 				worker.on_major_syncing();
-				continue
+				continue;
 			}
 
 			let best_header = match select_chain.best_chain().await {
@@ -534,13 +534,13 @@ where
 						 Select best chain error: {}",
 						err
 					);
-					continue
+					continue;
 				},
 			};
 			let best_hash = best_header.hash();
 
 			if worker.best_hash() == Some(best_hash) {
-				continue
+				continue;
 			}
 
 			// The worker is locked for the duration of the whole proposing period. Within this
@@ -555,7 +555,7 @@ where
 						 Fetch difficulty failed: {}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -571,7 +571,7 @@ where
 						 Creating inherent data providers failed: {}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -584,7 +584,7 @@ where
 						 Creating inherent data failed: {}",
 						e,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -604,7 +604,7 @@ where
 						 Creating proposer failed: {:?}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -626,7 +626,7 @@ where
 						 Creating proposal failed: {}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 

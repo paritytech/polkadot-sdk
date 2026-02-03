@@ -137,7 +137,7 @@ async fn initialize<Context>(
 				return Ok(Some(State::new(peer_manager, collation_manager, metrics))),
 			Err(err) => {
 				log_error(Err(err))?;
-				continue
+				continue;
 			},
 		}
 	}
@@ -151,7 +151,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(None),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
 				if let Some(activated) = update.activated {
-					return Ok(Some(activated))
+					return Ok(Some(activated));
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
@@ -323,7 +323,7 @@ async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 			state.handle_peer_connected(sender, peer_id, version).await;

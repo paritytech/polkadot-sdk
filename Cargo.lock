@@ -13320,6 +13320,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-ui-tests"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "trybuild",
+]
+
+[[package]]
 name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [

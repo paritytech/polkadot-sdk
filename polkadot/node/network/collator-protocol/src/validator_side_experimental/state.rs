@@ -208,7 +208,7 @@ impl<B: Backend> State<B> {
 			Ok(session_index) => session_index,
 			Err(err) => {
 				err.split()?.log();
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -241,7 +241,7 @@ impl<B: Backend> State<B> {
 				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
-			return
+			return;
 		};
 
 		// Advertised without being declared. Not a big waste of our time, so ignore it.
@@ -253,7 +253,7 @@ impl<B: Backend> State<B> {
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
-			return
+			return;
 		};
 
 		// We have a result here, but it's not worth affecting reputations because advertisements
@@ -413,7 +413,7 @@ impl<B: Backend> State<B> {
 				?candidate_hash,
 				"Could not find the peer id of the invalid collation",
 			);
-			return
+			return;
 		};
 
 		gum::debug!(
@@ -442,7 +442,7 @@ impl<B: Backend> State<B> {
 					?statement,
 					"Seconded message received with a `Valid` statement",
 				);
-				return
+				return;
 			},
 		};
 

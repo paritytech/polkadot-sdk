@@ -455,7 +455,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// consumed storage deposits.
 	fn adjust_effective_weight_limit(&mut self) -> DispatchResult {
 		if matches!(self.transaction_limits, TransactionLimits::WeightAndDeposit { .. }) {
-			return Ok(())
+			return Ok(());
 		}
 
 		if let Some(weight_left) = self.weight_left() {

@@ -237,7 +237,7 @@ fn get_rustup_command(target: RuntimeTarget) -> Option<CargoCommand> {
 		let cmd = CargoCommand::new_with_args("rustup", &["run", &rustup_version, "cargo"]);
 
 		if !cmd.supports_substrate_runtime_env(target) {
-			continue
+			continue;
 		}
 
 		let Some(cargo_version) = cmd.version() else { continue };
@@ -325,7 +325,7 @@ impl CargoCommand {
 		// compiler. For "more" information, see:
 		// https://github.com/rust-lang/rust/blob/fa0f7d0080d8e7e9eb20aa9cbf8013f96c81287f/src/libsyntax/feature_gate/check.rs#L891
 		if env::var("RUSTC_BOOTSTRAP").is_ok() {
-			return true
+			return true;
 		}
 
 		let Some(version) = self.version() else { return false };
