@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, VersionedCall};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -82,7 +82,8 @@ where
 	}
 
 	fn proposal_of(proposal_hash: HashOf<T>) -> Option<ProposalOf<T, I>> {
-		pallet_collective::ProposalOf::<T, I>::get(proposal_hash)
+		let versioned_proposal = pallet_collective::ProposalOf::<T, I>::get(proposal_hash)?;
+		versioned_proposal.call_ref().clone()
 	}
 }
 

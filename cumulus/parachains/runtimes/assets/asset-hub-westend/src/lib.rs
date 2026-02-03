@@ -635,6 +635,12 @@ impl pallet_multisig::Config for Runtime {
 	type BlockNumberProvider = System;
 }
 
+impl MaxEncodedLen for RuntimeCall {
+	fn max_encoded_len() -> usize {
+		16 * 1024
+	}
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
