@@ -276,7 +276,7 @@ impl PeerInfoBehaviour {
 			.chain(self.public_addresses.iter())
 			.any(|known_address| PeerInfoBehaviour::is_same_address(&known_address, &address))
 		{
-			return (true, None)
+			return (true, None);
 		}
 
 		match self.address_confirmations.get(address) {
@@ -284,7 +284,7 @@ impl PeerInfoBehaviour {
 				confirmations.insert(peer_id);
 
 				if confirmations.len() >= MIN_ADDRESS_CONFIRMATIONS {
-					return (true, None)
+					return (true, None);
 				}
 			},
 			None => {
@@ -293,7 +293,7 @@ impl PeerInfoBehaviour {
 					.then(|| {
 						self.address_confirmations.pop_oldest().map(|(address, peers)| {
 							if peers.len() >= MIN_ADDRESS_CONFIRMATIONS {
-								return Some(address)
+								return Some(address);
 							} else {
 								None
 							}
@@ -305,7 +305,7 @@ impl PeerInfoBehaviour {
 				self.address_confirmations
 					.insert(address.clone(), iter::once(peer_id).collect());
 
-				return (false, oldest)
+				return (false, oldest);
 			},
 		}
 
@@ -608,7 +608,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 
 	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.pending_actions.pop_front() {
-			return Poll::Ready(event)
+			return Poll::Ready(event);
 		}
 
 		loop {
@@ -634,7 +634,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 					IdentifyEvent::Received { peer_id, info, .. } => {
 						self.handle_identify_report(&peer_id, &info);
 						let event = PeerInfoEvent::Identified { peer_id, info };
-						return Poll::Ready(ToSwarm::GenerateEvent(event))
+						return Poll::Ready(ToSwarm::GenerateEvent(event));
 					},
 					IdentifyEvent::Error { connection_id, peer_id, error } => {
 						debug!(

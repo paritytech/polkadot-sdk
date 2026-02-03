@@ -169,7 +169,7 @@ impl<T: Default + Clone + Debug> PadSolutionPages for Vec<T> {
 		let desired_pages_usize = desired_pages as usize;
 		debug_assert!(self.len() <= desired_pages_usize);
 		if self.len() == desired_pages_usize {
-			return self
+			return self;
 		}
 
 		// we basically need to prepend the list with this many items.
@@ -188,7 +188,7 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 		let desired_pages_usize = (desired_pages).min(Bound::get()) as usize;
 		debug_assert!(self.len() <= desired_pages_usize);
 		if self.len() == desired_pages_usize {
-			return self
+			return self;
 		}
 
 		// we basically need to prepend the list with this many items.

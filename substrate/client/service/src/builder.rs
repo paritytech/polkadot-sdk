@@ -1465,7 +1465,7 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {

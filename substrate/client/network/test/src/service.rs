@@ -364,7 +364,7 @@ async fn notifications_state_consistent() {
 		iterations += 1;
 		if iterations >= 1_000 {
 			assert!(something_happened);
-			break
+			break;
 		}
 
 		// Start by sending a notification from node1 to node2 and vice-versa. Part of the
@@ -630,7 +630,7 @@ async fn fallback_name_working() {
 				},
 				NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 					assert_eq!(negotiated_fallback, None);
-					break
+					break;
 				},
 				_ => {},
 			}
@@ -645,7 +645,7 @@ async fn fallback_name_working() {
 			},
 			NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 				assert_eq!(negotiated_fallback, Some(PROTOCOL_NAME.into()));
-				break
+				break;
 			},
 			_ => {},
 		}

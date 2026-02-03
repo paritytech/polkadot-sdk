@@ -1638,7 +1638,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation)
+			return transfer_with_dust::<T>(from, to, value, preservation);
 		}
 
 		let origin = origin.account_id()?;
@@ -2218,7 +2218,7 @@ where
 
 	fn code_hash(&self, address: &H160) -> H256 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into()
+			return sp_io::hashing::keccak_256(code).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2233,7 +2233,7 @@ where
 
 	fn code_size(&self, address: &H160) -> u64 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return code.len() as u64
+			return code.len() as u64;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)

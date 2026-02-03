@@ -473,7 +473,7 @@ where
 		first.commitment.validator_set_id != second.commitment.validator_set_id ||
 		first.commitment.payload == second.commitment.payload
 	{
-		return false
+		return false;
 	}
 
 	// check signatures on both votes are valid
@@ -481,7 +481,7 @@ where
 	let valid_second =
 		check_commitment_signature(&second.commitment, &second.id, &second.signature);
 
-	return valid_first && valid_second
+	return valid_first && valid_second;
 }
 
 /// New BEEFY validator set notification hook.

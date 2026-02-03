@@ -67,11 +67,11 @@ impl ErrorDef {
 		let item = if let syn::Item::Enum(item) = item {
 			item
 		} else {
-			return Err(syn::Error::new(item.span(), "Invalid pallet::error, expected item enum"))
+			return Err(syn::Error::new(item.span(), "Invalid pallet::error, expected item enum"));
 		};
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = "Invalid pallet::error, `Error` must be public";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
@@ -81,7 +81,7 @@ impl ErrorDef {
 
 		if item.generics.where_clause.is_some() {
 			let msg = "Invalid pallet::error, where clause is not allowed on pallet error item";
-			return Err(syn::Error::new(item.generics.where_clause.as_ref().unwrap().span(), msg))
+			return Err(syn::Error::new(item.generics.where_clause.as_ref().unwrap().span(), msg));
 		}
 
 		let error = syn::parse2::<keyword::Error>(item.ident.to_token_stream())?;
@@ -101,7 +101,7 @@ impl ErrorDef {
 					Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(_), .. }))) => {},
 					Some((_, expr)) => {
 						let msg = "Invalid pallet::error, only integer discriminants are supported";
-						return Err(syn::Error::new(expr.span(), msg))
+						return Err(syn::Error::new(expr.span(), msg));
 					},
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
