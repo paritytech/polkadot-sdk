@@ -1,12 +1,24 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC20/IERC20.sol)
+// This interface combines methods from two OpenZeppelin contracts:
+//
+// IERC20.sol (base ERC-20 interface)
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol
+//
+// IERC20Metadata.sol (ERC-20 metadata extension)
+// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol
+//
 pragma solidity ^0.8.20;
 
 ///
-/// @dev Interface of the ERC-20 standard as defined in the ERC.
+/// @dev Interface combining the ERC-20 standard and its metadata extension.
+/// Note: Due to ABI generation constraints, both interfaces are merged into a single contract.
 ///
 interface IERC20 {
+    // ============================================================
+    // IERC20 - Base ERC-20 Interface
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol
+    // ============================================================
+
     /// @dev Emitted when `value` tokens are moved from one account (`from`) to
     /// another (`to`).
     ///
@@ -16,15 +28,6 @@ interface IERC20 {
     /// @dev Emitted when the allowance of a `spender` for an `owner` is set by
     /// a call to {approve}. `value` is the new allowance.
     event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    /// @dev Returns the name of the token.
-    function name() external view returns (string memory);
-
-    /// @dev Returns the symbol of the token.
-    function symbol() external view returns (string memory);
-
-    /// @dev Returns the decimals places of the token.
-    function decimals() external view returns (uint8);
 
     /// @dev Returns the value of tokens in existence.
     function totalSupply() external view returns (uint256);
@@ -69,4 +72,18 @@ interface IERC20 {
     ///
     /// Emits a {Transfer} event.
     function transferFrom(address from, address to, uint256 value) external returns (bool);
+
+    // ============================================================
+    // IERC20Metadata - ERC-20 Metadata Extension
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol
+    // ============================================================
+
+    /// @dev Returns the name of the token.
+    function name() external view returns (string memory);
+
+    /// @dev Returns the symbol of the token.
+    function symbol() external view returns (string memory);
+
+    /// @dev Returns the decimals places of the token.
+    function decimals() external view returns (uint8);
 }
