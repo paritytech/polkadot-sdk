@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead, PassFatPointerAndReadWrite},
+	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead, PassFatPointerAndWrite},
 	runtime_interface,
 };
 
@@ -128,7 +128,7 @@ pub trait HostCalls {
 	fn bls12_381_multi_miller_loop(
 		a: PassFatPointerAndRead<&[u8]>,
 		b: PassFatPointerAndRead<&[u8]>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> HostcallResult {
 		utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b, out)
 	}
