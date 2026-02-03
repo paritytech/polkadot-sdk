@@ -118,11 +118,6 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn decode_old<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
-	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
-}
-
-#[inline(always)]
 pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
 	let val = ArkScale::from(val);
 	// Size hint uses arkworks `serialized_size`, which is accurate
@@ -192,12 +187,12 @@ pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> R
 /// Expects encoded:
 /// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
 /// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
-/// Returns encoded: `TEAffine<TECurveConfig>`.
-pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let bases = decode_old::<Vec<TEAffine<T>>>(bases)?;
-	let scalars = decode_old::<Vec<T::ScalarField>>(scalars)?;
-	let res = T::msm(&bases, &scalars).map_err(|_| ())?.into_affine();
-	Ok(encode::<TEAffine<T>>(res))
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
+	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
+	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
+	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?.into_affine();
+	encode_into::<TEAffine<T>>(res, out)
 }
 
 /// Twisted Edwards affine multiplication.
@@ -205,12 +200,12 @@ pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<
 /// Expects encoded:
 /// - `base`: `TEAffine<TECurveConfig>`.
 /// - `scalar`: `BigInteger`.
-/// Returns encoded: `TEAffine<TECurveConfig>`.
-pub fn mul_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let base = decode_old::<TEAffine<T>>(base)?;
-	let scalar = decode_old::<BigInteger>(scalar)?;
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
+	let base = decode::<TEAffine<T>>(base)?;
+	let scalar = decode::<BigInteger>(scalar)?;
 	let res = T::mul_affine(&base, &scalar).into_affine();
-	Ok(encode::<TEAffine<T>>(res))
+	encode_into::<TEAffine<T>>(res, out)
 }
 
 #[cfg(test)]
@@ -279,7 +274,7 @@ pub mod testing {
 
 	pub fn mul_te_test<SubAffine, ArkAffine>()
 	where
-		SubAffine: AffineRepr,
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
 		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
 		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
 	{
@@ -291,15 +286,16 @@ pub mod testing {
 		// This directly calls into arkworks
 		let p_enc = encode(p);
 		let s_enc = encode(s.into_bigint().as_ref());
-		let r2_enc = mul_te::<ArkAffine::Config>(p_enc, s_enc).unwrap();
-		let r2 = decode_old::<SubAffine>(r2_enc).unwrap();
+		let mut r2_enc = buffer_for::<SubAffine>();
+		mul_te::<ArkAffine::Config>(&p_enc, &s_enc, &mut r2_enc).unwrap();
+		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
 
 		assert_eq!(r1, r2);
 	}
 
 	pub fn msm_te_test<SubAffine, ArkAffine>()
 	where
-		SubAffine: AffineRepr,
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
 		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
 		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
 	{
@@ -311,7 +307,8 @@ pub mod testing {
 		// This directly calls into arkworks
 		let bases_enc = encode(&bases[..]);
 		let scalars_enc = encode(&scalars[..]);
-		let r2_enc = msm_te::<ArkAffine::Config>(bases_enc, scalars_enc).unwrap();
+		let mut r2_enc = buffer_for::<SubAffine>();
+		msm_te::<ArkAffine::Config>(&bases_enc, &scalars_enc, &mut r2_enc).unwrap();
 		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
 
 		assert_eq!(r1, r2);
