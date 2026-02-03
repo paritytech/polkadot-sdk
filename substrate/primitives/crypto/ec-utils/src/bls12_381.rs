@@ -85,7 +85,7 @@ impl CurveHooks for HostHooks {
 	fn msm_g1(bases: &[G1Affine], scalars: &[ScalarField]) -> G1Projective {
 		let mut out = utils::buffer_for::<G1Affine>();
 		host_calls::bls12_381_msm_g1(&utils::encode(bases), &utils::encode(scalars), &mut out)
-			.and_then(|_| utils::decode::<G1Affine>(&out[..]))
+			.and_then(|_| utils::decode::<G1Affine>(&out))
 			.expect(FAIL_MSG)
 			.into_group()
 	}
