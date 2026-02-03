@@ -213,12 +213,12 @@ pub mod v3 {
 	pub fn lazy_migrate_inbound_queue<T: Config>() {
 		let Some(mut states) = v3::InboundXcmpStatus::<T>::get() else {
 			tracing::debug!(target: LOG, "Lazy migration finished: item gone");
-			return
+			return;
 		};
 		let Some(ref mut next) = states.first_mut() else {
 			tracing::debug!(target: LOG, "Lazy migration finished: item empty");
 			v3::InboundXcmpStatus::<T>::kill();
-			return
+			return;
 		};
 		tracing::debug!(
 			target: LOG,
@@ -230,7 +230,7 @@ pub mod v3 {
 		let Some((block_number, format)) = next.message_metadata.pop() else {
 			states.remove(0);
 			v3::InboundXcmpStatus::<T>::put(states);
-			return
+			return;
 		};
 		if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
 			tracing::warn!(
@@ -240,19 +240,19 @@ pub mod v3 {
 			);
 			v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
 			v3::InboundXcmpStatus::<T>::put(states);
-			return
+			return;
 		}
 
 		let Some(msg) = v3::InboundXcmpMessages::<T>::take(&next.sender, &block_number) else {
 			defensive!("Storage corrupted: HRMP message missing:", (next.sender, block_number));
 			v3::InboundXcmpStatus::<T>::put(states);
-			return
+			return;
 		};
 
 		let Ok(msg): Result<BoundedVec<_, _>, _> = msg.try_into() else {
 			tracing::error!(target: LOG, "Message dropped: too big");
 			v3::InboundXcmpStatus::<T>::put(states);
-			return
+			return;
 		};
 
 		// Finally! We have a proper message.
@@ -279,7 +279,7 @@ pub mod v4 {
 					pre.drop_threshold == pre_default.drop_threshold &&
 					pre.resume_threshold == pre_default.resume_threshold
 				{
-					return QueueConfigData::default()
+					return QueueConfigData::default();
 				}
 
 				// If the previous values are not the default ones, let's leave them as they are.

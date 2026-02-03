@@ -190,7 +190,10 @@ fn eth_contract_too_large() {
 
 		// Initialize genesis config with allow_unlimited_contract_size
 		let genesis_config = GenesisConfig::<Test> {
-			debug_settings: Some(DebugSettings::new(allow_unlimited_contract_size, false, false)),
+			debug_settings: Some(
+				DebugSettings::default()
+					.set_allow_unlimited_contract_size(allow_unlimited_contract_size),
+			),
 			..Default::default()
 		};
 
@@ -591,5 +594,257 @@ fn eth_substrate_call_tracks_weight_correctly() {
 			expected_weight,
 			post_info.actual_weight.unwrap(),
 		);
+	});
+}
+
+#[test]
+fn execution_tracing_works_for_evm() {
+	use crate::{
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
+		},
+		tracing::trace,
+	};
+	use sp_core::U256;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = ExecutionTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: true,
+			disable_syscall_details: true,
+			limit: Some(5),
+			memory_word_limit: 16,
+		};
+
+		let mut tracer = ExecutionTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut actual_trace = tracer.collect_trace();
+		actual_trace.struct_logs.iter_mut().for_each(|step| {
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
+		});
+
+		let expected_trace = ExecutionTrace {
+			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					error: None,
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 0,
+						op: PUSH1,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 2,
+						op: PUSH1,
+						stack: vec![crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 4,
+						op: MSTORE,
+						stack: vec![
+							crate::evm::Bytes(U256::from(0x80).to_big_endian().to_vec()),
+							crate::evm::Bytes(U256::from(0x40).to_big_endian().to_vec()),
+						],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 5,
+						op: CALLVALUE,
+						stack: vec![],
+						memory: vec![],
+						storage: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::EVMOpcode {
+						pc: 6,
+						op: DUP1,
+						stack: vec![crate::evm::Bytes(U256::from(0).to_big_endian().to_vec())],
+						memory: vec![],
+						storage: None,
+					},
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
+	});
+}
+
+#[test]
+fn execution_tracing_works_for_pvm() {
+	use crate::{
+		evm::{
+			ExecutionStep, ExecutionStepKind, ExecutionTrace, ExecutionTracer,
+			ExecutionTracerConfig,
+		},
+		tracing::trace,
+		vm::pvm::env::lookup_syscall_index,
+	};
+	use sp_core::U256;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Resolc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let config = ExecutionTracerConfig {
+			enable_return_data: true,
+			limit: Some(5),
+			..Default::default()
+		};
+
+		let mut tracer = ExecutionTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: 3u64 }).abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut actual_trace = tracer.collect_trace();
+		actual_trace.struct_logs.iter_mut().for_each(|step| {
+			step.gas = Default::default();
+			step.gas_cost = Default::default();
+			step.weight_cost = Default::default();
+			// Replace args with 42 as they contain memory addresses that may vary between runs
+			if let ExecutionStepKind::PVMSyscall { args, .. } = &mut step.kind {
+				args.iter_mut().for_each(|arg| *arg = 42);
+			}
+		});
+
+		let expected_trace = ExecutionTrace {
+			gas: actual_trace.gas,
+			base_call_weight: Default::default(),
+			weight_consumed: Default::default(),
+			failed: false,
+			return_value: crate::evm::Bytes(U256::from(2).to_big_endian().to_vec()),
+			struct_logs: vec![
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_size").unwrap_or_default(),
+						args: vec![],
+						returned: Some(36),
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("value_transferred").unwrap_or_default(),
+						args: vec![42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("call_data_load").unwrap_or_default(),
+						args: vec![42, 42],
+						returned: None,
+					},
+				},
+				ExecutionStep {
+					depth: 1,
+					return_data: crate::evm::Bytes::default(),
+					error: None,
+					gas: Default::default(),
+					gas_cost: Default::default(),
+					weight_cost: Default::default(),
+					kind: ExecutionStepKind::PVMSyscall {
+						op: lookup_syscall_index("seal_return").unwrap_or_default(),
+						args: vec![42, 42, 42],
+						returned: None,
+					},
+				},
+			],
+		};
+
+		assert_eq!(actual_trace, expected_trace);
 	});
 }

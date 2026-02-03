@@ -701,7 +701,7 @@ pub mod pallet {
 			);
 			if r.unique == 0 {
 				// return Err(Error::<T, I>::NoneRemaining)
-				return Ok(Pays::Yes.into())
+				return Ok(Pays::Yes.into());
 			}
 			if let Some(cursor) = r.maybe_cursor {
 				VotingCleanup::<T, I>::insert(poll_index, BoundedVec::truncate_from(cursor));

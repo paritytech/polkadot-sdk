@@ -299,7 +299,7 @@ pub fn to_account(l: impl Into<Location>) -> Result<u64, Location> {
 			// Is it a foreign-consensus?
 			let uni = ExecutorUniversalLocation::get();
 			if l.parents as usize != uni.len() {
-				return Err(l)
+				return Err(l);
 			}
 			match l.first_interior() {
 				Some(GlobalConsensus(Kusama)) => 4000,

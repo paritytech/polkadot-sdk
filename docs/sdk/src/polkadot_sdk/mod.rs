@@ -99,7 +99,6 @@
 //!
 //! The following diagram summarizes how some of the components of Polkadot SDK work together:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_substrate.mmd")]
-//!
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
 //! See [`reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
@@ -113,7 +112,6 @@
 //! A parachain is a "special" Substrate-based chain, whereby both the node and the runtime
 //! components have became "Polkadot-aware" using Cumulus.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_parachain.mmd")]
-//!
 //! ## Notable Upstream Crates
 //!
 //! - [`parity-scale-codec`](https://github.com/paritytech/parity-scale-codec)

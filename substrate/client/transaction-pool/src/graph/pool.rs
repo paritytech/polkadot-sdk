@@ -533,7 +533,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 
 		let ignore_banned = matches!(check, CheckBannedBeforeVerify::No);
 		if let Err(err) = self.validated_pool.check_is_known(&hash, ignore_banned) {
-			return (hash, ValidatedTransaction::Invalid(hash, err))
+			return (hash, ValidatedTransaction::Invalid(hash, err));
 		}
 
 		let validation_result = self

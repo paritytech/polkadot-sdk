@@ -195,7 +195,7 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 
 		self.equivocations = unprocessed_equivocations;
 		if !self.equivocations.is_empty() {
-			return Err(self)
+			return Err(self);
 		}
 
 		Ok(())
@@ -253,7 +253,7 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 					}
 
 					if !failures.is_empty() {
-						return Err(Self::ReportEquivocations(failures))
+						return Err(Self::ReportEquivocations(failures));
 					}
 
 					Ok(())

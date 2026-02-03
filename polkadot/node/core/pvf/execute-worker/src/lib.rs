@@ -616,7 +616,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(Err(WorkerError::JobTimedOut))
+		return Ok(Err(WorkerError::JobTimedOut));
 	}
 
 	match status {

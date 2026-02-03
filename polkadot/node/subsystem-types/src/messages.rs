@@ -311,7 +311,7 @@ pub enum DisputeCoordinatorMessage {
 		/// - we discarded the votes because
 		/// 		- they were ancient or otherwise invalid (result: `InvalidImport`)
 		/// 		- or we were not able to recover availability for an unknown candidate (result:
-		///		`InvalidImport`)
+		/// 		`InvalidImport`)
 		/// 		- or were known already (in that case the result will still be `ValidImport`)
 		/// - or we recorded them because (`ValidImport`)
 		/// 		- we cast our own vote already on that dispute

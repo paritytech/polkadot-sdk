@@ -17,6 +17,7 @@
 use crate::{
 	debug::DebugSettings,
 	precompiles::Token,
+	tracing,
 	vm::{evm::instructions::exec_instruction, BytecodeType, ExecResult, Ext},
 	weights::WeightInfo,
 	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, Weight, H256, LOG_TARGET,
@@ -129,7 +130,13 @@ impl<T: Config> ContractBlob<T> {
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResult {
 	let mut interpreter = Interpreter::new(ExtBytecode::new(bytecode), input, ext);
-	let ControlFlow::Break(halt) = run_plain(&mut interpreter);
+	let tracing_enabled = tracing::if_tracing(|t| t.is_execution_tracer()).unwrap_or(false);
+
+	let ControlFlow::Break(halt) = if tracing_enabled {
+		run_plain_with_tracing(&mut interpreter)
+	} else {
+		run_plain(&mut interpreter)
+	};
 	halt.into()
 }
 
@@ -138,5 +145,24 @@ fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infa
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
 		exec_instruction(interpreter, opcode)?;
+	}
+}
+
+fn run_plain_with_tracing<E: Ext>(
+	interpreter: &mut Interpreter<E>,
+) -> ControlFlow<Halt, Infallible> {
+	loop {
+		let opcode = interpreter.bytecode.opcode();
+		tracing::if_tracing(|tracer| {
+			let pc = interpreter.bytecode.pc() as u64;
+			tracer.enter_opcode(pc, opcode, interpreter)
+		});
+
+		interpreter.bytecode.relative_jump(1);
+		let res = exec_instruction(interpreter, opcode);
+
+		tracing::if_tracing(|tracer| tracer.exit_step(interpreter, None));
+
+		res?;
 	}
 }
