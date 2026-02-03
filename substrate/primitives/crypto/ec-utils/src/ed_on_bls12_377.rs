@@ -17,12 +17,12 @@
 
 //! *Ed-on-BLS12-377* types and host functions.
 
-use crate::utils::{self, FAIL_MSG};
+use crate::utils::{self, HostcallResult, FAIL_MSG};
 use alloc::vec::Vec;
 use ark_ec::{AffineRepr, CurveConfig, CurveGroup};
 use ark_ed_on_bls12_377_ext::CurveHooks;
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	pass_by::{PassFatPointerAndRead, PassFatPointerAndWrite},
 	runtime_interface,
 };
 
@@ -42,17 +42,27 @@ pub struct HostHooks;
 
 impl CurveHooks for HostHooks {
 	fn msm(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_377_msm(utils::encode(bases), utils::encode(scalars))
-			.and_then(|res| utils::decode::<EdwardsAffine>(res))
-			.expect(FAIL_MSG)
-			.into_group()
+		let mut out = utils::buffer_for::<EdwardsAffine>();
+		host_calls::ed_on_bls12_377_msm(
+			&utils::encode(bases),
+			&utils::encode(scalars),
+			&mut out,
+		)
+		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 
 	fn mul_projective(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_377_mul(utils::encode(base.into_affine()), utils::encode(scalar))
-			.and_then(|res| utils::decode::<EdwardsAffine>(res))
-			.expect(FAIL_MSG)
-			.into_group()
+		let mut out = utils::buffer_for::<EdwardsAffine>();
+		host_calls::ed_on_bls12_377_mul(
+			&utils::encode(base.into_affine()),
+			&utils::encode(scalar),
+			&mut out,
+		)
+		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 }
 
@@ -70,12 +80,13 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `bases`: `Vec<EdwardsAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
-	/// Returns encoded: `EdwardsAffine`.
+	/// Writes encoded `EdwardsAffine` to `out`.
 	fn ed_on_bls12_377_msm(
-		bases: PassFatPointerAndRead<Vec<u8>>,
-		scalars: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars)
+		bases: PassFatPointerAndRead<&[u8]>,
+		scalars: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::msm_te::<ark_ed_on_bls12_377::EdwardsConfig>(bases, scalars, out)
 	}
 
 	/// Twisted Edwards affine multiplication for *Ed-on-BLS12-377*.
@@ -83,12 +94,13 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `base`: `EdwardsAffine`.
 	/// - `scalar`: `BigInteger`.
-	/// Returns encoded: `EdwardsAffine`.
+	/// Writes encoded `EdwardsAffine` to `out`.
 	fn ed_on_bls12_377_mul(
-		base: PassFatPointerAndRead<Vec<u8>>,
-		scalar: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar)
+		base: PassFatPointerAndRead<&[u8]>,
+		scalar: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::mul_te::<ark_ed_on_bls12_377::EdwardsConfig>(base, scalar, out)
 	}
 }
 
