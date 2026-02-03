@@ -6,11 +6,11 @@ doc:
     In production, the buffer account must be pre-funded (e.g., via genesis allocation or transfer) before the pallet receives any funds.
     Removed the InitBufferAccount migration since the buffer account is now expected to be pre-funded externally.
     For delegated staking, redirect slashes to DAP for Westend AssetHub.
-    Remove dependency from DAP in staking-async test runtime
+    Removed DAP dependency from main staking-async crate, keep it only for test runtimes.
 crates:
 - name: pallet-dap
   bump: major
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: major
 - name: pallet-staking-async
   bump: patch
