@@ -5,8 +5,9 @@ doc:
     In pallet-dap, mark funds in the issuance buffer as inactive so they do not participate in governance.
     In production, the buffer account must be pre-funded (e.g., via genesis allocation or transfer) before the pallet receives any funds.
     Removed the InitBufferAccount migration since the buffer account is now expected to be pre-funded externally.
+    For delegated staking, redirect slashes to DAP for Westend AssetHub.
 crates:
 - name: pallet-dap
   bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
