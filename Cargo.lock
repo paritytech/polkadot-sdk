@@ -13554,7 +13554,6 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
- "pallet-dap",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "rand 0.8.5",
