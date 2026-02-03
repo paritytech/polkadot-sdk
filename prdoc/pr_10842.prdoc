@@ -1,0 +1,9 @@
+title: Remove unused code in staking-async
+doc:
+- audience: Todo
+  description: |-
+    - remove the `reward-fn` from `pallet-staking-async`. This crate is no longer needed.
+    - rename `ahm-test` to `integration-tests`
+crates:
+- name: polkadot-sdk
+  bump: major
