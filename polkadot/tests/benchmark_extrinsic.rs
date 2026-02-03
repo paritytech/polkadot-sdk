@@ -50,7 +50,7 @@ fn benchmark_extrinsic(runtime: &str, pallet: &str, extrinsic: &str) -> Result<(
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	Ok(())

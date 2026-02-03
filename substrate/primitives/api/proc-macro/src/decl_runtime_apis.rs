@@ -170,7 +170,7 @@ fn parse_renamed_attribute(renamed: &Attribute) -> Result<(String, u32)> {
 			let version: LitInt = input.parse()?;
 
 			if !input.is_empty() {
-				return Err(input.error("No more arguments expected"))
+				return Err(input.error("No more arguments expected"));
 			}
 
 			Ok((old_name.value(), version.base10_parse()?))
@@ -634,7 +634,7 @@ impl CheckTraitDecl {
 				Ok(r) => r,
 				Err(e) => {
 					self.errors.push(e);
-					return
+					return;
 				},
 			};
 

@@ -582,7 +582,7 @@ impl TryFrom<Vec<Vec<u8>>> for Proof {
 
 	fn try_from(input: Vec<Vec<u8>>) -> Result<Self, Self::Error> {
 		if input.len() > MERKLE_PROOF_MAX_DEPTH {
-			return Err(Self::Error::MerkleProofDepthExceeded(input.len()))
+			return Err(Self::Error::MerkleProofDepthExceeded(input.len()));
 		}
 		let mut out = Vec::new();
 		for element in input.into_iter() {

@@ -1638,7 +1638,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation)
+			return transfer_with_dust::<T>(from, to, value, preservation);
 		}
 
 		let origin = origin.account_id()?;
@@ -2223,7 +2223,7 @@ where
 				.as_ref()
 				.and_then(|handler| handler.mocked_code(*address))
 		}) {
-			return sp_io::hashing::keccak_256(code).into()
+			return sp_io::hashing::keccak_256(code).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2243,7 +2243,7 @@ where
 				.as_ref()
 				.and_then(|handler| handler.mocked_code(*address))
 		}) {
-			return code.len() as u64
+			return code.len() as u64;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)

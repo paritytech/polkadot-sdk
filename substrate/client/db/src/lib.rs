@@ -615,7 +615,9 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
 				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					))),
 			}
 		}
 
@@ -3978,9 +3980,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize_and_reorg() {
-		//	0 - 1b
-		//	\ - 1a - 2a - 3a
-		//	     \ - 2b
+		// 	0 - 1b
+		// 	\ - 1a - 2a - 3a
+		// 	     \ - 2b
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 

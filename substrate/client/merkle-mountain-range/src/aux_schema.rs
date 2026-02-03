@@ -66,7 +66,10 @@ where
 		None => (),
 		Some(1) => return load_decode::<_, PersistedState<B>>(backend, GADGET_STATE),
 		other =>
-			return Err(ClientError::Backend(format!("Unsupported MMR aux DB version: {:?}", other))),
+			return Err(ClientError::Backend(format!(
+				"Unsupported MMR aux DB version: {:?}",
+				other
+			))),
 	}
 
 	// No persistent state found in DB.

@@ -256,7 +256,7 @@ async fn handle_active_leaves_update<Context>(
 	else {
 		gum::warn!(target: LOG_TARGET, leaf_hash=?leaf.hash, "Failed to fetch candidate events");
 
-		return Ok(())
+		return Ok(());
 	};
 
 	let in_block_count = candidate_events
@@ -271,7 +271,7 @@ async fn handle_active_leaves_update<Context>(
 		gum::warn!(target: LOG_TARGET, hash = ?leaf.hash, ?err, "Missing header for block");
 		Ok(None)
 	}) else {
-		return Ok(())
+		return Ok(());
 	};
 
 	gum::trace!(target: LOG_TARGET, hash = ?header.parent_hash, "Looking up debug inherent");
@@ -542,7 +542,7 @@ fn select_availability_bitfields(
 	'a: for bitfield in bitfields.iter().cloned() {
 		if bitfield.payload().0.len() != cores.len() {
 			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
-			continue
+			continue;
 		}
 
 		let is_better = selected
@@ -556,7 +556,7 @@ fn select_availability_bitfields(
 				?leaf_hash,
 				"dropping bitfield due to duplication - the better one is kept"
 			);
-			continue
+			continue;
 		}
 
 		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
@@ -568,7 +568,7 @@ fn select_availability_bitfields(
 					?leaf_hash,
 					"dropping invalid bitfield - bit is set for an unoccupied core"
 				);
-				continue 'a
+				continue 'a;
 			}
 		}
 
@@ -667,7 +667,7 @@ async fn request_backable_candidates(
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
-			continue
+			continue;
 		}
 
 		selected_candidates.insert(para_id, response);
@@ -717,7 +717,7 @@ async fn select_candidates(
 		for candidate in para_candidates {
 			if candidate.candidate().commitments.new_validation_code.is_some() {
 				if with_validation_code {
-					break
+					break;
 				} else {
 					with_validation_code = true;
 				}
@@ -792,7 +792,7 @@ fn bitfields_indicate_availability(
 					availability_len,
 				);
 
-				return false
+				return false;
 			},
 			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
 		}

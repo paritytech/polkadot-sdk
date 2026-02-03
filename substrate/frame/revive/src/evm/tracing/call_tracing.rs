@@ -167,7 +167,7 @@ impl Tracing for CallTracer {
 			}
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent
@@ -193,7 +193,7 @@ impl Tracing for CallTracer {
 			};
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent
