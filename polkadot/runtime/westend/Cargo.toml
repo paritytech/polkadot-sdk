@@ -65,7 +65,7 @@ pallet-session.workspace = true
 pallet-session-benchmarking = { optional = true, workspace = true }
 pallet-staking.workspace = true
 pallet-staking-async-ah-client.workspace = true
-pallet-staking-async-rc-client.workspace = true
+pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-runtime-api.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
