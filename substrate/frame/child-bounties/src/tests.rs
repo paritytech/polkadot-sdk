@@ -31,12 +31,13 @@ use frame_support::{
 	weights::Weight,
 	PalletId,
 };
+use pallet_assets::AssetCategoryManager;
 
 use sp_runtime::{
 	traits::{BadOrigin, IdentityLookup},
 	BuildStorage, Perbill, Permill, TokenError,
 };
-
+use pallet_assets::AssetCategoryManager;
 use super::Event as ChildBountiesEvent;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -92,6 +93,21 @@ parameter_types! {
 	pub const SpendLimit: Balance = u64::MAX;
 }
 
+pub struct MockAssetCategoryManager;
+
+impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
+    type AssetKind = ();
+    type Balance = u64;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        Some(Zero::zero())
+    }
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
@@ -111,6 +127,7 @@ impl pallet_treasury::Config for Test {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
+    type AssetCategories = MockAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

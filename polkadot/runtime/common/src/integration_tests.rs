@@ -16,6 +16,7 @@
 
 //! Mocking utilities for testing with real pallets.
 
+use alloc::vec::Vec;
 use crate::{
 	auctions, crowdloan, identity_migrator,
 	mock::{conclude_pvf_checking, validators_public_keys},

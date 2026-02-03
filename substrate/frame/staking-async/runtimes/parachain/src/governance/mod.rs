@@ -26,6 +26,7 @@ use frame_support::{
 		FromContains, LinearStoragePrice,
 	},
 };
+use pallet_assets::AssetCategoryManager;
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::impls::{
@@ -128,6 +129,20 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 }
 
+pub struct MockAssetCategoryManager;
+impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
+    type AssetKind = VersionedLocatableAsset;
+    type Balance = Balance;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        Some(0)
+    }
+}
+
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
 
 impl pallet_treasury::Config for Runtime {
@@ -166,6 +181,7 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
+    type AssetCategories = MockAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }

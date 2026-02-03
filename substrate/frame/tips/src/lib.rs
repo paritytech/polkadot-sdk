@@ -78,7 +78,6 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
 

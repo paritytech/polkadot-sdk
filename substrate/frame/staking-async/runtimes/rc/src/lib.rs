@@ -78,6 +78,7 @@ use polkadot_runtime_common::{
 	traits::OnSwap,
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
+use pallet_assets::AssetCategoryManager;
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
@@ -1017,6 +1018,22 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 }
 
+pub struct MockAssetCategoryManager;
+
+impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
+    type AssetKind = VersionedLocatableAsset;
+    type Balance = Balance;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        Some(0)
+    }
+}
+
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
@@ -1053,6 +1070,7 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = System;
+    type AssetCategories = MockAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }

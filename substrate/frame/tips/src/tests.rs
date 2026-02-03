@@ -25,7 +25,7 @@ use sp_runtime::{
 	BuildStorage, Perbill, Permill,
 };
 use sp_storage::Storage;
-
+use pallet_assets::AssetCategoryManager;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	storage::StoragePrefixedMap,
@@ -101,6 +101,21 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
+pub struct MockAssetCategoryManager;
+
+impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
+    type AssetKind = ();
+    type Balance = u64;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        Some(Zero::zero())
+    }
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Currency = pallet_balances::Pallet<Test>;
@@ -120,6 +135,7 @@ impl pallet_treasury::Config for Test {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
+    type AssetCategories = MockAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -143,6 +159,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
+    type AssetCategories = MockAssetCategoryManager;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

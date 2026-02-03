@@ -22,10 +22,13 @@ use frame_support::traits::{
 	tokens::imbalance::ResolveTo,
 	Contains, ContainsPair, Imbalance, OnUnbalanced,
 };
+use pallet_assets::AssetCategoryManager;
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
 use sp_runtime::{traits::TryConvert, Perquintill};
 use xcm::VersionedLocation;
+use polkadot_primitives::AccountId;
+use alloc::vec::Vec;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(core::marker::PhantomData<R>);
@@ -291,6 +294,22 @@ pub mod benchmarks {
 	}
 }
 
+
+pub struct MockAssetCategoryManager;
+
+impl AssetCategoryManager<AccountId> for MockAssetCategoryManager {
+    type AssetKind = ();
+    type Balance = u64;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
+        Some(0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -396,6 +415,7 @@ mod tests {
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;
 		type BlockNumberProvider = System;
+        type AssetCategories = MockAssetCategoryManager;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
 	}
