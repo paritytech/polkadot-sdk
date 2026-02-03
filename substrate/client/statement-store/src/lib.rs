@@ -1023,7 +1023,7 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::InternalError(e)
+				return SubmitResult::InternalError(e);
 			},
 		};
 
