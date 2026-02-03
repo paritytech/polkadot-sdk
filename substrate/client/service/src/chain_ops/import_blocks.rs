@@ -326,7 +326,7 @@ where
 				if let (Err(err), hash) = result {
 					warn!("There was an error importing block with hash {:?}: {}", hash, err);
 					self.has_error.store(true, Ordering::Release);
-					break
+					break;
 				}
 			}
 		}
@@ -340,7 +340,7 @@ where
 		Err(e) => {
 			// We've encountered an error while creating the block iterator
 			// so we can just return a future that returns an error.
-			return future::ready(Err(Error::Other(e))).boxed()
+			return future::ready(Err(Error::Other(e))).boxed();
 		},
 	};
 
@@ -414,7 +414,7 @@ where
 								delay,
 								block,
 							});
-							return Poll::Pending
+							return Poll::Pending;
 						},
 						Poll::Ready(_) => {
 							delay.reset(Duration::from_millis(DELAY_TIME));
@@ -450,7 +450,7 @@ where
 						read_block_count,
 						client.info().best_number
 					);
-					return Poll::Ready(Ok(()))
+					return Poll::Ready(Ok(()));
 				} else {
 					// Importing is not done, we still have to wait for the queue to finish.
 					// Wait for the delay, because we know the queue is lagging behind.
@@ -461,7 +461,7 @@ where
 								read_block_count,
 								delay,
 							});
-							return Poll::Pending
+							return Poll::Pending;
 						},
 						Poll::Ready(_) => {
 							delay.reset(Duration::from_millis(DELAY_TIME));
@@ -486,7 +486,7 @@ where
 			return Poll::Ready(Err(Error::Other(format!(
 				"Stopping after #{} blocks because of an error",
 				link.imported_blocks.load(Ordering::Acquire)
-			))))
+			))));
 		}
 
 		cx.waker().wake_by_ref();

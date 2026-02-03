@@ -29,6 +29,8 @@
 use crate::config::*;
 
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
+#[cfg(any(test, feature = "test-helpers"))]
+use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
@@ -59,7 +61,6 @@ use std::{
 	sync::Arc,
 };
 use tokio::time::timeout;
-
 pub mod config;
 
 /// A set of statements.
@@ -206,32 +207,44 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		mut num_submission_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		let store = statement_store.clone();
-		executor(
-			async move {
-				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-						queue_receiver.next().await;
-					match task {
-						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
-								log::debug!(
-									target: LOG_TARGET,
-									"Error sending validation completion"
-								);
-							}
-						},
+		if num_submission_workers == 0 {
+			log::warn!(
+				target: LOG_TARGET,
+				"num_submission_workers is 0, defaulting to 1"
+			);
+			num_submission_workers = 1;
+		}
+
+		for _ in 0..num_submission_workers {
+			let store = statement_store.clone();
+			let mut queue_receiver = queue_receiver.clone();
+			executor(
+				async move {
+					loop {
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
+						match task {
+							None => return,
+							Some((statement, completion)) => {
+								let result = store.submit(statement, StatementSource::Network);
+								if completion.send(result).is_err() {
+									log::debug!(
+										target: LOG_TARGET,
+										"Error sending validation completion"
+									);
+								}
+							},
+						}
 					}
 				}
-			}
-			.boxed(),
-		);
+				.boxed(),
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -420,7 +433,7 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
-			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		}
@@ -554,7 +567,7 @@ where
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
 				let Some(role) = self.network.peer_role(peer, handshake) else {
 					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
-					return
+					return;
 				};
 
 				let _was_in = self.peers.insert(
@@ -589,7 +602,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					return
+					return;
 				}
 
 				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) {
@@ -618,7 +631,7 @@ where
 					self.metrics.as_ref().map(|metrics| {
 						metrics.ignored_statements.inc_by(statements_left);
 					});
-					break
+					break;
 				}
 
 				let hash = s.hash();
@@ -699,7 +712,7 @@ where
 	pub async fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
@@ -719,7 +732,7 @@ where
 		// Never send statements to light nodes
 		if peer.role.is_light() {
 			log::trace!(target: LOG_TARGET, "{who} is a light node, skipping propagation");
-			return
+			return;
 		}
 
 		let to_send: Vec<_> = statements
@@ -730,7 +743,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
 		if to_send.is_empty() {
-			return
+			return;
 		}
 
 		self.send_statements_in_chunks(who, &to_send).await;
@@ -766,7 +779,7 @@ where
 	async fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
@@ -801,7 +814,7 @@ where
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-					return FilterDecision::Abort
+					return FilterDecision::Abort;
 				}
 				accumulated_size += encoded.len();
 				FilterDecision::Take
@@ -1118,7 +1131,7 @@ mod tests {
 			for hash in hashes {
 				let Some(stmt) = statements.get(hash) else {
 					processed += 1;
-					continue
+					continue;
 				};
 				let encoded = stmt.encode();
 				match filter(hash, &encoded, stmt) {

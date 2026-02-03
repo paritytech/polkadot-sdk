@@ -367,7 +367,7 @@ fn test_add_reset_log_filter() {
 				};
 				futures::executor::block_on(fut).expect("`system_resetLogFilter` failed");
 			} else if line.contains("exit") {
-				return
+				return;
 			}
 			log::trace!(target: "test_before_add", "{}", EXPECTED_WITH_TRACE);
 			log::debug!(target: "test_before_add", "{}", EXPECTED_BEFORE_ADD);

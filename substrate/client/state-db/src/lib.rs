@@ -352,7 +352,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		// the database atomically to keep their consistency when restarting the node
 		let mut commit = CommitSet::default();
 		if self.mode == PruningMode::ArchiveAll {
-			return Ok(commit)
+			return Ok(commit);
 		}
 		let number = self.non_canonical.canonicalize(hash, &mut commit)?;
 		if self.mode == PruningMode::ArchiveCanonical {
@@ -413,7 +413,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		{
 			loop {
 				if pruning.window_size() <= constraints.max_blocks.unwrap_or(0) as u64 {
-					break
+					break;
 				}
 
 				let pinned = &self.pinned;
@@ -422,7 +422,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 					Err(Error::StateDb(StateDbError::BlockUnavailable)) => break,
 					res =>
 						if res?.map_or(false, |h| pinned.contains_key(&h)) {
-							break
+							break;
 						},
 				}
 				match pruning.prune_one(commit) {
@@ -517,7 +517,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		Q: std::hash::Hash + Eq,
 	{
 		if let Some(value) = self.non_canonical.get(key) {
-			return Ok(Some(value))
+			return Ok(Some(value));
 		}
 		db.get(key.as_ref()).map_err(Error::Db)
 	}

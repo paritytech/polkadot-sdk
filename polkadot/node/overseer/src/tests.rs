@@ -69,7 +69,7 @@ where
 						Ok(FromOrchestra::Communication { .. }) => {
 							let _ = sender.send(i).await;
 							i += 1;
-							continue
+							continue;
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
 						Err(_) => return Ok(()),
@@ -117,7 +117,7 @@ where
 						})
 						.await;
 						c += 1;
-						continue
+						continue;
 					}
 					match ctx.try_recv().await {
 						Ok(Some(FromOrchestra::Signal(OverseerSignal::Conclude))) => break,
@@ -326,7 +326,7 @@ where
 						Ok(Some(FromOrchestra::Signal(OverseerSignal::Conclude))) => break,
 						Ok(Some(FromOrchestra::Signal(s))) => {
 							sender.send(s).await.unwrap();
-							continue
+							continue;
 						},
 						Ok(Some(_)) => continue,
 						Err(_) => break,
@@ -358,7 +358,7 @@ where
 						Ok(Some(FromOrchestra::Signal(OverseerSignal::Conclude))) => break,
 						Ok(Some(FromOrchestra::Signal(s))) => {
 							sender.send(s).await.unwrap();
-							continue
+							continue;
 						},
 						Ok(Some(_)) => continue,
 						Err(_) => break,
@@ -776,15 +776,15 @@ where
 					match ctx.try_recv().await {
 						Ok(Some(FromOrchestra::Signal(OverseerSignal::Conclude))) => {
 							self.stop_signals_received.fetch_add(1, atomic::Ordering::SeqCst);
-							break
+							break;
 						},
 						Ok(Some(FromOrchestra::Signal(_))) => {
 							self.signals_received.fetch_add(1, atomic::Ordering::SeqCst);
-							continue
+							continue;
 						},
 						Ok(Some(FromOrchestra::Communication { .. })) => {
 							self.msgs_received.fetch_add(1, atomic::Ordering::SeqCst);
-							continue
+							continue;
 						},
 						Err(_) => (),
 						_ => (),
@@ -1094,7 +1094,7 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 					} else if r > NUM_SUBSYSTEMS_MESSAGED {
 						panic!("too many messages received??");
 					} else {
-						break
+						break;
 					}
 				},
 				Some(_) => panic!("exited too early"),
@@ -1367,7 +1367,7 @@ where
 								self.num_normal_msgs_received
 									.fetch_add(1, atomic::Ordering::SeqCst);
 							}
-							continue
+							continue;
 						},
 						Err(_) => (),
 						_ => (),

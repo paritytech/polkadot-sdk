@@ -48,7 +48,7 @@ impl MockProspectiveParachains {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					ProspectiveParachainsMessage::GetMinimumRelayParents(_relay_parent, tx) => {

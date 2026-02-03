@@ -53,7 +53,7 @@ impl MockAvailabilityRecovery {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityRecoveryMessage::RecoverAvailableData(receipt, _, _, _, tx) => {
