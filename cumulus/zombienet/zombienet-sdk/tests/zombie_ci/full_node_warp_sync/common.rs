@@ -109,6 +109,7 @@ pub(crate) async fn build_network_config(
 						)
 							.into(),
 						("--sync", "warp").into(),
+						("--blocks-pruning", "256").into(),
 					])
 				})
 				.with_node(|node| {
