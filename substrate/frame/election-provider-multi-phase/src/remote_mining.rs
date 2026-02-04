@@ -33,7 +33,7 @@ use frame_support::{
 	traits::Get,
 	weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 };
-use remote_externalities::{Builder, Mode, OnlineConfig, Transport};
+use remote_externalities::{Builder, Mode, OnlineConfig};
 use sp_core::{ConstU32, H256};
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{Perbill, Weight};
@@ -218,9 +218,9 @@ async fn mine_for_polkadot() {
 	let online = OnlineConfig {
 		at: Some(block_hash),
 		pallets: vec!["ElectionProviderMultiPhase".to_string()],
-		transport: Transport::from(
-			std::option_env!("WS").unwrap_or("wss://rpc.ibp.network/polkadot").to_string(),
-		),
+		transport_uris: vec![std::option_env!("WS")
+			.unwrap_or("wss://rpc.ibp.network/polkadot")
+			.to_string()],
 		..Default::default()
 	};
 
@@ -248,9 +248,9 @@ async fn mine_for_kusama() {
 	let online = OnlineConfig {
 		at: Some(block_hash),
 		pallets: vec!["ElectionProviderMultiPhase".to_string()],
-		transport: Transport::from(
-			std::option_env!("WS").unwrap_or("wss://rpc.ibp.network/kusama").to_string(),
-		),
+		transport_uris: vec![std::option_env!("WS")
+			.unwrap_or("wss://rpc.ibp.network/kusama")
+			.to_string()],
 		..Default::default()
 	};
 

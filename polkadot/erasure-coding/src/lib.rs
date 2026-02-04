@@ -103,10 +103,10 @@ impl From<novelpoly::Error> for Error {
 /// Obtain a threshold of chunks that should be enough to recover the data.
 pub const fn recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 	if n_validators > MAX_VALIDATORS {
-		return Err(Error::TooManyValidators)
+		return Err(Error::TooManyValidators);
 	}
 	if n_validators <= 1 {
-		return Err(Error::NotEnoughValidators)
+		return Err(Error::NotEnoughValidators);
 	}
 
 	let needed = n_validators.saturating_sub(1) / 3;
@@ -128,7 +128,7 @@ fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 	let k_wanted = recovery_threshold(n_wanted)?;
 
 	if n_wanted > MAX_VALIDATORS as usize {
-		return Err(Error::TooManyValidators)
+		return Err(Error::TooManyValidators);
 	}
 
 	CodeParams::derive_parameters(n_wanted, k_wanted).map_err(|e| match e {
@@ -162,7 +162,7 @@ pub fn reconstruct_from_systematic<T: Decode>(
 
 	for chunk_data in chunks.iter().take(k) {
 		if chunk_data.len() % 2 != 0 {
-			return Err(Error::UnevenLength)
+			return Err(Error::UnevenLength);
 		}
 	}
 
@@ -188,7 +188,7 @@ pub fn obtain_chunks<T: Encode>(n_validators: usize, data: &T) -> Result<Vec<Vec
 	let encoded = data.encode();
 
 	if encoded.is_empty() {
-		return Err(Error::BadPayload)
+		return Err(Error::BadPayload);
 	}
 
 	let shards = params
@@ -228,7 +228,7 @@ where
 	let mut received_shards: Vec<Option<WrappedShard>> = vec![None; n_validators];
 	for (chunk_data, chunk_idx) in chunks.into_iter().take(n_validators) {
 		if chunk_data.len() % 2 != 0 {
-			return Err(Error::UnevenLength)
+			return Err(Error::UnevenLength);
 		}
 
 		received_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));

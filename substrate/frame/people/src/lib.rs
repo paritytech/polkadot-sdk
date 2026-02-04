@@ -1496,7 +1496,7 @@ pub mod pallet {
 						let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 						let Err(insert_idx) = suspended_indices.binary_search(&ring_position)
 						else {
-							return Err(Error::<T>::KeyAlreadySuspended.into())
+							return Err(Error::<T>::KeyAlreadySuspended.into());
 						};
 						suspended_indices
 							.try_insert(insert_idx, ring_position)
@@ -1652,7 +1652,7 @@ pub mod pallet {
 					Ok(true) => {
 						// Read on `KeyMigrationQueue`.
 						meter.consume(T::DbWeight::get().reads(1));
-						break
+						break;
 					},
 					Err(e) => {
 						meter.consume(weight);
@@ -1677,7 +1677,7 @@ pub mod pallet {
 				} = record.position
 				else {
 					Keys::<T>::remove(new_key);
-					return Ok(())
+					return Ok(());
 				};
 				let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 				let Err(insert_idx) = suspended_indices.binary_search(&ring_position) else {

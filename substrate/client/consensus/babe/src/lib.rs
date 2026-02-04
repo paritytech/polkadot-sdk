@@ -853,7 +853,7 @@ where
 					self.client.info().finalized_number,
 					slot,
 					self.logging_target(),
-				)
+				);
 			}
 		}
 		false
@@ -898,7 +898,7 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 		return Ok(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 			slot: 0.into(),
 			authority_index: 0,
-		}))
+		}));
 	}
 
 	let mut pre_digest: Option<_> = None;
@@ -1297,7 +1297,7 @@ where
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), ConsensusError> {
 		if block.state_action.skip_execution_checks() {
-			return Ok(())
+			return Ok(());
 		}
 
 		if let Some(inner_body) = block.body.take() {
@@ -1349,7 +1349,7 @@ where
 		// don't report any equivocations during initial sync
 		// as they are most likely stale.
 		if *origin == BlockOrigin::NetworkInitialSync {
-			return Ok(())
+			return Ok(());
 		}
 
 		// check if authorship of this header is an equivocation and return a proof if so.
@@ -1357,7 +1357,7 @@ where
 			check_equivocation(&*self.client, slot_now, slot, header, author)
 				.map_err(Error::Client)?
 		else {
-			return Ok(())
+			return Ok(());
 		};
 
 		info!(
@@ -1402,7 +1402,7 @@ where
 						target: LOG_TARGET,
 						"Equivocation offender is not part of the authority set."
 					);
-					return Ok(())
+					return Ok(());
 				},
 			},
 		};
@@ -1474,11 +1474,11 @@ where
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			return self.inner.import_block(block).await.map_err(Into::into);
 		}
 
 		if block.with_state() {
-			return self.import_state(block).await
+			return self.import_state(block).await;
 		}
 
 		let pre_digest = find_pre_digest::<Block>(&block.header).expect(
@@ -1664,7 +1664,7 @@ where
 					debug!(target: LOG_TARGET, "Failed to launch next epoch: {}", e);
 					*epoch_changes =
 						old_epoch_changes.expect("set `Some` above and not taken; qed");
-					return Err(e)
+					return Err(e);
 				}
 
 				crate::aux_schema::write_epoch_changes::<Block, _, _>(&*epoch_changes, |insert| {
@@ -1925,7 +1925,7 @@ where
 
 	let revertible = blocks.min(best_number - finalized);
 	if revertible == Zero::zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let revert_up_to_number = best_number - revertible;
@@ -1965,7 +1965,7 @@ where
 				!weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
 				// We've reached the revert point or an already processed branch, stop here.
-				break
+				break;
 			}
 			hash = meta.parent;
 		}

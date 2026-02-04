@@ -394,6 +394,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					transaction_pool: transaction_pool.clone(),
 					para_id,
 					spawn_handle: task_manager.spawn_handle(),
+					spawn_essential_handle: task_manager.spawn_essential_handle(),
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
@@ -412,6 +413,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						sync_service.clone(),
 						params.keystore_container.local_keystore(),
 						statement_handler_proto,
+						node_extra_args.statement_network_workers,
 					)
 				})
 				.transpose()?;
@@ -449,18 +451,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				);
 			}
 
+			let spawn_handle = Arc::new(task_manager.spawn_handle());
+
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
-
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
+						spawn_handle.clone(),
 					)
 				})
 			};

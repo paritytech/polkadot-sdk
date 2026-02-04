@@ -244,7 +244,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_021_000,
+	spec_version: 1_021_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -1052,6 +1052,8 @@ impl_runtime_apis! {
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			use xcm::latest::prelude::*;
 			use xcm_config::WestendLocation;

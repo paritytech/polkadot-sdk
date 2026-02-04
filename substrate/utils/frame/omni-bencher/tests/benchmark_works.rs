@@ -104,7 +104,7 @@ fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<()
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if status.success() {
-		return Err("Command should have failed!".into())
+		return Err("Command should have failed!".into());
 	}
 
 	// Weight files should not have been created
@@ -157,11 +157,76 @@ fn create_benchmark_spec_command(base_path: &Path, chain_spec_path: &Path) -> Co
 /// Checks if the benchmark completed successfully and created weight files
 fn assert_benchmark_success(status: ExitStatus, base_path: &Path) -> Result<(), String> {
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	// Weight files have been created
 	assert!(base_path.join("block_weights.rs").exists());
 	assert!(base_path.join("extrinsic_weights.rs").exists());
 	Ok(())
+}
+
+#[test]
+fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), String> {
+	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
+	let base_path = tmp_dir.path();
+	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let runtime_path = base_path.join("runtime.wasm");
+	let _ = fs::write(&runtime_path, wasm)
+		.map_err(|e| format!("Unable to write runtime file: {}", e))?;
+
+	// Simple genesis patch JSON file
+	let patch_content = r#"{
+        "balances": {
+            "balances": [
+                ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1000000000000000000],
+                ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", 2000000000000000000]
+            ]
+        }
+    }"#;
+
+	let patch_path = base_path.join("genesis_patch.json");
+	fs::write(&patch_path, patch_content)
+		.map_err(|e| format!("Unable to write genesis patch file: {}", e))?;
+
+	let status = Command::new(cargo_bin("frame-omni-bencher"))
+		.args(["v1", "benchmark", "overhead", "--runtime", runtime_path.to_str().unwrap()])
+		.arg("-d")
+		.arg(base_path)
+		.arg("--weight-path")
+		.arg(base_path)
+		.args(["--warmup", "2", "--repeat", "2"])
+		.args(["--max-ext-per-block", "5"])
+		.args(["--genesis-patch", patch_path.to_str().unwrap()])
+		.status()
+		.map_err(|e| format!("command failed: {:?}", e))?;
+
+	assert_benchmark_success(status, base_path)
+}
+
+#[test]
+fn benchmark_overhead_chain_spec_with_genesis_patch_works() -> std::result::Result<(), String> {
+	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
+	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+
+	let patch_content = r#"{
+         "balances": {
+             "balances": [
+                 ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1000000000000000000],
+                 ["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty", 2000000000000000000]
+             ]
+         } 
+    }"#;
+	let patch_path = base_path.join("genesis_patch.json");
+	fs::write(&patch_path, patch_content)
+		.map_err(|e| format!("Unable to write genesis patch file: {}", e))?;
+
+	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
+		.args(["--genesis-builder-policy", "spec-runtime"])
+		.args(["--para-id", "666"])
+		.args(["--genesis-patch", patch_path.to_str().unwrap()])
+		.status()
+		.map_err(|e| format!("command failed: {:?}", e))?;
+
+	assert_benchmark_success(status, &base_path)
 }
