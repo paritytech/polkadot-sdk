@@ -338,7 +338,7 @@ fn create_chain_spec_with_allowances(
 	// Use static maximum values for benchmarks
 	let allowance = StatementAllowance { max_count: 100_000, max_size: 1_000_000 };
 	let allowance_hex = format!("0x{}", HexDisplay::from(&allowance.encode()));
-
+	info!("Injecting statement allowance: {:}", allowance_hex);
 	for idx in 0..participant_count {
 		let keypair = get_keypair(idx);
 		let account_id = keypair.public();
@@ -362,7 +362,7 @@ fn create_chain_spec_with_allowances(
 }
 
 /// Spawns a network using a custom chain spec with injected statement allowances.
-async fn spawn_network(
+pub async fn spawn_network(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
@@ -798,7 +798,7 @@ fn channel_message(sender: &sr25519::Public, receiver: &sr25519::Public) -> Chan
 	blake2_256(&data)
 }
 
-fn get_keypair(idx: u32) -> sr25519::Pair {
+pub fn get_keypair(idx: u32) -> sr25519::Pair {
 	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
 }
 
