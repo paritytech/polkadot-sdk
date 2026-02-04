@@ -114,7 +114,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `bases`: `Vec<EdwardsAffine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
-	/// Writes encoded: `EdwardsAffine` to out.
+	/// Writes encoded: `EdwardsAffine` to `out`.
 	fn ed_on_bls12_381_bandersnatch_msm(
 		bases: PassFatPointerAndRead<&[u8]>,
 		scalars: PassFatPointerAndRead<&[u8]>,

@@ -71,7 +71,7 @@ impl CurveHooks for HostHooks {
 			&utils::encode_iter(g2),
 			&mut out,
 		)
-		.and_then(|_| utils::decode::<TargetField>(out.as_slice()))
+		.and_then(|_| utils::decode::<TargetField>(&out))
 		.expect(FAIL_MSG)
 	}
 

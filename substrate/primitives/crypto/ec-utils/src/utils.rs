@@ -20,7 +20,6 @@
 // As not all functions are used by each elliptic curve and some elliptic
 // curve may be excluded by the build we resort to `#[allow(unused)]` to
 // suppress the expected warning.
-
 #![allow(unused)]
 
 use alloc::vec::Vec;
@@ -317,6 +316,7 @@ pub mod testing {
 	pub fn pairing_test<SubPairing, ArkPairing>()
 	where
 		SubPairing: Pairing,
+		<SubPairing as Pairing>::TargetField: ArkScaleMaxEncodedLen,
 		ArkPairing: Pairing,
 	{
 		let (g1, g2) = pairing_args::<SubPairing>();
@@ -327,7 +327,7 @@ pub mod testing {
 		// Pairing via direct arkworks calls
 		let g1_enc = encode(vec![g1]);
 		let g2_enc = encode(vec![g2]);
-		let mut r2_enc = vec![0u8; core::mem::size_of::<<ArkPairing as Pairing>::TargetField>()];
+		let mut r2_enc = buffer_for::<<SubPairing as Pairing>::TargetField>();
 		multi_miller_loop::<ArkPairing>(&g1_enc, &g2_enc, &mut r2_enc).unwrap();
 		final_exponentiation::<ArkPairing>(&mut r2_enc).unwrap();
 		let r2 = decode::<<SubPairing as Pairing>::TargetField>(&r2_enc).unwrap();

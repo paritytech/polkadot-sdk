@@ -71,7 +71,7 @@ impl CurveHooks for HostHooks {
 			&utils::encode_iter(g2),
 			&mut out,
 		)
-		.and_then(|_| utils::decode::<TargetField>(out.as_slice()))
+		.and_then(|_| utils::decode::<TargetField>(&out))
 		.expect(FAIL_MSG)
 	}
 
@@ -161,7 +161,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `bases`: `Vec<G1Affine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
-	/// Returns encoded: `G1Affine`.
+	/// Writes encoded `G1Affine` to `out`.
 	fn bls12_381_msm_g1(
 		bases: PassFatPointerAndRead<&[u8]>,
 		scalars: PassFatPointerAndRead<&[u8]>,
@@ -175,7 +175,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `bases`: `Vec<G2Affine>`.
 	/// - `scalars`: `Vec<ScalarField>`.
-	/// Returns encoded: `G2Affine`.
+	/// Writes encoded `G2Affine` to `out`.
 	fn bls12_381_msm_g2(
 		bases: PassFatPointerAndRead<&[u8]>,
 		scalars: PassFatPointerAndRead<&[u8]>,
@@ -189,7 +189,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `base`: `G1Affine`.
 	/// - `scalar`: `BigInteger`.
-	/// Returns encoded: `G1Affine`.
+	/// Writes encoded `G1Affine` to `out`.
 	fn bls12_381_mul_g1(
 		base: PassFatPointerAndRead<&[u8]>,
 		scalar: PassFatPointerAndRead<&[u8]>,
@@ -203,7 +203,7 @@ pub trait HostCalls {
 	/// Receives encoded:
 	/// - `base`: `G2Affine`.
 	/// - `scalar`: `BigInteger`.
-	/// Returns encoded: `G2Affine`.
+	/// Writes encoded `G2Affine` to `out`.
 	fn bls12_381_mul_g2(
 		base: PassFatPointerAndRead<&[u8]>,
 		scalar: PassFatPointerAndRead<&[u8]>,
