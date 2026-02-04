@@ -10,7 +10,9 @@ doc:
 crates:
 - name: pallet-dap
   bump: major
+  validate: false
 - name: asset-hub-westend-runtime
   bump: major
+  validate: false
 - name: pallet-staking-async
   bump: patch
