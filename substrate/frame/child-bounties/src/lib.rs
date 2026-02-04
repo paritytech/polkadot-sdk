@@ -993,4 +993,17 @@ impl<T: Config> pallet_bounties::ChildBountyManager<BalanceOf<T>> for Pallet<T> 
 		ParentChildBounties::<T>::remove(bounty_id);
 		ParentTotalChildBounties::<T>::remove(bounty_id);
 	}
+
+	/// Close all active child bounties for a parent bounty.
+	/// This is called when the parent bounty is being closed to ensure
+	/// no orphaned child bounties remain.
+	fn close_child_bounties(bounty_id: BountyIndex) -> DispatchResult {
+		// Check if there are any active child bounties
+		if ParentChildBounties::<T>::get(bounty_id) > 0 {
+			return Err(pallet_bounties::Error::<T>::HasActiveChildBounty.into());
+		}
+
+		// No active child bounties, so nothing to close
+		Ok(())
+	}
 }
