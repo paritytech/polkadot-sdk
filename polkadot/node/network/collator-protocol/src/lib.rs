@@ -151,14 +151,16 @@ impl<Context> CollatorProtocolSubsystem {
 				.boxed()
 			},
 			#[cfg(feature = "experimental-collator-protocol")]
-			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
+			ProtocolSide::ValidatorExperimental { keystore, metrics } => {
 				validator_side_experimental::run(ctx, keystore, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
-			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } =>
+					.boxed()
+			},
+			ProtocolSide::Collator { peer_id, collator_pair, request_receiver_v2, metrics } => {
 				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
+					.boxed()
+			},
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 

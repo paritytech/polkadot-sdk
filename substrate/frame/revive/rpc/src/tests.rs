@@ -252,8 +252,9 @@ async fn verify_transactions_in_single_block(
 
 	let block_tx_hashes = match &block.transactions {
 		HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		HashesOrTransactionInfos::TransactionInfos(infos) =>
-			infos.iter().map(|info| info.hash).collect(),
+		HashesOrTransactionInfos::TransactionInfos(infos) => {
+			infos.iter().map(|info| info.hash).collect()
+		},
 	};
 
 	if let Some(missing_hash) =

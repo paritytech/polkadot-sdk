@@ -138,7 +138,7 @@ async fn check_validation_code_or_log(
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -148,7 +148,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,

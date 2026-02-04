@@ -138,7 +138,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			vec![],
 			vec![],
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
 			asset_hub_westend_genesis(
 				// initial collators.
 				vec![
@@ -168,7 +168,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 						10_000_000 * 4096 * 4096,
 					),
 				],
-			),
+			)
+		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],

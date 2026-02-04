@@ -104,12 +104,13 @@ impl ConnectedPeers {
 					outcome = outcome.combine(res);
 				}
 			},
-			PeerState::Connected =>
+			PeerState::Connected => {
 				for (para_id, per_para) in self.per_para.iter_mut() {
 					let past_reputation = reputation_query_fn(peer_id, *para_id).await;
 					let res = per_para.try_accept(peer_id, past_reputation);
 					outcome = outcome.combine(res);
-				},
+				}
+			},
 		}
 
 		match outcome {
@@ -567,12 +568,15 @@ mod tests {
 		let rep_query_fn = |peer_id, para_id| async move {
 			match (peer_id, para_id) {
 				(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-					Score::new(20).unwrap(),
-				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-					Score::new(20).unwrap(),
-				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 =>
-					Score::new(5).unwrap(),
+				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+					Score::new(20).unwrap()
+				},
+				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+					Score::new(20).unwrap()
+				},
+				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
+					Score::new(5).unwrap()
+				},
 
 				(_, _) => Score::default(),
 			}
@@ -714,12 +718,15 @@ mod tests {
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
 					(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-						Score::new(20).unwrap(),
-					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-						Score::new(20).unwrap(),
-					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 =>
-						Score::new(15).unwrap(),
+					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+						Score::new(20).unwrap()
+					},
+					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+						Score::new(20).unwrap()
+					},
+					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 => {
+						Score::new(15).unwrap()
+					},
 					(peer_id, para_id) if peer_id == new_peer => Score::new(30).unwrap(),
 
 					(_, _) => Score::default(),
@@ -863,12 +870,15 @@ mod tests {
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
 					(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-						Score::new(5).unwrap(),
-					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-						Score::new(5).unwrap(),
-					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 =>
-						Score::new(8).unwrap(),
+					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+						Score::new(5).unwrap()
+					},
+					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+						Score::new(5).unwrap()
+					},
+					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
+						Score::new(8).unwrap()
+					},
 
 					(_, _) => Score::default(),
 				}

@@ -637,9 +637,10 @@ impl<T: Config> PoolMember<T> {
 	) -> Result<(), Error<T>> {
 		if let Some(new_points) = self.points.checked_sub(&points_dissolved) {
 			match self.unbonding_eras.get_mut(&unbonding_era) {
-				Some(already_unbonding_points) =>
+				Some(already_unbonding_points) => {
 					*already_unbonding_points =
-						already_unbonding_points.saturating_add(points_issued),
+						already_unbonding_points.saturating_add(points_issued)
+				},
 				None => self
 					.unbonding_eras
 					.try_insert(unbonding_era, points_issued)
@@ -3610,10 +3611,12 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		let (points_issued, bonded) = match extra {
-			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount),
-			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed),
+			BondExtra::FreeBalance(amount) => {
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount)
+			},
+			BondExtra::Rewards => {
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed)
+			},
 		};
 
 		bonded_pool.ok_to_be_open()?;

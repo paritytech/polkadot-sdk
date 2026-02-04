@@ -503,13 +503,14 @@ fn compute_relay_vrf_delay_assignments(
 				let _ = e.insert(our_assignment);
 				true
 			},
-			Entry::Occupied(mut e) =>
+			Entry::Occupied(mut e) => {
 				if e.get().tranche() > our_assignment.tranche() {
 					e.insert(our_assignment);
 					true
 				} else {
 					false
-				},
+				}
+			},
 		};
 
 		if used {

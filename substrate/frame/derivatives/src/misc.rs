@@ -211,9 +211,10 @@ impl<Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>, DerivativeId
 {
 	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
 		match asset.fun {
-			Fungibility::NonFungible(asset_instance) =>
+			Fungibility::NonFungible(asset_instance) => {
 				Registry::get_derivative(&(asset.id.clone(), asset_instance))
-					.map_err(|_| Error::AssetNotHandled),
+					.map_err(|_| Error::AssetNotHandled)
+			},
 			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
 		}
 	}

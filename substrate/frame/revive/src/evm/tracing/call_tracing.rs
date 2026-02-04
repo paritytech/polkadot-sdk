@@ -187,8 +187,9 @@ impl Tracing for CallTracer {
 			trace.gas_used = gas_used;
 
 			trace.error = match error {
-				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-					Some(message.unwrap_or_default().to_string()),
+				DispatchError::Module(sp_runtime::ModuleError { message, .. }) => {
+					Some(message.unwrap_or_default().to_string())
+				},
 				_ => Some(format!("{:?}", error)),
 			};
 

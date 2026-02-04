@@ -190,11 +190,12 @@ mod v1 {
 			for (core_index, core) in availability_cores.into_iter().enumerate() {
 				let new_core = if let Some(core) = core {
 					match core {
-						v0::CoreOccupied::Parachain =>
+						v0::CoreOccupied::Parachain => {
 							v1::CoreOccupied::Paras(v1::ParasEntry::new(
 								V0Assignment { para_id: parachains[core_index] },
 								now,
-							)),
+							))
+						},
 						v0::CoreOccupied::Parathread(entry) => v1::CoreOccupied::Paras(
 							v1::ParasEntry::new(V0Assignment { para_id: entry.claim.0 }, now),
 						),

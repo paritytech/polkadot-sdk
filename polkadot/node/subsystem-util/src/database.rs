@@ -217,8 +217,9 @@ pub mod paritydb_impl {
 				}
 				return match ops.next() {
 					None => None,
-					Some(DBOp::Insert { col, key, value }) =>
-						Some((col as u8, key.to_vec(), Some(value))),
+					Some(DBOp::Insert { col, key, value }) => {
+						Some((col as u8, key.to_vec(), Some(value)))
+					},
 					Some(DBOp::Delete { col, key }) => Some((col as u8, key.to_vec(), None)),
 					Some(DBOp::DeletePrefix { col, prefix }) => {
 						let col = col as u8;

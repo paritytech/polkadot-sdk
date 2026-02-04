@@ -949,14 +949,16 @@ impl StatementStore for Store {
 		}
 
 		match self.index.read().query(&hash) {
-			IndexQuery::Expired =>
+			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::KnownExpired;
-				},
-			IndexQuery::Exists =>
+				}
+			},
+			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::Known;
-				},
+				}
+			},
 			IndexQuery::Unknown => {},
 		}
 
@@ -997,8 +999,9 @@ impl StatementStore for Store {
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
 				return SubmitResult::Invalid(InvalidReason::NoProof);
 			},
-			Err(InvalidStatement::InternalError) =>
-				return SubmitResult::InternalError(Error::Runtime),
+			Err(InvalidStatement::InternalError) => {
+				return SubmitResult::InternalError(Error::Runtime)
+			},
 		};
 
 		let current_time = self.timestamp();

@@ -102,13 +102,14 @@ impl ClaimQueueState {
 		// to readjust our view.
 		for (idx, expected_claim) in claim_queue.iter().enumerate() {
 			match self.future_blocks.get_mut(idx) {
-				Some(future_block) =>
+				Some(future_block) => {
 					if future_block.claim.as_ref() != Some(expected_claim) {
 						// There is an inconsistency. Update our view with the one from the claim
 						// queue. `claimed` can't be true anymore since the `ParaId` has changed.
 						future_block.claimed = false;
 						future_block.claim = Some(*expected_claim);
-					},
+					}
+				},
 				None => {
 					self.future_blocks.push_back(ClaimInfo {
 						hash: None,

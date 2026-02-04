@@ -176,13 +176,15 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 					asset_id: v4_asset_id.try_into().map_err(|_| asset.clone())?,
 				})
 			},
-			VersionedLocatableAsset::V4 { ref location, ref asset_id } =>
+			VersionedLocatableAsset::V4 { ref location, ref asset_id } => {
 				Ok(xcm_builder::LocatableAssetId {
 					location: location.clone().try_into().map_err(|_| asset.clone())?,
 					asset_id: asset_id.clone().try_into().map_err(|_| asset.clone())?,
-				}),
-			VersionedLocatableAsset::V5 { location, asset_id } =>
-				Ok(xcm_builder::LocatableAssetId { location, asset_id }),
+				})
+			},
+			VersionedLocatableAsset::V5 { location, asset_id } => {
+				Ok(xcm_builder::LocatableAssetId { location, asset_id })
+			},
 		}
 	}
 }

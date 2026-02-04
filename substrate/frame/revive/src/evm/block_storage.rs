@@ -160,8 +160,9 @@ pub fn with_ethereum_context<T: Config>(
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let EthereumCallResult { receipt_gas_info, result } = call();
 				match result {
-					Ok(post_info) =>
-						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info))),
+					Ok(post_info) => {
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info)))
+					},
 					Err(err) => TransactionOutcome::Rollback(Ok((
 						Some(err.error),
 						receipt_gas_info,
