@@ -19,9 +19,37 @@
 //! slot derived from the `internal_scheduling_parent`.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
-use polkadot_primitives::{CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader};
-use sp_runtime::traits::AppVerify;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use polkadot_primitives::{
+	CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
+};
+use scale_info::TypeInfo;
+use sp_runtime::{
+	traits::{AppVerify, ConstU32},
+	BoundedVec,
+};
+
+/// A Multihash instance useful to hold peer ids in relation to reputation awards,
+/// in case of resubmission.
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct Multihash {
+	/// The code of the Multihash.
+	pub code: u64,
+	/// The digest.
+	pub digest: BoundedVec<u8, ConstU32<68>>, // 4 byte dig size + 64 bytes hash digest
+}
 
 /// Payload signed by a collator for resubmission.
 ///
@@ -32,11 +60,11 @@ use sp_runtime::traits::AppVerify;
 /// runtime's `relay_parent_offset` configuration - the collator cannot override it.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SchedulingInfoPayload {
-    /// Which core to use (indexes into the parachain's assigned cores).
-    pub core_selector: CoreSelector,
-    /// The internal scheduling parent whom's slot decides the 
-    /// eligible block author that must sign the payload.
-    pub internal_scheduling_parent: polkadot_primitives::Hash,
+	/// Which core to use (indexes into the parachain's assigned cores).
+	pub core_selector: CoreSelector,
+	/// The internal scheduling parent whom's slot decides the
+	/// eligible block author that must sign the payload.
+	pub internal_scheduling_parent: polkadot_primitives::Hash,
 }
 
 /// Signed scheduling information for candidate resubmission.
@@ -50,44 +78,47 @@ pub struct SchedulingInfoPayload {
 /// collator.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SignedSchedulingInfo {
-    /// Which core to use (indexes into the parachain's assigned cores).
-    pub core_selector: CoreSelector,
-    /// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
-    /// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
-    pub signature: CollatorSignature,
+	/// Which core to use (indexes into the parachain's assigned cores).
+	pub core_selector: CoreSelector,
+	/// Peer ID to receive reputation credit for successful collation delivery.
+	/// Overrides the peer ID from the block's commitments, allowing the
+	/// resubmitting collator to receive reputation instead of the original
+	/// block author who failed to deliver.
+	pub peer_id: Multihash,
+	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
+	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
+	pub signature: CollatorSignature,
 }
 
 impl SignedSchedulingInfo {
-    /// Verify the signature against the expected collator.
-    ///
-    /// # Arguments
-    /// * `expected_collator` - The collator ID that should have signed this
-    /// * `internal_scheduling_parent` - The internal scheduling parent hash
-    ///
-    /// # Returns
-    /// `true` if the signature is valid for the expected collator.
-    pub fn verify(
-        &self,
-        expected_collator: &CollatorId,
-        internal_scheduling_parent: polkadot_primitives::Hash,
-    ) -> bool {
-        let payload = SchedulingInfoPayload {
-            core_selector: self.core_selector.clone(),
-            internal_scheduling_parent,
-        };
-        let encoded = payload.encode();
-        self.signature.verify(encoded.as_slice(), expected_collator)
-    }
+	/// Verify the signature against the expected collator.
+	///
+	/// # Arguments
+	/// * `expected_collator` - The collator ID that should have signed this
+	/// * `internal_scheduling_parent` - The internal scheduling parent hash
+	///
+	/// # Returns
+	/// `true` if the signature is valid for the expected collator.
+	pub fn verify(
+		&self,
+		expected_collator: &CollatorId,
+		internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> bool {
+		let payload =
+			SchedulingInfoPayload { core_selector: self.core_selector, internal_scheduling_parent };
+		let encoded = payload.encode();
+		self.signature.verify(encoded.as_slice(), expected_collator)
+	}
 }
 
 impl SchedulingInfoPayload {
-    /// Create a new scheduling info payload.
-    pub fn new(
-        core_selector: CoreSelector,
-        internal_scheduling_parent: polkadot_primitives::Hash,
-    ) -> Self {
-        Self { core_selector, internal_scheduling_parent }
-    }
+	/// Create a new scheduling info payload.
+	pub fn new(
+		core_selector: CoreSelector,
+		internal_scheduling_parent: polkadot_primitives::Hash,
+	) -> Self {
+		Self { core_selector, internal_scheduling_parent }
+	}
 }
 
 /// V3 scheduling proof included in the POV.
@@ -97,27 +128,26 @@ impl SchedulingInfoPayload {
 /// from the candidate descriptor extension.
 #[derive(Clone, Encode, Decode, Debug, PartialEq, Eq)]
 pub struct SchedulingProof {
-    /// Relay chain headers proving ancestry from scheduling_parent backward.
-    ///
-    /// Forms a chain where each header's parent_hash equals the next header's hash.
-    /// The first header's hash must equal the candidate's scheduling_parent.
-    /// The last header's parent_hash is the internal scheduling parent.
-    /// Length is defined by the parachain runtime config (RelayParentOffset).
-    pub header_chain: Vec<RelayChainHeader>,
-
-    /// Signed scheduling info for core selection override.
-    ///
-    /// - `None` with `relay_parent == internal_scheduling_parent`: Initial submission.
-    ///   Core selection comes from the parachain block's UMP signals.
-    ///
-    /// - `Some` with `relay_parent == internal_scheduling_parent`: Initial submission with
-    ///   explicit core selection. This is optional but legal. Collators should refuse to
-    ///   acknowledge blocks with invalid scheduling info, so providing a signature is not
-    ///   required for initial submissions.
-    ///
-    /// - `Some` with `relay_parent != internal_scheduling_parent`: Resubmission (required).
-    ///   The resubmitting collator signs the core selection, overriding the block's UMP signals.
-    ///   Signature is verified against the eligible author for the slot at
-    ///   `internal_scheduling_parent`.
-    pub signed_scheduling_info: Option<SignedSchedulingInfo>,
+	/// Relay chain headers proving ancestry from scheduling_parent backward.
+	///
+	/// Forms a chain where each header's parent_hash equals the next header's hash.
+	/// The first header's hash must equal the candidate's scheduling_parent.
+	/// The last header's parent_hash is the internal scheduling parent.
+	/// Length is defined by the parachain runtime config (RelayParentOffset).
+	pub header_chain: Vec<RelayChainHeader>,
+	/// Signed scheduling info for core selection override.
+	///
+	/// - `None` with `relay_parent == internal_scheduling_parent`: Initial submission. Core
+	///   selection comes from the parachain block's UMP signals.
+	///
+	/// - `Some` with `relay_parent == internal_scheduling_parent`: Initial submission with
+	///   explicit core selection. This is optional but legal. Collators should refuse to
+	///   acknowledge blocks with invalid scheduling info, so providing a signature is not required
+	///   for initial submissions.
+	///
+	/// - `Some` with `relay_parent != internal_scheduling_parent`: Resubmission (required). The
+	///   resubmitting collator signs the core selection, overriding the block's UMP signals.
+	///   Signature is verified against the eligible author for the slot at
+	///   `internal_scheduling_parent`.
+	pub signed_scheduling_info: Option<SignedSchedulingInfo>,
 }
