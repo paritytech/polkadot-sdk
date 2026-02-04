@@ -8,4 +8,4 @@ doc:
     set_keys/purge_keys on AssetHub, pure proxies can fully utilize StakingOperator.
 crates:
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: major
