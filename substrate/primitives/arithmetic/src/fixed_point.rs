@@ -1037,11 +1037,10 @@ macro_rules! implement_fixed {
 
 					// Calculate fractional value using more careful arithmetic
 					let fractional_scaled: i128 = if fractional_digits > 0 {
-						// Use saturating arithmetic to avoid overflow, then check bounds
-						let scale_factor = 10u128.saturating_pow(fractional_digits);
-						if scale_factor == 0 {
+						// Checked math to avoid overflow
+						let Some(scale_factor) = 10u128.checked_pow(fractional_digits) else {
 							return Err("fractional part has too many digits");
-						}
+						};
 
 						// For very large DIV values, we need to be more careful
 						let div_u128 = Self::DIV as u128;
