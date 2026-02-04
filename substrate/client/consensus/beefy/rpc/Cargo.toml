@@ -17,19 +17,19 @@ futures = { workspace = true }
 jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-sc-consensus-beefy.workspace = true
 sc-consensus-beefy.default-features = true
-sc-rpc.workspace = true
+sc-consensus-beefy.workspace = true
 sc-rpc.default-features = true
+sc-rpc.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-application-crypto.workspace = true
 sp-application-crypto.default-features = true
-sp-consensus-beefy.workspace = true
+sp-application-crypto.workspace = true
 sp-consensus-beefy.default-features = true
-sp-core.workspace = true
+sp-consensus-beefy.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

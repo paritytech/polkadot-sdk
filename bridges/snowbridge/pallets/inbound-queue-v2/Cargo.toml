@@ -82,11 +82,11 @@ runtime-benchmarks = [
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2-fixtures/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -20,19 +20,19 @@ array-bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-network.workspace = true
+prometheus-endpoint.workspace = true
 sc-network.default-features = true
-sc-network-common.workspace = true
+sc-network.workspace = true
 sc-network-common.default-features = true
-sc-network-sync.workspace = true
+sc-network-common.workspace = true
 sc-network-sync.default-features = true
-sc-network-types.workspace = true
+sc-network-sync.workspace = true
 sc-network-types.default-features = true
-sc-utils.workspace = true
+sc-network-types.workspace = true
 sc-utils.default-features = true
-sp-consensus.workspace = true
+sc-utils.workspace = true
 sp-consensus.default-features = true
-sp-runtime.workspace = true
+sp-consensus.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true

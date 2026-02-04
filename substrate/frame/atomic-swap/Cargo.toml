@@ -32,5 +32,5 @@ std = [
 ]
 try-runtime = [
 	"frame/try-runtime",
-	"pallet-balances/try-runtime"
+	"pallet-balances/try-runtime",
 ]

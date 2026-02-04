@@ -23,20 +23,20 @@ codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.workspace = true
 gum.default-features = true
-polkadot-node-network-protocol.workspace = true
+gum.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-primitives.default-features = true
-sp-keystore.workspace = true
+polkadot-primitives.workspace = true
 sp-keystore.default-features = true
+sp-keystore.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]

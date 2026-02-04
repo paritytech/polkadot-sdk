@@ -16,28 +16,28 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 gum.workspace = true
 itertools = { workspace = true }
-polkadot-approval-distribution.workspace = true
 polkadot-approval-distribution.default-features = true
-polkadot-node-core-approval-voting.workspace = true
+polkadot-approval-distribution.workspace = true
 polkadot-node-core-approval-voting.default-features = true
-polkadot-node-metrics.workspace = true
+polkadot-node-core-approval-voting.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-sc-keystore.workspace = true
+polkadot-primitives.workspace = true
 sc-keystore.default-features = false
-sp-consensus.workspace = true
+sc-keystore.workspace = true
 sp-consensus.default-features = false
+sp-consensus.workspace = true
 
 rand = { workspace = true }
 rand_core = { workspace = true }

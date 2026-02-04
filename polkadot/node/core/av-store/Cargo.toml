@@ -15,21 +15,21 @@ workspace = true
 bitvec = { workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 thiserror = { workspace = true }
 
 codec = { features = ["derive"], workspace = true, default-features = true }
-polkadot-erasure-coding.workspace = true
 polkadot-erasure-coding.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-erasure-coding.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-primitives.default-features = true
+polkadot-primitives.workspace = true
 sp-consensus.workspace = true
 
 [dev-dependencies]

@@ -13,111 +13,111 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-frame-benchmarking.workspace = true
 frame-benchmarking.default-features = true
-frame-benchmarking-cli.workspace = true
+frame-benchmarking.workspace = true
 frame-benchmarking-cli.default-features = true
+frame-benchmarking-cli.workspace = true
 frame-metadata-hash-extension = { optional = true, workspace = true, default-features = true }
-frame-system.workspace = true
 frame-system.default-features = true
-frame-system-rpc-runtime-api.workspace = true
+frame-system.workspace = true
 frame-system-rpc-runtime-api.default-features = true
-mmr-gadget.workspace = true
+frame-system-rpc-runtime-api.workspace = true
 mmr-gadget.default-features = true
-pallet-transaction-payment.workspace = true
+mmr-gadget.workspace = true
 pallet-transaction-payment.default-features = true
-pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.default-features = true
-prometheus-endpoint.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
 prometheus-endpoint.default-features = true
-sc-authority-discovery.workspace = true
+prometheus-endpoint.workspace = true
 sc-authority-discovery.default-features = true
-sc-basic-authorship.workspace = true
+sc-authority-discovery.workspace = true
 sc-basic-authorship.default-features = true
-sc-chain-spec.workspace = true
+sc-basic-authorship.workspace = true
 sc-chain-spec.default-features = true
-sc-client-api.workspace = true
+sc-chain-spec.workspace = true
 sc-client-api.default-features = true
-sc-consensus.workspace = true
+sc-client-api.workspace = true
 sc-consensus.default-features = true
-sc-consensus-babe.workspace = true
+sc-consensus.workspace = true
 sc-consensus-babe.default-features = true
-sc-consensus-beefy.workspace = true
+sc-consensus-babe.workspace = true
 sc-consensus-beefy.default-features = true
-sc-consensus-grandpa.workspace = true
+sc-consensus-beefy.workspace = true
 sc-consensus-grandpa.default-features = true
-sc-consensus-slots.workspace = true
+sc-consensus-grandpa.workspace = true
 sc-consensus-slots.default-features = true
-sc-executor.workspace = true
+sc-consensus-slots.workspace = true
 sc-executor.default-features = true
-sc-keystore.workspace = true
+sc-executor.workspace = true
 sc-keystore.default-features = true
-sc-network.workspace = true
+sc-keystore.workspace = true
 sc-network.default-features = true
-sc-network-sync.workspace = true
+sc-network.workspace = true
 sc-network-sync.default-features = true
-sc-offchain.workspace = true
+sc-network-sync.workspace = true
 sc-offchain.default-features = true
+sc-offchain.workspace = true
 sc-service.workspace = true
-sc-sync-state-rpc.workspace = true
 sc-sync-state-rpc.default-features = true
-sc-sysinfo.workspace = true
+sc-sync-state-rpc.workspace = true
 sc-sysinfo.default-features = true
-sc-telemetry.workspace = true
+sc-sysinfo.workspace = true
 sc-telemetry.default-features = true
-sc-transaction-pool.workspace = true
+sc-telemetry.workspace = true
 sc-transaction-pool.default-features = true
-sc-transaction-pool-api.workspace = true
+sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
-sp-api.workspace = true
+sc-transaction-pool-api.workspace = true
 sp-api.default-features = true
-sp-authority-discovery.workspace = true
+sp-api.workspace = true
 sp-authority-discovery.default-features = true
-sp-block-builder.workspace = true
+sp-authority-discovery.workspace = true
 sp-block-builder.default-features = true
-sp-blockchain.workspace = true
+sp-block-builder.workspace = true
 sp-blockchain.default-features = true
-sp-consensus.workspace = true
+sp-blockchain.workspace = true
 sp-consensus.default-features = true
-sp-consensus-babe.workspace = true
+sp-consensus.workspace = true
 sp-consensus-babe.default-features = true
-sp-consensus-beefy.workspace = true
+sp-consensus-babe.workspace = true
 sp-consensus-beefy.default-features = true
-sp-consensus-grandpa.workspace = true
+sp-consensus-beefy.workspace = true
 sp-consensus-grandpa.default-features = true
-sp-core.workspace = true
+sp-consensus-grandpa.workspace = true
 sp-core.default-features = true
-sp-genesis-builder.workspace = true
+sp-core.workspace = true
 sp-genesis-builder.default-features = true
-sp-inherents.workspace = true
+sp-genesis-builder.workspace = true
 sp-inherents.default-features = true
-sp-io.workspace = true
+sp-inherents.workspace = true
 sp-io.default-features = true
-sp-keyring.workspace = true
+sp-io.workspace = true
 sp-keyring.default-features = true
-sp-mmr-primitives.workspace = true
+sp-keyring.workspace = true
 sp-mmr-primitives.default-features = true
-sp-offchain.workspace = true
+sp-mmr-primitives.workspace = true
 sp-offchain.default-features = true
-sp-runtime.workspace = true
+sp-offchain.workspace = true
 sp-runtime.default-features = true
-sp-session.workspace = true
+sp-runtime.workspace = true
 sp-session.default-features = true
-sp-timestamp.workspace = true
+sp-session.workspace = true
 sp-timestamp.default-features = true
-sp-transaction-pool.workspace = true
+sp-timestamp.workspace = true
 sp-transaction-pool.default-features = true
-sp-version.workspace = true
+sp-transaction-pool.workspace = true
 sp-version.default-features = true
-sp-weights.workspace = true
+sp-version.workspace = true
 sp-weights.default-features = true
+sp-weights.workspace = true
 
 # External Crates
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 is_executable = { workspace = true }
 kvdb = { workspace = true }
 kvdb-rocksdb = { optional = true, workspace = true }
@@ -129,8 +129,8 @@ polkadot-availability-bitfield-distribution = { optional = true, workspace = tru
 polkadot-availability-distribution = { optional = true, workspace = true, default-features = true }
 polkadot-availability-recovery = { optional = true, workspace = true, default-features = true }
 polkadot-collator-protocol = { optional = true, workspace = true, default-features = true }
-polkadot-core-primitives.workspace = true
 polkadot-core-primitives.default-features = true
+polkadot-core-primitives.workspace = true
 polkadot-dispute-distribution = { optional = true, workspace = true, default-features = true }
 polkadot-gossip-support = { optional = true, workspace = true, default-features = true }
 polkadot-network-bridge = { optional = true, workspace = true, default-features = true }
@@ -144,31 +144,31 @@ polkadot-node-core-candidate-validation = { optional = true, workspace = true, d
 polkadot-node-core-chain-api = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-chain-selection = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-dispute-coordinator = { optional = true, workspace = true, default-features = true }
-polkadot-node-core-parachains-inherent.workspace = true
 polkadot-node-core-parachains-inherent.default-features = true
+polkadot-node-core-parachains-inherent.workspace = true
 polkadot-node-core-prospective-parachains = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-provisioner = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-runtime-api = { optional = true, workspace = true, default-features = true }
-polkadot-node-network-protocol.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-types.default-features = true
-polkadot-node-subsystem-util.workspace = true
+polkadot-node-subsystem-types.workspace = true
 polkadot-node-subsystem-util.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem-util.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-polkadot-rpc.workspace = true
+polkadot-primitives.workspace = true
 polkadot-rpc.default-features = true
-polkadot-runtime-parachains.workspace = true
+polkadot-rpc.workspace = true
 polkadot-runtime-parachains.default-features = true
+polkadot-runtime-parachains.workspace = true
 polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
 rococo-runtime = { optional = true, workspace = true }
 rococo-runtime-constants = { optional = true, workspace = true, default-features = true }
@@ -177,10 +177,10 @@ serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 westend-runtime = { optional = true, workspace = true, default-features = true }
 westend-runtime-constants = { optional = true, workspace = true, default-features = true }
-xcm.workspace = true
 xcm.default-features = true
-xcm-runtime-apis.workspace = true
+xcm.workspace = true
 xcm-runtime-apis.default-features = true
+xcm-runtime-apis.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -248,6 +248,7 @@ runtime-benchmarks = [
 	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -255,7 +256,6 @@ runtime-benchmarks = [
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"polkadot-test-client/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-system/try-runtime",

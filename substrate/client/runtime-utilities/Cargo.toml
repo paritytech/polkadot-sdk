@@ -17,18 +17,18 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-sc-executor.workspace = true
 sc-executor.default-features = true
-sc-executor-common.workspace = true
+sc-executor.workspace = true
 sc-executor-common.default-features = true
-sp-core.workspace = true
+sc-executor-common.workspace = true
 sp-core.default-features = true
-sp-crypto-hashing.workspace = true
+sp-core.workspace = true
 sp-crypto-hashing.default-features = true
-sp-state-machine.workspace = true
+sp-crypto-hashing.workspace = true
 sp-state-machine.default-features = true
-sp-wasm-interface.workspace = true
+sp-state-machine.workspace = true
 sp-wasm-interface.default-features = true
+sp-wasm-interface.workspace = true
 
 thiserror = { workspace = true }
 

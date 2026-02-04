@@ -15,8 +15,8 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 itertools = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
@@ -24,28 +24,28 @@ schnellru = { workspace = true }
 thiserror = { workspace = true }
 
 metered = { features = ["futures_channel"], workspace = true }
-polkadot-erasure-coding.workspace = true
 polkadot-erasure-coding.default-features = true
-polkadot-node-metrics.workspace = true
+polkadot-erasure-coding.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-network-protocol.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-network-protocol.default-features = true
-polkadot-node-primitives.workspace = true
+polkadot-node-network-protocol.workspace = true
 polkadot-node-primitives.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-primitives.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-types.default-features = true
-polkadot-overseer.workspace = true
+polkadot-node-subsystem-types.workspace = true
 polkadot-overseer.default-features = true
-polkadot-primitives.workspace = true
+polkadot-overseer.workspace = true
 polkadot-primitives.default-features = true
-sp-application-crypto.workspace = true
+polkadot-primitives.workspace = true
 sp-application-crypto.default-features = true
-sp-core.workspace = true
+sp-application-crypto.workspace = true
 sp-core.default-features = true
-sp-keystore.workspace = true
+sp-core.workspace = true
 sp-keystore.default-features = true
+sp-keystore.workspace = true
 
 kvdb = { workspace = true }
 parity-db = { workspace = true }

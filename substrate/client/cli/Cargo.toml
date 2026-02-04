@@ -30,42 +30,42 @@ names = { workspace = true }
 rand = { workspace = true, default-features = true }
 regex = { workspace = true }
 rpassword = { workspace = true }
-sc-client-api.workspace = true
 sc-client-api.default-features = true
-sc-client-db.workspace = true
+sc-client-api.workspace = true
 sc-client-db.default-features = false
-sc-keystore.workspace = true
+sc-client-db.workspace = true
 sc-keystore.default-features = true
-sc-mixnet.workspace = true
+sc-keystore.workspace = true
 sc-mixnet.default-features = true
-sc-network.workspace = true
+sc-mixnet.workspace = true
 sc-network.default-features = true
-sc-service.workspace = true
+sc-network.workspace = true
 sc-service.default-features = false
-sc-telemetry.workspace = true
+sc-service.workspace = true
 sc-telemetry.default-features = true
-sc-tracing.workspace = true
+sc-telemetry.workspace = true
 sc-tracing.default-features = true
-sc-transaction-pool.workspace = true
+sc-tracing.workspace = true
 sc-transaction-pool.default-features = true
-sc-utils.workspace = true
+sc-transaction-pool.workspace = true
 sc-utils.default-features = true
+sc-utils.workspace = true
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-sp-blockchain.workspace = true
 sp-blockchain.default-features = true
-sp-core.workspace = true
+sp-blockchain.workspace = true
 sp-core.default-features = true
-sp-keyring.workspace = true
+sp-core.workspace = true
 sp-keyring.default-features = true
-sp-keystore.workspace = true
+sp-keyring.workspace = true
 sp-keystore.default-features = true
-sp-panic-handler.workspace = true
+sp-keystore.workspace = true
 sp-panic-handler.default-features = true
-sp-runtime.workspace = true
+sp-panic-handler.workspace = true
 sp-runtime.default-features = true
-sp-version.workspace = true
+sp-runtime.workspace = true
 sp-version.default-features = true
+sp-version.workspace = true
 thiserror = { workspace = true }
 tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
 
