@@ -109,8 +109,6 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let images = zombienet_sdk::environment::get_images_from_env();
-
 	// Create node_features bitvec with bits 3 (V2) and 4 (V3) enabled
 	// Format: {"bits": N, "data": [bytes]} - bitvec serialization
 	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
@@ -120,8 +118,9 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace").into(),
+				])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -140,9 +139,8 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2000)
 				.with_default_command("test-parachain")
-				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
-					("-lparachain=debug,aura=debug,cumulus-collator=debug").into(),
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace").into(),
 					// Use slot-based collator which supports V3 scheduling
 					("--authoring=slot-based").into(),
 				])
@@ -182,8 +180,6 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let images = zombienet_sdk::environment::get_images_from_env();
-
 	// Enable V3 on relay chain
 	// Format: {"bits": N, "data": [bytes]} - bitvec serialization
 	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
@@ -193,8 +189,9 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace").into(),
+				])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -213,9 +210,10 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(2500)
 				.with_default_command("test-parachain")
-				.with_default_image(images.cumulus.as_str())
 				.with_chain("sync-backing")
-				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace").into(),
+				])
 				.with_collator(|n| n.with_name("collator-2500"))
 		})
 		.build()
