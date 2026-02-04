@@ -1110,7 +1110,7 @@ fn delay_reputation_change() {
 			match overseer_recv(&mut virtual_overseer).await {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(_, _)) => {
 					gum::trace!("`Disconnecting inactive peer` message skipped");
-					continue
+					continue;
 				},
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 					ReportPeerMessage::Batch(v),
@@ -1120,7 +1120,7 @@ fn delay_reputation_change() {
 						add_reputation(&mut expected_change, peer_b, rep);
 					}
 					assert_eq!(v, expected_change);
-					break
+					break;
 				},
 				_ => panic!("Message should be either `DisconnectPeer` or `ReportPeer`"),
 			}

@@ -239,7 +239,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 						})
 					)
 				);
-				break
+				break;
 			},
 			_ => panic!("Expected only one message in local queue, but got: {:?}", messages),
 		}
@@ -795,11 +795,12 @@ impl ExtBuilder {
 		.map(|(x, y)| (x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y)));
 
 		let stakers = validators.chain(nominators).collect::<Vec<_>>();
-		let balances = stakers
-			.clone()
-			.into_iter()
-			.map(|(x, _, _)| (x, INITIAL_BALANCE))
-			.collect::<Vec<_>>();
+		let mut balances: Vec<_> =
+			stakers.clone().into_iter().map(|(x, _, _)| (x, INITIAL_BALANCE)).collect();
+		// Fund DAP buffer account with ED so it can receive slashes.
+		use frame_support::sp_runtime::traits::AccountIdConversion;
+		let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+		balances.push((dap_buffer, 1));
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)

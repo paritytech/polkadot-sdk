@@ -104,7 +104,7 @@ impl MockNetworkBridgeTx {
 			match subsystem_message {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
@@ -126,7 +126,7 @@ impl MockNetworkBridgeTx {
 									.into_response_sender()
 									.send(Err(RequestFailure::NotConnected))
 									.expect("send never fails");
-								continue
+								continue;
 							}
 
 							let peer_message =

@@ -387,7 +387,7 @@ pub(crate) mod pallet {
 				entry.backers = entry.backers.saturating_add(backers);
 
 				if entry.backers > T::MaxBackersPerWinnerFinal::get() {
-					return Err(FeasibilityError::FailedToBoundSupport)
+					return Err(FeasibilityError::FailedToBoundSupport);
 				}
 			}
 
@@ -617,7 +617,7 @@ impl<T: Config> Pallet<T> {
 	fn do_per_block_exec() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
 		let Status::Ongoing(current_page) = Self::status_storage() else {
 			let weight = T::DbWeight::get().reads(1);
-			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)));
 		};
 
 		// before executing, we don't know which weight we will consume; return the max.
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
 				// here.
 				entry.backers = entry.backers.saturating_add(support.voters.len() as u32);
 				if entry.backers > T::MaxBackersPerWinnerFinal::get() {
-					return Err((*page, FeasibilityError::FailedToBoundSupport))
+					return Err((*page, FeasibilityError::FailedToBoundSupport));
 				}
 			}
 
@@ -910,7 +910,7 @@ pub fn feasibility_check_page_inner_with_snapshot<T: MinerConfig>(
 
 			// Check that all of the targets are valid based on the snapshot.
 			if assignment.distribution.iter().any(|(t, _)| !targets.contains(t)) {
-				return Err(FeasibilityError::InvalidVote)
+				return Err(FeasibilityError::InvalidVote);
 			}
 			Ok(())
 		})

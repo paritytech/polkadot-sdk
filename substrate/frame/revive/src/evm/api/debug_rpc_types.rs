@@ -761,7 +761,7 @@ where
 {
 	use crate::vm::pvm::env::list_syscalls;
 	let Some(syscall_name_bytes) = list_syscalls().get(*idx as usize) else {
-		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")))
+		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")));
 	};
 	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
 	serializer.serialize_str(name)

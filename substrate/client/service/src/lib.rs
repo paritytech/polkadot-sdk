@@ -269,7 +269,7 @@ pub async fn build_system_rpc_future<
 		// Answer incoming RPC requests.
 		let Some(req) = rpc_rx.next().await else {
 			debug!("RPC requests stream has terminated, shutting down the system RPC future.");
-			return
+			return;
 		};
 
 		match req {
@@ -318,7 +318,7 @@ pub async fn build_system_rpc_future<
 						let _ = sender.send(network_state);
 					}
 				} else {
-					break
+					break;
 				}
 			},
 			sc_rpc::system::Request::NetworkAddReservedPeer(peer_addr, sender) => {
@@ -521,7 +521,7 @@ where
 			Ok(uxt) => uxt,
 			Err(e) => {
 				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
-				return Box::pin(futures::future::ready(TransactionImport::Bad))
+				return Box::pin(futures::future::ready(TransactionImport::Bad));
 			},
 		};
 

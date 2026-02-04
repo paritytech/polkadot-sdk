@@ -491,7 +491,7 @@ async fn await_peer_connections(
 			if shared.validation_peers.len() == num_validation_peers &&
 				shared.collation_peers.len() == num_collation_peers
 			{
-				break
+				break;
 			}
 		}
 

@@ -455,19 +455,19 @@ pub mod pallet {
 			if let Call::heartbeat { heartbeat, signature } = call {
 				if <Pallet<T>>::is_online(heartbeat.authority_index) {
 					// we already received a heartbeat for this authority
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// check if session index from heartbeat is recent
 				let current_session = T::ValidatorSet::session_index();
 				if heartbeat.session_index != current_session {
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// verify that the incoming (unverified) pubkey is actually an authority id
 				let keys = Keys::<T>::get();
 				if keys.len() as u32 != heartbeat.validators_len {
-					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into()
+					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into();
 				}
 				let authority_id = match keys.get(heartbeat.authority_index as usize) {
 					Some(id) => id,
@@ -480,7 +480,7 @@ pub mod pallet {
 				});
 
 				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
+					return InvalidTransaction::BadProof.into();
 				}
 
 				ValidTransaction::with_tag_prefix("ImOnline")
@@ -520,7 +520,7 @@ impl<T: Config> Pallet<T> {
 		let current_validators = T::ValidatorSet::validators();
 
 		if authority_index >= current_validators.len() as u32 {
-			return false
+			return false;
 		}
 
 		let authority = &current_validators[authority_index as usize];
@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if !should_heartbeat {
-			return Err(OffchainErr::TooEarly)
+			return Err(OffchainErr::TooEarly);
 		}
 
 		let session_index = T::ValidatorSet::session_index();
@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if Self::is_online(authority_index) {
-			return Err(OffchainErr::AlreadyOnline(authority_index))
+			return Err(OffchainErr::AlreadyOnline(authority_index));
 		}
 
 		// acquire lock for that authority at current heartbeat to make sure we don't
@@ -702,7 +702,7 @@ impl<T: Config> Pallet<T> {
 			},
 		);
 		if let Err(MutateStorageError::ValueFunctionFailed(err)) = res {
-			return Err(err)
+			return Err(err);
 		}
 
 		let mut new_status = res.map_err(|_| OffchainErr::FailedToAcquireLock)?;
