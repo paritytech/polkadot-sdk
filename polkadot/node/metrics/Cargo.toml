@@ -45,4 +45,5 @@ runtime-metrics = []
 runtime-benchmarks = [
 	"polkadot-primitives/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
+	"polkadot-test-service/runtime-benchmarks"
 ]

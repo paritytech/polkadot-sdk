@@ -104,4 +104,5 @@ runtime-benchmarks = [
 try-runtime = [
 	"kitchensink-runtime/try-runtime",
 	"polkadot-sdk/try-runtime",
+	"substrate-cli-test-utils/try-runtime"
 ]
