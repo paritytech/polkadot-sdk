@@ -639,6 +639,7 @@ async fn construct_and_distribute_receipt(
 			CandidateDescriptorV2::new_v3(
 				para_id,
 				relay_parent,
+				sched_parent,
 				core_index,
 				session_index,
 				persisted_validation_data_hash,
@@ -646,7 +647,6 @@ async fn construct_and_distribute_receipt(
 				erasure_root,
 				commitments.head_data.hash(),
 				validation_code_hash,
-				sched_parent,
 			)
 		} else {
 			// V2 descriptor (scheduling_parent = zero)
