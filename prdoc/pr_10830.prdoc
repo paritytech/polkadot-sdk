@@ -1,21 +1,27 @@
-title: Change EC Hostcalls to use Affine representation
+title: Rework EC Hostcalls
 doc:
 - audience: Runtime Dev
   description: |-
-    Replace point arguments from projective to affine representation for all
-    elliptic curve hostcalls: BLS12-381, BLS12-377, BW6-761, Ed-on-BLS12-377,
-    and Ed-on-BLS12-381-Bandersnatch.
+    Rework all elliptic curve hostcalls: BLS12-381, BLS12-377, BW6-761,
+    Ed-on-BLS12-377, and Ed-on-BLS12-381-Bandersnatch.
 
     Changes:
-    - `mul_projective_*` hostcalls renamed to `mul_affine_*` and now accept/return
-      affine points instead of projective.
-    - `msm_*` hostcalls now return affine points instead of projective.
+    - Use affine representation for point arguments instead of projective.
+      `mul_projective_*` hostcalls renamed to `mul_*` and now accept/return
+      affine points. `msm_*` hostcalls now return affine points.
+    - Eliminate host-side memory allocation. Hostcalls now take an output
+      buffer parameter (`&mut [u8]`) instead of returning allocated memory.
+    - Hostcalls now return `Result<(), Error>` (marshaled as `u32`) to signal
+      success or error conditions.
 
-    The affine representation `(x, y)` is the standard way to encode EC points
-    and is more portable. It also avoids systematic field inversions in the
-    runtime when converting returned projective points to affine form.
+    New pass-by strategy (in `sp-runtime-interface`):
+    - `PassFatPointerAndWrite`: Passes a mutable buffer pointer to the host.
+      The host creates a zero-initialized buffer, the host function writes to it,
+      and the result is written back to guest memory.
 
     NOTE: These hostcalls are still under an `experimental` feature.
 crates:
 - name: sp-crypto-ec-utils
+  bump: minor
+- name: sp-runtime-interface
   bump: minor

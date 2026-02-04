@@ -4777,7 +4777,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-trie",
 ]
@@ -6597,7 +6597,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-storage 19.0.0",
  "static_assertions",
@@ -6654,7 +6654,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-storage 19.0.0",
  "sp-timestamp",
@@ -12864,7 +12864,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-staking",
 ]
 
@@ -16628,7 +16628,7 @@ dependencies = [
  "sp-panic-handler",
  "sp-rpc",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-runtime-interface-proc-macro 17.0.0",
  "sp-session",
  "sp-staking",
@@ -16746,7 +16746,7 @@ dependencies = [
  "sp-keyring",
  "sp-offchain",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
@@ -20083,7 +20083,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-panic-handler",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-trie",
@@ -20133,7 +20133,7 @@ dependencies = [
  "sc-executor-common",
  "sc-runtime-test",
  "sp-io",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime",
@@ -20630,7 +20630,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "substrate-wasm-builder",
 ]
 
@@ -22657,7 +22657,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-metadata-ir",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-test-primitives",
  "sp-trie",
@@ -23050,7 +23050,7 @@ dependencies = [
  "ark-ff 0.5.0",
  "ark-scale",
  "ark-std 0.5.0",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
 ]
 
 [[package]]
@@ -23181,7 +23181,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-keystore",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-trie",
@@ -23342,7 +23342,7 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime-interface"
-version = "24.0.0"
+version = "24.1.0"
 dependencies = [
  "bytes",
  "impl-trait-for-tuples",
@@ -23416,7 +23416,7 @@ dependencies = [
  "sc-executor-common",
  "sp-io",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "sp-runtime-interface-test-wasm",
  "sp-runtime-interface-test-wasm-deprecated",
  "sp-state-machine",
@@ -23431,7 +23431,7 @@ dependencies = [
  "bytes",
  "sp-core 28.0.0",
  "sp-io",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "substrate-wasm-builder",
 ]
 
@@ -23441,7 +23441,7 @@ version = "2.0.0"
 dependencies = [
  "sp-core 28.0.0",
  "sp-io",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "substrate-wasm-builder",
 ]
 
@@ -23513,7 +23513,7 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-runtime",
- "sp-runtime-interface 24.0.0",
+ "sp-runtime-interface 24.1.0",
  "thiserror 1.0.65",
  "x25519-dalek",
 ]
