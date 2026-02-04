@@ -492,10 +492,12 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } =>
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
-				math::substrate_execution::new_root(weight_limit, deposit_limit),
+			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
+				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
+				math::substrate_execution::new_root(weight_limit, deposit_limit)
+			},
 		}?;
 
 		transaction_meter.adjust_effective_weight_limit()?;
