@@ -109,17 +109,9 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-<<<<<<< HEAD
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    # We need to set this to rather long to allow the snapshot to be created, but the average time
-    # should be much lower.
-    timeout-minutes: 60
-    needs: [preflight]
-=======
     if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' }}
     timeout-minutes: 120
     needs: [preflight, prepare-snapshots]
->>>>>>> 6c01d65 (ci: improve try-runtime snapshot caching strategy (#10972))
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
@@ -161,42 +153,21 @@ jobs:
             command_extra_args: ""
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Download CLI
         run: |
-          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.8.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.10.1/try-runtime-x86_64-unknown-linux-musl -o try-runtime
           chmod +x ./try-runtime
           echo "Using try-runtime-cli version:"
           ./try-runtime --version
 
-<<<<<<< HEAD
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Download Snapshot
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
-          save-always: true
-
-      - name: Create Snapshot If Stale
-        if: ${{ hashFiles('snapshot.raw') == '' }}
-        run: |
-          echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
-          ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
-=======
       - name: Restore snapshot from cache
         uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: snapshot.raw
           key: try-runtime-snapshot-${{ matrix.network }}-
           fail-on-cache-miss: true
->>>>>>> 6c01d65 (ci: improve try-runtime snapshot caching strategy (#10972))
 
       - name: Build Runtime
         id: required1
@@ -230,11 +201,11 @@ jobs:
     name: All runtime migrations passed
     # If any new job gets added, be sure to add it to this array
     needs: [check-runtime-migration]
-    if: always() && !cancelled()
+    if: always() && !cancelled() && github.event_name != 'schedule'
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1
