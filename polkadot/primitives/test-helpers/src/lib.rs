@@ -624,6 +624,7 @@ pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
 	CandidateDescriptorV2::new_v3(
 		para_id,
 		relay_parent,
+		scheduling_parent,
 		core_index,
 		session_index,
 		persisted_validation_data_hash,
@@ -631,7 +632,6 @@ pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
 		erasure_root,
 		para_head,
 		validation_code_hash,
-		scheduling_parent,
 	)
 }
 
