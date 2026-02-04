@@ -704,7 +704,7 @@ where
 		// Include also subtree txs.
 		for (tx, reason) in &invalid_hashes {
 			let txs_in_subtree = view_store
-				.remove_transaction_subtree(*tx, |_, _| {})
+				.remove_transaction_subtree(*tx, true, |_, _| {})
 				.into_iter()
 				.map(|tx| (tx.hash, InvalidTxReason::Subtree(reason.to_string())));
 			invalid_hashes_subtrees.extend(txs_in_subtree);

@@ -145,6 +145,13 @@ impl TransactionPool for MiddlewarePool {
 		self.inner_pool.report_invalid(at, invalid_tx_errors).await
 	}
 
+	async fn remove_transactions(
+		&self,
+		hashes: &[TxHash<Self>],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.inner_pool.remove_transactions(hashes).await
+	}
+
 	fn status(&self) -> PoolStatus {
 		self.inner_pool.status()
 	}

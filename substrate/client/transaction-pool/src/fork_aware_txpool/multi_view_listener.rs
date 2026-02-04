@@ -140,6 +140,8 @@ where
 				TransactionStatus::Dropped,
 			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) =>
 				TransactionStatus::Invalid,
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Removed) =>
+				TransactionStatus::Dropped,
 			TransactionStatusUpdate::FinalityTimeout(_, block_hash) =>
 				TransactionStatus::FinalityTimeout(*block_hash),
 		}

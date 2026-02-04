@@ -19,8 +19,8 @@
 //! Tests for fork-aware transaction pool.
 
 use fatp_common::{
-	finalized_block_event, invalid_hash, new_best_block_event, pool, pool_with_api,
-	test_chain_with_forks, LOG_TARGET, SOURCE,
+	finalized_block_event, invalid_hash, new_best_block_event, new_revert_event, pool,
+	pool_with_api, test_chain_with_forks, LOG_TARGET, SOURCE,
 };
 use futures::{executor::block_on, task::Poll, FutureExt, StreamExt};
 use sc_transaction_pool::ChainApi;
@@ -2684,4 +2684,280 @@ fn fatp_tx_is_revalidated_by_mempool_revalidation() {
 
 	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
+}
+
+#[test]
+fn fatp_revert_multiple_blocks_does_not_resubmit() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Bob, 200);
+	// Future transaction
+	let xt3 = uxt(Bob, 202);
+
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+
+	// Build chain: header01 -> header02 (xt0) -> header03 (xt1)
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	let header03 = api.push_block_with_parent(header02.hash(), vec![xt1.clone()], true);
+	let event = new_best_block_event(&pool, Some(header02.hash()), header03.hash());
+	block_on(pool.maintain(event));
+
+	// Only xt2 should remain (not included in any block)
+	assert_pool_status!(header03.hash(), &pool, 1, 1);
+
+	// Revert all the way back to header01
+	let event = new_revert_event(header01.hash());
+	block_on(pool.maintain(event));
+
+	// Explicitly remove transactions that were included in reverted blocks.
+	// This is now the caller's responsibility (decoupled from revert handling).
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+	let xt1_hash = pool.api().hash_and_length(&xt1).0;
+	block_on(pool.remove_transactions(&[xt0_hash, xt1_hash]));
+
+	// After revert, verify view state:
+	// - Pool should have a view at the reverted-to block
+	// - Views at reverted blocks should be removed
+	assert!(pool.has_view(&header01.hash()), "should have view at new head after revert");
+	assert!(!pool.has_view(&header02.hash()), "view at reverted block header02 should be removed");
+	assert!(!pool.has_view(&header03.hash()), "view at reverted block header03 should be removed");
+
+	// After revert:
+	// - xt0, xt1 should NOT be resubmitted (were in retracted blocks)
+	// - xt2 should still be there (was pending)
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
+	assert!(!ready.contains(&xt0), "xt0 should not be resubmitted");
+	assert!(!ready.contains(&xt1), "xt1 should not be resubmitted");
+	assert!(ready.contains(&xt2), "xt2 should survive revert");
+
+	// xt3 should still be there (was pending in future queue)
+	let futures: Vec<_> = pool.futures().iter().map(|v| (*v.data).clone()).collect();
+	assert!(futures.contains(&xt3), "xt3 should survive revert in future queue");
+
+	// Submitting xt0 fresh should succeed (not AlreadyImported)
+	let result = block_on(pool.submit_one(header01.hash(), SOURCE, xt0.clone()));
+	assert!(result.is_ok(), "Should be able to resubmit xt0 transaction after revert");
+	// Submitting xt1 fresh should succeed (not AlreadyImported)
+	let result = block_on(pool.submit_one(header01.hash(), SOURCE, xt1.clone()));
+	assert!(result.is_ok(), "Should be able to resubmit xt1 transaction after revert");
+
+	// xt3 should still be future (still missing nonce 201)
+	let futures_after: Vec<_> = pool.futures().iter().map(|v| (*v.data).clone()).collect();
+	assert!(futures_after.contains(&xt3), "xt3 should remain in future queue");
+}
+
+#[test]
+fn fatp_revert_removes_transactions_from_all_forks() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Alice.into(), 200);
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+
+	// Build common path of the chain: A - B - C
+	let header_a = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header_a.hash())));
+
+	let header_b = api.push_block_with_parent(header_a.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_a.hash()), header_b.hash())));
+
+	let header_c = api.push_block_with_parent(header_b.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_b.hash()), header_c.hash())));
+
+	// Create the first fork:
+	//           D1-E1-F1
+	// 		    /
+	// A - B - C
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+
+	let header_d1 = api.push_block_with_parent(header_c.hash(), vec![xt0.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_c.hash()), header_d1.hash())));
+
+	let header_e1 = api.push_block_with_parent(header_d1.hash(), vec![xt1.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_d1.hash()), header_e1.hash())));
+
+	let header_f1 = api.push_block_with_parent(header_e1.hash(), vec![xt2.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_e1.hash()), header_f1.hash())));
+
+	// Create the second fork
+	//             D1-E1-F1
+	// 		    /
+	// A - B - C - D2-E2-F2
+	let xt3 = uxt(Bob, 200);
+	let xt4 = uxt(Bob, 201);
+	let xt5 = uxt(Bob, 202);
+
+	let header_d2 = api.push_block_with_parent(header_c.hash(), vec![xt3.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_c.hash()), header_d2.hash())));
+
+	let header_e2 = api.push_block_with_parent(header_d2.hash(), vec![xt4.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_d2.hash()), header_e2.hash())));
+
+	let header_f2 = api.push_block_with_parent(header_e2.hash(), vec![xt5.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_e2.hash()), header_f2.hash())));
+
+	// Create the 3rd fork
+	//             D1-E1-F1
+	// 		    /
+	// A - B - C - D2-E2-F2
+	//          \
+	//             D3-E3-F3
+	let xt6 = uxt(Charlie, 200);
+	let xt7 = uxt(Charlie, 201);
+	let xt8 = uxt(Charlie, 202);
+
+	let header_d3 = api.push_block_with_parent(header_c.hash(), vec![xt6.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_c.hash()), header_d3.hash())));
+
+	let header_e3 = api.push_block_with_parent(header_d3.hash(), vec![xt7.clone()], false);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_d3.hash()), header_e3.hash())));
+
+	let header_f3 = api.push_block_with_parent(header_e3.hash(), vec![xt8.clone()], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header_e3.hash()), header_f3.hash())));
+
+	// Add a ready transaction (never included in any block)
+	let xt_pending = uxt(Dave, 200);
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt_pending.clone())).unwrap();
+	// We should have views for each fork tip (F1, F2, F3) at minimum
+	let views_before = pool.active_views_count();
+	assert_eq!(views_before, 3, "Should have 3 active views (one for each fork tip)");
+
+	// Revert to B (before the fork point C)
+	let event = new_revert_event(header_b.hash());
+	block_on(pool.maintain(event));
+
+	// Explicitly remove transactions that were included in reverted blocks.
+	// This is now the caller's responsibility (decoupled from revert handling).
+	let tx_hashes: Vec<_> = [&xt0, &xt1, &xt2, &xt3, &xt4, &xt5, &xt6, &xt7, &xt8]
+		.iter()
+		.map(|xt| pool.api().hash_and_length(xt).0)
+		.collect();
+	block_on(pool.remove_transactions(&tx_hashes));
+
+	// After revert + explicit removal:
+	// - All transactions from all three forks (xt0-xt8) should be removed from mempool
+	// - xt_pending (pending) should survive
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
+
+	// Verify no transactions from any fork are in the pool
+	assert!(!ready.contains(&xt0), "xt0 from fork 1 should be removed");
+	assert!(!ready.contains(&xt1), "xt1 from fork 1 should be removed");
+	assert!(!ready.contains(&xt2), "xt2 from fork 1 should be removed");
+	assert!(!ready.contains(&xt3), "xt3 from fork 2 should be removed");
+	assert!(!ready.contains(&xt4), "xt4 from fork 2 should be removed");
+	assert!(!ready.contains(&xt5), "xt5 from fork 2 should be removed");
+	assert!(!ready.contains(&xt6), "xt6 from fork 3 should be removed");
+	assert!(!ready.contains(&xt7), "xt7 from fork 3 should be removed");
+	assert!(!ready.contains(&xt8), "xt8 from fork 3 should be removed");
+
+	// Pending transaction should survive
+	assert!(ready.contains(&xt_pending), "xt_pending should survive revert");
+
+	// All transactions from all forks should be resubmittable
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt0.clone())).is_ok(),
+		"xt0 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt1.clone())).is_ok(),
+		"xt1 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt2.clone())).is_ok(),
+		"xt2 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt3.clone())).is_ok(),
+		"xt3 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt4.clone())).is_ok(),
+		"xt4 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt5.clone())).is_ok(),
+		"xt5 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt6.clone())).is_ok(),
+		"xt6 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt7.clone())).is_ok(),
+		"xt7 should be resubmittable"
+	);
+	assert!(
+		block_on(pool.submit_one(header_b.hash(), SOURCE, xt8.clone())).is_ok(),
+		"xt8 should be resubmittable"
+	);
+
+	// Should only have one view now (at B)
+	assert_eq!(pool.active_views_count(), 1, "Should only have one view after revert");
+}
+
+#[test]
+fn fatp_remove_transactions_notifies_watcher() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let header01 = api.push_block(1, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+
+	// Submit transactions with watchers
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+
+	// Remove the transactions
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+	let xt1_hash = pool.api().hash_and_length(&xt1).0;
+	let removed = block_on(pool.remove_transactions(&[xt0_hash, xt1_hash]));
+
+	// Verify returned transactions match the removed ones
+	assert_eq!(removed.len(), 2);
+	let removed_hashes: Vec<_> = removed.iter().map(|tx| tx.hash).collect();
+	assert!(removed_hashes.contains(&xt0_hash));
+	assert!(removed_hashes.contains(&xt1_hash));
+
+	// Collect watcher events
+	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_events = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+
+	// Both watchers should receive Ready followed by Dropped
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
+	assert_eq!(xt1_events, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
+
+	// Verify transactions are removed from the pool
+	let ready: Vec<_> = pool.ready().map(|v| (*v.data).clone()).collect();
+	assert!(!ready.contains(&xt0), "xt0 should be removed");
+	assert!(!ready.contains(&xt1), "xt1 should be removed");
+
+	// Verify transactions can be resubmitted (not banned)
+	block_on(pool.submit_one(invalid_hash(), SOURCE, xt0.clone()))
+		.expect("Should be able to resubmit xt0 after remove_transactions");
+	assert_pool_status!(header01.hash(), &pool, 1, 0);
 }

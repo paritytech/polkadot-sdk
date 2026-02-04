@@ -146,6 +146,13 @@ where
 	) -> ReadyIteratorFor<FullChainApi<Client, Block>> {
 		self.0.ready_at_with_timeout(at, timeout).await
 	}
+
+	async fn remove_transactions(
+		&self,
+		hashes: &[TxHash<Self>],
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.0.remove_transactions(hashes).await
+	}
 }
 
 #[async_trait]
