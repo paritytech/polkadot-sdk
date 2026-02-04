@@ -679,7 +679,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: 2156,
+						transferred: contract_base_deposit(&callee_addr),
 					}),
 					topics: vec![],
 				},
@@ -1917,51 +1917,6 @@ fn call_runtime_reentrancy_guarded() {
 }
 
 #[test]
-fn sr25519_verify() {
-	let (binary, _code_hash) = compile_module("sr25519_verify").unwrap();
-
-	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Instantiate the sr25519_verify contract.
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.native_value(100_000)
-			.build_and_unwrap_contract();
-
-		let call_with = |message: &[u8; 11]| {
-			// Alice's signature for "hello world"
-			#[rustfmt::skip]
-			let signature: [u8; 64] = [
-				184, 49, 74, 238, 78, 165, 102, 252, 22, 92, 156, 176, 124, 118, 168, 116, 247,
-				99, 0, 94, 2, 45, 9, 170, 73, 222, 182, 74, 60, 32, 75, 64, 98, 174, 69, 55, 83,
-				85, 180, 98, 208, 75, 231, 57, 205, 62, 4, 105, 26, 136, 172, 17, 123, 99, 90, 255,
-				228, 54, 115, 63, 30, 207, 205, 131,
-			];
-
-			// Alice's public key
-			#[rustfmt::skip]
-			let public_key: [u8; 32] = [
-				212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44,
-				133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125,
-			];
-
-			let mut params = vec![];
-			params.extend_from_slice(&signature);
-			params.extend_from_slice(&public_key);
-			params.extend_from_slice(message);
-
-			builder::bare_call(addr).data(params).build_and_unwrap_result()
-		};
-
-		// verification should succeed for "hello world"
-		assert_return_code!(call_with(&b"hello world"), RuntimeReturnCode::Success);
-
-		// verification should fail for other messages
-		assert_return_code!(call_with(&b"hello worlD"), RuntimeReturnCode::Sr25519VerifyFailed);
-	});
-}
-
-#[test]
 fn upload_code_works() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 
@@ -2129,7 +2084,7 @@ fn instantiate_with_zero_balance_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
 						dest: Pallet::<Test>::account_id(),
-						transferred: 777,
+						transferred: get_code_deposit(&code_hash),
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
@@ -2176,7 +2131,7 @@ fn instantiate_with_zero_balance_works() {
 						),
 						source: ALICE,
 						dest: account_id,
-						transferred: 337,
+						transferred: contract_base_deposit(&addr),
 					}),
 					topics: vec![],
 				},
@@ -2218,7 +2173,7 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
 						dest: Pallet::<Test>::account_id(),
-						transferred: 777,
+						transferred: get_code_deposit(&code_hash),
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
@@ -2274,7 +2229,7 @@ fn instantiate_with_below_existential_deposit_works() {
 						),
 						source: ALICE,
 						dest: account_id.clone(),
-						transferred: 337,
+						transferred: contract_base_deposit(&addr),
 					}),
 					topics: vec![],
 				},
@@ -3972,7 +3927,7 @@ fn call_tracing_works() {
 			a.gas_consumed
 		});
 		let gas_trace = tracer.collect_trace().unwrap();
-		assert_eq!(&gas_trace.gas_used, &gas_used.into());
+		assert_eq!(&gas_trace.gas_used, &gas_used);
 
 		for config in tracer_configs {
 			let logs = if config.with_logs {
@@ -4009,8 +3964,8 @@ fn call_tracing_works() {
 							error: Some("execution reverted".to_string()),
 							call_type: Call,
 							value: Some(U256::from(0)),
-							gas: 0.into(),
-							gas_used: 0.into(),
+							gas: 0,
+							gas_used: 0,
 							..Default::default()
 						},
 						CallTrace {
@@ -4020,8 +3975,8 @@ fn call_tracing_works() {
 							call_type: Call,
 							logs: logs.clone(),
 							value: Some(U256::from(0)),
-							gas: 0.into(),
-							gas_used: 0.into(),
+							gas: 0,
+							gas_used: 0,
 							calls: vec![
 								CallTrace {
 									from: addr,
@@ -4031,8 +3986,8 @@ fn call_tracing_works() {
 									error: Some("ContractTrapped".to_string()),
 									call_type: Call,
 									value: Some(U256::from(0)),
-									gas: 0.into(),
-									gas_used: 0.into(),
+									gas: 0,
+									gas_used: 0,
 									..Default::default()
 								},
 								CallTrace {
@@ -4042,8 +3997,8 @@ fn call_tracing_works() {
 									call_type: Call,
 									logs: logs.clone(),
 									value: Some(U256::from(0)),
-									gas: 0.into(),
-									gas_used: 0.into(),
+									gas: 0,
+									gas_used: 0,
 									calls: vec![
 										CallTrace {
 											from: addr,
@@ -4052,8 +4007,8 @@ fn call_tracing_works() {
 											output: 0u32.to_le_bytes().to_vec().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 0.into(),
-											gas_used: 0.into(),
+											gas: 0,
+											gas_used: 0,
 											..Default::default()
 										},
 										CallTrace {
@@ -4062,8 +4017,8 @@ fn call_tracing_works() {
 											input: (0u32, addr_callee).encode().into(),
 											call_type: Call,
 											value: Some(U256::from(0)),
-											gas: 0.into(),
-											gas_used: 0.into(),
+											gas: 0,
+											gas_used: 0,
 											calls: vec![
 												CallTrace {
 													from: addr,
@@ -4102,8 +4057,8 @@ fn call_tracing_works() {
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
-					gas: 0.into(),
-					gas_used: 0.into(),
+					gas: 0,
+					gas_used: 0,
 					..Default::default()
 				};
 
@@ -4982,7 +4937,7 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 
 	let genesis_config = GenesisConfig::<Test> {
-		debug_settings: Some(DebugSettings::new(false, true, false)),
+		debug_settings: Some(DebugSettings::default().set_bypass_eip_3607(true)),
 		..Default::default()
 	};
 
@@ -5253,12 +5208,12 @@ fn self_destruct_by_syscall_tracing_works() {
 					to: addr,
 					call_type: CallType::Call,
 					value: Some(U256::zero()),
-					gas: 0.into(),
-					gas_used: 0.into(),
+					gas: 0,
+					gas_used: 0,
 					calls: vec![CallTrace {
 						from: addr,
 						to: DJANGO_ADDR,
-						gas: 0.into(),
+						gas: 0,
 
 						call_type: CallType::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u64)),
@@ -5269,9 +5224,9 @@ fn self_destruct_by_syscall_tracing_works() {
 			}),
 			modify_trace_fn: Some(Box::new(|mut actual_trace| {
 				if let Trace::Call(trace) = &mut actual_trace {
-					trace.gas = 0.into();
-					trace.gas_used = 0.into();
-					trace.calls[0].gas = 0.into();
+					trace.gas = 0;
+					trace.gas_used = 0;
+					trace.calls[0].gas = 0;
 				}
 				actual_trace
 			})),
@@ -5410,6 +5365,7 @@ fn self_destruct_by_syscall_tracing_works() {
 			let trace_wrapped = match trace {
 				crate::evm::Trace::Call(ct) => Trace::Call(ct),
 				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
+				crate::evm::Trace::Execution(_) => panic!("Execution trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);

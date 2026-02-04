@@ -352,8 +352,8 @@ async fn follow_with_runtime() {
 	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
 		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
-		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
-		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
+		[\"0xbc9d89904f5b923f\",1],[\"0xbe9fb0c91a8046cf\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
+		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",2],\
 		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"systemVersion\":1}";
 
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
@@ -2943,7 +2943,8 @@ async fn ensure_operation_limits_works() {
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	// Configure the chainHead with maximum 1 ongoing operations.
+	// Configure the chainHead with maximum 4 ongoing operations to tolerate brief overlaps during
+	// cleanup.
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
@@ -2951,7 +2952,7 @@ async fn ensure_operation_limits_works() {
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
-			subscription_max_ongoing_operations: 1,
+			subscription_max_ongoing_operations: 4,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			subscription_buffer_cap: MAX_PINNED_BLOCKS,

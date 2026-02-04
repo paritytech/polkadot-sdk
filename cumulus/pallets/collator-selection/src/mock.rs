@@ -174,6 +174,17 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl cumulus_pallet_session_benchmarking::Config for Test {
+	fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+		use codec::Encode;
+
+		let keys = MockSessionKeys::generate(&owner.encode(), None);
+
+		(keys.keys, keys.proof.encode())
+	}
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

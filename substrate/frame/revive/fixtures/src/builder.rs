@@ -195,7 +195,41 @@ pub fn create_cargo_toml<'a>(
 
 /// Invoke cargo build to compile contracts to RISC-V ELF.
 pub fn invoke_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags = ["-Dwarnings"].join("\x1f");
+	let toolchain =
+		env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR).or_else(|_| env::var("RUSTUP_TOOLCHAIN"));
+
+	// Necessary to make this work with both 1.92+ and versions before 1.92 of rustc.
+	let new_immediate_abort = {
+		let mut cmd = Command::new("rustc");
+		if let Ok(toolchain) = &toolchain {
+			cmd.env("RUSTUP_TOOLCHAIN", toolchain);
+		}
+		let out = cmd.arg("--version").output().context("rustc --version failed")?;
+		let ver = String::from_utf8(out.stdout).context("utf8 from rustc --version failed")?;
+		let ver_num = ver
+			.split_whitespace()
+			.nth(1)
+			.ok_or_else(|| anyhow::anyhow!("unexpected rustc --version output: {ver}"))?;
+		let mut parts = ver_num.split('.');
+		let major: u32 = parts
+			.next()
+			.ok_or_else(|| anyhow::anyhow!("missing major version"))?
+			.parse()
+			.context("invalid major version")?;
+		let minor: u32 = parts
+			.next()
+			.ok_or_else(|| anyhow::anyhow!("missing minor version"))?
+			.parse()
+			.context("invalid minor version")?;
+		major > 1 || (major == 1 && minor >= 92)
+	};
+
+	// on newer version this is a stable compiler flag
+	let encoded_rustflags = if new_immediate_abort {
+		["-Dwarnings", "-Zunstable-options", "-Cpanic=immediate-abort"].join("\x1f")
+	} else {
+		["-Dwarnings"].join("\x1f")
+	};
 
 	let mut args = polkavm_linker::TargetJsonArgs::default();
 	args.is_64_bit = true;
@@ -208,16 +242,16 @@ pub fn invoke_build(current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 		.env("RUSTC_BOOTSTRAP", "1")
-		.args([
-			"build",
-			"--release",
-			"-Zbuild-std=core",
-			"-Zbuild-std-features=panic_immediate_abort",
-		])
+		.args(["build", "--release", "-Zbuild-std=core"])
 		.arg("--target")
 		.arg(polkavm_linker::target_json_path(args).unwrap());
 
-	if let Ok(toolchain) = env::var(OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR) {
+	// on older versions this is a unstable cargo cli argument
+	if !new_immediate_abort {
+		build_command.arg("-Zbuild-std-features=panic_immediate_abort");
+	}
+
+	if let Ok(toolchain) = &toolchain {
 		build_command.env("RUSTUP_TOOLCHAIN", &toolchain);
 	}
 
@@ -314,8 +348,9 @@ fn compile_with_standard_json(
 	contracts_dir: &Path,
 	solidity_entries: &[&Entry],
 ) -> Result<serde_json::Value> {
-	let remappings = [format!("@revive/={INTERFACE_DIR}")];
-
+	let mut remappings = vec![format!("@revive/={INTERFACE_DIR}")];
+	let oz_root = contracts_dir.join("external/openzeppelin/");
+	remappings.push(format!("@openzeppelin/={}", oz_root.display()));
 	let mut input_json = serde_json::json!({
 		"language": "Solidity",
 		"sources": {},

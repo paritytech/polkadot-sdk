@@ -89,7 +89,10 @@ impl ParseRuntimeVersion {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
 			_ =>
-				return Err(Error::new(init_expr.span(), "expected a struct initializer expression")),
+				return Err(Error::new(
+					init_expr.span(),
+					"expected a struct initializer expression",
+				)),
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
@@ -151,7 +154,7 @@ impl ParseRuntimeVersion {
 			// the "runtime_version" custom section. `impl_runtime_apis` is responsible for
 			// generating a custom section with the supported runtime apis descriptor.
 		} else {
-			return Err(Error::new(field_name.span(), "unknown field"))
+			return Err(Error::new(field_name.span(), "unknown field"));
 		}
 
 		Ok(warnings)

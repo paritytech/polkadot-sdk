@@ -135,7 +135,7 @@ impl RuntimeBlob {
 				.entries_mut()
 				.push(ExportEntry::new(memory_name, Internal::Memory(0)));
 
-			break
+			break;
 		}
 
 		Ok(())
@@ -157,7 +157,7 @@ impl RuntimeBlob {
 			.ok_or_else(|| WasmError::Other("no memory section found".into()))?;
 
 		if memory_section.entries().is_empty() {
-			return Err(WasmError::Other("memory section is empty".into()))
+			return Err(WasmError::Other("memory section is empty".into()));
 		}
 		for memory_ty in memory_section.entries_mut() {
 			let initial = memory_ty.limits().initial();

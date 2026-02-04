@@ -114,7 +114,7 @@ pub fn penpal_set_foreign_asset_reserves_on_asset_hub(
 		pallet_assets::Instance2,
 	>::set_reserves {
 		id: asset_id_on_ah.into(),
-		reserves,
+		reserves: reserves.try_into().unwrap(),
 	})
 	.encode()
 	.into();
@@ -483,7 +483,7 @@ fn verify_foreign_asset_origin_checks() {
 		<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
 			origin,
 			foreign_asset_location_on_ah.clone(),
-			vec![reserves_data.clone()],
+			vec![reserves_data.clone()].try_into().unwrap(),
 		)
 		.unwrap();
 		assert_expected_events!(
@@ -501,7 +501,7 @@ fn verify_foreign_asset_origin_checks() {
 		assert!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::set_reserves(
 			origin,
 			foreign_asset_location_on_ah.clone(),
-			vec![reserves_data],
+			vec![reserves_data].try_into().unwrap(),
 		)
 		.is_err());
 	});

@@ -22,7 +22,6 @@
 //! blockchain, and is encoded as a WASM blob.
 //! 2. A node whose primary purpose is to execute the given runtime.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
 //! *FRAME is the Substrate's framework of choice to build a runtime.*
 //!
 //! FRAME is composed of two major components, **pallets** and a **runtime**.
@@ -56,7 +55,6 @@
 //!
 //! The following example showcases a minimal pallet.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", pallet)]
-//!
 //! ## Runtime
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
@@ -72,7 +70,6 @@
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
 //! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
-//!
 //! ## More Examples
 //!
 //! You can find more FRAME examples that revolve around specific features at [`pallet_examples`].

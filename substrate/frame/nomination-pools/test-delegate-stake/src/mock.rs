@@ -91,23 +91,48 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+/// A simple EraPayout implementation for testing that returns fixed values.
+pub struct TestEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		EraPayout::get()
+	}
+}
+
+/// A mock RcClientInterface for tests that don't need actual session/validator set management.
+pub struct MockRcClient;
+impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+		// No-op for tests
+	}
+}
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = TestEraPayout;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type RcClientInterface = MockRcClient;
 }
 
 parameter_types! {
@@ -155,7 +180,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 
 	fn strategy_type() -> StakeStrategyType {
 		if LegacyAdapter::get() {
-			return TransferStake::strategy_type()
+			return TransferStake::strategy_type();
 		}
 		DelegateStake::strategy_type()
 	}
@@ -164,21 +189,21 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		member_account: Member<Self::AccountId>,
 	) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::transferable_balance(pool_account, member_account)
+			return TransferStake::transferable_balance(pool_account, member_account);
 		}
 		DelegateStake::transferable_balance(pool_account, member_account)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
-			return TransferStake::total_balance(pool_account)
+			return TransferStake::total_balance(pool_account);
 		}
 		DelegateStake::total_balance(pool_account)
 	}
 
 	fn member_delegation_balance(member_account: Member<Self::AccountId>) -> Option<Self::Balance> {
 		if LegacyAdapter::get() {
-			return TransferStake::member_delegation_balance(member_account)
+			return TransferStake::member_delegation_balance(member_account);
 		}
 		DelegateStake::member_delegation_balance(member_account)
 	}
@@ -191,7 +216,13 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		bond_type: BondType,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
+			return TransferStake::pledge_bond(
+				who,
+				pool_account,
+				reward_account,
+				amount,
+				bond_type,
+			);
 		}
 		DelegateStake::pledge_bond(who, pool_account, reward_account, amount, bond_type)
 	}
@@ -203,21 +234,21 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		num_slashing_spans: u32,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
+			return TransferStake::member_withdraw(who, pool_account, amount, num_slashing_spans);
 		}
 		DelegateStake::member_withdraw(who, pool_account, amount, num_slashing_spans)
 	}
 
 	fn dissolve(pool_account: Pool<Self::AccountId>) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::dissolve(pool_account)
+			return TransferStake::dissolve(pool_account);
 		}
 		DelegateStake::dissolve(pool_account)
 	}
 
 	fn pending_slash(pool_account: Pool<Self::AccountId>) -> Self::Balance {
 		if LegacyAdapter::get() {
-			return TransferStake::pending_slash(pool_account)
+			return TransferStake::pending_slash(pool_account);
 		}
 		DelegateStake::pending_slash(pool_account)
 	}
@@ -229,7 +260,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::member_slash(who, pool_account, amount, maybe_reporter)
+			return TransferStake::member_slash(who, pool_account, amount, maybe_reporter);
 		}
 		DelegateStake::member_slash(who, pool_account, amount, maybe_reporter)
 	}
@@ -239,7 +270,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::migrate_nominator_to_agent(agent, reward_account)
+			return TransferStake::migrate_nominator_to_agent(agent, reward_account);
 		}
 		DelegateStake::migrate_nominator_to_agent(agent, reward_account)
 	}
@@ -250,7 +281,7 @@ impl pallet_nomination_pools::adapter::StakeStrategy for MockAdapter {
 		value: Self::Balance,
 	) -> DispatchResult {
 		if LegacyAdapter::get() {
-			return TransferStake::migrate_delegation(agent, delegator, value)
+			return TransferStake::migrate_delegation(agent, delegator, value);
 		}
 		DelegateStake::migrate_delegation(agent, delegator, value)
 	}
@@ -294,12 +325,15 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
 	}
 );
+
+// Test validators that pools can nominate
+pub(crate) const TEST_VALIDATORS: [AccountId; 3] = [1, 2, 3];
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
@@ -316,7 +350,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)]
+			.into_iter()
+			.chain(TEST_VALIDATORS.iter().map(|&v| (v, 1000)))
+			.collect::<Vec<_>>(),
 		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
@@ -328,17 +365,41 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		// for events to be deposited.
 		frame_system::Pallet::<Runtime>::set_block_number(1);
 
+		// Initialize era state for pallet-staking-async
+		pallet_staking_async::CurrentEra::<Runtime>::put(0);
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 0,
+			start: None,
+		});
+
 		// set some limit for nominations.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
 		));
+
+		// Set up validators that tests can nominate
+		for &validator in TEST_VALIDATORS.iter() {
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(validator),
+				500,
+				pallet_staking_async::RewardDestination::Staked
+			));
+			assert_ok!(Staking::validate(
+				RuntimeOrigin::signed(validator),
+				pallet_staking_async::ValidatorPrefs::default()
+			));
+		}
+
+		// Clear events from setup to avoid test interference
+		frame_system::Pallet::<Runtime>::reset_events();
 	});
 
 	ext
@@ -362,7 +423,7 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
 	events.into_iter().skip(already_seen).collect()
 }
 
-pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Runtime>> {
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking_async::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()
 		.map(|r| r.event)

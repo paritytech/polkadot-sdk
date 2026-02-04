@@ -24,7 +24,7 @@ use super::{
 use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Disabled, Equals, Everything, Nothing},
+	traits::{Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -58,6 +58,7 @@ parameter_types! {
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
+	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
@@ -189,7 +190,8 @@ pub type Barrier = TrailingSetTopicAsId<(
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
+pub type WaivedLocations =
+	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<TreasuryLocation>);
 
 /// We let locations alias into child locations of their own.
 /// This is a very simple aliasing rule, mimicking the behaviour of

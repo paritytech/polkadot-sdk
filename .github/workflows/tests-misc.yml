@@ -112,12 +112,12 @@ jobs:
       - name: script
         run: |
           # build runtime
-          forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
+          forklift cargo build -q --locked --release -p westend-runtime
           # make checksum
           sha256sum target/release/wbuild/*-runtime/target/wasm32-unknown-unknown/release/*.wasm > checksum.sha256
           cargo clean
           # build again
-          forklift cargo build -q --locked --release -p westend-runtime -p rococo-runtime
+          forklift cargo build -q --locked --release -p westend-runtime
           # confirm checksum
           sha256sum -c checksum.sha256
 

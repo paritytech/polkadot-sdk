@@ -314,7 +314,7 @@ impl HandleNetworkMessage for TestState {
 					.unwrap()
 					.as_ref();
 				if statements_sent_count.load(Ordering::SeqCst) {
-					return None
+					return None;
 				} else {
 					statements_sent_count.store(true, Ordering::SeqCst);
 				}
@@ -322,7 +322,7 @@ impl HandleNetworkMessage for TestState {
 				let group_statements = self.statements.get(&candidate_hash).unwrap();
 				if !group_statements.iter().any(|s| s.unchecked_validator_index().0 == index as u32)
 				{
-					return None
+					return None;
 				}
 
 				let statement = CompactStatement::Valid(candidate_hash);

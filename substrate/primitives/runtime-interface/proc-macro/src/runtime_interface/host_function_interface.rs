@@ -350,7 +350,7 @@ fn generate_host_function_implementation(
 		return Err(Error::new(
 			method.span(),
 			"Conditional compilation is not supported for versioned functions",
-		))
+		));
 	}
 
 	let implementation = quote! {
