@@ -361,12 +361,6 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionY` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
 	fn manage_fallback() -> Weight {
 		// Proof Size summary in bytes:
-<<<<<<< HEAD
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 290_000 picoseconds.
-		Weight::from_parts(340_000, 0)
-=======
 		//  Measured:  `328713`
 		//  Estimated: `332178`
 		// Minimum execution time: 538_906_259_000 picoseconds.
@@ -392,6 +386,5 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		Weight::from_parts(497_971_000, 3773)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
->>>>>>> 0ae4eef (Fix origin check in EPMB's manage extrinsic (#10248))
 	}
 }
