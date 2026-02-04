@@ -403,15 +403,11 @@ fn mock_caller_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
 					mock_caller: Some(BOB_ADDR),
-					mock_call: Default::default(),
-					mock_delegate_caller: Default::default(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -456,12 +452,7 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
 					mock_call: iter::once((
 						callee_addr,
 						ExecReturnValue {
@@ -471,8 +462,9 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 						},
 					))
 					.collect(),
-					mock_delegate_caller: Default::default(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -516,13 +508,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
-					mock_call: Default::default(),
 					mock_delegate_caller: iter::once((
 						Callee::echoCall { _data: magic_number }.abi_encode().into(),
 						DelegateInfo {
@@ -535,7 +521,9 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 						},
 					))
 					.collect(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -565,19 +553,11 @@ fn mocked_code_works() {
 		let result = builder::bare_call(host_addr)
 			.data(Host::extcodesizeOpCall { account: mocked_addr.0.into() }.abi_encode())
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
-					mock_call: iter::once((
-						mocked_addr,
-						ExecReturnValue { flags: Default::default(), data: vec![] },
-					))
-					.collect(),
-					mock_delegate_caller: Default::default(),
+					mock_call: iter::once((mocked_addr, ExecReturnValue::default())).collect(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -592,19 +572,11 @@ fn mocked_code_works() {
 		let result = builder::bare_call(host_addr)
 			.data(Host::extcodehashOpCall { account: mocked_addr.0.into() }.abi_encode())
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
-					mock_call: iter::once((
-						mocked_addr,
-						ExecReturnValue { flags: Default::default(), data: vec![] },
-					))
-					.collect(),
-					mock_delegate_caller: Default::default(),
+					mock_call: iter::once((mocked_addr, ExecReturnValue::default())).collect(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 

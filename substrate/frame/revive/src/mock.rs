@@ -73,7 +73,7 @@ pub trait MockHandler<T: pallet::Config> {
 	/// # Returns
 	/// - `Some(bytecode)` containing dummy bytecode if the address has mocked calls
 	/// - `None` if the address is not mocked
-	fn mocked_code(&self, _address: H160) -> Option<&'static [u8]> {
+	fn mocked_code(&self, _address: H160) -> Option<&[u8]> {
 		None
 	}
 }
