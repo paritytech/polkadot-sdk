@@ -15,12 +15,7 @@
 // limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use polkadot_omni_node_lib::{
-	chain_spec::{GenericChainSpec, LoadSpec},
-	runtime::{
-		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
-	},
-};
+use polkadot_omni_node_lib::chain_spec::{GenericChainSpec, LoadSpec};
 use sc_chain_spec::{ChainSpec, ChainType};
 use yet_another_parachain::yet_another_parachain_config;
 
@@ -213,84 +208,6 @@ impl LoadSpec for ChainSpecLoader {
 	}
 }
 
-/// Helper enum that is used for better distinction of different parachain/runtime configuration
-/// (it is based/calculated on ChainSpec's ID attribute)
-#[derive(Debug, PartialEq)]
-enum LegacyRuntime {
-	Omni,
-	AssetHubPolkadot,
-	AssetHub,
-	Penpal,
-	Collectives,
-	Glutton,
-	BridgeHub(bridge_hubs::BridgeHubRuntimeType),
-	Coretime(coretime::CoretimeRuntimeType),
-	People(people::PeopleRuntimeType),
-}
-
-impl LegacyRuntime {
-	fn from_id(id: &str) -> LegacyRuntime {
-		let id = id.replace('_', "-");
-
-		if id.starts_with("asset-hub-polkadot") | id.starts_with("statemint") {
-			LegacyRuntime::AssetHubPolkadot
-		} else if id.starts_with("asset-hub-kusama") |
-			id.starts_with("statemine") |
-			id.starts_with("asset-hub-rococo") |
-			id.starts_with("rockmine") |
-			id.starts_with("asset-hub-westend") |
-			id.starts_with("westmint")
-		{
-			LegacyRuntime::AssetHub
-		} else if id.starts_with("penpal") {
-			LegacyRuntime::Penpal
-		} else if id.starts_with("collectives-polkadot") || id.starts_with("collectives-westend") {
-			LegacyRuntime::Collectives
-		} else if id.starts_with(bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
-			LegacyRuntime::BridgeHub(
-				id.parse::<bridge_hubs::BridgeHubRuntimeType>().expect("Invalid value"),
-			)
-		} else if id.starts_with(coretime::CoretimeRuntimeType::ID_PREFIX) {
-			LegacyRuntime::Coretime(
-				id.parse::<coretime::CoretimeRuntimeType>().expect("Invalid value"),
-			)
-		} else if id.starts_with("glutton") {
-			LegacyRuntime::Glutton
-		} else if id.starts_with(people::PeopleRuntimeType::ID_PREFIX) {
-			LegacyRuntime::People(id.parse::<people::PeopleRuntimeType>().expect("Invalid value"))
-		} else {
-			log::warn!(
-				"No specific runtime was recognized for ChainSpec's id: '{}', \
-				so Runtime::Omni(Consensus::Aura) will be used",
-				id
-			);
-			LegacyRuntime::Omni
-		}
-	}
-}
-
-#[derive(Debug)]
-pub(crate) struct RuntimeResolver;
-
-impl RuntimeResolverT for RuntimeResolver {
-	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		let legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
-		Ok(match legacy_runtime {
-			LegacyRuntime::AssetHubPolkadot =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
-			LegacyRuntime::AssetHub |
-			LegacyRuntime::BridgeHub(_) |
-			LegacyRuntime::Collectives |
-			LegacyRuntime::Coretime(_) |
-			LegacyRuntime::People(_) |
-			LegacyRuntime::Glutton |
-			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
-		})
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -334,9 +251,22 @@ mod tests {
 	}
 
 	#[test]
-	fn test_legacy_runtime_for_different_chain_specs() {
-		let chain_spec =
-			create_default_with_extensions("penpal-rococo-1000", Extensions2::default());
-		assert_eq!(LegacyRuntime::Penpal, LegacyRuntime::from_id(chain_spec.id()));
+	fn test_aura_id_from_chain_spec_id() {
+		use polkadot_omni_node_lib::runtime::{aura_id_from_chain_spec_id, AuraConsensusId};
+
+		// Asset Hub Polkadot uses Ed25519
+		assert_eq!(
+			aura_id_from_chain_spec_id("asset-hub-polkadot"),
+			AuraConsensusId::Ed25519
+		);
+		assert_eq!(aura_id_from_chain_spec_id("statemint"), AuraConsensusId::Ed25519);
+
+		// Other chains use Sr25519
+		assert_eq!(
+			aura_id_from_chain_spec_id("asset-hub-kusama"),
+			AuraConsensusId::Sr25519
+		);
+		assert_eq!(aura_id_from_chain_spec_id("penpal-rococo-1000"), AuraConsensusId::Sr25519);
+		assert_eq!(aura_id_from_chain_spec_id("collectives-westend"), AuraConsensusId::Sr25519);
 	}
 }

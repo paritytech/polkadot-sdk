@@ -31,12 +31,25 @@ pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
 
 /// The Aura ID used by the Aura consensus
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum AuraConsensusId {
 	/// Ed25519
 	Ed25519,
 	/// Sr25519
 	Sr25519,
+}
+
+/// Determines the appropriate Aura consensus ID based on the chain spec ID.
+///
+/// Most parachains use Sr25519 for Aura consensus, but Asset Hub Polkadot
+/// (formerly Statemint) uses Ed25519.
+pub fn aura_id_from_chain_spec_id(id: &str) -> AuraConsensusId {
+	let id = id.replace('_', "-");
+	if id.starts_with("asset-hub-polkadot") || id.starts_with("statemint") {
+		AuraConsensusId::Ed25519
+	} else {
+		AuraConsensusId::Sr25519
+	}
 }
 
 /// The choice of consensus for the parachain omni-node.
@@ -103,23 +116,22 @@ pub struct DefaultRuntimeResolver;
 
 impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
+		let aura_id = aura_id_from_chain_spec_id(chain_spec.id());
+
 		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
 			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
-			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)));
+			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(aura_id)));
 		};
 
-		let block_number = match metadata_inspector.block_number() {
-			Some(inner) => inner,
-			None => {
-				log::warn!(
+		let block_number = metadata_inspector.block_number().unwrap_or_else(|| {
+			log::warn!(
 					r#"⚠️  There isn't a runtime type named `System`, corresponding to the `frame-system`
                 pallet (https://docs.rs/frame-system/latest/frame_system/). Please check Omni Node docs for runtime conventions:
                 https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions.
                 Note: We'll assume a block number size of `u32`."#
 				);
-				BlockNumber::U32
-			},
-		};
+			BlockNumber::U32
+		});
 
 		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) {
 			log::warn!(
@@ -129,7 +141,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			);
 		}
 
-		Ok(Runtime::Omni(block_number, Consensus::Aura(AuraConsensusId::Sr25519)))
+		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }
 
