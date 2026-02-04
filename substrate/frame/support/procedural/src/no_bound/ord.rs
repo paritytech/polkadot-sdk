@@ -54,11 +54,11 @@ pub fn derive_ord_no_bound(input: proc_macro::TokenStream) -> proc_macro::TokenS
 		},
 		syn::Data::Enum(_) => {
 			let msg = "Enum type not supported by `derive(OrdNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 		syn::Data::Union(_) => {
 			let msg = "Union type not supported by `derive(OrdNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 	};
 

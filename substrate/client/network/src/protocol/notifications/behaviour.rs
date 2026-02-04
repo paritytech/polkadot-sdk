@@ -164,7 +164,6 @@ pub struct Notifications {
 	events: VecDeque<ToSwarm<NotificationsOut, NotifsHandlerIn>>,
 
 	/// Pending inbound substream validations.
-	//
 	// NOTE: it's possible to read a stale response from `pending_inbound_validations`
 	// as the substream may get closed by the remote peer before the protocol has had
 	// a chance to validate it. [`Notifications`] must compare the `crate::peerset::IncomingIndex`
@@ -506,7 +505,7 @@ impl Notifications {
 		let mut entry = if let Entry::Occupied(entry) = self.peers.entry((*peer_id, set_id)) {
 			entry
 		} else {
-			return
+			return;
 		};
 
 		match mem::replace(entry.get_mut(), PeerState::Poisoned) {
@@ -586,7 +585,7 @@ impl Notifications {
 						target: LOG_TARGET,
 						"State mismatch in libp2p: no entry in incoming for incoming peer"
 					);
-					return
+					return;
 				};
 
 				inc.alive = false;
@@ -632,7 +631,7 @@ impl Notifications {
 				trace!(target: LOG_TARGET, "Libp2p <= Dial {}", entry.key().0);
 				self.events.push_back(ToSwarm::Dial { opts: entry.key().0.into() });
 				entry.insert(PeerState::Requested);
-				return
+				return;
 			},
 		};
 
@@ -801,7 +800,7 @@ impl Notifications {
 			Entry::Vacant(entry) => {
 				trace!(target: LOG_TARGET, "PSM => Drop({}, {:?}): Already disabled.",
 					entry.key().0, set_id);
-				return
+				return;
 			},
 		};
 
@@ -913,7 +912,7 @@ impl Notifications {
 	fn peerset_report_preaccept(&mut self, index: IncomingIndex) {
 		let Some(pos) = self.incoming.iter().position(|i| i.incoming_id == index) else {
 			error!(target: LOG_TARGET, "PSM => Preaccept({:?}): Invalid index", index);
-			return
+			return;
 		};
 
 		trace!(
@@ -955,7 +954,7 @@ impl Notifications {
 				(pos, self.incoming.get(pos))
 			} else {
 				error!(target: LOG_TARGET, "PSM => Accept({:?}): Invalid index", index);
-				return
+				return;
 			};
 
 		let Some(incoming) = incoming else {
@@ -985,7 +984,7 @@ impl Notifications {
 			}
 
 			self.incoming.remove(pos);
-			return
+			return;
 		}
 
 		let state = match self.peers.get_mut(&(incoming.peer_id, incoming.set_id)) {
@@ -999,7 +998,7 @@ impl Notifications {
 					index,
 				);
 				self.incoming.remove(pos);
-				return
+				return;
 			},
 		};
 
@@ -1019,7 +1018,7 @@ impl Notifications {
 					);
 
 					self.incoming.remove(pos);
-					return
+					return;
 				} else if index > incoming_index {
 					error!(
 						target: LOG_TARGET,
@@ -1029,7 +1028,7 @@ impl Notifications {
 
 					self.incoming.remove(pos);
 					debug_assert!(false);
-					return
+					return;
 				}
 
 				// while the substream was being validated by the protocol, `Peerset` had request
@@ -1049,7 +1048,7 @@ impl Notifications {
 						peerset_rejected,
 						incoming_index,
 					};
-					return self.report_reject(index).map_or((), |_| ())
+					return self.report_reject(index).map_or((), |_| ());
 				}
 
 				trace!(
@@ -1120,7 +1119,7 @@ impl Notifications {
 			self.incoming.remove(pos)
 		} else {
 			error!(target: LOG_TARGET, "PSM => Reject({:?}): Invalid index", index);
-			return None
+			return None;
 		};
 
 		if !incoming.alive {
@@ -1132,7 +1131,7 @@ impl Notifications {
 				incoming.set_id,
 			);
 
-			return None
+			return None;
 		}
 
 		let state = match self.peers.get_mut(&(incoming.peer_id, incoming.set_id)) {
@@ -1145,7 +1144,7 @@ impl Notifications {
 					incoming.set_id,
 					index,
 				);
-				return None
+				return None;
 			},
 		};
 
@@ -1158,7 +1157,7 @@ impl Notifications {
 						"PSM => Reject({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}.",
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
-					return None
+					return None;
 				} else if index > incoming_index {
 					error!(
 						target: LOG_TARGET,
@@ -1166,7 +1165,7 @@ impl Notifications {
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
 					debug_assert!(false);
-					return None
+					return None;
 				}
 
 				trace!(target: LOG_TARGET, "PSM => Reject({:?}, {}, {:?}): Rejecting connections.",
@@ -1325,7 +1324,7 @@ impl NetworkBehaviour for Notifications {
 					} else {
 						error!(target: LOG_TARGET, "inject_connection_closed: State mismatch in the custom protos handler");
 						debug_assert!(false);
-						return
+						return;
 					};
 
 					match mem::replace(entry.get_mut(), PeerState::Poisoned) {
@@ -1718,7 +1717,7 @@ impl NetworkBehaviour for Notifications {
 						"OpenDesiredByRemote: State mismatch in the custom protos handler"
 					);
 					debug_assert!(false);
-					return
+					return;
 				};
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
@@ -1923,7 +1922,7 @@ impl NetworkBehaviour for Notifications {
 				} else {
 					error!(target: LOG_TARGET, "CloseDesired: State mismatch in the custom protos handler");
 					debug_assert!(false);
-					return
+					return;
 				};
 
 				if reason == CloseReason::ProtocolMisbehavior {
@@ -1948,12 +1947,12 @@ impl NetworkBehaviour for Notifications {
 							error!(target: LOG_TARGET,
 								"CloseDesired: State mismatch in the custom protos handler");
 							debug_assert!(false);
-							return
+							return;
 						};
 
 						if matches!(connections[pos].1, ConnectionState::Closing) {
 							*entry.into_mut() = PeerState::Enabled { connections };
-							return
+							return;
 						}
 
 						debug_assert!(matches!(connections[pos].1, ConnectionState::Open(_)));
@@ -2140,7 +2139,7 @@ impl NetworkBehaviour for Notifications {
 				} else {
 					error!(target: LOG_TARGET, "OpenResultErr: State mismatch in the custom protos handler");
 					debug_assert!(false);
-					return
+					return;
 				};
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
@@ -2265,7 +2264,7 @@ impl NetworkBehaviour for Notifications {
 
 	fn poll(&mut self, cx: &mut Context) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
 		if let Some(event) = self.events.pop_front() {
-			return Poll::Ready(event)
+			return Poll::Ready(event);
 		}
 
 		// Poll for instructions from the protocol controllers.
@@ -2288,7 +2287,7 @@ impl NetworkBehaviour for Notifications {
 						target: LOG_TARGET,
 						"Protocol controllers receiver stream has returned `None`. Ignore this error if the node is shutting down.",
 					);
-					break
+					break;
 				},
 				Poll::Pending => break,
 			}
@@ -2308,7 +2307,7 @@ impl NetworkBehaviour for Notifications {
 				},
 				Poll::Ready(None) => {
 					error!(target: LOG_TARGET, "Protocol command streams have been shut down");
-					break
+					break;
 				},
 				Poll::Pending => break,
 			}
@@ -2326,7 +2325,7 @@ impl NetworkBehaviour for Notifications {
 				},
 				Err(_) => {
 					error!(target: LOG_TARGET, "Protocol has shut down");
-					break
+					break;
 				},
 			}
 		}
@@ -2390,7 +2389,7 @@ impl NetworkBehaviour for Notifications {
 		}
 
 		if let Some(event) = self.events.pop_front() {
-			return Poll::Ready(event)
+			return Poll::Ready(event);
 		}
 
 		Poll::Pending
@@ -4007,7 +4006,7 @@ mod tests {
 				.await;
 
 				if notif.peers.get(&(peer, set_id)).is_none() {
-					break
+					break;
 				}
 			}
 		})
@@ -4119,7 +4118,7 @@ mod tests {
 					assert!(std::matches!(connections[0], (_, ConnectionState::Closing)));
 
 					if timer_deadline != &prev_instant {
-						break
+						break;
 					}
 				} else {
 					panic!("invalid state");

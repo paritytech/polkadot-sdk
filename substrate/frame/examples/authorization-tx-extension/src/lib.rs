@@ -52,10 +52,8 @@
 //!
 //! ### Example runtime setup
 #![doc = docify::embed!("src/mock.rs", example_runtime)]
-//!
 //! ### Example usage
 #![doc = docify::embed!("src/tests.rs", create_coowned_asset_works)]
-//!
 //! This example does not focus on any pallet logic or syntax, but rather on `TransactionExtension`
 //! functionality. The pallets used are just skeletons to provide storage state and custom origin
 //! choices and requirements, as shown in the examples. Any weight and/or

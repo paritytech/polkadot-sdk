@@ -194,11 +194,11 @@ pub mod pallet {
 			// `None` origin is better to reject in general, due to being used for inherents and
 			// validate unsigned.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let Some(mut usage) = Usages::<T>::take(&entity) else {
-				return Err(Error::<T>::NoUsage.into())
+				return Err(Error::<T>::NoUsage.into());
 			};
 
 			let now = frame_system::Pallet::<T>::block_number();
@@ -268,7 +268,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 
 	fn weight(&self, _call: &T::RuntimeCall) -> frame_support::weights::Weight {
 		if !self.0 {
-			return Weight::zero()
+			return Weight::zero();
 		}
 
 		<T as Config>::WeightInfo::restrict_origin_tx_ext()
@@ -293,7 +293,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		if !self.0 {
 			// Extension is disabled, but the restriction must happen, the extension should have
 			// been enabled.
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();

@@ -105,7 +105,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
 		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
 			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
-			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)))
+			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)));
 		};
 
 		let block_number = match metadata_inspector.block_number() {

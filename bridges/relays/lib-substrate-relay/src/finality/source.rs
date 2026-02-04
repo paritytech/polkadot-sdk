@@ -90,7 +90,7 @@ impl<P: SubstrateFinalitySyncPipeline, SourceClnt: Client<P::SourceChain>>
 		// in perfect world we'll need to return justfication for the requested `block_number`
 		let (header, maybe_proof) = self.header_and_finality_proof(block_number).await?;
 		if let Some(proof) = maybe_proof {
-			return Ok((header, proof))
+			return Ok((header, proof));
 		}
 
 		// otherwise we don't care which header to return, so let's select first
@@ -132,7 +132,7 @@ impl<P: SubstrateFinalitySyncPipeline, SourceClnt: Client<P::SourceChain>>
 			// if we've passed the `best_finalized_block_number`, we no longer need persistent
 			// justifications
 			if current_block_number > best_finalized_block_number {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let (header, maybe_proof) =
@@ -166,7 +166,7 @@ impl<P: SubstrateFinalitySyncPipeline, SourceClnt: Client<P::SourceChain>>
 			let client = client.clone();
 			async move {
 				if proof.target_header_number() < block_number {
-					return Ok(None)
+					return Ok(None);
 				}
 
 				let header = client.header_by_number(proof.target_header_number()).await?;

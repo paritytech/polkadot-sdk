@@ -245,7 +245,7 @@ where
 	) -> Option<PendingChange<Block::Hash, NumberFor<Block>>> {
 		// check for forced authority set hard forks
 		if let Some(change) = self.authority_set_hard_forks.lock().get(&hash) {
-			return Some(change.clone())
+			return Some(change.clone());
 		}
 
 		// check for forced change.
@@ -256,7 +256,7 @@ where
 				canon_height: *header.number(),
 				canon_hash: hash,
 				delay_kind: DelayKind::Best { median_last_finalized },
-			})
+			});
 		}
 
 		// check normal scheduled change.
@@ -448,7 +448,7 @@ where
 					self.inner.storage(hash, &sc_client_api::StorageKey(k.to_vec()))
 				{
 					if let Ok(id) = SetId::decode(&mut id.0.as_ref()) {
-						return Ok(id)
+						return Ok(id);
 					}
 				}
 			}
@@ -537,14 +537,14 @@ where
 			Ok(BlockStatus::InChain) => {
 				// Strip justifications when re-importing an existing block.
 				let _justifications = block.justifications.take();
-				return (&*self.inner).import_block(block).await
+				return (&*self.inner).import_block(block).await;
 			},
 			Ok(BlockStatus::Unknown) => {},
 			Err(e) => return Err(ConsensusError::ClientImport(e.to_string())),
 		}
 
 		if block.with_state() {
-			return self.import_state(block).await
+			return self.import_state(block).await;
 		}
 
 		if number <= self.inner.info().finalized_number {
@@ -555,7 +555,7 @@ where
 						"Justification required when importing \
 							an old block with authority set change."
 							.into(),
-					))
+					));
 				}
 				let mut authority_set = self.authority_set.inner_locked();
 				authority_set.authority_set_changes.insert(number);
@@ -569,7 +569,7 @@ where
 					},
 				);
 			}
-			return (&*self.inner).import_block(block).await
+			return (&*self.inner).import_block(block).await;
 		}
 
 		// on initial sync we will restrict logging under info to avoid spam.
@@ -590,7 +590,7 @@ where
 						"Restoring old authority set after block import result: {:?}", r,
 					);
 					pending_changes.revert();
-					return Ok(r)
+					return Ok(r);
 				},
 				Err(e) => {
 					debug!(
@@ -598,7 +598,7 @@ where
 						"Restoring old authority set after block import error: {}", e,
 					);
 					pending_changes.revert();
-					return Err(ConsensusError::ClientImport(e.to_string()))
+					return Err(ConsensusError::ClientImport(e.to_string()));
 				},
 			}
 		};
@@ -784,7 +784,7 @@ where
 			// justification import pipeline similar to what we do for `BlockImport`. In the
 			// meantime we'll just drop the justification, since this is only used for BEEFY which
 			// is still WIP.
-			return Ok(())
+			return Ok(());
 		}
 
 		let justification = GrandpaJustification::decode_and_verify_finalizes(

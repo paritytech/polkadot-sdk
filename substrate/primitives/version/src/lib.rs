@@ -528,7 +528,9 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 						},
 						Field::Apis => {
 							if apis.is_some() {
-								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"apis",
+								));
 							}
 							apis = Some({
 								struct DeserializeWith<'de> {
