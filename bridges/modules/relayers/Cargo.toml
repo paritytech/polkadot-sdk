@@ -29,15 +29,15 @@ sp-arithmetic.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-bp-parachains = { default-features = false, path = "../../primitives/parachains" }
-bp-polkadot-core = { default-features = false, path = "../../primitives/polkadot-core" }
-bp-runtime = { default-features = false, path = "../../primitives/runtime" }
-bp-test-utils = { default-features = false, path = "../../primitives/test-utils" }
-pallet-balances = { default-features = true, path = "../../../substrate/frame/balances" }
-pallet-utility = { default-features = false, path = "../../../substrate/frame/utility" }
-sp-core = { default-features = false, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
-sp-runtime = { default-features = false, path = "../../../substrate/primitives/runtime" }
+bp-parachains = { default-features = false, workspace = true }
+bp-polkadot-core = { default-features = false, workspace = true }
+bp-runtime = { default-features = false, workspace = true }
+bp-test-utils = { default-features = false, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+pallet-utility = { default-features = false, workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-runtime = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

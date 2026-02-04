@@ -22,12 +22,12 @@ pallet-revive.workspace = true
 
 [dev-dependencies]
 codec = { workspace = true }
-frame-system = { default-features = false, path = "../../system" }
-pallet-balances = { default-features = false, path = "../../balances" }
+frame-system = { default-features = false, workspace = true }
+pallet-balances = { default-features = false, workspace = true }
 scale-info = { workspace = true }
-sp-core = { default-features = false, path = "../../../primitives/core" }
-sp-io = { default-features = false, path = "../../../primitives/io" }
-sp-runtime = { default-features = false, path = "../../../primitives/runtime" }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-runtime = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

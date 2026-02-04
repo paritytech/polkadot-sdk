@@ -30,8 +30,8 @@ sp-core = { optional = true, workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-utility = { default-features = true, path = "../utility" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-utility = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

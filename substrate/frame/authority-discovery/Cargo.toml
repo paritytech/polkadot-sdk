@@ -26,9 +26,9 @@ sp-authority-discovery.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = false, path = "../balances" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-io = { default-features = true, path = "../../primitives/io" }
+pallet-balances = { default-features = false, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

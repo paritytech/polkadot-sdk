@@ -25,9 +25,9 @@ scale-info = { features = ["derive"], workspace = true }
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = false, path = "../balances" }
-sp-core = { default-features = false, path = "../../primitives/core" }
-sp-io = { default-features = false, path = "../../primitives/io" }
+pallet-balances = { default-features = false, workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

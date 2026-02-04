@@ -27,14 +27,14 @@ sp-runtime.workspace = true
 rstest = { workspace = true }
 
 # Cumulus
-cumulus-pallet-parachain-system = { default-features = true, path = "../parachain-system" }
-cumulus-primitives-core = { default-features = true, path = "../../primitives/core" }
-cumulus-test-relay-sproof-builder = { default-features = true, path = "../../test/relay-sproof-builder" }
+cumulus-pallet-parachain-system = { default-features = true, workspace = true }
+cumulus-primitives-core = { default-features = true, workspace = true }
+cumulus-test-relay-sproof-builder = { default-features = true, workspace = true }
 
 # Substrate
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
-sp-version = { default-features = true, path = "../../../substrate/primitives/version" }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

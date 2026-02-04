@@ -17,9 +17,9 @@ sp-runtime-interface.workspace = true
 sp-trie.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
-sp-state-machine = { default-features = true, path = "../../../substrate/primitives/state-machine" }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-state-machine = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

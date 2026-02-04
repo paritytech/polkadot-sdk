@@ -35,7 +35,7 @@ xcm-executor.workspace = true
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
-snowbridge-test-utils = { path = "../../test-utils" }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

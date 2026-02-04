@@ -111,9 +111,9 @@ thiserror = { workspace = true }
 thousands = { workspace = true }
 
 [dev-dependencies]
-cumulus-test-runtime = { default-features = true, path = "../../../../cumulus/test/runtime" }
-substrate-test-runtime = { default-features = true, path = "../../../test-utils/runtime" }
-westend-runtime = { default-features = true, path = "../../../../polkadot/runtime/westend" }
+cumulus-test-runtime = { default-features = true, workspace = true }
+substrate-test-runtime = { default-features = true, workspace = true }
+westend-runtime = { default-features = true, workspace = true }
 
 [features]
 default = []

@@ -29,8 +29,8 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-sp-storage = { default-features = true, path = "../../primitives/storage" }
+pallet-balances = { default-features = true, workspace = true }
+sp-storage = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

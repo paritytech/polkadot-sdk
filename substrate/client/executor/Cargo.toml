@@ -57,14 +57,14 @@ assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
 paste = { workspace = true, default-features = true }
-sc-runtime-test = { path = "runtime-test" }
-sc-tracing = { default-features = true, path = "../tracing" }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
-sp-maybe-compressed-blob = { default-features = true, path = "../../primitives/maybe-compressed-blob" }
-sp-runtime = { default-features = true, path = "../../primitives/runtime" }
-sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-runtime = { path = "../../test-utils/runtime" }
+sc-runtime-test = { workspace = true }
+sc-tracing = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-maybe-compressed-blob = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
+sp-state-machine = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
 wat = { workspace = true }

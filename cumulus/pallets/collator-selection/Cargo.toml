@@ -30,12 +30,12 @@ sp-runtime.workspace = true
 sp-staking.workspace = true
 
 [dev-dependencies]
-pallet-aura = { default-features = true, path = "../../../substrate/frame/aura" }
-pallet-timestamp = { default-features = true, path = "../../../substrate/frame/timestamp" }
-sp-consensus-aura = { default-features = true, path = "../../../substrate/primitives/consensus/aura" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
-sp-runtime = { default-features = true, path = "../../../substrate/primitives/runtime" }
-sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
+pallet-aura = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+sp-consensus-aura = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -21,5 +21,5 @@ relay-substrate-client.workspace = true
 relay-utils.workspace = true
 
 [dev-dependencies]
-relay-substrate-client = { features = ["test-helpers"], path = "../client-substrate" }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
+relay-substrate-client = { features = ["test-helpers"], workspace = true }
+sp-core = { default-features = true, workspace = true }

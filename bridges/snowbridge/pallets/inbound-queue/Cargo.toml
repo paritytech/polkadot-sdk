@@ -39,10 +39,10 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }
+frame-benchmarking = { default-features = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client = { default-features = true, path = "../ethereum-client" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+snowbridge-pallet-ethereum-client = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
