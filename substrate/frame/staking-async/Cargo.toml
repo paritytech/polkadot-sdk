@@ -88,6 +88,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-dap?/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]
