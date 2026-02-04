@@ -5,6 +5,6 @@ doc:
     only be used for election logic
 crates:
 - name: pallet-nomination-pools
-  bump: major
+  bump: patch
 - name: pallet-staking-async
-  bump: major
+  bump: patch
