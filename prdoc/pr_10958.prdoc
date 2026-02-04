@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enforce match_arm_blocks = true for consistent formatting
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Flips `match_arm_blocks` from `false` to `true` in rustfmt configuration to ensure
+      all multi-line match arm bodies are wrapped in braces consistently.
+
+      This is a formatting-only change with no functional impact. It enforces a single
+      valid style for match arms, eliminating ambiguity that caused unnecessary diffs
+      when LLMs generated code with braces.
+
+crates: [ ]
