@@ -855,9 +855,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 							proxy_type: ProxyType::StakingOperator,
 							..
 						}) | RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
-							proxy_type: ProxyType::StakingOperator,
-							..
-						})
+						proxy_type: ProxyType::StakingOperator,
+						..
+					})
 				)
 			},
 			ProxyType::NominationPools => {
