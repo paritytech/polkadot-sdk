@@ -34,11 +34,11 @@ macro_rules! builder {
         $($extra:item)*
 	) => {
 		paste!{
-			builder!(true, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
+			builder!(with_builder_fn, [< $method:camel Builder >], $method($($field: $type,)* ) -> $result; $($extra)*);
 		}
 	};
 	(
-		$full_expand:literal,
+		$full_expand:path,
 		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
@@ -48,12 +48,12 @@ macro_rules! builder {
 	};
 	// Generate the builder struct and its methods.
 	(
-		true,
+		with_builder_fn,
 		$name:ident,
 		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
         $($extra:item)*
 	) => {
-		builder!(false, $name, $method($($field: $type,)* ) -> $result; $($extra)*);
+		builder!(without_builder_fn, $name, $method($($field: $type,)* ) -> $result; $($extra)*);
 
 		#[allow(dead_code)]
 		impl<T: Config> $name<T> {
@@ -67,7 +67,7 @@ macro_rules! builder {
 	};
 	// Generate the builder struct and its methods.
 	(
-		false,
+		without_builder_fn,
 		$name:ident,
 		$method:ident($($field:ident: $type:ty,)*) -> $result:ty;
 		$($extra:item)*
@@ -148,7 +148,7 @@ builder!(
 );
 
 builder!(
-	false,
+	without_builder_fn,
 	bare_instantiate(
 		origin: OriginFor<T>,
 		evm_value: U256,
@@ -245,7 +245,7 @@ builder!(
 );
 
 builder!(
-	false,
+	without_builder_fn,
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,

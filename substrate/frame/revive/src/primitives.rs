@@ -390,9 +390,10 @@ pub struct ExecConfig<T: Config> {
 	/// This is primarily used for testing purposes and should be `None` in production
 	/// environments.
 	pub mock_handler: Option<Box<dyn MockHandler<T>>>,
-	/// External transient storage useful for testing.
+	/// Externally supplied transient storage.
 	///
-	/// Should be `None`  in production environments.
+	/// This is only used for testing purposes and should be `None` in production
+	/// environments.
 	pub transient_storage: Option<RefCell<TransientStorage<T>>>,
 }
 
