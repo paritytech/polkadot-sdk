@@ -1203,8 +1203,8 @@ where
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,
-										// Re-import warp-synced blocks, as they might keep only
-										// headers
+										// Warp-synced blocks are header-only. Allow re-import to
+										// store bodies if gap sync requested them.
 										import_existing: true,
 										skip_execution: true,
 										state: None,

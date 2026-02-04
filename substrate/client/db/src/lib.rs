@@ -1517,9 +1517,9 @@ impl<Block: BlockT> Backend<Block> {
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
 			let header_exists_in_db = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
-			// Check if body already exists in DB (for gap sync where we're adding body to existing header)
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing header.
 			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
-			// Check if incoming block has body (for fast sync gap handling)
+			// Incoming block has body - used for fast sync gap handling.
 			let incoming_has_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
