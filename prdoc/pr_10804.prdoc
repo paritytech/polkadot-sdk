@@ -46,6 +46,12 @@ crates:
   bump: patch
 - name: bridge-hub-rococo-runtime
   bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bp-bridge-hub-cumulus
+  bump: patch
+- name: pallet-insecure-randomness-collective-flip
+  bump: patch
 - name: collectives-westend-runtime
   bump: patch
 - name: coretime-westend-runtime

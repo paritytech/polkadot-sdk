@@ -1479,9 +1479,9 @@ mod enter {
 	fn candidates_are_size_limited() {
 		BlockLength::set(
 			limits::BlockLength::builder()
-				.max_length(600)
+				.max_length(1_300)
 				.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
-					*m = Perbill::from_percent(75) * 600
+					*m = Perbill::from_percent(75) * 1_300
 				})
 				.build(),
 		);
