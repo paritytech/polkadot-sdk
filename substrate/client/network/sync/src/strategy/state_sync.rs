@@ -32,7 +32,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
-use sp_trie::PrefixedMemoryDB;
+use sp_trie::MemoryDB;
 use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -313,7 +313,8 @@ where
 			let mut partial_state = PartialStateFor::<B> {
 				block_hash: self.target_hash(),
 				block_number: self.target_number(),
-				nodes: PrefixedMemoryDB::<HashingFor<B>>::new(&[]),
+				state_root: self.metadata.target_root(),
+				nodes: MemoryDB::<HashingFor<B>>::new(&[]),
 			};
 			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
 				&mut partial_state.nodes,
@@ -322,7 +323,7 @@ where
 			) {
 				debug!(
 					target: LOG_TARGET,
-					"Error decoding proof to prefixed db: {}",
+					"Error decoding proof to db: {}",
 					e,
 				);
 				return ImportResult::BadResponse

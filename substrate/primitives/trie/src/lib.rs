@@ -39,6 +39,7 @@ mod trie_stream;
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
 
+#[cfg(feature = "std")]
 pub mod partial_state;
 
 #[cfg(feature = "std")]

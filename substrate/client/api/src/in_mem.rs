@@ -33,6 +33,7 @@ use sp_state_machine::{
 	IndexOperation, StorageCollection,
 	TrieBackendBuilder,
 };
+use sp_trie::partial_state::PartialStatePrefixerPerBlock;
 use sp_trie::PrefixedMemoryDB;
 use std::{
 	collections::{HashMap, HashSet},
@@ -605,6 +606,7 @@ pub struct Backend<Block: BlockT> {
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
+	partial_state_tracking: RwLock<PartialStatePrefixerPerBlock<HashingFor<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -619,6 +621,7 @@ impl<Block: BlockT> Backend<Block> {
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
+			partial_state_tracking: Default::default(),
 		}
 	}
 
@@ -782,7 +785,9 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	}
 
 	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
-		self.state_db.write().consolidate(partial_state.nodes);
+		let prefixed = self.partial_state_tracking.write().import(partial_state)
+			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		self.state_db.write().consolidate(prefixed);
 		Ok(())
 	}
 
@@ -823,7 +828,8 @@ mod tests {
 	use sp_blockchain::Backend;
 	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
-	use sp_trie::PrefixedMemoryDB;
+	use sp_trie::MemoryDB;
+	use sp_trie::partial_state::PartialState;
 	use crate::in_mem::BlockT;
 	use sp_trie::TrieDBMutBuilder;
 	use sp_trie::LayoutV0;
@@ -905,7 +911,7 @@ mod tests {
 			(vec![1u8; 40], vec![1u8; 1]),
 		];
 
-		let mut partial_state = PrefixedMemoryDB::default();
+		let mut partial_state = MemoryDB::default();
 		let mut state_root: <Block as BlockT>::Hash = Default::default();
 		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
 		for (k, v) in &expected_key_values {
@@ -922,7 +928,12 @@ mod tests {
 			extrinsics_root: Default::default(),
 		};
 		let backend = super::Backend::<Block>::new();
-		backend.import_partial_state(header.hash(), partial_state).unwrap();
+		backend.import_partial_state(PartialState {
+			block_hash: header.hash(),
+			block_number: header.number,
+			state_root: header.state_root,
+			nodes: partial_state,
+		}).unwrap();
 
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();

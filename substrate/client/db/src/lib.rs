@@ -2665,7 +2665,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
 		let mut transaction = Transaction::new();
-		let commit = self.storage.partial_state_tracking.import_partial_state(partial_state);
+		let commit = self.storage.partial_state_tracking.import_partial_state(partial_state)
+			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
 		apply_state_commit(&mut transaction, commit);
 		self.storage.db.commit(transaction)?;
 		Ok(())
@@ -2734,6 +2735,7 @@ pub(crate) mod tests {
 	use sp_trie::TrieDBMutBuilder;
 	use sp_trie::TrieMut;
 	use sp_trie::LayoutV0;
+	use sp_trie::partial_state::PartialState;
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -5063,7 +5065,7 @@ pub(crate) mod tests {
 			(vec![1u8; 40], vec![1u8; 1]),
 		];
 
-		let mut partial_state = PrefixedMemoryDB::default();
+		let mut partial_state = MemoryDB::default();
 		let mut state_root: <Block as BlockT>::Hash = Default::default();
 		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
 		for (k, v) in &expected_key_values {
@@ -5080,7 +5082,12 @@ pub(crate) mod tests {
 			extrinsics_root: Default::default(),
 		};
 		let backend = Backend::<Block>::new_test(10, 10);
-		backend.import_partial_state(header.hash(), partial_state).unwrap();
+		backend.import_partial_state(PartialState {
+			block_hash: header.hash(),
+			block_number: header.number,
+			state_root: header.state_root,
+			nodes: partial_state,
+		}).unwrap();
 
 		let mut op = backend.begin_operation().unwrap();
 		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
