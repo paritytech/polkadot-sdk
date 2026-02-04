@@ -344,6 +344,10 @@ pub use pallet_assets_precompiles;
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
 
+/// FRAME auctions pallet for Dutch auctions.
+#[cfg(feature = "pallet-auctions")]
+pub use pallet_auctions;
+
 /// FRAME AURA consensus pallet.
 #[cfg(feature = "pallet-aura")]
 pub use pallet_aura;

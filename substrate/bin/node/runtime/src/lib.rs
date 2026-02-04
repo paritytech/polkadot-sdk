@@ -2868,6 +2868,9 @@ mod runtime {
 	#[runtime::pallet_index(86)]
 	pub type Vaults = pallet_vaults::Pallet<Runtime>;
 
+	#[runtime::pallet_index(87)]
+	pub type Auctions = pallet_auctions::Pallet<Runtime>;
+
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 
@@ -3111,31 +3114,6 @@ impl pallet_vaults::ProvidePrice for MockOracleAdapter {
 	}
 }
 
-/// Stub implementation for the Auctions handler.
-///
-/// This is a placeholder until a proper Auctions pallet is implemented.
-/// Currently, liquidations will fail with `Unimplemented` error.
-///
-/// TODO: Replace with actual pallet_auctions integration when available.
-pub struct AuctionAdapter;
-impl pallet_vaults::AuctionsHandler<AccountId, Balance> for AuctionAdapter {
-	fn start_auction(
-		_vault_owner: AccountId,
-		_collateral_amount: Balance,
-		_debt: sp_pusd::DebtComponents<Balance>,
-		_keeper: AccountId,
-	) -> Result<u32, frame_support::pallet_prelude::DispatchError> {
-		// During benchmarks, return success to allow liquidation benchmarks to complete
-		#[cfg(feature = "runtime-benchmarks")]
-		return Ok(1);
-
-		// TODO: Implement actual auction logic when pallet_auctions is available
-		// For now, liquidations are disabled
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		Err(frame_support::pallet_prelude::DispatchError::Other("Auctions not yet implemented"))
-	}
-}
-
 /// EnsureOrigin implementation for vaults management that supports privilege levels.
 ///
 /// - Root origin → `VaultsManagerLevel::Full` (can modify all parameters)
@@ -3214,10 +3192,91 @@ impl pallet_vaults::Config for Runtime {
 	type MaxOnIdleItems = VaultsMaxOnIdleItems;
 	type Oracle = MockOracleAdapter;
 	type CollateralLocation = VaultsCollateralLocation;
-	type AuctionsHandler = AuctionAdapter;
+	type AuctionsHandler = Auctions;
 	type WeightInfo = pallet_vaults::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = VaultsBenchmarkHelper;
+}
+
+parameter_types! {
+	/// Minimum remaining tab to prevent dusty auctions (100 pUSD).
+	pub const AuctionsMinAuctionTab: Balance = 100_000_000; // 100 * 10^6
+	/// Minimum purchase amount per liquidation take (0.1 DOT).
+	pub const AuctionsMinPurchaseAmount: Balance = 10_000_000_000; // 1 * 10^10
+	/// Surplus auction threshold: 5% of total pUSD supply.
+	pub const AuctionsSurplusThreshold: Permill = Permill::from_percent(5);
+	/// Amount of pUSD per surplus auction (100,000 pUSD).
+	pub const AuctionsSurplusAmount: Balance = 100_000_000_000; // 100_000 * 10^6
+	/// Minimum purchase amount per surplus take (100 pUSD).
+	pub const AuctionsMinSurplusPurchaseAmount: Balance = 100_000_000; // 100 * 10^6
+	/// Maximum auctions to process per on_idle call.
+	pub const AuctionsMaxOnIdleItems: u32 = 16;
+}
+
+/// Benchmark helper for the Auctions pallet.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AuctionsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_auctions::BenchmarkHelper<AccountId, Balance> for AuctionsBenchmarkHelper {
+	fn set_price(price: sp_runtime::FixedU128) {
+		BenchmarkOraclePrice::set(&Some(price));
+	}
+
+	fn fund_account(account: &AccountId, amount: Balance) {
+		use frame_support::traits::fungible::Mutate;
+		// Add extra for existential deposit to ensure account survives withdrawals
+		let _ = Balances::mint_into(account, amount.saturating_add(DOLLARS));
+	}
+
+	fn fund_pusd(account: &AccountId, amount: Balance) {
+		use frame_support::traits::fungibles::{Create, Mutate};
+
+		let asset_id = VaultsStablecoinAssetId::get();
+
+		let owner = InsuranceFundAccount::get();
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&owner);
+		let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+
+		let _ = Assets::mint_into(asset_id, account, amount);
+	}
+
+	fn setup_liquidation(
+		vault_owner: &AccountId,
+		collateral: Balance,
+		insurance_fund_amount: Balance,
+	) {
+		use frame_support::traits::fungible::{Mutate, MutateHold};
+		// Fund vault owner with enough for the hold
+		let _ = Balances::mint_into(vault_owner, collateral * 2);
+		// Create seized hold (simulates liquidation from vaults pallet)
+		let _ = Balances::hold(&pallet_vaults::HoldReason::Seized.into(), vault_owner, collateral);
+		// Fund Insurance Fund for keeper payments
+		Self::fund_pusd(&InsuranceFundAccount::get(), insurance_fund_amount);
+	}
+
+	fn setup_surplus_threshold(insurance_fund_amount: Balance, _pusd_supply: Balance) {
+		use frame_support::traits::fungible::Mutate;
+
+		let _ = Balances::mint_into(&InsuranceFundAccount::get(), DOLLARS);
+
+		Self::fund_pusd(&InsuranceFundAccount::get(), insurance_fund_amount);
+	}
+}
+
+/// Configure the Auctions pallet.
+impl pallet_auctions::Config for Runtime {
+	type CollateralManager = Vaults;
+	type MinAuctionTab = AuctionsMinAuctionTab;
+	type MinPurchaseAmount = AuctionsMinPurchaseAmount;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type SurplusAuctionThreshold = AuctionsSurplusThreshold;
+	type SurplusAuctionAmount = AuctionsSurplusAmount;
+	type MinSurplusPurchaseAmount = AuctionsMinSurplusPurchaseAmount;
+	type WeightInfo = pallet_auctions::weights::SubstrateWeight<Runtime>;
+	type MaxOnIdleItems = AuctionsMaxOnIdleItems;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AuctionsBenchmarkHelper;
 }
 
 /// MMR helper types.
@@ -3358,6 +3417,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_vaults, Vaults]
+		[pallet_auctions, Auctions]
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
