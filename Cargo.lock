@@ -15178,6 +15178,7 @@ dependencies = [
  "rstest",
  "sc-keystore",
  "sc-network",
+ "sc-network-types",
  "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
