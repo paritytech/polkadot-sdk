@@ -18,8 +18,6 @@ doc:
     - `PassFatPointerAndWrite`: Passes a mutable buffer pointer to the host.
       The host creates a zero-initialized buffer, the host function writes to it,
       and the result is written back to guest memory.
-
-    NOTE: These hostcalls are still under an `experimental` feature.
 crates:
 - name: sp-crypto-ec-utils
   bump: major
