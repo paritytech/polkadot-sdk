@@ -22,6 +22,6 @@ doc:
     NOTE: These hostcalls are still under an `experimental` feature.
 crates:
 - name: sp-crypto-ec-utils
-  bump: minor
+  bump: major
 - name: sp-runtime-interface
   bump: minor
