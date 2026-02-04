@@ -22,8 +22,8 @@ use crate::{
 	config::{Configuration, ExecutorConfiguration, KeystoreConfig, Multiaddr, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
-	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
-	TaskManager, TransactionPoolAdapter,
+	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers,
+	SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, TransactionPoolAdapter,
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
@@ -955,6 +955,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// A block announce validator builder.
@@ -1003,6 +1005,7 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		block_announce_validator_builder,
 		warp_sync_config,
@@ -1083,6 +1086,7 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
@@ -1116,6 +1120,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// Syncing service to communicate with syncing engine.
@@ -1168,6 +1174,7 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
@@ -1286,7 +1293,10 @@ where
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), future);
+	//
+	// The network worker is spawned as an essential task, meaning if it exits unexpectedly
+	// the service will shut down.
+	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
 	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
 }
@@ -1455,7 +1465,7 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {

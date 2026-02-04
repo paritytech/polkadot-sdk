@@ -61,7 +61,7 @@ pub mod kvdb_impl {
 					if let DBOp::DeletePrefix { col, .. } = op {
 						if !self.is_indexed_column(*col) {
 							pass = false;
-							break
+							break;
 						}
 					}
 				}
@@ -184,14 +184,14 @@ pub mod paritydb_impl {
 			prefix: &'a [u8],
 		) -> Box<dyn Iterator<Item = Result<DBKeyValue>> + 'a> {
 			if prefix.len() == 0 {
-				return self.iter(col)
+				return self.iter(col);
 			}
 			let mut iter = match self.db.iter(col as u8) {
 				Ok(iter) => iter,
 				Err(e) => return Box::new(std::iter::once(map_err(Err(e)))),
 			};
 			if let Err(e) = iter.seek(prefix) {
-				return Box::new(std::iter::once(map_err(Err(e))))
+				return Box::new(std::iter::once(map_err(Err(e))));
 			}
 			Box::new(std::iter::from_fn(move || {
 				iter.next().transpose().and_then(|r| {
@@ -210,7 +210,7 @@ pub mod paritydb_impl {
 				if let Some((prefix_iter, col, prefix)) = current_prefix_iter {
 					if let Some((key, _value)) = handle_err(prefix_iter.next()) {
 						if key.starts_with(prefix) {
-							return Some((*col, key.to_vec(), None))
+							return Some((*col, key.to_vec(), None));
 						}
 					}
 					*current_prefix_iter = None;
@@ -225,9 +225,9 @@ pub mod paritydb_impl {
 						let mut iter = handle_err(self.db.iter(col));
 						handle_err(iter.seek(&prefix[..]));
 						*current_prefix_iter = Some((iter, col, prefix.to_vec()));
-						continue
+						continue;
 					},
-				}
+				};
 			});
 
 			// Locking is required due to possible racy change of the content of a deleted prefix.

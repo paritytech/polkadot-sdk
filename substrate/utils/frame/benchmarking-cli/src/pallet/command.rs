@@ -37,6 +37,7 @@ use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use serde_json::Value;
 use sp_core::{
 	offchain::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
@@ -111,7 +112,7 @@ fn combine_batches(
 	db_batches: Vec<BenchmarkBatch>,
 ) -> Vec<BenchmarkBatchSplitResults> {
 	if time_batches.is_empty() && db_batches.is_empty() {
-		return Default::default()
+		return Default::default();
 	}
 
 	let mut all_benchmarks =
@@ -180,7 +181,7 @@ impl PalletCmd {
 			log::debug!("Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source));
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -194,7 +195,7 @@ impl PalletCmd {
 
 			let source = genesis_builder_to_source();
 
-			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source))
+			return Ok(GenesisStateHandler::ChainSpec(chain_spec, source));
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -210,7 +211,7 @@ impl PalletCmd {
 					runtime_blob,
 					Some(self.genesis_builder_preset.clone()),
 				))
-			}
+			};
 		};
 
 		Err("Neither a runtime nor a chain-spec were specified".to_string().into())
@@ -252,14 +253,29 @@ impl PalletCmd {
 				Err(error) =>
 					return Err(format!("Failed to deserialize {:?}: {}", json_input, error).into()),
 			};
-			return self.output_from_results(&batches)
+			return self.output_from_results(&batches);
 		}
 		super::logging::init(self.runtime_log.clone());
 
 		let state_handler =
 			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
-		let genesis_storage =
-			state_handler.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(None)?;
+
+		let genesis_patcher = if let Some(ref patch_path) = self.genesis_patch {
+			let patch_content = fs::read_to_string(patch_path)
+				.map_err(|e| format!("Failed to read genesis patch file: {}", e))?;
+			let patch_value: serde_json::Value = serde_json::from_str(&patch_content)
+				.map_err(|e| format!("Failed to parse genesis patch JSON: {}", e))?;
+
+			Some(Box::new(move |mut value| {
+				sc_chain_spec::json_patch::merge(&mut value, patch_value);
+				value
+			}) as Box<dyn FnOnce(Value) -> Value + 'static>)
+		} else {
+			None
+		};
+
+		let genesis_storage = state_handler
+			.build_storage::<SubstrateAndExtraHF<ExtraHostFunctions>>(genesis_patcher)?;
 
 		let cache_size = Some(self.database_cache_size as usize);
 		let state_with_tracking = BenchmarkingState::<Hasher>::new(
@@ -344,7 +360,7 @@ impl PalletCmd {
 
 		if let Some(list_output) = self.list {
 			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
-			return Ok(())
+			return Ok(());
 		}
 
 		// Run the benchmarks
@@ -379,7 +395,7 @@ impl PalletCmd {
 					// The slope logic needs at least two points
 					// to compute a slope.
 					if self.steps < 2 {
-						return Err("`steps` must be at least 2.".into())
+						return Err("`steps` must be at least 2.".into());
 					}
 
 					let step_size = (diff as f32 / (self.steps - 1) as f32).max(0.0);
@@ -460,12 +476,12 @@ impl PalletCmd {
 						Err(e) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Err(e)) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Ok(b)) => b,
 					};
@@ -493,12 +509,12 @@ impl PalletCmd {
 						Err(e) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Err(e)) => {
 							log::error!(target: LOG_TARGET, "Benchmark {pallet}::{extrinsic} failed: {e}");
 							failed.push((pallet.clone(), extrinsic.clone()));
-							continue 'outer
+							continue 'outer;
 						},
 						Ok(Ok(b)) => b,
 					};
@@ -570,7 +586,7 @@ impl PalletCmd {
 				failed.len(),
 				failed.iter().map(|(p, e)| format!("- {p}::{e}")).collect::<Vec<_>>().join("\n")
 			);
-			return Err(format!("{} benchmarks failed", failed.len()).into())
+			return Err(format!("{} benchmarks failed", failed.len()).into());
 		}
 
 		// Combine all of the benchmark results, so that benchmarks of the same pallet/function
@@ -620,7 +636,7 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into());
 		}
 
 		Ok(benchmarks_to_run)
@@ -825,7 +841,7 @@ impl PalletCmd {
 				fs::write(path, json)?;
 			} else {
 				print!("{json}");
-				return Ok(true)
+				return Ok(true);
 			}
 		}
 
@@ -856,7 +872,7 @@ impl PalletCmd {
 
 			// Skip raw data + analysis if there are no results
 			if batch.time_results.is_empty() {
-				continue
+				continue;
 			}
 
 			if !self.no_storage_info {
@@ -951,7 +967,7 @@ impl PalletCmd {
 						"Expected 'Pallet::Storage' as storage name but got: {}",
 						pallet_storage
 					)
-					.into())
+					.into());
 				}
 				let (pov_pallet, pov_storage) =
 					(splits[0].trim(), splits.get(1).unwrap_or(&"ALL").trim());
@@ -1024,7 +1040,7 @@ impl PalletCmd {
 				ErrorKind::MissingRequiredArgument,
 				"Provide either a runtime via `--runtime` or a chain spec via `--chain`"
 					.to_string(),
-			))
+			));
 		}
 
 		match self.genesis_builder {
@@ -1033,7 +1049,7 @@ impl PalletCmd {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
-					))
+					));
 				},
 			_ => {},
 		}
@@ -1174,6 +1190,17 @@ mod tests {
 			"path/to/runtime",
 			"--genesis-builder-preset",
 			"preset",
+		])?;
+		cli_succeed(&[
+			"test",
+			"--extrinsic",
+			"",
+			"--pallet",
+			"",
+			"--runtime",
+			"path/to/runtime",
+			"--genesis-patch",
+			"path/to/patch.json",
 		])?;
 		cli_fail(&[
 			"test",

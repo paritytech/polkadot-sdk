@@ -25,7 +25,7 @@ fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
 	let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
 		let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
 		if (*node).contains_hash(acc.into()) {
-			return Some(keccak_256(x))
+			return Some(keccak_256(x));
 		}
 		None
 	});

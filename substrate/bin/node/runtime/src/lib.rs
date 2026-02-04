@@ -1373,6 +1373,7 @@ impl pallet_bounties::Config for Runtime {
 	type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = Treasury;
+	type TransferAllAssets = ();
 }
 
 parameter_types! {
@@ -3074,8 +3075,8 @@ impl
 		assert_ok!(Assets::force_create(
 			RuntimeOrigin::root(),
 			asset_idx.into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 

@@ -255,7 +255,7 @@ pub mod pallet {
 			// Verify message nonce
 			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
 				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into())
+					return Err(Error::<T>::MaxNonceReached.into());
 				}
 				if envelope.nonce != nonce.saturating_add(1) {
 					Err(Error::<T>::InvalidNonce.into())

@@ -72,7 +72,6 @@ pub mod pallet {
 ///
 /// This extension must wrap all the transaction extensions:
 #[doc = docify::embed!("./src/tests.rs", Tx)]
-///
 /// This extension checks the size of the node-side storage proof before and after executing a given
 /// extrinsic using the proof size host function. The difference between benchmarked and used weight
 /// is reclaimed.
@@ -203,7 +202,7 @@ where
 		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
 			"Proof recording enabled during prepare, now disabled. This should not happen.",
 		) else {
-			return Ok(inner_refund)
+			return Ok(inner_refund);
 		};
 
 		// The consumed proof size as measured by the host.

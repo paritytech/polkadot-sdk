@@ -86,7 +86,7 @@ impl Decode for NodeHeader {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let i = input.read_byte()?;
 		if i == trie_constants::EMPTY_TRIE {
-			return Ok(NodeHeader::Null)
+			return Ok(NodeHeader::Null);
 		}
 		match i & (0b11 << 6) {
 			trie_constants::LEAF_PREFIX_MASK => Ok(NodeHeader::Leaf(decode_size(i, input, 2)?)),
@@ -160,13 +160,13 @@ fn decode_size(
 	let max_value = 255u8 >> prefix_mask;
 	let mut result = (first & max_value) as usize;
 	if result < max_value as usize {
-		return Ok(result)
+		return Ok(result);
 	}
 	result -= 1;
 	loop {
 		let n = input.read_byte()? as usize;
 		if n < 255 {
-			return Ok(result + n + 1)
+			return Ok(result + n + 1);
 		}
 		result += 255;
 	}

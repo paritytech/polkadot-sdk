@@ -183,7 +183,7 @@ where
 	/// Get a genesis set with given authorities.
 	pub(crate) fn genesis(initial: AuthorityList) -> Option<Self> {
 		if Self::invalid_authority_list(&initial) {
-			return None
+			return None;
 		}
 
 		Some(AuthoritySet {
@@ -204,7 +204,7 @@ where
 		authority_set_changes: AuthoritySetChanges<N>,
 	) -> Option<Self> {
 		if Self::invalid_authority_list(&authorities) {
-			return None
+			return None;
 		}
 
 		Some(AuthoritySet {
@@ -278,7 +278,7 @@ where
 		for change in &self.pending_forced_changes {
 			if is_descendent_of(&change.canon_hash, best_hash)? {
 				forced = Some((change.canon_hash.clone(), change.canon_height.clone()));
-				break
+				break;
 			}
 		}
 
@@ -286,7 +286,7 @@ where
 		for (_, _, change) in self.pending_standard_changes.roots() {
 			if is_descendent_of(&change.canon_hash, best_hash)? {
 				standard = Some((change.canon_hash.clone(), change.canon_height.clone()));
-				break
+				break;
 			}
 		}
 
@@ -344,11 +344,11 @@ where
 	{
 		for change in &self.pending_forced_changes {
 			if change.canon_hash == pending.canon_hash {
-				return Err(Error::DuplicateAuthoritySetChange)
+				return Err(Error::DuplicateAuthoritySetChange);
 			}
 
 			if is_descendent_of(&change.canon_hash, &pending.canon_hash)? {
-				return Err(Error::MultiplePendingForcedAuthoritySetChanges)
+				return Err(Error::MultiplePendingForcedAuthoritySetChanges);
 			}
 		}
 
@@ -395,7 +395,7 @@ where
 		E: std::error::Error,
 	{
 		if Self::invalid_authority_list(&pending.next_authorities) {
-			return Err(Error::InvalidAuthoritySet)
+			return Err(Error::InvalidAuthoritySet);
 		}
 
 		match pending.delay_kind {
@@ -487,7 +487,7 @@ where
 
 						return Err(Error::ForcedAuthoritySetChangeDependencyUnsatisfied(
 							standard_change.effective_number(),
-						))
+						));
 					}
 				}
 
@@ -519,7 +519,7 @@ where
 					},
 				));
 
-				break
+				break;
 			}
 		}
 
@@ -723,7 +723,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 			.map(|last_auth_change| last_auth_change.1 < block_number)
 			.unwrap_or(false)
 		{
-			return AuthoritySetChangeId::Latest
+			return AuthoritySetChangeId::Latest;
 		}
 
 		let idx = self
@@ -736,7 +736,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 
 			// if this is the first index but not the first set id then we are missing data.
 			if idx == 0 && set_id != 0 {
-				return AuthoritySetChangeId::Unknown
+				return AuthoritySetChangeId::Unknown;
 			}
 
 			AuthoritySetChangeId::Set(set_id, block_number)
@@ -773,7 +773,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 
 			// if this is the first index but not the first set id then we are missing data.
 			if idx == 0 && set_id != 0 {
-				return None
+				return None;
 			}
 		}
 

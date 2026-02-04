@@ -46,7 +46,6 @@
 //! To perform the very usual operation of transferring assets, the following XCM program can be
 //! used:
 #![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
-//!
 //! ## Get started
 //!
 //! To learn how it works and to get started, go to the [XCM docs](xcm_docs).

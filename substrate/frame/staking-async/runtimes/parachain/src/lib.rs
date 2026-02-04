@@ -1247,7 +1247,6 @@ pub type UncheckedExtrinsic =
 pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-	pallet_dap::migrations::v1::InitBufferAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -1290,8 +1289,8 @@ impl
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.clone().into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 
