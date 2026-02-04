@@ -394,7 +394,7 @@ pub struct ExecConfig<T: Config> {
 	///
 	/// This is only used for testing purposes and should be `None` in production
 	/// environments.
-	pub transient_storage: Option<RefCell<TransientStorage<T>>>,
+	pub test_env_transient_storage: Option<RefCell<TransientStorage<T>>>,
 }
 
 impl<T: Config> ExecConfig<T> {
@@ -406,7 +406,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			is_dry_run: None,
 			mock_handler: None,
-			transient_storage: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -417,7 +417,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: None,
 			mock_handler: None,
 			is_dry_run: None,
-			transient_storage: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -429,7 +429,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: Some(effective_gas_price),
 			mock_handler: None,
 			is_dry_run: None,
-			transient_storage: None,
+			test_env_transient_storage: None,
 		}
 	}
 
@@ -451,7 +451,7 @@ impl<T: Config> ExecConfig<T> {
 			effective_gas_price: self.effective_gas_price,
 			is_dry_run: self.is_dry_run.clone(),
 			mock_handler: None,
-			transient_storage: None,
+			test_env_transient_storage: None,
 		}
 	}
 }

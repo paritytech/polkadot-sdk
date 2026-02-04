@@ -22,6 +22,8 @@ doc:
     assertEq(5, result); // fails without this PR with `5 != 0` 
     }
     ```
+    link for the test-file inside `foundry-polkadot`:
+    - [click me](https://github.com/paritytech/foundry-polkadot/blob/3ff8bf9fae5505e9a72335e33d4e816dbc6bea41/testdata/default/revive/TransientStorage.t.sol)
 crates:
 - name: pallet-revive
   bump: major

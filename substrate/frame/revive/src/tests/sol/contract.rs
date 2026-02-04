@@ -412,7 +412,7 @@ fn mock_caller_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 					mock_call: Default::default(),
 					mock_delegate_caller: Default::default(),
 				})),
-				transient_storage: None,
+				test_env_transient_storage: None,
 			})
 			.build_and_unwrap_result();
 
@@ -474,7 +474,7 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 					.collect(),
 					mock_delegate_caller: Default::default(),
 				})),
-				transient_storage: None,
+				test_env_transient_storage: None,
 			})
 			.build_and_unwrap_result();
 
@@ -538,7 +538,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 					))
 					.collect(),
 				})),
-				transient_storage: None,
+				test_env_transient_storage: None,
 			})
 			.build_and_unwrap_result();
 
