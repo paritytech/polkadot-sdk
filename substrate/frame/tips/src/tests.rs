@@ -25,12 +25,11 @@ use sp_runtime::{
 	BuildStorage, Perbill, Permill,
 };
 use sp_storage::Storage;
-use pallet_assets::AssetCategoryManager;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	storage::StoragePrefixedMap,
 	traits::{
-		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		tokens::{PayFromAccount, UnityAssetBalanceConversion, asset_ops::common_ops::ConfigurableAssetCategoryManager},
 		ConstU32, ConstU64, IntegrityTest, SortedMembers, StorageVersion,
 	},
 	PalletId,
@@ -101,20 +100,7 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
-pub struct MockAssetCategoryManager;
-
-impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
-    type AssetKind = ();
-    type Balance = u64;
-
-    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
-        Vec::new()
-    }
-
-    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
-        Some(Zero::zero())
-    }
-}
+pub type MockAssetCategoryManager = ConfigurableAssetCategoryManager<<Test as frame_system::Config>::AccountId, (), u64>;
 
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;

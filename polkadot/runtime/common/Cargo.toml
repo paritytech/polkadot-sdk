@@ -34,7 +34,6 @@ sp-staking = { features = ["serde"], workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-assets = { workspace = true }
 pallet-asset-rate = { optional = true, workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
@@ -85,7 +84,6 @@ std = [
 	"frame-system/std",
 	"libsecp256k1/std",
 	"log/std",
-    "pallet-assets/std",
 	"pallet-asset-rate?/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
@@ -126,7 +124,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"libsecp256k1/hmac",
 	"libsecp256k1/static-context",
-    "pallet-assets/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -153,7 +150,6 @@ try-runtime = [
 	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-    "pallet-assets/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe?/try-runtime",

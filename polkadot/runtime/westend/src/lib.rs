@@ -35,15 +35,15 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration,
+		tokens::{asset_ops::common_ops::ConfigurableAssetCategoryManager, UnityOrOuterConversion},
+		AsEnsureOriginWithArg, ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg,
+		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
+		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use pallet_assets::AssetCategoryManager;
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
@@ -894,20 +894,8 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 	}
 }
 
-pub struct WestendAssetCategories;
-
-impl AssetCategoryManager<AccountId> for WestendAssetCategories {
-    type AssetKind = VersionedLocatableAsset;
-    type Balance = Balance;
-    
-    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
-        vec![]
-    }
-    
-    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
-        None
-    }
-}
+pub type WestendAssetCategories =
+	ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, Balance>;
 
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
@@ -991,7 +979,7 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = System;
-    type AssetCategories = WestendAssetCategories; 
+	type AssetCategories = WestendAssetCategories;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }

@@ -16,7 +16,6 @@
 
 //! Mocking utilities for testing with real pallets.
 
-use alloc::vec::Vec;
 use crate::{
 	auctions, crowdloan, identity_migrator,
 	mock::{conclude_pvf_checking, validators_public_keys},
@@ -25,7 +24,7 @@ use crate::{
 	slots,
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,

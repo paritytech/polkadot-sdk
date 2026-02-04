@@ -103,14 +103,13 @@ use frame_support::{
 	pallet_prelude::DispatchError,
 	print,
 	traits::{
-		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
+		tokens::{Pay, asset_ops::common_ops::AssetCategoryManager}, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
 };
 use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
-use pallet_assets::AssetCategoryManager;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

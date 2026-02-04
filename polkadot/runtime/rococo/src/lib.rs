@@ -38,12 +38,11 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
-use pallet_assets::AssetCategoryManager;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::cmp::Ordering;
 use frame_support::{
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	traits::FromContains,
+	traits::{tokens::asset_ops::common_ops::ConfigurableAssetCategoryManager, FromContains},
 };
 use pallet_balances::WeightInfo;
 use pallet_nis::WithMaximumOf;
@@ -331,20 +330,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 	}
 }
 
-pub struct RococoAssetCategories;
-
-impl AssetCategoryManager<AccountId> for RococoAssetCategories {
-    type AssetKind = VersionedLocatableAsset;  
-    type Balance = Balance;
-
-    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
-        vec![]
-    }
-
-    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
-        None
-    }
-}
+pub type RococoAssetCategories =
+	ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, Balance>;
 
 impl pallet_scheduler::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
@@ -577,7 +564,7 @@ impl pallet_treasury::Config for Runtime {
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = System;
-    type AssetCategories = RococoAssetCategories;
+	type AssetCategories = RococoAssetCategories;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }

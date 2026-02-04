@@ -18,7 +18,7 @@
 use super::{common_strategies::*, *};
 use crate::{
 	dispatch::DispatchResult,
-	sp_runtime::traits::Convert,
+	sp_runtime::traits::{Convert, Zero, Saturating},
 	traits::{misc::TypedGet, EnsureOriginWithArg},
 };
 
@@ -334,4 +334,36 @@ impl<Id, S: DestroyStrategy> Destroy<S> for DisabledOps<Id> {
 	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
 		Err(DispatchError::Other("Disabled"))
 	}
+}
+
+/// Category Ops
+pub trait  AssetCategoryManager<AccountId> {
+    type AssetKind;
+    type Balance: Zero + PartialOrd + Copy + Saturating + sp_runtime::traits::AtLeast32BitUnsigned;
+
+    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind>;
+
+    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance>;
+}
+
+pub struct ConfigurableAssetCategoryManager<AccountId, AssetKind, Balance> {
+    _phantom: core::marker::PhantomData<(AccountId, AssetKind, Balance)>,
+}
+
+impl<AccountId, AssetKind, Balance> AssetCategoryManager<AccountId>
+    for ConfigurableAssetCategoryManager<AccountId, AssetKind, Balance>
+where
+    AssetKind: Clone,
+    Balance: PartialOrd + Copy + Saturating + sp_runtime::traits::AtLeast32BitUnsigned,
+{
+    type AssetKind = AssetKind;
+    type Balance = Balance;
+
+    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
+        Vec::new()
+    }
+
+    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
+        None
+    }
 }

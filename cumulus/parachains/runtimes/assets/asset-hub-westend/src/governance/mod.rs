@@ -18,9 +18,13 @@
 
 use super::*;
 use crate::xcm_config::Collectives;
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	parameter_types,
-	traits::{tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse, FromContains},
+	traits::{
+		asset_ops::common_ops::ConfigurableAssetCategoryManager, tokens::UnityOrOuterConversion,
+		EitherOf, EitherOfDiverse, FromContains,
+	},
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
@@ -29,10 +33,8 @@ use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
 };
-use alloc::{vec, vec::Vec};
 use sp_runtime::{traits::IdentityLookup, Percent};
 use xcm::latest::BodyId;
-use pallet_assets::AssetCategoryManager;
 
 mod origins;
 pub use origins::{
@@ -134,21 +136,11 @@ pub type TreasuryBalanceConverter = UnityOrOuterConversion<
 	AssetRate,
 >;
 
-pub struct AHWAssetCategories;
-
-impl AssetCategoryManager<AccountId> for AHWAssetCategories {
-    type AssetKind = VersionedLocatableAsset;
-    type Balance = Balance;
-
-    fn assets_in_category(_category: &[u8]) -> Vec<Self::AssetKind> {
-        vec![]
-    }
-
-    fn available_balance(_asset: Self::AssetKind, _owner: AccountId) -> Option<Self::Balance> {
-        None
-    }
-}
-
+pub type AHWAssetCategories = ConfigurableAssetCategoryManager<
+	<Test as frame_system::Config>::AccountId,
+	VersionedLocatableAsset,
+	Balance,
+>;
 
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
@@ -168,7 +160,7 @@ impl pallet_treasury::Config for Runtime {
 	type Paymaster = LocalPay<NativeAndAllAssets, TreasuryAccount, xcm_config::LocationToAccountId>;
 	type BalanceConverter = TreasuryBalanceConverter;
 	type PayoutPeriod = PayoutSpendPeriod;
-    type AssetCategories = AHWAssetCategories;
+	type AssetCategories = AHWAssetCategories;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<
