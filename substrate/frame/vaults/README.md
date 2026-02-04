@@ -242,8 +242,7 @@ The `ManagerOrigin` returns a privilege level:
 - `Minted { owner, amount }`: Stablecoin minted (debt increased)
 - `Repaid { owner, amount }`: Principal repaid and burned
 - `ReturnedExcess { owner, amount }`: Excess pUSD when repayment exceeded debt
-- `InterestCollected { owner, amount }`: Interest transferred to Insurance Fund
-- `InterestUpdated { owner, amount }`: Interest accrued (during fee update)
+- `InterestAccrued { owner, amount }`: Interest accrued (during fee update)
 - `VaultClosed { owner }`: Vault closed and removed
 - `InLiquidation { owner, debt, collateral_seized }`: Vault liquidated
 - `LiquidationPenaltyAdded { owner, amount }`: Liquidation penalty applied
@@ -269,6 +268,7 @@ The `ManagerOrigin` returns a privilege level:
 - `InsufficientCollateral`: Not enough collateral for operation
 - `UnsafeCollateralizationRatio`: Operation would breach required CR
 - `ExceedsMaxDebt`: Minting would exceed system debt ceiling
+- `ExceedsMaxPositionAmount`: Minting would exceed maximum single vault debt
 - `ExceedsMaxLiquidationAmount`: Liquidation would exceed auction limit
 - `BelowMinimumDeposit`: Deposit or remaining collateral too small
 - `BelowMinimumMint`: Mint amount below minimum
