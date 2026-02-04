@@ -37,7 +37,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstBool, ConstU32, Contains,
+		fungible::HoldConsideration, tokens::{UnityOrOuterConversion, asset_ops::common_ops::ConfigurableAssetCategoryManager}, ConstBool, ConstU32, Contains,
 		EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
 		ProcessMessageError, VariantCountOf, WithdrawReasons,
@@ -78,7 +78,6 @@ use polkadot_runtime_common::{
 	traits::OnSwap,
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
-use pallet_assets::AssetCategoryManager;
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
@@ -1018,20 +1017,8 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 }
 
-pub struct MockAssetCategoryManager;
 
-impl<AccountId> AssetCategoryManager<AccountId> for MockAssetCategoryManager {
-    type AssetKind = VersionedLocatableAsset;
-    type Balance = Balance;
-
-    fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
-        Vec::new()
-    }
-
-    fn available_balance(asset: Self::AssetKind, owner: AccountId) -> Option<Self::Balance> {
-        Some(0)
-    }
-}
+pub type MockAssetCategoryManager = ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, u128>;
 
 
 impl pallet_treasury::Config for Runtime {
