@@ -18,4 +18,4 @@ doc:
       - Post-call costs such as copying return data back to the caller's memory (e.g., CopyToContract)
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
