@@ -19,7 +19,9 @@
 //! operations used in parachain consensus/authoring.
 
 use cumulus_client_network::WaitToAnnounce;
-use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof};
+use cumulus_primitives_core::{
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
+};
 
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -329,9 +331,6 @@ where
 	}
 
 	/// Build a full [`Collation`] from a given [`ParachainCandidate`] with V3 scheduling proof.
-	///
-	/// This is like `build_collation` but creates a `ParachainBlockData::V2` with the
-	/// provided scheduling proof for V3 candidates.
 	pub fn build_collation_v3(
 		&self,
 		parent_header: &Block::Header,
@@ -451,7 +450,13 @@ where
 		candidate: ParachainCandidate<Block>,
 		scheduling_proof: SchedulingProof,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
-		CollatorService::build_collation_v3(self, parent_header, block_hash, candidate, scheduling_proof)
+		CollatorService::build_collation_v3(
+			self,
+			parent_header,
+			block_hash,
+			candidate,
+			scheduling_proof,
+		)
 	}
 
 	fn announce_with_barrier(
