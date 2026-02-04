@@ -335,7 +335,8 @@ pub trait Keystore: Send + Sync {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-	) -> Result<Option<bls381::Signature>, Error>;
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error>;
 
 	/// Generate a (ecdsa,bls381) signature pair for a given message.
 	///
@@ -640,8 +641,9 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-	) -> Result<Option<bls381::Signature>, Error> {
-		(**self).bls381_generate_proof_of_possession(key_type, public)
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error> {
+		(**self).bls381_generate_proof_of_possession(key_type, public, owner)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -674,6 +676,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 
 	fn has_keys(&self, public_keys: &[(Vec<u8>, KeyTypeId)]) -> bool {
 		(**self).has_keys(public_keys)
+	}
+
+	fn sign_with(
+		&self,
+		id: KeyTypeId,
+		crypto_id: CryptoTypeId,
+		public: &[u8],
+		msg: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		(**self).sign_with(id, crypto_id, public, msg)
 	}
 }
 

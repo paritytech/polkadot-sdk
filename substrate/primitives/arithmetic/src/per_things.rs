@@ -28,7 +28,6 @@
 #![doc = docify::embed!("./src/lib.rs", perbill_example)]
 //! > **[`Percent`](Percent), parts of a hundred**
 #![doc = docify::embed!("./src/lib.rs", percent_example)]
-//!
 //! Note that `Percent` is represented as a _rounded down_, fixed point
 //! number (see the example above). Unlike primitive types, types that implement
 //! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
@@ -179,9 +178,10 @@ pub trait PerThing:
 	}
 
 	/// Return the next lower value to `self` or `self` if it is already zero.
+	#[must_use]
 	fn less_epsilon(self) -> Self {
 		if self.is_zero() {
-			return self
+			return self;
 		}
 		Self::from_parts(self.deconstruct() - One::one())
 	}
@@ -190,15 +190,16 @@ pub trait PerThing:
 	/// zero.
 	fn try_less_epsilon(self) -> Result<Self, Self> {
 		if self.is_zero() {
-			return Err(self)
+			return Err(self);
 		}
 		Ok(Self::from_parts(self.deconstruct() - One::one()))
 	}
 
 	/// Return the next higher value to `self` or `self` if it is already one.
+	#[must_use]
 	fn plus_epsilon(self) -> Self {
 		if self.is_one() {
-			return self
+			return self;
 		}
 		Self::from_parts(self.deconstruct() + One::one())
 	}
@@ -207,13 +208,14 @@ pub trait PerThing:
 	/// one.
 	fn try_plus_epsilon(self) -> Result<Self, Self> {
 		if self.is_one() {
-			return Err(self)
+			return Err(self);
 		}
 		Ok(Self::from_parts(self.deconstruct() + One::one()))
 	}
 
 	/// Build this type from a percent. Equivalent to `Self::from_parts(x * Self::ACCURACY / 100)`
 	/// but more accurate and can cope with potential type overflows.
+	#[must_use]
 	fn from_percent(x: Self::Inner) -> Self {
 		let a: Self::Inner = x.min(100.into());
 		let b: Self::Inner = 100.into();
@@ -221,6 +223,7 @@ pub trait PerThing:
 	}
 
 	/// Return the product of multiplication of this value by itself.
+	#[must_use]
 	fn square(self) -> Self {
 		let p = Self::Upper::from(self.deconstruct());
 		let q = Self::Upper::from(Self::ACCURACY);
@@ -228,6 +231,7 @@ pub trait PerThing:
 	}
 
 	/// Return the part left when `self` is saturating-subtracted from `Self::one()`.
+	#[must_use]
 	fn left_from_one(self) -> Self {
 		Self::one().saturating_sub(self)
 	}
@@ -247,6 +251,7 @@ pub trait PerThing:
 	/// assert_eq!(Percent::from_percent(36).mul_floor(10u64), 3);
 	/// # }
 	/// ```
+	#[must_use]
 	fn mul_floor<N>(self, b: N) -> N
 	where
 		N: MultiplyArg + UniqueSaturatedInto<Self::Inner>,
@@ -270,6 +275,7 @@ pub trait PerThing:
 	/// assert_eq!(Percent::from_percent(36).mul_ceil(10u64), 4);
 	/// # }
 	/// ```
+	#[must_use]
 	fn mul_ceil<N>(self, b: N) -> N
 	where
 		N: MultiplyArg + UniqueSaturatedInto<Self::Inner>,
@@ -287,6 +293,7 @@ pub trait PerThing:
 	/// assert_eq!(Percent::from_percent(50).saturating_reciprocal_mul(10u64), 20);
 	/// # }
 	/// ```
+	#[must_use]
 	fn saturating_reciprocal_mul<N>(self, b: N) -> N
 	where
 		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
@@ -307,6 +314,7 @@ pub trait PerThing:
 	/// assert_eq!(Percent::from_percent(60).saturating_reciprocal_mul_floor(10u64), 16);
 	/// # }
 	/// ```
+	#[must_use]
 	fn saturating_reciprocal_mul_floor<N>(self, b: N) -> N
 	where
 		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
@@ -327,6 +335,7 @@ pub trait PerThing:
 	/// assert_eq!(Percent::from_percent(61).saturating_reciprocal_mul_ceil(10u64), 17);
 	/// # }
 	/// ```
+	#[must_use]
 	fn saturating_reciprocal_mul_ceil<N>(self, b: N) -> N
 	where
 		N: ReciprocalArg + UniqueSaturatedInto<Self::Inner>,
@@ -339,9 +348,11 @@ pub trait PerThing:
 	fn deconstruct(self) -> Self::Inner;
 
 	/// Build this type from a number of parts per thing.
+	#[must_use]
 	fn from_parts(parts: Self::Inner) -> Self;
 
 	/// Converts a fraction into `Self`.
+	#[must_use]
 	#[cfg(feature = "std")]
 	fn from_float(x: f64) -> Self;
 
@@ -370,6 +381,7 @@ pub trait PerThing:
 	/// );
 	/// # }
 	/// ```
+	#[must_use]
 	fn from_rational<N>(p: N, q: N) -> Self
 	where
 		N: RationalArg + TryInto<Self::Inner> + TryInto<Self::Upper>,

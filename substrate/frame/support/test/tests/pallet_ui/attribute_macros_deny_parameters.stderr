@@ -1,0 +1,5 @@
+error: unexpected token, expected `]`
+  --> tests/pallet_ui/attribute_macros_deny_parameters.rs:25:21
+   |
+25 |         #[pallet::constant(Hello)]
+   |                           ^^^^^^^

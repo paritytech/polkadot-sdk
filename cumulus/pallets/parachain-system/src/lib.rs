@@ -31,15 +31,13 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
-use core::{cmp, marker::PhantomData};
+use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain::{
-		self,
-		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
-	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
-	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
+	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -58,8 +56,8 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	FixedU128, RuntimeDebug, SaturatedConversion,
+	traits::{BlockNumberProvider, Hash},
+	Debug, FixedU128, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -99,12 +97,10 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 ///     struct BlockExecutor;
 ///     struct Runtime;
-///     struct CheckInherents;
 ///
 ///     cumulus_pallet_parachain_system::register_validate_block! {
 ///         Runtime = Runtime,
 ///         BlockExecutor = Executive,
-///         CheckInherents = CheckInherents,
 ///     }
 ///
 /// # fn main() {}
@@ -113,6 +109,7 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
@@ -189,53 +186,10 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
-/// Trait for selecting the next core to build the candidate for.
-pub trait SelectCore {
-	/// Core selector information for the current block.
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
-	/// Core selector information for the next block.
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
-}
-
-/// The default core selection policy.
-pub struct DefaultCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-}
-
-/// Core selection policy that builds on claim queue offset 1.
-pub struct LookaheadCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -295,9 +249,6 @@ pub mod pallet {
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
 
-		/// Select core.
-		type SelectCore: SelectCore;
-
 		/// The offset between the tip of the relay chain and the parent relay block used as parent
 		/// when authoring a parachain block.
 		///
@@ -342,7 +293,7 @@ pub mod pallet {
 						false,
 						"host configuration is promised to set until `on_finalize`; qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -357,7 +308,7 @@ pub mod pallet {
 						"relevant messaging state is promised to be set until `on_finalize`; \
 							qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -378,7 +329,7 @@ pub mod pallet {
 							"relevant messaging state is promised to be set until `on_finalize`; \
 								qed",
 						);
-						return (0, 0)
+						return (0, 0);
 					},
 				};
 
@@ -412,10 +363,17 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				// Send the core selector UMP signal. This is experimental until relay chain
-				// validators are upgraded to handle ump signals.
-				#[cfg(feature = "experimental-ump-signals")]
-				Self::send_ump_signal();
+				if let Some(core_info) =
+					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+				{
+					PendingUpwardSignals::<T>::append(
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					);
+				}
+
+				// Send the pending UMP signals.
+				Self::send_ump_signals();
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -577,6 +535,24 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
+			// We need to ensure that `CoreInfo` digest exists only once.
+			match CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					assert_eq!(
+						core_info.claim_queue_offset.0,
+						T::RelayParentOffset::get() as u8,
+						"Only {} is supported as valid claim queue offset",
+						T::RelayParentOffset::get()
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
+			}
+
 			weight
 		}
 	}
@@ -610,7 +586,7 @@ pub mod pallet {
 			// TODO: This is more than zero, but will need benchmarking to figure out what.
 			let mut total_weight = Weight::zero();
 
-			// NOTE: the inherent data is expected to be unique, even if this block is built
+			// NOTE: the inherent data is expected to be unique, even if this block is build
 			// in the context of the same relay parent as the previous one. In particular,
 			// the inherent shouldn't contain messages that were already processed by any of the
 			// ancestors.
@@ -620,7 +596,7 @@ pub mod pallet {
 				validation_data: vfp,
 				relay_chain_state,
 				relay_parent_descendants,
-				collator_peer_id: _,
+				collator_peer_id,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -668,7 +644,7 @@ pub mod pallet {
 				),
 			);
 
-			// initialization logic: we know that this runs exactly once every block,
+			// Initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			let upgrade_go_ahead_signal = relay_state_proof
@@ -727,6 +703,12 @@ pub mod pallet {
 			<HostConfiguration<T>>::put(host_config);
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
+
+			if let Some(collator_peer_id) = collator_peer_id {
+				PendingUpwardSignals::<T>::append(
+					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
+				);
+			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
@@ -829,8 +811,8 @@ pub mod pallet {
 	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
-	/// This value is expected to be set only once per block and it's never stored
-	/// in the trie.
+	///
+	/// This value is expected to be set only once by the [`Pallet::set_validation_data`] inherent.
 	#[pallet::storage]
 	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
@@ -940,13 +922,19 @@ pub mod pallet {
 
 	/// Upward messages that were sent in a block.
 	///
-	/// This will be cleared in `on_initialize` of each new block.
+	/// This will be cleared in `on_initialize` for each new block.
 	#[pallet::storage]
 	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Upward messages that are still pending and not yet send to the relay chain.
+	/// Upward messages that are still pending and not yet sent to the relay chain.
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// Upward signals that are still pending and not yet sent to the relay chain.
+	///
+	/// This will be cleared in `on_finalize` for each block.
+	#[pallet::storage]
+	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1079,7 +1067,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed
+				return ChannelStatus::Closed;
 			},
 			Some(d) => d.egress_channels,
 		};
@@ -1096,7 +1084,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full
+			return ChannelStatus::Full;
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -1130,7 +1118,11 @@ impl<T: Config> Pallet<T> {
 	fn messages_collection_size_limit() -> usize {
 		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
 		let max_block_pov = max_block_weight.proof_size();
-		(max_block_pov / 6).saturated_into()
+
+		let remaining_proof_size =
+			frame_system::Pallet::<T>::remaining_block_weight().remaining().proof_size();
+
+		(max_block_pov / 6).min(remaining_proof_size).saturated_into()
 	}
 
 	/// Updates inherent data to only include the messages that weren't already processed
@@ -1177,7 +1169,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_enough_messages_included("DMQ");
+		downward_messages.check_enough_messages_included_basic("DMQ");
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1223,6 +1215,25 @@ impl<T: Config> Pallet<T> {
 		weight_used
 	}
 
+	fn get_ingress_channel_or_panic(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		sender: ParaId,
+	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
+		let maybe_channel_idx = ingress_channels
+			.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender)
+			.ok();
+		let maybe_channel = maybe_channel_idx
+			.and_then(|channel_idx| ingress_channels.get(channel_idx))
+			.map(|(_, channel)| channel);
+		maybe_channel.unwrap_or_else(|| {
+			panic!(
+				"One of the messages submitted by the collator was sent from a sender ({}) \
+				that doesn't have a channel opened to this parachain",
+				<ParaId as Into<u32>>::into(sender)
+			)
+		})
+	}
+
 	fn check_hrmp_mcq_heads(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
 		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
@@ -1241,6 +1252,25 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Performs some checks related to the sender and the `sent_at` field of an HRMP message.
+	///
+	/// **Panics** if the message submitted by the collator doesn't respect the expected order or if
+	///            it was sent from a para which has no open channel to this parachain.
+	fn check_hrmp_message_metadata(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		maybe_prev_msg_metadata: &mut Option<(u32, ParaId)>,
+		msg_metadata: (u32, ParaId),
+	) {
+		// Check that the message is properly ordered.
+		if let Some(prev_msg) = maybe_prev_msg_metadata {
+			assert!(&msg_metadata >= prev_msg, "[HRMP] Messages order violation");
+		}
+		*maybe_prev_msg_metadata = Some(msg_metadata);
+
+		// Check that the message is sent from an existing channel.
+		Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
+	}
+
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
 	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
@@ -1256,41 +1286,62 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
+		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+		let (messages, hashed_messages) = horizontal_messages.messages();
+
 		// First, check the HRMP advancement rule.
-		horizontal_messages.check_enough_messages_included("HRMP");
-		// Then, check that all submitted messages are sent from channels that exist. The
-		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		for sender in horizontal_messages.get_senders() {
-			// A violation of the assertion below indicates that one of the messages submitted
-			// by the collator was sent from a sender that doesn't have a channel opened to
-			// this parachain, according to the relay-parent state.
-			assert!(ingress_channels.binary_search_by_key(&sender, |&(s, _)| s).is_ok(),);
+		let maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| *sender);
+		if let Some(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
+			let channel =
+				Self::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
+			horizontal_messages.check_enough_messages_included_advanced(
+				"HRMP",
+				AbridgedInboundMessagesSizeInfo {
+					max_full_messages_size: Self::messages_collection_size_limit(),
+					first_hashed_msg_max_size: channel.max_message_size as usize,
+				},
+			);
 		}
 
-		let (messages, hashed_messages) = horizontal_messages.messages();
-		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+		Self::prune_closed_mqc_heads(ingress_channels, &mut mqc_heads);
 
 		if messages.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
 			let last_processed_msg =
 				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
+
 			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
 			HrmpWatermark::<T>::put(relay_parent_number);
+			LastHrmpMqcHeads::<T>::put(&mqc_heads); // write back in case of modification
+
 			return T::DbWeight::get().reads_writes(1, 2);
 		}
 
+		let mut prev_msg_metadata = None;
 		let mut last_processed_block = HrmpWatermark::<T>::get();
 		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
 		for (sender, msg) in messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
+			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
+
 			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
 				last_processed_block = last_processed_msg.sent_at;
 			}
 			last_processed_msg.sent_at = msg.sent_at;
-
-			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
 		}
-		<LastHrmpMqcHeads<T>>::put(&mqc_heads);
+
+		LastHrmpMqcHeads::<T>::put(&mqc_heads);
+
 		for (sender, msg) in hashed_messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
 			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
 			if msg.sent_at == last_processed_msg.sent_at {
@@ -1314,6 +1365,19 @@ impl<T: Config> Pallet<T> {
 		HrmpWatermark::<T>::put(last_processed_block);
 
 		weight_used.saturating_add(T::DbWeight::get().reads_writes(2, 3))
+	}
+
+	/// Remove all MQC heads that do not correspond to an open channel.
+	fn prune_closed_mqc_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Complexity is O(N * lg N) but could be optimized for O(N)
+		mqc_heads.retain(|para, _| {
+			ingress_channels
+				.binary_search_by_key(para, |&(channel_sender, _)| channel_sender)
+				.is_ok()
+		});
 	}
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
@@ -1394,7 +1458,6 @@ impl<T: Config> Pallet<T> {
 
 	/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
 	/// unincluded segment.
-	//
 	// Reads: 2
 	// Writes: 1
 	fn adjust_egress_bandwidth_limits() {
@@ -1495,11 +1558,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Returns the core selector for the next block.
-	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-		T::SelectCore::select_next_core()
-	}
-
 	/// Set a custom head data that should be returned as result of `validate_block`.
 	///
 	/// This will overwrite the head data that is returned as result of `validate_block` while
@@ -1516,18 +1574,13 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the ump signals
-	#[cfg(feature = "experimental-ump-signals")]
-	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
-
-		UpwardMessages::<T>::mutate(|up| {
-			up.push(UMP_SEPARATOR);
-
-			// Send the core selector signal.
-			let core_selector = T::SelectCore::selected_core();
-			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
-		});
+	/// Send the pending ump signals
+	fn send_ump_signals() {
+		let ump_signals = PendingUpwardSignals::<T>::take();
+		if !ump_signals.is_empty() {
+			UpwardMessages::<T>::append(UMP_SEPARATOR);
+			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
+		}
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
@@ -1751,34 +1804,6 @@ impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 	}
 }
 
-/// Something that can check the inherents of a block.
-#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
-		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
-pub trait CheckInherents<Block: BlockT> {
-	/// Check all inherents of the block.
-	///
-	/// This function gets passed all the extrinsics of the block, so it is up to the callee to
-	/// identify the inherents. The `validation_data` can be used to access the
-	fn check_inherents(
-		block: &Block,
-		validation_data: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult;
-}
-
-/// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
-#[doc(hidden)]
-pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
-
-#[allow(deprecated)]
-impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
-	fn check_inherents(
-		_: &Block,
-		_: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult {
-		sp_inherents::CheckInherentsResult::new()
-	}
-}
-
 /// Something that should be informed about system related events.
 ///
 /// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
@@ -1796,7 +1821,7 @@ pub trait OnSystemEvent {
 }
 
 /// Holds the most recent relay-parent state root and block number of the current parachain block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct RelayChainState {
 	/// Current relay chain height.
 	pub number: relay_chain::BlockNumber,

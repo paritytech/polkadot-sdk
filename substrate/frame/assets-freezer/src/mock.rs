@@ -91,6 +91,7 @@ impl pallet_balances::Config for Test {
 impl pallet_assets::Config for Test {
 	type AssetId = AssetId;
 	type AssetIdParameter = Compact<AssetId>;
+	type ReserveData = ();
 	type AssetDeposit = ConstU64<1>;
 	type Balance = Balance;
 	type AssetAccountDeposit = ConstU64<1>;
@@ -149,6 +150,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 			metadata: vec![],
 			accounts: vec![(1, 1, 100)],
 			next_asset_id: None,
+			reserves: vec![],
 		},
 		system: Default::default(),
 		balances: Default::default(),

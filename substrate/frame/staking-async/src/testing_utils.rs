@@ -223,7 +223,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			let validator = available_validators.remove(selected);
 			selected_validators.push(validator);
 			if available_validators.is_empty() {
-				break
+				break;
 			}
 		}
 		Staking::<T>::nominate(
@@ -258,4 +258,12 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 
 	// replicate old behaviour of explicit increment of consumer.
 	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
+}
+
+/// Set active era to the given era index.
+pub fn set_active_era<T: Config>(era: EraIndex) {
+	// set the current era.
+	CurrentEra::<T>::put(era);
+	// set the active era.
+	ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 }

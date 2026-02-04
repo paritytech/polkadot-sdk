@@ -28,25 +28,30 @@ serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
+sp-npos-elections = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 # Optional imports for benchmarking
 frame-benchmarking = { optional = true, workspace = true }
+pallet-dap = { optional = true, workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
+env_logger = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-dap = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"anyhow/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
@@ -55,6 +60,7 @@ std = [
 	"log/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-dap?/std",
 	"pallet-staking-async-rc-client/std",
 	"rand/std",
 	"rand_chacha/std",
@@ -76,6 +82,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-dap/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -86,6 +93,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-dap/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

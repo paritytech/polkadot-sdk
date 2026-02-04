@@ -222,7 +222,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as frame::traits::Block>::LazyBlock) {
 			RuntimeExecutive::execute_block(block)
 		}
 
@@ -258,7 +258,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as frame::traits::Block>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
@@ -282,8 +282,8 @@ impl_runtime_apis! {
 	}
 
 	impl apis::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_seed: Option<Vec<u8>>) -> Vec<u8> {
-			Default::default()
+		fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+			apis::OpaqueGeneratedSessionKeys { keys: Default::default(), proof: Default::default() }
 		}
 
 		fn decode_session_keys(

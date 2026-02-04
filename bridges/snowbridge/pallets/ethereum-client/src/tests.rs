@@ -3,7 +3,7 @@
 pub use crate::mock::*;
 use crate::{
 	config::{EPOCHS_PER_SYNC_COMMITTEE_PERIOD, SLOTS_PER_EPOCH, SLOTS_PER_HISTORICAL_ROOT},
-	functions::compute_period,
+	functions::{compute_epoch, compute_period},
 	mock::{
 		get_message_verification_payload, load_checkpoint_update_fixture,
 		load_finalized_header_update_fixture, load_next_finalized_header_update_fixture,
@@ -28,7 +28,7 @@ use sp_runtime::DispatchError;
 const TEST_HASH: [u8; 32] =
 	hex!["5f6f02af29218292d21a69b64a794a7c0873b3e0f54611972863706e8cbdf371"];
 
-/* UNIT TESTS */
+// UNIT TESTS
 
 #[test]
 pub fn sum_sync_committee_participation() {
@@ -230,6 +230,7 @@ fn compute_fork_version() {
 		capella: Fork { version: [0, 0, 0, 3], epoch: 30 },
 		deneb: Fork { version: [0, 0, 0, 4], epoch: 40 },
 		electra: Fork { version: [0, 0, 0, 5], epoch: 50 },
+		fulu: Fork { version: [0, 0, 0, 6], epoch: 60 },
 	};
 	new_tester().execute_with(|| {
 		assert_eq!(EthereumBeaconClient::select_fork_version(&mock_fork_versions, 0), [0, 0, 0, 0]);
@@ -307,7 +308,7 @@ fn find_present_keys() {
 	});
 }
 
-/* SYNC PROCESS TESTS */
+// SYNC PROCESS TESTS
 
 #[test]
 fn process_initial_checkpoint() {
@@ -751,7 +752,7 @@ fn sync_committee_update_for_sync_committee_already_imported_are_not_free() {
 	});
 }
 
-/* IMPLS */
+// IMPLS
 
 #[test]
 fn verify_message() {
@@ -803,7 +804,7 @@ fn verify_message_invalid_log() {
 		assert_ok!(initialize_storage());
 		assert_err!(
 			EthereumBeaconClient::verify(&event_log, &proof),
-			VerificationError::InvalidLog
+			VerificationError::LogNotFound
 		);
 	});
 }
@@ -956,5 +957,100 @@ fn verify_execution_proof_not_finalized() {
 			EthereumBeaconClient::verify_execution_proof(&update),
 			Error::<Test>::HeaderNotFinalized
 		);
+	});
+}
+
+#[test]
+fn verify_message_invalid_topic() {
+	let (event_log, proof) = get_message_verification_payload();
+	let mut event_log_muted = event_log.clone();
+	event_log_muted.topics[0] = H256::default();
+
+	new_tester().execute_with(|| {
+		assert_ok!(initialize_storage());
+		assert_err!(
+			EthereumBeaconClient::verify(&event_log_muted, &proof),
+			VerificationError::LogNotFound
+		);
+	});
+}
+
+#[test]
+fn signing_root_uses_previous_slot_for_fork_version() {
+	new_tester().execute_with(|| {
+		// Use a signature_slot at a fork boundary (first slot of the fulu epoch).
+		// In mock.rs: electra.epoch = 0, fulu.epoch = 100000000
+		let fulu_epoch = ChainForkVersions::get().fulu.epoch;
+		let signature_slot: u64 = fulu_epoch * (SLOTS_PER_EPOCH as u64);
+
+		// Verify this is the first slot of the epoch
+		assert_eq!(signature_slot % (SLOTS_PER_EPOCH as u64), 0);
+
+		let header = BeaconHeader {
+			slot: signature_slot - 1,
+			proposer_index: 0,
+			parent_root: H256::repeat_byte(0x11),
+			state_root: H256::repeat_byte(0x22),
+			body_root: H256::repeat_byte(0x33),
+		};
+
+		let validators_root = H256::repeat_byte(0x44);
+
+		// Get fork versions for comparison
+		let fork_version_at_signature_slot = EthereumBeaconClient::compute_fork_version(
+			compute_epoch(signature_slot, SLOTS_PER_EPOCH as u64),
+		);
+		let fork_version_at_previous_slot = EthereumBeaconClient::compute_fork_version(
+			compute_epoch(signature_slot.saturating_sub(1), SLOTS_PER_EPOCH as u64),
+		);
+
+		// At the fork boundary, these should differ
+		assert_ne!(
+			fork_version_at_signature_slot, fork_version_at_previous_slot,
+			"Test setup error: fork versions should differ at fork boundary"
+		);
+
+		// Compute signing roots using both fork versions
+		let domain_type = crate::config::DOMAIN_SYNC_COMMITTEE.to_vec();
+
+		let domain_with_previous_slot = EthereumBeaconClient::compute_domain(
+			domain_type.clone(),
+			fork_version_at_previous_slot,
+			validators_root,
+		)
+		.unwrap();
+
+		let signing_root_with_previous_slot =
+			EthereumBeaconClient::compute_signing_root(&header, domain_with_previous_slot).unwrap();
+
+		// The pallet's signing_root should use the previous slot's fork version (per spec)
+		let pallet_signing_root =
+			EthereumBeaconClient::signing_root(&header, validators_root, signature_slot).unwrap();
+
+		assert_eq!(
+			pallet_signing_root, signing_root_with_previous_slot,
+			"signing_root should use fork version from signature_slot - 1"
+		);
+	});
+}
+
+#[test]
+fn signing_root_handles_signature_slot_zero() {
+	// Per spec: fork_version_slot = max(signature_slot, 1) - 1
+	// When signature_slot = 0, saturating_sub(1) = 0, which matches max(0, 1) - 1 = 0
+	new_tester().execute_with(|| {
+		let header = BeaconHeader {
+			slot: 0,
+			proposer_index: 0,
+			parent_root: H256::repeat_byte(0x11),
+			state_root: H256::repeat_byte(0x22),
+			body_root: H256::repeat_byte(0x33),
+		};
+
+		let validators_root = H256::repeat_byte(0x44);
+
+		// Should not panic and should use epoch 0 fork version
+		let result = EthereumBeaconClient::signing_root(&header, validators_root, 0);
+		assert!(result.is_ok(), "signing_root should handle signature_slot = 0");
 	});
 }

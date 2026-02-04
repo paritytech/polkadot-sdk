@@ -96,13 +96,6 @@ fn main() -> Result<(), sc_cli::Error> {
 			let collator_key =
 				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
-			let consensus = cli
-				.use_null_consensus
-				.then(|| {
-					tracing::info!("Using null consensus.");
-					cumulus_test_service::Consensus::Null
-				})
-				.unwrap_or(cumulus_test_service::Consensus::Aura);
 			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
@@ -118,7 +111,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,
@@ -135,7 +127,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
-								consensus,
 								collator_options,
 								true,
 								use_slot_based_collator,

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use crate::{mock::*, *};
+use crate::{
+	mock::{AggregateMessageOrigin::*, *},
+	*,
+};
 use alloy_core::primitives::FixedBytes;
 use codec::Encode;
 use frame_support::{
@@ -10,7 +13,7 @@ use frame_support::{
 	BoundedVec,
 };
 use hex_literal::hex;
-use snowbridge_core::{ChannelId, ParaId};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, ChannelId, ParaId};
 use snowbridge_outbound_queue_primitives::{
 	v2::{abi::OutboundMessageWrapper, Command, Initializer, SendMessage},
 	SendError,
@@ -179,8 +182,6 @@ fn process_message_fails_on_overweight_message() {
 #[test]
 fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_priority_messages()
 {
-	use AggregateMessageOrigin::*;
-
 	let sibling_id: u32 = 1000;
 
 	new_tester().execute_with(|| {
@@ -240,7 +241,7 @@ fn governance_message_not_processed_in_same_block_when_queue_congested_with_low_
 #[test]
 fn encode_digest_item_with_correct_index() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge(H256::default()).into();
 		let enum_prefix = match digest_item {
 			DigestItem::Other(data) => data[0],
 			_ => u8::MAX,
@@ -252,10 +253,10 @@ fn encode_digest_item_with_correct_index() {
 #[test]
 fn encode_digest_item() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge([5u8; 32].into()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge([5u8; 32].into()).into();
 		let digest_item_raw = digest_item.encode();
 		assert_eq!(digest_item_raw[0], 0); // DigestItem::Other
-		assert_eq!(digest_item_raw[2], 0); // CustomDigestItem::Snowbridge
+		assert_eq!(digest_item_raw[2], 0); // SnowbridgeDigestItem::Snowbridge
 		assert_eq!(
 			digest_item_raw,
 			[

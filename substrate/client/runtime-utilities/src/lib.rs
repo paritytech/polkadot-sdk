@@ -72,7 +72,7 @@ struct BasicCodeFetcher<'a> {
 }
 
 impl<'a> FetchRuntimeCode for BasicCodeFetcher<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.code.as_ref().into())
 	}
 }

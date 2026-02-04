@@ -50,6 +50,11 @@ pub struct WeightMeter {
 }
 
 impl WeightMeter {
+	/// Creates [`Self`] from `consumed` and `limit`.
+	pub fn with_consumed_and_limit(consumed: Weight, limit: Weight) -> Self {
+		Self { consumed, limit }
+	}
+
 	/// Creates [`Self`] from a limit for the maximal consumable weight.
 	pub fn with_limit(limit: Weight) -> Self {
 		Self { consumed: Weight::zero(), limit }
@@ -58,6 +63,13 @@ impl WeightMeter {
 	/// Creates [`Self`] with the maximal possible limit for the consumable weight.
 	pub fn new() -> Self {
 		Self::with_limit(Weight::MAX)
+	}
+
+	/// Change the limit to the given `weight`.
+	///
+	/// The actual weight will be determined by `min(weight, self.remaining())`.
+	pub fn limit_to(self, weight: Weight) -> Self {
+		Self::with_limit(self.remaining().min(weight))
 	}
 
 	/// The already consumed weight.

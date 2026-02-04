@@ -54,6 +54,23 @@ frame-omni-bencher v1 benchmark pallet \
 The `--steps`, `--repeat`, `--heap-pages` and `--wasm-execution` arguments have sane defaults and do
 not need be passed explicitly anymore.
 
+### Generate weights (templates)
+
+To render Rust weight files from benchmark results, pass an output path. Optionally you can pass a
+custom header and a Handlebars template (defaults are provided):
+
+```sh
+frame-omni-bencher v1 benchmark pallet \
+  --runtime target/release/wbuild/westend-runtime/westend-runtime.compact.compressed.wasm \
+  --pallet "pallet_balances" --extrinsic "*" \
+  --output ./weights/ \
+  --header ./HEADER.rs \
+  --template ./template.hbs
+```
+
+This uses the same flags as the node-integrated benchmarking CLI. The output can be a directory or a
+file path; when a directory is given, a file name is generated per pallet/instance.
+
 ## Backwards Compatibility
 
 The exposed pallet sub-command is identical as the node-integrated CLI. The only difference is that

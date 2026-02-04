@@ -145,7 +145,7 @@ fn map_results(
 ) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
-		return Err(io_error("empty batches"))
+		return Err(io_error("empty batches"));
 	}
 
 	let mut all_benchmarks = HashMap::<_, Vec<BenchmarkData>>::new();
@@ -153,7 +153,7 @@ fn map_results(
 	for batch in batches {
 		// Skip if there are no results
 		if batch.time_results.is_empty() {
-			continue
+			continue;
 		}
 
 		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
@@ -324,7 +324,7 @@ fn get_benchmark_data(
 				if used_component.name == component.name {
 					used_component.slope = used_component.slope.max(component.slope);
 					found = true;
-					break
+					break;
 				}
 			}
 			if !found && !component.slope.is_zero() {
@@ -467,7 +467,10 @@ pub(crate) fn write_results(
 				file_name = format!("{}_{}", file_name, instance.to_snake_case());
 			}
 			// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
-			file_path.push(file_name.replace("::", "_"));
+			file_name = file_name.replace("::", "_");
+			// Some old runtimes have a bug with the pallet and instance name containing a space
+			file_name = file_name.replace(" ", "");
+			file_path.push(file_name);
 			file_path.set_extension("rs");
 		}
 
@@ -507,7 +510,7 @@ pub(crate) fn write_results(
 		if cmd.unsafe_overwrite_results {
 			println!("{msg}");
 		} else {
-			return Err(msg.into())
+			return Err(msg.into());
 		}
 	}
 	Ok(())
@@ -565,7 +568,7 @@ pub(crate) fn process_storage_results(
 		for (key, reads, writes, whitelisted) in &result.keys {
 			// skip keys which are whitelisted
 			if *whitelisted {
-				continue
+				continue;
 			}
 
 			let prefix_length = key.len().min(32);
@@ -860,7 +863,7 @@ mod test {
 			benchmark: [benchmark.to_vec(), b"_benchmark".to_vec()].concat(),
 			time_results: results.clone(),
 			db_results: results,
-		}
+		};
 	}
 
 	fn test_storage_info() -> Vec<StorageInfo> {

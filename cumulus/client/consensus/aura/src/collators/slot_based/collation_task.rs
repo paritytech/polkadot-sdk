@@ -81,7 +81,7 @@ pub async fn run_collation_task<Block, RClient, CS>(
 {
 	let Ok(mut overseer_handle) = relay_client.overseer_handle() else {
 		tracing::error!(target: LOG_TARGET, "Failed to get overseer handle.");
-		return
+		return;
 	};
 
 	cumulus_client_collator::initialize_collator_subsystems(
@@ -171,7 +171,8 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, %hash, %number, "Submitting collation for core.");
+	tracing::debug!(target: LOG_TARGET, ?core_index, ?hash, %number, "Submitting collation for core.");
+
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {

@@ -222,7 +222,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 		]
 	);
 
-	//todo: shall revalidation check finalized (fork's tip) view?
+	// todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&prev_header.hash()].ready, 0);
 }
 
@@ -265,7 +265,7 @@ fn fatp_watcher_invalid_many_revalidation() {
 	let header02 = api.push_block(2, vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
-	//todo: shall revalidation check finalized (fork's tip) view?
+	// todo: shall revalidation check finalized (fork's tip) view?
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 5);
 
 	let header03 = api.push_block(3, vec![xt0.clone(), xt1.clone(), xt2.clone()], true);
@@ -373,33 +373,15 @@ fn fatp_watcher_invalid_single_revalidation2() {
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
 	assert_eq!(block_on(pool.mempool_len()), (0, 1));
-	api.add_invalid(&xt0);
-
-	let header01 = api.push_block(1, vec![], true);
-	let event = new_best_block_event(&pool, None, header01.hash());
-	block_on(pool.maintain(event));
-
-	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-	assert_eq!(block_on(pool.mempool_len()), (0, 0));
-}
-
-#[test]
-fn fatp_watcher_invalid_single_revalidation3() {
-	sp_tracing::try_init_simple();
-
-	let (pool, api, _) = pool();
-
-	let xt0 = uxt(Alice, 150);
-	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
+	api.add_invalid(&xt0);
 
-	// wait 10 blocks for revalidation
+	// note: the tx will be revalidated in view::revalidation, not in mempool revalidation (which
+	// would require waiting 10 blocks).
+	// waiting 10 blocks is excessive, but we may want to keep it.
 	let mut prev_header = header01;
 	for n in 2..=11 {
 		let header = api.push_block(n, vec![], true);
@@ -410,7 +392,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 

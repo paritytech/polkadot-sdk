@@ -21,7 +21,7 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::CoreState, BlockNumber, ChunkIndex, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
 	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
@@ -83,7 +83,7 @@ fn spawn_virtual_overseer(
 			loop {
 				let msg = ctx_handle.try_recv().await;
 				if msg.is_none() {
-					break
+					break;
 				}
 				match msg.unwrap() {
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(..)) => {},

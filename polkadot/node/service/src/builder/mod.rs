@@ -57,7 +57,11 @@ use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 
 /// Polkadot node service initialization parameters.
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
@@ -90,6 +94,12 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Set of invulnerable AH collator `PeerId`s
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
+	/// Override for `HOLD_OFF_DURATION` constant .
+	pub collator_protocol_hold_off: Option<Duration>,
+	/// Use experimental collator protocol
+	pub experimental_collator_protocol: bool,
 }
 
 /// Completely built polkadot node service.
@@ -199,6 +209,9 @@ where
 					prepare_workers_soft_max_num,
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
+					invulnerable_ah_collators,
+					collator_protocol_hold_off,
+					experimental_collator_protocol,
 				},
 			overseer_connector,
 			partial_components:
@@ -440,6 +453,9 @@ where
 				dispute_coordinator_config,
 				chain_selection_config,
 				fetch_chunks_threshold,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
+				experimental_collator_protocol,
 			})
 		};
 
@@ -450,6 +466,7 @@ where
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
 				spawn_handle: task_manager.spawn_handle(),
+				spawn_essential_handle: task_manager.spawn_essential_handle(),
 				import_queue,
 				block_announce_validator_builder: None,
 				warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
@@ -494,6 +511,7 @@ where
 			system_rpc_tx,
 			tx_handler_controller,
 			telemetry: telemetry.as_mut(),
+			tracing_execute_block: None,
 		})?;
 
 		if let Some(hwbench) = hwbench {

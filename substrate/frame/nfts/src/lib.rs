@@ -59,7 +59,7 @@ use frame_support::traits::{
 use frame_system::Config as SystemConfig;
 use sp_runtime::{
 	traits::{BlockNumberProvider, IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
-	RuntimeDebug,
+	Debug,
 };
 
 pub use pallet::*;
@@ -1090,10 +1090,10 @@ pub mod pallet {
 					if T::Currency::reserve(&details.deposit.account, deposit - old).is_err() {
 						// NOTE: No alterations made to collection_details in this iteration so far,
 						// so this is OK to do.
-						continue
+						continue;
 					}
 				} else {
-					continue
+					continue;
 				}
 				details.deposit.amount = deposit;
 				Item::<T, I>::insert(&collection, &item, &details);

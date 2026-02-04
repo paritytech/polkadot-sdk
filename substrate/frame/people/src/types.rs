@@ -39,15 +39,7 @@ pub type ChunksOf<T> = BoundedVec<
 /// The overarching state of all people rings regarding the actions that are currently allowed to be
 /// performed on them.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub enum RingMembersState {
 	/// The rings can accept new people sequentially if the maximum capacity has not been reached
@@ -123,15 +115,7 @@ impl RingMembersState {
 /// For instance, if a person is suspended, then ring will get revised, the revised alias with the
 /// old revision shows that the alias may not be owned by a valid person anymore.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	DecodeWithMemTracking,
+	Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 )]
 pub struct RevisedContextualAlias {
 	pub revision: RevisionIndex,
@@ -144,14 +128,14 @@ pub struct RevisedContextualAlias {
 /// The revision can be used to tell in the future if an alias may have been suspended.
 /// For instance, if a person is suspended, then ring will get revised, the revised alias with the
 /// old revision shows that the alias may not be owned by a valid person anymore.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct RevisedAlias {
 	pub revision: RevisionIndex,
 	pub ring: RingIndex,
 	pub alias: Alias,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct RingRoot<T: Config> {
 	/// The ring root for the current ring.
@@ -162,9 +146,7 @@ pub struct RingRoot<T: Config> {
 	pub intermediate: IntermediateOf<T>,
 }
 
-#[derive(
-	PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, DefaultNoBound,
-)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, DefaultNoBound)]
 #[scale_info(skip_type_params(T))]
 /// Information about the current key inclusion status in a ring.
 pub struct RingStatus {
@@ -179,7 +161,7 @@ pub struct RingStatus {
 /// Differentiates between individuals included in a ring, those being onboarded and the suspended
 /// ones. For those already included, provides ring index and position in it. For those being
 /// onboarded, provides queue page index and position in the queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum RingPosition {
 	/// Coordinates within the onboarding queue for a person that doesn't belong to a ring yet.
 	Onboarding { queue_page: PageIndex },
@@ -213,7 +195,7 @@ impl RingPosition {
 }
 
 /// Record of personhood.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct PersonRecord<Member, AccountId> {
 	// The key used for the person.
 	pub key: Member,
@@ -225,7 +207,7 @@ pub struct PersonRecord<Member, AccountId> {
 
 /// Describes the action to take after checking the first two pages of the onboarding queue for a
 /// potential merge.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub(crate) enum QueueMergeAction<T: Config> {
 	Merge {

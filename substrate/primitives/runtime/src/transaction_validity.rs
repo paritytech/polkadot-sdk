@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Decode, Encode},
-	RuntimeDebug,
+	Debug,
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
@@ -36,8 +36,10 @@ pub type TransactionLongevity = u64;
 pub type TransactionTag = Vec<u8>;
 
 /// An invalid transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum InvalidTransaction {
 	/// The call of the transaction is not expected.
 	Call,
@@ -127,8 +129,10 @@ impl From<InvalidTransaction> for &'static str {
 }
 
 /// An unknown transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
 	CannotLookup,
@@ -151,7 +155,7 @@ impl From<UnknownTransaction> for &'static str {
 }
 
 /// Errors that can occur while checking the validity of a transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TransactionValidityError {
 	/// The transaction is invalid.
@@ -240,7 +244,7 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// Depending on the source we might apply different validation schemes.
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Hash)]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
@@ -265,7 +269,7 @@ pub enum TransactionSource {
 }
 
 /// Information concerning a valid transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidTransaction {
 	/// Priority of the transaction.
 	///
@@ -283,6 +287,16 @@ pub struct ValidTransaction {
 	/// will enable other transactions that depend on (require) those tags to be included as well.
 	/// Provided and required tags allow Substrate to build a dependency graph of transactions
 	/// and import them in the right (linear) order.
+	///
+	/// <div class="warning">
+	///
+	/// If two different transactions have the same `provides` tags, the transaction pool
+	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on
+	/// submission time, priority of transaction.
+	///
+	/// A transaction that has no provided tags, will be dropped by the transaction pool.
+	///
+	/// </div>
 	pub provides: Vec<TransactionTag>,
 	/// Transaction longevity
 	///
@@ -343,7 +357,7 @@ impl ValidTransaction {
 ///
 /// Allows to easily construct `ValidTransaction` and most importantly takes care of
 /// prefixing `requires` and `provides` tags to avoid conflicts.
-#[derive(Default, Clone, RuntimeDebug)]
+#[derive(Default, Clone, Debug)]
 pub struct ValidTransactionBuilder {
 	prefix: Option<&'static str>,
 	validity: ValidTransaction,

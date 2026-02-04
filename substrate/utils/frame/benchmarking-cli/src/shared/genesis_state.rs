@@ -82,7 +82,7 @@ impl GenesisStateHandler {
 	}
 
 	/// Get the runtime code blob.
-	pub fn get_code_bytes(&self) -> Result<Cow<[u8]>> {
+	pub fn get_code_bytes(&self) -> Result<Cow<'_, [u8]>> {
 		match self {
 			GenesisStateHandler::ChainSpec(chain_spec, _) => {
 				let mut storage = chain_spec.build_storage()?;

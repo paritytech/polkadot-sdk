@@ -21,6 +21,8 @@
 #![no_main]
 include!("../panic_handler.rs");
 
+polkavm_derive::min_stack_size!(256 * 1024);
+
 use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -38,7 +40,7 @@ pub extern "C" fn call() {
 	);
 
 	// the first 4 bytes are reserved for the return code
-	let mut output = [0u8; 512];
+	let mut output = [0u8; 128 * 1024];
 	let output_ptr = &mut &mut output[4..];
 
 	let code = match api::call(

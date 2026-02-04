@@ -44,28 +44,4 @@ pub type Executive = executive::Executive<
 >;
 ```
 
-### Custom `OnRuntimeUpgrade` logic
-
-You can add custom logic that should be called in your runtime on a runtime upgrade. This is done by setting an optional
-generic parameter. The custom logic will be called before the on runtime upgrade logic of all modules is called.
-
-```rust
-struct CustomOnRuntimeUpgrade;
-impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        // Do whatever you want.
-        frame_support::weights::Weight::zero()
-    }
-}
-
-pub type Executive = executive::Executive<
-    Runtime,
-    Block,
-    Context,
-    Runtime,
-    AllPalletsWithSystem,
-    CustomOnRuntimeUpgrade,
->;
-```
-
 License: Apache-2.0

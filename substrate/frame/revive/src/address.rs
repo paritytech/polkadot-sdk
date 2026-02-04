@@ -62,6 +62,12 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// `account_id` instead of the fallback account id.
 	fn map(account_id: &T::AccountId) -> DispatchResult;
 
+	/// Map an account id without taking any deposit.
+	/// This is only useful for genesis configuration, or benchmarks.
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+		Self::map(account_id)
+	}
+
 	/// Remove the mapping in order to reclaim the deposit.
 	///
 	/// There is no reason why one would unmap their `account_id` except
@@ -93,6 +99,7 @@ pub struct AccountId32Mapper<T>(PhantomData<T>);
 /// The mapper to be used if the account id is `H160`.
 ///
 /// It just trivially returns its inputs and doesn't make use of any state.
+#[allow(dead_code)]
 pub struct H160Mapper<T>(PhantomData<T>);
 
 /// An account mapper that can be used for testing u64 account ids.
@@ -136,6 +143,12 @@ where
 			.saturating_add(T::DepositPerItem::get());
 		T::Currency::hold(&HoldReason::AddressMapping.into(), account_id, deposit)?;
 
+		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
+		Ok(())
+	}
+
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
+		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
 		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
 		Ok(())
 	}
@@ -192,7 +205,7 @@ where
 ///
 /// This is a stateless check that just compares the last 12 bytes. Please note that it is
 /// theoretically possible to create an ed25519 keypair that passed this filter. However,
-/// this can't be used for an attack. It also won't happen by accident since everbody is using
+/// this can't be used for an attack. It also won't happen by accident since everybody is using
 /// sr25519 where this is not a valid public key.
 pub fn is_eth_derived(account_id: &AccountId32) -> bool {
 	let account_bytes: &[u8; 32] = account_id.as_ref();

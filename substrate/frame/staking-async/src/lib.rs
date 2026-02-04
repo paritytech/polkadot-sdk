@@ -43,9 +43,136 @@
 //!
 //! TODO
 //!
-//! ## Slashing of Validators and Exposures
+//! ## Slashing Pipeline and Withdrawal Restrictions
 //!
-//! TODO
+//! This pallet implements a robust slashing mechanism that ensures the integrity of the staking
+//! system while preventing stakers from withdrawing funds that might still be subject to slashing.
+//!
+//! ### Overview of the Slashing Pipeline
+//!
+//! The slashing process consists of multiple phases:
+//!
+//! 1. **Offence Reporting**: Offences are reported from the relay chain through `on_new_offences`
+//! 2. **Queuing**: Valid offences are added to the `OffenceQueue` for processing
+//! 3. **Processing**: Offences are processed incrementally over multiple blocks
+//! 4. **Application**: Slashes are either applied immediately or deferred based on configuration
+//!
+//! ### Phase 1: Offence Reporting
+//!
+//! Offences are reported from the relay chain (e.g., from BABE, GRANDPA, BEEFY, or parachain
+//! modules) through the `on_new_offences` function:
+//!
+//! ```text
+//! struct Offence {
+//!     offender: AccountId,        // The validator being slashed
+//!     reporters: Vec<AccountId>,  // Who reported the offence (may be empty)
+//!     slash_fraction: Perbill,    // Percentage of stake to slash
+//! }
+//! ```
+//!
+//! **Reporting Deadlines**:
+//! - With deferred slashing: Offences must be reported within `SlashDeferDuration - 1` eras
+//! - With immediate slashing: Offences can be reported up to `BondingDuration` eras old
+//!
+//! Example: If `SlashDeferDuration = 27` and current era is 100:
+//! - Oldest reportable offence: Era 74 (100 - 26)
+//! - Offences from era 73 or earlier are rejected
+//!
+//! ### Phase 2: Queuing
+//!
+//! When an offence passes validation, it's added to the queue:
+//!
+//! 1. **Storage**: Added to `OffenceQueue`: `(EraIndex, AccountId) -> OffenceRecord`
+//! 2. **Era Tracking**: Era added to `OffenceQueueEras` (sorted vector of eras with offences)
+//! 3. **Duplicate Handling**: If an offence already exists for the same validator in the same era,
+//!    only the higher slash fraction is kept
+//!
+//! ### Phase 3: Processing
+//!
+//! Offences are processed incrementally in `on_initialize` each block:
+//!
+//! ```text
+//! 1. Load oldest offence from queue
+//! 2. Move to `ProcessingOffence` storage
+//! 3. For each exposure page (from last to first):
+//!    - Calculate slash for validator's own stake
+//!    - Calculate slash for each nominator (pro-rata based on exposure)
+//!    - Track total slash and reward amounts
+//! 4. Once all pages processed, create `UnappliedSlash`
+//! ```
+//!
+//! **Key Features**:
+//! - **Page-by-page processing**: Large validator sets don't overwhelm a single block
+//! - **Pro-rata slashing**: Nominators slashed proportionally to their stake
+//! - **Reward calculation**: A portion goes to reporters (if any)
+//!
+//! ### Phase 4: Application
+//!
+//! Based on `SlashDeferDuration`, slashes are either:
+//!
+//! **Immediate (SlashDeferDuration = 0)**:
+//! - Applied right away in the same block
+//! - Funds deducted from staking ledger immediately
+//!
+//! **Deferred (SlashDeferDuration > 0)**:
+//! - Stored in `UnappliedSlashes` for future application
+//! - Applied at era: `offence_era + SlashDeferDuration`
+//! - Can be cancelled by governance before application
+//!
+//! ### Storage Items Involved
+//!
+//! - `OffenceQueue`: Pending offences to process
+//! - `OffenceQueueEras`: Sorted list of eras with offences
+//! - `ProcessingOffence`: Currently processing offence
+//! - `ValidatorSlashInEra`: Tracks highest slash per validator per era
+//! - `UnappliedSlashes`: Deferred slashes waiting for application
+//!
+//! ### Withdrawal Restrictions
+//!
+//! To maintain slashing guarantees, withdrawals are restricted:
+//!
+//! **Withdrawal Era Calculation**:
+//! ```text
+//! earliest_era_to_withdraw = min(
+//!     active_era,
+//!     last_fully_processed_offence_era + BondingDuration
+//! )
+//! ```
+//!
+//! **Example**:
+//! - Active era: 100
+//! - Oldest unprocessed offence: Era 70
+//! - BondingDuration: 28
+//! - Withdrawal allowed only for chunks with era ≤ 97 (70 - 1 + 28)
+//!
+//! **Withdrawal Timeline Example with an Offence**:
+//! ```text
+//! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
+//!             |     |     |     |     |     |     |     |     |     |     |          |     |
+//! Unbond:     U
+//! Offence:    X
+//! Reported:               R
+//! Processed:              P (within next few blocks)
+//! Slash Applied:                                                                       S
+//! Withdraw:                                                                            ❌    ✓
+//!
+//! With BondingDuration = 28 and SlashDeferDuration = 27:
+//! - User unbonds in era 90
+//! - Offence occurs in era 90
+//! - Reported in era 92 (typically within 2 days, but reportable until Era 116)
+//! - Processed in era 92 (within next few blocks after reporting)
+//! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
+//! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
+//!
+//! The 28-era bonding duration ensures that any offences committed before or during
+//! unbonding have time to be reported, processed, and applied before funds can be
+//! withdrawn. This provides a window for governance to cancel slashes that may have
+//! resulted from software bugs.
+//! ```
+//!
+//! **Key Restrictions**:
+//! 1. Cannot withdraw if previous era has unapplied slashes
+//! 2. Cannot withdraw funds from eras with unprocessed offences
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -77,15 +204,14 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-	WeakBoundedVec,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Perbill, RuntimeDebug, Saturating,
+	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -143,7 +269,7 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -178,7 +304,7 @@ pub struct EraRewardPoints<T: Config> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -205,7 +331,7 @@ pub enum RewardDestination<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
@@ -222,7 +348,7 @@ pub struct ValidatorPrefs {
 }
 
 /// Status of a paged snapshot progress.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, Default)]
 pub enum SnapshotStatus<AccountId> {
 	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated in the list.
 	Ongoing(AccountId),
@@ -235,7 +361,7 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
@@ -257,7 +383,7 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
 pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
@@ -276,6 +402,22 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 				page_count: 1,
 			},
 			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+		}
+	}
+
+	/// Create a new instance of `PagedExposure` from just the exposure metadata (overview).
+	///
+	/// This creates a `PagedExposure` with an empty `others` list, useful when only the
+	/// validator's own stake needs to be considered (e.g., when nominators are not slashable).
+	pub fn from_overview(overview: PagedExposureMetadata<Balance>) -> Self {
+		Self {
+			exposure_metadata: PagedExposureMetadata {
+				total: overview.total,
+				own: overview.own,
+				nominator_count: overview.nominator_count,
+				page_count: 1,
+			},
+			exposure_page: ExposurePage { page_total: overview.total, others: vec![] },
 		}
 	}
 
@@ -302,7 +444,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound)]
+#[derive(Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, EqNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
@@ -379,7 +521,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,

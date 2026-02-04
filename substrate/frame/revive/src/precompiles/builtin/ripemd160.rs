@@ -28,7 +28,7 @@ pub struct Ripemd160<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Ripemd160<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(3).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x3).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -36,7 +36,8 @@ impl<T: Config> PrimitivePrecompile for Ripemd160<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Ripemd160(input.len() as _))?;
+		env.frame_meter_mut()
+			.charge_weight_token(RuntimeCosts::Ripemd160(input.len() as _))?;
 		let mut ret = [0u8; 32];
 		ret[12..32].copy_from_slice(&ripemd::Ripemd160::digest(input));
 		Ok(ret.to_vec())

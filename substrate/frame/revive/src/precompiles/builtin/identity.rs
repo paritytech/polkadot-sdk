@@ -27,7 +27,7 @@ pub struct Identity<T>(PhantomData<T>);
 
 impl<T: Config> PrimitivePrecompile for Identity<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(4).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x4).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -35,7 +35,8 @@ impl<T: Config> PrimitivePrecompile for Identity<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::Identity(input.len() as _))?;
+		env.frame_meter_mut()
+			.charge_weight_token(RuntimeCosts::Identity(input.len() as _))?;
 		Ok(input)
 	}
 }

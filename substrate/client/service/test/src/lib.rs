@@ -181,7 +181,7 @@ where
 				interval.tick().await;
 
 				if full_nodes.iter().all(|(id, service, _, _)| full_predicate(*id, service)) {
-					break
+					break;
 				}
 			}
 		};
@@ -256,6 +256,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 			rate_limit: None,
 			rate_limit_whitelisted_ips: Default::default(),
 			rate_limit_trust_proxy_headers: Default::default(),
+			request_logger_limit: 1024,
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,

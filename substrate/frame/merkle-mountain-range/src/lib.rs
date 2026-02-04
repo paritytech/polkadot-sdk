@@ -222,7 +222,6 @@ pub mod pallet {
 
 	/// Current size of the MMR (number of leaves).
 	#[pallet::storage]
-	#[pallet::getter(fn mmr_leaves)]
 	pub type NumberOfLeaves<T, I = ()> = StorageValue<_, LeafIndex, ValueQuery>;
 
 	/// Hashes of the nodes in the MMR.
@@ -230,7 +229,6 @@ pub mod pallet {
 	/// Note this collection only contains MMR peaks, the inner nodes (and leaves)
 	/// are pruned and only stored in the Offchain DB.
 	#[pallet::storage]
-	#[pallet::getter(fn mmr_peak)]
 	pub type Nodes<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, NodeIndex, HashOf<T, I>, OptionQuery>;
 
@@ -251,14 +249,14 @@ pub mod pallet {
 			// MMR push never fails, but better safe than sorry.
 			if mmr.push(data).is_none() {
 				log::error!(target: "runtime::mmr", "MMR push failed");
-				return T::WeightInfo::on_initialize(peaks_before as u32)
+				return T::WeightInfo::on_initialize(peaks_before as u32);
 			}
 			// Update the size, `mmr.finalize()` should also never fail.
 			let (leaves, root) = match mmr.finalize() {
 				Ok((leaves, root)) => (leaves, root),
 				Err(e) => {
 					log::error!(target: "runtime::mmr", "MMR finalize failed: {:?}", e);
-					return T::WeightInfo::on_initialize(peaks_before as u32)
+					return T::WeightInfo::on_initialize(peaks_before as u32);
 				},
 			};
 			<T::OnNewRoot as OnNewRoot<_>>::on_new_root(&root);
@@ -338,7 +336,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// `block_num = (current_block_num - leaves_count) + leaf_idx + 1`
 		// `parent_block_num = current_block_num - leaves_count + leaf_idx`.
 		<frame_system::Pallet<T>>::block_number()
-			.saturating_sub(Self::mmr_leaves().saturated_into())
+			.saturating_sub(NumberOfLeaves::<T, I>::get().saturated_into())
 			.saturating_add(leaf_index.saturated_into())
 	}
 
@@ -411,7 +409,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		{
 			return Err(
 				Error::Verify.log_debug("The proof has incorrect number of leaves or proof items.")
-			)
+			);
 		}
 
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(proof.leaf_count);
@@ -461,5 +459,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Return the on-chain MMR root hash.
 	pub fn mmr_root() -> HashOf<T, I> {
 		RootHash::<T, I>::get()
+	}
+
+	/// Returns the current size of the MMR (number of leaves).
+	pub fn mmr_leaves() -> LeafIndex {
+		NumberOfLeaves::<T, I>::get()
+	}
+
+	/// Returns the hash of a node in the MMR, if one exists.
+	pub fn mmr_peak(node_index: NodeIndex) -> Option<HashOf<T, I>> {
+		Nodes::<T, I>::get(node_index)
 	}
 }

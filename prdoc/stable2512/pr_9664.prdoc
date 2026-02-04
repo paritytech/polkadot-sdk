@@ -1,0 +1,15 @@
+title: 'basic-authorship: Improve inherent logging'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR aims to improve the inherent logging situation a bit. After the recent incident it was unnecessary painful to figure out what exactly happened. The logs should now be a bit more clear.
+
+    - We get how many inherents where provided by the runtime
+    - We get the names of the data items
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: sc-basic-authorship
+  bump: patch
+- name: sp-inherents
+  bump: patch

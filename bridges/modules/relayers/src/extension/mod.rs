@@ -36,7 +36,7 @@ use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	weights::Weight,
-	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{
@@ -52,7 +52,7 @@ use sp_runtime::{
 		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransactionBuilder},
-	DispatchResult, RuntimeDebug,
+	DispatchResult,
 };
 
 pub use grandpa_adapter::WithGrandpaChainExtensionConfig;
@@ -96,7 +96,7 @@ impl<AccountId, RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Deb
 }
 
 /// The actions on relayer account that need to be performed because of his actions.
-#[derive(RuntimeDebug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	/// Do nothing with relayer account.
 	None,
@@ -121,7 +121,7 @@ pub enum RelayerAccountAction<AccountId, RewardBalance, LaneId> {
 	Encode,
 	EqNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[scale_info(skip_type_params(Runtime, Config, LaneId))]
@@ -168,7 +168,7 @@ where
 		let max_unconfirmed_messages_in_confirmation_tx = <R as BridgeMessagesConfig<C::BridgeMessagesPalletInstance>>::BridgedChain
 			::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 		if bundled_messages > max_unconfirmed_messages_in_confirmation_tx {
-			return None
+			return None;
 		}
 
 		Some(bundled_messages)
@@ -221,21 +221,21 @@ where
 
 		// We don't refund anything if the transaction has failed.
 		if let Err(e) = result {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
-				Self::IDENTIFIER,
-				lane_id,
-				relayer,
-				e,
+				error=?e,
+				id_provider=%Self::IDENTIFIER,
+				?lane_id,
+				?relayer,
+				"Relayer has submitted invalid messages transaction",
 			);
-			return slash_relayer_if_delivery_result
+			return slash_relayer_if_delivery_result;
 		}
 
 		// check whether the call has succeeded
 		let mut call_data = ExtensionCallData::default();
 		if !C::check_call_result(&call_info, &mut call_data, &relayer) {
-			return slash_relayer_if_delivery_result
+			return slash_relayer_if_delivery_result;
 		}
 
 		// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
@@ -338,7 +338,7 @@ where
 		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
 			&data.relayer,
 		) {
-			return Ok((Default::default(), Some(data), origin))
+			return Ok((Default::default(), Some(data), origin));
 		}
 
 		// compute priority boost
@@ -346,15 +346,14 @@ where
 			priority::compute_priority_boost::<C::PriorityBoostPerMessage>(bundled_messages);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: has boosted priority of message delivery transaction \
-			of relayer {:?}: {} messages -> {} priority",
-			Self::IDENTIFIER,
-			data.call_info.messages_call_info().lane_id(),
-			data.relayer,
-			bundled_messages,
-			priority_boost,
+			id_provider=%Self::IDENTIFIER,
+			lane_id=?data.call_info.messages_call_info().lane_id(),
+			relayer=?data.relayer,
+			%bundled_messages,
+			%priority_boost,
+			"Has boosted priority of message delivery transaction of relayer"
 		);
 
 		let validity = valid_transaction.build()?;
@@ -370,12 +369,12 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val.inspect(|data| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
-				Self::IDENTIFIER,
-				data.call_info.messages_call_info().lane_id(),
-				data.call_info,
+				id_provider=%Self::IDENTIFIER,
+				lane_id=?data.call_info.messages_call_info().lane_id(),
+				call_info=?data.call_info,
+				"Parsed bridge transaction in prepare"
 			);
 		}))
 	}
@@ -399,13 +398,13 @@ where
 					reward,
 				);
 
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"{}.{:?}: has registered reward: {:?} for {:?}",
-					Self::IDENTIFIER,
-					lane_id,
-					reward,
-					relayer,
+					id_provider=%Self::IDENTIFIER,
+					?lane_id,
+					?relayer,
+					?reward,
+					"Has registered reward"
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
@@ -437,14 +436,14 @@ where
 	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
 		messages_call,
 	) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: relayer {:?} has submitted invalid messages call",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
-			relayer,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
+			?relayer,
+			"Relayer has submitted invalid messages call"
 		);
-		return false
+		return false;
 	}
 
 	true

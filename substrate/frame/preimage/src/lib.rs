@@ -65,7 +65,9 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
+)]
 pub enum OldRequestStatus<AccountId, Balance> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -77,7 +79,9 @@ pub enum OldRequestStatus<AccountId, Balance> {
 }
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
+)]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -275,7 +279,7 @@ impl<T: Config> Pallet<T> {
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
 						.defensive_proof("Unexpected inability to take deposit after unreserved")
 				else {
-					return true
+					return true;
 				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
 			},
@@ -291,7 +295,7 @@ impl<T: Config> Pallet<T> {
 									"Unexpected inability to take deposit after unreserved",
 								)
 						else {
-							return true
+							return true;
 						};
 						Some((who, ticket))
 					} else {
@@ -312,7 +316,7 @@ impl<T: Config> Pallet<T> {
 		origin: T::RuntimeOrigin,
 	) -> Result<Option<T::AccountId>, BadOrigin> {
 		if T::ManagerOrigin::ensure_origin(origin.clone()).is_ok() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let who = ensure_signed(origin)?;
 		Ok(Some(who))

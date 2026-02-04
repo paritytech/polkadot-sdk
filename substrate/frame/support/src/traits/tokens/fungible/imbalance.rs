@@ -21,13 +21,16 @@
 //! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use super::{super::Imbalance as ImbalanceT, Balanced, *};
-use crate::traits::{
-	fungibles,
-	misc::{SameOrOther, TryDrop},
-	tokens::{imbalance::TryMerge, AssetId, Balance},
+use crate::{
+	pallet_prelude::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, TypeInfo},
+	traits::{
+		fungibles,
+		misc::{SameOrOther, TryDrop},
+		tokens::{imbalance::TryMerge, AssetId, Balance},
+	},
 };
 use core::marker::PhantomData;
-use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support_procedural::{DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_runtime::traits::Zero;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
@@ -47,7 +50,17 @@ impl<Balance> HandleImbalanceDrop<Balance> for () {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(
+	EqNoBound,
+	PartialEqNoBound,
+	DebugNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+#[scale_info(skip_type_params(OnDrop, OppositeOnDrop))]
 pub struct Imbalance<
 	B: Balance,
 	OnDrop: HandleImbalanceDrop<B>,

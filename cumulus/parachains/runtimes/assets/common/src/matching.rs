@@ -13,14 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::local_and_foreign_assets::ForeignAssetReserveData;
 use core::fmt::Debug;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
+	traits::{tokens::ProvideAssetReserves, Contains, ContainsPair},
 };
 use xcm::prelude::*;
-
 use xcm_builder::ensure_is_remote;
 
 frame_support::parameter_types! {
@@ -62,6 +62,59 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone +
 				matches!(interior.first(), Some(Parachain(sibling_para_id)) if sibling_para_id.ne(&u32::from(SelfParaId::get()))),
 			_ => false,
 		}
+	}
+}
+
+/// Checks if asset `a` is coming from a trusted Reserve location `b`, then checks whether the local
+/// chain is also a reserve of `a`. Assets can be teleported between their reserve locations.
+pub struct TeleportableAssetWithTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, ForeignAssetReserveData>,
+	> ContainsPair<L, L> for TeleportableAssetWithTrustedReserve<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "TeleportableAssetWithTrustedReserve");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+		let reserves = ReserveProvider::reserves(&a);
+		tracing::trace!(target: "xcm::contains", ?reserves, "TeleportableAssetWithTrustedReserve");
+		// check if `b` is reserve for `a` and teleportable flag is set
+		let filter = (b, true).into();
+		reserves.contains(&filter)
+	}
+}
+
+/// Checks if asset `a` is coming from a trusted Reserve location `b`.
+/// Then checks that the local chain is NOT itself also reserve of `a`, otherwise a teleport is in
+/// order.
+pub struct NonTeleportableAssetFromTrustedReserve<SelfParaId, ReserveProvider, L = Location>(
+	core::marker::PhantomData<(SelfParaId, ReserveProvider, L)>,
+);
+impl<
+		SelfParaId: Get<ParaId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
+		ReserveProvider: ProvideAssetReserves<Location, ForeignAssetReserveData>,
+	> ContainsPair<L, L> for NonTeleportableAssetFromTrustedReserve<SelfParaId, ReserveProvider, L>
+{
+	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm::contains", ?a, ?b, "NonTeleportableAssetFromTrustedReserve");
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) => (a, b),
+			_ => return false,
+		};
+		let reserves = ReserveProvider::reserves(&a);
+		tracing::trace!(target: "xcm::contains", ?reserves, "NonTeleportableAssetFromTrustedReserve");
+		// check if `b` is reserve for `a` and teleportable flag is NOT set
+		let filter = (b, false).into();
+		reserves.contains(&filter)
 	}
 }
 

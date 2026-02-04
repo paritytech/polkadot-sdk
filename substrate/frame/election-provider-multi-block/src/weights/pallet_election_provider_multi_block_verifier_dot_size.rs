@@ -22,7 +22,7 @@
 // ! we don't want to generate the `trait WeightInfo`.
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-10-08, STEPS: `10`, REPEAT: `10`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
@@ -41,15 +41,15 @@
 // --steps
 // 10
 // --repeat
-// 20
+// 10
 // --genesis-builder-preset
-// dot_size
+// fake-dot
 // --template
 // ../../../../../substrate/frame/election-provider-multi-block/src/template.hbs
 // --heap-pages
 // 65000
 // --output
-// ./pallet_election_provider_multi_block_verifier_dot_size.rs
+// ./pallet_election_provider_multi_block_verifier_fake-dot.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -63,180 +63,176 @@ use core::marker::PhantomData;
 /// Weights for `pallet_election_provider_multi_block_verifier`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block_verifier::WeightInfo for WeightInfo<T> {
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:0)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:0)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(64026), added: 66501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionBackings` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-	fn on_initialize_valid_non_terminal() -> Weight {
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+	fn verification_valid_non_terminal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `328720`
-		//  Estimated: `332185`
-		// Minimum execution time: 4_525_797_000 picoseconds.
-		Weight::from_parts(4_601_537_000, 332185)
-			.saturating_add(T::DbWeight::get().reads(13_u64))
+		//  Measured:  `337201`
+		//  Estimated: `340666`
+		// Minimum execution time: 4_365_357_000 picoseconds.
+		Weight::from_parts(4_431_208_000, 340666)
+			.saturating_add(T::DbWeight::get().reads(12_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(64026), added: 66501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionBackings` (r:33 w:32)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionScore` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:33 w:32)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionScore` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:0 w:1)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
-	fn on_initialize_valid_terminal() -> Weight {
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:0 w:1)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn verification_valid_terminal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1223191`
-		//  Estimated: `1305856`
-		// Minimum execution time: 31_229_565_000 picoseconds.
-		Weight::from_parts(31_839_841_000, 1305856)
-			.saturating_add(T::DbWeight::get().reads(80_u64))
+		//  Measured:  `1184507`
+		//  Estimated: `1267172`
+		// Minimum execution time: 17_247_679_000 picoseconds.
+		Weight::from_parts(17_320_580_000, 1267172)
+			.saturating_add(T::DbWeight::get().reads(79_u64))
 			.saturating_add(T::DbWeight::get().writes(72_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(64026), added: 66501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionBackings` (r:33 w:32)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:33 w:32)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:31 w:32)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	fn on_initialize_invalid_terminal() -> Weight {
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:32)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	fn verification_invalid_terminal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1224212`
-		//  Estimated: `1306877`
-		// Minimum execution time: 31_394_976_000 picoseconds.
-		Weight::from_parts(32_094_625_000, 1306877)
+		//  Measured:  `1185528`
+		//  Estimated: `1268193`
+		// Minimum execution time: 17_116_788_000 picoseconds.
+		Weight::from_parts(17_320_458_000, 1268193)
 			.saturating_add(T::DbWeight::get().reads(110_u64))
-			.saturating_add(T::DbWeight::get().writes(101_u64))
+			.saturating_add(T::DbWeight::get().writes(102_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:1)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::StatusStorage` (r:1 w:1)
-	/// Proof: `MultiBlockVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlock::PagedTargetSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-	/// Storage: `MultiBlock::PagedVoterSnapshot` (r:1 w:0)
-	/// Proof: `MultiBlock::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(64026), added: 66501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(388785), added: 391260, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
-	/// Storage: `MultiBlock::DesiredTargets` (r:1 w:0)
-	/// Proof: `MultiBlock::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedValidVariant` (r:1 w:0)
-	/// Proof: `MultiBlockVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionX` (r:31 w:31)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
-	/// Storage: `MultiBlockVerifier::QueuedSolutionBackings` (r:31 w:31)
-	/// Proof: `MultiBlockVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:31)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33794026), added: 33796501, mode: `Measured`)
+	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:31 w:31)
+	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0x48384a816e4f71a936cb76dc9e303f2a` (r:1 w:0)
-	/// Storage: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
-	/// Proof: UNKNOWN KEY `0xc209f5d8eb920681b56c64b8694ea78c` (r:1 w:0)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
 	/// The range of component `v` is `[0, 31]`.
-	fn on_initialize_invalid_non_terminal(v: u32, ) -> Weight {
+	fn verification_invalid_non_terminal(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `353985 + v * (2260 ±0)`
-		//  Estimated: `459489 + v * (3052 ±323)`
-		// Minimum execution time: 1_115_777_000 picoseconds.
-		Weight::from_parts(1_305_809_580, 459489)
-			// Standard Error: 631_886
-			.saturating_add(Weight::from_parts(4_251_321, 0).saturating_mul(v.into()))
+		//  Measured:  `353164 + v * (3034 ±0)`
+		//  Estimated: `474195 + v * (2961 ±477)`
+		// Minimum execution time: 1_267_164_000 picoseconds.
+		Weight::from_parts(1_223_951_167, 474195)
+			// Standard Error: 1_944_459
+			.saturating_add(Weight::from_parts(21_624_995, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(46_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(v.into())))
-			.saturating_add(T::DbWeight::get().writes(37_u64))
+			.saturating_add(T::DbWeight::get().writes(38_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(v.into())))
-			.saturating_add(Weight::from_parts(0, 3052).saturating_mul(v.into()))
+			.saturating_add(Weight::from_parts(0, 2961).saturating_mul(v.into()))
 	}
 }

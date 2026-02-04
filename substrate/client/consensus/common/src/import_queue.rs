@@ -141,6 +141,19 @@ pub trait ImportQueue<B: BlockT>: Send {
 	async fn run(self, link: &dyn Link<B>);
 }
 
+/// The result of importing a justification.
+#[derive(Debug, PartialEq)]
+pub enum JustificationImportResult {
+	/// Justification was imported successfully.
+	Success,
+
+	/// Justification was not imported successfully.
+	Failure,
+
+	/// Justification was not imported successfully, because it is outdated.
+	OutdatedJustification,
+}
+
 /// Hooks that the verification queue can use to influence the synchronization
 /// algorithm.
 pub trait Link<B: BlockT>: Send + Sync {
@@ -159,7 +172,7 @@ pub trait Link<B: BlockT>: Send + Sync {
 		_who: RuntimeOrigin,
 		_hash: &B::Hash,
 		_number: NumberFor<B>,
-		_success: bool,
+		_import_result: JustificationImportResult,
 	) {
 	}
 
@@ -307,7 +320,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		} else {
 			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
 		}
-		return Err(BlockImportError::IncompleteHeader(peer))
+		return Err(BlockImportError::IncompleteHeader(peer));
 	};
 
 	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
@@ -335,7 +348,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		BlockImportStatus::ImportedUnknown { .. } => (),
 		r => {
 			// Any other successful result means that the block is already imported.
-			return Ok(SingleBlockVerificationOutcome::Imported(r))
+			return Ok(SingleBlockVerificationOutcome::Imported(r));
 		},
 	}
 

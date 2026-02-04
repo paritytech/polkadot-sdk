@@ -138,9 +138,7 @@ pub type DownwardMessage = alloc::vec::Vec<u8>;
 
 /// A wrapped version of `DownwardMessage`. The difference is that it has attached the block number
 /// when the message was sent.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, sp_runtime::RuntimeDebug, PartialEq, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
 pub struct InboundDownwardMessage<BlockNumber = crate::BlockNumber> {
 	/// The block number at which these messages were put into the downward message queue.
 	pub sent_at: BlockNumber,
@@ -149,9 +147,7 @@ pub struct InboundDownwardMessage<BlockNumber = crate::BlockNumber> {
 }
 
 /// An HRMP message seen from the perspective of a recipient.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, sp_runtime::RuntimeDebug, PartialEq, TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
 pub struct InboundHrmpMessage<BlockNumber = crate::BlockNumber> {
 	/// The block number at which this message was sent.
 	/// Specifically, it is the block number at which the candidate that sends this message was
@@ -162,17 +158,7 @@ pub struct InboundHrmpMessage<BlockNumber = crate::BlockNumber> {
 }
 
 /// An HRMP message seen from the perspective of a sender.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	sp_runtime::RuntimeDebug,
-	PartialEq,
-	Eq,
-	Hash,
-	TypeInfo,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, Eq, Hash, TypeInfo)]
 pub struct OutboundHrmpMessage<Id> {
 	/// The para that will get this message in its downward message queue.
 	pub recipient: Id,

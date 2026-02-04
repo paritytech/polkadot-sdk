@@ -100,7 +100,8 @@ use sc_consensus::{
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
 };
 use sc_consensus_epochs::{
-	descendent_query, Epoch as EpochT, EpochChangesFor, SharedEpochChanges, ViableEpochDescriptor,
+	descendent_query, Epoch as EpochT, EpochChangesFor, SharedEpochChanges, ViableEpoch,
+	ViableEpochDescriptor,
 };
 use sc_consensus_slots::{
 	check_equivocation, BackoffAuthoringBlocksStrategy, CheckedHeader, InherentDataProviderExt,
@@ -112,14 +113,14 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppCrypto;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{
-	Backend as _, BlockStatus, Error as ClientError, ForkBackend, HeaderBackend, HeaderMetadata,
+	Backend as _, BlockStatus, Error as ClientError, HeaderBackend, HeaderMetadata,
 	Result as ClientResult,
 };
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
-use sp_consensus_babe::inherents::BabeInherentData;
+use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
+use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -139,6 +140,7 @@ pub use sp_consensus_babe::{
 };
 
 pub use aux_schema::load_block_weight as block_weight;
+use sp_timestamp::Timestamp;
 
 mod migration;
 mod verification;
@@ -559,16 +561,7 @@ fn aux_storage_cleanup<C: HeaderMetadata<Block> + HeaderBackend<Block>, Block: B
 			.filter(|h| **h != notification.hash),
 	);
 
-	// Cleans data for stale forks.
-	let stale_forks = match client.expand_forks(&notification.stale_heads) {
-		Ok(stale_forks) => stale_forks,
-		Err(e) => {
-			warn!(target: LOG_TARGET, "{:?}", e);
-
-			Default::default()
-		},
-	};
-	hashes.extend(stale_forks.iter());
+	hashes.extend(notification.stale_blocks.iter().map(|b| b.hash));
 
 	hashes
 		.into_iter()
@@ -860,7 +853,7 @@ where
 					self.client.info().finalized_number,
 					slot,
 					self.logging_target(),
-				)
+				);
 			}
 		}
 		false
@@ -905,7 +898,7 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 		return Ok(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 			slot: 0.into(),
 			authority_index: 0,
-		}))
+		}));
 	}
 
 	let mut pre_digest: Option<_> = None;
@@ -918,6 +911,11 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 		}
 	}
 	pre_digest.ok_or_else(|| babe_err(Error::NoPreRuntimeDigest))
+}
+
+/// Check whether the given header contains a BABE epoch change digest.
+pub fn contains_epoch_change<B: BlockT>(header: &B::Header) -> bool {
+	find_next_epoch_digest::<B>(header).ok().flatten().is_some()
 }
 
 /// Extract the BABE epoch change digest from the given header, if it exists.
@@ -978,142 +976,16 @@ impl<Block: BlockT> BabeLink<Block> {
 }
 
 /// A verifier for Babe blocks.
-pub struct BabeVerifier<Block: BlockT, Client, SelectChain, CIDP> {
+pub struct BabeVerifier<Block: BlockT, Client> {
 	client: Arc<Client>,
-	select_chain: SelectChain,
-	create_inherent_data_providers: CIDP,
+	slot_duration: SlotDuration,
 	config: BabeConfiguration,
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
 	telemetry: Option<TelemetryHandle>,
-	offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
-}
-
-impl<Block, Client, SelectChain, CIDP> BabeVerifier<Block, Client, SelectChain, CIDP>
-where
-	Block: BlockT,
-	Client: AuxStore + HeaderBackend<Block> + HeaderMetadata<Block> + ProvideRuntimeApi<Block>,
-	Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
-	SelectChain: sp_consensus::SelectChain<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()>,
-{
-	async fn check_inherents(
-		&self,
-		block: Block,
-		at_hash: Block::Hash,
-		inherent_data: InherentData,
-		create_inherent_data_providers: CIDP::InherentDataProviders,
-	) -> Result<(), Error<Block>> {
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(Error::RuntimeApi)?;
-
-		if !inherent_res.ok() {
-			for (i, e) in inherent_res.into_errors() {
-				match create_inherent_data_providers.try_handle_error(&i, &e).await {
-					Some(res) => res.map_err(|e| Error::CheckInherents(e))?,
-					None => return Err(Error::CheckInherentsUnhandled(i)),
-				}
-			}
-		}
-
-		Ok(())
-	}
-
-	async fn check_and_report_equivocation(
-		&self,
-		slot_now: Slot,
-		slot: Slot,
-		header: &Block::Header,
-		author: &AuthorityId,
-		origin: &BlockOrigin,
-	) -> Result<(), Error<Block>> {
-		// don't report any equivocations during initial sync
-		// as they are most likely stale.
-		if *origin == BlockOrigin::NetworkInitialSync {
-			return Ok(())
-		}
-
-		// check if authorship of this header is an equivocation and return a proof if so.
-		let equivocation_proof =
-			match check_equivocation(&*self.client, slot_now, slot, header, author)
-				.map_err(Error::Client)?
-			{
-				Some(proof) => proof,
-				None => return Ok(()),
-			};
-
-		info!(
-			"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
-			author,
-			slot,
-			equivocation_proof.first_header.hash(),
-			equivocation_proof.second_header.hash(),
-		);
-
-		// get the best block on which we will build and send the equivocation report.
-		let best_hash = self
-			.select_chain
-			.best_chain()
-			.await
-			.map(|h| h.hash())
-			.map_err(|e| Error::Client(e.into()))?;
-
-		// generate a key ownership proof. we start by trying to generate the
-		// key ownership proof at the parent of the equivocating header, this
-		// will make sure that proof generation is successful since it happens
-		// during the on-going session (i.e. session keys are available in the
-		// state to be able to generate the proof). this might fail if the
-		// equivocation happens on the first block of the session, in which case
-		// its parent would be on the previous session. if generation on the
-		// parent header fails we try with best block as well.
-		let generate_key_owner_proof = |at_hash: Block::Hash| {
-			self.client
-				.runtime_api()
-				.generate_key_ownership_proof(at_hash, slot, equivocation_proof.offender.clone())
-				.map_err(Error::RuntimeApi)
-		};
-
-		let parent_hash = *header.parent_hash();
-		let key_owner_proof = match generate_key_owner_proof(parent_hash)? {
-			Some(proof) => proof,
-			None => match generate_key_owner_proof(best_hash)? {
-				Some(proof) => proof,
-				None => {
-					debug!(
-						target: LOG_TARGET,
-						"Equivocation offender is not part of the authority set."
-					);
-					return Ok(())
-				},
-			},
-		};
-
-		// submit equivocation report at best block.
-		let mut runtime_api = self.client.runtime_api();
-
-		// Register the offchain tx pool to be able to use it from the runtime.
-		runtime_api
-			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash));
-
-		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(
-				best_hash,
-				equivocation_proof,
-				key_owner_proof,
-			)
-			.map_err(Error::RuntimeApi)?;
-
-		info!(target: LOG_TARGET, "Submitted equivocation report for author {:?}", author);
-
-		Ok(())
-	}
 }
 
 #[async_trait::async_trait]
-impl<Block, Client, SelectChain, CIDP> Verifier<Block>
-	for BabeVerifier<Block, Client, SelectChain, CIDP>
+impl<Block, Client> Verifier<Block> for BabeVerifier<Block, Client>
 where
 	Block: BlockT,
 	Client: HeaderMetadata<Block, Error = sp_blockchain::Error>
@@ -1123,9 +995,6 @@ where
 		+ Sync
 		+ AuxStore,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
-	SelectChain: sp_consensus::SelectChain<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
 		&self,
@@ -1143,20 +1012,10 @@ where
 		let hash = block.header.hash();
 		let parent_hash = *block.header.parent_hash();
 
-		let info = self.client.info();
-		let number = *block.header.number();
+		let number = block.header.number();
 
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block.with_state()
-		{
-			// Verification for imported blocks is skipped in two cases:
-			// 1. When importing blocks below the last finalized block during network initial
-			//    synchronization.
-			// 2. When importing whole state we don't calculate epoch descriptor, but rather read it
-			//    from the state after import. We also skip all verifications because there's no
-			//    parent state and we trust the sync module to verify that the state is correct and
-			//    finalized.
-			return Ok(block)
+		if is_state_sync_or_gap_sync_import(&*self.client, &block) {
+			return Ok(block);
 		}
 
 		debug!(
@@ -1165,34 +1024,18 @@ where
 			block.header.digest().logs().len()
 		);
 
-		let create_inherent_data_providers = self
-			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
-			.await
-			.map_err(|e| Error::<Block>::Client(ConsensusError::from(e).into()))?;
-
-		let slot_now = create_inherent_data_providers.slot();
-
-		let parent_header_metadata = self
-			.client
-			.header_metadata(parent_hash)
-			.map_err(Error::<Block>::FetchParentHeader)?;
+		let slot_now = Slot::from_timestamp(Timestamp::current(), self.slot_duration);
 
 		let pre_digest = find_pre_digest::<Block>(&block.header)?;
 		let (check_header, epoch_descriptor) = {
-			let epoch_changes = self.epoch_changes.shared_data();
-			let epoch_descriptor = epoch_changes
-				.epoch_descriptor_for_child_of(
-					descendent_query(&*self.client),
-					&parent_hash,
-					parent_header_metadata.number,
-					pre_digest.slot(),
-				)
-				.map_err(|e| Error::<Block>::ForkTree(Box::new(e)))?
-				.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
-			let viable_epoch = epoch_changes
-				.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&self.config, slot))
-				.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+			let (epoch_descriptor, viable_epoch) = query_epoch_changes(
+				&self.epoch_changes,
+				self.client.as_ref(),
+				&self.config,
+				*number,
+				pre_digest.slot(),
+				parent_hash,
+			)?;
 
 			// We add one to the current slot to allow for some small drift.
 			// FIXME #1019 in the future, alter this queue to allow deferring of headers
@@ -1208,56 +1051,6 @@ where
 
 		match check_header {
 			CheckedHeader::Checked(pre_header, verified_info) => {
-				let babe_pre_digest = verified_info
-					.pre_digest
-					.as_babe_pre_digest()
-					.expect("check_header always returns a pre-digest digest item; qed");
-				let slot = babe_pre_digest.slot();
-
-				// the header is valid but let's check if there was something else already
-				// proposed at the same slot by the given author. if there was, we will
-				// report the equivocation to the runtime.
-				if let Err(err) = self
-					.check_and_report_equivocation(
-						slot_now,
-						slot,
-						&block.header,
-						&verified_info.author,
-						&block.origin,
-					)
-					.await
-				{
-					warn!(
-						target: LOG_TARGET,
-						"Error checking/reporting BABE equivocation: {}", err
-					);
-				}
-
-				if let Some(inner_body) = block.body {
-					let new_block = Block::new(pre_header.clone(), inner_body);
-					if !block.state_action.skip_execution_checks() {
-						// if the body is passed through and the block was executed,
-						// we need to use the runtime to check that the internally-set
-						// timestamp in the inherents actually matches the slot set in the seal.
-						let mut inherent_data = create_inherent_data_providers
-							.create_inherent_data()
-							.await
-							.map_err(Error::<Block>::CreateInherents)?;
-						inherent_data.babe_replace_inherent_data(slot);
-
-						self.check_inherents(
-							new_block.clone(),
-							parent_hash,
-							inherent_data,
-							create_inherent_data_providers,
-						)
-						.await?;
-					}
-
-					let (_, inner_body) = new_block.deconstruct();
-					block.body = Some(inner_body);
-				}
-
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(
 					self.telemetry;
@@ -1290,6 +1083,21 @@ where
 	}
 }
 
+/// Verification for imported blocks is skipped in two cases:
+/// 1. When importing blocks below the last finalized block during network initial synchronization.
+/// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
+///    state after import. We also skip all verifications because there's no parent state and we
+///    trust the sync module to verify that the state is correct and finalized.
+fn is_state_sync_or_gap_sync_import<B: BlockT>(
+	client: &impl HeaderBackend<B>,
+	block: &BlockImportParams<B>,
+) -> bool {
+	let number = *block.header.number();
+	let info = client.info();
+	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
+		block.with_state()
+}
+
 /// A block-import handler for BABE.
 ///
 /// This scans each imported block for epoch change signals. The signals are
@@ -1298,36 +1106,62 @@ where
 /// it is missing.
 ///
 /// The epoch change tree should be pruned as blocks are finalized.
-pub struct BabeBlockImport<Block: BlockT, Client, I> {
+pub struct BabeBlockImport<Block: BlockT, Client, I, CIDP, SC> {
 	inner: I,
 	client: Arc<Client>,
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
+	create_inherent_data_providers: CIDP,
 	config: BabeConfiguration,
+	// A [`SelectChain`] implementation.
+	//
+	// Used to determine the best block that should be used as basis when sending an equivocation
+	// report.
+	select_chain: SC,
+	// The offchain transaction pool factory.
+	//
+	// Will be used when sending equivocation reports.
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
 }
 
-impl<Block: BlockT, I: Clone, Client> Clone for BabeBlockImport<Block, Client, I> {
+impl<Block: BlockT, I: Clone, Client, CIDP: Clone, SC: Clone> Clone
+	for BabeBlockImport<Block, Client, I, CIDP, SC>
+{
 	fn clone(&self) -> Self {
 		BabeBlockImport {
 			inner: self.inner.clone(),
 			client: self.client.clone(),
 			epoch_changes: self.epoch_changes.clone(),
 			config: self.config.clone(),
+			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
+			select_chain: self.select_chain.clone(),
+			offchain_tx_pool_factory: self.offchain_tx_pool_factory.clone(),
 		}
 	}
 }
 
-impl<Block: BlockT, Client, I> BabeBlockImport<Block, Client, I> {
+impl<Block: BlockT, Client, I, CIDP, SC> BabeBlockImport<Block, Client, I, CIDP, SC> {
 	fn new(
 		client: Arc<Client>,
 		epoch_changes: SharedEpochChanges<Block, Epoch>,
 		block_import: I,
 		config: BabeConfiguration,
+		create_inherent_data_providers: CIDP,
+		select_chain: SC,
+		offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
 	) -> Self {
-		BabeBlockImport { client, inner: block_import, epoch_changes, config }
+		BabeBlockImport {
+			client,
+			inner: block_import,
+			epoch_changes,
+			config,
+			create_inherent_data_providers,
+			select_chain,
+			offchain_tx_pool_factory,
+		}
 	}
 }
 
-impl<Block, Client, Inner> BabeBlockImport<Block, Client, Inner>
+impl<Block, Client, Inner, CIDP, SC> BabeBlockImport<Block, Client, Inner, CIDP, SC>
 where
 	Block: BlockT,
 	Inner: BlockImport<Block> + Send + Sync,
@@ -1338,7 +1172,10 @@ where
 		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync,
-	Client::Api: BabeApi<Block> + ApiExt<Block>,
+	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
+	CIDP: CreateInherentDataProviders<Block, ()>,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
+	SC: sp_consensus::SelectChain<Block> + 'static,
 {
 	/// Import whole state after warp sync.
 	// This function makes multiple transactions to the DB. If one of them fails we may
@@ -1388,10 +1225,209 @@ where
 
 		Ok(ImportResult::Imported(aux))
 	}
+
+	/// Check the inherents and equivocations.
+	async fn check_inherents_and_equivocations(
+		&self,
+		block: &mut BlockImportParams<Block>,
+	) -> Result<(), ConsensusError> {
+		if is_state_sync_or_gap_sync_import(&*self.client, block) {
+			return Ok(());
+		}
+
+		let parent_hash = *block.header.parent_hash();
+		let number = *block.header.number();
+
+		let create_inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(parent_hash, ())
+			.await?;
+
+		let slot_now = create_inherent_data_providers.slot();
+
+		let babe_pre_digest = find_pre_digest::<Block>(&block.header)
+			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+		let slot = babe_pre_digest.slot();
+
+		// Check inherents.
+		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
+			.await?;
+
+		// Check for equivocation and report it to the runtime if needed.
+		let author = {
+			let viable_epoch = query_epoch_changes(
+				&self.epoch_changes,
+				self.client.as_ref(),
+				&self.config,
+				number,
+				slot,
+				parent_hash,
+			)
+			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?
+			.1;
+			match viable_epoch
+				.as_ref()
+				.authorities
+				.get(babe_pre_digest.authority_index() as usize)
+			{
+				Some(author) => author.0.clone(),
+				None =>
+					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
+			}
+		};
+		if let Err(err) = self
+			.check_and_report_equivocation(slot_now, slot, &block.header, &author, &block.origin)
+			.await
+		{
+			warn!(
+				target: LOG_TARGET,
+				"Error checking/reporting BABE equivocation: {}", err
+			);
+		}
+		Ok(())
+	}
+
+	async fn check_inherents(
+		&self,
+		block: &mut BlockImportParams<Block>,
+		at_hash: Block::Hash,
+		slot: Slot,
+		create_inherent_data_providers: CIDP::InherentDataProviders,
+	) -> Result<(), ConsensusError> {
+		if block.state_action.skip_execution_checks() {
+			return Ok(());
+		}
+
+		if let Some(inner_body) = block.body.take() {
+			let new_block = Block::new(block.header.clone(), inner_body);
+			// if the body is passed through and the block was executed,
+			// we need to use the runtime to check that the internally-set
+			// timestamp in the inherents actually matches the slot set in the seal.
+			let mut inherent_data = create_inherent_data_providers
+				.create_inherent_data()
+				.await
+				.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+			inherent_data.babe_replace_inherent_data(slot);
+
+			use sp_block_builder::CheckInherentsError;
+
+			sp_block_builder::check_inherents_with_data(
+				self.client.clone(),
+				at_hash,
+				new_block.clone(),
+				&create_inherent_data_providers,
+				inherent_data,
+			)
+			.await
+			.map_err(|e| {
+				ConsensusError::Other(Box::new(match e {
+					CheckInherentsError::CreateInherentData(e) =>
+						Error::<Block>::CreateInherents(e),
+					CheckInherentsError::Client(e) => Error::RuntimeApi(e),
+					CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+					CheckInherentsError::CheckInherentsUnknownError(id) =>
+						Error::CheckInherentsUnhandled(id),
+				}))
+			})?;
+			let (_, inner_body) = new_block.deconstruct();
+			block.body = Some(inner_body);
+		}
+
+		Ok(())
+	}
+
+	async fn check_and_report_equivocation(
+		&self,
+		slot_now: Slot,
+		slot: Slot,
+		header: &Block::Header,
+		author: &AuthorityId,
+		origin: &BlockOrigin,
+	) -> Result<(), Error<Block>> {
+		// don't report any equivocations during initial sync
+		// as they are most likely stale.
+		if *origin == BlockOrigin::NetworkInitialSync {
+			return Ok(());
+		}
+
+		// check if authorship of this header is an equivocation and return a proof if so.
+		let Some(equivocation_proof) =
+			check_equivocation(&*self.client, slot_now, slot, header, author)
+				.map_err(Error::Client)?
+		else {
+			return Ok(());
+		};
+
+		info!(
+			"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
+			author,
+			slot,
+			equivocation_proof.first_header.hash(),
+			equivocation_proof.second_header.hash(),
+		);
+
+		// get the best block on which we will build and send the equivocation report.
+		let best_hash = self
+			.select_chain
+			.best_chain()
+			.await
+			.map(|h| h.hash())
+			.map_err(|e| Error::Client(e.into()))?;
+
+		// generate a key ownership proof. we start by trying to generate the
+		// key ownership proof at the parent of the equivocating header, this
+		// will make sure that proof generation is successful since it happens
+		// during the on-going session (i.e. session keys are available in the
+		// state to be able to generate the proof). this might fail if the
+		// equivocation happens on the first block of the session, in which case
+		// its parent would be on the previous session. if generation on the
+		// parent header fails we try with best block as well.
+		let generate_key_owner_proof = |at_hash: Block::Hash| {
+			self.client
+				.runtime_api()
+				.generate_key_ownership_proof(at_hash, slot, equivocation_proof.offender.clone())
+				.map_err(Error::RuntimeApi)
+		};
+
+		let parent_hash = *header.parent_hash();
+		let key_owner_proof = match generate_key_owner_proof(parent_hash)? {
+			Some(proof) => proof,
+			None => match generate_key_owner_proof(best_hash)? {
+				Some(proof) => proof,
+				None => {
+					debug!(
+						target: LOG_TARGET,
+						"Equivocation offender is not part of the authority set."
+					);
+					return Ok(());
+				},
+			},
+		};
+
+		// submit equivocation report at best block.
+		let mut runtime_api = self.client.runtime_api();
+
+		// Register the offchain tx pool to be able to use it from the runtime.
+		runtime_api
+			.register_extension(self.offchain_tx_pool_factory.offchain_transaction_pool(best_hash));
+
+		runtime_api
+			.submit_report_equivocation_unsigned_extrinsic(
+				best_hash,
+				equivocation_proof,
+				key_owner_proof,
+			)
+			.map_err(Error::RuntimeApi)?;
+
+		info!(target: LOG_TARGET, "Submitted equivocation report for author {:?}", author);
+
+		Ok(())
+	}
 }
 
 #[async_trait::async_trait]
-impl<Block, Client, Inner> BlockImport<Block> for BabeBlockImport<Block, Client, Inner>
+impl<Block, Client, Inner, CIDP, SC> BlockImport<Block>
+	for BabeBlockImport<Block, Client, Inner, CIDP, SC>
 where
 	Block: BlockT,
 	Inner: BlockImport<Block> + Send + Sync,
@@ -1402,7 +1438,10 @@ where
 		+ ProvideRuntimeApi<Block>
 		+ Send
 		+ Sync,
-	Client::Api: BabeApi<Block> + ApiExt<Block>,
+	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
+	CIDP: CreateInherentDataProviders<Block, ()>,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+	SC: SelectChain<Block> + 'static,
 {
 	type Error = ConsensusError;
 
@@ -1413,6 +1452,8 @@ where
 		let hash = block.post_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
+
+		self.check_inherents_and_equivocations(&mut block).await?;
 
 		let block_status = self
 			.client
@@ -1429,11 +1470,11 @@ where
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			return self.inner.import_block(block).await.map_err(Into::into);
 		}
 
 		if block.with_state() {
-			return self.import_state(block).await
+			return self.import_state(block).await;
 		}
 
 		let pre_digest = find_pre_digest::<Block>(&block.header).expect(
@@ -1461,7 +1502,7 @@ where
 		if slot <= parent_slot {
 			return Err(ConsensusError::ClientImport(
 				babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-			))
+			));
 		}
 
 		// if there's a pending epoch we'll save the previous epoch changes here
@@ -1620,7 +1661,7 @@ where
 					debug!(target: LOG_TARGET, "Failed to launch next epoch: {}", e);
 					*epoch_changes =
 						old_epoch_changes.expect("set `Some` above and not taken; qed");
-					return Err(e)
+					return Err(e);
 				}
 
 				crate::aux_schema::write_epoch_changes::<Block, _, _>(&*epoch_changes, |insert| {
@@ -1731,11 +1772,14 @@ where
 ///
 /// Also returns a link object used to correctly instantiate the import queue
 /// and background worker.
-pub fn block_import<Client, Block: BlockT, I>(
+pub fn block_import<Client, Block: BlockT, I, CIDP, SC>(
 	config: BabeConfiguration,
 	wrapped_block_import: I,
 	client: Arc<Client>,
-) -> ClientResult<(BabeBlockImport<Block, Client, I>, BabeLink<Block>)>
+	create_inherent_data_providers: CIDP,
+	select_chain: SC,
+	offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
+) -> ClientResult<(BabeBlockImport<Block, Client, I, CIDP, SC>, BabeLink<Block>)>
 where
 	Client: AuxStore
 		+ HeaderBackend<Block>
@@ -1761,13 +1805,21 @@ where
 	};
 	client.register_finality_action(Box::new(on_finality));
 
-	let import = BabeBlockImport::new(client, epoch_changes, wrapped_block_import, config);
+	let import = BabeBlockImport::new(
+		client,
+		epoch_changes,
+		wrapped_block_import,
+		config,
+		create_inherent_data_providers,
+		select_chain,
+		offchain_tx_pool_factory,
+	);
 
 	Ok((import, link))
 }
 
 /// Parameters passed to [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, SelectChain, Spawn> {
+pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, Spawn> {
 	/// The BABE link that is created by [`block_import`].
 	pub link: BabeLink<Block>,
 	/// The block import that should be wrapped.
@@ -1776,26 +1828,14 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, SelectChain, S
 	pub justification_import: Option<BoxJustificationImport<Block>>,
 	/// The client to interact with the internals of the node.
 	pub client: Arc<Client>,
-	/// A [`SelectChain`] implementation.
-	///
-	/// Used to determine the best block that should be used as basis when sending an equivocation
-	/// report.
-	pub select_chain: SelectChain,
-	/// Used to crate the inherent data providers.
-	///
-	/// These inherent data providers are then used to create the inherent data that is
-	/// passed to the `check_inherents` runtime call.
-	pub create_inherent_data_providers: CIDP,
+	/// Slot duration.
+	pub slot_duration: SlotDuration,
 	/// Spawner for spawning futures.
 	pub spawner: &'a Spawn,
 	/// Registry for prometheus metrics.
 	pub registry: Option<&'a Registry>,
 	/// Optional telemetry handle to report telemetry events.
 	pub telemetry: Option<TelemetryHandle>,
-	/// The offchain transaction pool factory.
-	///
-	/// Will be used when sending equivocation reports.
-	pub offchain_tx_pool_factory: OffchainTransactionPoolFactory<Block>,
 }
 
 /// Start an import queue for the BABE consensus algorithm.
@@ -1807,19 +1847,17 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, SelectChain, S
 ///
 /// The block import object provided must be the `BabeBlockImport` or a wrapper
 /// of it, otherwise crucial import logic will be omitted.
-pub fn import_queue<Block: BlockT, Client, SelectChain, BI, CIDP, Spawn>(
+pub fn import_queue<Block: BlockT, Client, BI, Spawn>(
 	ImportQueueParams {
 		link: babe_link,
 		block_import,
 		justification_import,
 		client,
-		select_chain,
-		create_inherent_data_providers,
+		slot_duration,
 		spawner,
 		registry,
 		telemetry,
-		offchain_tx_pool_factory,
-	}: ImportQueueParams<'_, Block, BI, Client, CIDP, SelectChain, Spawn>,
+	}: ImportQueueParams<'_, Block, BI, Client, Spawn>,
 ) -> ClientResult<(DefaultImportQueue<Block>, BabeWorkerHandle<Block>)>
 where
 	BI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
@@ -1831,21 +1869,16 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
-	SelectChain: sp_consensus::SelectChain<Block> + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	Spawn: SpawnEssentialNamed,
 {
 	const HANDLE_BUFFER_SIZE: usize = 1024;
 
 	let verifier = BabeVerifier {
-		select_chain,
-		create_inherent_data_providers,
+		slot_duration,
 		config: babe_link.config.clone(),
 		epoch_changes: babe_link.epoch_changes.clone(),
 		telemetry,
 		client: client.clone(),
-		offchain_tx_pool_factory,
 	};
 
 	let (worker_tx, worker_rx) = channel(HANDLE_BUFFER_SIZE);
@@ -1884,7 +1917,7 @@ where
 
 	let revertible = blocks.min(best_number - finalized);
 	if revertible == Zero::zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let revert_up_to_number = best_number - revertible;
@@ -1924,7 +1957,7 @@ where
 				!weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
 				// We've reached the revert point or an already processed branch, stop here.
-				break
+				break;
 			}
 			hash = meta.parent;
 		}
@@ -1936,4 +1969,35 @@ where
 	aux_schema::write_epoch_changes::<Block, _, _>(&epoch_changes, |values| {
 		client.insert_aux(values, weight_keys.iter())
 	})
+}
+
+fn query_epoch_changes<Block, Client>(
+	epoch_changes: &SharedEpochChanges<Block, Epoch>,
+	client: &Client,
+	config: &BabeConfiguration,
+	block_number: NumberFor<Block>,
+	slot: Slot,
+	parent_hash: Block::Hash,
+) -> Result<
+	(ViableEpochDescriptor<Block::Hash, NumberFor<Block>, Epoch>, ViableEpoch<Epoch>),
+	Error<Block>,
+>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block> + HeaderMetadata<Block, Error = sp_blockchain::Error>,
+{
+	let epoch_changes = epoch_changes.shared_data();
+	let epoch_descriptor = epoch_changes
+		.epoch_descriptor_for_child_of(
+			descendent_query(client),
+			&parent_hash,
+			block_number - 1u32.into(),
+			slot,
+		)
+		.map_err(|e| Error::<Block>::ForkTree(Box::new(e)))?
+		.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+	let viable_epoch = epoch_changes
+		.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&config, slot))
+		.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+	Ok((epoch_descriptor, viable_epoch.into_cloned()))
 }

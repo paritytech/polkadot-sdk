@@ -24,9 +24,6 @@ sp-trie = { workspace = true }
 # Cumulus
 cumulus-primitives-core = { workspace = true }
 
-[dev-dependencies]
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [

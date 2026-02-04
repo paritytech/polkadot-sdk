@@ -9,7 +9,7 @@ use frame_support::{
 };
 
 use codec::Encode;
-use snowbridge_core::{ParaId, PricingParameters, Rewards};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, ParaId, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
 	v1::{Command, SendMessage},
 	SendError,
@@ -242,7 +242,7 @@ fn convert_local_currency() {
 #[test]
 fn encode_digest_item_with_correct_index() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge(H256::default()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge(H256::default()).into();
 		let enum_prefix = match digest_item {
 			DigestItem::Other(data) => data[0],
 			_ => u8::MAX,
@@ -254,10 +254,10 @@ fn encode_digest_item_with_correct_index() {
 #[test]
 fn encode_digest_item() {
 	new_tester().execute_with(|| {
-		let digest_item: DigestItem = CustomDigestItem::Snowbridge([5u8; 32].into()).into();
+		let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge([5u8; 32].into()).into();
 		let digest_item_raw = digest_item.encode();
 		assert_eq!(digest_item_raw[0], 0); // DigestItem::Other
-		assert_eq!(digest_item_raw[2], 0); // CustomDigestItem::Snowbridge
+		assert_eq!(digest_item_raw[2], 0); // SnowbridgeDigestItem::Snowbridge
 		assert_eq!(
 			digest_item_raw,
 			[

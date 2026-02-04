@@ -22,20 +22,18 @@ use bp_messages::MessagesCallInfo;
 use bp_parachains::SubmitParachainHeadsInfo;
 use bp_runtime::StaticStrProvider;
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::CallableCallFor, traits::IsSubType, weights::Weight, RuntimeDebugNoBound,
-};
+use core::fmt::Debug;
+use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight, DebugNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_utility::{Call as UtilityCall, Pallet as UtilityPallet};
 use sp_runtime::{
 	traits::Get,
 	transaction_validity::{TransactionPriority, TransactionValidityError},
-	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Type of the call that the signed extension recognizes.
-#[derive(PartialEq, RuntimeDebugNoBound)]
+#[derive(PartialEq, DebugNoBound)]
 pub enum ExtensionCallInfo<RemoteGrandpaChainBlockNumber: Debug, LaneId: Clone + Copy + Debug> {
 	/// Relay chain finality + parachain finality + message delivery/confirmation calls.
 	AllFinalityAndMsgs(
@@ -99,7 +97,7 @@ impl<RemoteGrandpaChainBlockNumber: Clone + Copy + Debug, LaneId: Clone + Copy +
 }
 
 /// Extra post-dispatch data, associated with the supported runtime call.
-#[derive(Default, RuntimeDebug)]
+#[derive(Default, Debug)]
 pub struct ExtensionCallData {
 	/// Extra weight, consumed by the call. We have some assumptions about normal weight
 	/// that may be consumed by expected calls. If the actual weight is larger than that,

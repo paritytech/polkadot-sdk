@@ -1,0 +1,27 @@
+title: '[revive] eth-decimals'
+doc:
+- audience: Runtime Dev
+  description: |-
+    On Ethereum, 1 ETH is represented as 10^18 wei (wei being the smallest unit).
+    On Polkadot 1 DOT is defined as 10^10 plancks. It means that any value smaller than 10^8 wei can not be expressed with the native balance. Any contract that attempts to use such a value currently reverts with a DecimalPrecisionLoss error.
+
+    In theory, RPC can define a decimal representation different from Ethereum mainnet (10^18). In practice tools (frontend libraries, wallets, and compilers) ignore it and expect 18 decimals.
+
+    The current behaviour breaks eth compatibility and needs to be updated. See issue #109 for more details.
+
+
+    Fix  https://github.com/paritytech/contract-issues/issues/109
+    [weights compare](https://weights.tasty.limo/compare?unit=weight&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg/eth-decimals&path_pattern=substrate/frame/**/src/weights.rs,polkadot/runtime/*/src/weights/**/*.rs,polkadot/bridges/modules/*/src/weights.rs,cumulus/**/weights/*.rs,cumulus/**/weights/xcm/*.rs,cumulus/**/src/weights.rs)
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: assets-common
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: pallet-assets
+  bump: major

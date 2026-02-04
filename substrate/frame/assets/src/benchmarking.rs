@@ -21,12 +21,15 @@
 
 use super::*;
 use alloc::vec;
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+use frame_benchmarking::{
+	v1::{
+		account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+	},
+	BenchmarkResult,
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::Bounded;
+use sp_runtime::{traits::Bounded, Weight};
 
 use crate::Pallet as Assets;
 
@@ -53,6 +56,19 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	)
 	.is_ok());
 	(asset_id, caller, caller_lookup)
+}
+
+fn create_default_reserves<T: Config<I>, I: 'static>(
+	count: u32,
+) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveData>) {
+	// create asset
+	let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+	// build max number of reserves
+	let mut reserves = Vec::<T::ReserveData>::new();
+	for i in 0..count {
+		reserves.push(T::BenchmarkHelper::create_reserve_id_parameter(i));
+	}
+	(asset_id, caller, reserves)
 }
 
 pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
@@ -94,7 +110,7 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 			origin.clone().into(),
 			asset_id.clone(),
 			target_lookup,
-			100u32.into()
+			100u32.into(),
 		)
 		.is_ok());
 	}
@@ -332,6 +348,21 @@ benchmarks_instance_pallet! {
 			admin: account("target", 1, SEED),
 			freezer: account("target", 2, SEED),
 		}.into());
+	}
+
+	set_reserves {
+		let n in 0 .. MAX_RESERVES;
+		let (asset_id, caller, reserves) = create_default_reserves::<T, I>(n);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let bounded_reserves = reserves.clone().try_into().unwrap();
+	}: _(SystemOrigin::Signed(caller), asset_id.clone(), bounded_reserves)
+	verify {
+		let expected_event = if reserves.is_empty() {
+			Event::ReservesRemoved { asset_id: asset_id.into() }
+		} else {
+			Event::ReservesUpdated { asset_id: asset_id.into(), reserves: reserves }
+		};
+		assert_last_event::<T, I>(expected_event.into());
 	}
 
 	set_metadata {
@@ -593,6 +624,21 @@ benchmarks_instance_pallet! {
 		amount = Pallet::<T, I>::allowance(asset_id.into(), &caller, &delegate);
 	} verify {
 		assert_eq!(amount, 100u32.into());
+	}
+
+	migration_v2_foreign_asset_set_reserve_weight {
+		let (id, _, _) = create_default_asset::<T, I>(true);
+		let id: <T as pallet::Config<I>>::AssetId = id.into();
+		let reserve = T::BenchmarkHelper::create_reserve_id_parameter(42);
+	}: {
+		let asset_id = Asset::<T, I>::iter_keys().next()
+			.ok_or_else(|| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		assert_eq!(id, asset_id);
+		let bounded_reserves = vec![reserve.clone()].try_into().unwrap();
+		Pallet::<T, I>::unchecked_update_reserves(asset_id, bounded_reserves).unwrap();
+	}
+	verify {
+		assert_eq!(Reserves::<T, I>::get(id)[0], reserve);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

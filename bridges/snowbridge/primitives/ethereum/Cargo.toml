@@ -15,6 +15,10 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+alloy-consensus = { workspace = true }
+alloy-core = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-rlp = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
@@ -31,10 +35,15 @@ sp-std = { workspace = true }
 
 ethabi = { workspace = true }
 
+
 [features]
 default = ["std"]
 expensive_tests = []
 std = [
+	"alloy-consensus/std",
+	"alloy-core/std",
+	"alloy-primitives/std",
+	"alloy-rlp/std",
 	"codec/std",
 	"ethabi/std",
 	"ethbloom/std",

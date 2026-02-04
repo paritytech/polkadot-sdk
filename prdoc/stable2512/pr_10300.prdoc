@@ -1,0 +1,18 @@
+title: Allow running try-runtime checks for all pallets except those in the exclusion
+  list
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Added `AllExcept` variant in `Select` enum to exclude try-runtime checks for a given list of pallets
+    - Added `TryRuntimeUpgradeConfig` struct for extensible configuration of runtime upgrade testing
+    - Added `Executive::try_runtime_upgrade_with_config()` for granular control over which pallets' try_state hooks to execute
+    - Maintained backwards compatibility: existing `Executive::try_runtime_upgrade(checks)` function continues to work unchanged
+    - Updated Westend runtime to use the new config-based API to exclude staking-related pallets (Staking, NominationPools, FastUnstake, DelegatedStaking)
+    - This change is fully backwards compatible - external runtimes and tools (like try-runtime-cli) do not need to update their code
+crates:
+- name: frame-support
+  bump: patch
+- name: frame-executive
+  bump: patch
+- name: westend-runtime
+  bump: patch

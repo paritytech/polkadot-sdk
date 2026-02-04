@@ -18,7 +18,7 @@
 //! Subsystem unit tests
 
 use std::{
-	collections::HashSet,
+	collections::{BTreeMap, HashSet},
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -57,7 +57,7 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
+	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
 };
 
@@ -101,7 +101,7 @@ fn send_honors_rate_limit() {
 		// First send should not be rate limited:
 		gum::trace!("Passed time: {:#?}", Instant::now().saturating_duration_since(before_request));
 		// This test would likely be flaky on CI:
-		//assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
+		// assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
 
 		let relay_parent = Hash::random();
 		let candidate = make_candidate_receipt(relay_parent);
@@ -491,7 +491,7 @@ fn send_dispute_gets_cleaned_up() {
 			MOCK_SESSION_INDEX,
 			None,
 			// No disputes any more:
-			Vec::new(),
+			BTreeMap::new(),
 		)
 		.await;
 
@@ -542,7 +542,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head),
 			MOCK_SESSION_INDEX,
 			None,
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -557,7 +557,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head2),
 			MOCK_NEXT_SESSION_INDEX,
 			Some(MOCK_NEXT_SESSION_INFO.clone()),
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -736,7 +736,7 @@ async fn activate_leaf(
 	// New session if we expect the subsystem to request it.
 	new_session: Option<SessionInfo>,
 	// Currently active disputes to send to the subsystem.
-	active_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	active_disputes: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
@@ -851,7 +851,7 @@ async fn handle_subsystem_startup(
 		Some(MOCK_SESSION_INFO.clone()),
 		ongoing_dispute
 			.into_iter()
-			.map(|c| (MOCK_SESSION_INDEX, c, DisputeStatus::Active))
+			.map(|c| ((MOCK_SESSION_INDEX, c), DisputeStatus::Active))
 			.collect(),
 	)
 	.await;

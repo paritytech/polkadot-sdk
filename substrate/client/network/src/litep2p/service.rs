@@ -264,11 +264,12 @@ impl NetworkSigner for Litep2pNetworkService {
 		signature: &Vec<u8>,
 		message: &Vec<u8>,
 	) -> Result<bool, String> {
-		let public_key = litep2p::crypto::PublicKey::from_protobuf_encoding(&public_key)
+		let identity = litep2p::PeerId::from_public_key_protobuf(&public_key);
+		let public_key = litep2p::crypto::RemotePublicKey::from_protobuf_encoding(&public_key)
 			.map_err(|error| error.to_string())?;
 		let peer: litep2p::PeerId = peer.into();
 
-		Ok(peer == public_key.to_peer_id() && public_key.verify(message, signature))
+		Ok(peer == identity && public_key.verify(message, signature))
 	}
 }
 
@@ -495,7 +496,7 @@ impl NetworkPeers for Litep2pNetworkService {
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
 		let Some(handle) = self.peerset_handles.get(&self.block_announce_protocol) else {
-			return Err(())
+			return Err(());
 		};
 		let (tx, rx) = oneshot::channel();
 

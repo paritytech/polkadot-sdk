@@ -56,7 +56,7 @@ use frame_support::{
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
 use sp_core::Get;
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::DispatchError;
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
@@ -113,7 +113,7 @@ pub struct CodeInfo<T: Config> {
 	DecodeWithMemTracking,
 	scale_info::TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 	PartialEq,
 	Eq,
 )]
@@ -1305,7 +1305,7 @@ mod tests {
 		)
 		.unwrap();
 
-		//value does not exist (wrong key length)
+		// value does not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned
@@ -2961,7 +2961,7 @@ mod tests {
 		// value cleared
 		assert_eq!(ext.storage.get(&[1u8; 64].to_vec()), None);
 
-		//value did not exist (wrong key length)
+		// value did not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned

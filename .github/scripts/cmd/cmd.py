@@ -7,6 +7,7 @@ import argparse
 import _help
 import importlib.util
 import re
+import difflib
 
 _HelpAction = _help._HelpAction
 
@@ -30,6 +31,103 @@ def setup_logging():
     if not os.path.exists('/tmp/cmd'):
         os.makedirs('/tmp/cmd')
     open('/tmp/cmd/command_output.log', 'w')
+
+def fetch_repo_labels():
+    """Fetch labels from environment (pre-fetched by workflow)"""
+    labels_json = os.environ.get('REPO_LABELS')
+    if labels_json:
+        try:
+            labels = json.loads(labels_json)
+            print_and_log(f"Loaded {len(labels)} labels from environment")
+            return labels
+        except json.JSONDecodeError as e:
+            print_and_log(f"Error parsing REPO_LABELS: {e}")
+            return None
+    else:
+        print_and_log("REPO_LABELS not set in environment")
+        return None
+
+
+def check_pr_status(pr_number):
+    """Check PR status from environment (pre-fetched by workflow)"""
+    status_json = os.environ.get('PR_STATUS')
+    if not status_json:
+        print_and_log("Error: PR_STATUS not set, cannot verify PR status")
+        return False
+
+    try:
+        data = json.loads(status_json)
+        if data.get('merged', False):
+            return False
+        if data.get('state') == 'closed':
+            return False
+        if data.get('auto_merge', False):
+            return False
+        return True
+    except json.JSONDecodeError as e:
+        print_and_log(f"Error parsing PR_STATUS: {e}")
+        return False
+
+
+def find_closest_labels(invalid_label, valid_labels, max_suggestions=3, cutoff=0.6):
+    """Find the closest matching labels using fuzzy string matching"""
+    # Get close matches using difflib
+    close_matches = difflib.get_close_matches(
+        invalid_label,
+        valid_labels,
+        n=max_suggestions,
+        cutoff=cutoff
+    )
+
+    return close_matches
+
+def auto_correct_labels(invalid_labels, valid_labels, auto_correct_threshold=0.8):
+    """Automatically correct labels when confidence is high, otherwise suggest"""
+    corrections = []
+    suggestions = []
+
+    for invalid_label in invalid_labels:
+        closest = find_closest_labels(invalid_label, valid_labels, max_suggestions=1)
+
+        if closest:
+            # Calculate similarity for the top match
+            top_match = closest[0]
+            similarity = difflib.SequenceMatcher(None, invalid_label.lower(), top_match.lower()).ratio()
+
+            if similarity >= auto_correct_threshold:
+                # High confidence - auto-correct
+                corrections.append((invalid_label, top_match))
+            else:
+                # Lower confidence - suggest alternatives
+                all_matches = find_closest_labels(invalid_label, valid_labels, max_suggestions=3)
+                if all_matches:
+                    labels_str = ', '.join(f"'{label}'" for label in all_matches)
+                    suggestion = f"'{invalid_label}' → did you mean: {labels_str}?"
+                else:
+                    suggestion = f"'{invalid_label}' → no close matches found"
+                suggestions.append(suggestion)
+        else:
+            # No close matches - try prefix suggestions
+            prefix_match = re.match(r'^([A-Z]\d+)-', invalid_label)
+            if prefix_match:
+                prefix = prefix_match.group(1)
+                prefix_labels = [label for label in valid_labels if label.startswith(prefix + '-')]
+                if prefix_labels:
+                    # If there's exactly one prefix match, auto-correct it
+                    if len(prefix_labels) == 1:
+                        corrections.append((invalid_label, prefix_labels[0]))
+                    else:
+                        # Multiple prefix matches - suggest alternatives
+                        suggestion = f"'{invalid_label}' → try labels starting with '{prefix}-': {', '.join(prefix_labels[:3])}"
+                        suggestions.append(suggestion)
+                else:
+                    suggestion = f"'{invalid_label}' → no labels found with prefix '{prefix}-'"
+                    suggestions.append(suggestion)
+            else:
+                suggestion = f"'{invalid_label}' → invalid format (expected format: 'T1-FRAME', 'I2-bug', etc.)"
+                suggestions.append(suggestion)
+
+    return corrections, suggestions
 
 parser = argparse.ArgumentParser(prog="/cmd ", description='A command runner for polkadot-sdk repo', add_help=False)
 parser.add_argument('--help', action=_HelpAction, help='help for help if you need some help')  # help for help
@@ -55,7 +153,7 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend --fail-fast
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
- %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
+ %(prog)s --runtime westend --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
 parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -92,6 +190,93 @@ spec.loader.exec_module(generate_prdoc)
 
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
 generate_prdoc.setup_parser(parser_prdoc, pr_required=False)
+
+"""
+LABEL
+"""
+# Fetch current labels from repository
+def get_allowed_labels():
+    """Get the current list of allowed labels"""
+    repo_labels = fetch_repo_labels()
+
+    if repo_labels is not None:
+        return repo_labels
+    else:
+        # Fail if API fetch fails
+        raise RuntimeError("Failed to fetch labels from repository. Please check your connection and try again.")
+
+def validate_and_auto_correct_labels(input_labels, valid_labels):
+    """Validate labels and auto-correct when confidence is high"""
+    final_labels = []
+    correction_messages = []
+    all_suggestions = []
+    no_match_labels = []
+
+    # Process all labels first to collect all issues
+    for label in input_labels:
+        if label in valid_labels:
+            final_labels.append(label)
+        else:
+            # Invalid label - try auto-correction
+            corrections, suggestions = auto_correct_labels([label], valid_labels)
+
+            if corrections:
+                # Auto-correct with high confidence
+                original, corrected = corrections[0]
+                final_labels.append(corrected)
+                similarity = difflib.SequenceMatcher(None, original.lower(), corrected.lower()).ratio()
+                correction_messages.append(f"Auto-corrected '{original}' → '{corrected}' (similarity: {similarity:.2f})")
+            elif suggestions:
+                # Low confidence - collect for batch error
+                all_suggestions.extend(suggestions)
+            else:
+                # No suggestions at all
+                no_match_labels.append(label)
+
+    # If there are any labels that couldn't be auto-corrected, show all at once
+    if all_suggestions or no_match_labels:
+        error_parts = []
+
+        if all_suggestions:
+            error_parts.append("Labels requiring manual selection:")
+            for suggestion in all_suggestions:
+                error_parts.append(f"  • {suggestion}")
+
+        if no_match_labels:
+            if all_suggestions:
+                error_parts.append("")  # Empty line for separation
+            error_parts.append("Labels with no close matches:")
+            for label in no_match_labels:
+                error_parts.append(f"  • '{label}' → no valid suggestions available")
+
+        error_parts.append("")
+        error_parts.append("For all available labels, see: https://paritytech.github.io/labels/doc_polkadot-sdk.html")
+
+        error_msg = "\n".join(error_parts)
+        raise ValueError(error_msg)
+
+    return final_labels, correction_messages
+
+label_example = '''**Examples**:
+ Add single label
+ %(prog)s T1-FRAME
+
+ Add multiple labels
+ %(prog)s T1-FRAME R0-no-crate-publish-required
+
+ Add multiple labels
+ %(prog)s T1-FRAME A2-substantial D3-involved
+
+Labels are fetched dynamically from the repository.
+Typos are auto-corrected when confidence is high (>80%% similarity).
+For label meanings, see: https://paritytech.github.io/labels/doc_polkadot-sdk.html
+'''
+
+parser_label = subparsers.add_parser('label', help='Add labels to PR (self-service for contributors)', epilog=label_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+for arg, config in common_args.items():
+    parser_label.add_argument(arg, **config)
+
+parser_label.add_argument('labels', nargs='+', help='Labels to add to the PR (auto-corrects typos)')
 
 def main():
     global args, unknown, runtimesMatrix
@@ -283,6 +468,54 @@ def main():
         if exit_code != 0:
             print_and_log('❌ Failed to generate prdoc')
             sys.exit(exit_code)
+
+    elif args.command == 'label':
+        # The actual labeling is handled by the GitHub Action workflow
+        # This script validates and auto-corrects labels
+
+        try:
+            # Check if PR is still open and not merged/in merge queue
+            pr_number = os.environ.get('PR_NUM')
+            if pr_number:
+                if not check_pr_status(pr_number):
+                    raise ValueError("Cannot modify labels on merged PRs or PRs in merge queue")
+
+            # Check if user has permission to modify labels
+            is_org_member = os.environ.get('IS_ORG_MEMBER', 'false').lower() == 'true'
+            is_pr_author = os.environ.get('IS_PR_AUTHOR', 'false').lower() == 'true'
+
+            if not is_org_member and not is_pr_author:
+                raise ValueError("Only the PR author or organization members can modify labels")
+
+            # Get allowed labels dynamically
+            try:
+                allowed_labels = get_allowed_labels()
+            except RuntimeError as e:
+                raise ValueError(str(e))
+
+            # Validate and auto-correct labels
+            final_labels, correction_messages = validate_and_auto_correct_labels(args.labels, allowed_labels)
+
+            # Show auto-correction messages
+            for message in correction_messages:
+                print(message)
+
+            # Output labels as JSON for GitHub Action
+            import json
+            labels_output = {"labels": final_labels}
+            print_and_log(f"LABELS_JSON: {json.dumps(labels_output)}")
+        except ValueError as e:
+            print_and_log(f'❌ {e}')
+
+            # Output error as JSON for GitHub Action
+            import json
+            error_output = {
+                "error": "validation_failed",
+                "message": "Invalid labels found. Please check the suggestions below and try again.",
+                "details": str(e)
+            }
+            print(f"ERROR_JSON: {json.dumps(error_output)}")
+            sys.exit(1)
 
     print('🚀 Done')
 

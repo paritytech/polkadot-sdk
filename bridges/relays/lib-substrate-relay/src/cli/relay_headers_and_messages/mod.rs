@@ -251,7 +251,7 @@ where
 	fn mut_base(&mut self) -> &mut Self::Base;
 
 	/// Creates and returns Left to Right complex relay.
-	fn left_to_right(&mut self) -> FullBridge<Self::Left, Self::Right, Self::L2R> {
+	fn left_to_right(&mut self) -> FullBridge<'_, Self::Left, Self::Right, Self::L2R> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::L2R>::new(
 			&mut common.left,
@@ -261,7 +261,7 @@ where
 	}
 
 	/// Creates and returns Right to Left complex relay.
-	fn right_to_left(&mut self) -> FullBridge<Self::Right, Self::Left, Self::R2L> {
+	fn right_to_left(&mut self) -> FullBridge<'_, Self::Right, Self::Left, Self::R2L> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::R2L>::new(
 			&mut common.right,

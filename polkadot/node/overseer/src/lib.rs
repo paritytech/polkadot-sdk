@@ -65,7 +65,7 @@
 
 use std::{
 	collections::{hash_map, HashMap},
-	fmt::{self, Debug},
+	fmt::{self},
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
@@ -549,6 +549,7 @@ pub struct Overseer<SupportsParachains> {
 		CandidateBackingMessage,
 		DisputeCoordinatorMessage,
 		ProspectiveParachainsMessage,
+		ChainApiMessage,
 	])]
 	provisioner: Provisioner,
 
@@ -827,7 +828,7 @@ where
 			hash_map::Entry::Vacant(entry) => entry.insert(block.number),
 			hash_map::Entry::Occupied(entry) => {
 				debug_assert_eq!(*entry.get(), block.number);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -890,7 +891,7 @@ where
 	/// this returns `None`.
 	async fn on_head_activated(&mut self, hash: &Hash, _parent_hash: Option<Hash>) -> Option<()> {
 		if !self.supports_parachains.head_supports_parachains(hash).await {
-			return None
+			return None;
 		}
 
 		self.metrics.on_head_activated();

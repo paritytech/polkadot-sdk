@@ -5,7 +5,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_std::vec::Vec;
 
 use crate::{OperatingMode, SendError};
@@ -99,14 +99,14 @@ pub mod abi {
 	}
 }
 
-#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct OutboundCommandWrapper {
 	pub kind: u8,
 	pub gas: u64,
 	pub payload: Vec<u8>,
 }
 
-#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
 pub struct OutboundMessage {
 	/// Origin
 	pub origin: H256,
@@ -121,7 +121,7 @@ pub struct OutboundMessage {
 pub const MAX_COMMANDS: u32 = 8;
 
 /// A message which can be accepted by implementations of `/[`SendMessage`\]`
-#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Clone, RuntimeDebug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Clone, Debug)]
 pub struct Message {
 	/// Origin
 	pub origin: H256,
@@ -134,7 +134,7 @@ pub struct Message {
 }
 
 /// A command which is executable by the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub enum Command {
 	/// Upgrade the Gateway contract
 	Upgrade {
@@ -249,7 +249,7 @@ impl Command {
 
 /// Representation of a call to the initializer of an implementation contract.
 /// The initializer has the following ABI signature: `initialize(bytes)`.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Initializer {
 	/// ABI-encoded params of type `bytes` to pass to the initializer
 	pub params: Vec<u8>,

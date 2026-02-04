@@ -131,7 +131,7 @@ pub mod migration;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 extern crate alloc;
 
@@ -156,7 +156,7 @@ use frame_support::{
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, TrailingZeroInput, Zero},
-	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	ArithmeticError, Debug, DispatchResult, Perbill, Saturating,
 };
 use sp_staking::{Agent, Delegator, EraIndex, StakingInterface, StakingUnchecked};
 

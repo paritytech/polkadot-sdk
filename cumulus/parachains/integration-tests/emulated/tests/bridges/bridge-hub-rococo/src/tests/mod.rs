@@ -34,6 +34,15 @@ pub(crate) fn asset_hub_westend_location() -> Location {
 		],
 	)
 }
+pub(crate) fn asset_hub_rococo_global_location() -> Location {
+	Location::new(
+		2,
+		[
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
+			Parachain(AssetHubRococo::para_id().into()),
+		],
+	)
+}
 pub(crate) fn bridge_hub_westend_location() -> Location {
 	Location::new(
 		2,
@@ -87,16 +96,35 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 pub(crate) fn create_foreign_on_ah_rococo(
 	id: v5::Location,
 	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
 	prefund_accounts: Vec<(AccountId, u128)>,
 ) {
 	let owner = AssetHubRococo::account_id_of(ALICE);
 	let min = ASSET_MIN_BALANCE;
-	AssetHubRococo::force_create_foreign_asset(id, owner, sufficient, min, prefund_accounts);
+	AssetHubRococo::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		min,
+		prefund_accounts,
+	);
+	AssetHubRococo::set_foreign_asset_reserves(id, owner, reserves);
 }
 
-pub(crate) fn create_foreign_on_ah_westend(id: v5::Location, sufficient: bool) {
+pub(crate) fn create_foreign_on_ah_westend(
+	id: v5::Location,
+	sufficient: bool,
+	reserves: Vec<ForeignAssetReserveData>,
+) {
 	let owner = AssetHubWestend::account_id_of(ALICE);
-	AssetHubWestend::force_create_foreign_asset(id, owner, sufficient, ASSET_MIN_BALANCE, vec![]);
+	AssetHubWestend::force_create_foreign_asset(
+		id.clone(),
+		owner.clone(),
+		sufficient,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+	AssetHubWestend::set_foreign_asset_reserves(id, owner, reserves);
 }
 
 pub(crate) fn foreign_balance_on_ah_rococo(id: v5::Location, who: &AccountId) -> u128 {
@@ -173,19 +201,36 @@ pub(crate) fn send_assets_from_asset_hub_rococo(
 	destination: Location,
 	assets: Assets,
 	fee_idx: u32,
+	// For knowing what reserve to pick.
+	// We only allow using the same transfer type for assets and fees right now.
+	// And only `LocalReserve` or `DestinationReserve`.
+	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get());
 	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 
+	type Runtime = <AssetHubRococo as Chain>::Runtime;
+	let remote_fee_id: AssetId = assets
+		.clone()
+		.into_inner()
+		.get(fee_idx as usize)
+		.ok_or(pallet_xcm::Error::<Runtime>::Empty)?
+		.clone()
+		.id;
+
 	AssetHubRococo::execute_with(|| {
-		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			signed_origin,
 			bx!(destination.into()),
-			bx!(beneficiary.into()),
 			bx!(assets.into()),
-			fee_idx,
+			bx!(transfer_type.clone()),
+			bx!(remote_fee_id.into()),
+			bx!(transfer_type),
+			bx!(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
+			)),
 			WeightLimit::Unlimited,
 		)
 	})

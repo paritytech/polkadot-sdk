@@ -26,8 +26,8 @@ use polkadot_node_primitives::approval::{
 	v2::{AssignmentCertV2, CandidateBitfield},
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CandidateIndex,
-	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
+	GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 
@@ -164,7 +164,7 @@ impl ApprovalEntry {
 	) -> Option<(AssignmentCertV2, ValidatorIndex, DelayTranche)> {
 		let our = self.our_assignment.as_mut().and_then(|a| {
 			if a.triggered() {
-				return None
+				return None;
 			}
 			a.mark_triggered();
 

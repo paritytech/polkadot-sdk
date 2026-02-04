@@ -16,6 +16,7 @@
 
 #![cfg(test)]
 
+use crate::bridge_common_config::BridgeRewardBeneficiaries;
 use bp_messages::LegacyLaneId;
 use bp_polkadot_core::Signature;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
@@ -61,7 +62,10 @@ use sp_runtime::{
 	AccountId32, Either, Perbill,
 };
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+	VersionedLocation,
+};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 // Random para id of sibling chain used in tests.
@@ -717,6 +721,8 @@ pub fn bridge_rewards_works() {
 			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
 			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
 			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+			// To pay for delivery to AH when claiming the reward on BH
+			assert_ok!(Balances::mint_into(&account2, ExistentialDeposit::get() * 10000));
 
 			// register rewards
 			use bp_relayers::RewardLedger;
@@ -758,11 +764,31 @@ pub fn bridge_rewards_works() {
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
 			);
 
-			// not yet implemented for Snowbridge
+			// Local account claiming is not supported for Snowbridge
 			assert_err!(
 				BridgeRelayers::claim_rewards(
 					RuntimeOrigin::signed(account2.clone()),
 					BridgeReward::Snowbridge
+				),
+				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
+			);
+
+			let claim_location = VersionedLocation::V5(Location::new(
+				1,
+				[
+					Parachain(1000),
+					xcm::latest::Junction::AccountId32 {
+						id: account2.clone().into(),
+						network: None,
+					},
+				],
+			));
+			// In unit tests without proper HRMP channel setup, the claim will fail at XCM sending.
+			assert_err!(
+				BridgeRelayers::claim_rewards_to(
+					RuntimeOrigin::signed(account2.clone()),
+					BridgeReward::Snowbridge,
+					BridgeRewardBeneficiaries::AssetHubLocation(claim_location)
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
 			);

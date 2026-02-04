@@ -43,20 +43,26 @@ if [[ $init -eq 1 ]]; then
   westend_init_log=$logs_dir/westend-init.log
   echo -e "Setting up the westend side of the bridge. Logs available at: $westend_init_log\n"
 
+  $helper_script init-rococo-local >> $rococo_init_log 2>&1 &
+  rococo_init_pid=$!
+  $helper_script init-westend-local >> $westend_init_log 2>&1 &
+  westend_init_pid=$!
+  wait $rococo_init_pid $westend_init_pid
+
+  run_zndsl ${BASH_SOURCE%/*}/rococo-init.zndsl $rococo_dir
+  run_zndsl ${BASH_SOURCE%/*}/westend-init.zndsl $westend_dir
+
   $helper_script init-asset-hub-rococo-local >> $rococo_init_log 2>&1 &
   rococo_init_pid=$!
   $helper_script init-asset-hub-westend-local >> $westend_init_log 2>&1 &
   westend_init_pid=$!
-  wait -n $rococo_init_pid $westend_init_pid
+  wait $rococo_init_pid $westend_init_pid
 
   $helper_script init-bridge-hub-rococo-local >> $rococo_init_log 2>&1 &
   rococo_init_pid=$!
   $helper_script init-bridge-hub-westend-local >> $westend_init_log 2>&1 &
   westend_init_pid=$!
-  wait -n $rococo_init_pid $westend_init_pid
-
-  run_zndsl ${BASH_SOURCE%/*}/rococo-init.zndsl $rococo_dir
-  run_zndsl ${BASH_SOURCE%/*}/westend-init.zndsl $westend_dir
+  wait $rococo_init_pid $westend_init_pid
 fi
 
 if [[ $start_relayer -eq 1 ]]; then

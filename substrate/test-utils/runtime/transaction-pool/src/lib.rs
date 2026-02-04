@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::RwLock;
 use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
+use sc_transaction_pool_api::error::IntoMetricsLabel;
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -54,6 +55,12 @@ pub struct Error(#[from] pub sc_transaction_pool_api::error::Error);
 impl sc_transaction_pool_api::error::IntoPoolError for Error {
 	fn into_pool_error(self) -> Result<sc_transaction_pool_api::error::Error, Self> {
 		Ok(self.0)
+	}
+}
+
+impl IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.0.to_string()
 	}
 }
 
@@ -392,7 +399,9 @@ impl ChainApi for TestApi {
 				// the transaction. (This is not required for this test function, but in real
 				// environment it would fail because of this).
 				if !found_best {
-					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1))))
+					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(
+						1,
+					))));
 				}
 			},
 			Ok(None) =>
@@ -437,7 +446,7 @@ impl ChainApi for TestApi {
 
 			if self.enable_stale_check && transfer.nonce < chain_nonce {
 				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
-				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)))
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)));
 			}
 
 			(requires, provides)
@@ -447,7 +456,7 @@ impl ChainApi for TestApi {
 
 		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
 			log::info!("test_api::validate_transaction: invalid_transaction....");
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))));
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
@@ -461,7 +470,7 @@ impl ChainApi for TestApi {
 			.unwrap_or(64);
 
 		if longevity == 0 {
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)));
 		}
 
 		let mut validity = ValidTransaction {

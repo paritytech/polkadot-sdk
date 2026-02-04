@@ -21,7 +21,6 @@ use crate::{Hash, Statement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
@@ -29,12 +28,13 @@ use sp_runtime_interface::{
 	},
 	runtime_interface,
 };
+use Debug;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
 /// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidStatement {
 	/// Max statement count for this account, as calculated by the runtime.
 	pub max_count: u32,
@@ -43,7 +43,7 @@ pub struct ValidStatement {
 }
 
 /// An reason for an invalid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 pub enum InvalidStatement {
 	/// Failed proof validation.
 	BadProof,
@@ -56,7 +56,7 @@ pub enum InvalidStatement {
 /// The source of the statement.
 ///
 /// Depending on the source we might apply different validation schemes.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub enum StatementSource {
 	/// Statement is coming from the on-chain worker.
 	Chain,
@@ -153,13 +153,13 @@ pub trait StatementStore {
 	) -> ReturnAs<SubmitResult, u8> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			match store.submit(statement, StatementSource::Chain) {
-				crate::SubmitResult::New(_) => SubmitResult::OkNew,
+				crate::SubmitResult::New => SubmitResult::OkNew,
 				crate::SubmitResult::Known => SubmitResult::OkKnown,
-				crate::SubmitResult::Ignored => SubmitResult::Full,
+				crate::SubmitResult::Rejected(_) => SubmitResult::Full,
 				// This should not happen for `StatementSource::Chain`. An existing statement will
 				// be overwritten.
 				crate::SubmitResult::KnownExpired => SubmitResult::Bad,
-				crate::SubmitResult::Bad(_) => SubmitResult::Bad,
+				crate::SubmitResult::Invalid(_) => SubmitResult::Bad,
 				crate::SubmitResult::InternalError(_) => SubmitResult::Bad,
 			}
 		} else {
@@ -222,6 +222,13 @@ pub trait StatementStore {
 	fn remove(&mut self, hash: PassPointerAndRead<&Hash, 32>) {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			store.remove(hash).unwrap_or_default()
+		}
+	}
+
+	/// Remove all statements from the store that were posted by the given public key.
+	fn remove_by(&mut self, who: PassPointerAndReadCopy<[u8; 32], 32>) {
+		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+			let _ = store.remove_by(who);
 		}
 	}
 }

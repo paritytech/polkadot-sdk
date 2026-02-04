@@ -29,5 +29,21 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(beneficiary: &[u8; 20],);
-	api::terminate(&beneficiary);
+	// Build the calldata: selector + ABI-encoded address
+	let selector = uapi::solidity_selector("terminate(address)");
+	let mut calldata = [0u8; 4 + 32];
+	calldata[0..4].copy_from_slice(&selector);
+	// ABI encode address: right-align into 32 bytes (pad with 12 leading zeros)
+	calldata[4 + 12..4 + 32].copy_from_slice(beneficiary);
+
+	let _ = api::call(
+		uapi::CallFlags::ALLOW_REENTRY,
+		&uapi::SYSTEM_PRECOMPILE_ADDR,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&[0u8; 32],
+		&calldata,
+		None,
+	).unwrap();
 }

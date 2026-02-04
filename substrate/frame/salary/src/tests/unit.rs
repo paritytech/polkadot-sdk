@@ -607,3 +607,31 @@ fn other_mixed_bankruptcy_fails_gracefully() {
 		assert_eq!(paid(3), 6);
 	});
 }
+
+#[test]
+fn stale_registration_from_previous_cycle_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(1, 1);
+		assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
+
+		run_to(5);
+		assert_ok!(Salary::bump(RuntimeOrigin::signed(1)));
+		assert_ok!(Salary::register(RuntimeOrigin::signed(1)));
+		assert_eq!(Salary::status().unwrap().total_registrations, 1);
+
+		// Miss the payout window for cycle 1 (don't call payout)
+		// Start cycle 2 without claiming from cycle 1
+		run_to(9);
+		assert_ok!(Salary::bump(RuntimeOrigin::signed(1)));
+		assert_eq!(Salary::status().unwrap().cycle_index, 2);
+		assert_eq!(Salary::status().unwrap().total_registrations, 0);
+
+		run_to(11);
+		assert_ok!(Salary::payout(RuntimeOrigin::signed(1)));
+
+		// Should get paid from the unregistered pool
+		assert_eq!(paid(1), 1);
+		assert_eq!(Salary::status().unwrap().total_unregistered_paid, 1);
+	});
+}

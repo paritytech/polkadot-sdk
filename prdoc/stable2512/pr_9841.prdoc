@@ -1,0 +1,8 @@
+title: replace forloop solc fixture type with test-case macro
+doc:
+- audience: Runtime Dev
+  description: For all tests of revm instructions replaced `for fixture_type` with
+    test-case macro
+crates:
+- name: pallet-revive
+  bump: patch

@@ -47,48 +47,46 @@ pub type SWAffine = ark_ed_on_bls12_381_bandersnatch_ext::SWAffine<HostHooks>;
 pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostHooks>;
 
 impl CurveHooks for HostHooks {
-	fn ed_on_bls12_381_bandersnatch_te_msm(
+	fn msm_te(
 		bases: &[EdwardsAffine],
 		scalars: &[<EdwardsConfig as CurveConfig>::ScalarField],
-	) -> Result<EdwardsProjective, ()> {
-		let bases = utils::encode(bases);
-		let scalars = utils::encode(scalars);
-		let res =
-			host_calls::ed_on_bls12_381_bandersnatch_te_msm(bases, scalars).unwrap_or_default();
-		utils::decode_proj_te(res)
+	) -> EdwardsProjective {
+		host_calls::ed_on_bls12_381_bandersnatch_te_msm(
+			utils::encode(bases),
+			utils::encode(scalars),
+		)
+		.and_then(|res| utils::decode_proj_te(res))
+		.unwrap_or_default()
 	}
 
-	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
-		base: &EdwardsProjective,
-		scalar: &[u64],
-	) -> Result<EdwardsProjective, ()> {
-		let base = utils::encode_proj_te(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(base, scalar)
-			.unwrap_or_default();
-		utils::decode_proj_te(res)
+	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
+		host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(
+			utils::encode_proj_te(base),
+			utils::encode(scalar),
+		)
+		.and_then(|res| utils::decode_proj_te(res))
+		.unwrap_or_default()
 	}
 
-	fn ed_on_bls12_381_bandersnatch_sw_msm(
+	fn msm_sw(
 		bases: &[SWAffine],
 		scalars: &[<SWConfig as CurveConfig>::ScalarField],
-	) -> Result<SWProjective, ()> {
-		let bases = utils::encode(bases);
-		let scalars = utils::encode(scalars);
-		let res =
-			host_calls::ed_on_bls12_381_bandersnatch_sw_msm(bases, scalars).unwrap_or_default();
-		utils::decode_proj_sw(res)
+	) -> SWProjective {
+		host_calls::ed_on_bls12_381_bandersnatch_sw_msm(
+			utils::encode(bases),
+			utils::encode(scalars),
+		)
+		.and_then(|res| utils::decode_proj_sw(res))
+		.unwrap_or_default()
 	}
 
-	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: &SWProjective,
-		scalar: &[u64],
-	) -> Result<SWProjective, ()> {
-		let base = utils::encode_proj_sw(base);
-		let scalar = utils::encode(scalar);
-		let res = host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(base, scalar)
-			.unwrap_or_default();
-		utils::decode_proj_sw(res)
+	fn mul_projective_sw(base: &SWProjective, scalar: &[u64]) -> SWProjective {
+		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(
+			utils::encode_proj_sw(base),
+			utils::encode(scalar),
+		)
+		.and_then(|res| utils::decode_proj_sw(res))
+		.unwrap_or_default()
 	}
 }
 

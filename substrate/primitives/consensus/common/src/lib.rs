@@ -24,11 +24,12 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::prelude::*;
+use sp_api::ProofRecorder;
+use sp_externalities::Extensions;
 use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 	Digest,
 };
-use sp_state_machine::StorageProof;
 
 pub mod block_validation;
 pub mod error;
@@ -83,7 +84,7 @@ pub trait Environment<B: BlockT> {
 		+ Unpin
 		+ 'static;
 	/// Error which can occur upon creation.
-	type Error: From<Error> + std::error::Error + 'static;
+	type Error: From<Error> + Send + Sync + std::error::Error + 'static;
 
 	/// Initialize the proposal logic on top of a specific header. Provide
 	/// the authorities at that header.
@@ -91,81 +92,45 @@ pub trait Environment<B: BlockT> {
 }
 
 /// A proposal that is created by a [`Proposer`].
-pub struct Proposal<Block: BlockT, Proof> {
+pub struct Proposal<Block: BlockT> {
 	/// The block that was build.
 	pub block: Block,
-	/// Proof that was recorded while building the block.
-	pub proof: Proof,
 	/// The storage changes while building this block.
 	pub storage_changes: sp_state_machine::StorageChanges<HashingFor<Block>>,
 }
 
-/// Error that is returned when [`ProofRecording`] requested to record a proof,
-/// but no proof was recorded.
-#[derive(Debug, thiserror::Error)]
-#[error("Proof should be recorded, but no proof was provided.")]
-pub struct NoProofRecorded;
-
-/// A trait to express the state of proof recording on type system level.
-///
-/// This is used by [`Proposer`] to signal if proof recording is enabled. This can be used by
-/// downstream users of the [`Proposer`] trait to enforce that proof recording is activated when
-/// required. The only two implementations of this trait are [`DisableProofRecording`] and
-/// [`EnableProofRecording`].
-///
-/// This trait is sealed and can not be implemented outside of this crate!
-pub trait ProofRecording: Send + Sync + private::Sealed + 'static {
-	/// The proof type that will be used internally.
-	type Proof: Send + Sync + 'static;
-	/// Is proof recording enabled?
-	const ENABLED: bool;
-	/// Convert the given `storage_proof` into [`Self::Proof`].
+/// Arguments for [`Proposer::propose`].
+pub struct ProposeArgs<B: BlockT> {
+	/// The inherent data to pass to the block production.
+	pub inherent_data: InherentData,
+	/// The inherent digests to include in the produced block.
+	pub inherent_digests: Digest,
+	/// Max duration for building the block.
+	pub max_duration: Duration,
+	/// Optional size limit for the produced block.
 	///
-	/// Internally Substrate uses `Option<StorageProof>` to express the both states of proof
-	/// recording (for now) and as [`Self::Proof`] is some different type, we need to provide a
-	/// function to convert this value.
+	/// When set, block production ends before hitting this limit. The limit includes the storage
+	/// proof, when proof recording is activated.
+	pub block_size_limit: Option<usize>,
+	/// Optional proof recorder for recording storage proofs during block production.
 	///
-	/// If the proof recording was requested, but `None` is given, this will return
-	/// `Err(NoProofRecorded)`.
-	fn into_proof(storage_proof: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded>;
+	/// When `Some`, the recorder will be used on block production to record all storage accesses.
+	pub storage_proof_recorder: Option<ProofRecorder<B>>,
+	/// Extra extensions for the runtime environment.
+	pub extra_extensions: Extensions,
 }
 
-/// Express that proof recording is disabled.
-///
-/// For more information see [`ProofRecording`].
-pub struct DisableProofRecording;
-
-impl ProofRecording for DisableProofRecording {
-	type Proof = ();
-	const ENABLED: bool = false;
-
-	fn into_proof(_: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded> {
-		Ok(())
+impl<B: BlockT> Default for ProposeArgs<B> {
+	fn default() -> Self {
+		Self {
+			inherent_data: Default::default(),
+			inherent_digests: Default::default(),
+			max_duration: Default::default(),
+			block_size_limit: Default::default(),
+			storage_proof_recorder: Default::default(),
+			extra_extensions: Default::default(),
+		}
 	}
-}
-
-/// Express that proof recording is enabled.
-///
-/// For more information see [`ProofRecording`].
-pub struct EnableProofRecording;
-
-impl ProofRecording for EnableProofRecording {
-	type Proof = sp_state_machine::StorageProof;
-	const ENABLED: bool = true;
-
-	fn into_proof(proof: Option<StorageProof>) -> Result<Self::Proof, NoProofRecorded> {
-		proof.ok_or(NoProofRecorded)
-	}
-}
-
-/// Provides `Sealed` trait to prevent implementing trait [`ProofRecording`] outside of this crate.
-mod private {
-	/// Special trait that prevents the implementation of [`super::ProofRecording`] outside of this
-	/// crate.
-	pub trait Sealed {}
-
-	impl Sealed for super::DisableProofRecording {}
-	impl Sealed for super::EnableProofRecording {}
 }
 
 /// Logic for a proposer.
@@ -176,41 +141,19 @@ mod private {
 /// Proposers are generic over bits of "consensus data" which are engine-specific.
 pub trait Proposer<B: BlockT> {
 	/// Error type which can occur when proposing or evaluating.
-	type Error: From<Error> + std::error::Error + 'static;
+	type Error: From<Error> + Send + Sync + std::error::Error + 'static;
 	/// Future that resolves to a committed proposal with an optional proof.
-	type Proposal: Future<Output = Result<Proposal<B, Self::Proof>, Self::Error>>
-		+ Send
-		+ Unpin
-		+ 'static;
-	/// The supported proof recording by the implementor of this trait. See [`ProofRecording`]
-	/// for more information.
-	type ProofRecording: self::ProofRecording<Proof = Self::Proof> + Send + Sync + 'static;
-	/// The proof type used by [`Self::ProofRecording`].
-	type Proof: Send + Sync + 'static;
+	type Proposal: Future<Output = Result<Proposal<B>, Self::Error>> + Send + Unpin + 'static;
 
 	/// Create a proposal.
 	///
-	/// Gets the `inherent_data` and `inherent_digests` as input for the proposal. Additionally
-	/// a maximum duration for building this proposal is given. If building the proposal takes
-	/// longer than this maximum, the proposal will be very likely discarded.
-	///
-	/// If `block_size_limit` is given, the proposer should push transactions until the block size
-	/// limit is hit. Depending on the `finalize_block` implementation of the runtime, it probably
-	/// incorporates other operations (that are happening after the block limit is hit). So,
-	/// when the block size estimation also includes a proof that is recorded alongside the block
-	/// production, the proof can still grow. This means that the `block_size_limit` should not be
-	/// the hard limit of what is actually allowed.
+	/// Takes a [`ProposeArgs`] struct containing all the necessary parameters for block production
+	/// including inherent data, digests, duration limits, storage proof recorder, and extensions.
 	///
 	/// # Return
 	///
 	/// Returns a future that resolves to a [`Proposal`] or to [`Error`].
-	fn propose(
-		self,
-		inherent_data: InherentData,
-		inherent_digests: Digest,
-		max_duration: Duration,
-		block_size_limit: Option<usize>,
-	) -> Self::Proposal;
+	fn propose(self, args: ProposeArgs<B>) -> Self::Proposal;
 }
 
 /// An oracle for when major synchronization work is being undertaken.

@@ -202,7 +202,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let is_root = ensure_root(origin.clone()).is_ok();
@@ -229,7 +229,7 @@ pub mod pallet {
 					// Take the weight of this function itself into account.
 					let base_weight = T::WeightInfo::batch(index.saturating_add(1) as u32);
 					// Return the actual used weight + base_weight of this call.
-					return Ok(Some(base_weight.saturating_add(weight)).into())
+					return Ok(Some(base_weight.saturating_add(weight)).into());
 				}
 				Self::deposit_event(Event::ItemCompleted);
 			}
@@ -311,7 +311,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let is_root = ensure_root(origin.clone()).is_ok();
@@ -407,7 +407,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			// Do not allow the `None` origin.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let is_root = ensure_root(origin.clone()).is_ok();
@@ -440,7 +440,7 @@ pub mod pallet {
 			} else {
 				Self::deposit_event(Event::BatchCompleted);
 			}
-			let base_weight = T::WeightInfo::batch(calls_len as u32);
+			let base_weight = T::WeightInfo::force_batch(calls_len as u32);
 			Ok(Some(base_weight.saturating_add(weight)).into())
 		}
 
@@ -609,6 +609,7 @@ pub mod pallet {
 
 /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode)]
+#[allow(dead_code)]
 struct IndexedUtilityPalletId(u16);
 
 impl TypeId for IndexedUtilityPalletId {

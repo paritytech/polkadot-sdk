@@ -1,0 +1,39 @@
+title: Deprecate `OnRuntimeUpgrade` parameter in `frame_executive::Executive` struct.
+doc:
+- audience: Runtime Dev
+  description: |-
+    Deprecate `OnRuntimeUpgrade` parameter in `frame_executive::Executive` struct.
+
+crates:
+- name: frame-executive
+  bump: major
+- name: frame-support
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: rococo-parachain-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch

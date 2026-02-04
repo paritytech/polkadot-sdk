@@ -7,15 +7,15 @@ Backports should only be used to fix bugs or security issues - never to introduc
 
 1. Fix a bug through a PR that targets `master`.
 2. Add label related to the branch to wich to backport changes to the PR.
-    - `A4-backport-stable2407`
     - `A4-backport-stable2409`
     - `A4-backport-stable2412`
     - `A4-backport-stable2503`
+    - `A4-backport-stable2506`
 3. Merge the PR into `master`.
 4. Wait for the bot to open the backport PR.
 5. Ensure the change is audited or does not need audit.
 6. Merge the backport PR.(ℹ️ for the branches starting from 2412 it can be done automatically
-    if backport PR has at least two reviews and a pipeline is green)
+    if backport PR has reviews and the pipeline is green)
 
 The label can also be added after the PR is merged.
 

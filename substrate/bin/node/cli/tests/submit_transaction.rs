@@ -18,7 +18,7 @@
 
 use codec::Decode;
 use frame_system::offchain::{SendSignedTransaction, Signer, SubmitTransaction};
-use kitchensink_runtime::{Executive, Indices, Runtime, UncheckedExtrinsic};
+use kitchensink_runtime::{Executive, ExistentialDeposit, Indices, Runtime, UncheckedExtrinsic};
 use polkadot_sdk::*;
 use sp_application_crypto::AppCrypto;
 use sp_core::offchain::{testing::TestTransactionPoolExt, TransactionPoolExt};
@@ -240,7 +240,10 @@ fn submitted_transaction_should_be_valid() {
 		// add balance to the account
 		let author = extrinsic.0.preamble.clone().to_signed().clone().unwrap().0;
 		let address = Indices::lookup(author).unwrap();
-		let data = pallet_balances::AccountData { free: 5_000_000_000_000, ..Default::default() };
+		let data = pallet_balances::AccountData {
+			free: ExistentialDeposit::get() * 10,
+			..Default::default()
+		};
 		let account = frame_system::AccountInfo { providers: 1, data, ..Default::default() };
 		<frame_system::Account<Runtime>>::insert(&address, account);
 

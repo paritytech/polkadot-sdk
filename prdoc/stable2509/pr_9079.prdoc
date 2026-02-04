@@ -1,0 +1,30 @@
+title: "Prevent withdrawals while processing offences"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds withdrawal restrictions to prevent users from withdrawing unbonded funds while 
+      there are unprocessed offences that could result in slashing. This is a defensive 
+      measure that ensures slashing guarantees are maintained even in extreme edge cases.
+      
+      Key changes:
+      - Withdrawals are blocked if there are unapplied slashes from the previous era 
+        (returns `UnappliedSlashesInPreviousEra` error). This occurs when all unapplied 
+        slashes for an era could not be applied within one era worth of blocks. While 
+        one era is reserved for applying slashes page by page, if the era rolls over 
+        before completion, these slashes can only be applied via the permissionless 
+        `apply_slash` call.
+      - Withdrawals are restricted to the minimum of the active era and the last fully 
+        processed offence era
+      - Unbonding chunks are now keyed by active era instead of current era
+      - Offences arriving after their intended application era are rejected and emit 
+        `OffenceTooOld` event
+      
+      Both the `UnappliedSlashesInPreviousEra` error and withdrawal restrictions due to 
+      delayed offence processing are extremely rare scenarios that should not occur under 
+      normal operation. These are defensive measures to handle edge cases where slash 
+      processing is delayed beyond expected timelines.
+
+crates:
+  - name: pallet-staking-async
+    bump: major

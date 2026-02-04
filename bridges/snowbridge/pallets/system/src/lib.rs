@@ -50,7 +50,7 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{Command, Initializer, Message, SendMessage},
 	OperatingMode, SendError,
 };
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, DispatchError, SaturatedConversion};
 use sp_std::prelude::*;
@@ -81,7 +81,7 @@ where
 }
 
 /// Whether a fee should be withdrawn to an account for sending an outbound message
-#[derive(Clone, PartialEq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum PaysFee<T>
 where
 	T: Config,

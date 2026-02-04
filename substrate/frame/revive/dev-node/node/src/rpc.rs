@@ -22,7 +22,8 @@
 
 #![warn(missing_docs)]
 
-use jsonrpsee::RpcModule;
+use crate::cli::Consensus;
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
 use polkadot_sdk::{
 	sc_transaction_pool_api::TransactionPool,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
@@ -37,6 +38,38 @@ pub struct FullDeps<C, P> {
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
+	/// The consensus type of the node.
+	pub consensus: Consensus,
+}
+
+/// AutoMine JSON-RPC api.
+/// Automine is a feature of the Hardhat Network where a new block is automatically mined after each
+/// transaction.
+#[rpc(server, client)]
+pub trait AutoMineRpc {
+	/// API to get the automine status.
+	#[method(name = "getAutomine")]
+	fn get_automine(&self) -> RpcResult<bool>;
+}
+
+/// Implementation of the AutoMine RPC api.
+pub struct AutoMineRpcImpl {
+	/// Whether the node is running in auto-mine mode.
+	is_auto_mine: bool,
+}
+
+impl AutoMineRpcImpl {
+	/// Create new `AutoMineRpcImpl` instance.
+	pub fn new(consensus: Consensus) -> Self {
+		Self { is_auto_mine: matches!(consensus, Consensus::InstantSeal) }
+	}
+}
+
+impl AutoMineRpcServer for AutoMineRpcImpl {
+	/// Returns `true` if block production is set to `instant`.
+	fn get_automine(&self) -> RpcResult<bool> {
+		Ok(self.is_auto_mine)
+	}
 }
 
 #[docify::export]
@@ -58,8 +91,9 @@ where
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool } = deps;
+	let FullDeps { client, pool, consensus } = deps;
 
+	module.merge(AutoMineRpcImpl::new(consensus).into_rpc())?;
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 
 	Ok(module)

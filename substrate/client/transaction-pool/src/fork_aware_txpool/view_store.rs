@@ -299,7 +299,7 @@ where
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into());
 		};
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -423,9 +423,9 @@ where
 			self.most_recent_view.read().as_ref().map(|v| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
-			return Box::new(ready_iterator)
+			return Box::new(ready_iterator);
 		} else {
-			return Box::new(std::iter::empty())
+			return Box::new(std::iter::empty());
 		}
 	}
 
@@ -521,13 +521,7 @@ where
 
 	/// Inserts new view into the view store.
 	///
-	/// All the views associated with the blocks which are on enacted path (including common
-	/// ancestor) will be:
-	/// - moved to the inactive views set (`inactive_views`),
-	/// - removed from the multi view listeners.
-	///
-	/// The `most_recent_view` is updated with the reference to the newly inserted view.
-	///
+	/// Refer to [`Self::insert_new_view_sync`] more details.
 	/// If there are any pending tx replacments, they are applied to the new view.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::insert_new_view")]
 	pub(super) async fn insert_new_view(
@@ -538,8 +532,30 @@ where
 		self.apply_pending_tx_replacements(view.clone()).await;
 
 		let start = Instant::now();
+		self.insert_new_view_sync(view, tree_route);
 
-		//note: most_recent_view must be synced with changes in in/active_views.
+		debug!(
+			target: LOG_TARGET,
+			inactive_views = ?self.inactive_views.read().keys(),
+			duration = ?start.elapsed(),
+			"insert_new_view"
+		);
+	}
+
+	/// Inserts new view into the view store.
+	///
+	/// All the views associated with the blocks which are on enacted path (including common
+	/// ancestor) will be:
+	/// - moved to the inactive views set (`inactive_views`),
+	/// - removed from the multi view listeners.
+	///
+	/// The `most_recent_view` is updated with the reference to the newly inserted view.
+	pub(super) fn insert_new_view_sync(
+		&self,
+		view: Arc<View<ChainApi>>,
+		tree_route: &TreeRoute<Block>,
+	) {
+		// note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
 			let mut active_views = self.active_views.write();
@@ -556,12 +572,6 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.clone());
 		};
-		debug!(
-			target: LOG_TARGET,
-			inactive_views = ?self.inactive_views.read().keys(),
-			duration = ?start.elapsed(),
-			"insert_new_view"
-		);
 	}
 
 	/// Returns an optional reference to the view at given hash.
@@ -579,7 +589,7 @@ where
 		}
 		if allow_inactive {
 			if let Some(view) = self.inactive_views.read().get(&at) {
-				return Some((view.clone(), true))
+				return Some((view.clone(), true));
 			}
 		};
 		None
@@ -607,7 +617,7 @@ where
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 
 		let mut dropped_views = vec![];
-		//clean up older then finalized
+		// clean up older then finalized
 		{
 			let mut active_views = self.active_views.write();
 			let mut inactive_views = self.inactive_views.write();
@@ -769,7 +779,7 @@ where
 		if let Entry::Vacant(entry) = self.pending_txs_tasks.write().entry(replaced) {
 			entry.insert(PendingPreInsertTask::new_submission_action(xt.clone(), source.clone()));
 		} else {
-			return
+			return;
 		};
 
 		let tx_hash = self.api.hash_and_length(&xt).0;

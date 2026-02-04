@@ -29,7 +29,6 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::fmt;
 use scale_info::TypeInfo;
-use sp_debug_derive::RuntimeDebug;
 use sp_runtime::traits;
 
 pub mod utils;
@@ -105,7 +104,7 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
 /// it would have to be SCALE-compatible with the concrete leaf type, but due to SCALE limitations
 /// it's not possible to know how many bytes the encoding of concrete leaf type uses.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OpaqueLeaf(
 	/// Raw bytes of the leaf type encoded in its compact form.
 	///
@@ -145,7 +144,7 @@ impl FullLeaf for OpaqueLeaf {
 ///
 /// It is different from [`OpaqueLeaf`], because it does implement `Codec`
 /// and the encoding has to match raw `Vec<u8>` encoding.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct EncodableOpaqueLeaf(pub Vec<u8>);
 
 impl EncodableOpaqueLeaf {
@@ -176,7 +175,7 @@ impl EncodableOpaqueLeaf {
 ///
 /// [DataOrHash::hash] method calculates the hash of this element in its compact form,
 /// so should be used instead of hashing the encoded form (which will always be non-compact).
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataOrHash<H: traits::Hash, L> {
 	/// Arbitrary data in its full form.
 	Data(L),
@@ -247,7 +246,7 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 /// into [DataOrHash] and each tuple element is hashed first before constructing
 /// the final hash of the entire tuple. This allows you to replace tuple elements
 /// you don't care about with their hashes.
-#[derive(RuntimeDebug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Compact<H, T> {
 	/// Internal tuple representation.
 	pub tuple: T,
@@ -352,7 +351,7 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3);
 impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
-#[derive(codec::Encode, codec::Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct LeafProof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,
@@ -363,7 +362,8 @@ pub struct LeafProof<Hash> {
 }
 
 /// An MMR ancestry proof for a prior mmr root.
-#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub struct AncestryProof<Hash> {
 	/// Peaks of the ancestor's mmr
 	pub prev_peaks: Vec<Hash>,
@@ -378,7 +378,7 @@ pub struct AncestryProof<Hash> {
 
 /// Merkle Mountain Range operation error.
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
 pub enum Error {
 	/// Error during translation of a block number into a leaf index.
 	#[cfg_attr(feature = "std", error("Error performing numeric op"))]
@@ -439,7 +439,7 @@ impl Error {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait MmrApi<Hash: codec::Codec, BlockNumber: codec::Codec> {
 		/// Return the on-chain MMR root hash.
 		fn mmr_root() -> Result<Hash, Error>;
@@ -453,6 +453,13 @@ sp_api::decl_runtime_apis! {
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>
 		) -> Result<(Vec<EncodableOpaqueLeaf>, LeafProof<Hash>), Error>;
+
+		/// Generates a proof that the `prev_block_number` is part of the canonical chain at
+		/// `best_known_block_number`.
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<AncestryProof<Hash>, Error>;
 
 		/// Verify MMR proof against on-chain MMR for a batch of leaves.
 		///

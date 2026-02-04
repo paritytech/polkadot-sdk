@@ -41,7 +41,7 @@ sp_api::decl_runtime_apis! {
 		/// Optionally, a number of `try_state` hooks can also be executed after the block
 		/// execution.
 		fn execute_block(
-			block: Block,
+			block: Block::LazyBlock,
 			state_root_check: bool,
 			signature_check: bool,
 			try_state: TryStateSelect,

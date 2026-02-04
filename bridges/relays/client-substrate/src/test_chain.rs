@@ -21,10 +21,15 @@
 
 #![cfg(any(feature = "test-helpers", test))]
 
-use crate::{Chain, ChainWithBalances, ChainWithMessages};
+use crate::{
+	Chain, ChainWithBalances, ChainWithMessages, ChainWithRewards, ChainWithTransactions,
+	Error as SubstrateError, SignParam, UnsignedTransaction,
+};
 use bp_messages::{ChainWithMessages as ChainWithMessagesBase, MessageNonce};
 use bp_runtime::ChainId;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{sp_runtime::StateVersion, weights::Weight};
+use scale_info::TypeInfo;
 use std::time::Duration;
 
 /// Chain that may be used in tests.
@@ -64,11 +69,42 @@ impl Chain for TestChain {
 	type SignedBlock = sp_runtime::generic::SignedBlock<
 		sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,
 	>;
-	type Call = ();
+	type Call = TestRuntimeCall;
 }
 
 impl ChainWithBalances for TestChain {
 	fn account_info_storage_key(_account_id: &u32) -> sp_core::storage::StorageKey {
+		unreachable!()
+	}
+}
+
+/// Reward type for the test chain.
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	MaxEncodedLen,
+	PartialEq,
+	TypeInfo,
+)]
+pub enum ChainReward {
+	/// Reward 1 type.
+	Reward1,
+}
+
+impl ChainWithRewards for TestChain {
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
+	type RewardBalance = u128;
+	type Reward = ChainReward;
+
+	fn account_reward_storage_key(
+		_account_id: &Self::AccountId,
+		_reward: impl Into<Self::Reward>,
+	) -> sp_core::storage::StorageKey {
 		unreachable!()
 	}
 }
@@ -82,6 +118,32 @@ impl ChainWithMessagesBase for TestChain {
 impl ChainWithMessages for TestChain {
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestMessagesDetailsMethod";
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestFromMessagesDetailsMethod";
+}
+
+impl ChainWithTransactions for TestChain {
+	type AccountKeyPair = sp_core::sr25519::Pair;
+	type SignedTransaction = bp_polkadot_core::UncheckedExtrinsic<
+		TestRuntimeCall,
+		bp_polkadot_core::SuffixedCommonTransactionExtension<(
+			bp_runtime::extensions::BridgeRejectObsoleteHeadersAndMessages,
+			bp_runtime::extensions::RefundBridgedParachainMessagesSchema,
+		)>,
+	>;
+
+	fn sign_transaction(
+		_param: SignParam<Self>,
+		_unsigned: UnsignedTransaction<Self>,
+	) -> Result<Self::SignedTransaction, SubstrateError> {
+		unreachable!()
+	}
+}
+
+/// Dummy runtime call.
+#[derive(Decode, Encode, Clone, Debug, PartialEq)]
+pub enum TestRuntimeCall {
+	/// Dummy call.
+	#[codec(index = 0)]
+	Dummy,
 }
 
 /// Primitives-level parachain that may be used in tests.
@@ -134,5 +196,5 @@ impl Chain for TestParachain {
 	type SignedBlock = sp_runtime::generic::SignedBlock<
 		sp_runtime::generic::Block<Self::Header, sp_runtime::OpaqueExtrinsic>,
 	>;
-	type Call = ();
+	type Call = TestRuntimeCall;
 }

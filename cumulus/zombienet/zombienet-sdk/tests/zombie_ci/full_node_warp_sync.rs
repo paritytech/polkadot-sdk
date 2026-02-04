@@ -187,7 +187,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_node(|node| {
 					node.with_name("dave").with_args(vec![
-						("-lparachain=debug").into(),
+						("-lparachain=debug,sync=trace").into(),
 						("--no-beefy").into(),
 						("--reserved-only").into(),
 						(
@@ -214,7 +214,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| n.with_name("one").with_db_snapshot(DB_SNAPSHOT_PARACHAIN))
 				.with_collator(|n| {
 					n.with_name("two").validator(false).with_args(vec![
-						("-lsync=debug").into(),
+						("-lsync=trace").into(),
 						("--sync", "warp").into(),
 						("--").into(),
 						("--sync", "warp").into(),
@@ -222,14 +222,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				})
 				.with_collator(|n| {
 					n.with_name("three").validator(false).with_args(vec![
-						("-lsync=debug").into(),
+						("-lsync=trace").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:alice:ws_uri}}").into(),
 					])
 				})
 				.with_collator(|n| {
 					n.with_name("four").validator(false).with_args(vec![
-						("-lsync=debug").into(),
+						("-lsync=trace").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
 					])

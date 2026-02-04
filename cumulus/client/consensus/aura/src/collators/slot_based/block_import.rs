@@ -40,7 +40,7 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 			if self.receiver.is_terminated() {
 				futures::pending!()
 			} else if let Some(res) = self.receiver.next().await {
-				return res
+				return res;
 			}
 		}
 	}
@@ -116,7 +116,7 @@ where
 			let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
 
 			runtime_api
-				.execute_block(parent_hash, block.clone())
+				.execute_block(parent_hash, block.clone().into())
 				.map_err(|e| Box::new(e) as Box<_>)?;
 
 			let storage_proof =
@@ -130,7 +130,7 @@ where
 			if params.header.state_root() != &gen_storage_changes.transaction_storage_root {
 				return Err(sp_consensus::Error::Other(Box::new(
 					sp_blockchain::Error::InvalidStateRoot,
-				)))
+				)));
 			}
 
 			params.state_action = StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(

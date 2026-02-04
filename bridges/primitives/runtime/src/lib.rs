@@ -29,9 +29,9 @@ use serde::{Deserialize, Serialize};
 use sp_core::storage::StorageKey;
 use sp_runtime::{
 	traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto},
-	RuntimeDebug,
+	Debug,
 };
-use sp_std::{fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
+use sp_std::{ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
@@ -76,7 +76,7 @@ pub const NO_INSTANCE_ID: ChainId = [0, 0, 0, 0];
 
 /// Generic header Id.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Default,
 	Clone,
 	Encode,
@@ -165,7 +165,7 @@ impl Size for PreComputedSize {
 }
 
 /// Era of specific transaction.
-#[derive(RuntimeDebug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TransactionEra<BlockNumber, BlockHash> {
 	/// Transaction is immortal.
 	Immortal,
@@ -346,7 +346,7 @@ pub trait OperatingMode: Send + Copy + Debug + FullCodec {
 	Copy,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	Serialize,
@@ -370,6 +370,8 @@ impl OperatingMode for BasicOperatingMode {
 		*self == BasicOperatingMode::Halted
 	}
 }
+
+const COMMON_LOG_TARGET: &'static str = "runtime::bridge-module";
 
 /// Bridge module that has owner and operating mode
 pub trait OwnedBridgeModule<T: frame_system::Config> {
@@ -413,11 +415,11 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 		match maybe_owner {
 			Some(owner) => {
 				Self::OwnerStorage::put(&owner);
-				log::info!(target: Self::LOG_TARGET, "Setting pallet Owner to: {:?}", owner);
+				tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, ?owner, "Setting pallet.");
 			},
 			None => {
 				Self::OwnerStorage::kill();
-				log::info!(target: Self::LOG_TARGET, "Removed Owner of pallet.");
+				tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, "Removed Owner of pallet.");
 			},
 		}
 
@@ -431,7 +433,7 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 	) -> DispatchResult {
 		Self::ensure_owner_or_root(origin)?;
 		Self::OperatingModeStorage::put(operating_mode);
-		log::info!(target: Self::LOG_TARGET, "Setting operating mode to {:?}.", operating_mode);
+		tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, ?operating_mode, "Setting operating mode.");
 		Ok(())
 	}
 

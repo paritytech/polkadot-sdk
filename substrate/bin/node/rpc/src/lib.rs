@@ -86,6 +86,14 @@ pub struct BeefyDeps<AuthorityId: AuthorityIdBound> {
 	pub subscription_executor: SubscriptionTaskExecutor,
 }
 
+/// Extra dependencies for statement store
+pub struct StatementStoreDeps {
+	/// Shared statement store reference.
+	pub statement_store: Arc<dyn sc_rpc::statement::StatementStoreApi>,
+	/// Executor to drive the subscription manager in the statement store RPC handler.
+	pub subscription_executor: SubscriptionTaskExecutor,
+}
+
 /// Full client dependencies.
 pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	/// The client instance to use.
@@ -102,8 +110,8 @@ pub struct FullDeps<C, P, SC, B, AuthorityId: AuthorityIdBound> {
 	pub grandpa: GrandpaDeps<B>,
 	/// BEEFY specific dependencies.
 	pub beefy: BeefyDeps<AuthorityId>,
-	/// Shared statement store reference.
-	pub statement_store: Arc<dyn sp_statement_store::StatementStore>,
+	/// Statement store specific dependencies.
+	pub statement_store_deps: StatementStoreDeps,
 	/// The backend used by the node.
 	pub backend: Arc<B>,
 	/// Mixnet API.
@@ -120,7 +128,7 @@ pub fn create_full<C, P, SC, B, AuthorityId>(
 		babe,
 		grandpa,
 		beefy,
-		statement_store,
+		statement_store_deps,
 		backend,
 		mixnet_api,
 	}: FullDeps<C, P, SC, B, AuthorityId>,
@@ -206,8 +214,12 @@ where
 
 	io.merge(StateMigration::new(client.clone(), backend).into_rpc())?;
 	io.merge(Dev::new(client).into_rpc())?;
-	let statement_store = sc_rpc::statement::StatementStore::new(statement_store).into_rpc();
-	io.merge(statement_store)?;
+	let statement_store_rpc = sc_rpc::statement::StatementStore::new(
+		statement_store_deps.statement_store,
+		statement_store_deps.subscription_executor,
+	)
+	.into_rpc();
+	io.merge(statement_store_rpc)?;
 
 	if let Some(mixnet_api) = mixnet_api {
 		let mixnet = sc_rpc::mixnet::Mixnet::new(mixnet_api).into_rpc();

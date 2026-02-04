@@ -23,7 +23,7 @@ use bounded_collections::{BoundedVec, ConstU32};
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_core::{bytes, RuntimeDebug, TypeId};
+use sp_core::{bytes, TypeId};
 use sp_runtime::traits::Hash as _;
 use sp_weights::Weight;
 
@@ -42,7 +42,6 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -50,6 +49,12 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 )]
 #[cfg_attr(feature = "std", derive(Hash, Default))]
 pub struct HeadData(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for HeadData {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "HeadData({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl HeadData {
 	/// Returns the hash of this head data.
@@ -68,7 +73,6 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -76,6 +80,12 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct ValidationCode(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for ValidationCode {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "ValidationCode({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl ValidationCode {
 	/// Get the blake2-256 hash of the validation code bytes.
@@ -144,7 +154,7 @@ impl core::fmt::LowerHex for ValidationCodeHash {
 /// Parachain block data.
 ///
 /// Contains everything required to validate para-block, may contain block and witness data.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -163,13 +173,18 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(derive_more::Display))]
 pub struct Id(u32);
+
+impl core::fmt::Debug for Id {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		self.0.fmt(f)
+	}
+}
 
 impl codec::EncodeLike<u32> for Id {}
 impl codec::EncodeLike<Id> for u32 {}
@@ -190,6 +205,7 @@ impl From<u32> for Id {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 impl From<usize> for Id {
 	fn from(x: usize) -> Self {
 		// can't panic, so need to truncate
@@ -261,9 +277,7 @@ impl core::ops::Sub<u32> for Id {
 	}
 }
 
-#[derive(
-	Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo)]
 pub struct Sibling(pub Id);
 
 impl From<Id> for Sibling {
@@ -314,16 +328,7 @@ impl IsSystem for Sibling {
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
@@ -365,17 +370,7 @@ impl DmpMessageHandler for () {
 
 /// The aggregate XCMP message format.
 #[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	TypeInfo,
-	RuntimeDebug,
-	MaxEncodedLen,
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.
@@ -385,6 +380,8 @@ pub enum XcmpMessageFormat {
 	/// One or more channel control signals; these should be interpreted immediately upon receipt
 	/// from the relay-chain.
 	Signals,
+	/// Double encoded `VersionedXcm` messages, all concatenated.
+	ConcatenatedOpaqueVersionedXcm,
 }
 
 /// Something that should be called for each batch of messages received over XCMP.
@@ -459,4 +456,15 @@ pub struct ValidationResult {
 	/// The mark which specifies the block number up to which all inbound HRMP messages are
 	/// processed.
 	pub hrmp_watermark: RelayChainBlockNumber,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn para_id_debug() {
+		let id = Id::new(42);
+		assert_eq!(format!("{:?}", id), "42");
+	}
 }

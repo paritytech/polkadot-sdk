@@ -25,7 +25,7 @@ include!("../panic_handler.rs");
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
-static BUFFER: [u8; 1025 * 1024] = [0; 1025 * 1024];
+static BUFFER: [u8; 1024 * 1024] = [0; 1024 * 1024];
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]

@@ -38,9 +38,27 @@ possibly integration.*
 * [ ] My PR follows the [labeling requirements](
 https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
 ) of this project (at minimum one label for `T` required)
-    * External contributors: ask maintainers to put the right label on your PR.
+    * External contributors: Use `/cmd label <label-name>` to add labels
+    * Maintainers can also add labels manually
 * [ ] I have made corresponding changes to the documentation (if applicable)
 * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
+
+## Bot Commands
+
+You can use the following bot commands in comments to help manage your PR:
+
+**Labeling (Self-service for contributors):**
+* `/cmd label T1-FRAME` - Add a single label
+* `/cmd label T1-FRAME R0-no-crate-publish-required` - Add multiple labels
+* `/cmd label T6-XCM D2-substantial I5-enhancement` - Add multiple labels at once
+* See [label documentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html) for all available labels
+
+**Other useful commands:**
+* `/cmd fmt` - Format code (cargo +nightly fmt and taplo)
+* `/cmd prdoc` - Generate PR documentation
+* `/cmd bench` - Run benchmarks
+* `/cmd update-ui` - Update UI tests
+* `/cmd --help` - Show help for all available commands
 
 You can remove the "Checklist" section once all have been checked. Thank you for your contribution!
 

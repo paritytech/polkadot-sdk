@@ -12,9 +12,9 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
+tracing = { workspace = true }
 tuplex = { workspace = true }
 
 # Bridge dependencies
@@ -62,7 +62,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -75,6 +74,7 @@ std = [
 	"sp-std/std",
 	"sp-trie/std",
 	"sp-weights/std",
+	"tracing/std",
 	"tuplex/std",
 	"xcm/std",
 ]

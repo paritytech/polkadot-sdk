@@ -1,0 +1,7 @@
+title: Remove the `experimental-ump-signals` feature
+doc:
+- audience: Runtime Dev
+  description: Enable UMP signals by default.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major

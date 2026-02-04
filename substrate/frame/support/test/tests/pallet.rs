@@ -491,7 +491,7 @@ pub mod pallet {
 	#[pallet::origin]
 	#[derive(
 		EqNoBound,
-		RuntimeDebugNoBound,
+		DebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
 		PartialOrdNoBound,
@@ -563,7 +563,7 @@ pub mod pallet {
 		Staking,
 	}
 
-	#[derive(codec::Encode, sp_runtime::RuntimeDebug)]
+	#[derive(codec::Encode, Debug)]
 	#[cfg_attr(feature = "std", derive(codec::Decode))]
 	pub enum InherentError {
 		Fatal,
@@ -1014,7 +1014,7 @@ fn inherent_expand() {
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).ok());
+	assert!(InherentData::new().check_extrinsics(&block.into()).ok());
 
 	let block = Block::new(
 		Header::new(
@@ -1033,7 +1033,7 @@ fn inherent_expand() {
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).fatal_error());
+	assert!(InherentData::new().check_extrinsics(&block.into()).fatal_error());
 
 	let block = Block::new(
 		Header::new(
@@ -1050,7 +1050,7 @@ fn inherent_expand() {
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
+	assert!(inherent.check_extrinsics(&block.into()).fatal_error());
 
 	let block = Block::new(
 		Header::new(
@@ -1070,7 +1070,7 @@ fn inherent_expand() {
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
+	assert!(inherent.check_extrinsics(&block.into()).fatal_error());
 }
 
 #[test]
@@ -2410,6 +2410,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		AllPalletsWithSystem,
 	>;
 
+	/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+	/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+	/// can be safely deleted.
+	#[allow(deprecated)]
 	type ExecutiveWithUpgrade = frame_executive::Executive<
 		Runtime,
 		Block,
@@ -2419,6 +2423,10 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 		CustomUpgrade,
 	>;
 
+	/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+	/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+	/// can be safely deleted.
+	#[allow(deprecated)]
 	type ExecutiveWithUpgradePallet4 = frame_executive::Executive<
 		Runtime,
 		Block,

@@ -1,0 +1,12 @@
+title: 'CumulusDigestItem: Add function to fetch the relay block identifier'
+doc:
+- audience: Node Dev
+  description: |-
+    This simplifies code paths that are fetching these information from a parachain header.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: minor
+- name: cumulus-client-consensus-common
+  bump: minor
+- name: cumulus-primitives-core
+  bump: minor

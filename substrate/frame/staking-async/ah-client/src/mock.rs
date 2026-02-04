@@ -18,10 +18,34 @@
 //! Mock runtime for pallet-staking-async-ah-client tests.
 
 use crate::*;
+use alloc::vec::Vec;
 use frame_support::{derive_impl, parameter_types, weights::Weight};
-use pallet_staking_async_rc_client as rc_client;
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{traits::OpaqueKeys, BuildStorage, KeyTypeId, Perbill};
 use sp_staking::offence::{OffenceSeverity, OnOffenceHandler};
+
+/// Mock session keys for testing.
+#[derive(Clone, PartialEq, Eq, Debug, codec::Encode, codec::Decode, scale_info::TypeInfo)]
+pub struct MockSessionKeys {
+	pub dummy: [u8; 32],
+}
+
+const MOCK_KEY_TYPE: KeyTypeId = KeyTypeId(*b"mock");
+
+impl OpaqueKeys for MockSessionKeys {
+	type KeyTypeIdProviders = ();
+
+	fn key_ids() -> &'static [KeyTypeId] {
+		&[MOCK_KEY_TYPE]
+	}
+
+	fn get_raw(&self, _: KeyTypeId) -> &[u8] {
+		&self.dummy
+	}
+
+	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+		true
+	}
+}
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -39,21 +63,31 @@ impl frame_system::Config for Test {
 	type AccountData = ();
 }
 
-pub struct MockSendToAssetHub;
-impl SendToAssetHub for MockSendToAssetHub {
-	type AccountId = u64;
-	fn relay_session_report(_session_report: rc_client::SessionReport<Self::AccountId>) {}
-	fn relay_new_offence(_session: u32, _offences: Vec<rc_client::Offence<Self::AccountId>>) {}
-}
-
 pub struct MockSessionInterface;
 impl SessionInterface for MockSessionInterface {
 	type ValidatorId = u64;
+	type AccountId = u64;
+	type Keys = MockSessionKeys;
+
 	fn validators() -> Vec<Self::ValidatorId> {
 		vec![1, 2, 3]
 	}
 	fn prune_up_to(_up_to: u32) {}
 	fn report_offence(_offender: Self::ValidatorId, _severity: OffenceSeverity) {}
+	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		SetKeysCalls::mutate(|calls| calls.push((*account, keys)));
+		Ok(())
+	}
+	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		PurgeKeysCalls::mutate(|calls| calls.push(*account));
+		Ok(())
+	}
+	fn set_keys_weight() -> Weight {
+		Weight::zero()
+	}
+	fn purge_keys_weight() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub struct MockFallback;
@@ -97,22 +131,28 @@ parameter_types! {
 	pub const MinimumValidatorSetSize: u32 = 3;
 	pub const PointsPerBlock: u32 = 1;
 	pub const MaxOffenceBatchSize: u32 = 100;
+	pub static SetKeysCalls: Vec<(u64, MockSessionKeys)> = vec![];
+	pub static PurgeKeysCalls: Vec<u64> = vec![];
 }
 
 impl Config for Test {
 	type CurrencyBalance = u128;
 	type AssetHubOrigin = frame_system::EnsureRoot<u64>;
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
-	type SendToAssetHub = MockSendToAssetHub;
+	type SendToAssetHub = ();
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type MaximumValidatorsWithPoints = ConstU32<128>;
 	type UnixTime = MockUnixTime;
 	type PointsPerBlock = PointsPerBlock;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = MockSessionInterface;
 	type Fallback = MockFallback;
-	type WeightInfo = ();
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
+#[cfg(test)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	SetKeysCalls::take();
+	PurgeKeysCalls::take();
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }

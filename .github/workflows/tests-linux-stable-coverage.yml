@@ -42,7 +42,7 @@ jobs:
         ci_node_total: [5]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - run: rustup component add llvm-tools-preview
       - run: cargo install cargo-llvm-cov
@@ -82,7 +82,7 @@ jobs:
       - name: generate report
         run: cargo llvm-cov report --release --codecov --output-path coverage-${{ matrix.ci_node_index }}.lcov
       - name: upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: coverage-report-${{ matrix.ci_node_index }}.lcov
           path: coverage-${{ matrix.ci_node_index }}.lcov
@@ -95,14 +95,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           path: reports
           pattern: coverage-report-*
           merge-multiple: true
       - run: ls -al reports/
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
@@ -117,7 +117,7 @@ jobs:
     needs: [upload-reports]
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-ecosystem/action-remove-labels@v1
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions-ecosystem/action-remove-labels@2ce5d41b4b6aa8503e285553f75ed56e0a40bae0 # v1.3.0
         with:
           labels: GHA-coverage

@@ -22,7 +22,7 @@
 // ! we don't want to generate the `trait WeightInfo`.
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-05-30, STEPS: `10`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-10-08, STEPS: `10`, REPEAT: `10`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
@@ -41,15 +41,15 @@
 // --steps
 // 10
 // --repeat
-// 20
+// 10
 // --genesis-builder-preset
-// dot_size
+// fake-dot
 // --template
 // ../../../../../substrate/frame/election-provider-multi-block/src/template.hbs
 // --heap-pages
 // 65000
 // --output
-// ./pallet_election_provider_multi_block_signed_dot_size.rs
+// ./pallet_election_provider_multi_block_signed_fake-dot.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -63,141 +63,151 @@ use core::marker::PhantomData;
 /// Weights for `pallet_election_provider_multi_block_signed`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_multi_block_signed::WeightInfo for WeightInfo<T> {
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:0 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:0 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	fn register_not_full() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3074`
-		//  Estimated: `6539`
-		// Minimum execution time: 139_781_000 picoseconds.
-		Weight::from_parts(141_441_000, 6539)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+		//  Measured:  `3312`
+		//  Estimated: `6777`
+		// Minimum execution time: 130_211_000 picoseconds.
+		Weight::from_parts(131_911_000, 6777)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Storage: `Balances::Holds` (r:2 w:2)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:2)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:2)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
 	fn register_eject() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `7674`
-		//  Estimated: `87864`
-		// Minimum execution time: 345_362_000 picoseconds.
-		Weight::from_parts(351_381_000, 87864)
-			.saturating_add(T::DbWeight::get().reads(39_u64))
+		//  Measured:  `7846`
+		//  Estimated: `88036`
+		// Minimum execution time: 314_814_000 picoseconds.
+		Weight::from_parts(323_504_000, 88036)
+			.saturating_add(T::DbWeight::get().reads(40_u64))
 			.saturating_add(T::DbWeight::get().writes(37_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:0)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
 	fn submit_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3607`
-		//  Estimated: `7072`
-		// Minimum execution time: 6_454_547_000 picoseconds.
-		Weight::from_parts(6_585_090_000, 7072)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
+		//  Measured:  `3845`
+		//  Estimated: `7310`
+		// Minimum execution time: 313_002_000 picoseconds.
+		Weight::from_parts(329_092_000, 7310)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:0)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
 	fn unset_page() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `15537`
-		//  Estimated: `19002`
-		// Minimum execution time: 6_424_309_000 picoseconds.
-		Weight::from_parts(8_822_282_000, 19002)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
+		//  Measured:  `6737`
+		//  Estimated: `10202`
+		// Minimum execution time: 262_482_000 picoseconds.
+		Weight::from_parts(288_781_000, 10202)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `MultiBlock::CurrentPhase` (r:1 w:0)
-	/// Proof: `MultiBlock::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:0)
+	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
 	fn bail() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4539`
-		//  Estimated: `84729`
-		// Minimum execution time: 230_051_000 picoseconds.
-		Weight::from_parts(232_931_000, 84729)
+		//  Measured:  `4777`
+		//  Estimated: `84967`
+		// Minimum execution time: 204_581_000 picoseconds.
+		Weight::from_parts(206_781_000, 84967)
 			.saturating_add(T::DbWeight::get().reads(38_u64))
 			.saturating_add(T::DbWeight::get().writes(35_u64))
 	}
-	/// Storage: `MultiBlock::Round` (r:1 w:0)
-	/// Proof: `MultiBlock::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SortedScores` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionStorage` (r:32 w:32)
-	/// Proof: `MultiBlockSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
-	/// Storage: `MultiBlockSigned::SubmissionMetadataStorage` (r:1 w:1)
-	/// Proof: `MultiBlockSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(45072), added: 47547, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
 	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
 	/// Storage: `Balances::Holds` (r:1 w:1)
-	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `Measured`)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(211), added: 2686, mode: `Measured`)
+	/// Storage: `MultiBlockElectionSigned::Invulnerables` (r:1 w:0)
+	/// Proof: `MultiBlockElectionSigned::Invulnerables` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `Measured`)
 	/// The range of component `p` is `[1, 32]`.
 	fn clear_old_round_data(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3531 + p * (32 ±0)`
-		//  Estimated: `6996 + p * (2507 ±0)`
-		// Minimum execution time: 141_670_000 picoseconds.
-		Weight::from_parts(142_005_262, 6996)
-			// Standard Error: 17_673
-			.saturating_add(Weight::from_parts(1_930_735, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+		//  Measured:  `3769 + p * (32 ±0)`
+		//  Estimated: `7234 + p * (2507 ±0)`
+		// Minimum execution time: 128_480_000 picoseconds.
+		Weight::from_parts(127_828_412, 7234)
+			// Standard Error: 25_106
+			.saturating_add(Weight::from_parts(1_389_687, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))

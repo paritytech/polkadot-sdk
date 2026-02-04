@@ -44,7 +44,6 @@ use futures::{
 	FutureExt, StreamExt,
 };
 use log::{debug, error, info, trace, warn};
-use parachains_common::Hash as ParaHash;
 use prost::Message;
 use sc_network::{
 	event::{DhtEvent, Event},
@@ -70,7 +69,7 @@ pub struct BootnodeDiscoveryParams {
 	/// Parachain node network service.
 	pub parachain_network: Arc<dyn NetworkService>,
 	/// Parachain genesis hash.
-	pub parachain_genesis_hash: ParaHash,
+	pub parachain_genesis_hash: Vec<u8>,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
 	/// Relay chain interface.
@@ -85,7 +84,7 @@ pub struct BootnodeDiscoveryParams {
 pub struct BootnodeDiscovery {
 	para_id_scale_compact: Vec<u8>,
 	parachain_network: Arc<dyn NetworkService>,
-	parachain_genesis_hash: ParaHash,
+	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	relay_chain_network: Arc<dyn NetworkService>,
@@ -311,7 +310,7 @@ impl BootnodeDiscovery {
 
 		match (response.genesis_hash, response.fork_id) {
 			(genesis_hash, fork_id)
-				if genesis_hash == self.parachain_genesis_hash.as_ref() &&
+				if genesis_hash == self.parachain_genesis_hash &&
 					fork_id == self.parachain_fork_id => {},
 			(genesis_hash, fork_id) => {
 				warn!(
@@ -320,7 +319,7 @@ impl BootnodeDiscovery {
 					 genesis hash {}, fork ID {:?} don't match expected genesis hash {}, fork ID {:?}",
 					hex::encode(genesis_hash),
 					fork_id,
-					hex::encode(self.parachain_genesis_hash),
+					hex::encode(&self.parachain_genesis_hash),
 					self.parachain_fork_id,
 				);
 				return;

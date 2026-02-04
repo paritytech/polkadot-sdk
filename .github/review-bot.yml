@@ -58,7 +58,7 @@ rules:
       include:
         - ^substrate/frame/contracts/.*
         - ^substrate/frame/revive/.*
-    minApprovals: 2
+    minApprovals: 1
     teams:
       - smart-contracts
 

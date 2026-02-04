@@ -20,7 +20,10 @@ use crate::{KeyTypeId, RuntimePublic};
 
 use alloc::vec::Vec;
 
-pub use sp_core::bls::bls381::*;
+pub use sp_core::bls::{
+	bls381::{BlsEngine as Bls381Engine, *},
+	Pair as BLS_Pair, ProofOfPossession as BLSPoP,
+};
 use sp_core::{crypto::CryptoType, proof_of_possession::ProofOfPossessionVerifier};
 
 mod app {
@@ -29,10 +32,13 @@ mod app {
 
 #[cfg(feature = "full_crypto")]
 pub use app::Pair as AppPair;
-pub use app::{Public as AppPublic, Signature as AppSignature};
+pub use app::{
+	ProofOfPossession as AppProofOfPossession, Public as AppPublic, Signature as AppSignature,
+};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Dummy implementation. Returns an empty vector.
 	fn all(_key_type: KeyTypeId) -> Vec<Self> {
@@ -53,14 +59,25 @@ impl RuntimePublic for Public {
 		false
 	}
 
-	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		sp_io::crypto::bls381_generate_proof_of_possession(key_type, self)
+	fn generate_proof_of_possession(
+		&mut self,
+		key_type: KeyTypeId,
+		owner: &[u8],
+	) -> Option<Self::ProofOfPossession> {
+		sp_io::crypto::bls381_generate_proof_of_possession(key_type, self, owner)
 	}
 
-	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
-		let proof_of_possession = AppSignature::from(*proof_of_possession);
+	fn verify_proof_of_possession(
+		&self,
+		owner: &[u8],
+		proof_of_possession: &Self::ProofOfPossession,
+	) -> bool {
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&proof_of_possession, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
+			owner,
+			&proof_of_possession,
+			&pub_key,
+		)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

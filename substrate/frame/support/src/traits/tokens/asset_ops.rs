@@ -128,6 +128,7 @@ use core::marker::PhantomData;
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
+pub mod common_ops;
 pub mod common_strategies;
 
 /// Trait for defining an asset.

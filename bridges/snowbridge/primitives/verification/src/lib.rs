@@ -6,7 +6,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
-use sp_core::{RuntimeDebug, H160, H256};
+use sp_core::{H160, H256};
 use sp_std::prelude::*;
 
 /// A trait for verifying inbound messages from Ethereum.
@@ -14,7 +14,7 @@ pub trait Verifier {
 	fn verify(event: &Log, proof: &Proof) -> Result<(), VerificationError>;
 }
 
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PalletError, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, Debug, PalletError, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub enum VerificationError {
 	/// Execution header is missing
@@ -30,7 +30,7 @@ pub enum VerificationError {
 }
 
 /// A bridge message from the Gateway contract on Ethereum
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct EventProof {
 	/// Event log emitted by Gateway contract
 	pub event_log: Log,
@@ -38,32 +38,16 @@ pub struct EventProof {
 	pub proof: Proof,
 }
 
-const MAX_TOPICS: usize = 4;
-
-#[derive(Clone, RuntimeDebug)]
-pub enum LogValidationError {
-	TooManyTopics,
-}
-
 /// Event log
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
 	pub data: Vec<u8>,
 }
 
-impl Log {
-	pub fn validate(&self) -> Result<(), LogValidationError> {
-		if self.topics.len() > MAX_TOPICS {
-			return Err(LogValidationError::TooManyTopics)
-		}
-		Ok(())
-	}
-}
-
 /// Inclusion proof for a transaction receipt
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub struct Proof {
 	// Proof keys and values (receipts tree)
 	pub receipt_proof: (Vec<Vec<u8>>, Vec<Vec<u8>>),
@@ -71,7 +55,7 @@ pub struct Proof {
 	pub execution_proof: ExecutionProof,
 }
 
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct EventFixture {
 	pub event: EventProof,
 	pub finalized_header: BeaconHeader,

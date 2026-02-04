@@ -66,7 +66,6 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
 
 use frame_support::{
 	defensive,
@@ -76,7 +75,7 @@ use frame_support::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 		RankedMembersSwapHandler,
 	},
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 
 #[cfg(test)]
@@ -101,7 +100,7 @@ pub use weights::*;
 	Clone,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 )]
 pub enum Wish {
 	/// Member wishes only to retain their current rank.
@@ -124,7 +123,7 @@ pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -171,7 +170,7 @@ impl<Inner: Get<u16>> Get<u32> for ConvertU16ToU32<Inner> {
 }
 
 /// The status of a single member.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct MemberStatus<BlockNumber> {
 	/// Are they currently active?
 	is_active: bool,
@@ -365,7 +364,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -385,7 +384,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -534,7 +533,7 @@ pub mod pallet {
 		/// This is useful for out-of-band promotions, hence it has its own `FastPromoteOrigin` to
 		/// be (possibly) more restrictive than `PromoteOrigin`. Note that the member must already
 		/// be inducted.
-		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank))]
+		#[pallet::weight(T::WeightInfo::promote_fast(*to_rank as u32))]
 		#[pallet::call_index(10)]
 		pub fn promote_fast(
 			origin: OriginFor<T>,
@@ -798,15 +797,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {

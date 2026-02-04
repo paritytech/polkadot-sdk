@@ -88,9 +88,7 @@ async fn approval_voting_coalescing_test() -> Result<(), anyhow::Error> {
 			(ParaId::from(2005), 11..35),
 			(ParaId::from(2006), 11..35),
 			(ParaId::from(2007), 11..35),
-		]
-		.into_iter()
-		.collect(),
+		],
 	)
 	.await?;
 

@@ -875,7 +875,7 @@ fn last_runtime_upgrade_spec_version_usage() {
 			// a runtime upgrade in the pipeline of being applied, you should use the spec version
 			// of this upgrade.
 			if System::last_runtime_upgrade_spec_version() > 1337 {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Do the migration.
@@ -962,5 +962,18 @@ fn reclaim_works() {
 
 		System::note_applied_extrinsic(&Ok(().into()), Default::default());
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::zero());
+	});
+}
+
+#[test]
+#[should_panic(expected = "Block number must be strictly increasing.")]
+fn initialize_block_number_must_be_sequential() {
+	new_test_ext().execute_with(|| {
+		// Initialize block 1
+		System::initialize(&1, &[0u8; 32].into(), &Default::default());
+		System::finalize();
+
+		// Try to initialize block 3, skipping block 2 - this should panic
+		System::initialize(&3, &[0u8; 32].into(), &Default::default());
 	});
 }

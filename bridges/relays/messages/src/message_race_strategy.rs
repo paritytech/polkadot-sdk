@@ -121,12 +121,12 @@ where
 
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// find first entry that may be delivered to the target node
@@ -163,7 +163,7 @@ where
 		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
 			if let Some(range_to_requeue) = queued_range.greater_than(nonce) {
 				self.source_queue.push_front((queued_at, range_to_requeue));
-				break
+				break;
 			}
 		}
 	}
@@ -202,10 +202,6 @@ where
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
 	type TargetNoncesData = ();
-
-	fn is_empty(&self) -> bool {
-		self.source_queue.is_empty()
-	}
 
 	async fn required_source_header_at_target<
 		RS: RaceState<
@@ -279,11 +275,11 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
-				nonce,
-				race_state.nonces_to_submit(),
+				%nonce,
+				nonces_to_submit=?race_state.nonces_to_submit(),
+				"Latest nonce at target. Clearing nonces to submit"
 			);
 
 			race_state.reset_nonces_to_submit();
@@ -296,11 +292,11 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
-				nonce,
-				race_state.nonces_submitted(),
+				%nonce,
+				nonces_submitted=?race_state.nonces_submitted(),
+				"Latest nonce at target. Clearing submitted nonces"
 			);
 
 			race_state.reset_nonces_submitted();
@@ -381,14 +377,6 @@ mod tests {
 
 	fn target_nonces(latest_nonce: MessageNonce) -> TargetClientNonces<()> {
 		TargetClientNonces { latest_nonce, nonces_data: () }
-	}
-
-	#[test]
-	fn strategy_is_empty_works() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		assert!(strategy.is_empty());
-		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
-		assert!(!strategy.is_empty());
 	}
 
 	#[test]

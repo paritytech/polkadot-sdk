@@ -33,18 +33,13 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::AsyncBackingParams,
-		slashing,
-		vstaging::{
-			async_backing::{BackingState, Constraints},
-			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-			ScrapedOnChainVotes,
-		},
-		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
-		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
-		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement, SessionIndex,
-		SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-		ValidatorSignature,
+		async_backing::{AsyncBackingParams, BackingState, Constraints},
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -57,11 +52,7 @@ use sp_consensus_babe::Epoch;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 
-use crate::{
-	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
-	metrics::RelaychainRpcMetrics,
-	reconnecting_ws_client::ReconnectingWebsocketWorker,
-};
+use crate::{metrics::RelaychainRpcMetrics, reconnecting_ws_client::ReconnectingWebsocketWorker};
 pub use url::Url;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
@@ -104,26 +95,6 @@ pub async fn create_client_and_start_worker(
 		.spawn("relay-chain-rpc-worker", None, worker.run());
 
 	let client = RelayChainRpcClient::new(sender, prometheus_registry);
-
-	Ok(client)
-}
-
-/// Entry point to create [`RelayChainRpcClient`] and start a worker that communicates
-/// with an embedded smoldot instance.
-pub async fn create_client_and_start_light_client_worker(
-	chain_spec: String,
-	task_manager: &mut TaskManager,
-) -> RelayChainResult<RelayChainRpcClient> {
-	let (client, chain_id, json_rpc_responses) =
-		build_smoldot_client(task_manager.spawn_handle(), &chain_spec).await?;
-	let (worker, sender) = LightClientRpcWorker::new(client, json_rpc_responses, chain_id);
-
-	task_manager
-		.spawn_essential_handle()
-		.spawn("relay-light-client-worker", None, worker.run());
-
-	// We'll not setup prometheus exporter metrics for the light client worker.
-	let client = RelayChainRpcClient::new(sender, None);
 
 	Ok(client)
 }
@@ -453,8 +424,18 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
+			.await
+	}
+
+	/// Returns a list of validators that lost a past session dispute and need to be slashed.
+	pub async fn parachain_host_unapplied_slashes_v2(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_unapplied_slashes_v2", at, None::<()>)
 			.await
 	}
 

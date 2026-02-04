@@ -966,14 +966,14 @@ mod benchmarks {
 		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
 		let _ = Pools::<T>::unfreeze_pool_deposit(&Pools::<T>::generate_reward_account(1));
 
-		assert!(&Pools::<T>::check_ed_imbalance().is_err());
+		assert_eq!(Pools::<T>::check_ed_imbalance().unwrap(), 1);
 
 		whitelist_account!(depositor);
 
 		#[extrinsic_call]
 		_(RuntimeOrigin::Signed(depositor), 1);
 
-		assert!(&Pools::<T>::check_ed_imbalance().is_ok());
+		assert_eq!(Pools::<T>::check_ed_imbalance().unwrap(), 0);
 	}
 
 	#[benchmark]

@@ -26,7 +26,7 @@ use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
 
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	ClaimQueueOffset, CoreSelector, MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 };
 use rstest::rstest;

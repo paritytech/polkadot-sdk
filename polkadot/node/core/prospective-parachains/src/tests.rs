@@ -25,13 +25,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	async_backing::{Constraints, InboundHrmpLimitations},
-	vstaging::{
-		async_backing::{BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2},
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+	async_backing::{
+		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
 	},
-	CoreIndex, HeadData, Header, PersistedValidationData, ValidationCodeHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Header,
+	MutateDescriptorV2, PersistedValidationData, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use rstest::rstest;
@@ -56,30 +54,6 @@ fn dummy_constraints(
 	validation_code_hash: ValidationCodeHash,
 ) -> Constraints {
 	Constraints {
-		min_relay_parent_number,
-		max_pov_size: MAX_POV_SIZE,
-		max_code_size: 1_000_000,
-		ump_remaining: 10,
-		ump_remaining_bytes: 1_000,
-		max_ump_num_per_candidate: 10,
-		dmp_remaining_messages: vec![],
-		hrmp_inbound: InboundHrmpLimitations { valid_watermarks },
-		hrmp_channels_out: vec![],
-		max_hrmp_num_per_candidate: 0,
-		required_parent,
-		validation_code_hash,
-		upgrade_restriction: None,
-		future_validation_code: None,
-	}
-}
-
-fn dummy_constraints_v2(
-	min_relay_parent_number: BlockNumber,
-	valid_watermarks: Vec<BlockNumber>,
-	required_parent: HeadData,
-	validation_code_hash: ValidationCodeHash,
-) -> ConstraintsV2 {
-	ConstraintsV2 {
 		min_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
 		max_head_data_size: 20480,
@@ -375,7 +349,7 @@ async fn handle_leaf_activation(
 			{
 				let PerParaData { min_relay_parent, head_data, pending_availability: _ } =
 					leaf.para_data(p_id);
-				let constraints = dummy_constraints_v2(
+				let constraints = dummy_constraints(
 					*min_relay_parent,
 					vec![*number],
 					head_data.clone(),

@@ -1,0 +1,28 @@
+title: '[pallet-revive] revm refactor'
+doc:
+- audience: Runtime Dev
+  description: |
+    This PR refactors the REVM implementation in `pallet-revive`, reducing technical debt and decoupling it from specific REVM versions. This enables easier integration with other projects, such as Foundry, with dependencies limited to REVM's [`Bytecode`](https://docs.rs/revm/latest/revm/bytecode/struct.Bytecode.html).
+
+    **Background:**  
+    Many of REVM's generics and trait abstractions were unused or ignored to avoid bugs. The pallet interacts with the host via the `Ext` trait, rendering other REVM abstractions unnecessary.
+
+    Previously unused REVM components included:
+    - `Host` trait: Unused, relied on the `DummyHost` mock.
+    - Gas field: Not used, as the pallet uses its own accounting.
+    - Methods from `InputsTr`: Most methods unused or had panic implementations.
+    - `Spec`: Only maintaining the latest fork per runtime.
+
+    **Key Changes:**
+    - Interpreter: Now a minimal struct with only necessary fields.
+    - Stack: Uses `sp_core::U256` for better integration.
+    - Memory: Simplified to needed methods only.
+    - Instructions: Rewritten with simple signatures, using match statements instead of function pointer tables. Gas charging uses `EVMGas` wrapped in `Token<T>`. The interpreter loop has been significantly simplified.
+    - Error Handling: Failed opcodes now return `Halt::Err(DispatchError)`, removing previous error conversions.
+
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+

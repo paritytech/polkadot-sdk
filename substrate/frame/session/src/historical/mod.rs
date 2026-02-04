@@ -41,7 +41,7 @@ use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+	LayoutV0, MemoryDB, RandomState, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
 };
 
 use frame_support::{
@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
 			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
-				return // out of bounds. harmless.
+				return; // out of bounds. harmless.
 			}
 
 			(start..up_to).for_each(HistoricalSessions::<T>::remove);
@@ -264,7 +264,7 @@ impl<T: Config> ProvingTrie<T> {
 	where
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{
@@ -376,7 +376,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 		if count != proof.validator_count {
 			print_error("InvalidCount");
-			return None
+			return None;
 		}
 
 		let proof = StorageProof::new_with_duplicate_nodes_check(proof.trie_nodes)

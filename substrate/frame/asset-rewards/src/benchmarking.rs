@@ -27,7 +27,7 @@ use frame_support::{
 		Consideration, EnsureOrigin, Footprint,
 	},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin};
+use frame_system::{Pallet as System, RawOrigin};
 use sp_runtime::{traits::One, Saturating};
 use sp_std::prelude::*;
 
@@ -154,7 +154,8 @@ mod benchmarks {
 				staked_asset_id: staked_asset,
 				reward_asset_id: reward_asset,
 				reward_rate_per_block: min_balance,
-				expiry_block: pool_expire::<T>().evaluate(System::<T>::block_number()),
+				expiry_block: pool_expire::<T>()
+					.evaluate(T::BlockNumberProvider::current_block_number()),
 				pool_id: 0,
 			}
 			.into(),
@@ -224,7 +225,9 @@ mod benchmarks {
 			T::Balance::one(),
 		));
 
-		System::<T>::set_block_number(System::<T>::block_number() + BlockNumberFor::<T>::one());
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number() + BlockNumberFor::<T>::one(),
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(staker.clone()), 0, None);
@@ -292,8 +295,9 @@ mod benchmarks {
 			assert_ok!(AssetRewards::<T>::stake(RawOrigin::Signed(staker).into(), 0, min_balance));
 		}
 
-		let new_expiry_block =
-			pool_expire::<T>().evaluate(System::<T>::block_number()) + BlockNumberFor::<T>::one();
+		let new_expiry_block = pool_expire::<T>()
+			.evaluate(T::BlockNumberProvider::current_block_number()) +
+			BlockNumberFor::<T>::one();
 
 		#[extrinsic_call]
 		_(create_origin as T::RuntimeOrigin, 0, DispatchTime::At(new_expiry_block));

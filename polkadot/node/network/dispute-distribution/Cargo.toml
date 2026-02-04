@@ -32,7 +32,6 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
 async-trait = { workspace = true }
-futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }

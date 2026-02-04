@@ -7,6 +7,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -17,6 +18,46 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
+
+  differential-tests:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    permissions:
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          ["revive-dev-node-revm-solc", "revive-dev-node-polkavm-resolc"]
+    steps:
+      - name: Checkout the Polkadot SDK
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Update the Installed Python
+        run: apt-get update && apt-get install -y python3-pip python3
+      - name: Download artifact by ID
+        id: download
+        run: |
+          curl -L --fail --show-error \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/paritytech/revive/actions/artifacts/5198357315/zip" \
+            -o resolc.zip
+          unzip -q resolc.zip -d resolc
+          chmod +x ./resolc/resolc-x86_64-unknown-linux-musl
+          echo "resolc-path=$(pwd)/resolc/resolc-x86_64-unknown-linux-musl" >> "$GITHUB_OUTPUT"
+      - name: Run revive differential tests
+        uses: paritytech/revive-differential-tests/.github/actions/run-differential-tests@0e41f054405c054c37d524e5172ef8c514852e6b
+        with:
+          platform: ${{ matrix.platform }}
+          cargo-command: "forklift cargo"
+          revive-differential-tests-ref: "0e41f054405c054c37d524e5172ef8c514852e6b"
+          resolc-path: ${{ steps.download.outputs.resolc-path }}
+          expectations-file-path: ./.github/assets/${{ matrix.platform }}.json
 
   evm-test-suite:
     needs: [preflight]
@@ -30,65 +71,43 @@ jobs:
       # but still want to have debug assertions.
       RUSTFLAGS: "-C debug-assertions"
       RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        platform: ["test:pvm", "test:evm"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: script
         run: |
-          forklift cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
-          forklift cargo build -p staging-node-cli --bin substrate-node
+          forklift cargo build --locked --release -p pallet-revive-eth-rpc --bin eth-rpc
+          forklift cargo build --locked --release -p revive-dev-node --bin revive-dev-node
 
       - name: Checkout evm-tests
-        uses: actions/checkout@v4
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: paritytech/evm-test-suite
-          ref: 72d1dace20c8fea4c2404383cc422299b26f1961
+          ref: f3a2e98620adfc233166728230247d479a159e76
           path: evm-test-suite
 
-      - uses: actions/setup-node@v4
+      - uses: denoland/setup-deno@v2
         with:
-          node-version: 22
+          deno-version: v2.x
 
       - name: script
-        env:
-          # EVM tests don't work with batchSize 300 on self-hosted runners in docker container
-          BATCH_SIZE: 100
         run: |
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
-          echo "Download the resolc binary"
-          wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
-          chmod +x resolc
-          mv resolc /usr/local/bin
-          resolc --version
+
+          deno --version
 
           echo "Check that binaries are in place"
-          export NODE_BIN_PATH=$(readlink -f ../target/debug/substrate-node)
-          export ETH_RPC_PATH=$(readlink -f ../target/production/eth-rpc)
-          export RESOLC_PATH=/usr/local/bin/resolc
-          echo $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          export REVIVE_DEV_NODE_PATH=$(readlink -f ../target/release/revive-dev-node)
+          export ETH_RPC_PATH=$(readlink -f ../target/release/eth-rpc)
+          echo $REVIVE_DEV_NODE_PATH $ETH_RPC_PATH
 
-          echo "Install npm dependencies"
-          npm install
-          # cat matter-labs-tests/hardhat.config.ts | grep batchSize
-
-          echo "Installing solc"
-          wget https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux -q
-          chmod +x solc-static-linux
-          mv solc-static-linux /usr/local/bin/solc
-          echo "Run the tests"
-          echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
-          bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
-          echo "Run eth-rpc tests"
-          bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH 
-
-      - name: Collect tests results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: evm-test-suite-${{ github.sha }}
-          path: evm-test-suite/test-logs/matter-labs-tests.log
+          echo "== Running tests =="
+          START_REVIVE_DEV_NODE=true START_ETH_RPC=true deno task ${{ matrix.platform }}
 
   confirm-required-test-evm-jobs-passed:
     runs-on: ubuntu-latest
@@ -100,7 +119,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

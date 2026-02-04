@@ -1,0 +1,9 @@
+title: '[pallet-revive] improve eth-rpc tests reliability'
+doc:
+- audience: Runtime Dev
+  description: Improve eth-rpc tests reliability by replacing substrate-node with
+    revive-dev-node, fixing nonce query in runtime_api_dry_run_addr, and running all
+    tests in a single tokio test function
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

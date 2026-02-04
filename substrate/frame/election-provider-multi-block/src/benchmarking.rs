@@ -21,12 +21,13 @@ use crate::{
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionDataProvider, ElectionProvider};
-use frame_support::pallet_prelude::*;
+use frame_support::{assert_ok, pallet_prelude::*};
 
 const SNAPSHOT_NOT_BIG_ENOUGH: &'static str = "Snapshot page is not full, you should run this \
-benchmark with enough genesis stakers in staking (DataProvider) to fill a page of voters/targets \
+benchmark with enough genesis stakers in staking to fill a page of voters/targets \
 as per VoterSnapshotPerBlock and TargetSnapshotPerBlock. Generate at least \
-2 * VoterSnapshotPerBlock) nominators and TargetSnapshotPerBlock validators";
+2 * VoterSnapshotPerBlock nominators and TargetSnapshotPerBlock validators. Use `dev_stakers` in \
+genesis config.";
 
 // TODO: remove unwraps from all benchmarks of this pallet -- it makes debugging via wasm harder
 
@@ -35,12 +36,12 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_nothing() -> Result<(), BenchmarkError> {
+	fn per_block_nothing() -> Result<(), BenchmarkError> {
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		assert_eq!(CurrentPhase::<T>::get(), Phase::Off);
@@ -48,7 +49,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_snapshot_msp() -> Result<(), BenchmarkError> {
+	fn per_block_snapshot_msp() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
@@ -59,7 +60,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		// we have collected the target snapshot only
@@ -76,7 +77,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_snapshot_rest() -> Result<(), BenchmarkError> {
+	fn per_block_snapshot_rest() -> Result<(), BenchmarkError> {
 		assert!(T::Pages::get() >= 2, "this benchmark only works in a runtime with 2 pages or more, set at least `type Pages = 2` for benchmark run");
 
 		#[cfg(test)]
@@ -99,7 +100,7 @@ mod benchmarks {
 		// take one more snapshot page.
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
 		// we have now collected the first page of voters.
@@ -115,29 +116,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_signed() -> Result<(), BenchmarkError> {
-		#[cfg(test)]
-		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
-		crate::Pallet::<T>::start().unwrap();
-
-		Pallet::<T>::roll_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
-		});
-
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Snapshot(0));
-
-		#[block]
-		{
-			Pallet::<T>::roll_next(true, false);
-		}
-
-		assert!(CurrentPhase::<T>::get().is_signed());
-
-		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_signed_validation() -> Result<(), BenchmarkError> {
+	fn per_block_start_signed_validation() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -150,29 +129,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::roll_next(true, false);
+			Pallet::<T>::roll_next(false);
 		}
 
-		Ok(())
-	}
+		assert!(CurrentPhase::<T>::get().is_signed_validation());
 
-	#[benchmark(pov_mode = Measured)]
-	fn on_initialize_into_unsigned() -> Result<(), BenchmarkError> {
-		#[cfg(test)]
-		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
-		crate::Pallet::<T>::start().unwrap();
-
-		Pallet::<T>::roll_until_before_matches(|| {
-			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
-		});
-		assert!(matches!(CurrentPhase::<T>::get(), Phase::SignedValidation(_)));
-
-		#[block]
-		{
-			Pallet::<T>::roll_next(true, false);
-		}
-
-		assert!(matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_)));
 		Ok(())
 	}
 
@@ -253,10 +214,81 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn manage() -> Result<(), BenchmarkError> {
-		// TODO
+	fn manage_fallback() -> Result<(), BenchmarkError> {
+		// heaviest case is emergency set.
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// roll to signed so the snapshot exists
+		Pallet::<T>::roll_until_before_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Signed(_))
+		});
+
+		// set phase to emergency
+		CurrentPhase::<T>::set(Phase::Emergency);
+		let origin = T::ManagerOrigin::try_successful_origin()
+			.map_err(|_| -> BenchmarkError { "cannot create manager origin".into() })?;
 		#[block]
-		{}
+		{
+			// fallback might decide to fail, that's okay..
+			let maybe_err = Pallet::<T>::manage(origin, crate::ManagerOperation::EmergencyFallback);
+			//.. but it cannot be bad origin.
+			assert!(maybe_err.is_ok() || maybe_err.unwrap_err() != DispatchError::BadOrigin.into());
+		}
+
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn admin_set() -> Result<(), BenchmarkError> {
+		// heaviest case is emergency set.
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// mine a single page solution.
+		let solution = crate::Pallet::<T>::roll_to_signed_and_mine_solution(1);
+
+		// verify to get the support.
+		let (voter_pages, all_targets, desired_targets) =
+			crate::unsigned::miner::OffchainWorkerMiner::<T>::fetch_snapshot(T::Pages::get())
+				.map_err(|_| -> BenchmarkError { "fetch_snapshot".into() })?;
+		let supports = crate::unsigned::miner::BaseMiner::<T::MinerConfig>::check_feasibility(
+			&solution,
+			&voter_pages,
+			&all_targets,
+			desired_targets,
+		)
+		.map_err(|_| -> BenchmarkError { "check_feasibility".into() })?;
+
+		let single_support = supports
+			.first()
+			.cloned()
+			.ok_or_else(|| -> BenchmarkError { "no support".into() })?;
+
+		// set phase to emergency
+		CurrentPhase::<T>::set(Phase::Emergency);
+
+		// nothing is queued in verified just yet.
+		assert!(<T::Verifier as Verifier>::queued_score().is_none());
+
+		let origin = T::AdminOrigin::try_successful_origin()
+			.map_err(|_| -> BenchmarkError { "cannot create admin origin".into() })?;
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::admin(
+				origin,
+				crate::AdminOperation::EmergencySetSolution(
+					sp_std::boxed::Box::new(single_support),
+					solution.score,
+				),
+			));
+		}
+
+		// something is queued now.
+		assert!(<T::Verifier as Verifier>::queued_score().is_some());
+
 		Ok(())
 	}
 

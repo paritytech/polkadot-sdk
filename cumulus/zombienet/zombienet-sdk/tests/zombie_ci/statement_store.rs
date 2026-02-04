@@ -4,14 +4,12 @@
 // Test that people-westend enables the statement store in the node and that statements are
 // propagated to peers.
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 use sp_core::{Bytes, Encode};
-use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient, rpc_params, utils::url_is_secure, OnlineClient, PolkadotConfig,
-	},
-	NetworkConfigBuilder,
-};
+use sp_statement_store::{SubmitResult, Topic, TopicFilter};
+use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
@@ -41,7 +39,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain("people-westend-local")
 				.with_default_args(vec![
 					"--force-authoring".into(),
-					"-lparachain=debug".into(),
+					"-linfo,statement-gossip=debug,statement-store=debug".into(),
 					"--enable-statement-store".into(),
 				])
 				.with_collator(|n| n.with_name("charlie"))
@@ -59,60 +57,50 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
+	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
-	let _charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
-	let _dave_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
-
-	let charlie_rpc = if url_is_secure(charlie.ws_uri())? {
-		RpcClient::from_url(&charlie.ws_uri()).await?
-	} else {
-		RpcClient::from_insecure_url(&charlie.ws_uri()).await?
-	};
-	let dave_rpc = if url_is_secure(dave.ws_uri())? {
-		RpcClient::from_url(&dave.ws_uri()).await?
-	} else {
-		RpcClient::from_insecure_url(&dave.ws_uri()).await?
-	};
+	let charlie_rpc = charlie.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
+	let topic: Topic = [0u8; 32].into(); // just a dummy topic
 	statement.set_plain_data(vec![1, 2, 3]);
+	statement.set_topic(0, topic);
+	statement.set_expiry_from_parts(u32::MAX, 0);
 	let dave = sp_keyring::Sr25519Keyring::Dave;
 	statement.sign_sr25519_private(&dave.pair());
 	let statement: Bytes = statement.encode().into();
+	// Subscribe to statements with topic "topic" to dave.
+	let stop_after_secs = 20;
+	let mut subscription = dave_rpc
+		.subscribe::<Bytes>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
 
 	// Submit the statement to charlie.
-	let _: () = charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
+	let _: SubmitResult =
+		charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
 
-	// Ensure that charlie stored the statement.
-	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
-	if charlie_dump != vec![statement.clone()] {
-		return Err(anyhow!("Charlie did not store the statement"));
-	}
+	let statement_bytes =
+		tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+			.await
+			.expect("Should not timeout")
+			.expect("Should receive")
+			.expect("Should not error");
 
-	// Query dave until it receives the statement, stop if 20 seconds passed.
-	let query_start_time = std::time::SystemTime::now();
-	let stop_after_secs = 20;
-	loop {
-		let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
-		if !dave_dump.is_empty() {
-			if dave_dump != vec![statement.clone()] {
-				return Err(anyhow!("Dave statement store is not the expected one"));
-			}
-			break;
-		}
-
-		let elapsed =
-			query_start_time.elapsed().map_err(|_| anyhow!("Failed to get elapsed time"))?;
-		if elapsed.as_secs() > stop_after_secs {
-			return Err(anyhow!("Dave did not receive the statement in time"));
-		}
-
-		tokio::time::sleep(core::time::Duration::from_secs(1)).await;
-	}
+	assert_eq!(statement_bytes, statement);
+	// Now make sure no more statements are received.
+	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
+		.await
+		.is_err());
+	log::info!("Statement store test passed");
 
 	Ok(())
 }

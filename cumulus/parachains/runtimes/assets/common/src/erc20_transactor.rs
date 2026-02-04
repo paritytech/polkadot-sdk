@@ -18,16 +18,14 @@
 
 use core::marker::PhantomData;
 use ethereum_standards::IERC20;
-use frame_support::{
-	pallet_prelude::Zero,
-	traits::{fungible::Inspect, OriginTrait},
-};
+use frame_support::traits::{fungible::Inspect, OriginTrait};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_revive::{
 	precompiles::alloy::{
 		primitives::{Address, U256 as EU256},
 		sol_types::SolCall,
 	},
-	AddressMapper, ContractResult, DepositLimit, MomentOf,
+	AddressMapper, ContractResult, ExecConfig, MomentOf, TransactionLimits,
 };
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
@@ -46,7 +44,7 @@ pub struct ERC20Transactor<
 	T,
 	Matcher,
 	AccountIdConverter,
-	GasLimit,
+	WeightLimit,
 	StorageDepositLimit,
 	AccountId,
 	TransfersCheckingAccount,
@@ -55,7 +53,7 @@ pub struct ERC20Transactor<
 		T,
 		Matcher,
 		AccountIdConverter,
-		GasLimit,
+		WeightLimit,
 		StorageDepositLimit,
 		AccountId,
 		TransfersCheckingAccount,
@@ -67,7 +65,7 @@ impl<
 		T: pallet_revive::Config<AccountId = AccountId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
 		Matcher: MatchesFungibles<H160, u128>,
-		GasLimit: Get<Weight>,
+		WeightLimit: Get<Weight>,
 		StorageDepositLimit: Get<BalanceOf<T>>,
 		TransfersCheckingAccount: Get<AccountId>,
 	> TransactAsset
@@ -75,7 +73,7 @@ impl<
 		T,
 		Matcher,
 		AccountIdConverter,
-		GasLimit,
+		WeightLimit,
 		StorageDepositLimit,
 		AccountId,
 		TransfersCheckingAccount,
@@ -118,23 +116,26 @@ where
 		// We need to map the 32 byte checking account to a 20 byte account.
 		let checking_account_eth = T::AddressMapper::to_address(&TransfersCheckingAccount::get());
 		let checking_address = Address::from(Into::<[u8; 20]>::into(checking_account_eth));
-		let gas_limit = GasLimit::get();
+		let weight_limit = WeightLimit::get();
 		// To withdraw, we actually transfer to the checking account.
 		// We do this using the solidity ERC20 interface.
 		let data =
 			IERC20::transferCall { to: checking_address, value: EU256::from(amount) }.abi_encode();
-		let ContractResult { result, gas_consumed, storage_deposit, .. } =
+		let ContractResult { result, weight_consumed, storage_deposit, .. } =
 			pallet_revive::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(who.clone()),
+				OriginFor::<T>::signed(who.clone()),
 				asset_id,
-				BalanceOf::<T>::zero(),
-				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				U256::zero(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: StorageDepositLimit::get(),
+				},
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
-		let surplus = gas_limit.saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?gas_consumed, ?surplus, ?storage_deposit);
+		let surplus = weight_limit.saturating_sub(weight_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?weight_consumed, ?surplus, ?storage_deposit);
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::withdraw", ?return_value, "Return value by withdraw_asset");
 			if return_value.did_revert() {
@@ -180,19 +181,22 @@ where
 		// To deposit, we actually transfer from the checking account to the beneficiary.
 		// We do this using the solidity ERC20 interface.
 		let data = IERC20::transferCall { to: address, value: EU256::from(amount) }.abi_encode();
-		let gas_limit = GasLimit::get();
-		let ContractResult { result, gas_consumed, storage_deposit, .. } =
+		let weight_limit = WeightLimit::get();
+		let ContractResult { result, weight_consumed, storage_deposit, .. } =
 			pallet_revive::Pallet::<T>::bare_call(
-				T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
+				OriginFor::<T>::signed(TransfersCheckingAccount::get()),
 				asset_id,
-				BalanceOf::<T>::zero(),
-				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				U256::zero(),
+				TransactionLimits::WeightAndDeposit {
+					weight_limit,
+					deposit_limit: StorageDepositLimit::get(),
+				},
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
-		let surplus = gas_limit.saturating_sub(gas_consumed);
-		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?gas_consumed, ?surplus, ?storage_deposit);
+		let surplus = weight_limit.saturating_sub(weight_consumed);
+		tracing::trace!(target: "xcm::transactor::erc20::deposit", ?weight_consumed, ?surplus, ?storage_deposit);
 		if let Ok(return_value) = result {
 			tracing::trace!(target: "xcm::transactor::erc20::deposit", ?return_value, "Return value");
 			if return_value.did_revert() {

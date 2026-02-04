@@ -18,6 +18,7 @@
 //! Traits and implementations for swap between the various asset classes.
 
 use super::*;
+use frame_support::{storage::with_transaction, transactional};
 
 /// Trait for providing methods to swap between the various asset classes.
 pub trait Swap<AccountId> {
@@ -151,6 +152,7 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		T::MaxSwapPathLength::get()
 	}
 
+	#[transactional]
 	fn swap_exact_tokens_for_tokens(
 		sender: T::AccountId,
 		path: Vec<Self::AssetKind>,
@@ -159,19 +161,17 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_out = with_storage_layer(|| {
-			Self::do_swap_exact_tokens_for_tokens(
-				sender,
-				path,
-				amount_in,
-				amount_out_min,
-				send_to,
-				keep_alive,
-			)
-		})?;
-		Ok(amount_out)
+		Self::do_swap_exact_tokens_for_tokens(
+			sender,
+			path,
+			amount_in,
+			amount_out_min,
+			send_to,
+			keep_alive,
+		)
 	}
 
+	#[transactional]
 	fn swap_tokens_for_exact_tokens(
 		sender: T::AccountId,
 		path: Vec<Self::AssetKind>,
@@ -180,17 +180,14 @@ impl<T: Config> Swap<T::AccountId> for Pallet<T> {
 		send_to: T::AccountId,
 		keep_alive: bool,
 	) -> Result<Self::Balance, DispatchError> {
-		let amount_in = with_storage_layer(|| {
-			Self::do_swap_tokens_for_exact_tokens(
-				sender,
-				path,
-				amount_out,
-				amount_in_max,
-				send_to,
-				keep_alive,
-			)
-		})?;
-		Ok(amount_in)
+		Self::do_swap_tokens_for_exact_tokens(
+			sender,
+			path,
+			amount_out,
+			amount_in_max,
+			send_to,
+			keep_alive,
+		)
 	}
 }
 

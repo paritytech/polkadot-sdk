@@ -325,7 +325,9 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		&self.voting_oracle
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
+	pub(crate) fn gossip_filter_config(
+		&self,
+	) -> Result<GossipFilterCfg<'_, B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
@@ -461,7 +463,7 @@ where
 		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
 				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
-				return Err(Error::ConsensusReset)
+				return Err(Error::ConsensusReset);
 			},
 			Ok(_) => {},
 			Err(api_error) => {

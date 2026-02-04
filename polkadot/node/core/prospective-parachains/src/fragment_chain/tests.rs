@@ -18,10 +18,10 @@ use super::*;
 use assert_matches::assert_matches;
 use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 use polkadot_primitives::{
-	vstaging::MutateDescriptorV2, BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData,
-	Id as ParaId,
+	BlockNumber, CandidateCommitments, HeadData, Id as ParaId, MutateDescriptorV2,
 };
 use polkadot_primitives_test_helpers as test_helpers;
+use polkadot_primitives_test_helpers::CandidateDescriptor;
 use rand::{seq::SliceRandom, thread_rng};
 use std::ops::Range;
 
@@ -997,7 +997,7 @@ fn test_populate_and_check_potential() {
 	// F is unconnected and seconded.
 	// A1 has same parent as A, is backed but has a higher candidate hash. It'll therefore be
 	// deleted.
-	//	A1 has underneath a subtree that will all need to be trimmed. A1 -> B1. B1 -> C1
+	// 	A1 has underneath a subtree that will all need to be trimmed. A1 -> B1. B1 -> C1
 	// 	and B1 -> C2. (C1 is backed).
 	// A2 is seconded but is kept because it has a lower candidate hash than A.
 	// A2 points to B2, which is backed.

@@ -16,18 +16,20 @@
 
 //! Client side code for generating the parachain inherent.
 
-use codec::Decode;
-use cumulus_primitives_core::{
-	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
-	ParaId, PersistedValidationData,
-};
-use cumulus_relay_chain_interface::RelayChainInterface;
-
 mod mock;
 
-use cumulus_primitives_core::relay_chain::Header as RelayHeader;
+use codec::Decode;
+use cumulus_primitives_core::{
+	relay_chain::{
+		self, ApprovedPeerId, Block as RelayBlock, Hash as PHash, Header as RelayHeader,
+		HrmpChannelId,
+	},
+	ParaId, PersistedValidationData,
+};
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
+use cumulus_relay_chain_interface::RelayChainInterface;
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
+use sc_network_types::PeerId;
 
 const LOG_TARGET: &str = "parachain-inherent";
 
@@ -39,6 +41,7 @@ async fn collect_relay_storage_proof(
 	relay_parent: PHash,
 	include_authorities: bool,
 	include_next_authorities: bool,
+	additional_relay_state_keys: Vec<Vec<u8>>,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
@@ -133,6 +136,13 @@ async fn collect_relay_storage_proof(
 		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
 	}
 
+	// Add additional relay state keys
+	let unique_keys: Vec<Vec<u8>> = additional_relay_state_keys
+		.into_iter()
+		.filter(|key| !relevant_keys.contains(key))
+		.collect();
+	relevant_keys.extend(unique_keys);
+
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await
@@ -159,21 +169,32 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
+		additional_relay_state_keys: Vec<Vec<u8>>,
+		collator_peer_id: PeerId,
 	) -> Option<ParachainInherentData> {
+		let collator_peer_id = ApprovedPeerId::try_from(collator_peer_id.to_bytes())
+			.inspect_err(|_e| {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"Could not convert collator_peer_id into ApprovedPeerId. The collator_peer_id \
+					should contain a sequence of at most 64 bytes",
+				);
+			})
+			.ok();
+
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
-		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
-			sc_consensus_babe::find_next_epoch_digest::<RelayBlock>(header)
-				.ok()
-				.flatten()
-				.is_some()
-		});
+		let include_next_authorities = relay_parent_descendants
+			.iter()
+			.skip(1)
+			.any(sc_consensus_babe::contains_epoch_change::<RelayBlock>);
 		let relay_chain_state = collect_relay_storage_proof(
 			relay_chain_interface,
 			para_id,
 			relay_parent,
 			!relay_parent_descendants.is_empty(),
 			include_next_authorities,
+			additional_relay_state_keys,
 		)
 		.await?;
 
@@ -208,7 +229,7 @@ impl ParachainInherentDataProvider {
 			validation_data: validation_data.clone(),
 			relay_chain_state,
 			relay_parent_descendants,
-			collator_peer_id: None,
+			collator_peer_id,
 		})
 	}
 }

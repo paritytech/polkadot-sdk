@@ -155,7 +155,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Dispatchable},
-	ArithmeticError, RuntimeDebug, SaturatedConversion, Saturating,
+	ArithmeticError, Debug, SaturatedConversion, Saturating,
 };
 use verifiable::{Alias, GenerateVerifiable};
 
@@ -453,15 +453,7 @@ pub mod pallet {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		MaxEncodedLen,
-		TypeInfo,
-		DecodeWithMemTracking,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 	)]
 	pub enum Origin {
 		PersonalIdentity(PersonalId),
@@ -1504,7 +1496,7 @@ pub mod pallet {
 						let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 						let Err(insert_idx) = suspended_indices.binary_search(&ring_position)
 						else {
-							return Err(Error::<T>::KeyAlreadySuspended.into())
+							return Err(Error::<T>::KeyAlreadySuspended.into());
 						};
 						suspended_indices
 							.try_insert(insert_idx, ring_position)
@@ -1660,7 +1652,7 @@ pub mod pallet {
 					Ok(true) => {
 						// Read on `KeyMigrationQueue`.
 						meter.consume(T::DbWeight::get().reads(1));
-						break
+						break;
 					},
 					Err(e) => {
 						meter.consume(weight);
@@ -1685,7 +1677,7 @@ pub mod pallet {
 				} = record.position
 				else {
 					Keys::<T>::remove(new_key);
-					return Ok(())
+					return Ok(());
 				};
 				let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 				let Err(insert_idx) = suspended_indices.binary_search(&ring_position) else {

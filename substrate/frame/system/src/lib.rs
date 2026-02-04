@@ -118,7 +118,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	DispatchError, RuntimeDebug,
+	DispatchError,
 };
 use sp_version::RuntimeVersion;
 
@@ -148,7 +148,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
-use sp_weights::{RuntimeDbWeight, Weight};
+use sp_weights::{RuntimeDbWeight, Weight, WeightMeter};
 
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
@@ -285,16 +285,7 @@ where
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.
 #[derive(
-	Clone,
-	Copy,
-	Eq,
-	PartialEq,
-	Default,
-	RuntimeDebug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
+	Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo,
 )]
 pub struct DispatchEventInfo {
 	/// Weight of this transaction.
@@ -672,7 +663,7 @@ pub mod pallet {
 
 		/// The migrator that is used to run Multi-Block-Migrations.
 		///
-		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// Can be set to `pallet_migrations` or an alternative implementation of the interface.
 		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
 		type MultiBlockMigrator: MultiStepMigrator;
 
@@ -820,13 +811,13 @@ pub mod pallet {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
 			if let Err(err) = task.run() {
 				Self::deposit_event(Event::TaskFailed { task, err });
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			// Emit a success event, if your design includes events for this pallet.
@@ -897,7 +888,7 @@ pub mod pallet {
 					});
 
 					// Not the fault of the caller of call.
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 			};
 			T::OnSetCode::set_code(code)?;
@@ -991,10 +982,12 @@ pub mod pallet {
 
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
 	/// Whether all inherents have been applied.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The current weight for the block.
@@ -1134,7 +1127,7 @@ pub mod pallet {
 	#[pallet::validate_unsigned]
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::apply_authorized_upgrade { ref code } = call {
 				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
 					if Self::can_set_code(&code, false).is_ok() {
@@ -1144,23 +1137,35 @@ pub mod pallet {
 							provides: vec![res.code_hash.encode()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: true,
-						})
+						});
 					}
 				}
 			}
 
 			#[cfg(feature = "experimental")]
 			if let Call::do_task { ref task } = call {
-				if task.is_valid() {
-					return Ok(ValidTransaction {
-						priority: u64::max_value(),
-						requires: Vec::new(),
-						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
+				// If valid, the tasks provides the tag: hash of task.
+				// But it is allowed to have many task for a single process, e.g. a task that takes
+				// a limit on the number of item to migrate is valid from 1 to the limit while
+				// actually advancing a single migration process.
+				// In the transaction pool, transaction are identified by their provides tag.
+				// So in order to protect the transaction pool against spam, we only accept tasks
+				// from local source.
+				if source == TransactionSource::InBlock || source == TransactionSource::Local {
+					if task.is_valid() {
+						return Ok(ValidTransaction {
+							priority: u64::max_value(),
+							requires: Vec::new(),
+							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
+							longevity: TransactionLongevity::max_value(),
+							propagate: false,
+						});
+					}
 				}
 			}
+
+			#[cfg(not(feature = "experimental"))]
+			let _ = source;
 
 			Err(InvalidTransaction::Call.into())
 		}
@@ -1171,7 +1176,7 @@ pub type Key = Vec<u8>;
 pub type KeyValue = (Vec<u8>, Vec<u8>);
 
 /// A phase of a block's execution.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub enum Phase {
 	/// Applying an extrinsic.
@@ -1189,7 +1194,7 @@ impl Default for Phase {
 }
 
 /// Record of an event happening.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, PartialEq, Eq, Clone))]
 pub struct EventRecord<E: Parameter + Member, T> {
 	/// The phase of the block it happened in.
@@ -1218,7 +1223,7 @@ type EventIndex = u32;
 pub type RefCount = u32;
 
 /// Information of an account.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct AccountInfo<Nonce, AccountData> {
 	/// The number of transactions this account has sent.
 	pub nonce: Nonce,
@@ -1238,7 +1243,7 @@ pub struct AccountInfo<Nonce, AccountData> {
 
 /// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct LastRuntimeUpgradeInfo {
 	pub spec_version: codec::Compact<u32>,
@@ -1496,14 +1501,14 @@ where
 }
 
 /// Reference status; can be either referenced or unreferenced.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub enum RefStatus {
 	Referenced,
 	Unreferenced,
 }
 
 /// Some resultant status relevant to incrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum IncRefStatus {
 	/// Account was created.
 	Created,
@@ -1512,7 +1517,7 @@ pub enum IncRefStatus {
 }
 
 /// Some resultant status relevant to decrementing a provider/self-sufficient reference.
-#[derive(Eq, PartialEq, RuntimeDebug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum DecRefStatus {
 	/// Account was destroyed.
 	Reaped,
@@ -1842,7 +1847,7 @@ impl<T: Config> Pallet<T> {
 
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return
+			return;
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();
@@ -1904,20 +1909,34 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Start the execution of a particular block.
+	///
+	/// # Panics
+	///
+	/// Panics when the given `number` is not `Self::block_number() + 1`. If you are using this in
+	/// tests, you can use [`Self::set_block_number`] to make the check succeed.
 	pub fn initialize(number: &BlockNumberFor<T>, parent_hash: &T::Hash, digest: &generic::Digest) {
+		let expected_block_number = Self::block_number() + One::one();
+		assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
+
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &0u32);
-		let entropy = (b"frame_system::initialize", parent_hash).using_encoded(blake2_256);
-		storage::unhashed::put_raw(well_known_keys::INTRABLOCK_ENTROPY, &entropy[..]);
+		Self::initialize_intra_block_entropy(parent_hash);
 		<Number<T>>::put(number);
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
-		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
+	}
+
+	/// Initialize [`INTRABLOCK_ENTROPY`](well_known_keys::INTRABLOCK_ENTROPY).
+	///
+	/// Normally this is called internally [`initialize`](Self::initialize) at block initiation.
+	pub fn initialize_intra_block_entropy(parent_hash: &T::Hash) {
+		let entropy = (b"frame_system::initialize", parent_hash).using_encoded(blake2_256);
+		storage::unhashed::put_raw(well_known_keys::INTRABLOCK_ENTROPY, &entropy[..]);
 	}
 
 	/// Log the entire resouce usage report up until this point.
@@ -2313,7 +2332,7 @@ impl<T: Config> Pallet<T> {
 	/// - `check_version`: Should the runtime version be checked?
 	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return CanSetCodeResult::MultiBlockMigrationsOngoing
+			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
 		if check_version {
@@ -2321,7 +2340,7 @@ impl<T: Config> Pallet<T> {
 			let Some(new_version) = sp_io::misc::runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
-				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
 			};
 
 			cfg_if::cfg_if! {
@@ -2330,7 +2349,7 @@ impl<T: Config> Pallet<T> {
 					core::hint::black_box((new_version, current_version));
 				} else {
 					if new_version.spec_name != current_version.spec_name {
-						return CanSetCodeResult::InvalidVersion( Error::<T>::InvalidSpecName)
+						return CanSetCodeResult::InvalidVersion(Error::<T>::InvalidSpecName)
 					}
 
 					if new_version.spec_version <= current_version.spec_version {
@@ -2385,6 +2404,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	/// Returns the remaining weight of the block.
+	pub fn remaining_block_weight() -> WeightMeter {
+		let limit = T::BlockWeights::get().max_block;
+		let consumed = BlockWeight::<T>::get().total();
+
+		WeightMeter::with_consumed_and_limit(consumed, limit)
 	}
 }
 

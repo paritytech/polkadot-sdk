@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This modules contains the common asset ops strategies.
+//! This module contains the common asset ops strategies.
 
 use super::*;
-use crate::pallet_prelude::RuntimeDebug;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use sp_runtime::traits::Convert;
+use Debug;
 
 /// The `CheckState` is a strategy that accepts an `Inspect` value and the `Inner` strategy.
 ///
@@ -172,7 +173,7 @@ impl<Request> UpdateStrategy for Bytes<Request> {
 
 /// The `Owner` strategy is both [inspect](InspectStrategy) and [update](UpdateStrategy) strategy
 /// allows getting and setting the owner of an asset.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Owner<AccountId>(PhantomData<AccountId>);
 impl<AccountId> Default for Owner<AccountId> {
 	fn default() -> Self {
@@ -189,7 +190,7 @@ impl<AccountId: 'static> UpdateStrategy for Owner<AccountId> {
 
 /// The `Admin` strategy is both [inspect](InspectStrategy) and [update](UpdateStrategy) strategy
 /// allows getting and setting the admin of an asset.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Admin<AccountId>(PhantomData<AccountId>);
 impl<AccountId> Default for Admin<AccountId> {
 	fn default() -> Self {
@@ -214,7 +215,7 @@ impl<AccountId: 'static> UpdateStrategy for Admin<AccountId> {
 /// data. The said extrinsic, in turn, could use the destroy operation with the `WithWitness`
 /// strategy, which will compare the provided witness with the actual chain state before attempting
 /// the collection destruction.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Witness<WitnessData>(PhantomData<WitnessData>);
 impl<WitnessData> Default for Witness<WitnessData> {
 	fn default() -> Self {
@@ -353,7 +354,7 @@ pub type PredefinedId<Id> = DeriveAndReportId<Id, Id>;
 ///
 /// An example of ID derivation is the creation of an NFT inside a collection using the
 /// collection ID as `Params`. The `ReportedId` in this case is the full ID of the NFT.
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct DeriveAndReportId<Params, ReportedId> {
 	pub params: Params,
 	_phantom: PhantomData<ReportedId>,
@@ -370,6 +371,9 @@ impl<Params, ReportedId> DeriveAndReportId<Params, ReportedId> {
 }
 impl<Params, ReportedId> IdAssignment for DeriveAndReportId<Params, ReportedId> {
 	type ReportedId = ReportedId;
+}
+impl<Params, ReportedId> CreateStrategy for DeriveAndReportId<Params, ReportedId> {
+	type Success = ReportedId;
 }
 
 /// Represents the value of an [InspectStrategy] to be used as a configuration value in the
@@ -433,7 +437,7 @@ impl<T: InspectStrategy> WithConfigValue for T {
 ///     PredefinedId::from(ASSET_ID),
 /// ))
 /// ```
-#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct WithConfig<ConfigValue: ConfigValueMarker, Extra = ()> {
 	pub config: ConfigValue,
 	pub extra: Extra,
@@ -456,4 +460,27 @@ impl<ConfigValue: ConfigValueMarker, Assignment: IdAssignment> CreateStrategy
 }
 impl<ConfigValue: ConfigValueMarker, Extra> RestoreStrategy for WithConfig<ConfigValue, Extra> {
 	type Success = ();
+}
+
+/// This adapter allows one to derive a [CreateStrategy] value from the ID derivation parameters
+/// from the [DeriveAndReportId].
+///
+/// The instance will be created using the derived strategy.
+pub struct DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>(
+	PhantomData<(Strategy, DeriveCfg, CreateOp)>,
+);
+impl<Params, Strategy, DeriveCfg, CreateOp> Create<DeriveAndReportId<Params, Strategy::Success>>
+	for DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>
+where
+	Strategy: CreateStrategy,
+	DeriveCfg: Convert<Params, Result<Strategy, DispatchError>>,
+	CreateOp: Create<Strategy>,
+{
+	fn create(
+		id_assignment: DeriveAndReportId<Params, Strategy::Success>,
+	) -> Result<Strategy::Success, DispatchError> {
+		let strategy = DeriveCfg::convert(id_assignment.params)?;
+
+		CreateOp::create(strategy)
+	}
 }

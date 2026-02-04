@@ -1,0 +1,10 @@
+title: 'Adds support for additional relay state keys in parachain validation data inherent'
+doc:
+- audience: Node Dev
+  description: |-
+    Adds the possibility for parachain clients to collect additional relay state keys into the validation data inherent.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-parachain-inherent
+  bump: major

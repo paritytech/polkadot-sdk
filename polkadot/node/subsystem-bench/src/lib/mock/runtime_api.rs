@@ -26,10 +26,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt, CoreState, OccupiedCore},
-	ApprovalVotingParams, AsyncBackingParams, CoreIndex, GroupIndex, GroupRotationInfo,
-	Id as ParaId, IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, CoreState, GroupIndex, GroupRotationInfo,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
 	ValidationCode, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
@@ -176,7 +175,7 @@ impl MockRuntimeApi {
 			match msg {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
-						return
+						return;
 					},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
@@ -340,6 +339,12 @@ impl MockRuntimeApi {
 						RuntimeApiMessage::Request(
 							_parent,
 							RuntimeApiRequest::UnappliedSlashes(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::UnappliedSlashesV2(tx),
 						) => {
 							tx.send(Ok(vec![])).unwrap();
 						},

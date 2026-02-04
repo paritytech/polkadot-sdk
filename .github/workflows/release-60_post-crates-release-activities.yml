@@ -1,0 +1,339 @@
+name: Release - Post Crates Release Activities
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Full release version identifier (e.g., stable2512 or stable2512-2)'
+        required: true
+        type: string
+      bump_node_version:
+        description: 'Bump NODE_VERSION? Select "yes" if this is the first run for this post-crates PR, "no" if re-running or if you have another reason not to bump'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      bump_spec_version:
+        description: 'Bump spec_version? Select "yes" to bump spec version for all runtimes, "no" if re-running or if you have another reason not to bump'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  set-image:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - id: set_image
+        run: cat .github/env >> $GITHUB_OUTPUT
+
+  post-crates-activities:
+    needs: set-image
+    runs-on: ubuntu-latest
+    environment: release
+    env:
+      PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+    container:
+      image: ${{ needs.set-image.outputs.IMAGE }}
+
+    steps:
+      - name: Install pgpkms
+        run: |
+          # Install pgpkms that is used to sign commits
+          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
+          # Find and display where pgpkms-git is installed
+          echo "pgpkms-git location: $(which pgpkms-git)"
+          ls -la $(which pgpkms-git)
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Import GPG keys
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+          import_gpg_keys
+
+      - name: Configure git
+        shell: bash
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git config --global commit.gpgsign true
+          # Dynamically find pgpkms-git path
+          PGPKMS_PATH=$(which pgpkms-git)
+          echo "Using pgpkms-git at: $PGPKMS_PATH"
+          git config --global gpg.program "$PGPKMS_PATH"
+          git config --global user.name "ParityReleases"
+          git config --global user.email "release-team@parity.io"
+          git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
+
+      - name: Bump NODE_VERSION for polkadot
+        if: inputs.bump_node_version == 'yes'
+        run: |
+          echo "Bumping NODE_VERSION in polkadot..."
+          FILE="polkadot/node/primitives/src/lib.rs"
+
+          # Extract current NODE_VERSION
+          current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+          echo "Current version: $current_version"
+
+          # Bump patch version
+          new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
+          echo "New version: $new_version"
+
+          # Update the file
+          sed -i.bak "s/NODE_VERSION: &'static str = \"$current_version\"/NODE_VERSION: \&'static str = \"$new_version\"/" "$FILE"
+          rm -f "$FILE.bak"
+
+          echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
+
+      - name: Bump NODE_VERSION for polkadot-parachain and polkadot-omni-node
+        if: inputs.bump_node_version == 'yes'
+        run: |
+          echo "Bumping NODE_VERSION in cumulus..."
+          FILE="cumulus/polkadot-omni-node/lib/src/nodes/mod.rs"
+
+          # Extract current NODE_VERSION
+          current_version=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+          echo "Current version: $current_version"
+
+          # Bump patch version
+          new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."$3+1}')
+          echo "New version: $new_version"
+
+          # Update the file
+          sed -i.bak "s/NODE_VERSION: &'static str = \"$current_version\"/NODE_VERSION: \&'static str = \"$new_version\"/" "$FILE"
+          rm -f "$FILE.bak"
+
+          echo "Successfully bumped NODE_VERSION from $current_version to $new_version"
+
+      - name: Commit NODE_VERSION bumps
+        if: inputs.bump_node_version == 'yes'
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          # Extract the bumped NODE_VERSION
+          FILE="polkadot/node/primitives/src/lib.rs"
+          NODE_VERSION=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+
+          echo "Committing NODE_VERSION bump to $NODE_VERSION"
+          commit_with_message "Bump NODE_VERSION to $NODE_VERSION"
+          echo "✅ Successfully committed NODE_VERSION bump"
+
+      - name: Bump spec_version
+        if: inputs.bump_spec_version == 'yes'
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          FILE="polkadot/node/primitives/src/lib.rs"
+          NODE_VERSION=$(grep 'pub const NODE_VERSION' "$FILE" | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"')
+
+          # Determine if this is a patch release or new stable release
+          patch=$(echo "$NODE_VERSION" | awk -F'[.-]' '{print $3}')
+          if [ "$patch" -gt 0 ]; then
+            IS_PATCH_RELEASE="true"
+            printf "📋 Patch release detected (patch=$patch) - bumping spec_version patch part\n"
+          else
+            IS_PATCH_RELEASE="false"
+            printf "📋 New stable release detected - bumping spec_version minor part\n"
+          fi
+
+          runtimes_list=$(get_filtered_runtimes_list)
+
+          for f in ${runtimes_list[@]}; do
+              new_version=$(bump_spec_version "$f" "$IS_PATCH_RELEASE")
+              printf " 🔄  $f → spec_version: $new_version\n"
+          done
+
+          commit_with_message "Bump spec_version for $([ \"$IS_PATCH_RELEASE\" = \"true\" ] && echo \"patch\" || echo \"stable\") release"
+
+      - name: Move prdocs to release folder
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          VERSION="${{ inputs.version }}"
+          echo "Version: $VERSION"
+
+          reorder_prdocs "$VERSION"
+
+      - name: Replace path dependencies
+        run: |
+          echo "Running replace-all-path-deps.sh..."
+          bash scripts/release/replace-all-path-deps.sh
+
+          # Show git diff to see what changed
+          git diff --stat
+
+      - name: Remove versions where path deps are present
+        run: |
+          echo "Running delete-versions-if-path-is-present.sh..."
+          bash scripts/release/delete-versions-if-path-is-present.sh
+
+          # Show git diff to see what changed
+          git diff --stat
+
+      - name: Remove version from umbrella/Cargo.toml
+        run: |
+          echo "Running delete-version-from-umbrella.sh..."
+          bash scripts/release/delete-version-from-umbrella.sh
+
+          # Show git diff to see what changed
+          git diff --stat
+
+      - name: Install newer Zepter
+        run: |
+          cargo install zepter@1.82.1 --locked -q && zepter --version
+
+      - name: Run Zepter - check issues
+        run: |
+          echo "Running zepter run check to identify issues..."
+          zepter run check || echo "Zepter found issues that need to be fixed"
+
+      - name: Run Zepter - fix issues
+        run: |
+          echo "Running zepter to fix issues..."
+          zepter || echo "Zepter fix completed"
+          # Show git diff to see what changed
+          git diff --stat
+
+      - name: Run Zepter - verify fixes
+        run: |
+          echo "Running zepter run check again to verify fixes..."
+          zepter run check || echo "There are still issues to fix manually"
+
+      - name: Run taplo - check formatting
+        run: |
+          echo "Running taplo format check..."
+          taplo format --check --config .config/taplo.toml || echo "Taplo found formatting issues"
+
+      - name: Run taplo - format
+        run: |
+          echo "Running taplo format..."
+          taplo format --config .config/taplo.toml
+          # Show git diff to see what changed
+          git diff --stat
+
+      - name: Run taplo - verify formatting
+        run: |
+          echo "Running taplo format check again..."
+          taplo format --check --config .config/taplo.toml || echo "There are still formatting issues"
+
+      - name: Install Python dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          pip3 install toml "cargo-workspace>=1.2.6"
+
+      - name: Run workspace check
+        run: |
+          echo "Running workspace check..."
+          python3 .github/scripts/check-workspace.py . --exclude \
+            "substrate/frame/contracts/fixtures/build" \
+            "substrate/frame/contracts/fixtures/contracts/common"
+
+      - name: Deny git dependencies
+        run: |
+          echo "Checking for git dependencies..."
+          python3 .github/scripts/deny-git-deps.py .
+
+      - name: Check git status before commit
+        run: |
+          echo "=== Git status ==="
+          git status
+          echo ""
+          echo "=== Git status --porcelain ==="
+          git status --porcelain
+          echo ""
+          echo "=== Changed files count ==="
+          git status --porcelain | wc -l
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          # Check if there are changes to commit
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "chore: post crates release actions - version bumps, path deps, zepter, taplo"
+            echo "Changes committed successfully"
+            # Push changes to the branch
+            echo "Pushing changes to branch..."
+            git push
+            echo "Changes pushed successfully"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create Pull Request to base release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          FULL_RELEASE="${{ inputs.version }}"
+          echo "Current branch: $BRANCH_NAME"
+          echo "Version: $FULL_RELEASE"
+
+          # Extract base release branch name by removing the last segment after dash
+          if [[ "$FULL_RELEASE" =~ ^(.+)-[^-]+$ ]]; then
+            BASE_RELEASE="${BASH_REMATCH[1]}"
+          else
+            BASE_RELEASE="$FULL_RELEASE"
+          fi
+
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$BASE_RELEASE" --json number --jq '.[0].number')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "✅ PR #$EXISTING_PR already exists for this branch"
+            echo "PR URL: $(gh pr view $EXISTING_PR --json url --jq '.url')"
+          else
+            echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
+            gh pr create \
+              --title "[${BASE_RELEASE}] Post crates release activities for $FULL_RELEASE" \
+              --body "Automated PR containing post-crates-release activities:
+          - NODE_VERSION bumps (if selected)
+          - Path dependencies replacement
+          - Zepter fixes
+          - Taplo formatting
+          - PRDocs reorganization (if prdocs exist)" \
+              --base "$BASE_RELEASE" \
+              --head "$BRANCH_NAME"
+            echo "✅ PR created successfully"
+          fi
+
+      - name: Add comment about spec_version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+
+          # Find the PR number for this branch
+          PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number')
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Adding comment to PR #$PR_NUMBER..."
+            gh pr comment "$PR_NUMBER" --body "⚠️ **Reminder:** spec_version is not bumped automatically as part of this flow. Please ensure it is updated manually if required."
+          else
+            echo "WARNING: Could not find PR for branch $BRANCH_NAME"
+          fi

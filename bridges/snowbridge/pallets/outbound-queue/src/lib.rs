@@ -103,14 +103,14 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
+use bridge_hub_common::AggregateMessageOrigin;
 use codec::Decode;
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{BasicOperatingMode, ChannelId};
+use snowbridge_core::{digest_item::SnowbridgeDigestItem, BasicOperatingMode, ChannelId};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::v1::{
 	Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS,
@@ -283,13 +283,13 @@ pub mod pallet {
 		pub(crate) fn commit() {
 			let count = MessageLeaves::<T>::decode_len().unwrap_or_default() as u64;
 			if count == 0 {
-				return
+				return;
 			}
 
 			// Create merkle root of messages
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
 
-			let digest_item: DigestItem = CustomDigestItem::Snowbridge(root).into();
+			let digest_item: DigestItem = SnowbridgeDigestItem::Snowbridge(root).into();
 
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);

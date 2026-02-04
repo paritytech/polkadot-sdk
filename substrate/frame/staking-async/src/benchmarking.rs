@@ -21,10 +21,9 @@ use super::*;
 use crate::{
 	asset,
 	session_rotation::{Eras, Rotator},
-	ConfigOp, Pallet as Staking,
+	Pallet as Staking,
 };
 use alloc::collections::BTreeMap;
-use codec::Decode;
 pub use frame_benchmarking::{
 	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
 };
@@ -33,19 +32,18 @@ use frame_support::{
 	assert_ok,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
-	traits::{Get, TryCollect},
+	traits::{fungible::Inspect, TryCollect},
 };
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{
-	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
+	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 use testing_utils::*;
 
 const SEED: u32 = 0;
-const MAX_SLASHES: u32 = 1000;
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
@@ -224,6 +222,7 @@ const USER_SEED: u32 = 999666;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::format;
 
 	#[benchmark]
 	fn bond() {
@@ -312,7 +311,7 @@ mod benchmarks {
 		let (_, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
-		CurrentEra::<T>::put(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::max_value());
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
@@ -346,7 +345,7 @@ mod benchmarks {
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&controller, ledger);
-		CurrentEra::<T>::put(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::max_value());
 
 		whitelist_account!(controller);
 
@@ -596,20 +595,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	// Worst case scenario, the list of invulnerables is very long.
-	fn set_invulnerables(v: Linear<0, { T::MaxInvulnerables::get() }>) {
-		let mut invulnerables = Vec::new();
-		for i in 0..v {
-			invulnerables.push(account("invulnerable", i, SEED));
-		}
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, invulnerables);
-
-		assert_eq!(Invulnerables::<T>::get().len(), v as usize);
-	}
-
-	#[benchmark]
 	fn deprecate_controller_batch(
 		// We pass a dynamic number of controllers to the benchmark, up to
 		// `MaxControllersInDeprecationBatch`.
@@ -667,34 +652,39 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn cancel_deferred_slash(s: Linear<1, MAX_SLASHES>) {
+	fn cancel_deferred_slash(s: Linear<1, { T::MaxValidatorSet::get() }>) {
 		let era = EraIndex::one();
-		let dummy_account = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 
-		// Insert `s` unapplied slashes with the new key structure
-		for i in 0..s {
-			let slash_key = (dummy_account(), Perbill::from_percent(i as u32 % 100), i);
-			let unapplied_slash = UnappliedSlash::<T> {
-				validator: slash_key.0.clone(),
-				own: Zero::zero(),
-				others: WeakBoundedVec::default(),
-				reporter: Default::default(),
-				payout: Zero::zero(),
-			};
-			UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
-		}
+		// Create validators and insert slashes
+		let validators: Vec<_> = (0..s)
+			.map(|i| {
+				let validator: T::AccountId = account("validator", i, SEED);
 
-		let slash_keys: Vec<_> = (0..s)
-			.map(|i| (dummy_account(), Perbill::from_percent(i as u32 % 100), i))
+				// Insert slash for this validator
+				let slash_key = (validator.clone(), Perbill::from_percent(10), 0);
+				let unapplied_slash = UnappliedSlash::<T> {
+					validator: validator.clone(),
+					own: Zero::zero(),
+					others: WeakBoundedVec::default(),
+					reporter: Default::default(),
+					payout: Zero::zero(),
+				};
+				UnappliedSlashes::<T>::insert(era, slash_key, unapplied_slash);
+
+				validator
+			})
 			.collect();
 
-		#[extrinsic_call]
-		_(RawOrigin::Root, era, slash_keys.clone());
+		// Convert validators to tuples with 10% slash fraction (matching the slashes created above)
+		let validator_slashes: Vec<_> =
+			validators.into_iter().map(|v| (v, Perbill::from_percent(10))).collect();
 
-		// Ensure all `s` slashes are removed
-		for key in &slash_keys {
-			assert!(UnappliedSlashes::<T>::get(era, key).is_none());
-		}
+		#[extrinsic_call]
+		_(RawOrigin::Root, era, validator_slashes.clone());
+
+		// Ensure cancelled slashes are stored correctly
+		let cancelled_slashes = CancelledSlashes::<T>::get(era);
+		assert_eq!(cancelled_slashes.len(), s as usize);
 	}
 
 	#[benchmark]
@@ -833,6 +823,7 @@ mod benchmarks {
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(false),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -842,6 +833,7 @@ mod benchmarks {
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
+		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
 	}
 
 	#[benchmark]
@@ -849,6 +841,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
+			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -865,6 +858,7 @@ mod benchmarks {
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
+		assert!(!AreNominatorsSlashable::<T>::exists());
 	}
 
 	#[benchmark]
@@ -888,6 +882,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 
@@ -976,7 +971,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn apply_slash() -> Result<(), BenchmarkError> {
+	fn apply_slash(
+		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
@@ -991,8 +988,12 @@ mod benchmarks {
 		let slashed_balance = BalanceOf::<T>::from(10u32);
 
 		let slash_key = (validator.clone(), slash_fraction, page_index);
-		let slashed_nominators =
-			nominators.iter().map(|(n, _)| (n.clone(), slashed_balance)).collect::<Vec<_>>();
+		// Only include `n` nominators in the slash (to benchmark variable nominator counts)
+		let slashed_nominators = nominators
+			.iter()
+			.take(n as usize)
+			.map(|(nom, _)| (nom.clone(), slashed_balance))
+			.collect::<Vec<_>>();
 
 		let unapplied_slash = UnappliedSlash::<T> {
 			validator: validator.clone(),
@@ -1047,7 +1048,7 @@ mod benchmarks {
 		let offender_exposure =
 			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
 		ensure!(
-			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
+			offender_exposure.others.len() as u32 >= T::MaxExposurePageSize::get(),
 			"exposure not created"
 		);
 
@@ -1186,14 +1187,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark(pov_mode = Measured)]
-	// `v`: validators, e.g. 600 in Polkadot and 1000 in Kusama.
-	//
-	// this benchmark populates all storage items that get removed in `fn prune_era` manually,
-	// and attempts to then remove them.
-	fn prune_era(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
+	// Helper function to set up era data for pruning benchmarks
+	fn setup_era_for_pruning<T: Config>(v: u32) -> EraIndex {
 		let validators = v;
 		let era = 7;
+
+		// Set active era to make era 7 prunable
+		// Era is prunable if: era <= active_era - history_depth - 1
+		let history_depth = T::HistoryDepth::get();
+		let active_era = era + history_depth + 1;
+		crate::ActiveEra::<T>::put(crate::ActiveEraInfo { index: active_era, start: Some(0) });
 
 		// Note: the number we are looking for here is not `MaxElectableVoters`, as these are unique
 		// nominators. One unique nominator can be exposed behind multiple validators. The right
@@ -1223,14 +1226,15 @@ mod benchmarks {
 			.map(|validator_index| account::<T::AccountId>("validator", validator_index, SEED))
 			.for_each(|validator| {
 				let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
-					own: BalanceOf::<T>::max_value(),
-					total: BalanceOf::<T>::max_value(),
+					own: T::Currency::minimum_balance(),
+					total: T::Currency::minimum_balance() *
+						(exposed_nominators_per_validator + 1).into(),
 					others: (0..exposed_nominators_per_validator)
 						.map(|n| {
 							let nominator = account::<T::AccountId>("nominator", n, SEED);
 							IndividualExposure {
 								who: nominator,
-								value: BalanceOf::<T>::max_value(),
+								value: T::Currency::minimum_balance(),
 							}
 						})
 						.collect::<Vec<_>>(),
@@ -1256,11 +1260,214 @@ mod benchmarks {
 		// `ErasTotalStake`
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 
+		// `ValidatorSlashInEra` - add slash entries for validators.
+		// We benchmark with 33% of validators slashed, representing the realistic worst-case
+		// under BFT assumptions (beyond 1/3 Byzantine validators, consensus security breaks).
+		let slashed_validators = validators / 3;
+		for i in 0..slashed_validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			crate::ValidatorSlashInEra::<T>::insert(
+				era,
+				validator,
+				(Perbill::from_percent(10), BalanceOf::<T>::max_value() / 10u32.into()),
+			);
+		}
+
+		// `ErasNominatorsSlashable`
+		ErasNominatorsSlashable::<T>::insert(era, true);
+
+		era
+	}
+
+	/// Validates that the weight consumption of a pruning operation stays within expected limits.
+	fn validate_pruning_weight<T: Config>(
+		result: &frame_support::dispatch::DispatchResultWithPostInfo,
+		step_name: &str,
+		validator_count: u32,
+	) {
+		assert!(
+			result.is_ok(),
+			"Benchmark {} should succeed with v={}",
+			step_name,
+			validator_count
+		);
+
+		let post_info = result.unwrap();
+		let actual_ref_time = post_info
+			.actual_weight
+			.expect(&format!(
+				"Should report actual weight for {} with v={}",
+				step_name, validator_count
+			))
+			.ref_time();
+
+		assert!(
+			actual_ref_time > 0,
+			"Should report non-zero ref_time for {} with v={}",
+			step_name,
+			validator_count
+		);
+		// No need to validate against MaxPruningItems since we use item-based limiting
+	}
+
+	// Benchmark pruning ErasStakersPaged (first step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_stakers_paged(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasStakersPaged);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
 		#[block]
 		{
-			Eras::<T>::prune_era(era);
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
-		Eras::<T>::era_absent(era)?;
+
+		validate_pruning_weight::<T>(&result, "ErasStakersPaged", v);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasStakersOverview (second step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_stakers_overview(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasStakersOverview", v);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasValidatorPrefs (third step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_validator_prefs(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasValidatorPrefs", v);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ClaimedRewards (fourth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_claimed_rewards(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ClaimedRewards", v);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasValidatorReward (fifth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_validator_reward() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
+		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasValidatorReward", 1);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasRewardPoints (sixth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_reward_points() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
+		EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasRewardPoints", 1);
+
+		Ok(())
+	}
+
+	// Benchmark pruning single-entry cleanups (seventh step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
+		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ValidatorSlashInEra (eighth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_validator_slash_in_era(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ValidatorSlashInEra", v);
 
 		Ok(())
 	}

@@ -236,7 +236,7 @@ impl<B: BlockT> Behaviour<B> {
 	/// Returns `None` if we don't know anything about this node. Always returns `Some` for nodes
 	/// we're connected to, meaning that if `None` is returned then we're not connected to that
 	/// node.
-	pub fn node(&self, peer_id: &PeerId) -> Option<peer_info::Node> {
+	pub fn node(&self, peer_id: &PeerId) -> Option<peer_info::Node<'_>> {
 		self.peer_info.node(peer_id)
 	}
 

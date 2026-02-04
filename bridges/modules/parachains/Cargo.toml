@@ -12,8 +12,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
 bp-header-chain = { workspace = true }
@@ -46,11 +46,11 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-bridge-grandpa/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

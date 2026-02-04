@@ -22,7 +22,7 @@ use core::cmp::{max, min};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use polkadot_primitives::v8::GroupIndex;
+use polkadot_primitives::{node_features::FeatureIndex, GroupIndex};
 
 use crate::builder::BenchBuilder;
 
@@ -133,6 +133,12 @@ mod benchmarks {
 			},
 		>,
 	) -> Result<(), BenchmarkError> {
+		configuration::Pallet::<T>::set_node_feature(
+			RawOrigin::Root.into(),
+			FeatureIndex::CandidateReceiptV2 as u8,
+			true,
+		)
+		.unwrap();
 		let cores_with_backed: BTreeMap<_, _> = vec![(0, v)] // The backed candidate will have `v` validity votes.
 			.into_iter()
 			.collect();
@@ -185,6 +191,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn enter_backed_candidate_code_upgrade() -> Result<(), BenchmarkError> {
+		configuration::Pallet::<T>::set_node_feature(
+			RawOrigin::Root.into(),
+			FeatureIndex::CandidateReceiptV2 as u8,
+			true,
+		)
+		.unwrap();
+
 		// For now we always assume worst case code size. In the future we could vary over this.
 		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
 

@@ -24,10 +24,8 @@ use crate::{
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
-	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateReceiptV2 as CandidateReceipt,
-	},
-	CandidateCommitments, PersistedValidationData, PvfExecKind,
+	CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	CandidateReceiptV2 as CandidateReceipt, PersistedValidationData, PvfExecKind,
 };
 
 use futures::channel::oneshot;
@@ -256,7 +254,7 @@ where
 									exec_kind,
 									response_sender,
 								},
-							})
+							});
 						}
 						// Create the fake response with probability `p` if the `PoV` is malicious,
 						// where 'p' defaults to 100% for suggest-garbage-candidate variant.

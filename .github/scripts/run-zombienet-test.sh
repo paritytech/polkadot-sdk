@@ -12,8 +12,11 @@ function run_test {
     # ZOMBIENET_IMAGE not set && RUN_IN_CONTAINER=0 => inCI=false
     # Apparently inCI=true works properly only with k8s provider
     unset ZOMBIENET_IMAGE
-
-    ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY test $i
+    if [ -z "$ZOMBIE_BASE_DIR" ]; then
+      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY test $i
+    else
+      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY -d $ZOMBIE_BASE_DIR -f test $i
+    fi;
     EXIT_STATUS=$?
   done;
   if [[ $TEST_FOUND -lt 1 ]]; then
@@ -67,6 +70,7 @@ EXIT_STATUS=0
 LOCAL_DIR="$1"
 CONCURRENCY="$2"
 TEST_TO_RUN="$3"
+ZOMBIE_BASE_DIR="$4"
 
 cd "${SCRIPT_PATH}"
 

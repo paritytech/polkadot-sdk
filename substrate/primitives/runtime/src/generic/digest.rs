@@ -32,12 +32,10 @@ use crate::{
 	},
 	ConsensusEngineId,
 };
-use sp_core::RuntimeDebug;
+use Debug;
 
 /// Generic header digest.
-#[derive(
-	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, Default,
-)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Digest {
 	/// A list of logs in the digest.
@@ -73,7 +71,7 @@ impl Digest {
 
 /// Digest item that is able to encode/decode 'system' digest items and
 /// provide opaque access to other items.
-#[derive(PartialEq, Eq, Clone, DecodeWithMemTracking, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, DecodeWithMemTracking, Debug)]
 pub enum DigestItem {
 	/// A pre-runtime digest.
 	///
@@ -172,7 +170,7 @@ impl TypeInfo for DigestItem {
 
 /// A 'referencing view' for digest item. Does not own its contents. Used by
 /// final runtime implementations for encoding/decoding its log items.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum DigestItemRef<'a> {
 	/// A pre-runtime digest.
 	///
@@ -224,7 +222,7 @@ pub enum OpaqueDigestItemId<'a> {
 
 impl DigestItem {
 	/// Returns a 'referencing view' for this digest item.
-	pub fn dref(&self) -> DigestItemRef {
+	pub fn dref(&self) -> DigestItemRef<'_> {
 		match *self {
 			Self::PreRuntime(ref v, ref s) => DigestItemRef::PreRuntime(v, s),
 			Self::Consensus(ref v, ref s) => DigestItemRef::Consensus(v, s),

@@ -1,0 +1,13 @@
+title: '[pallet-revive] Migrate various getters to `System` pre-compile'
+doc:
+- audience: Runtime Dev
+  description: Migrates `own_code_hash`, `caller_is_origin`, `caller_is_root`, 
+    `weight_left`, `minimum_balance`. Contains minor other fixes (removing leftovers 
+    from deprecating chain extensions, stabilizing `block_hash` in overlooked crates, …).
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

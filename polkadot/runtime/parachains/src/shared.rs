@@ -26,7 +26,7 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	vstaging::transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
@@ -91,7 +91,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 	) {
 		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
 			// Already present.
-			return
+			return;
 		}
 
 		let claim_queue = transpose_claim_queue(claim_queue);
@@ -124,7 +124,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 
 		if let Some(prev) = prev {
 			if prev > number {
-				return None
+				return None;
 			}
 		}
 

@@ -44,10 +44,9 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -175,7 +174,7 @@ impl Initialized {
 				self.run_until_error(&mut ctx, &mut backend, &mut initial_data, &*clock).await;
 			if let Ok(()) = res {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				return Ok(())
+				return Ok(());
 			}
 			log_error(res)?;
 		}
@@ -417,7 +416,7 @@ impl Initialized {
 					?session_index,
 					"Couldn't find blocks in the session for an unapplied slash",
 				);
-				return
+				return;
 			}
 
 			// Find a relay block that we can use
@@ -474,7 +473,7 @@ impl Initialized {
 					// If we found a parent that we can use, stop searching.
 					// If one key ownership was resolved successfully, all of them should be.
 					debug_assert_eq!(key_ownership_proofs.len(), pending.keys.len());
-					break
+					break;
 				}
 			}
 
@@ -597,7 +596,7 @@ impl Initialized {
 		let ScrapedOnChainVotes { session, backing_validators_per_candidate, disputes } = votes;
 
 		if backing_validators_per_candidate.is_empty() && disputes.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// Scraped on-chain backing votes for the candidates with
@@ -618,7 +617,7 @@ impl Initialized {
 						?err,
 						"Could not retrieve session info from RuntimeInfo",
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -730,7 +729,7 @@ impl Initialized {
 						?err,
 						"Could not retrieve session info for recently concluded dispute"
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -766,7 +765,7 @@ impl Initialized {
 				.collect::<Vec<_>>();
 			if statements.is_empty() {
 				gum::debug!(target: LOG_TARGET, "Skipping empty from chain dispute import");
-				continue
+				continue;
 			}
 			let import_result = self
 				.handle_import_statements(
@@ -852,9 +851,7 @@ impl Initialized {
 				};
 				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
-				let _ = tx.send(
-					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
-				);
+				let _ = tx.send(recent_disputes);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
@@ -866,10 +863,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {
@@ -948,7 +942,7 @@ impl Initialized {
 		gum::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
 		if self.session_is_ancient(session) {
 			// It is not valid to participate in an ancient dispute (spam?) or too new.
-			return Ok(ImportStatementsResult::InvalidImport)
+			return Ok(ImportStatementsResult::InvalidImport);
 		}
 
 		let candidate_hash = candidate_receipt.hash();
@@ -965,7 +959,7 @@ impl Initialized {
 						?candidate_hash,
 						"Cannot obtain relay parent without `CandidateReceipt` available!"
 					);
-					return Ok(ImportStatementsResult::InvalidImport)
+					return Ok(ImportStatementsResult::InvalidImport);
 				},
 			},
 		};
@@ -987,7 +981,7 @@ impl Initialized {
 					"We are lacking a `SessionInfo` for handling import of statements."
 				);
 
-				return Ok(ImportStatementsResult::InvalidImport)
+				return Ok(ImportStatementsResult::InvalidImport);
 			},
 			Some(env) => env,
 		};
@@ -1022,7 +1016,7 @@ impl Initialized {
 						?candidate_hash,
 						"Cannot import votes, without `CandidateReceipt` available!"
 					);
-					return Ok(ImportStatementsResult::InvalidImport)
+					return Ok(ImportStatementsResult::InvalidImport);
 				},
 		};
 
@@ -1160,7 +1154,7 @@ impl Initialized {
 					invalid_voters = ?import_result.new_invalid_voters(),
 					"Rejecting import because of full spam slots."
 				);
-				return Ok(ImportStatementsResult::InvalidImport)
+				return Ok(ImportStatementsResult::InvalidImport);
 			}
 		}
 
@@ -1228,7 +1222,7 @@ impl Initialized {
 							?session,
 							"Could not find pub key in `SessionInfo` for our own approval vote!"
 						);
-						continue
+						continue;
 					},
 					Some(k) => k,
 				};
@@ -1461,7 +1455,7 @@ impl Initialized {
 					"Missing info for session which has an active dispute",
 				);
 
-				return Ok(())
+				return Ok(());
 			},
 			Some(env) => env,
 		};
@@ -1483,7 +1477,7 @@ impl Initialized {
 		let controlled_indices = env.controlled_indices();
 		for index in controlled_indices {
 			if voted_indices.contains(&index) {
-				continue
+				continue;
 			}
 
 			let keystore = self.keystore.clone() as Arc<_>;
@@ -1519,7 +1513,7 @@ impl Initialized {
 				match make_dispute_message(env.session_info(), &votes, statement.clone(), *index) {
 					Err(err) => {
 						gum::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
-						continue
+						continue;
 					},
 					Ok(dispute_message) => dispute_message,
 				};
@@ -1563,7 +1557,7 @@ impl Initialized {
 	}
 
 	fn session_is_ancient(&self, session_idx: SessionIndex) -> bool {
-		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1)
+		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1);
 	}
 
 	/// Revisit active non-confirmed disputes after validators have been disabled.
@@ -1586,11 +1580,11 @@ impl Initialized {
 			debug_assert_eq!(session, *dispute_session);
 			// Only check unconfirmed
 			if status.is_confirmed_concluded() {
-				continue
+				continue;
 			}
 			let Some(votes) = overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
 			else {
-				continue
+				continue;
 			};
 			// Check if all invalid voters (raising parties) are disabled
 			if !votes.invalid.is_empty() &&
@@ -1695,9 +1689,9 @@ fn determine_undisputed_chain(
 	for (i, BlockDescription { session, candidates, .. }) in block_descriptions.iter().enumerate() {
 		if candidates.iter().any(|c| is_possibly_invalid(*session, *c)) {
 			if i == 0 {
-				return Ok((base_number, base_hash))
+				return Ok((base_number, base_hash));
 			} else {
-				return Ok((base_number + i as BlockNumber, block_descriptions[i - 1].block_hash))
+				return Ok((base_number + i as BlockNumber, block_descriptions[i - 1].block_hash));
 			}
 		}
 	}
@@ -1750,10 +1744,10 @@ impl OffchainDisabledValidators {
 			let session = *session;
 			// Only process concluded disputes
 			if dispute_status.concluded_at().is_none() {
-				continue
+				continue;
 			}
 			if session < earliest_session {
-				continue
+				continue;
 			}
 
 			// Get votes for this dispute

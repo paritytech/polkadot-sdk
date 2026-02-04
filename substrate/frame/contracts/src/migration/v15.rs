@@ -50,9 +50,7 @@ use sp_runtime::{traits::Zero, Saturating};
 mod v14 {
 	use super::*;
 
-	#[derive(
-		Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ContractInfo<T: Config> {
 		pub trie_id: TrieId,
@@ -96,7 +94,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 	v14::ContractInfoOf::<T>::insert(account, info);
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 struct ContractInfo<T: Config> {
 	pub trie_id: TrieId,

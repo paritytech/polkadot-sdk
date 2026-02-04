@@ -285,7 +285,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -331,6 +331,18 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 	}
 }
 
+impl<Bridges, Router, UniversalLocation> InspectMessageQueues
+	for UnpaidRemoteExporter<Bridges, Router, UniversalLocation>
+{
+	fn clear_messages() {}
+
+	/// This router needs to implement `InspectMessageQueues` but doesn't have to
+	/// return any messages, since it just reuses the `XcmpQueue` router.
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		Vec::new()
+	}
+}
+
 /// Implementation of `SendXcm` which wraps the message inside an `ExportMessage` instruction
 /// and sends it to a destination known to be able to handle it.
 ///
@@ -373,7 +385,7 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 		else {
 			// We need to make sure that msg is not consumed in case of `NotApplicable`.
 			*msg = Some(xcm);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// `xcm` should already end with `SetTopic` - if it does, then extract and derive into
@@ -614,7 +626,7 @@ impl<
 				},
 				Err((dest, _)) => {
 					*destination = Some(dest);
-					return Err(NotApplicable)
+					return Err(NotApplicable);
 				},
 			};
 
@@ -702,7 +714,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&d) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)
@@ -727,7 +739,7 @@ mod tests {
 		) -> SendResult<Self::Ticket> {
 			if let Some(d) = destination.as_ref() {
 				if Filter::contains(&(network, d.clone())) {
-					return Ok(((), Assets::new()))
+					return Ok(((), Assets::new()));
 				}
 			}
 			Err(NotApplicable)

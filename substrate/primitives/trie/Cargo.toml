@@ -23,7 +23,9 @@ harness = false
 [dependencies]
 ahash = { optional = true, workspace = true }
 codec = { workspace = true }
+foldhash = { workspace = true }
 hash-db = { workspace = true }
+hashbrown = { workspace = true }
 memory-db = { workspace = true }
 nohash-hasher = { optional = true, workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
@@ -50,6 +52,7 @@ default = ["std"]
 std = [
 	"ahash",
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
 	"memory-db/std",
 	"nohash-hasher",

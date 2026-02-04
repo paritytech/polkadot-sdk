@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Secretary Program to Collectives Westend
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Adds Secretary Program(i.e. pallet-ranked-collective & pallet-salary only).
+      Salary payments in USDT via Asset Hub and XCM integration for cross-chain payments.
+
+crates:
+- name: collectives-westend-integration-tests
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: major

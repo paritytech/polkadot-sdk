@@ -27,7 +27,6 @@ use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use futures::{future::Fuse, pin_mut, FutureExt, StreamExt};
 use ip_network::IpNetwork;
 use log::{debug, error, trace, warn};
-use parachains_common::Hash as ParaHash;
 use prost::Message;
 use sc_network::{
 	config::OutgoingResponse,
@@ -63,7 +62,7 @@ pub struct BootnodeAdvertisementParams {
 	/// Whether to advertise non-global IPs.
 	pub advertise_non_global_ips: bool,
 	/// Parachain genesis hash.
-	pub parachain_genesis_hash: ParaHash,
+	pub parachain_genesis_hash: Vec<u8>,
 	/// Parachain fork ID.
 	pub parachain_fork_id: Option<String>,
 	/// Parachain side public addresses.
@@ -83,7 +82,7 @@ pub struct BootnodeAdvertisement {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	parachain_network: Arc<dyn NetworkService>,
 	advertise_non_global_ips: bool,
-	parachain_genesis_hash: ParaHash,
+	parachain_genesis_hash: Vec<u8>,
 	parachain_fork_id: Option<String>,
 	public_addresses: Vec<Multiaddr>,
 }
@@ -408,7 +407,7 @@ impl BootnodeAdvertisement {
 			let response = crate::schema::Response {
 				peer_id: self.parachain_network.local_peer_id().to_bytes(),
 				addrs: self.paranode_addresses().iter().map(|a| a.to_vec()).collect(),
-				genesis_hash: self.parachain_genesis_hash.clone().as_bytes().to_vec(),
+				genesis_hash: self.parachain_genesis_hash.clone(),
 				fork_id: self.parachain_fork_id.clone(),
 			};
 

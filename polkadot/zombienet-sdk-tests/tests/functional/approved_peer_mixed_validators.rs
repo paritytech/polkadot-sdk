@@ -112,9 +112,7 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 6..15), (ParaId::from(2001), 11..16)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 6..15), (ParaId::from(2001), 11..16)],
 	)
 	.await?;
 

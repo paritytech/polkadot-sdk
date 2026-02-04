@@ -1,0 +1,10 @@
+title: Reenable `interest-cache` for `tracing-log`
+doc:
+- audience: Node Dev
+  description: |-
+    Reenable `interest-cache` for `tracing-log` crate.
+
+    See https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3522183237
+crates:
+- name: sc-tracing
+  bump: minor

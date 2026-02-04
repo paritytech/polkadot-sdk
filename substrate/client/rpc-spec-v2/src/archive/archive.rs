@@ -96,7 +96,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
 	// Methods can accept empty parameters.
 	if param.is_empty() {
-		return Ok(Default::default())
+		return Ok(Default::default());
 	}
 
 	array_bytes::hex2bytes(&param).map_err(|_| ArchiveError::InvalidParam(param))
@@ -153,7 +153,7 @@ where
 
 		if finalized_num >= height {
 			let Ok(Some(hash)) = self.client.block_hash(height) else { return Ok(vec![]) };
-			return Ok(vec![hex_string(&hash.as_ref())])
+			return Ok(vec![hex_string(&hash.as_ref())]);
 		}
 
 		let blockchain = self.backend.blockchain();
@@ -166,7 +166,7 @@ where
 				let Ok(Some(header)) = self.client.header(hash) else { return None };
 
 				if header.number() < &height {
-					return None
+					return None;
 				}
 
 				Some(header)
@@ -179,7 +179,7 @@ where
 		while let Some(header) = headers.pop() {
 			if header.number() == &height {
 				result.push(hex_string(&header.hash().as_ref()));
-				continue
+				continue;
 			}
 
 			let parent_hash = *header.parent_hash();
@@ -231,14 +231,30 @@ where
 				.into_iter()
 				.map(|query| {
 					let key = StorageKey(parse_hex_param(query.key)?);
-					Ok(StorageQuery { key, query_type: query.query_type })
+
+					// Validate that paginationStartKey is only used with descendant queries
+					if query.pagination_start_key.is_some() &&
+						!query.query_type.is_descendant_query()
+					{
+						return Err(ArchiveError::InvalidParam(
+							"paginationStartKey is only valid for descendantsValues and descendantsHashes query types"
+								.to_string(),
+						));
+					}
+
+					let pagination_start_key = query
+						.pagination_start_key
+						.map(|key| parse_hex_param(key).map(StorageKey))
+						.transpose()?;
+
+					Ok(StorageQuery { key, query_type: query.query_type, pagination_start_key })
 				})
 				.collect::<Result<Vec<_>, ArchiveError>>()
 			{
 				Ok(items) => items,
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
-					return
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					return;
 				},
 			};
 
@@ -246,8 +262,8 @@ where
 			let child_trie = match child_trie {
 				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
-					return
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					return;
 				},
 			};
 
@@ -286,7 +302,7 @@ where
 				let Ok(Some(current_header)) = client.header(hash) else {
 					let message = format!("Block header is not present: {hash}");
 					let _ = sink.send(&ArchiveStorageDiffEvent::err(message)).await;
-					return
+					return;
 				};
 				*current_header.parent_hash()
 			};

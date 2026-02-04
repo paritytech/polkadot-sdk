@@ -96,7 +96,7 @@ pub mod pallet {
 	#[pallet::origin]
 	#[derive(
 		EqNoBound,
-		RuntimeDebugNoBound,
+		DebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
 		PartialOrdNoBound,

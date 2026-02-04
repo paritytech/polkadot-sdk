@@ -11,6 +11,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [[bench]]
 name = "prepare_rococo_runtime"
 harness = false
@@ -38,7 +41,6 @@ tikv-jemalloc-ctl = { workspace = true }
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }
 rococo-runtime = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [features]
 builder = []

@@ -320,7 +320,7 @@ pub(crate) mod v7 {
 	}
 
 	#[allow(dead_code)]
-	#[derive(RuntimeDebugNoBound)]
+	#[derive(DebugNoBound)]
 	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 	pub struct V7BondedPool<T: Config> {
 		/// The identifier of the pool.
@@ -442,7 +442,7 @@ mod v6 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// there should be no ED imbalances anymore..
-			Pallet::<T>::check_ed_imbalance()
+			Pallet::<T>::check_ed_imbalance().map(|_| ())
 		}
 	}
 }
@@ -879,14 +879,14 @@ pub mod v2 {
 						Some(x) => x,
 						None => {
 							log!(error, "pool {} has no member! deleting it..", id);
-							return None
+							return None;
 						},
 					};
 					let bonded_pool = match BondedPools::<T>::get(id) {
 						Some(x) => x,
 						None => {
 							log!(error, "pool {} has no bonded pool! deleting it..", id);
-							return None
+							return None;
 						},
 					};
 
@@ -901,7 +901,7 @@ pub mod v2 {
 								Some(x) => x,
 								None => {
 									log!(error, "pool {} for member {:?} does not exist!", id, who);
-									return None
+									return None;
 								},
 							};
 

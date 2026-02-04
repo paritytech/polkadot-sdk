@@ -56,7 +56,9 @@ use sc_consensus::{
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{Environment, Error as ConsensusError, Proposer, SelectChain, SyncOracle};
+use sp_consensus::{
+	Environment, Error as ConsensusError, ProposeArgs, Proposer, SelectChain, SyncOracle,
+};
 use sp_consensus_pow::{Seal, TotalDifficulty, POW_ENGINE_ID};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
@@ -268,29 +270,26 @@ where
 		at_hash: B::Hash,
 		inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<B>> {
+		use sp_block_builder::CheckInherentsError;
+
 		if *block.header().number() < self.check_inherents_after {
-			return Ok(())
+			return Ok(());
 		}
 
-		let inherent_data = inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(|e| Error::CreateInherents(e))?;
-
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| Error::Client(e.into()))?;
-
-		if !inherent_res.ok() {
-			for (identifier, error) in inherent_res.into_errors() {
-				match inherent_data_providers.try_handle_error(&identifier, &error).await {
-					Some(res) => res.map_err(Error::CheckInherents)?,
-					None => return Err(Error::CheckInherentsUnknownError(identifier)),
-				}
-			}
-		}
+		sp_block_builder::check_inherents(
+			self.client.clone(),
+			at_hash,
+			block,
+			&inherent_data_providers,
+		)
+		.await
+		.map_err(|e| match e {
+			CheckInherentsError::CreateInherentData(e) => Error::CreateInherents(e),
+			CheckInherentsError::Client(e) => Error::Client(e.into()),
+			CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+			CheckInherentsError::CheckInherentsUnknownError(id) =>
+				Error::CheckInherentsUnknownError(id),
+		})?;
 
 		Ok(())
 	}
@@ -367,7 +366,7 @@ where
 			&inner_seal,
 			difficulty,
 		)? {
-			return Err(Error::<B>::InvalidSeal.into())
+			return Err(Error::<B>::InvalidSeal.into());
 		}
 
 		aux.difficulty = difficulty;
@@ -416,7 +415,7 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 				if id == POW_ENGINE_ID {
 					(DigestItem::Seal(id, seal.clone()), seal)
 				} else {
-					return Err(Error::WrongEngine(id))
+					return Err(Error::WrongEngine(id));
 				},
 			_ => return Err(Error::HeaderUnsealed(hash)),
 		};
@@ -424,7 +423,7 @@ impl<B: BlockT, Algorithm> PowVerifier<B, Algorithm> {
 		let pre_hash = header.hash();
 
 		if !self.algorithm.preliminary_verify(&pre_hash, &inner_seal)?.unwrap_or(true) {
-			return Err(Error::FailedPreliminaryVerify)
+			return Err(Error::FailedPreliminaryVerify);
 		}
 
 		Ok((header, seal))
@@ -496,10 +495,7 @@ pub fn start_mining_worker<Block, C, S, Algorithm, E, SO, L, CIDP>(
 	create_inherent_data_providers: CIDP,
 	timeout: Duration,
 	build_time: Duration,
-) -> (
-	MiningHandle<Block, Algorithm, L, <E::Proposer as Proposer<Block>>::Proof>,
-	impl Future<Output = ()>,
-)
+) -> (MiningHandle<Block, Algorithm, L>, impl Future<Output = ()>)
 where
 	Block: BlockT,
 	C: BlockchainEvents<Block> + 'static,
@@ -520,13 +516,13 @@ where
 	let task = async move {
 		loop {
 			if timer.next().await.is_none() {
-				break
+				break;
 			}
 
 			if sync_oracle.is_major_syncing() {
 				debug!(target: LOG_TARGET, "Skipping proposal due to sync.");
 				worker.on_major_syncing();
-				continue
+				continue;
 			}
 
 			let best_header = match select_chain.best_chain().await {
@@ -538,13 +534,13 @@ where
 						 Select best chain error: {}",
 						err
 					);
-					continue
+					continue;
 				},
 			};
 			let best_hash = best_header.hash();
 
 			if worker.best_hash() == Some(best_hash) {
-				continue
+				continue;
 			}
 
 			// The worker is locked for the duration of the whole proposing period. Within this
@@ -559,7 +555,7 @@ where
 						 Fetch difficulty failed: {}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -575,7 +571,7 @@ where
 						 Creating inherent data providers failed: {}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -588,13 +584,13 @@ where
 						 Creating inherent data failed: {}",
 						e,
 					);
-					continue
+					continue;
 				},
 			};
 
-			let mut inherent_digest = Digest::default();
+			let mut inherent_digests = Digest::default();
 			if let Some(pre_runtime) = &pre_runtime {
-				inherent_digest.push(DigestItem::PreRuntime(POW_ENGINE_ID, pre_runtime.to_vec()));
+				inherent_digests.push(DigestItem::PreRuntime(POW_ENGINE_ID, pre_runtime.to_vec()));
 			}
 
 			let pre_runtime = pre_runtime.clone();
@@ -608,25 +604,33 @@ where
 						 Creating proposer failed: {:?}",
 						err,
 					);
-					continue
+					continue;
 				},
 			};
 
-			let proposal =
-				match proposer.propose(inherent_data, inherent_digest, build_time, None).await {
-					Ok(x) => x,
-					Err(err) => {
-						warn!(
-							target: LOG_TARGET,
-							"Unable to propose new block for authoring. \
-							 Creating proposal failed: {}",
-							err,
-						);
-						continue
-					},
-				};
+			let propose_args = ProposeArgs {
+				inherent_data,
+				inherent_digests,
+				max_duration: build_time,
+				block_size_limit: None,
+				storage_proof_recorder: None,
+				extra_extensions: Default::default(),
+			};
 
-			let build = MiningBuild::<Block, Algorithm, _> {
+			let proposal = match proposer.propose(propose_args).await {
+				Ok(x) => x,
+				Err(err) => {
+					warn!(
+						target: LOG_TARGET,
+						"Unable to propose new block for authoring. \
+						 Creating proposal failed: {}",
+						err,
+					);
+					continue;
+				},
+			};
+
+			let build = MiningBuild::<Block, Algorithm> {
 				metadata: MiningMetadata {
 					best_hash,
 					pre_hash: proposal.block.header().hash(),

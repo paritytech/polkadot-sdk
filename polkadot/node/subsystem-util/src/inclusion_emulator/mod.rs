@@ -82,10 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as OldPrimitiveConstraints,
-	vstaging::{async_backing::Constraints as PrimitiveConstraints, skip_ump_signals},
-	BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -179,43 +178,6 @@ impl From<PrimitiveConstraints> for Constraints {
 	}
 }
 
-impl From<OldPrimitiveConstraints> for Constraints {
-	fn from(c: OldPrimitiveConstraints) -> Self {
-		Constraints {
-			min_relay_parent_number: c.min_relay_parent_number,
-			max_pov_size: c.max_pov_size as _,
-			max_code_size: c.max_code_size as _,
-			// Equal to Polkadot/Kusama config.
-			max_head_data_size: 20480,
-			ump_remaining: c.ump_remaining as _,
-			ump_remaining_bytes: c.ump_remaining_bytes as _,
-			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
-			dmp_remaining_messages: c.dmp_remaining_messages,
-			hrmp_inbound: InboundHrmpLimitations {
-				valid_watermarks: c.hrmp_inbound.valid_watermarks,
-			},
-			hrmp_channels_out: c
-				.hrmp_channels_out
-				.into_iter()
-				.map(|(para_id, limits)| {
-					(
-						para_id,
-						OutboundHrmpChannelLimitations {
-							bytes_remaining: limits.bytes_remaining as _,
-							messages_remaining: limits.messages_remaining as _,
-						},
-					)
-				})
-				.collect(),
-			max_hrmp_num_per_candidate: c.max_hrmp_num_per_candidate as _,
-			required_parent: c.required_parent,
-			validation_code_hash: c.validation_code_hash,
-			upgrade_restriction: c.upgrade_restriction,
-			future_validation_code: c.future_validation_code,
-		}
-	}
-}
-
 /// Kinds of errors that can occur when modifying constraints.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModificationError {
@@ -275,7 +237,7 @@ impl Constraints {
 		if let Some(HrmpWatermarkUpdate::Trunk(hrmp_watermark)) = modifications.hrmp_watermark {
 			// head updates are always valid.
 			if !self.hrmp_inbound.valid_watermarks.contains(&hrmp_watermark) {
-				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark))
+				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark));
 			}
 		}
 
@@ -298,7 +260,7 @@ impl Constraints {
 						messages_submitted: outbound_hrmp_mod.messages_submitted,
 					})?;
 			} else {
-				return Err(ModificationError::NoSuchHrmpChannel(*id))
+				return Err(ModificationError::NoSuchHrmpChannel(*id));
 			}
 		}
 
@@ -325,7 +287,7 @@ impl Constraints {
 			})?;
 
 		if self.future_validation_code.is_none() && modifications.code_upgrade_applied {
-			return Err(ModificationError::AppliedNonexistentCodeUpgrade)
+			return Err(ModificationError::AppliedNonexistentCodeUpgrade);
 		}
 
 		Ok(())
@@ -356,7 +318,7 @@ impl Constraints {
 					},
 					HrmpWatermarkUpdate::Trunk(n) => {
 						// Trunk update landing on disallowed watermark is not OK.
-						return Err(ModificationError::DisallowedHrmpWatermark(*n))
+						return Err(ModificationError::DisallowedHrmpWatermark(*n));
 					},
 				},
 			}
@@ -382,7 +344,7 @@ impl Constraints {
 						messages_submitted: outbound_hrmp_mod.messages_submitted,
 					})?;
 			} else {
-				return Err(ModificationError::NoSuchHrmpChannel(*id))
+				return Err(ModificationError::NoSuchHrmpChannel(*id));
 			}
 		}
 
@@ -405,7 +367,7 @@ impl Constraints {
 			return Err(ModificationError::DmpMessagesUnderflow {
 				messages_remaining: new.dmp_remaining_messages.len(),
 				messages_processed: modifications.dmp_messages_processed,
-			})
+			});
 		} else {
 			new.dmp_remaining_messages =
 				new.dmp_remaining_messages[modifications.dmp_messages_processed..].to_vec();
@@ -671,7 +633,7 @@ impl Fragment {
 							if last >= message.recipient {
 								return Err(
 									FragmentValidityError::HrmpMessagesDescendingOrDuplicate(i),
-								)
+								);
 							}
 						}
 
@@ -742,21 +704,21 @@ pub fn validate_commitments(
 		return Err(FragmentValidityError::ValidationCodeMismatch(
 			constraints.validation_code_hash,
 			*validation_code_hash,
-		))
+		));
 	}
 
 	if commitments.head_data.0.len() > constraints.max_head_data_size {
 		return Err(FragmentValidityError::HeadDataTooLarge(
 			constraints.max_head_data_size,
 			commitments.head_data.0.len(),
-		))
+		));
 	}
 
 	if relay_parent.number < constraints.min_relay_parent_number {
 		return Err(FragmentValidityError::RelayParentTooOld(
 			constraints.min_relay_parent_number,
 			relay_parent.number,
-		))
+		));
 	}
 
 	if commitments.new_validation_code.is_some() {
@@ -774,14 +736,14 @@ pub fn validate_commitments(
 		return Err(FragmentValidityError::CodeSizeTooLarge(
 			constraints.max_code_size,
 			announced_code_size,
-		))
+		));
 	}
 
 	if commitments.horizontal_messages.len() > constraints.max_hrmp_num_per_candidate {
 		return Err(FragmentValidityError::HrmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_hrmp_num_per_candidate,
 			messages_submitted: commitments.horizontal_messages.len(),
-		})
+		});
 	}
 
 	Ok(())
@@ -808,7 +770,7 @@ fn validate_against_constraints(
 		return Err(FragmentValidityError::PersistedValidationDataMismatch(
 			expected_pvd,
 			persisted_validation_data.clone(),
-		))
+		));
 	}
 	if modifications.dmp_messages_processed == 0 {
 		if constraints
@@ -816,7 +778,7 @@ fn validate_against_constraints(
 			.get(0)
 			.map_or(false, |&msg_sent_at| msg_sent_at <= relay_parent.number)
 		{
-			return Err(FragmentValidityError::DmpAdvancementRule)
+			return Err(FragmentValidityError::DmpAdvancementRule);
 		}
 	}
 
@@ -824,7 +786,7 @@ fn validate_against_constraints(
 		return Err(FragmentValidityError::UmpMessagesPerCandidateOverflow {
 			messages_allowed: constraints.max_ump_num_per_candidate,
 			messages_submitted: commitments.upward_messages.len(),
-		})
+		});
 	}
 	constraints
 		.check_modifications(&modifications)
@@ -885,8 +847,8 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use polkadot_primitives::{
-		vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
-		HorizontalMessages, OutboundHrmpMessage, ValidationCode,
+		ClaimQueueOffset, CoreSelector, HorizontalMessages, OutboundHrmpMessage, UMPSignal,
+		ValidationCode, UMP_SEPARATOR,
 	};
 
 	#[test]

@@ -1,0 +1,8 @@
+title: 'frame_system: Whitelist storage items and do not double kill!'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This pull requests adds some storage values to the whitelisted storage item list, because they are written in every block. Also it stops double killing `InherentsApplied`. It is killed in `on_finalize`, so there is no need to do it again in `on_initialize`.
+crates:
+- name: frame-system
+  bump: patch

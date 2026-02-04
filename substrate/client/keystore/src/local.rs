@@ -147,12 +147,13 @@ impl LocalKeystore {
 			&self,
 			key_type: KeyTypeId,
 			public: &T::Public,
-		) -> std::result::Result<Option<T::Signature>, TraitError> {
+			owner: &[u8],
+		) -> std::result::Result<Option<T::ProofOfPossession>, TraitError> {
 			let proof_of_possession = self
 				.0
 				.read()
 				.key_pair_by_type::<T>(public, key_type)?
-				.map(|mut pair| pair.generate_proof_of_possession());
+				.map(|mut pair| pair.generate_proof_of_possession(owner));
 			Ok(proof_of_possession)
 		}
 	}
@@ -376,9 +377,10 @@ impl Keystore for LocalKeystore {
 		fn bls381_generate_proof_of_possession(
 			&self,
 			key_type: KeyTypeId,
-			public: &bls381::Public
-		) -> std::result::Result<Option<bls381::Signature>, TraitError> {
-			self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
+			public: &bls381::Public,
+			owner: &[u8],
+		) -> std::result::Result<Option<bls381::ProofOfPossession>, TraitError> {
+			self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
 		}
 
 		fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
@@ -551,13 +553,13 @@ impl KeystoreInner {
 	/// Get the key phrase for a given public key and key type.
 	fn key_phrase_by_type(&self, public: &[u8], key_type: KeyTypeId) -> Result<Option<String>> {
 		if let Some(phrase) = self.get_additional_pair(public, key_type) {
-			return Ok(Some(phrase.clone()))
+			return Ok(Some(phrase.clone()));
 		}
 
 		let path = if let Some(path) = self.key_file_path(public, key_type) {
 			path
 		} else {
-			return Ok(None)
+			return Ok(None);
 		};
 
 		if path.exists() {
@@ -578,7 +580,7 @@ impl KeystoreInner {
 		let phrase = if let Some(p) = self.key_phrase_by_type(public.as_slice(), key_type)? {
 			p
 		} else {
-			return Ok(None)
+			return Ok(None);
 		};
 
 		let pair = Pair::from_string(&phrase, self.password()).map_err(|_| Error::InvalidPhrase)?;
@@ -620,7 +622,7 @@ impl KeystoreInner {
 					match array_bytes::hex2bytes(name) {
 						Ok(ref hex) if hex.len() > 4 => {
 							if hex[0..4] != key_type.0 {
-								continue
+								continue;
 							}
 							let public = hex[4..].to_vec();
 							public_keys.push(public);
