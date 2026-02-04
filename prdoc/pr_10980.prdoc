@@ -9,3 +9,4 @@ doc:
 crates:
 - name: asset-hub-westend-runtime
   bump: major
+  validate: false
