@@ -1011,7 +1011,9 @@ macro_rules! implement_fixed {
 
 					// For unsigned types, reject negative numbers
 					if is_negative && !$name::SIGNED {
-						return Err("negative numbers not supported for unsigned fixed point types");
+						return Err(
+							"negative numbers not supported for unsigned fixed point types",
+						);
 					}
 
 					// Parse integer part
