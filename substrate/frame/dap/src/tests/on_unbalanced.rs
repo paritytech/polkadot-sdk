@@ -17,7 +17,7 @@
 
 //! OnUnbalanced tests for the DAP pallet.
 
-use crate::mock::*;
+use crate::mock::{new_test_ext, Balances, Test};
 use frame_support::traits::{
 	fungible::{Balanced, Inspect},
 	tokens::{Fortitude, Precision, Preservation},
@@ -27,8 +27,56 @@ use frame_support::traits::{
 type DapPallet = crate::Pallet<Test>;
 
 #[test]
+#[should_panic(expected = "Failed to deposit slash to DAP buffer")]
+fn on_unbalanced_panics_when_buffer_not_funded_and_deposit_below_ed() {
+	new_test_ext(false).execute_with(|| {
+		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: buffer is not funded
+		assert_eq!(Balances::free_balance(buffer), 0);
+
+		// When: deposit < ED -> triggers defensive panic
+		let credit = <Balances as Balanced<u64>>::withdraw(
+			&1,
+			ed - 1,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
+		DapPallet::on_unbalanced(credit);
+	});
+}
+
+#[test]
+fn on_unbalanced_creates_buffer_when_not_funded_and_deposit_at_least_ed() {
+	new_test_ext(false).execute_with(|| {
+		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: buffer is not funded
+		assert_eq!(Balances::free_balance(buffer), 0);
+
+		// When: deposit >= ED
+		let credit = <Balances as Balanced<u64>>::withdraw(
+			&1,
+			ed,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Force,
+		)
+		.unwrap();
+		DapPallet::on_unbalanced(credit);
+
+		// Then: buffer is created and funded
+		assert_eq!(Balances::free_balance(buffer), ed);
+	});
+}
+
+#[test]
 fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(true).execute_with(|| {
 		let buffer = DapPallet::buffer_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 

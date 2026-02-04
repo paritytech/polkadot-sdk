@@ -18,8 +18,13 @@
 //! # Dynamic Allocation Pool (DAP) Pallet
 //!
 //! This pallet implements `OnUnbalanced` to collect funds (e.g., slashes) into a buffer account
-//! instead of burning them. The buffer account must be pre-funded externally (e.g., via balances
-//! genesis config or a transfer) before the pallet receives any funds.
+//! instead of burning them. The buffer account must be pre-funded with at least ED (existential
+//! deposit), e.g., via balances genesis config or a transfer. If the buffer account is not
+//! pre-funded, deposits below ED will be silently burned.
+//!
+//! Incoming funds are deactivated to exclude them from governance voting.
+//! When DAP distributes funds (e.g., to validators, nominators, treasury, collators), those funds
+//! must be reactivated before transfer.
 //!
 //! Future phases will add:
 //! - `FundingSource` (request_funds) for pulling funds
