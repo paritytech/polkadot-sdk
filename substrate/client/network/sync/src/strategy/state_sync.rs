@@ -29,10 +29,9 @@ use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Header, NumberFor, PartialStateFor},
+	traits::{Block as BlockT, Header, NumberFor, PartialStateFor},
 	Justifications,
 };
-use sp_trie::MemoryDB;
 use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -293,7 +292,7 @@ where
 				},
 			};
 
-			let (values, completed) = match self.client.verify_range_proof(
+			let (values, completed, partial_state) = match self.client.verify_range_proof(
 				self.metadata.target_root(),
 				proof.clone(),
 				self.metadata.last_key.as_slice(),
@@ -310,24 +309,12 @@ where
 			};
 			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
 
-			let mut partial_state = PartialStateFor::<B> {
+			let partial_state = PartialStateFor::<B> {
 				block_hash: self.target_hash(),
 				block_number: self.target_number(),
 				state_root: self.metadata.target_root(),
-				nodes: MemoryDB::<HashingFor<B>>::new(&[]),
+				nodes: partial_state,
 			};
-			if let Err(e) = sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<B>>, _, _>(
-				&mut partial_state.nodes,
-				proof.iter_compact_encoded_nodes(),
-				Some(&self.metadata.target_root()),
-			) {
-				debug!(
-					target: LOG_TARGET,
-					"Error decoding proof to db: {}",
-					e,
-				);
-				return ImportResult::BadResponse
-			}
 
 			let complete = completed == 0;
 			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
