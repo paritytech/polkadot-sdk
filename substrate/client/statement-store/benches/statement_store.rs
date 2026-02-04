@@ -108,9 +108,9 @@ impl sp_blockchain::HeaderBackend<Block> for TestClient {
 }
 
 fn topic(data: u64) -> Topic {
-	let mut topic: Topic = Default::default();
-	topic[0..8].copy_from_slice(&data.to_le_bytes());
-	topic
+	let mut bytes = [0u8; 32];
+	bytes[0..8].copy_from_slice(&data.to_le_bytes());
+	Topic::from(bytes)
 }
 
 fn dec_key(data: u64) -> DecryptionKey {
@@ -148,7 +148,15 @@ fn setup_store(keypair: &sp_core::ed25519::Pair) -> (Store, tempfile::TempDir) {
 	let mut path: std::path::PathBuf = temp_dir.path().into();
 	path.push("db");
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 
 	for i in 0..INITIAL_STATEMENTS {
 		let topics = if i % 10 == 0 { vec![topic(0), topic(1)] } else { vec![] };

@@ -30,7 +30,7 @@ use asset_hub_westend_runtime::{
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
+	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
@@ -83,6 +83,8 @@ use xcm_builder::{
 };
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
+
+use sp_runtime::traits::OpaqueKeys;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
@@ -2072,4 +2074,189 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 		1_000_000_000u128,
 		None,
 	);
+}
+
+/// Verify that AssetHub's `RelayChainSessionKeys` is compatible with Westend's `SessionKeys`.
+#[test]
+fn session_keys_are_compatible_between_ah_and_rc() {
+	use asset_hub_westend_runtime::staking::RelayChainSessionKeys;
+
+	// Verify the key type IDs match in order.
+	// This ensures that when keys are encoded on AssetHub and decoded on Westend (or vice versa),
+	// they map to the correct key types.
+	assert_eq!(
+		RelayChainSessionKeys::key_ids(),
+		westend_runtime::SessionKeys::key_ids(),
+		"Session key type IDs must match between AssetHub and Westend"
+	);
+}
+
+#[test]
+fn staking_proxy_can_manage_staking_operator() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// GIVEN: Staking proxy type
+	let staking_proxy = ProxyType::Staking;
+
+	// WHEN: checking if Staking can add/remove StakingOperator proxies
+	let add_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+		delegate: AccountId::from(BOB).into(),
+		proxy_type: ProxyType::StakingOperator,
+		delay: 0,
+	});
+	let remove_call = RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
+		delegate: AccountId::from(BOB).into(),
+		proxy_type: ProxyType::StakingOperator,
+		delay: 0,
+	});
+
+	// THEN: Staking proxy can manage StakingOperator proxies and is its superset
+	assert!(staking_proxy.filter(&add_call));
+	assert!(staking_proxy.filter(&remove_call));
+	assert!(staking_proxy.is_superset(&ProxyType::StakingOperator));
+}
+
+/// Verifies StakingOperator filter allows validator operations and session key management,
+/// but forbids fund management.
+#[test]
+fn staking_operator_filter_allows_validator_ops_and_session_keys() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+	use pallet_staking_async::{Call as StakingCall, RewardDestination, ValidatorPrefs};
+	use pallet_staking_async_rc_client::Call as RcClientCall;
+
+	let operator = ProxyType::StakingOperator;
+
+	// StakingOperator can perform validator operations
+	assert!(operator
+		.filter(&RuntimeCall::Staking(StakingCall::validate { prefs: ValidatorPrefs::default() })));
+	assert!(operator.filter(&RuntimeCall::Staking(StakingCall::chill {})));
+	assert!(operator.filter(&RuntimeCall::Staking(StakingCall::kick { who: vec![] })));
+
+	// StakingOperator can manage session keys
+	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::set_keys {
+		keys: Default::default(),
+		proof: Default::default(),
+		max_delivery_and_remote_execution_fee: None,
+	})));
+	assert!(operator.filter(&RuntimeCall::StakingRcClient(RcClientCall::purge_keys {
+		max_delivery_and_remote_execution_fee: None,
+	})));
+
+	// StakingOperator can batch operations
+	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
+
+	// StakingOperator cannot manage funds or nominations
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::bond {
+		value: 100,
+		payee: RewardDestination::Staked
+	})));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::unbond { value: 100 })));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::nominate { targets: vec![] })));
+	assert!(!operator.filter(&RuntimeCall::Staking(StakingCall::set_payee {
+		payee: RewardDestination::Staked
+	})));
+}
+
+/// Test that a pure proxy stash can delegate to a StakingOperator
+/// who can then call validate, chill, and manage session keys.
+#[test]
+fn pure_proxy_stash_can_delegate_to_staking_operator() {
+	use asset_hub_westend_runtime::ProxyType;
+
+	let controller: AccountId = ALICE.into();
+	let operator: AccountId = BOB.into();
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			// GIVEN: fund controller and operator
+			assert_ok!(Balances::mint_into(&controller, 100 * UNITS));
+			assert_ok!(Balances::mint_into(&operator, 100 * UNITS));
+
+			// WHEN: controller creates a pure proxy stash with Staking proxy type
+			assert_ok!(Proxy::create_pure(
+				RuntimeOrigin::signed(controller.clone()),
+				ProxyType::Staking,
+				0,
+				0
+			));
+			let pure_stash = Proxy::pure_account(&controller, &ProxyType::Staking, 0, None);
+
+			// Fund the pure proxy stash
+			assert_ok!(Balances::mint_into(&pure_stash, 100 * UNITS));
+
+			// WHEN: controller (via Staking proxy) adds StakingOperator proxy for the operator
+			let add_operator_call = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+				delegate: operator.clone().into(),
+				proxy_type: ProxyType::StakingOperator,
+				delay: 0,
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(controller.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(add_operator_call),
+			));
+
+			// THEN: operator can call chill on behalf of pure proxy stash
+			let chill_call = RuntimeCall::Staking(pallet_staking_async::Call::chill {});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(chill_call),
+			));
+
+			// THEN: operator can call validate on behalf of pure proxy stash
+			let validate_call = RuntimeCall::Staking(pallet_staking_async::Call::validate {
+				prefs: Default::default(),
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(validate_call),
+			));
+
+			// THEN: operator can call purge_keys (session key management on AssetHub)
+			let purge_keys_call =
+				RuntimeCall::StakingRcClient(pallet_staking_async_rc_client::Call::purge_keys {
+					max_delivery_and_remote_execution_fee: None,
+				});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(purge_keys_call),
+			));
+
+			// THEN: operator CANNOT call bond (fund management is forbidden)
+			// Note: Proxy::proxy returns Ok(()) even when the proxied call fails due to filter.
+			// The actual result is emitted as a ProxyExecuted event.
+			let bond_call = RuntimeCall::Staking(pallet_staking_async::Call::bond {
+				value: 10 * UNITS,
+				payee: pallet_staking_async::RewardDestination::Staked,
+			});
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(operator.clone()),
+				pure_stash.clone().into(),
+				None,
+				Box::new(bond_call),
+			));
+			// Check that the proxied call failed due to filter (CallFiltered error)
+			System::assert_last_event(
+				pallet_proxy::Event::ProxyExecuted {
+					result: Err(frame_system::Error::<Runtime>::CallFiltered.into()),
+				}
+				.into(),
+			);
+		});
 }

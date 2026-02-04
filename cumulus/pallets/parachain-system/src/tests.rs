@@ -1021,7 +1021,7 @@ fn send_upward_message_num_per_candidate() {
 			2,
 			|| {
 				assert_eq!(UnincludedSegment::<Test>::get().len(), 0);
-				/* do nothing within block */
+				// do nothing within block
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
@@ -1096,7 +1096,6 @@ fn send_upward_message_check_size() {
 fn send_hrmp_message_buffer_channel_close() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| {
-			//
 			// Base case setup
 			//
 			sproof.para_id = ParaId::from(200);
@@ -1124,7 +1123,6 @@ fn send_hrmp_message_buffer_channel_close() {
 				},
 			);
 
-			//
 			// Adjustment according to block
 			//
 			match relay_block_num {

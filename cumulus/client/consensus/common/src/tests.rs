@@ -135,7 +135,7 @@ impl RelayChainInterface for Relaychain {
 			_ => &inner.relay_chain_hash_to_header,
 		};
 		let Some(parent_head) = relay_to_header.get(&hash).map(|head| head.encode().into()) else {
-			return Ok(None)
+			return Ok(None);
 		};
 		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
 	}
@@ -430,7 +430,7 @@ async fn follow_new_best_works() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -483,7 +483,7 @@ async fn follow_new_best_with_dummy_recovery_works() {
 				status => {
 					assert_eq!(block.hash(), client.usage_info().chain.best_hash);
 					assert_eq!(status, BlockStatus::InChainWithState);
-					break
+					break;
 				},
 			}
 		}
@@ -536,7 +536,7 @@ async fn follow_finalized_works() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -588,7 +588,7 @@ async fn follow_finalized_does_not_stop_on_unknown_block() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.finalized_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -638,7 +638,7 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 
@@ -663,7 +663,7 @@ async fn follow_new_best_sets_best_after_it_is_imported() {
 		loop {
 			Delay::new(Duration::from_millis(100)).await;
 			if unknown_block.hash() == client.usage_info().chain.best_hash {
-				break
+				break;
 			}
 		}
 	};
@@ -986,7 +986,6 @@ fn find_potential_parents_in_allowed_ancestry() {
 			relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 0,
-			max_depth: 0,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1022,7 +1021,6 @@ fn find_potential_parents_in_allowed_ancestry() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 2,
-			max_depth: 1,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1044,7 +1042,6 @@ fn find_potential_parents_in_allowed_ancestry() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1,
-			max_depth: 1,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1103,7 +1100,6 @@ fn find_potential_pending_parent() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 0,
-			max_depth: 1,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1127,81 +1123,8 @@ fn find_potential_pending_parent() {
 }
 
 #[test]
-fn find_potential_parents_with_max_depth() {
-	sp_tracing::try_init_simple();
-
-	const NON_INCLUDED_CHAIN_LEN: usize = 5;
-
-	let backend = Arc::new(Backend::new_test(1000, 1));
-	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
-
-	let relay_parent = relay_hash_from_block_num(10);
-	let included_block = build_and_import_block_ext(
-		&client,
-		BlockOrigin::Own,
-		true,
-		&mut para_import,
-		None,
-		None,
-		Some(relay_parent),
-	);
-
-	let relay_chain = Relaychain::new();
-	{
-		let included_map = &mut relay_chain.inner.lock().unwrap().relay_chain_hash_to_header;
-		included_map.insert(relay_parent, included_block.header().clone());
-	}
-
-	let mut blocks = Vec::new();
-	let mut parent = included_block.header().hash();
-	for _ in 0..NON_INCLUDED_CHAIN_LEN {
-		let block = build_and_import_block_ext(
-			&client,
-			BlockOrigin::Own,
-			true,
-			&mut para_import,
-			Some(parent),
-			None,
-			Some(relay_parent),
-		);
-		parent = block.header().hash();
-		blocks.push(block);
-	}
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 0,
-				max_depth,
-				ignore_alternative_branches: true,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
-		assert_eq!(potential_parents.len(), max_depth + 1);
-		let expected_parents: Vec<_> =
-			std::iter::once(&included_block).chain(blocks.iter().take(max_depth)).collect();
-
-		for i in 0..(max_depth + 1) {
-			let parent = &potential_parents[i];
-			let expected = &expected_parents[i];
-
-			assert_eq!(parent.hash, expected.hash());
-			assert_eq!(&parent.header, expected.header());
-			assert_eq!(parent.depth, i);
-			assert!(parent.aligned_with_pending);
-		}
-	}
-}
-
-#[test]
 fn find_potential_parents_unknown_included() {
 	sp_tracing::try_init_simple();
-
-	const NON_INCLUDED_CHAIN_LEN: usize = 5;
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
@@ -1226,7 +1149,6 @@ fn find_potential_parents_unknown_included() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1, // aligned chain is in ancestry.
-			max_depth: NON_INCLUDED_CHAIN_LEN,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1240,8 +1162,6 @@ fn find_potential_parents_unknown_included() {
 #[test]
 fn find_potential_parents_unknown_pending() {
 	sp_tracing::try_init_simple();
-
-	const NON_INCLUDED_CHAIN_LEN: usize = 5;
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
@@ -1287,7 +1207,6 @@ fn find_potential_parents_unknown_pending() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1, // aligned chain is in ancestry.
-			max_depth: NON_INCLUDED_CHAIN_LEN,
 			ignore_alternative_branches: true,
 		},
 		&*backend,
@@ -1301,8 +1220,6 @@ fn find_potential_parents_unknown_pending() {
 #[test]
 fn find_potential_parents_unknown_pending_include_alternative_branches() {
 	sp_tracing::try_init_simple();
-
-	const NON_INCLUDED_CHAIN_LEN: usize = 5;
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
@@ -1361,7 +1278,6 @@ fn find_potential_parents_unknown_pending_include_alternative_branches() {
 			relay_parent: search_relay_parent,
 			para_id: ParaId::from(100),
 			ancestry_lookback: 1, // aligned chain is in ancestry.
-			max_depth: NON_INCLUDED_CHAIN_LEN,
 			ignore_alternative_branches: false,
 		},
 		&*backend,
@@ -1470,81 +1386,65 @@ fn find_potential_parents_aligned_with_late_pending() {
 	}
 
 	// Ignore alternative branch:
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1, // aligned chain is in ancestry.
-				max_depth,
-				ignore_alternative_branches: true,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
 
-		assert_eq!(potential_parents.len(), max_depth + 1);
-		let expected_parents: Vec<_> = [&included_block, &in_between_block, &pending_block]
-			.into_iter()
-			.chain(aligned_blocks.iter())
-			.take(max_depth + 1)
-			.collect();
+	let expected_parents: Vec<_> = [&included_block, &in_between_block, &pending_block]
+		.into_iter()
+		.chain(aligned_blocks.iter())
+		.collect();
 
-		for i in 0..(max_depth + 1) {
-			let parent = &potential_parents[i];
-			let expected = &expected_parents[i];
-
-			assert_eq!(parent.hash, expected.hash());
-			assert_eq!(&parent.header, expected.header());
-			assert_eq!(parent.depth, i);
-			assert!(parent.aligned_with_pending);
-		}
+	assert_eq!(potential_parents.len(), expected_parents.len());
+	for (i, (parent, expected)) in potential_parents.iter().zip(expected_parents.iter()).enumerate()
+	{
+		assert_eq!(parent.hash, expected.hash());
+		assert_eq!(&parent.header, expected.header());
+		assert_eq!(parent.depth, i);
+		assert!(parent.aligned_with_pending);
 	}
 
 	// Do not ignore:
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1, // aligned chain is in ancestry.
-				max_depth,
-				ignore_alternative_branches: false,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: false,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
 
-		let expected_len = 2 * max_depth + 1;
-		assert_eq!(potential_parents.len(), expected_len);
-		let expected_aligned: Vec<_> = [&included_block, &in_between_block, &pending_block]
-			.into_iter()
-			.chain(aligned_blocks.iter())
-			.take(max_depth + 1)
-			.collect();
-		let expected_alt = alt_blocks.iter().take(max_depth);
+	let expected_aligned: Vec<_> = [&included_block, &in_between_block, &pending_block]
+		.into_iter()
+		.chain(aligned_blocks.iter())
+		.collect();
 
-		let expected_parents: Vec<_> =
-			expected_aligned.clone().into_iter().chain(expected_alt).collect();
-		// Check correctness.
-		assert_eq!(expected_parents.len(), expected_len);
+	let expected_parents: Vec<_> =
+		expected_aligned.clone().into_iter().chain(alt_blocks.iter()).collect();
 
-		for i in 0..expected_len {
-			let parent = &potential_parents[i];
-			let expected = expected_parents
-				.iter()
-				.find(|block| block.header().hash() == parent.hash)
-				.expect("missing parent");
+	assert_eq!(potential_parents.len(), expected_parents.len());
+	for parent in potential_parents.iter() {
+		let expected = expected_parents
+			.iter()
+			.find(|block| block.header().hash() == parent.hash)
+			.expect("missing parent");
 
-			let is_aligned = expected_aligned.contains(&expected);
+		let is_aligned = expected_aligned.contains(&expected);
 
-			assert_eq!(parent.hash, expected.hash());
-			assert_eq!(&parent.header, expected.header());
-
-			assert_eq!(parent.aligned_with_pending, is_aligned);
-		}
+		assert_eq!(parent.hash, expected.hash());
+		assert_eq!(&parent.header, expected.header());
+		assert_eq!(parent.aligned_with_pending, is_aligned);
 	}
 }
 
@@ -1626,88 +1526,65 @@ fn find_potential_parents_aligned_with_pending() {
 	}
 
 	// Ignore alternative branch:
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1, // aligned chain is in ancestry.
-				max_depth,
-				ignore_alternative_branches: true,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
-		assert_eq!(potential_parents.len(), max_depth + 1);
-		let expected_parents: Vec<_> = [&included_block, &pending_block]
-			.into_iter()
-			.chain(aligned_blocks.iter())
-			.take(max_depth + 1)
-			.collect();
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
 
-		for i in 0..(max_depth + 1) {
-			let parent = &potential_parents[i];
-			let expected = &expected_parents[i];
+	let expected_parents: Vec<_> = [&included_block, &pending_block]
+		.into_iter()
+		.chain(aligned_blocks.iter())
+		.collect();
 
-			assert_eq!(parent.hash, expected.hash());
-			assert_eq!(&parent.header, expected.header());
-			assert_eq!(parent.depth, i);
-			assert!(parent.aligned_with_pending);
-		}
+	assert_eq!(potential_parents.len(), expected_parents.len());
+	for (i, (parent, expected)) in potential_parents.iter().zip(expected_parents.iter()).enumerate()
+	{
+		assert_eq!(parent.hash, expected.hash());
+		assert_eq!(&parent.header, expected.header());
+		assert_eq!(parent.depth, i);
+		assert!(parent.aligned_with_pending);
 	}
 
 	// Do not ignore:
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		log::info!("Ran with max_depth = {max_depth}");
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1, // aligned chain is in ancestry.
-				max_depth,
-				ignore_alternative_branches: false,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: false,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
 
-		let expected_len = 2 * max_depth + 1;
-		assert_eq!(potential_parents.len(), expected_len);
-		let expected_aligned: Vec<_> = [&included_block, &pending_block]
-			.into_iter()
-			.chain(aligned_blocks.iter())
-			.take(max_depth + 1)
-			.collect();
-		let expected_alt = alt_blocks.iter().take(max_depth);
+	let expected_aligned: Vec<_> = [&included_block, &pending_block]
+		.into_iter()
+		.chain(aligned_blocks.iter())
+		.collect();
 
-		let expected_parents: Vec<_> =
-			expected_aligned.clone().into_iter().chain(expected_alt).collect();
-		// Check correctness.
-		assert_eq!(expected_parents.len(), expected_len);
+	let expected_parents: Vec<_> =
+		expected_aligned.clone().into_iter().chain(alt_blocks.iter()).collect();
 
-		potential_parents.iter().for_each(|p| log::info!("result: {:?}", p));
-		for i in 0..expected_len {
-			let parent = &potential_parents[i];
-			let expected = expected_parents
-				.iter()
-				.find(|block| block.header().hash() == parent.hash)
-				.expect("missing parent");
+	assert_eq!(potential_parents.len(), expected_parents.len());
+	for parent in potential_parents.iter() {
+		let expected = expected_parents
+			.iter()
+			.find(|block| block.header().hash() == parent.hash)
+			.expect("missing parent");
 
-			let is_aligned = expected_aligned.contains(&expected);
+		let is_aligned = expected_aligned.contains(&expected);
 
-			assert_eq!(parent.hash, expected.hash());
-			assert_eq!(&parent.header, expected.header());
-
-			log::info!(
-				"Check hash: {:?} expected: {} is: {}",
-				parent.hash,
-				is_aligned,
-				parent.aligned_with_pending,
-			);
-			assert_eq!(parent.aligned_with_pending, is_aligned);
-		}
+		assert_eq!(parent.hash, expected.hash());
+		assert_eq!(&parent.header, expected.header());
+		assert_eq!(parent.aligned_with_pending, is_aligned);
 	}
 }
 
@@ -1771,32 +1648,106 @@ fn find_potential_parents_aligned_no_pending() {
 		parent = block.header().hash();
 	}
 
-	for max_depth in 0..=NON_INCLUDED_CHAIN_LEN {
-		let potential_parents_aligned = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1, // aligned chain is in ancestry.
-				max_depth,
-				ignore_alternative_branches: true,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
-		let potential_parents = block_on(find_potential_parents(
-			ParentSearchParams {
-				relay_parent: search_relay_parent,
-				para_id: ParaId::from(100),
-				ancestry_lookback: 1,
-				max_depth,
-				ignore_alternative_branches: false,
-			},
-			&*backend,
-			&relay_chain,
-		))
-		.unwrap();
-		assert_eq!(potential_parents.len(), 2 * max_depth + 1);
-		assert_eq!(potential_parents, potential_parents_aligned);
+	let potential_parents_aligned = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1,
+			ignore_alternative_branches: false,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+	// Both chains have NON_INCLUDED_CHAIN_LEN blocks each, plus the included block.
+	assert_eq!(potential_parents.len(), 2 * NON_INCLUDED_CHAIN_LEN + 1);
+	assert_eq!(potential_parents, potential_parents_aligned);
+}
+
+#[test]
+fn find_potential_parents_no_duplicates() {
+	sp_tracing::try_init_simple();
+
+	let backend = Arc::new(Backend::new_test(1000, 1));
+	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
+
+	let relay_parent = relay_hash_from_block_num(10);
+	// Choose different relay parent for alternative chain to get new hashes.
+	let search_relay_parent = relay_hash_from_block_num(11);
+	let included_block = build_and_import_block_ext(
+		&client,
+		BlockOrigin::NetworkInitialSync,
+		true,
+		&mut para_import,
+		None,
+		None,
+		Some(relay_parent),
+	);
+
+	let mut blocks = Vec::new();
+
+	for _ in 0..10 {
+		blocks.push(build_and_import_block_ext(
+			&client,
+			BlockOrigin::Own,
+			true,
+			&mut para_import,
+			Some(
+				blocks
+					.last()
+					.map_or_else(|| included_block.header.hash(), |b: &Block| b.header.hash()),
+			),
+			None,
+			Some(relay_parent),
+		));
 	}
+
+	let pending_block = blocks.last().unwrap().clone();
+
+	let relay_chain = Relaychain::new();
+	{
+		let relay_inner = &mut relay_chain.inner.lock().unwrap();
+		relay_inner
+			.relay_chain_hash_to_header
+			.insert(search_relay_parent, included_block.header().clone());
+		relay_inner
+			.relay_chain_hash_to_header_pending
+			.insert(search_relay_parent, pending_block.header().clone());
+	}
+
+	// Ignore alternative branch:
+	let potential_parents = block_on(find_potential_parents(
+		ParentSearchParams {
+			relay_parent: search_relay_parent,
+			para_id: ParaId::from(100),
+			ancestry_lookback: 1, // aligned chain is in ancestry.
+			ignore_alternative_branches: true,
+		},
+		&*backend,
+		&relay_chain,
+	))
+	.unwrap();
+
+	let expected_parents: Vec<_> = [included_block.header.clone()]
+		.into_iter()
+		.chain(blocks.iter().map(|b| b.header.clone()))
+		.collect();
+
+	assert_eq!(
+		potential_parents.into_iter().map(|p| p.header).collect::<Vec<_>>(),
+		expected_parents
+	);
 }

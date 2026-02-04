@@ -174,7 +174,7 @@ impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
 				proved_header,
 				prove_calls,
 				_phantom: Default::default(),
-			}))
+			}));
 		}
 
 		Ok(None)

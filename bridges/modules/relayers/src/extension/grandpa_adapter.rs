@@ -163,7 +163,7 @@ where
 			?relayer,
 			"Relayer has submitted invalid GRANDPA chain finality proof"
 		);
-		return false
+		return false;
 	}
 
 	// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`

@@ -521,7 +521,7 @@ impl ConfigDef {
 						span,
 						"Invalid #[pallet::include_metadata] for `type RuntimeEvent`. \
 						The associated type `RuntimeEvent` is already collected in the metadata.",
-					))
+					));
 				}
 
 				if already_constant {
@@ -529,7 +529,7 @@ impl ConfigDef {
 						span,
 						"Invalid #[pallet::include_metadata]: conflict with #[pallet::constant]. \
 						Pallet constant already collect the metadata for the type.",
-					))
+					));
 				}
 
 				if let syn::TraitItem::Type(ref ty) = trait_item {
