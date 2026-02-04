@@ -1518,8 +1518,10 @@ impl<Block: BlockT> Backend<Block> {
 				.highest_leaf()
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
-			let header_exists_in_db = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
-			// Body in DB (not incoming block) - needed to update gap when adding body to existing header.
+			let header_exists_in_db =
+				number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing
+			// header.
 			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
 			// Incoming block has body - used for fast sync gap handling.
 			let incoming_has_body = pending_block.body.is_some();

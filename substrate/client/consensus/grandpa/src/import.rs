@@ -284,7 +284,7 @@ where
 				just_in_case: None,
 				applied_changes: AppliedChanges::None,
 				do_pause: false,
-			})
+			});
 		}
 
 		// when we update the authorities, we need to hold the lock

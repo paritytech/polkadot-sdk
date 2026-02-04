@@ -572,7 +572,7 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-        let gap_block =
+		let gap_block =
 			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
 		// the block is lower than our last finalized block so it must revert

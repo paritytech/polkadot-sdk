@@ -424,7 +424,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			None => {
 				// No block left to import, success!
 				debug!(target: LOG_TARGET, "Imported {imported} out of {count} blocks (origin: {blocks_origin:?})");
-				return ImportManyBlocksResult { block_count: count, imported, results }
+				return ImportManyBlocksResult { block_count: count, imported, results };
 			},
 		};
 
