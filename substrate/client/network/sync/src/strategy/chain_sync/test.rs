@@ -561,7 +561,7 @@ fn can_sync_huge_fork() {
 
 		request = if actions.is_empty() {
 			// We found the ancestor
-			break
+			break;
 		} else {
 			assert_eq!(actions.len(), 1);
 			match actions.pop().unwrap() {
@@ -710,7 +710,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 		request = if actions.is_empty() {
 			// We found the ancestor
-			break
+			break;
 		} else {
 			assert_eq!(actions.len(), 1);
 			match actions.pop().unwrap() {

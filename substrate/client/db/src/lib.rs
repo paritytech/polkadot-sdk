@@ -615,7 +615,9 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
 				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					))),
 			}
 		}
 
@@ -1516,8 +1518,11 @@ impl<Block: BlockT> Backend<Block> {
 				.highest_leaf()
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
-			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
-			let existing_body = pending_block.body.is_some();
+			let header_exists_in_db = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing header.
+			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
+			// Incoming block has body - used for fast sync gap handling.
+			let incoming_has_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1654,7 +1659,7 @@ impl<Block: BlockT> Backend<Block> {
 			let is_best = pending_block.leaf_state.is_best();
 			debug!(
 				target: "db",
-				"DB Commit {hash:?} ({number}), best={is_best}, state={}, existing={existing_header}, finalized={finalized}",
+				"DB Commit {hash:?} ({number}), best={is_best}, state={}, header_in_db={header_exists_in_db} body_in_db={body_exists_in_db} incoming_body={incoming_has_body}, finalized={finalized}",
 				operation.commit_state,
 			);
 
@@ -1681,7 +1686,7 @@ impl<Block: BlockT> Backend<Block> {
 				self.force_delayed_canonicalize(&mut transaction)?
 			}
 
-			if !existing_header {
+			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
 				if number > last_finalized_num || last_finalized_num.is_zero() {
 					let mut leaves = self.blockchain.leaves.write();
@@ -1711,7 +1716,11 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			let should_check_block_gap = !existing_header || !existing_body;
+			let should_check_block_gap = !header_exists_in_db || !body_exists_in_db;
+			debug!(
+				target: "db",
+				"should_check_block_gap = {should_check_block_gap}",
+			);
 
 			if should_check_block_gap {
 				let update_gap =
@@ -1743,7 +1752,7 @@ impl<Block: BlockT> Backend<Block> {
 							// Handle blocks at gap start or immediately following (possibly
 							// indicating blocks already imported during warp sync where
 							// start was not updated).
-							if number == gap.start || number == gap.start + One::one() {
+							if number == gap.start {
 								gap.start = number + One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
@@ -1761,7 +1770,7 @@ impl<Block: BlockT> Backend<Block> {
 						},
 						BlockGapType::MissingBody => {
 							// Gap increased when syncing the header chain during fast sync.
-							if number == gap.end + One::one() && !existing_body {
+							if number == gap.end + One::one() && !incoming_has_body {
 								gap.end += One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
@@ -1772,7 +1781,7 @@ impl<Block: BlockT> Backend<Block> {
 								update_gap(&mut transaction, gap, &mut block_gap);
 								block_gap_updated = true;
 							// Gap decreased when downloading the full blocks.
-							} else if number == gap.start && existing_body {
+							} else if number == gap.start && incoming_has_body {
 								gap.start += One::one();
 								if gap.start > gap.end {
 									remove_gap(&mut transaction, &mut block_gap);
@@ -1797,7 +1806,7 @@ impl<Block: BlockT> Backend<Block> {
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
 					} else if number == best_num + One::one() &&
 						self.blockchain.header(parent_hash)?.is_some() &&
-						!existing_body
+						!incoming_has_body
 					{
 						let gap = BlockGap {
 							start: number,
@@ -3983,9 +3992,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize_and_reorg() {
-		//	0 - 1b
-		//	\ - 1a - 2a - 3a
-		//	     \ - 2b
+		// 	0 - 1b
+		// 	\ - 1a - 2a - 3a
+		// 	     \ - 2b
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 

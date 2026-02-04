@@ -1274,8 +1274,8 @@ impl
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.clone().into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 
@@ -1702,6 +1702,8 @@ impl_runtime_apis! {
 					(keys.keys, keys.proof.encode())
 				}
 			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 
 			use pallet_xcm_bridge_hub_router::benchmarking::{
 				Pallet as XcmBridgeHubRouterBench,

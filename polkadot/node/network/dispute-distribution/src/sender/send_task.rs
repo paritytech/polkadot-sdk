@@ -214,7 +214,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing task."
 						);
-						return
+						return;
 					},
 					Some(status) => status,
 				};

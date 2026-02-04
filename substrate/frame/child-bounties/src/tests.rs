@@ -135,6 +135,7 @@ impl pallet_bounties::Config for Test {
 	type WeightInfo = ();
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = ();
+	type TransferAllAssets = ();
 }
 impl pallet_child_bounties::Config for Test {
 	type RuntimeEvent = RuntimeEvent;

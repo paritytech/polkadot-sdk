@@ -244,14 +244,23 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			post_digests: Vec::new(),
 			body: None,
 			indexed_body: None,
-			state_action: StateAction::Execute,
+			// Warp sync blocks are already verified, skip execution.
+			state_action: if origin == BlockOrigin::WarpSync {
+				StateAction::Skip
+			} else {
+				StateAction::Execute
+			},
 			finalized: false,
 			intermediates: HashMap::new(),
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
-			// Never create gaps for warp sync imported blocks, because the following
-			// gap sync needs to import all blocks between the warp sync target and genesis.
+			// Never create gaps for warp sync imported blocks.
+			// Warp sync downloads only session blocks. Gap sync to work needs one gap even if
+			// between gap start and gap end some blocks are existing. If each warp sync block
+			// created a gap, every new block import would override the previous gap, losing the
+			// real gap start. In case of warp sync a gap is created separately when the target
+			// block with state is imported.
 			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}

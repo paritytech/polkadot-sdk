@@ -221,7 +221,7 @@ impl FromStr for Cors {
 			match part {
 				"all" | "*" => {
 					is_all = true;
-					break
+					break;
 				},
 				other => origins.push(other.to_owned()),
 			}

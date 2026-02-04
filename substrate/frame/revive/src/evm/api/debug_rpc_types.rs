@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::Bytes;
+use crate::{evm::Bytes, Weight};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
-	de::{Error, MapAccess, Visitor},
+	de::{Deserializer, Error, MapAccess, Visitor},
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
@@ -36,6 +36,9 @@ pub enum TracerType {
 
 	/// A tracer that traces the prestate.
 	PrestateTracer(Option<PrestateTracerConfig>),
+
+	/// A tracer that traces opcodes and syscalls.
+	ExecutionTracer(Option<ExecutionTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
@@ -44,15 +47,27 @@ impl From<CallTracerConfig> for TracerType {
 	}
 }
 
+impl From<PrestateTracerConfig> for TracerType {
+	fn from(config: PrestateTracerConfig) -> Self {
+		TracerType::PrestateTracer(Some(config))
+	}
+}
+
+impl From<ExecutionTracerConfig> for TracerType {
+	fn from(config: ExecutionTracerConfig) -> Self {
+		TracerType::ExecutionTracer(Some(config))
+	}
+}
+
 impl Default for TracerType {
 	fn default() -> Self {
-		TracerType::CallTracer(Some(CallTracerConfig::default()))
+		TracerType::ExecutionTracer(Some(ExecutionTracerConfig::default()))
 	}
 }
 
 /// Tracer configuration used to trace calls.
 #[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "std", derive(Deserialize, Serialize), serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(Serialize), serde(rename_all = "camelCase"))]
 pub struct TracerConfig {
 	/// The tracer type.
 	#[cfg_attr(feature = "std", serde(flatten, default))]
@@ -61,6 +76,48 @@ pub struct TracerConfig {
 	/// Timeout for the tracer.
 	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
 	pub timeout: Option<core::time::Duration>,
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for TracerConfig {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
+		struct TracerConfigWithType {
+			#[serde(flatten)]
+			config: TracerType,
+			#[serde(with = "humantime_serde", default)]
+			timeout: Option<core::time::Duration>,
+		}
+
+		#[derive(Deserialize)]
+		#[serde(rename_all = "camelCase")]
+		struct TracerConfigInline {
+			#[serde(flatten, default)]
+			execution_tracer_config: ExecutionTracerConfig,
+			#[serde(with = "humantime_serde", default)]
+			timeout: Option<core::time::Duration>,
+		}
+
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		enum TracerConfigHelper {
+			WithType(TracerConfigWithType),
+			Inline(TracerConfigInline),
+		}
+
+		match TracerConfigHelper::deserialize(deserializer)? {
+			TracerConfigHelper::WithType(cfg) =>
+				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
+			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
+				config: TracerType::ExecutionTracer(Some(cfg.execution_tracer_config)),
+				timeout: cfg.timeout,
+			}),
+		}
+	}
 }
 
 /// The configuration for the call tracer.
@@ -100,6 +157,58 @@ impl Default for PrestateTracerConfig {
 	}
 }
 
+fn zero_to_none<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let opt = Option::<u64>::deserialize(deserializer)?;
+	Ok(match opt {
+		Some(0) => None,
+		other => other,
+	})
+}
+
+/// The configuration for the execution tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ExecutionTracerConfig {
+	/// Whether to enable memory capture
+	pub enable_memory: bool,
+
+	/// Whether to disable stack capture
+	pub disable_stack: bool,
+
+	/// Whether to disable storage capture
+	pub disable_storage: bool,
+
+	/// Whether to enable return data capture
+	pub enable_return_data: bool,
+
+	/// Whether to disable syscall details capture, including arguments and return value (PVM only)
+	pub disable_syscall_details: bool,
+
+	/// Limit number of steps captured
+	#[serde(skip_serializing_if = "Option::is_none", deserialize_with = "zero_to_none")]
+	pub limit: Option<u64>,
+
+	/// Maximum number of memory words to capture per step (default: 16)
+	pub memory_word_limit: u32,
+}
+
+impl Default for ExecutionTracerConfig {
+	fn default() -> Self {
+		Self {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: false,
+			enable_return_data: false,
+			disable_syscall_details: false,
+			limit: None,
+			memory_word_limit: 16,
+		}
+	}
+}
+
 /// Serialization should support the following JSON format:
 ///
 /// ```json
@@ -109,9 +218,38 @@ impl Default for PrestateTracerConfig {
 /// ```json
 /// { "tracer": "callTracer" }
 /// ```
+///
+/// By default if not specified the tracer is an ExecutionTracer, and it's config is passed inline
+///
+/// ```json
+/// { "tracer": null,  "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true  }
+/// ```
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
+		(
+			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false,
+		"enableReturnData": true }"#,
+			TracerConfig {
+				config: TracerType::ExecutionTracer(Some(ExecutionTracerConfig {
+					enable_memory: true,
+					disable_stack: false,
+					disable_storage: false,
+					enable_return_data: true,
+					disable_syscall_details: false,
+					limit: None,
+					memory_word_limit: 16,
+				})),
+				timeout: None,
+			},
+		),
+		(
+			r#"{  }"#,
+			TracerConfig {
+				config: TracerType::ExecutionTracer(Some(ExecutionTracerConfig::default())),
+				timeout: None,
+			},
+		),
 		(
 			r#"{"tracer": "callTracer"}"#,
 			TracerConfig { config: TracerType::CallTracer(None), timeout: None },
@@ -131,10 +269,29 @@ fn test_tracer_config_serialization() {
 			},
 		),
 		(
-			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout": "10ms"}"#,
+			r#"{"tracer": "callTracer", "tracerConfig": { "onlyTopCall": true }, "timeout":
+		"10ms"}"#,
 			TracerConfig {
 				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
 				timeout: Some(core::time::Duration::from_millis(10)),
+			},
+		),
+		(
+			r#"{"tracer": "executionTracer"}"#,
+			TracerConfig { config: TracerType::ExecutionTracer(None), timeout: None },
+		),
+		(
+			r#"{"tracer": "executionTracer", "tracerConfig": { "enableMemory": true }}"#,
+			TracerConfig {
+				config: ExecutionTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				timeout: None,
+			},
+		),
+		(
+			r#"{ "enableMemory": true }"#,
+			TracerConfig {
+				config: ExecutionTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				timeout: None,
 			},
 		),
 	];
@@ -142,7 +299,7 @@ fn test_tracer_config_serialization() {
 	for (json_data, expected) in tracers {
 		let result: TracerConfig =
 			serde_json::from_str(json_data).expect("Deserialization should succeed");
-		assert_eq!(result, expected);
+		assert_eq!(result, expected, "invalid serialization for {json_data}");
 	}
 }
 
@@ -175,6 +332,8 @@ pub enum Trace {
 	Call(CallTrace),
 	/// A prestate trace.
 	Prestate(PrestateTrace),
+	/// An execution trace (opcodes and syscalls).
+	Execution(ExecutionTrace),
 }
 
 /// A prestate Trace
@@ -318,18 +477,320 @@ where
 	ser_map.end()
 }
 
+/// An execution trace containing the step-by-step execution of EVM opcodes and PVM syscalls.
+/// This matches Geth's structLogger output format.
+#[derive(
+	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionTrace {
+	/// Total gas used by the transaction.
+	pub gas: u64,
+	/// The weight consumed by the transaction meter.
+	pub weight_consumed: Weight,
+	/// The base call weight of the transaction.
+	pub base_call_weight: Weight,
+	/// Whether the transaction failed.
+	pub failed: bool,
+	/// The return value of the transaction.
+	pub return_value: Bytes,
+	/// The list of execution steps (structLogs in Geth).
+	pub struct_logs: Vec<ExecutionStep>,
+}
+
+/// An execution step which can be either an EVM opcode or a PVM syscall.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionStep {
+	/// Remaining gas before executing this step.
+	#[codec(compact)]
+	pub gas: u64,
+	/// Gas Cost of executing this step.
+	#[codec(compact)]
+	pub gas_cost: u64,
+	/// Weight cost of executing this step.
+	pub weight_cost: Weight,
+	/// Current call depth.
+	pub depth: u16,
+	/// Return data from last frame output.
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub return_data: Bytes,
+	/// Any error that occurred during execution.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+	/// The kind of execution step (EVM opcode or PVM syscall).
+	#[serde(flatten)]
+	pub kind: ExecutionStepKind,
+}
+
+/// The kind of execution step.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(untagged)]
+pub enum ExecutionStepKind {
+	/// An EVM opcode execution.
+	EVMOpcode {
+		/// The program counter.
+		#[codec(compact)]
+		pc: u32,
+		/// The opcode being executed.
+		#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
+		op: u8,
+		/// EVM stack contents.
+		#[serde(serialize_with = "serialize_stack_minimal")]
+		stack: Vec<Bytes>,
+		/// EVM memory contents.
+		#[serde(
+			skip_serializing_if = "Vec::is_empty",
+			serialize_with = "serialize_memory_no_prefix"
+		)]
+		memory: Vec<Bytes>,
+		/// Contract storage changes.
+		#[serde(
+			skip_serializing_if = "Option::is_none",
+			serialize_with = "serialize_storage_no_prefix"
+		)]
+		storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
+	},
+	/// A PVM syscall execution.
+	PVMSyscall {
+		/// The executed syscall.
+		#[serde(serialize_with = "serialize_syscall_op")]
+		op: u8,
+		/// The syscall arguments (register values a0-a5).
+		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
+		#[serde(skip_serializing_if = "Vec::is_empty", with = "super::hex_serde::vec")]
+		args: Vec<u64>,
+		/// The syscall return value.
+		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
+		#[serde(skip_serializing_if = "Option::is_none", with = "super::hex_serde::option")]
+		returned: Option<u64>,
+	},
+}
+
+macro_rules! define_opcode_functions {
+	($($op:ident),* $(,)?) => {
+		/// Get opcode name from byte value using opcode names
+		fn get_opcode_name(opcode: u8) -> &'static str {
+			use revm::bytecode::opcode::*;
+			match opcode {
+				$(
+					$op => stringify!($op),
+				)*
+				_ => "INVALID",
+			}
+		}
+
+		/// Get opcode byte from name string
+		fn get_opcode_byte(name: &str) -> Option<u8> {
+			use revm::bytecode::opcode::*;
+			match name {
+				$(
+					stringify!($op) => Some($op),
+				)*
+				_ => None,
+			}
+		}
+	};
+}
+
+define_opcode_functions!(
+	STOP,
+	ADD,
+	MUL,
+	SUB,
+	DIV,
+	SDIV,
+	MOD,
+	SMOD,
+	ADDMOD,
+	MULMOD,
+	EXP,
+	SIGNEXTEND,
+	LT,
+	GT,
+	SLT,
+	SGT,
+	EQ,
+	ISZERO,
+	AND,
+	OR,
+	XOR,
+	NOT,
+	BYTE,
+	SHL,
+	SHR,
+	SAR,
+	KECCAK256,
+	ADDRESS,
+	BALANCE,
+	ORIGIN,
+	CALLER,
+	CALLVALUE,
+	CALLDATALOAD,
+	CALLDATASIZE,
+	CALLDATACOPY,
+	CODESIZE,
+	CODECOPY,
+	GASPRICE,
+	EXTCODESIZE,
+	EXTCODECOPY,
+	RETURNDATASIZE,
+	RETURNDATACOPY,
+	EXTCODEHASH,
+	BLOCKHASH,
+	COINBASE,
+	TIMESTAMP,
+	NUMBER,
+	DIFFICULTY,
+	GASLIMIT,
+	CHAINID,
+	SELFBALANCE,
+	BASEFEE,
+	BLOBHASH,
+	BLOBBASEFEE,
+	POP,
+	MLOAD,
+	MSTORE,
+	MSTORE8,
+	SLOAD,
+	SSTORE,
+	JUMP,
+	JUMPI,
+	PC,
+	MSIZE,
+	GAS,
+	JUMPDEST,
+	TLOAD,
+	TSTORE,
+	MCOPY,
+	PUSH0,
+	PUSH1,
+	PUSH2,
+	PUSH3,
+	PUSH4,
+	PUSH5,
+	PUSH6,
+	PUSH7,
+	PUSH8,
+	PUSH9,
+	PUSH10,
+	PUSH11,
+	PUSH12,
+	PUSH13,
+	PUSH14,
+	PUSH15,
+	PUSH16,
+	PUSH17,
+	PUSH18,
+	PUSH19,
+	PUSH20,
+	PUSH21,
+	PUSH22,
+	PUSH23,
+	PUSH24,
+	PUSH25,
+	PUSH26,
+	PUSH27,
+	PUSH28,
+	PUSH29,
+	PUSH30,
+	PUSH31,
+	PUSH32,
+	DUP1,
+	DUP2,
+	DUP3,
+	DUP4,
+	DUP5,
+	DUP6,
+	DUP7,
+	DUP8,
+	DUP9,
+	DUP10,
+	DUP11,
+	DUP12,
+	DUP13,
+	DUP14,
+	DUP15,
+	DUP16,
+	SWAP1,
+	SWAP2,
+	SWAP3,
+	SWAP4,
+	SWAP5,
+	SWAP6,
+	SWAP7,
+	SWAP8,
+	SWAP9,
+	SWAP10,
+	SWAP11,
+	SWAP12,
+	SWAP13,
+	SWAP14,
+	SWAP15,
+	SWAP16,
+	LOG0,
+	LOG1,
+	LOG2,
+	LOG3,
+	LOG4,
+	CREATE,
+	CALL,
+	CALLCODE,
+	RETURN,
+	DELEGATECALL,
+	CREATE2,
+	STATICCALL,
+	REVERT,
+	INVALID,
+	SELFDESTRUCT,
+);
+
+/// Serialize opcode as string using REVM opcode names
+fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let name = get_opcode_name(*opcode);
+	serializer.serialize_str(name)
+}
+
+/// Serialize a syscall index to its name
+fn serialize_syscall_op<S>(idx: &u8, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	use crate::vm::pvm::env::list_syscalls;
+	let Some(syscall_name_bytes) = list_syscalls().get(*idx as usize) else {
+		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")));
+	};
+	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
+	serializer.serialize_str(name)
+}
+
+/// Deserialize opcode from string using reverse lookup table
+fn deserialize_opcode<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	let s = String::deserialize(deserializer)?;
+	get_opcode_byte(&s)
+		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown opcode: {}", s)))
+}
+
 /// A smart contract execution call trace.
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct CallTrace<Gas = U256> {
+pub struct CallTrace {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
-	pub gas: Gas,
+	#[serde(with = "super::hex_serde")]
+	pub gas: u64,
 	/// Amount of gas used.
-	pub gas_used: Gas,
+	#[serde(with = "super::hex_serde")]
+	pub gas_used: u64,
 	/// Address of the receiver.
 	pub to: H160,
 	/// Call input data.
@@ -345,7 +806,7 @@ pub struct CallTrace<Gas = U256> {
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
-	pub calls: Vec<CallTrace<Gas>>,
+	pub calls: Vec<CallTrace>,
 	/// List of logs emitted during the call.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	pub logs: Vec<CallLog>,
@@ -387,4 +848,42 @@ pub struct TransactionTrace {
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
 	pub trace: Trace,
+}
+
+/// Serialize stack values using minimal hex format (like Geth)
+fn serialize_stack_minimal<S>(stack: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let minimal_values: Vec<String> = stack.iter().map(|bytes| bytes.to_short_hex()).collect();
+	minimal_values.serialize(serializer)
+}
+
+/// Serialize memory values without "0x" prefix (like Geth)
+fn serialize_memory_no_prefix<S>(memory: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let hex_values: Vec<String> = memory.iter().map(|bytes| bytes.to_hex_no_prefix()).collect();
+	hex_values.serialize(serializer)
+}
+
+/// Serialize storage map without "0x" prefix (like Geth)
+fn serialize_storage_no_prefix<S>(
+	storage: &Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	match storage {
+		None => serializer.serialize_none(),
+		Some(map) => {
+			let mut ser_map = serializer.serialize_map(Some(map.len()))?;
+			for (key, value) in map {
+				ser_map.serialize_entry(&key.to_hex_no_prefix(), &value.to_hex_no_prefix())?;
+			}
+			ser_map.end()
+		},
+	}
 }

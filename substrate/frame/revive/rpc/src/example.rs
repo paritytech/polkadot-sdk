@@ -88,9 +88,9 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 }
 
 impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
-	pub fn new(client: &Arc<Client>) -> Self {
+	pub fn new(client: Arc<Client>) -> Self {
 		Self {
-			client: Arc::clone(client),
+			client,
 			signer: Account::default(),
 			value: U256::zero(),
 			input: Bytes::default(),
@@ -152,7 +152,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				None,
 			)
 			.await
-			.with_context(|| "eth_call failed")?;
+			.map_err(|e| anyhow::anyhow!("eth_call failed: {e}"))?;
 		Ok(result.0)
 	}
 

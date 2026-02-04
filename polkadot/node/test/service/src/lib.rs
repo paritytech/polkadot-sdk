@@ -102,6 +102,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		keep_finalized_for: None,
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
+		experimental_collator_protocol: false,
 	};
 
 	match config.network.network_backend {
@@ -395,7 +396,7 @@ impl PolkadotTestNode {
 		while let Some(notification) = import_notification_stream.next().await {
 			blocks.insert(notification.hash);
 			if blocks.len() == count {
-				break
+				break;
 			}
 		}
 	}

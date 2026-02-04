@@ -482,7 +482,7 @@ where
 		} = import_block;
 
 		if !intermediates.is_empty() {
-			return Err(Error::IncompletePipeline)
+			return Err(Error::IncompletePipeline);
 		}
 
 		let fork_choice = fork_choice.ok_or(Error::IncompletePipeline)?;
@@ -564,7 +564,6 @@ where
 		let parent_exists =
 			self.backend.blockchain().status(parent_hash)? == blockchain::BlockStatus::InChain;
 
-		let info = self.backend.blockchain().info();
 		match (import_existing, status) {
 			(false, blockchain::BlockStatus::InChain) => return Ok(ImportResult::AlreadyInChain),
 			(false, blockchain::BlockStatus::Unknown) => {},
@@ -572,15 +571,9 @@ where
 			(true, blockchain::BlockStatus::Unknown) => {},
 		}
 
-		let gap_block = info.block_gap.map_or(false, |gap| {
-			let number = *import_headers.post().number();
-			number == gap.start ||
-				// Gap start advances as blocks are imported during gap sync.
-				// If we're importing gap.start + 1 and its parent already exists, then the import of
-				// parent block was skipped during gap sync (because it was already imported during warp sync),
-				// so gap.start wasn't advanced.
-				(number == gap.start + One::one() && parent_exists)
-		});
+		let info = self.backend.blockchain().info();
+        let gap_block =
+			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
 		// the block is lower than our last finalized block so it must revert
 		// finality, refusing import.
@@ -588,7 +581,7 @@ where
 			*import_headers.post().number() <= info.finalized_number &&
 			!gap_block
 		{
-			return Err(sp_blockchain::Error::NotInFinalizedChain)
+			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
 
 		// this is a fairly arbitrary choice of where to draw the line on making notifications,
@@ -666,7 +659,7 @@ where
 							// State root mismatch when importing state. This should not happen in
 							// safe fast sync mode, but may happen in unsafe mode.
 							warn!("Error importing state: State root mismatch.");
-							return Err(Error::InvalidStateRoot)
+							return Err(Error::InvalidStateRoot);
 						}
 						None
 					},
@@ -808,12 +801,6 @@ where
 		Self: ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
 	{
-		// For warp sync blocks, we skip preparing storage changes since these blocks
-		// are already verified and we don't need to re-execute them.
-		if import_block.origin == BlockOrigin::WarpSync {
-			return Ok(PrepareStorageChangesResult::Import(None))
-		}
-
 		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)
@@ -825,9 +812,9 @@ where
 				StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(_)),
 			) => return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(_, StateAction::ApplyChanges(changes)) => (true, Some(changes)),
+			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::Unknown, _) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::UnknownParent)),
-			(_, StateAction::Skip) => (false, None),
 			(BlockStatus::InChainPruned, StateAction::Execute) =>
 				return Ok(PrepareStorageChangesResult::Discard(ImportResult::MissingState)),
 			(BlockStatus::InChainPruned, StateAction::ExecuteIfPossible) => (false, None),
@@ -866,7 +853,7 @@ where
 
 				if import_block.header.state_root() != &gen_storage_changes.transaction_storage_root
 				{
-					return Err(Error::InvalidStateRoot)
+					return Err(Error::InvalidStateRoot);
 				}
 				Some(sc_consensus::StorageChanges::Changes(gen_storage_changes))
 			},
@@ -892,7 +879,7 @@ where
 				"Possible safety violation: attempted to re-finalize last finalized block {:?} ",
 				hash,
 			);
-			return Ok(())
+			return Ok(());
 		}
 
 		// Find tree route from last finalized to given block.
@@ -906,7 +893,7 @@ where
 				retracted, info.finalized_hash
 			);
 
-			return Err(sp_blockchain::Error::NotInFinalizedChain)
+			return Err(sp_blockchain::Error::NotInFinalizedChain);
 		}
 
 		// We may need to coercively update the best block if there is more than one
@@ -988,7 +975,7 @@ where
 				// since we won't be running the loop below which
 				// would also remove any closed sinks.
 				sinks.retain(|sink| !sink.is_closed());
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -1024,7 +1011,7 @@ where
 
 				self.every_import_notification_sinks.lock().retain(|sink| !sink.is_closed());
 
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -1123,7 +1110,7 @@ where
 			.as_ref()
 			.map_or(false, |importing| &hash == importing)
 		{
-			return Ok(BlockStatus::Queued)
+			return Ok(BlockStatus::Queued);
 		}
 
 		let hash_and_number = self.backend.blockchain().number(hash)?.map(|n| (hash, n));
@@ -1169,7 +1156,7 @@ where
 
 		let genesis_hash = self.backend.blockchain().info().genesis_hash;
 		if genesis_hash == target_hash {
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		}
 
 		let mut current_hash = target_hash;
@@ -1185,7 +1172,7 @@ where
 			current_hash = ancestor_hash;
 
 			if genesis_hash == current_hash {
-				break
+				break;
 			}
 
 			current = ancestor;
@@ -1270,7 +1257,7 @@ where
 		size_limit: usize,
 	) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>> {
 		if start_key.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Error::Backend("Invalid start key.".to_string()))
+			return Err(Error::Backend("Invalid start key.".to_string()));
 		}
 		let state = self.state_at(hash)?;
 		let child_info = |storage_key: &Vec<u8>| -> sp_blockchain::Result<ChildInfo> {
@@ -1289,7 +1276,7 @@ where
 			{
 				Some((child_info(start_key)?, child_root))
 			} else {
-				return Err(Error::Backend("Invalid root start key.".to_string()))
+				return Err(Error::Backend("Invalid root start key.".to_string()));
 			}
 		} else {
 			None
@@ -1333,7 +1320,7 @@ where
 				let size = value.len() + next_key.len();
 				if total_size + size > size_limit && !entries.is_empty() {
 					complete = false;
-					break
+					break;
 				}
 				total_size += size;
 
@@ -1344,7 +1331,7 @@ where
 					child_roots.insert(value.clone());
 					switch_child_key = Some((next_key.clone(), value.clone()));
 					entries.push((next_key.clone(), value));
-					break
+					break;
 				}
 				entries.push((next_key.clone(), value));
 				current_key = next_key;
@@ -1364,12 +1351,12 @@ where
 					complete,
 				));
 				if !complete {
-					break
+					break;
 				}
 			} else {
 				result[0].0.key_values.extend(entries.into_iter());
 				result[0].1 = complete;
-				break
+				break;
 			}
 		}
 		Ok(result)
@@ -1774,7 +1761,7 @@ where
 		match self.block_rules.lookup(number, &hash) {
 			BlockLookupResult::KnownBad => {
 				trace!("Rejecting known bad block: #{} {:?}", number, hash);
-				return Ok(ImportResult::KnownBad)
+				return Ok(ImportResult::KnownBad);
 			},
 			BlockLookupResult::Expected(expected_hash) => {
 				trace!(
@@ -1783,7 +1770,7 @@ where
 					expected_hash,
 					number
 				);
-				return Ok(ImportResult::KnownBad)
+				return Ok(ImportResult::KnownBad);
 			},
 			BlockLookupResult::NotSpecial => {},
 		}

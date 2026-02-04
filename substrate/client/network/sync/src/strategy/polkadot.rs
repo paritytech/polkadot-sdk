@@ -445,7 +445,7 @@ where
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
 							error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-							return Err(e)
+							return Err(e);
 						},
 					};
 

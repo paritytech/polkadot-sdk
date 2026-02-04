@@ -385,7 +385,7 @@ pub fn signing_key_and_index<'a>(
 ) -> Option<(ValidatorId, ValidatorIndex)> {
 	for (i, v) in validators.into_iter().enumerate() {
 		if keystore.has_keys(&[(v.to_raw_vec(), ValidatorId::ID)]) {
-			return Some((v.clone(), ValidatorIndex(i as _)))
+			return Some((v.clone(), ValidatorIndex(i as _)));
 		}
 	}
 	None
@@ -442,7 +442,7 @@ pub fn choose_random_subset_with_rng<T, F: FnMut(&T) -> bool, R: rand::Rng>(
 
 	if i >= min || v.len() <= i {
 		v.truncate(i);
-		return
+		return;
 	}
 
 	v[i..].shuffle(rng);

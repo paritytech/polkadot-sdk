@@ -68,10 +68,7 @@ use frame_support::{
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::SaturatedConversion;
-use sp_staking::{
-	offence::{OffenceDetails, OffenceSeverity},
-	SessionIndex,
-};
+use sp_staking::offence::OffenceDetails;
 
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
@@ -98,38 +95,11 @@ macro_rules! log {
 	};
 }
 
-/// Interface to talk to the local session pallet.
-pub trait SessionInterface {
-	/// The validator id type of the session pallet
-	type ValidatorId: Clone;
-
-	fn validators() -> Vec<Self::ValidatorId>;
-
-	/// prune up to the given session index.
-	fn prune_up_to(index: SessionIndex);
-
-	/// Report an offence.
-	///
-	/// This is used to disable validators directly on the RC, until the next validator set.
-	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity);
-}
-
-impl<T: Config + pallet_session::Config + pallet_session::historical::Config> SessionInterface
-	for T
-{
-	type ValidatorId = <T as pallet_session::Config>::ValidatorId;
-
-	fn validators() -> Vec<Self::ValidatorId> {
-		pallet_session::Pallet::<T>::validators()
-	}
-
-	fn prune_up_to(index: SessionIndex) {
-		pallet_session::historical::Pallet::<T>::prune_up_to(index)
-	}
-	fn report_offence(offender: Self::ValidatorId, severity: OffenceSeverity) {
-		pallet_session::Pallet::<T>::report_offence(offender, severity)
-	}
-}
+/// Re-export `SessionInterface` from `pallet_session`.
+///
+/// This trait provides the interface to talk to the local session pallet for cross-chain
+/// session management.
+pub use pallet_session::SessionInterface;
 
 /// Represents the operating mode of the pallet.
 #[derive(
@@ -275,7 +245,10 @@ pub mod pallet {
 		type MaxOffenceBatchSize: Get<u32>;
 
 		/// Interface to talk to the local Session pallet.
-		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
+		type SessionInterface: SessionInterface<
+			ValidatorId = Self::AccountId,
+			AccountId = Self::AccountId,
+		>;
 
 		/// A fallback implementation to delegate logic to when the pallet is in
 		/// [`OperatingMode::Passive`].
@@ -486,6 +459,17 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation. Logged as an event
 		/// for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// Session keys updated for a validator.
+		SessionKeysUpdated { stash: T::AccountId, update: SessionKeysUpdate },
+	}
+
+	/// The type of session keys update received from AssetHub.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
+	pub enum SessionKeysUpdate {
+		/// Session keys have been set.
+		Set,
+		/// Session keys have been purged.
+		Purged,
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -526,6 +510,12 @@ pub mod pallet {
 		/// * Those who are calling into our `RewardsReporter` likely have a bad view of the
 		///   validator set, and are spamming us.
 		ValidatorPointDropped,
+
+		/// Session keys received from AssetHub failed to decode.
+		///
+		/// This should never happen since AssetHub validates keys before forwarding them.
+		/// If this occurs, it indicates a mismatch between AH and RC key types or a bug.
+		InvalidKeysFromAssetHub,
 	}
 
 	#[pallet::call]
@@ -633,6 +623,71 @@ pub mod pallet {
 			Self::on_migration_end();
 			Ok(())
 		}
+
+		/// Set session keys for a validator, forwarded from AssetHub.
+		///
+		/// This is called when a validator sets their session keys on AssetHub, which forwards
+		/// the request to the RelayChain via XCM.
+		///
+		/// AssetHub validates both keys and ownership proof before sending.
+		/// RC trusts AH's validation and does not re-validate.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::SessionInterface::set_keys_weight())]
+		pub fn set_keys_from_ah(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			keys: Vec<u8>,
+		) -> DispatchResult {
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			log::info!(target: LOG_TARGET, "Received set_keys request from AssetHub for {stash:?}");
+
+			// Decode the keys from bytes (AH already validated, this is just for type conversion)
+			let session_keys =
+				match <<T as Config>::SessionInterface as SessionInterface>::Keys::decode(
+					&mut &keys[..],
+				) {
+					Ok(keys) => keys,
+					Err(e) => {
+						// This should never happen since AH validates keys before forwarding.
+						// Returning Ok() allows the event to be observed for monitoring.
+						log!(
+							warn,
+							"InvalidKeysFromAssetHub: failed to decode keys for {:?}: {:?}",
+							stash,
+							e
+						);
+						Self::deposit_event(Event::Unexpected(
+							UnexpectedKind::InvalidKeysFromAssetHub,
+						));
+						return Ok(());
+					},
+				};
+
+			T::SessionInterface::set_keys(&stash, session_keys)?;
+			Self::deposit_event(Event::SessionKeysUpdated {
+				stash,
+				update: SessionKeysUpdate::Set,
+			});
+			Ok(())
+		}
+
+		/// Purge session keys for a validator, forwarded from AssetHub.
+		///
+		/// This is called when a validator purges their session keys on AssetHub, which forwards
+		/// the request to the RelayChain via XCM.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::SessionInterface::purge_keys_weight())]
+		pub fn purge_keys_from_ah(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
+			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
+			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
+
+			T::SessionInterface::purge_keys(&stash)?;
+			Self::deposit_event(Event::SessionKeysUpdated {
+				stash,
+				update: SessionKeysUpdate::Purged,
+			});
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
@@ -681,7 +736,7 @@ pub mod pallet {
 			weight.saturating_accrue(T::DbWeight::get().reads(2));
 			OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
 				if page.is_empty() {
-					return Ok(())
+					return Ok(());
 				}
 				// send the page if not empty. If sending returns `Ok`, we delete this page.
 				T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(|_| {
@@ -995,6 +1050,96 @@ pub mod pallet {
 
 			T::DbWeight::get().reads_writes(2, 2)
 		}
+	}
+}
+
+#[cfg(test)]
+mod keys_from_ah_tests {
+	use super::*;
+	use crate::mock::*;
+	use codec::Encode;
+	use frame_support::{assert_noop, assert_ok, hypothetically};
+	use sp_runtime::DispatchError;
+
+	#[test]
+	fn set_keys_from_ah() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let stash = 42u64;
+			let keys = MockSessionKeys { dummy: [1u8; 32] };
+
+			// success with root origin
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert_eq!(SetKeysCalls::get(), vec![(stash, keys.clone())]);
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdated { stash, update: SessionKeysUpdate::Set }
+						.into(),
+				);
+			});
+
+			// rejects bad origin
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_noop!(
+					StakingAsyncAhClient::set_keys_from_ah(
+						RuntimeOrigin::signed(1),
+						stash,
+						keys.encode(),
+					),
+					DispatchError::BadOrigin
+				);
+				assert!(SetKeysCalls::get().is_empty());
+			});
+
+			// handles invalid keys gracefully
+			hypothetically!({
+				SetKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					vec![1u8, 2, 3], // invalid encoding
+				));
+				assert!(SetKeysCalls::get().is_empty());
+				System::assert_has_event(
+					Event::<Test>::Unexpected(UnexpectedKind::InvalidKeysFromAssetHub).into(),
+				);
+			});
+		});
+	}
+
+	#[test]
+	fn purge_keys_from_ah() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let stash = 42u64;
+
+			// success with root origin
+			hypothetically!({
+				PurgeKeysCalls::take();
+				assert_ok!(StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::root(), stash));
+				assert_eq!(PurgeKeysCalls::get(), vec![stash]);
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdated { stash, update: SessionKeysUpdate::Purged }
+						.into(),
+				);
+			});
+
+			// rejects bad origin
+			hypothetically!({
+				PurgeKeysCalls::take();
+				assert_noop!(
+					StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::signed(1), stash),
+					DispatchError::BadOrigin
+				);
+				assert!(PurgeKeysCalls::get().is_empty());
+			});
+		});
 	}
 }
 
