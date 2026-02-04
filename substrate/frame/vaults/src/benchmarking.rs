@@ -545,6 +545,19 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark: set_max_position_amount
+	#[benchmark]
+	fn set_max_position_amount() -> Result<(), BenchmarkError> {
+		let new_amount: BalanceOf<T> = safe_mint_amount::<T>().saturating_mul(100u32.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, new_amount);
+
+		// Verify amount was updated
+		assert_eq!(MaxPositionAmount::<T>::get(), new_amount);
+		Ok(())
+	}
+
 	// ============================================
 	// Hooks
 	// ============================================
