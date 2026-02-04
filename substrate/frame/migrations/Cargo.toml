@@ -25,8 +25,8 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-frame-executive = { default-features = true, workspace = true }
-sp-tracing = { features = ["std"], default-features = true, workspace = true }
+frame-executive = { default-features = true, path = "../executive" }
+sp-tracing = { features = ["std"], default-features = true, path = "../../primitives/tracing" }
 
 pretty_assertions = { workspace = true }
 
@@ -54,7 +54,6 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
-	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame/try-runtime",

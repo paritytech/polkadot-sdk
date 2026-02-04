@@ -22,8 +22,8 @@ codec = { features = ["bytes"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 primitive-types = { workspace = true }
 sp-externalities.workspace = true
-sp-runtime-interface-proc-macro.default-features = true
 sp-runtime-interface-proc-macro.workspace = true
+sp-runtime-interface-proc-macro.default-features = true
 sp-std.workspace = true
 sp-storage.workspace = true
 sp-tracing.workspace = true
@@ -35,9 +35,9 @@ polkavm-derive = { workspace = true }
 
 [dev-dependencies]
 rustversion = { workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-runtime-interface-test-wasm = { workspace = true }
-sp-state-machine = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../io" }
+sp-runtime-interface-test-wasm = { path = "test-wasm" }
+sp-state-machine = { default-features = true, path = "../state-machine" }
 trybuild = { workspace = true }
 
 [features]
