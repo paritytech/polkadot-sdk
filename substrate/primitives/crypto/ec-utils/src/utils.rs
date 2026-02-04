@@ -34,7 +34,6 @@ use ark_scale::{
 	scale::{Decode, Encode},
 	ArkScaleMaxEncodedLen, MaxEncodedLen,
 };
-use core::marker::PhantomData;
 use sp_runtime_interface::RIType;
 
 /// Unexpected failure message.
@@ -120,7 +119,7 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
 	let val = ArkScale::from(val);
 	// Size hint uses arkworks `serialized_size`, which is accurate
-	if val.size_hint() < buf.len() {
+	if val.size_hint() > buf.len() {
 		return Err(Error::Encode)
 	}
 	val.encode_to(&mut buf);
