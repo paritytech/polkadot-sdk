@@ -10,6 +10,6 @@ doc:
       
 crates:
 - name: polkadot-omni-node-lib
-  bump: patch
+  bump: minor
 - name: polkadot-parachain-bin
-  bump: patch
+  bump: minor

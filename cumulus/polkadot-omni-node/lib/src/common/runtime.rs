@@ -31,7 +31,7 @@ pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
 
 /// The Aura ID used by the Aura consensus
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum AuraConsensusId {
 	/// Ed25519
 	Ed25519,
