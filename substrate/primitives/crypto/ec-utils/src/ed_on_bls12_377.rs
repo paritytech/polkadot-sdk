@@ -43,14 +43,10 @@ pub struct HostHooks;
 impl CurveHooks for HostHooks {
 	fn msm(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
 		let mut out = utils::buffer_for::<EdwardsAffine>();
-		host_calls::ed_on_bls12_377_msm(
-			&utils::encode(bases),
-			&utils::encode(scalars),
-			&mut out,
-		)
-		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
-		.expect(FAIL_MSG)
-		.into_group()
+		host_calls::ed_on_bls12_377_msm(&utils::encode(bases), &utils::encode(scalars), &mut out)
+			.and_then(|_| utils::decode::<EdwardsAffine>(&out))
+			.expect(FAIL_MSG)
+			.into_group()
 	}
 
 	fn mul_projective(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
