@@ -363,12 +363,12 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
-const MAX_CLAIM_QUEUE_OFFSET = 1;
+const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
 
 #[cfg(feature = "sync-backing")]
-const SCHEDULING_V3_ENABLED = false;
+const SCHEDULING_V3_ENABLED: bool = false;
 #[cfg(not(feature = "sync-backing"))]
-const SCHEDULING_V3_ENABLED = true;
+const SCHEDULING_V3_ENABLED: bool = true;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
