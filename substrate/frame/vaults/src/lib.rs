@@ -1601,40 +1601,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the maximum pUSD debt that a single vault can have.
-		///
-		/// ## Dispatch Origin
-		///
-		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
-		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
-		///
-		/// ## Details
-		///
-		/// Sets the [`MaxPositionAmount`] which limits the maximum debt a single vault
-		/// can accumulate. Should be well below [`MaxLiquidationAmount`] to ensure
-		/// liquidations proceed smoothly without backlog.
-		///
-		/// ## Errors
-		///
-		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
-		///
-		/// ## Events
-		///
-		/// - [`Event::MaxPositionAmountUpdated`]: Emitted with old and new values.
-		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::set_max_position_amount())]
-		pub fn set_max_position_amount(
-			origin: OriginFor<T>,
-			new_value: BalanceOf<T>,
-		) -> DispatchResult {
-			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
-			let old_value = MaxPositionAmount::<T>::get();
-			MaxPositionAmount::<T>::put(new_value);
-			Self::deposit_event(Event::MaxPositionAmountUpdated { old_value, new_value });
-			Ok(())
-		}
-
 		/// Force fee accrual on any vault.
 		///
 		/// ## Dispatch Origin
@@ -1707,6 +1673,40 @@ pub mod pallet {
 
 			MaximumIssuance::<T>::put(amount);
 			Self::deposit_event(Event::MaximumIssuanceUpdated { old_value, new_value: amount });
+			Ok(())
+		}
+
+		/// Set the maximum pUSD debt that a single vault can have.
+		///
+		/// ## Dispatch Origin
+		///
+		/// Must be [`Config::ManagerOrigin`] with [`VaultsManagerLevel::Full`] privilege
+		/// (typically `GeneralAdmin`). Emergency origin cannot modify this parameter.
+		///
+		/// ## Details
+		///
+		/// Sets the [`MaxPositionAmount`] which limits the maximum debt a single vault
+		/// can accumulate. Should be well below [`MaxLiquidationAmount`] to ensure
+		/// liquidations proceed smoothly without backlog.
+		///
+		/// ## Errors
+		///
+		/// - [`Error::InsufficientPrivilege`]: If called by Emergency origin.
+		///
+		/// ## Events
+		///
+		/// - [`Event::MaxPositionAmountUpdated`]: Emitted with old and new values.
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::set_max_position_amount())]
+		pub fn set_max_position_amount(
+			origin: OriginFor<T>,
+			new_value: BalanceOf<T>,
+		) -> DispatchResult {
+			let level = T::ManagerOrigin::ensure_origin(origin)?;
+			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
+			let old_value = MaxPositionAmount::<T>::get();
+			MaxPositionAmount::<T>::put(new_value);
+			Self::deposit_event(Event::MaxPositionAmountUpdated { old_value, new_value });
 			Ok(())
 		}
 
