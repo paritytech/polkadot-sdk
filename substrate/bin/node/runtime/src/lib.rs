@@ -31,7 +31,6 @@ use pallet_multi_asset_bounties::ArgumentsFactory as PalletMultiAssetBountiesArg
 use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
-use crate::pallet_assets::AssetCategoryManager;
 use polkadot_sdk::*;
 
 use alloc::{vec, vec::Vec};
@@ -54,6 +53,7 @@ use frame_support::{
 			Balanced, Credit, HoldConsideration, ItemOf, NativeFromLeft, NativeOrWithId, UnionOf,
 		},
 		tokens::{
+            asset_ops::common_ops::AssetCategoryManager,
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
 			pay::PayAssetFromAccount,
