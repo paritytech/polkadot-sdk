@@ -289,6 +289,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
+const RELAY_PARENT_OFFSET: u32 = 0;
+const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
+const SCHEDULING_V3_ENABLED: bool = false;
+
 // Unit = the base number of indivisible units for balances
 pub const UNIT: Balance = 1_000_000_000_000;
 pub const MILLIUNIT: Balance = 1_000_000_000;
@@ -667,8 +671,9 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
 
-	type RelayParentOffset = ConstU32<0>;
-	type SchedulingV3Enabled = ConstBool<false>;
+	type MaxClaimQueueOffset = ConstU8<MAX_CLAIM_QUEUE_OFFSET>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -1234,6 +1239,22 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
 			ConsensusHook::can_build_upon(included_hash, slot)
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			MAX_CLAIM_QUEUE_OFFSET
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			SCHEDULING_V3_ENABLED
 		}
 	}
 );

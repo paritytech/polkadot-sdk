@@ -363,6 +363,12 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
+const MAX_CLAIM_QUEUE_OFFSET = 1;
+
+#[cfg(feature = "sync-backing")]
+const SCHEDULING_V3_ENABLED = false;
+#[cfg(not(feature = "sync-backing"))]
+const SCHEDULING_V3_ENABLED = true;
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
@@ -385,7 +391,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingV3Enabled = ConstBool<true>;
+	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
+	type MaxClaimQueueOffset = ConstU8<MAX_CLAIM_QUEUE_OFFSET>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -526,14 +533,14 @@ impl_runtime_apis! {
 		}
 
 		fn max_claim_queue_offset() -> u8 {
-			parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+			MAX_CLAIM_QUEUE_OFFSET
 		}
 	}
 
 	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
 		fn scheduling_v3_enabled() -> bool {
-			// Enable V3 scheduling for the test runtime
-			true
+			// This is false for sync-backing, since it doesn't support V3 candidate descriptors.
+			SCHEDULING_V3_ENABLED
 		}
 	}
 
