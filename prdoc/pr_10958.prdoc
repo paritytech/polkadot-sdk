@@ -13,4 +13,14 @@ doc:
       valid style for match arms, eliminating ambiguity that caused unnecessary diffs
       when LLMs generated code with braces.
 
-crates: [ ]
+crates:
+  - name: bp-runtime
+    bump: none
+  - name: frame-support
+    bump: none
+  - name: sp-core
+    bump: none
+  - name: sp-crypto-hashing-proc-macro
+    bump: none
+  - name: sp-debug-derive
+    bump: none
