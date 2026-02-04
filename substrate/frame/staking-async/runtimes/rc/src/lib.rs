@@ -1018,7 +1018,7 @@ parameter_types! {
 }
 
 
-pub type MockAssetCategoryManager = ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, u128>;
+pub type MockAssetCategoryManager = ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, Balance>;
 
 
 impl pallet_treasury::Config for Runtime {
