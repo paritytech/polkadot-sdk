@@ -572,10 +572,6 @@ where
 		}
 
 		let info = self.backend.blockchain().info();
-		// let gap_block = info.block_gap.map_or(false, |gap| {
-		// 	let number = *import_headers.post().number();
-		// 	number >= gap.start && number <= gap.end
-		// });
         let gap_block =
 			info.block_gap.map_or(false, |gap| *import_headers.post().number() == gap.start);
 
