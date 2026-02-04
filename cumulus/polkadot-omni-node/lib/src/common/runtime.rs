@@ -228,17 +228,11 @@ mod tests {
 		use crate::runtime::{aura_id_from_chain_spec_id, AuraConsensusId};
 
 		// Asset Hub Polkadot uses Ed25519
-		assert_eq!(
-			aura_id_from_chain_spec_id("asset-hub-polkadot"),
-			AuraConsensusId::Ed25519
-		);
+		assert_eq!(aura_id_from_chain_spec_id("asset-hub-polkadot"), AuraConsensusId::Ed25519);
 		assert_eq!(aura_id_from_chain_spec_id("statemint"), AuraConsensusId::Ed25519);
 
 		// Other chains use Sr25519
-		assert_eq!(
-			aura_id_from_chain_spec_id("asset-hub-kusama"),
-			AuraConsensusId::Sr25519
-		);
+		assert_eq!(aura_id_from_chain_spec_id("asset-hub-kusama"), AuraConsensusId::Sr25519);
 		assert_eq!(aura_id_from_chain_spec_id("penpal-rococo-1000"), AuraConsensusId::Sr25519);
 		assert_eq!(aura_id_from_chain_spec_id("collectives-westend"), AuraConsensusId::Sr25519);
 	}
