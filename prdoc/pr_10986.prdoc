@@ -1,6 +1,6 @@
 title: '[Pool] Use active era for withdrawals'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: Standardising using active era in pools and staking. Current Era should
     only be used for election logic
 crates:
