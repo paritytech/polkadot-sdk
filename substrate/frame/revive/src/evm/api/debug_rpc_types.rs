@@ -515,10 +515,10 @@ pub struct ExecutionStep {
 	/// Current call depth.
 	pub depth: u16,
 	/// Return data from last frame output.
-	#[serde(default, skip_serializing_if = "Bytes::is_empty")]
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
 	pub return_data: Bytes,
 	/// Any error that occurred during execution.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	/// The kind of execution step (EVM opcode or PVM syscall).
 	#[serde(flatten)]
