@@ -299,10 +299,12 @@ impl Index {
 	) -> Result<()> {
 		match topic {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) =>
-				self.iterate_with_match_all(key, topics.iter(), f),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				self.iterate_with_match_any(key, topics.iter(), f),
+			OptimizedTopicFilter::MatchAll(topics) => {
+				self.iterate_with_match_all(key, topics.iter(), f)
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				self.iterate_with_match_any(key, topics.iter(), f)
+			},
 		}
 	}
 
