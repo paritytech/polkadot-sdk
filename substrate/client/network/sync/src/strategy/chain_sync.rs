@@ -1203,7 +1203,9 @@ where
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,
-										import_existing: self.import_existing,
+										// Re-import warp-synced blocks, as they might keep only
+										// headers
+										import_existing: true,
 										skip_execution: true,
 										state: None,
 									}
