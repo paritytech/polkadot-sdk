@@ -47,7 +47,6 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 pub type BigInteger = Vec<u64>;
 
 /// Error type for host call operations.
-#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
 	/// Encoding error due to small output buffer.
