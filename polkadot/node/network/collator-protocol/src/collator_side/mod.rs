@@ -468,12 +468,12 @@ async fn distribute_collation<Context>(
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
 		None => {
-			gum::debug!(
+			gum::warn!(
 				target: LOG_TARGET,
 				para_id = %id,
 				candidate_relay_parent = %candidate_relay_parent,
 				candidate_hash = ?candidate_hash,
-				"Candidate relay parent is out of our view",
+				"Dropping candidate: candidate relay parent is out of our view",
 			);
 			return Ok(());
 		},
@@ -1757,7 +1757,7 @@ fn process_out_of_view_collation(
 	let Some(mut stats) = collation_with_core.take_stats() else { return };
 
 	// If the collation stats are still available, it means it was never
-	// succesfully fetched, even if a fetch request was received, but not succeed.
+	// successfully fetched, even if a fetch request was received, but not succeed.
 	//
 	// Will expire in it's current state at the next block import.
 	stats.set_pre_backing_status(collation_status);
