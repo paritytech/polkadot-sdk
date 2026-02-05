@@ -178,7 +178,7 @@ pub use extensions::{
 	check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight,
 	weight_reclaim::WeightReclaim,
-	weights::{MustOverrideExtensionsWeightInfo, SubstrateWeight as SubstrateExtensionsWeight},
+	weights::SubstrateWeight as SubstrateExtensionsWeight,
 	WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
@@ -186,7 +186,7 @@ pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
 use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
-pub use weights::{MustOverrideWeightInfo, WeightInfo};
+pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
 
@@ -410,11 +410,10 @@ pub mod pallet {
 			type OnKilledAccount = ();
 
 			/// Weight information for the extrinsics of this pallet.
-			type SystemWeightInfo = crate::MustOverrideWeightInfo;
+			type SystemWeightInfo = ();
 
 			/// Weight information for the extensions of this pallet.
-			type ExtensionsWeightInfo =
-				crate::extensions::weights::MustOverrideExtensionsWeightInfo;
+			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
 			type SS58Prefix = ();
@@ -628,9 +627,11 @@ pub mod pallet {
 		type OnKilledAccount: OnKilledAccount<Self::AccountId>;
 
 		/// Weight information for the extrinsics of this pallet.
+		#[pallet::no_default_bounds]
 		type SystemWeightInfo: WeightInfo;
 
 		/// Weight information for the transaction extensions of this pallet.
+		#[pallet::no_default_bounds]
 		type ExtensionsWeightInfo: extensions::WeightInfo;
 
 		/// The designated SS58 prefix of this chain.
