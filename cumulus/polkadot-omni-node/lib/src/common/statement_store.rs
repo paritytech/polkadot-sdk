@@ -71,7 +71,7 @@ pub(crate) fn build_statement_store<
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	let statement_protocol_executor = {

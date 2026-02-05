@@ -707,10 +707,6 @@ pub use pallet_staking_async_ah_client;
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
 
-/// Reward function for FRAME staking pallet.
-#[cfg(feature = "pallet-staking-async-reward-fn")]
-pub use pallet_staking_async_reward_fn;
-
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-staking-async-runtime-api")]
 pub use pallet_staking_async_runtime_api;

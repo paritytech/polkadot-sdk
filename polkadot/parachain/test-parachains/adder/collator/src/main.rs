@@ -102,6 +102,7 @@ fn main() -> Result<()> {
 						invulnerable_ah_collators: HashSet::new(),
 						collator_protocol_hold_off: None,
 						verbose_approval_metrics: false,
+						experimental_collator_protocol: false,
 					},
 				)
 				.map_err(|e| e.to_string())?;

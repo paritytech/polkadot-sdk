@@ -171,6 +171,9 @@ pub struct RunCmd {
 	/// to be published to prometheus. If not specified, set to false.
 	#[arg(long)]
 	pub verbose_approval_metrics: bool,
+	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
+	#[arg(long, hide = true, default_value = "false")]
+	pub experimental_collator_protocol: bool,
 }
 
 #[allow(missing_docs)]

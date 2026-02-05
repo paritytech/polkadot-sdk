@@ -336,7 +336,9 @@ mod tests {
 				weight.max_total = Some(Weight::from_parts(1024, u64::MAX));
 			})
 			.build_or_panic();
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
