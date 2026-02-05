@@ -24,7 +24,7 @@ use crate::{
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cell::RefCell;
-use frame_support::{traits::tokens::Balance, weights::Weight};
+use frame_support::{traits::tokens::Balance, weights::Weight, DefaultNoBound};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -356,6 +356,7 @@ where
 }
 
 /// `Stack` wide configuration options.
+#[derive(DefaultNoBound)]
 pub struct ExecConfig<T: Config> {
 	/// Indicates whether the account nonce should be incremented after instantiating a new
 	/// contract.
