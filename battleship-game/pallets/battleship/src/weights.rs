@@ -19,6 +19,7 @@ pub trait WeightInfo {
 	fn reveal_winner_grid() -> Weight;
 	fn claim_timeout_win() -> Weight;
 	fn surrender() -> Weight;
+	fn cancel_game() -> Weight;
 }
 
 /// Weight functions for `pallet_battleship`.
@@ -73,6 +74,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+
+	fn cancel_game() -> Weight {
+		Weight::from_parts(25_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 impl WeightInfo for () {
@@ -122,5 +129,11 @@ impl WeightInfo for () {
 		Weight::from_parts(35_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+
+	fn cancel_game() -> Weight {
+		Weight::from_parts(25_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

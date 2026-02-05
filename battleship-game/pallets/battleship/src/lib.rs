@@ -132,6 +132,8 @@ pub struct CellReveal {
 	pub cell: Cell,
 	/// Merkle proof nodes (max 7 for 100-leaf tree)
 	pub proof: BoundedVec<H256, ConstU32<8>>,
+	/// The coordinate this reveal is for (must match pending_attack)
+	pub coord: Coordinate,
 }
 
 /// Player role in a game
@@ -156,6 +158,14 @@ pub enum GameEndReason {
 	Cheating,
 	/// Winner's grid had invalid ship placement
 	InvalidWinnerGrid,
+	/// Merkle proof failed verification
+	InvalidMerkleProof,
+	/// Too many hit cells (more than 17 ship cells)
+	TooManyHits,
+	/// Hit pattern doesn't form valid ships
+	InvalidHitPattern,
+	/// All cells revealed but not enough hits (invalid grid)
+	NotEnoughShips,
 }
 
 /// Game phases
@@ -171,6 +181,8 @@ pub enum GamePhase {
 		current_turn: PlayerRole,
 		/// The last attack coordinate (defender must respond)
 		pending_attack: Option<Coordinate>,
+		/// Round counter for transaction ordering (increments each action)
+		round: u32,
 	},
 	/// Winner must reveal full grid for validation
 	PendingWinnerReveal { winner: PlayerRole },
@@ -307,6 +319,8 @@ pub mod pallet {
 		},
 		/// Game abandoned due to inactivity - funds burned
 		GameAbandoned { game_id: GameId, burned_amount: BalanceOf<T> },
+		/// Game cancelled by creator before opponent joined
+		GameCancelled { game_id: GameId, creator: T::AccountId, refunded: BalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -337,10 +351,18 @@ pub mod pallet {
 		InvalidGridSize,
 		/// Invalid ship placement
 		InvalidShipPlacement,
+		/// Too many hits (more than 17 ship cells)
+		TooManyHits,
+		/// Hit pattern doesn't form valid ships
+		InvalidHitPattern,
 		/// Cannot join own game
 		CannotJoinOwnGame,
 		/// Game ID counter overflow
 		GameIdOverflow,
+		/// Reveal coordinate doesn't match pending attack (stale tx after reorg)
+		CoordinateMismatch,
+		/// Round number doesn't match (stale transaction)
+		RoundMismatch,
 	}
 
 	#[pallet::hooks]
@@ -460,6 +482,7 @@ pub mod pallet {
 					game.phase = GamePhase::Playing {
 						current_turn: PlayerRole::Player1,
 						pending_attack: None,
+						round: 0,
 					};
 					Self::deposit_event(Event::GameStarted { game_id });
 				}
@@ -475,6 +498,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			game_id: GameId,
 			coordinate: Coordinate,
+			expected_round: u32,
 		) -> DispatchResult {
 			let attacker = ensure_signed(origin)?;
 
@@ -483,11 +507,12 @@ pub mod pallet {
 			Games::<T>::try_mutate(game_id, |maybe_game| -> DispatchResult {
 				let game = maybe_game.as_mut().ok_or(Error::<T>::GameNotFound)?;
 
-				let GamePhase::Playing { current_turn, pending_attack } = &mut game.phase else {
+				let GamePhase::Playing { current_turn, pending_attack, round } = &mut game.phase
+				else {
 					return Err(Error::<T>::InvalidGamePhase.into());
 				};
 
-				// Must not have a pending attack
+				ensure!(expected_round == *round, Error::<T>::RoundMismatch);
 				ensure!(pending_attack.is_none(), Error::<T>::NotYourTurn);
 
 				// Check it's the attacker's turn
@@ -516,6 +541,7 @@ pub mod pallet {
 				);
 
 				*pending_attack = Some(coordinate);
+				*round += 1;
 				game.last_action_block = frame_system::Pallet::<T>::block_number();
 
 				Self::deposit_event(Event::AttackMade { game_id, attacker, coordinate });
@@ -531,17 +557,20 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			game_id: GameId,
 			reveal: CellReveal,
+			expected_round: u32,
 		) -> DispatchResult {
 			let defender = ensure_signed(origin)?;
 
-			// First get the game state to determine roles
 			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
 
-			let (current_turn, attack_coord) = match &game.phase {
-				GamePhase::Playing { current_turn, pending_attack: Some(coord) } =>
-					(*current_turn, *coord),
+			let (current_turn, attack_coord, current_round) = match &game.phase {
+				GamePhase::Playing { current_turn, pending_attack: Some(coord), round } =>
+					(*current_turn, *coord, *round),
 				_ => return Err(Error::<T>::InvalidGamePhase.into()),
 			};
+
+			ensure!(expected_round == current_round, Error::<T>::RoundMismatch);
+			ensure!(reveal.coord == attack_coord, Error::<T>::CoordinateMismatch);
 
 			// Determine defender role
 			let is_player1 = game.player1 == defender;
@@ -580,7 +609,6 @@ pub mod pallet {
 					);
 
 					if !valid {
-						// Cheating detected - return special marker
 						return Err(Error::<T>::InvalidMerkleProof);
 					}
 
@@ -590,14 +618,12 @@ pub mod pallet {
 					let is_hit = reveal.cell.is_occupied;
 
 					if is_hit {
-						// Add to hit cells for validation
-						data.hit_cells
-							.try_push(attack_coord)
-							.map_err(|_| Error::<T>::InvalidShipPlacement)?;
+						if data.hit_cells.try_push(attack_coord).is_err() {
+							return Err(Error::<T>::TooManyHits);
+						}
 
-						// Validate hit pattern
 						if !Self::validate_hit_pattern(&data.hit_cells) {
-							return Err(Error::<T>::InvalidShipPlacement);
+							return Err(Error::<T>::InvalidHitPattern);
 						}
 					}
 
@@ -607,21 +633,22 @@ pub mod pallet {
 			// Handle errors from defender data update
 			let (total_revealed, is_hit) = match total_revealed {
 				Ok(result) => result,
-				Err(Error::<T>::InvalidMerkleProof) | Err(Error::<T>::InvalidShipPlacement) => {
-					// Cheating detected - defender loses
+				Err(err @ Error::<T>::InvalidMerkleProof) |
+				Err(err @ Error::<T>::TooManyHits) |
+				Err(err @ Error::<T>::InvalidHitPattern) => {
 					let (winner, loser) = match current_turn {
 						PlayerRole::Player1 =>
 							(game.player1.clone(), game.player2.clone().unwrap()),
 						PlayerRole::Player2 =>
 							(game.player2.clone().unwrap(), game.player1.clone()),
 					};
-					return Self::finalize_game(
-						&mut game,
-						game_id,
-						winner,
-						loser,
-						GameEndReason::Cheating,
-					);
+					let reason = match err {
+						Error::<T>::InvalidMerkleProof => GameEndReason::InvalidMerkleProof,
+						Error::<T>::TooManyHits => GameEndReason::TooManyHits,
+						Error::<T>::InvalidHitPattern => GameEndReason::InvalidHitPattern,
+						_ => GameEndReason::Cheating,
+					};
+					return Self::finalize_game(&mut game, game_id, winner, loser, reason);
 				},
 				Err(e) => return Err(e.into()),
 			};
@@ -661,7 +688,6 @@ pub mod pallet {
 				game.last_action_block = frame_system::Pallet::<T>::block_number();
 				Self::deposit_event(Event::AllShipsSunk { game_id, pending_winner });
 			} else if total_revealed >= 100 {
-				// All cells revealed but < 17 hits: defender had invalid grid
 				let (winner, loser) = match current_turn {
 					PlayerRole::Player1 => (game.player1.clone(), game.player2.clone().unwrap()),
 					PlayerRole::Player2 => (game.player2.clone().unwrap(), game.player1.clone()),
@@ -671,16 +697,17 @@ pub mod pallet {
 					game_id,
 					winner,
 					loser,
-					GameEndReason::Cheating,
+					GameEndReason::NotEnoughShips,
 				);
 			} else {
-				// Switch turns
+				// Switch turns and increment round
 				game.phase = GamePhase::Playing {
 					current_turn: match current_turn {
 						PlayerRole::Player1 => PlayerRole::Player2,
 						PlayerRole::Player2 => PlayerRole::Player1,
 					},
 					pending_attack: None,
+					round: current_round + 1,
 				};
 				game.last_action_block = frame_system::Pallet::<T>::block_number();
 			}
@@ -799,7 +826,7 @@ pub mod pallet {
 						return Err(Error::<T>::CannotClaimTimeout.into());
 					}
 				},
-				GamePhase::Playing { current_turn, pending_attack } => {
+				GamePhase::Playing { current_turn, pending_attack, .. } => {
 					if pending_attack.is_some() {
 						// Defender timed out
 						match current_turn {
@@ -864,6 +891,34 @@ pub mod pallet {
 			};
 
 			Self::finalize_game(&mut game, game_id, winner, loser, GameEndReason::Surrender)
+		}
+
+		/// Cancel a game before an opponent joins
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::cancel_game())]
+		pub fn cancel_game(origin: OriginFor<T>, game_id: GameId) -> DispatchResult {
+			let creator = ensure_signed(origin)?;
+
+			let game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
+
+			ensure!(game.player1 == creator, Error::<T>::NotGameParticipant);
+			ensure!(game.phase == GamePhase::WaitingForOpponent, Error::<T>::InvalidGamePhase);
+
+			let refunded = game.pot_amount;
+			T::Currency::release(
+				&HoldReason::GamePot.into(),
+				&creator,
+				refunded,
+				Precision::Exact,
+			)?;
+
+			Games::<T>::remove(game_id);
+			PlayerDataStorage::<T>::remove(game_id, &creator);
+			PlayerGame::<T>::remove(&creator);
+
+			Self::deposit_event(Event::GameCancelled { game_id, creator, refunded });
+
+			Ok(())
 		}
 	}
 
@@ -1151,6 +1206,126 @@ pub mod pallet {
 
 			Self::deposit_event(Event::GameAbandoned { game_id, burned_amount: total_burned });
 
+			Ok(())
+		}
+	}
+}
+
+/// Transaction extension module for battleship round ordering
+pub mod tx_ext {
+	use super::*;
+	use frame_support::pallet_prelude::TransactionSource;
+	use sp_runtime::{
+		traits::{DispatchInfoOf, Dispatchable, TransactionExtension, ValidateResult},
+		transaction_validity::ValidTransaction,
+	};
+
+	/// Trait for extracting battleship round info from a call
+	pub trait BattleshipRoundInfo {
+		fn battleship_round_info(&self) -> Option<(GameId, u32)>;
+	}
+
+	#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	pub struct CheckBattleshipRound<T: Config>(core::marker::PhantomData<T>);
+
+	impl<T: Config> Default for CheckBattleshipRound<T> {
+		fn default() -> Self {
+			Self(core::marker::PhantomData)
+		}
+	}
+
+	impl<T: Config> core::fmt::Debug for CheckBattleshipRound<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			write!(f, "CheckBattleshipRound")
+		}
+	}
+
+	impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for CheckBattleshipRound<T>
+	where
+		T::RuntimeCall: Dispatchable + BattleshipRoundInfo,
+	{
+		const IDENTIFIER: &'static str = "CheckBattleshipRound";
+		type Implicit = ();
+		type Val = ();
+		type Pre = ();
+
+		fn weight(&self, _: &T::RuntimeCall) -> Weight {
+			Weight::zero()
+		}
+
+		fn validate(
+			&self,
+			origin: <T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+			call: &T::RuntimeCall,
+			_info: &DispatchInfoOf<T::RuntimeCall>,
+			_len: usize,
+			_self_implicit: Self::Implicit,
+			_inherited_implication: &impl Encode,
+			_source: TransactionSource,
+		) -> ValidateResult<Self::Val, T::RuntimeCall> {
+			let validity = if let Some((game_id, expected_round)) = call.battleship_round_info() {
+				let on_chain_round = pallet::Games::<T>::get(game_id)
+					.and_then(|game| match game.phase {
+						GamePhase::Playing { round, .. } => Some(round),
+						_ => None,
+					})
+					.unwrap_or(0);
+
+				// Reject stale transactions (past rounds)
+				let requires = if expected_round < on_chain_round {
+					log::info!(
+						target: "battleship",
+						"CheckBattleshipRound: STALE game_id={}, expected_round={}, on_chain_round={}",
+						game_id, expected_round, on_chain_round
+					);
+					return Err(
+						sp_runtime::transaction_validity::TransactionValidityError::Invalid(
+							sp_runtime::transaction_validity::InvalidTransaction::Stale,
+						),
+					);
+				} else if expected_round > on_chain_round {
+					vec![(b"battleship", game_id, expected_round - 1).encode()]
+				} else {
+					vec![]
+				};
+
+				log::info!(
+					target: "battleship",
+					"CheckBattleshipRound: game_id={}, expected_round={}, on_chain_round={}",
+					game_id, expected_round, on_chain_round
+				);
+
+				// Accept current and future rounds - let dispatch handle exact validation.
+				// Using unique tag per (game, round) to prevent duplicates but no requires
+				// to avoid fork-aware pool issues with unsatisfied dependencies.
+				let tag = (b"battleship", game_id, expected_round).encode();
+				ValidTransaction {
+					// Higher priority for current round, lower for future rounds
+					priority: if expected_round == on_chain_round {
+						u64::MAX
+					} else {
+						u64::MAX - (expected_round - on_chain_round) as u64
+					},
+					requires,
+					provides: vec![tag],
+					longevity: 64, // Short longevity - tx should be included soon or resubmitted
+					propagate: true,
+				}
+			} else {
+				ValidTransaction::default()
+			};
+			Ok((validity, (), origin))
+		}
+
+		fn prepare(
+			self,
+			_val: Self::Val,
+			_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
+			_call: &T::RuntimeCall,
+			_info: &DispatchInfoOf<T::RuntimeCall>,
+			_len: usize,
+		) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
 			Ok(())
 		}
 	}

@@ -46,9 +46,10 @@ use sp_version::RuntimeVersion;
 
 // Local module imports
 use super::{
-	AccountId, Balance, Block, BlockNumber, ConsensusHook, Executive, InherentDataExt, Nonce,
-	ParachainSystem, Runtime, RuntimeCall, RuntimeGenesisConfig, SessionKeys, System,
-	TransactionPayment, TransactionStorage, SLOT_DURATION, TARGET_BLOCK_RATE, VERSION,
+	configs::RELAY_PARENT_OFFSET, AccountId, Balance, Block, BlockNumber, ConsensusHook, Executive,
+	InherentDataExt, Nonce, ParachainSystem, Runtime, RuntimeCall, RuntimeGenesisConfig,
+	SessionKeys, System, TransactionPayment, TransactionStorage, SLOT_DURATION, TARGET_BLOCK_RATE,
+	VERSION,
 };
 
 impl Runtime {
@@ -77,7 +78,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			0
+			RELAY_PARENT_OFFSET
 		}
 	}
 

@@ -1,6 +1,7 @@
 import { chromium, Page } from "playwright";
 
 const BASE_URL = "http://localhost:3000";
+const RPC_URL = process.env.WS_URL || "ws://localhost:9944";
 const CHROMIUM_PATH = "/nix/store/g245pzpbacazlrca1fb7crb9883rhhs3-chromium-144.0.7559.59/bin/chromium";
 
 async function waitForText(page: Page, text: string, timeout = 30000) {
@@ -19,43 +20,51 @@ async function selectDevPlayer(page: Page, player: "alice" | "bob") {
   await page.click(`[data-player="${player}"]`);
   await page.click("#wallet-continue-btn");
   
-  await page.waitForTimeout(3000);
+  try {
+    await page.waitForSelector("#game-lobby.active", { state: "visible", timeout: 30000 });
+  } catch {
+    const activeScreens = await page.evaluate(() => 
+      Array.from(document.querySelectorAll(".screen.active, #game.active")).map(s => s.id)
+    );
+    console.log(`  ${player} stuck - active screens: ${JSON.stringify(activeScreens)}`);
+    await page.screenshot({ path: `/tmp/${player}-stuck.png`, fullPage: true });
+    throw new Error(`${player} failed to reach lobby - screens: ${JSON.stringify(activeScreens)}`);
+  }
+  await page.waitForTimeout(2000);
+  
+  const existingGameBanner = await page.locator("#existing-game-banner").isVisible().catch(() => false);
+  if (existingGameBanner) {
+    console.log(`  ${player} has existing game in lobby, abandoning...`);
+    const abandonBtn = page.locator("#existing-game-banner button", { hasText: /Abandon|Surrender|Cancel/i });
+    if (await abandonBtn.isVisible().catch(() => false)) {
+      await abandonBtn.click();
+      console.log(`  ${player} clicked abandon/surrender in banner`);
+      await page.waitForTimeout(6000);
+    }
+  }
   
   const inGameScreen = await page.locator("#game.active").isVisible().catch(() => false);
   if (inGameScreen) {
-    console.log(`  ${player} has existing game, checking if playable...`);
-    const statusText = await page.locator("#status").textContent().catch(() => "");
-    
-    if (statusText?.includes("Cannot reveal") || statusText?.includes("ERROR") || statusText?.includes("surrender")) {
-      console.log(`  ${player} has stale game, surrendering...`);
-      const surrenderBtn = page.locator("#surrender-btn");
-      for (let i = 0; i < 10; i++) {
-        if (await surrenderBtn.isEnabled().catch(() => false)) {
-          await surrenderBtn.click();
-          await page.waitForTimeout(5000);
-          break;
-        }
-        await page.waitForTimeout(500);
+    console.log(`  ${player} in game screen, surrendering...`);
+    const surrenderBtn = page.locator("#surrender-btn");
+    for (let i = 0; i < 20; i++) {
+      if (await surrenderBtn.isEnabled().catch(() => false)) {
+        await surrenderBtn.click();
+        console.log(`  ${player} clicked surrender`);
+        await page.waitForTimeout(6000);
+        break;
       }
-    } else {
-      console.log(`  ${player} resuming active game, surrendering to start fresh...`);
-      const surrenderBtn = page.locator("#surrender-btn");
-      for (let i = 0; i < 20; i++) {
-        if (await surrenderBtn.isEnabled().catch(() => false)) {
-          await surrenderBtn.click();
-          await page.waitForTimeout(5000);
-          break;
-        }
-        await page.waitForTimeout(500);
-      }
+      await page.waitForTimeout(500);
     }
     
-    await page.goto(`${BASE_URL}/?devMode=true`);
+    const rpcParam = encodeURIComponent(RPC_URL);
+    await page.goto(`${BASE_URL}/?devMode=true&rpc=${rpcParam}`);
     await page.click(`[data-player="${player}"]`);
     await page.click("#wallet-continue-btn");
+    await page.waitForTimeout(3000);
   }
   
-  await waitForText(page, "BATTLESHIP LOBBY");
+  await page.waitForSelector("#game-lobby.active", { state: "visible", timeout: 30000 });
 }
 
 async function createGame(page: Page, stake: string = "1") {
@@ -90,10 +99,12 @@ async function waitForGameScreen(page: Page) {
     const isActive = await page.locator("#game.active").isVisible().catch(() => false);
     if (isActive) return;
     
-    const inLobby = await page.locator("#lobby.active").isVisible().catch(() => false);
-    if (inLobby) {
-      const gameCards = await page.locator(".game-card").count().catch(() => 0);
-      console.log(`  Still in lobby, ${gameCards} games visible, waiting...`);
+    const activeScreens = await page.evaluate(() => 
+      Array.from(document.querySelectorAll(".screen.active, #game.active")).map(s => s.id)
+    ).catch(() => []);
+    
+    if (i % 5 === 0) {
+      console.log(`  Waiting for game screen... active: ${JSON.stringify(activeScreens)}`);
     }
     
     await page.waitForTimeout(2000);
@@ -131,6 +142,17 @@ async function commitGrid(page: Page) {
   for (let i = 0; i < 30; i++) {
     if (!(await commitBtn.isDisabled())) {
       await commitBtn.click();
+      
+      await page.waitForFunction(
+        () => {
+          const status = document.getElementById("status");
+          const text = status?.textContent || "";
+          return text.includes("Waiting for opponent to commit") || 
+                 text.includes("Your turn") || 
+                 text.includes("Opponent's turn");
+        },
+        { timeout: 60000 }
+      );
       return true;
     }
     await page.waitForTimeout(500);
@@ -143,7 +165,10 @@ async function waitForBattlePhase(page: Page) {
     () => {
       const status = document.getElementById("status");
       const text = status?.textContent || "";
-      return text.includes("Your turn") || text.includes("Opponent's turn") || text.includes("Waiting");
+      return text.includes("Your turn") || 
+             text.includes("Opponent's turn") || 
+             text.includes("Waiting for opponent to reveal") ||
+             text.includes("click enemy waters");
     },
     { timeout: 120000 }
   );
@@ -159,12 +184,14 @@ async function isGameOver(page: Page): Promise<{ over: boolean; status: string }
   const over = (
     status.includes("won") || 
     status.includes("lost") || 
-    status.includes("Victory!") || 
-    status.includes("Defeat!") ||
+    status.includes("Victory") || 
+    status.includes("Defeat") ||
     status.includes("Game ended") ||
-    status.includes("You win!") ||
+    status.includes("You win") ||
     status.includes("surrendered") ||
-    status.includes("timed out!")
+    status.includes("timed out") ||
+    status.includes("cheated") ||
+    status.includes("Cheating")
   );
   if (over) {
     console.log(`  [isGameOver] Detected: "${status}"`);
@@ -235,15 +262,32 @@ async function test() {
 
   alicePage.on("console", (msg) => {
     if (msg.type() === "error") console.log(`[Alice ERROR] ${msg.text()}`);
+    const text = msg.text();
+    if (text.includes("chain") || text.includes("connect") || text.includes("RPC") || 
+        text.includes("Creating") || text.includes("client") || text.includes("balance") ||
+        text.includes("Failed") || text.includes("[alice]") || text.includes("Phase") ||
+        text.includes("GameEnded") || text.includes("game") || text.includes("attack") ||
+        text.includes("reveal") || text.includes("subscribe")) {
+      console.log(`[Alice] ${text}`);
+    }
   });
+  alicePage.on("pageerror", (err) => console.log(`[Alice PAGE ERROR] ${err.message}`));
   bobPage.on("console", (msg) => {
     if (msg.type() === "error") console.log(`[Bob ERROR] ${msg.text()}`);
+    const text = msg.text();
+    if (text.includes("[bob]") || text.includes("Phase") || text.includes("GameEnded") ||
+        text.includes("game") || text.includes("attack") || text.includes("reveal") ||
+        text.includes("subscribe")) {
+      console.log(`[Bob] ${text}`);
+    }
   });
+  bobPage.on("pageerror", (err) => console.log(`[Bob PAGE ERROR] ${err.message}`));
 
   try {
     console.log("\n--- PHASE 1: Connect to lobby ---");
-    await alicePage.goto(`${BASE_URL}/?devMode=true`);
-    await bobPage.goto(`${BASE_URL}/?devMode=true`);
+    const rpcParam = encodeURIComponent(RPC_URL);
+    await alicePage.goto(`${BASE_URL}/?devMode=true&rpc=${rpcParam}`);
+    await bobPage.goto(`${BASE_URL}/?devMode=true&rpc=${rpcParam}`);
 
     await selectDevPlayer(alicePage, "alice");
     console.log("✓ Alice connected to lobby");
@@ -292,12 +336,19 @@ async function test() {
     ]);
     console.log("✓ Battle started!");
 
-    const allCoords: { x: number; y: number }[] = [];
+    // Checkerboard pattern: ships are ≥2 cells, so alternating cells guarantee hits
+    const checkerboardCoords: { x: number; y: number }[] = [];
+    const remainingCoords: { x: number; y: number }[] = [];
     for (let y = 0; y < 10; y++) {
       for (let x = 0; x < 10; x++) {
-        allCoords.push({ x, y });
+        if ((x + y) % 2 === 0) {
+          checkerboardCoords.push({ x, y });
+        } else {
+          remainingCoords.push({ x, y });
+        }
       }
     }
+    const allCoords = [...checkerboardCoords, ...remainingCoords];
 
     console.log("\n--- PHASE 7: Play battle (this may take a while) ---");
     
@@ -305,6 +356,8 @@ async function test() {
     let bobCoordIdx = 0;
     let gameOver = false;
     let finalStatus = "";
+    let aliceFinalStatus = "";
+    let bobFinalStatus = "";
     
     let lastAliceAttackIdx = -1;
     let lastBobAttackIdx = -1;
@@ -322,8 +375,25 @@ async function test() {
       const aliceGameOver = await isGameOver(alicePage);
       const bobGameOver = await isGameOver(bobPage);
       if (aliceGameOver.over || bobGameOver.over) {
-        finalStatus = aliceGameOver.over ? aliceGameOver.status : bobGameOver.status;
-        console.log(`  Game ended: ${finalStatus}`);
+        console.log(`  First game over detected - Alice="${aliceGameOver.status}", Bob="${bobGameOver.status}"`);
+        
+        let aliceFinal = aliceGameOver;
+        let bobFinal = bobGameOver;
+        
+        if (!aliceGameOver.over || !bobGameOver.over) {
+          console.log(`  Waiting for both players to show game over...`);
+          for (let i = 0; i < 30; i++) {
+            await alicePage.waitForTimeout(500);
+            if (!aliceFinal.over) aliceFinal = await isGameOver(alicePage);
+            if (!bobFinal.over) bobFinal = await isGameOver(bobPage);
+            if (aliceFinal.over && bobFinal.over) break;
+          }
+        }
+        
+        console.log(`  Game ended: Alice="${aliceFinal.status}", Bob="${bobFinal.status}"`);
+        aliceFinalStatus = aliceFinal.status;
+        bobFinalStatus = bobFinal.status;
+        finalStatus = aliceFinal.over ? aliceFinal.status : bobFinal.status;
         gameOver = true;
         break;
       }
@@ -348,22 +418,42 @@ async function test() {
       }
     }
     
-    const results = [finalStatus, finalStatus];
-
     console.log("\n--- PHASE 8: Verify game ended ---");
     
-    const [aliceResult, bobResult] = results;
-    console.log(`  Alice result: ${aliceResult}`);
-    console.log(`  Bob result: ${bobResult}`);
+    const totalAttacks = aliceCoordIdx + bobCoordIdx;
+    console.log(`  Total attacks made: ${totalAttacks} (Alice: ${aliceCoordIdx}, Bob: ${bobCoordIdx})`);
+    
+    const aliceStatus = aliceFinalStatus || await alicePage.locator("#status").textContent() || "";
+    const bobStatus = bobFinalStatus || await bobPage.locator("#status").textContent() || "";
+    console.log(`  Alice final status: "${aliceStatus}"`);
+    console.log(`  Bob final status: "${bobStatus}"`);
 
-    const endPatterns = ["won", "lost", "Victory", "Defeat", "Game ended", "You win", "surrendered", "timed out"];
-    const gameEnded = endPatterns.some(p => 
-      aliceResult?.includes(p) || bobResult?.includes(p)
-    );
-
-    if (!gameEnded) {
-      throw new Error(`Game did not reach completion. Alice: "${aliceResult}", Bob: "${bobResult}"`);
+    const MIN_ATTACKS_FOR_WIN = 17;
+    if (totalAttacks < MIN_ATTACKS_FOR_WIN) {
+      throw new Error(`Game ended too early! Only ${totalAttacks} attacks made, need at least ${MIN_ATTACKS_FOR_WIN} to sink all ships.`);
     }
+
+    const winPatterns = ["Victory", "You win", "won", "Opponent surrendered", "Opponent timed out", "Opponent cheated"];
+    const losePatterns = ["Defeat", "lost", "You surrendered", "You timed out", "sunk", "Cheating detected"];
+    
+    const aliceWon = winPatterns.some(p => aliceStatus.includes(p));
+    const aliceLost = losePatterns.some(p => aliceStatus.includes(p));
+    const bobWon = winPatterns.some(p => bobStatus.includes(p));
+    const bobLost = losePatterns.some(p => bobStatus.includes(p));
+
+    console.log(`  Alice: won=${aliceWon}, lost=${aliceLost}`);
+    console.log(`  Bob: won=${bobWon}, lost=${bobLost}`);
+
+    if (aliceStatus.includes("unexpectedly") || bobStatus.includes("unexpectedly")) {
+      throw new Error(`Game ended unexpectedly without proper winner detection. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
+    }
+
+    if (!((aliceWon && bobLost) || (bobWon && aliceLost))) {
+      throw new Error(`Invalid game outcome. Expected one winner and one loser. Alice: "${aliceStatus}", Bob: "${bobStatus}"`);
+    }
+
+    const winner = aliceWon ? "Alice" : "Bob";
+    console.log(`  Winner: ${winner}`);
 
     console.log("\n" + "=".repeat(60));
     console.log("FULL BROWSER E2E TEST PASSED!");

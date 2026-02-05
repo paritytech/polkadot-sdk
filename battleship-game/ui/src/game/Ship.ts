@@ -48,19 +48,22 @@ export function canPlaceShip(
   const tempShip = createPlacedShip(definition, position, orientation);
   const cells = getShipCells(tempShip);
 
-  // Check bounds
   for (const cell of cells) {
     if (cell.x < 0 || cell.x >= GRID_SIZE || cell.y < 0 || cell.y >= GRID_SIZE) {
       return false;
     }
   }
 
-  // Check collision with existing ships
   for (const existingShip of existingShips) {
     const existingCells = getShipCells(existingShip);
     for (const cell of cells) {
       for (const existingCell of existingCells) {
         if (cell.x === existingCell.x && cell.y === existingCell.y) {
+          return false;
+        }
+        const dx = Math.abs(cell.x - existingCell.x);
+        const dy = Math.abs(cell.y - existingCell.y);
+        if (dx <= 1 && dy <= 1) {
           return false;
         }
       }

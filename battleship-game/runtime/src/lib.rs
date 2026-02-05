@@ -19,24 +19,22 @@ use smallvec::smallvec;
 
 use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 
-use sp_runtime::{
-	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature,
-};
-
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-
+use configs::RELAY_PARENT_OFFSET;
 use frame_support::weights::{
 	constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
 	WeightToFeePolynomial,
 };
 pub use genesis_config_presets::PARACHAIN_ID;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_runtime::{
+	generic, impl_opaque_keys,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	MultiSignature,
+};
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
 use weights::ExtrinsicBaseWeight;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -87,6 +85,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		pallet_battleship::tx_ext::CheckBattleshipRound<Runtime>,
 	),
 >;
 
@@ -216,7 +215,7 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 * TARGET_BLOCK_RATE;
+pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * TARGET_BLOCK_RATE;
 /// Relay chain slot duration, in milliseconds.
 pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// Target number of blocks per relay chain slot.
@@ -306,6 +305,24 @@ mod runtime {
 	pub type Statement = pallet_statement;
 	#[runtime::pallet_index(52)]
 	pub type TransactionStorage = pallet_transaction_storage;
+}
+
+impl pallet_battleship::tx_ext::BattleshipRoundInfo for RuntimeCall {
+	fn battleship_round_info(&self) -> Option<(pallet_battleship::GameId, u32)> {
+		match self {
+			RuntimeCall::Battleship(pallet_battleship::Call::attack {
+				game_id,
+				expected_round,
+				..
+			}) => Some((*game_id, *expected_round)),
+			RuntimeCall::Battleship(pallet_battleship::Call::reveal_cell {
+				game_id,
+				expected_round,
+				..
+			}) => Some((*game_id, *expected_round)),
+			_ => None,
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {

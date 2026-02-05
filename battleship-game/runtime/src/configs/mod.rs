@@ -198,6 +198,8 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = ();
 }
 
+pub const RELAY_PARENT_OFFSET: u32 = 2;
+
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
@@ -216,7 +218,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type RelayParentOffset = ConstU32<0>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -341,10 +343,8 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	/// Turn timeout: 10 blocks for dev testing, increase for production
-	pub const TurnTimeout: BlockNumber = 10;
-	/// Abandon timeout: 20 blocks for dev testing, increase for production
-	pub const AbandonTimeout: BlockNumber = 20;
+	pub const TurnTimeout: BlockNumber = 720;
+	pub const AbandonTimeout: BlockNumber = 2400;
 }
 
 /// Configure the battleship pallet.

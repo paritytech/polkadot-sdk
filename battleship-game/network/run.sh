@@ -4,6 +4,7 @@ set -e
 SCRIPT_DIR="$(dirname "$0")"
 
 cargo build --release -p battleship-runtime
+export ROCOCO_EPOCH_DURATION=60
 cargo build --release -p polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker --bin polkadot -p polkadot-omni-node --bin polkadot-omni-node -p battleship-runtime
 
 RELEASE_DIR=$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release

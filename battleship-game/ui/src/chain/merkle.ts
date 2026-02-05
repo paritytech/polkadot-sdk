@@ -135,7 +135,10 @@ export function verifyProof(
     }
 
     const sibling = proof[proofIdx++];
-    if (position % 2 === 1) {
+    // Match Rust's binary_merkle_tree::verify_proof ordering logic exactly:
+    // If we're a right child (position odd) OR we're at the last position in the layer,
+    // the sibling goes on the LEFT side of the hash
+    if (position % 2 === 1 || position + 1 === width) {
       currentHash = hashPair(sibling, currentHash);
     } else {
       currentHash = hashPair(currentHash, sibling);

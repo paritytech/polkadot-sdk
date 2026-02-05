@@ -54,7 +54,7 @@ pub mod slot_based;
 // we can guarantee that all imported blocks respect the unincluded segment
 // rules specified by the parachain's runtime and thus will never be too deep. This is just an extra
 // sanity check.
-const PARENT_SEARCH_DEPTH: usize = 40;
+const PARENT_SEARCH_DEPTH: usize = 256;
 
 // Helper to pre-connect to the backing group we got assigned to and keep the connection
 // open until backing group changes or own slot ends.

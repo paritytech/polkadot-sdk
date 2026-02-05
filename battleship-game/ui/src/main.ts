@@ -3,8 +3,9 @@ import { Renderer } from "./render/Renderer.ts";
 import { InputHandler } from "./input/InputHandler.ts";
 import { isDevMode, getPlayerFromUrl, getDevPlayerAccount, type PlayerAccount } from "./chain/accounts.ts";
 import { getWalletManager, WalletManager, type WalletInfo, type WalletAccount } from "./chain/wallet.ts";
-import { getChainClient } from "./chain/client.ts";
+import { getChainClient, setRpcEndpoint } from "./chain/client.ts";
 import { getStatementStore, type GameAnnouncement } from "./chain/statementStore.ts";
+import { BattleshipClient } from "./chain/battleship.ts";
 import type { Position, Player } from "./types/index.ts";
 
 type Screen = "wallet-connect" | "game-lobby" | "game";
@@ -65,6 +66,11 @@ class BattleshipApp {
     if (devToggle) devToggle.checked = true;
 
     this.toggleDevModeUI(true);
+    this.initRpcEndpointFromUrl();
+    this.applyRpcEndpoint();
+
+
+
     this.selectDevPlayer(this.devModePlayer);
 
     devToggle?.addEventListener("change", () => {
@@ -81,8 +87,33 @@ class BattleshipApp {
     });
 
     document.getElementById("wallet-continue-btn")?.addEventListener("click", () => {
+      this.applyRpcEndpoint();
       this.onAccountReady();
     });
+  }
+
+  private initRpcEndpointFromUrl(): void {
+    const input = document.getElementById("rpc-endpoint-input") as HTMLInputElement;
+    if (!input) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const rpcFromUrl = params.get("rpc");
+    if (rpcFromUrl) {
+      input.value = rpcFromUrl;
+    } else {
+      const cached = localStorage.getItem("battleship-rpc-endpoint");
+      if (cached) {
+        input.value = cached;
+      }
+    }
+  }
+
+  private applyRpcEndpoint(): void {
+    const input = document.getElementById("rpc-endpoint-input") as HTMLInputElement;
+    if (input?.value) {
+      setRpcEndpoint(input.value);
+      localStorage.setItem("battleship-rpc-endpoint", input.value);
+    }
   }
 
   private toggleDevModeUI(devMode: boolean): void {
@@ -106,8 +137,6 @@ class BattleshipApp {
 
     this.updateSelectedAccountDisplay(account.address, "Dev Account");
     document.getElementById("wallet-continue-btn")?.removeAttribute("disabled");
-
-    this.loadDevBalance(account.address);
   }
 
   private async loadDevBalance(address: string): Promise<void> {
@@ -244,10 +273,79 @@ class BattleshipApp {
   }
 
   private async onAccountReady(): Promise<void> {
+    if (this.currentAccount) {
+      await this.loadDevBalance(this.currentAccount.address);
+    }
     this.showScreen("game-lobby");
     this.setupLobby();
+    await this.checkExistingGame();
     await this.refreshGamesList();
     this.startLobbyRefresh();
+  }
+
+  private existingGameId: bigint | null = null;
+  private existingGamePhase: string | null = null;
+
+  private async checkExistingGame(): Promise<void> {
+    if (!this.currentAccount) return;
+    try {
+      const client = await getChainClient();
+      const battleshipClient = await BattleshipClient.create(client);
+      const gameId = await battleshipClient.getPlayerGame(this.currentAccount.address);
+      this.existingGameId = gameId;
+      if (gameId !== null && gameId !== undefined) {
+        const { game } = await battleshipClient.getGame(gameId);
+        this.existingGamePhase = game?.phase?.type ?? null;
+      } else {
+        this.existingGamePhase = null;
+      }
+      this.updateExistingGameUI();
+    } catch (e) {
+      console.error("Failed to check existing game:", e);
+    }
+  }
+
+  private updateExistingGameUI(): void {
+    let banner = document.getElementById("existing-game-banner");
+    if (this.existingGameId !== null && this.existingGameId !== undefined) {
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.id = "existing-game-banner";
+        banner.className = "info-box";
+        banner.style.cssText = "margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;";
+        const lobbyActions = document.querySelector(".lobby-actions");
+        lobbyActions?.parentNode?.insertBefore(banner, lobbyActions);
+      }
+      const isWaiting = this.existingGamePhase === "WaitingForOpponent";
+      const buttonLabel = isWaiting ? "Cancel" : "Surrender";
+      banner.innerHTML = `
+        <span>You have an ongoing game (#${this.existingGameId})${isWaiting ? " - waiting for opponent" : ""}</span>
+        <button class="btn btn-danger btn-small" id="cancel-existing-btn">${buttonLabel}</button>
+      `;
+      document.getElementById("cancel-existing-btn")?.addEventListener("click", () => {
+        this.cancelOrSurrenderExistingGame();
+      });
+    } else if (banner) {
+      banner.remove();
+    }
+  }
+
+  private async cancelOrSurrenderExistingGame(): Promise<void> {
+    if (!this.currentAccount || this.existingGameId === null) return;
+    try {
+      const client = await getChainClient();
+      const battleshipClient = await BattleshipClient.create(client);
+      if (this.existingGamePhase === "WaitingForOpponent") {
+        await battleshipClient.cancelGame(this.currentAccount.signer, this.existingGameId);
+      } else {
+        await battleshipClient.surrender(this.currentAccount.signer, this.existingGameId);
+      }
+      this.existingGameId = null;
+      this.existingGamePhase = null;
+      this.updateExistingGameUI();
+    } catch (e) {
+      console.error("Failed to cancel/surrender:", e);
+    }
   }
 
   private setupLobby(): void {
@@ -497,10 +595,12 @@ class BattleshipApp {
     try {
       const client = await getChainClient();
       const statementStore = getStatementStore(client);
+      console.log("Checking for join responses for:", this._pendingAnnouncement.creator, this._pendingAnnouncement.timestamp);
       const responses = await statementStore.getJoinResponses(
         this._pendingAnnouncement.creator,
         this._pendingAnnouncement.timestamp
       );
+      console.log("Join responses found:", responses.length, responses);
 
       if (responses.length > 0) {
         const joiner = responses[0];
@@ -533,7 +633,7 @@ class BattleshipApp {
 
     if (success) {
       const gameState = this.game.getState();
-      if (gameState.gameId) {
+      if (gameState.gameId !== null) {
         const client = await getChainClient();
         const statementStore = getStatementStore(client);
         const updatedAnnouncement: GameAnnouncement = {
@@ -634,6 +734,8 @@ class BattleshipApp {
       const client = await getChainClient();
       const statementStore = getStatementStore(client);
       const games = await statementStore.getAvailableGames();
+      console.log("Checking for on-chain game. Looking for:", this.joiningGame?.creator, this.joiningGame?.timestamp);
+      console.log("Available games:", games);
 
       const updatedGame = games.find(
         (g) =>
@@ -645,6 +747,8 @@ class BattleshipApp {
       if (updatedGame?.onChainGameId) {
         console.log("On-chain game found:", updatedGame.onChainGameId);
         await this.joinOnChainGame(BigInt(updatedGame.onChainGameId));
+      } else {
+        console.log("No on-chain game ID yet");
       }
     } catch (e) {
       console.error("Failed to check for on-chain game:", e);
@@ -866,7 +970,7 @@ class BattleshipApp {
     }
   }
 
-  private handleGameEnd(winner: string, reason: string): void {
+  private handleGameEnd(winner: string | null, reason: string): void {
     console.log(`Game ended: winner=${winner}, reason=${reason}`);
     setTimeout(() => {
       this.returnToLobby();
@@ -883,6 +987,10 @@ class BattleshipApp {
     this.enemyHover = null;
 
     this.showScreen("game-lobby");
+    document.getElementById("create-game-btn")?.removeAttribute("disabled");
+    document.getElementById("waiting-card")?.remove();
+    document.getElementById("join-waiting-card")?.remove();
+    this.checkExistingGame();
     this.refreshGamesList();
     this.startLobbyRefresh();
     this.refreshBalance();
