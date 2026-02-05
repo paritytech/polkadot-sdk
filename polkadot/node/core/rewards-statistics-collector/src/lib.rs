@@ -241,11 +241,10 @@ pub(crate) async fn run_iteration<Context>(
 					.map_err(JfyiError::ChainApiCallError)?;
 				finalized_hashes.push(fin_block_hash);
 
-				let (mut before, after): (HashMap<_, _>, HashMap<_, _>) = view
-					.per_relay
-					.clone()
-					.into_iter()
-					.partition(|((_, relay_number), _)| *relay_number <= fin_block_number);
+				let (mut before, after): (HashMap<_, _>, HashMap<_, _>) =
+					std::mem::take(&mut view.per_relay)
+						.into_iter()
+						.partition(|((_, relay_number), _)| *relay_number <= fin_block_number);
 
 				before.retain(|(relay_hash, _), _| finalized_hashes.contains(relay_hash));
 				let finalized_views: HashMap<&Hash, &PerRelayView> = before
