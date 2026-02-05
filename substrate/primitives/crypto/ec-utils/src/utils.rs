@@ -119,7 +119,7 @@ pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<
 	let val = ArkScale::from(val);
 	// Size hint uses arkworks `serialized_size`, which is accurate
 	if val.size_hint() > buf.len() {
-		return Err(Error::Encode)
+		return Err(Error::Encode);
 	}
 	val.encode_to(&mut buf);
 	Ok(())
