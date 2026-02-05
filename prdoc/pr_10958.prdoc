@@ -24,3 +24,33 @@ crates:
     bump: none
   - name: sp-debug-derive
     bump: none
+  - name: snowbridge-pallet-ethereum-client
+    bump: none
+  - name: snowbridge-pallet-outbound-queue
+    bump: none
+  - name: snowbridge-pallet-inbound-queue
+    bump: none
+  - name: snowbridge-inbound-queue-primitives
+    bump: none
+  - name: snowbridge-outbound-queue-primitives
+    bump: none
+  - name: snowbridge-pallet-system-frontend
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: none
+  - name: asset-hub-westend-runtime
+    bump: none
+  - name: bridge-hub-rococo-runtime
+    bump: none
+  - name: bridge-hub-westend-runtime
+    bump: none
+  - name: collectives-westend-runtime
+    bump: none
+  - name: coretime-westend-runtime
+    bump: none
+  - name: people-westend-runtime
+    bump: none
+  - name: polkadot-parachain-bin
+    bump: none
+  - name: pallet-revive-eth-rpc
+    bump: none
