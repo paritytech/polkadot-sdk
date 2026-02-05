@@ -38,6 +38,8 @@ pub type TransactionTag = Vec<u8>;
 /// An invalid transaction validity.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum InvalidTransaction {
 	/// The call of the transaction is not expected.
 	Call,
@@ -129,6 +131,8 @@ impl From<InvalidTransaction> for &'static str {
 /// An unknown transaction validity.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
 	CannotLookup,

@@ -28,7 +28,6 @@ use core::ops::ControlFlow;
 use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
-// TODO: Fix the gas handling for the memory operations
 
 /// The Keccak-256 hash of the empty string `""`.
 pub const KECCAK_EMPTY: [u8; 32] =
@@ -42,7 +41,7 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 	let len = as_usize_or_halt::<E::T>(*top)?;
 	interpreter
 		.ext
-		.gas_meter_mut()
+		.frame_meter_mut()
 		.charge_or_halt(RuntimeCosts::HashKeccak256(len as u32))?;
 
 	let hash = if len == 0 {

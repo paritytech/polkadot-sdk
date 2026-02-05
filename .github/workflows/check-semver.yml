@@ -24,7 +24,7 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
   check-semver:
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.preflight.outputs.RUNNER_NEW }}
     timeout-minutes: 90
     needs: [preflight]
     container:
@@ -82,7 +82,7 @@ jobs:
 
       - name: Install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.8 --locked -q
 
       - name: Get original PR number
         shell: bash

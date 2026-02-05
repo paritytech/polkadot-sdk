@@ -1,0 +1,35 @@
+title: 'Introduce pallet-dap for AssetHub'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces the foundation for the Dynamic Allocation Pool (DAP) system:
+
+    1. **pallet-dap**: A new pallet that implements `OnUnbalanced`, collecting funds (e.g., slashes)
+       into a buffer account instead of burning them.
+
+    2. **AssetHub Westend integration**: The runtime now uses pallet-dap to redirect staking slashes
+       to the DAP buffer (via `type Slash = Dap`).
+
+    **Treasury burns are now disabled** so no need to integrate with DAP: treasury `Burn` parameter is set
+    to zero in Westend RC, AssetHub and  collective runtimes. This means no treasury funds are burned at
+    the end of spend periods, preserving total issuance.
+
+    User and pallet initiated burns do NOT go through DAP currently but they burn directly instead, reducing
+    total issuance immediately. It will be addressed in a follow-up change.
+crates:
+- name: pallet-dap
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+  validate: false
+- name: westend-runtime
+  bump: minor
+  validate: false
+- name: pallet-staking-async
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor

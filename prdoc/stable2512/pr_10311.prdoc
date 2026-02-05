@@ -1,0 +1,23 @@
+title: '[Staking] Async Elections Post AHM'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Staking elections can be configured so they run as soon as the era starts, but their results are buffered and
+    only sent to RC after the end of session `n - 2` and before start of session `n - 1`, assuming the new validator set
+    must activate at end of session `n`.
+
+    This helps us avoid difficulty of timing the election precisely as elections are long running and can sometimes
+    take longer than usual.
+
+    See documentation for `pallet_staking_async::Config::PlanningEraOffset` and
+    `pallet_staking_async_rc_client::Config::ValidatorSetExportSession` to learn more.
+crates:
+- name: pallet-staking-async
+  bump: minor
+  validate: false
+- name: pallet-staking-async-rc-client
+  bump: minor
+  validate: false
+- name: asset-hub-westend-runtime
+  bump: minor
+  validate: false

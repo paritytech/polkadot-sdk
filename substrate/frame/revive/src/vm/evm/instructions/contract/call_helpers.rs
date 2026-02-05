@@ -56,31 +56,30 @@ pub fn resize_memory<'a, E: Ext>(
 }
 
 /// Calculates gas cost and limit for call instructions.
-pub fn calc_call_gas<'a, E: Ext>(
+pub fn charge_call_gas<'a, E: Ext>(
 	interpreter: &mut Interpreter<'a, E>,
 	callee: H160,
 	scheme: CallScheme,
 	input_len: usize,
 	value: U256,
-) -> ControlFlow<Halt, u64> {
+) -> ControlFlow<Halt, ()> {
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	match precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
-			interpreter
-				.ext
-				.gas_meter_mut()
-				.charge_or_halt(if precompile.has_contract_info() {
+			interpreter.ext.frame_meter_mut().charge_or_halt(
+				if precompile.has_contract_info() {
 					RuntimeCosts::PrecompileWithInfoBase
 				} else {
 					RuntimeCosts::PrecompileBase
-				})?;
+				},
+			)?;
 
 			// Cost for decoding input
 			interpreter
 				.ext
-				.gas_meter_mut()
+				.frame_meter_mut()
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
@@ -93,18 +92,18 @@ pub fn calc_call_gas<'a, E: Ext>(
 
 			interpreter
 				.ext
-				.gas_meter_mut()
+				.frame_meter_mut()
 				.charge_or_halt(RuntimeCosts::CopyFromContract(input_len as u32))?;
 		},
 	};
 	if !value.is_zero() {
 		interpreter
 			.ext
-			.gas_meter_mut()
+			.frame_meter_mut()
 			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
 				dust_transfer: Pallet::<E::T>::has_dust(value),
 			})?;
 	}
 
-	ControlFlow::Continue(u64::MAX) // TODO: Set the right gas limit
+	ControlFlow::Continue(())
 }

@@ -1,0 +1,13 @@
+title: 'benchmarking: fix timing leak from bulk setup operations'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes timing leaks in benchmarks with large setup operations (e.g., clearing
+    27k staking entries). After bulk deletions are committed, the first new allocation
+    can trigger memory allocator overhead that leaks into benchmark timing.
+
+    The fix adds a memory allocator warmup step in `commit_db()` that performs a
+    dummy write/clear cycle to absorb this overhead before timing starts.
+crates:
+- name: frame-benchmarking
+  bump: patch

@@ -1,6 +1,6 @@
 [package]
 name = "slot-range-helper"
-version = "7.0.0"
+version = "21.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,7 +15,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 enumn = { workspace = true }
 paste = { workspace = true, default-features = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]

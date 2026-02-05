@@ -34,7 +34,7 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		HashesOrTransactionInfos, TransactionInfo, H256, U256,
+		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, H256, U256,
 	},
 };
 use std::{sync::Arc, thread};
@@ -53,7 +53,7 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	tokio::time::timeout(timeout, async {
 		loop {
 			if let Ok(client) = WsClientBuilder::default().build(url).await {
-				return client
+				return client;
 			} else {
 				tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 			}
@@ -450,7 +450,13 @@ async fn test_invalid_transaction(client: Arc<WsClient>) -> anyhow::Result<()> {
 	let err = TransactionBuilder::new(&client)
 		.value(U256::from(1_000_000_000_000u128))
 		.to(ethan.address())
-		.mutate(|tx| tx.chain_id = Some(42u32.into()))
+		.mutate(|tx| match tx {
+			TransactionUnsigned::TransactionLegacyUnsigned(tx) => tx.chain_id = Some(42u32.into()),
+			TransactionUnsigned::Transaction1559Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction2930Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction4844Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction7702Unsigned(tx) => tx.chain_id = 42u32.into(),
+		})
 		.send()
 		.await
 		.unwrap_err();

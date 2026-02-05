@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ah::mock::*;
+use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, hypothetically};
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
@@ -60,67 +60,15 @@ fn on_receive_session_report() {
 		assert_eq!(era_points.individual.get(&9), None);
 
 		// assert no era changed yet.
-		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 
+		// election starts in the 1st session.
+		assert_eq!(CurrentEra::<T>::get(), Some(1));
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
-			}]
-		);
-
-		assert_eq!(election_events_since_last_call(), vec![]);
-
-		// roll two more sessions...
-		for i in 1..3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 0
-				}]
-			);
-		}
-
-		// Next session we will begin election.
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 3,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![StakingEvent::SessionRotated {
-				starting_session: 4,
-				active_era: 0,
-				// planned era 1 indicates election start signal is sent.
 				planned_era: 1
 			}]
 		);
@@ -185,12 +133,28 @@ fn on_receive_session_report() {
 			]
 		);
 
+		// outgoing set is queued.
+		assert!(OutgoingValidatorSet::<T>::get().is_some());
+
+		// roll three more sessions...
+		for _ in 0..3 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+
+		// no election events emitted anymore
+		assert_eq!(election_events_since_last_call(), vec![]);
+
+		// At the end of next session we should be ready to export the outgoing set.
+		// Note: we don't roll any blocks to show outgoing set gets exported 1 block after the
+		// session-ending block
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+
 		// New validator set xcm message is sent to RC.
 		assert_eq!(
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				43,
+				System::block_number(),
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
@@ -199,6 +163,12 @@ fn on_receive_session_report() {
 				})
 			)]
 		);
+
+		// Validator is queued in session pallet for 1 session. We wait to activate.
+		end_session_with(false, AssertSessionType::IdleNoExport);
+
+		// now we activate era
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
 	})
 }
 
@@ -210,6 +180,8 @@ fn validator_set_send_fail_retries() {
 		assert_eq!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
+		// flush old events.
+		let _ = staking_events_since_last_call();
 
 		// first session comes in.
 		let session_report = rc_client::SessionReport {
@@ -224,54 +196,10 @@ fn validator_set_send_fail_retries() {
 			session_report.clone(),
 		));
 
-		// flush some events.
-		let _ = staking_events_since_last_call();
-
-		// roll two more sessions...
-		for i in 1..3 {
-			// roll some random number of blocks.
-			roll_many(10);
-
-			// send the session report.
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: i,
-					validator_points: vec![(1, 10)],
-					activation_timestamp: None,
-					leftover: false,
-				}
-			));
-
-			let era_points = staking_async::ErasRewardPoints::<T>::get(&0);
-			assert_eq!(era_points.total, 360 + i * 10);
-			assert_eq!(era_points.individual.get(&1), Some(&(10 + i * 10)));
-
-			assert_eq!(
-				staking_events_since_last_call(),
-				vec![StakingEvent::SessionRotated {
-					starting_session: i + 1,
-					active_era: 0,
-					planned_era: 0
-				}]
-			);
-		}
-
-		// Next session we will begin election.
-		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-			RuntimeOrigin::root(),
-			rc_client::SessionReport {
-				end_index: 3,
-				validator_points: vec![(1, 10)],
-				activation_timestamp: None,
-				leftover: false,
-			}
-		));
-
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SessionRotated {
-				starting_session: 4,
+				starting_session: 1,
 				active_era: 0,
 				// planned era 1 indicates election start signal is sent.
 				planned_era: 1
@@ -314,13 +242,6 @@ fn validator_set_send_fail_retries() {
 
 		// no staking event while election ongoing.
 		assert_eq!(staking_events_since_last_call(), vec![]);
-		// no xcm message sent yet.
-		assert_eq!(LocalQueue::get().unwrap(), vec![]);
-
-		// bad condition -- validator set cannot be sent.
-		// assume the next validator set cannot be sent.
-		NextRelayDeliveryFails::set(true);
-		let _ = rc_client_events_since_last_call();
 
 		roll_many(3);
 		assert_eq!(
@@ -340,10 +261,38 @@ fn validator_set_send_fail_retries() {
 			]
 		);
 
-		// but..
+		// assert validator set queued in rc client pallet
+		assert!(OutgoingValidatorSet::<T>::exists());
+
+		// roll until session 3
+		for _ in 0..3 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+
+		// no xcm message sent yet.
+		assert_eq!(LocalQueue::get().unwrap(), vec![]);
+
+		// Next session we will try to export the validator set, but we test the bad condition.
+		// -- assume the next validator set cannot be sent.
+		NextRelayDeliveryFails::set(true);
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 4,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
 
 		// nothing is queued
 		assert!(LocalQueue::get().unwrap().is_empty());
+
+		// clear rc client events
+		let _ = rc_client_events_since_last_call();
+
+		// next block should try to export validator set but fail
+		roll_next();
 
 		// rc-client has an event
 		assert_eq!(
@@ -360,7 +309,7 @@ fn validator_set_send_fail_retries() {
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				44,
+				System::block_number(),
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
@@ -381,63 +330,76 @@ fn roll_many_eras() {
 	// - Ensure rewards can be claimed at correct era.
 	// - assert outgoing messages, including id and prune_up_to.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
-		let mut session_counter: u32 = 0;
+		// ERA 0 -> 1
+		let mut active_era = ActiveEra::<T>::get().unwrap().index;
+		let mut current_era = CurrentEra::<T>::get().unwrap();
+		assert_eq!(active_era, 0);
+		assert_eq!(current_era, 0);
 
-		let mut roll_session = |activate: bool| {
-			let activation_timestamp = if activate {
-				let current_era = CurrentEra::<T>::get().unwrap();
-				Some((current_era as u64 * 1000, current_era as u32))
-			} else {
-				None
-			};
+		// -- first session will start the election
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		// active era not incremented
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+		// current era incremented indicating election started.
+		current_era += 1;
+		assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
 
-			assert_ok!(rc_client::Pallet::<T>::relay_session_report(
-				RuntimeOrigin::root(),
-				rc_client::SessionReport {
-					end_index: session_counter,
-					validator_points: vec![(1, 10)],
-					activation_timestamp,
-					leftover: false,
-				}
-			));
+		// -- next 2 sessions are idle
+		for _ in 0..2 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
+		}
 
-			// increment session for the next iteration.
-			session_counter += 1;
+		// next session exports the set
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
 
-			// run session blocks.
-			roll_many(60);
-		};
+		// another idle session
+		end_session_with(false, AssertSessionType::IdleNoExport);
 
-		for era in 0..50 {
-			// --- first 3 idle session
+		// end of 6th we get activation stamp
+		// (this also combines as election trigger session for the next era)
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+		active_era += 1;
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+		// election for next already starts
+		current_era += 1;
+		assert_eq!(CurrentEra::<T>::get().unwrap(), current_era);
+
+		// run next 49 eras
+		for active_era in 1..50 {
+			// election has already started
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
+
+			// --- Before end of session 4: validator set is ready
 			for _ in 0..3 {
-				roll_session(false);
-				assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-				assert_eq!(CurrentEra::<T>::get().unwrap(), era);
+				end_session_with(false, AssertSessionType::IdleNoExport);
+				assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+				assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 			}
 
+			assert!(OutgoingValidatorSet::<T>::exists());
 			// ensure validator set not sent yet to RC.
 			// queue size same as in last iteration.
-			assert_eq!(LocalQueue::get().unwrap().len() as u32, era);
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era);
 
-			// --- plan era session
-			roll_session(false);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			// --- validator set is exported in the 5th session.
+			end_session_with(false, AssertSessionType::IdleOnlyExport);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
+			assert_eq!(LocalQueue::get().unwrap().len() as u32, active_era + 1);
 
-			// ensure new validator set sent to RC.
-			// length increases by 1.
-			assert_eq!(LocalQueue::get().unwrap().len() as u32, era + 1);
-
-			// --- 5th starting session, idle
-			roll_session(false);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			// --- end session 5 (activation will be next session)
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era);
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 1);
 
 			// --- 6th the era rotation session
-			roll_session(true);
-			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
-			assert_eq!(CurrentEra::<T>::get().unwrap(), era + 1);
+			end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, active_era + 1);
+			// next election starts
+			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);
 		}
 	});
 }
@@ -479,7 +441,7 @@ fn receives_old_session_report() {
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 
@@ -508,8 +470,7 @@ fn receives_session_report_in_future() {
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), None);
 
-		// Receive report for end of 1, start of 1 and plan 2.
-
+		// Receive report for end of 0, start of 1 and plan 2.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
 			RuntimeOrigin::root(),
 			rc_client::SessionReport {
@@ -520,8 +481,10 @@ fn receives_session_report_in_future() {
 			},
 		));
 
-		// then
+		// THEN:
+		// last session index is updated
 		assert_eq!(rc_client::LastSessionReportEndingIndex::<T>::get(), Some(0));
+
 		assert_eq!(
 			rc_client_events_since_last_call(),
 			vec![rc_client::Event::SessionReportReceived {
@@ -531,12 +494,14 @@ fn receives_session_report_in_future() {
 				leftover: false
 			}]
 		);
+
+		// Election starts now asap
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 1,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 
@@ -574,7 +539,7 @@ fn receives_session_report_in_future() {
 			vec![staking_async::Event::SessionRotated {
 				starting_session: 3,
 				active_era: 0,
-				planned_era: 0
+				planned_era: 1
 			}]
 		);
 
@@ -628,7 +593,7 @@ fn session_report_burst() {
 				staking_async::Event::SessionRotated {
 					starting_session: 2,
 					active_era: 0,
-					planned_era: 0
+					planned_era: 1
 				},
 				..,
 				staking_async::Event::SessionRotated {
@@ -645,7 +610,7 @@ fn session_report_burst() {
 fn on_offence_current_era() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let active_validators = roll_until_next_active(0);
-		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 5);
+		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
 		assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 		// flush the events.
@@ -655,7 +620,7 @@ fn on_offence_current_era() {
 			RuntimeOrigin::root(),
 			vec![
 				(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 5,
 						reporters: vec![],
@@ -663,7 +628,7 @@ fn on_offence_current_era() {
 					}
 				),
 				(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 3,
 						reporters: vec![],
@@ -713,8 +678,8 @@ fn on_offence_current_era() {
 
 		// skip two eras
 		assert_eq!(SlashDeferredDuration::get(), 2);
-		roll_until_next_active(5);
-		roll_until_next_active(10);
+		roll_until_next_active(7);
+		roll_until_next_active(13);
 		let _ = staking_events_since_last_call();
 
 		// 2 blocks to apply the slashes
@@ -742,17 +707,22 @@ fn on_offence_current_era_instant_apply() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
+			// Record initial state for DAP verification
+			let dap_buffer = pallet_dap::Pallet::<Runtime>::buffer_account();
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_total_issuance = Balances::total_issuance();
+
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				vec![
 					(
-						5,
+						7,
 						rc_client::Offence {
 							offender: 5,
 							reporters: vec![],
@@ -760,7 +730,7 @@ fn on_offence_current_era_instant_apply() {
 						}
 					),
 					(
-						5,
+						7,
 						rc_client::Offence {
 							offender: 3,
 							reporters: vec![],
@@ -814,6 +784,15 @@ fn on_offence_current_era_instant_apply() {
 					staking_async::Event::Slashed { staker: 3, amount: 50 }
 				]
 			);
+
+			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			let final_dap_balance = Balances::free_balance(&dap_buffer);
+			let final_total_issuance = Balances::total_issuance();
+
+			// DAP buffer should have received all slashed funds
+			assert_eq!(final_dap_balance, initial_dap_balance + 150);
+			// Total issuance should be preserved (funds not burned)
+			assert_eq!(final_total_issuance, initial_total_issuance);
 		});
 }
 
@@ -825,7 +804,7 @@ fn on_offence_non_validator() {
 		.build()
 		.execute_with(|| {
 			let active_validators = roll_until_next_active(0);
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 			assert_eq!(active_validators, vec![3, 5, 6, 8]);
 
 			// flush the events.
@@ -834,7 +813,7 @@ fn on_offence_non_validator() {
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				vec![(
-					5,
+					7,
 					rc_client::Offence {
 						// this offender is unknown to the staking pallet.
 						offender: 666,
@@ -853,8 +832,8 @@ fn on_offence_non_validator() {
 fn on_offence_previous_era() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		let _ = roll_until_next_active(0);
-		let _ = roll_until_next_active(5);
-		let active_validators = roll_until_next_active(10);
+		let _ = roll_until_next_active(7);
+		let active_validators = roll_until_next_active(13);
 
 		assert_eq!(active_validators, vec![3, 5, 6, 8]);
 		assert_eq!(Rotator::<Runtime>::active_era(), 3);
@@ -864,7 +843,7 @@ fn on_offence_previous_era() {
 
 		// GIVEN slash defer duration of 2 eras, active era = 3.
 		assert_eq!(SlashDeferredDuration::get(), 2);
-		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 		// 1 era is reserved for the application of slashes.
 		let oldest_reportable_era =
 			Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
@@ -875,7 +854,7 @@ fn on_offence_previous_era() {
 			RuntimeOrigin::root(),
 			// offence is in era 1
 			vec![(
-				5,
+				7,
 				rc_client::Offence {
 					offender: 3,
 					reporters: vec![],
@@ -895,12 +874,12 @@ fn on_offence_previous_era() {
 		);
 
 		// WHEN: report an offence for the session belonging to the previous era
-		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(10));
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(13));
 		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 2
 			vec![(
-				10,
+				13,
 				rc_client::Offence {
 					offender: 3,
 					reporters: vec![],
@@ -932,7 +911,7 @@ fn on_offence_previous_era() {
 		);
 
 		// roll to the next era.
-		roll_until_next_active(15);
+		roll_until_next_active(19);
 		// ensure we are in era 4.
 		assert_eq!(Rotator::<Runtime>::active_era(), 4);
 		// clear staking events.
@@ -969,13 +948,13 @@ fn on_offence_previous_era_instant_apply() {
 			let _ = staking_events_since_last_call();
 
 			// report an offence for the session belonging to the previous era
-			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(7));
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				// offence is in era 1
 				vec![(
-					5,
+					7,
 					rc_client::Offence {
 						offender: 3,
 						reporters: vec![],
@@ -1013,4 +992,508 @@ fn on_offence_previous_era_instant_apply() {
 			roll_next();
 			assert_eq!(staking_events_since_last_call(), vec![]);
 		});
+}
+
+#[test]
+fn era_lifecycle_test() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// this is the v1 mode.
+		let immediate_export_mode = || {
+			// election kicks off at the start of (6-2) 4th session.
+			PlanningEraOffset::set(2);
+			// export validator set as soon as its received.
+			ValidatorSetExportSession::set(0);
+		};
+		// this is v2 mode we are transitioning to.
+		let buffered_export_mode = || {
+			// election kicks at the start of 1st session of the era.
+			PlanningEraOffset::set(6);
+			// export validator set at the end of 4th session.
+			ValidatorSetExportSession::set(4);
+		};
+
+		// lets start with immediate export mode
+		immediate_export_mode();
+
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 0);
+
+		// -- Era transition 0 -> 1
+		// there are 3 idle sessions but session 0 is already ended, so we end two more.
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		// this will end session 3, and assert session 4 is election session.
+		end_session_with(false, AssertSessionType::ElectionWithImmediateExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::IdleNoExport);
+
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+
+		// -- Era transition 1 -> 5
+		for era in 1..5 {
+			// 3 idle sessions
+			for _ in 0..3 {
+				end_session_with(false, AssertSessionType::IdleNoExport);
+			}
+			// this will end session 3, and assert session 4 is election session.
+			end_session_with(false, AssertSessionType::ElectionWithImmediateExport);
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			end_session_with(true, AssertSessionType::IdleNoExport);
+
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
+		}
+
+		// we are currently at era 5
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 5);
+		// lets switch to buffered export mode and earlier election
+		buffered_export_mode();
+		// Note: Election didn't kick off since we were in immediate export.
+		// Next session should kick off the election without exporting
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		// roll 2 idle sessions. Validator set should still be not exported yet.
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		// end of this session (start of next) will export the validator set.
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		// fifth session should be idle with no export
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		// and finally era activation
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+
+		// roll few more eras
+
+		for era in 6..10 {
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era);
+			// next session should kick off the election without exporting
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			// roll 2 idle sessions. Validator set should still be not exported yet.
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			// end of this session (start of next) will export the validator set.
+			end_session_with(false, AssertSessionType::IdleOnlyExport);
+			// fifth session should be idle with no export
+			end_session_with(false, AssertSessionType::IdleNoExport);
+			// and finally era activation
+			end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+			assert_eq!(ActiveEra::<T>::get().unwrap().index, era + 1);
+		}
+	});
+}
+
+mod session_keys {
+	use super::*;
+	use crate::ah::mock::{
+		Balances, LocalQueue, OutgoingMessages, ProxyType, PurgeKeysExecutionCost,
+		SetKeysExecutionCost,
+	};
+	use frame_support::{assert_noop, BoundedVec};
+	use rc_client::AHStakingInterface;
+
+	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
+
+	/// Helper to create properly encoded session keys.
+	///
+	/// Note: Ownership proof validation requires PR #1739 which is not backported to stable2512.
+	fn make_session_keys() -> Keys {
+		RCSessionKeys::generate(None).try_into().unwrap()
+	}
+
+	#[test]
+	fn set_keys_success() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with delivery fees configured
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+			let keys_raw: Vec<u8> = keys.clone().into_inner();
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = SetKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
+			let balance_before = Balances::free_balance(validator);
+			let queue_len_before = LocalQueue::get().unwrap().len();
+
+			// WHEN: Validator sets session keys
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				keys,
+				None,
+			));
+
+			// THEN: FeesPaid event is emitted with total fees (delivery + execution)
+			System::assert_has_event(
+				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
+			);
+
+			// AND: Validator's balance is reduced by the total fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+
+			// AND: SetKeys message is queued
+			let queue = LocalQueue::get().unwrap();
+			assert_eq!(queue.len(), queue_len_before + 1);
+			assert!(matches!(
+				queue.last(),
+				Some((_, OutgoingMessages::SetKeys { stash, keys }))
+					if *stash == validator && *keys == keys_raw
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_not_validator() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 100 is a nominator, not a validator
+			let nominator: AccountId = 100;
+			let keys = make_session_keys();
+
+			// WHEN: Nominator tries to set keys
+			// THEN: NotValidator error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(nominator), keys, None,),
+				rc_client::Error::<T>::NotValidator
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_xcm_send_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator with sufficient balance and XCM delivery set to fail
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+			XcmDeliveryFee::set(100);
+			NextRelayDeliveryFails::set(true);
+
+			// WHEN: set_keys fails due to delivery failure
+			// THEN: XcmSendFailed error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_invalid_keys() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator with malformed keys
+			let validator: AccountId = 1;
+			// Cannot be decoded as RCSessionKeys
+			let invalid_keys: Keys = vec![0xff, 0xfe, 0xfd].try_into().unwrap();
+
+			// WHEN: Validator tries to set invalid keys
+			// THEN: InvalidKeys error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					invalid_keys,
+					None,
+				),
+				rc_client::Error::<T>::InvalidKeys
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_via_staking_proxy() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 1 is a validator (stash), account 99 is the proxy
+			let stash: AccountId = 1;
+			let proxy: AccountId = 99;
+			let keys = make_session_keys();
+
+			// Fund the proxy account so it can pay for proxy deposit
+			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), proxy, 1000));
+
+			// Set up proxy relationship: proxy can act on behalf of stash for Staking calls
+			assert_ok!(pallet_proxy::Pallet::<T>::add_proxy(
+				RuntimeOrigin::signed(stash),
+				proxy,
+				ProxyType::Staking,
+				0, // no delay
+			));
+
+			// WHEN: Proxy calls set_keys on behalf of stash via Proxy::proxy()
+			let set_keys_call = RuntimeCall::RcClient(rc_client::Call::set_keys {
+				keys: keys.clone(),
+				max_delivery_and_remote_execution_fee: None,
+			});
+
+			// THEN: The call succeeds (keys forwarded to RC via XCM)
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None, // no force_proxy_type
+				Box::new(set_keys_call),
+			));
+
+			// WHEN: Proxy calls purge_keys on behalf of stash
+			let purge_keys_call = RuntimeCall::RcClient(rc_client::Call::purge_keys {
+				max_delivery_and_remote_execution_fee: None,
+			});
+
+			// THEN: The call succeeds
+			assert_ok!(pallet_proxy::Pallet::<T>::proxy(
+				RuntimeOrigin::signed(proxy),
+				stash,
+				None,
+				Box::new(purge_keys_call),
+			));
+		});
+	}
+
+	#[test]
+	fn set_keys_fails_with_insufficient_balance() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator with insufficient balance to pay total fees
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+			XcmDeliveryFee::set(Balances::free_balance(validator) + 1);
+
+			// WHEN: Validator tries to set keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::set_keys(RuntimeOrigin::signed(validator), keys, None,),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn set_keys_max_fee_scenarios() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let validator: AccountId = 1;
+			let keys = make_session_keys();
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = SetKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
+			let balance_before = Balances::free_balance(validator);
+
+			// max_fee > total: succeeds, charges total fee
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					Some(total_fee + 100),
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			});
+
+			// max_fee == total: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					Some(total_fee),
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+			});
+
+			// max_fee < total: fails with FeesExceededMax
+			hypothetically!({
+				assert_noop!(
+					rc_client::Pallet::<T>::set_keys(
+						RuntimeOrigin::signed(validator),
+						keys.clone(),
+						Some(total_fee - 1),
+					),
+					rc_client::Error::<T>::FeesExceededMax
+				);
+			});
+
+			// max_fee = 0, total = 0: succeeds (both delivery and execution cost are 0)
+			hypothetically!({
+				XcmDeliveryFee::set(0);
+				SetKeysExecutionCost::set(0);
+				assert_ok!(rc_client::Pallet::<T>::set_keys(
+					RuntimeOrigin::signed(validator),
+					keys.clone(),
+					Some(0),
+				));
+				assert_eq!(Balances::free_balance(validator), balance_before);
+			});
+		});
+	}
+
+	#[test]
+	fn purge_keys_success() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 3 is a validator with delivery fees configured
+			let validator: AccountId = 3;
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = PurgeKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
+			let balance_before = Balances::free_balance(validator);
+			let queue_len_before = LocalQueue::get().unwrap().len();
+
+			// WHEN: Validator purges session keys
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
+
+			// THEN: FeesPaid event is emitted with total fees (delivery + execution)
+			System::assert_has_event(
+				rc_client::Event::<T>::FeesPaid { who: validator, fees: total_fee }.into(),
+			);
+
+			// AND: Validator's balance is reduced by the total fee amount
+			assert_eq!(Balances::free_balance(validator), balance_before - total_fee);
+
+			// AND: PurgeKeys message is queued
+			let queue = LocalQueue::get().unwrap();
+			assert_eq!(queue.len(), queue_len_before + 1);
+			assert!(matches!(
+				queue.last(),
+				Some((_, OutgoingMessages::PurgeKeys { stash })) if *stash == validator
+			));
+		});
+	}
+
+	/// Test that purge_keys can be called by any account.
+	///
+	/// Unlike set_keys (which requires validator status), purge_keys allows anyone to call it.
+	/// This matches the original pallet-session behavior and enables validators to purge their
+	/// keys after chilling. The RC will reject with NoKeys if no keys exist.
+	#[test]
+	fn purge_keys_allowed_for_any_account() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 101 is a nominator, not a validator
+			let nominator: AccountId = 101;
+
+			// WHEN: Non-validator calls purge_keys
+			// THEN: Call succeeds - XCM is sent to RC (RC will validate if keys exist)
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(nominator), None,));
+		});
+	}
+
+	/// Test that a chilled validator can still purge their session keys.
+	#[test]
+	fn purge_keys_after_chilling() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account 3 is initially a validator
+			let validator: AccountId = 3;
+			assert!(Staking::is_validator(&validator), "Account 3 should be a validator");
+
+			// WHEN: Validator chills (stops being a validator)
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(validator)));
+			assert!(
+				!Staking::is_validator(&validator),
+				"Account 3 should no longer be a validator"
+			);
+
+			// THEN: Chilled account can still purge their session keys
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
+		});
+	}
+
+	#[test]
+	fn purge_keys_xcm_send_fails() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Validator with XCM delivery set to fail
+			let validator: AccountId = 5;
+			XcmDeliveryFee::set(100);
+			NextRelayDeliveryFails::set(true);
+
+			// WHEN: Validator purges session keys
+			// THEN: XcmSendFailed error is returned
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn purge_keys_fails_with_insufficient_balance() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// GIVEN: Account with insufficient balance to pay total fees
+			let account: AccountId = 3;
+			XcmDeliveryFee::set(Balances::free_balance(account) + 1);
+
+			// WHEN: Account tries to purge keys
+			// THEN: XcmSendFailed error is returned (fee charging failure causes XCM send to fail)
+			assert_noop!(
+				rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(account), None),
+				rc_client::Error::<T>::XcmSendFailed
+			);
+		});
+	}
+
+	#[test]
+	fn purge_keys_max_fee_scenarios() {
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let account: AccountId = 3;
+			let delivery_fee: u128 = 50;
+			XcmDeliveryFee::set(delivery_fee);
+			let execution_cost = PurgeKeysExecutionCost::get();
+			let total_fee = delivery_fee + execution_cost;
+			let balance_before = Balances::free_balance(account);
+
+			// max_fee > total: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(account),
+					Some(total_fee + 100),
+				));
+				assert_eq!(Balances::free_balance(account), balance_before - total_fee);
+			});
+
+			// max_fee == total: succeeds
+			hypothetically!({
+				assert_ok!(rc_client::Pallet::<T>::purge_keys(
+					RuntimeOrigin::signed(account),
+					Some(total_fee),
+				));
+				assert_eq!(Balances::free_balance(account), balance_before - total_fee);
+			});
+
+			// max_fee < total: fails with FeesExceededMax
+			hypothetically!({
+				assert_noop!(
+					rc_client::Pallet::<T>::purge_keys(
+						RuntimeOrigin::signed(account),
+						Some(total_fee - 1),
+					),
+					rc_client::Error::<T>::FeesExceededMax
+				);
+			});
+		});
+	}
+
+	/// End-to-end test: set keys on AssetHub, verify on RelayChain, then purge and verify.
+	#[test]
+	fn set_and_purge_keys_e2e() {
+		// Set up both AH and RC states (no local_queue, so XCM messages flow through)
+		shared::put_ah_state(ExtBuilder::default().build());
+		shared::put_rc_state(rc::ExtBuilder::default().session_keys(vec![1]).build());
+
+		let validator: AccountId = 1;
+
+		// Generate valid keys for AH validation (must match AHSessionKeys structure)
+		let encoded_keys = make_session_keys();
+
+		// WHEN: Validator sets keys on AH
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::set_keys(
+				RuntimeOrigin::signed(validator),
+				encoded_keys.clone(),
+				None,
+			));
+		});
+
+		// THEN: Keys are registered on RC (RC uses UintAuthorityId directly)
+		shared::in_rc(|| {
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_some(), "Keys should be set on RC");
+		});
+
+		// WHEN: Validator purges keys on AH
+		shared::in_ah(|| {
+			assert_ok!(rc_client::Pallet::<T>::purge_keys(RuntimeOrigin::signed(validator), None,));
+		});
+
+		// THEN: Keys are purged on RC
+		shared::in_rc(|| {
+			let next_keys = pallet_session::NextKeys::<rc::Runtime>::get(validator);
+			assert!(next_keys.is_none(), "Keys should be purged on RC");
+		});
+	}
 }

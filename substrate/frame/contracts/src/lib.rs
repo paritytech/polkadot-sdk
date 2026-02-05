@@ -667,7 +667,7 @@ pub mod pallet {
 			// Debug buffer should at least be large enough to accommodate a simple error message
 			const MIN_DEBUG_BUF_SIZE: u32 = 256;
 			assert!(
-				T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,
+				T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE,
 				"Debug buffer should have minimum size of {} (current setting is {})",
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
@@ -706,7 +706,7 @@ pub mod pallet {
 			let storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / 2;
 
 			assert!(
-				max_storage_size < storage_size_limit,
+				max_storage_size <= storage_size_limit,
 				"Maximal storage size {} exceeds the storage limit {}",
 				max_storage_size,
 				storage_size_limit
@@ -726,7 +726,7 @@ pub mod pallet {
 			.expect("Events size too big");
 
 			assert!(
-				max_events_size < storage_size_limit,
+				max_events_size <= storage_size_limit,
 				"Maximal events size {} exceeds the events limit {}",
 				max_events_size,
 				storage_size_limit

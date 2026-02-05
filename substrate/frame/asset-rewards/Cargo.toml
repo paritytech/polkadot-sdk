@@ -1,6 +1,6 @@
 [package]
 name = "pallet-asset-rewards"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,19 +18,19 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true, features = ["experimental"] }
-frame-system = { workspace = true }
+frame-system.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
-sp-api = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
+sp-api.workspace = true
+sp-arithmetic.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
 
 [dev-dependencies]
-pallet-assets = { workspace = true }
-pallet-assets-freezer = { workspace = true }
-pallet-balances = { workspace = true }
+pallet-assets = { workspace = true, default-features = false }
+pallet-assets-freezer = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
 primitive-types = { workspace = true, features = ["codec", "num-traits", "scale-info"] }
 
 [features]

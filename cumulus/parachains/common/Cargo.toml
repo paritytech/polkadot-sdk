@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "7.0.0"
+version = "27.1.0"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -16,35 +16,30 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-asset-tx-payment.workspace = true
+pallet-assets.workspace = true
+pallet-authorship.workspace = true
+pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
+pallet-message-queue.workspace = true
+pallet-multi-asset-bounties.workspace = true
+pallet-treasury.workspace = true
+pallet-xcm.workspace = true
+parachain-info.workspace = true
+polkadot-primitives.workspace = true
+polkadot-runtime-common.workspace = true
 scale-info = { features = ["derive"], workspace = true }
+sp-consensus-aura.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
 tracing = { workspace = true }
-
-# Substrate
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-pallet-asset-tx-payment = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-authorship = { workspace = true }
-pallet-balances = { workspace = true }
-pallet-message-queue = { workspace = true }
-pallet-treasury = { workspace = true }
-sp-consensus-aura = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-pallet-xcm = { workspace = true }
-polkadot-primitives = { workspace = true }
-polkadot-runtime-common = { workspace = true }
-xcm = { workspace = true }
-xcm-executor = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
-cumulus-primitives-utility = { workspace = true }
-pallet-collator-selection = { workspace = true }
-parachain-info = { workspace = true }
+xcm.workspace = true
+xcm-executor.workspace = true
 
 [features]
 default = ["std"]
@@ -60,6 +55,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-message-queue/std",
+	"pallet-multi-asset-bounties/std",
 	"pallet-treasury/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -84,6 +80,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-multi-asset-bounties/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
@@ -102,6 +99,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-multi-asset-bounties/try-runtime",
 	"pallet-treasury/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",

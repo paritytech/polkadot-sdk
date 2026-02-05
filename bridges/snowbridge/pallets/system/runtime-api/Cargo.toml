@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-system-runtime-api"
 description = "Snowbridge System Runtime API"
-version = "0.2.0"
+version = "0.18.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -19,10 +19,10 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-snowbridge-core = { workspace = true }
-sp-api = { workspace = true }
-sp-std = { workspace = true }
-xcm = { workspace = true }
+snowbridge-core.workspace = true
+sp-api.workspace = true
+sp-std.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]

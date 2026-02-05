@@ -23,12 +23,12 @@ pub mod env;
 pub use env::SyscallDoc;
 
 use crate::{
-	exec::{ExecError, ExecResult, Ext, Key},
-	gas::ChargedAmount,
+	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
+	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -270,7 +270,7 @@ impl fmt::Display for TrapReason {
 /// a function won't work out.
 macro_rules! charge_gas {
 	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge($costs)
+		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
 	}};
 }
 
@@ -356,7 +356,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	/// This is when a maximum a priori amount was charged and then should be partially
 	/// refunded to match the actual amount.
 	fn adjust_gas(&mut self, charged: ChargedAmount, actual_costs: RuntimeCosts) {
-		self.ext.gas_meter_mut().adjust_gas(charged, actual_costs);
+		self.ext.frame_meter_mut().adjust_weight(charged, actual_costs);
 	}
 
 	/// Write the given buffer and its length to the designated locations in sandbox memory and
@@ -683,17 +683,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
-<<<<<<< HEAD
-				self.ext.call(
-					weight,
-					deposit_limit,
-					&callee,
-					value,
-					input_data,
-					flags.contains(CallFlags::ALLOW_REENTRY),
-					read_only,
-				)
-=======
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
 					ReentrancyProtection::AllowReentry
@@ -702,17 +691,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				};
 
 				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
->>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))
 			},
 			CallType::DelegateCall => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-<<<<<<< HEAD
-				self.ext.delegate_call(weight, deposit_limit, callee, input_data)
-=======
 				self.ext.delegate_call(resources, callee, input_data)
->>>>>>> 5a1128b9 ([pallet-revive] add EVM gas call syscalls (#10554))
 			},
 		};
 
@@ -796,8 +780,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
-			weight,
-			deposit_limit,
+			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
@@ -847,7 +830,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 				break exec_result
 			}
 		};
-		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
+		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
 		exec_result
 	}
 

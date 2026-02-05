@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-verification-primitives"
 description = "Snowbridge Verification Primitives"
-version = "0.2.0"
+version = "0.7.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -16,11 +16,11 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { workspace = true }
-frame-support = { workspace = true }
+frame-support.workspace = true
 scale-info = { features = ["derive"], workspace = true }
-snowbridge-beacon-primitives = { workspace = true }
-sp-core = { workspace = true }
-sp-std = { workspace = true }
+snowbridge-beacon-primitives.workspace = true
+sp-core.workspace = true
+sp-std.workspace = true
 
 [features]
 default = ["std"]

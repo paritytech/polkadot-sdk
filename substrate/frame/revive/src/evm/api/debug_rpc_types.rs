@@ -163,6 +163,8 @@ pub enum CallType {
 	Create,
 	/// A create2 call.
 	Create2,
+	/// A selfdestruct call.
+	Selfdestruct,
 }
 
 /// A Trace

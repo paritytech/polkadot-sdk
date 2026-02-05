@@ -1,6 +1,6 @@
 [package]
 name = "testnet-parachains-constants"
-version = "1.0.0"
+version = "18.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common constants for Testnet Parachains runtimes"
@@ -15,20 +15,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-smallvec = { workspace = true, default-features = true }
-
-# Substrate
-frame-support = { workspace = true }
-sp-runtime = { workspace = true }
-
-# Polkadot
-polkadot-core-primitives = { workspace = true }
+cumulus-primitives-core.workspace = true
+frame-support.workspace = true
+polkadot-core-primitives.workspace = true
 rococo-runtime-constants = { optional = true, workspace = true }
+smallvec = { workspace = true, default-features = true }
+sp-runtime.workspace = true
 westend-runtime-constants = { optional = true, workspace = true }
-xcm = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
+xcm.workspace = true
 
 [features]
 default = ["std"]

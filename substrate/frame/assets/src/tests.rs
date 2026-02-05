@@ -27,10 +27,14 @@ use frame_support::{
 		tokens::{Preservation::Protect, Provenance},
 		Currency,
 	},
+	BoundedVec,
 };
 use pallet_balances::Error as BalancesError;
 use sp_io::storage;
-use sp_runtime::{traits::ConvertInto, TokenError};
+use sp_runtime::{
+	traits::{ConstU32, ConvertInto},
+	TokenError,
+};
 
 mod sets;
 
@@ -484,7 +488,12 @@ fn lifecycle_should_work() {
 		assert_ok!(Assets::set_metadata(RuntimeOrigin::signed(1), 0, vec![0], vec![0], 12));
 		assert_eq!(Balances::reserved_balance(&1), 4);
 		assert!(Metadata::<Test>::contains_key(0));
-
+		assert_ok!(Assets::set_reserves(
+			RuntimeOrigin::signed(1),
+			0,
+			vec![1234].try_into().unwrap()
+		));
+		assert_eq!(Reserves::<Test>::get(0), vec![1234]);
 		Balances::make_free_balance_be(&10, 100);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 10, 100));
 		Balances::make_free_balance_be(&20, 100);
@@ -2203,5 +2212,25 @@ fn asset_id_cannot_be_reused() {
 
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 7, 1, false, 1));
 		assert!(Asset::<Test>::contains_key(7));
+	});
+}
+
+#[test]
+fn setting_too_many_reserves_fails() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_eq!(Balances::reserved_balance(&1), 1);
+		assert!(Asset::<Test>::contains_key(0));
+
+		let mut reserves = vec![];
+		for i in 0..MAX_RESERVES + 1 {
+			reserves.push(1234u128 + i as u128);
+		}
+		// Attempting to create a BoundedVec with too many reserves should fail
+		let result: Result<BoundedVec<u128, ConstU32<MAX_RESERVES>>, _> =
+			reserves.clone().try_into();
+		assert!(result.is_err());
+		assert_eq!(Reserves::<Test>::get(0), vec![]);
 	});
 }

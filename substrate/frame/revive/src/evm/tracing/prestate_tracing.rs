@@ -17,7 +17,7 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -39,6 +39,9 @@ pub struct PrestateTracer<T> {
 
 	/// List of created contracts addresses.
 	created_addrs: BTreeSet<H160>,
+
+	/// List of destructed contracts addresses.
+	destructed_addrs: BTreeSet<H160>,
 
 	// pre / post state
 	trace: (BTreeMap<H160, PrestateTraceInfo>, BTreeMap<H160, PrestateTraceInfo>),
@@ -89,6 +92,11 @@ where
 				}
 			}
 
+			// collect destructed contracts info in post state
+			for addr in &self.destructed_addrs {
+				Self::update_prestate_info(post.entry(*addr).or_default(), addr, None);
+			}
+
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
 				if let Some(post_info) = post.get(addr) {
@@ -96,6 +104,14 @@ where
 				} else {
 					info.storage.clear();
 				}
+			});
+
+			// If the address was created and destructed we do not trace it
+			post.retain(|addr, _| {
+				if self.created_addrs.contains(addr) && self.destructed_addrs.contains(addr) {
+					return false
+				}
+				true
 			});
 
 			pre.retain(|addr, pre_info| {
@@ -221,34 +237,49 @@ where
 		self.create_code = Some(code.clone());
 	}
 
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		_gas_left: U256,
+		_value: U256,
+	) {
+		self.destructed_addrs.insert(contract_address);
+		self.trace.0.entry(beneficiary_address).or_insert_with_key(|addr| {
+			Self::prestate_info(addr, Pallet::<T>::evm_balance(addr), None)
+		});
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
-		_gas: Weight,
+		_gas_limit: U256,
 	) {
-		if is_delegate_call {
+		if let Some(delegate_call) = delegate_call {
 			self.calls.push(self.current_addr());
+			self.read_account(delegate_call);
 		} else {
 			self.calls.push(to);
+			self.read_account(from);
 		}
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);
+		} else {
+			self.read_account(to);
 		}
-		self.read_account(from);
-		self.read_account(to);
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: U256) {
 		self.calls.pop();
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: U256) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return
