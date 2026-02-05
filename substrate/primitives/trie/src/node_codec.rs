@@ -44,7 +44,7 @@ impl<'a> ByteSliceInput<'a> {
 
 	fn take(&mut self, count: usize) -> Result<Range<usize>, codec::Error> {
 		if self.offset + count > self.data.len() {
-			return Err("out of data".into())
+			return Err("out of data".into());
 		}
 
 		let range = self.offset..(self.offset + count);
@@ -66,7 +66,7 @@ impl<'a> Input for ByteSliceInput<'a> {
 
 	fn read_byte(&mut self) -> Result<u8, codec::Error> {
 		if self.offset + 1 > self.data.len() {
-			return Err("out of data".into())
+			return Err("out of data".into());
 		}
 
 		let byte = self.data[self.offset];
@@ -112,11 +112,11 @@ where
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
 				// data should be at least of size offset + 1
 				if data.len() < input.offset + 1 {
-					return Err(Error::BadFormat)
+					return Err(Error::BadFormat);
 				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
-					return Err(Error::BadFormat)
+					return Err(Error::BadFormat);
 				}
 				let partial = input.take(nibble_count.div_ceil(nibble_ops::NIBBLE_PER_BYTE))?;
 				let partial_padding = nibble_ops::number_padding(nibble_count);
@@ -157,11 +157,11 @@ where
 				let padding = nibble_count % nibble_ops::NIBBLE_PER_BYTE != 0;
 				// data should be at least of size offset + 1
 				if data.len() < input.offset + 1 {
-					return Err(Error::BadFormat)
+					return Err(Error::BadFormat);
 				}
 				// check that the padding is valid (if any)
 				if padding && nibble_ops::pad_left(data[input.offset]) != 0 {
-					return Err(Error::BadFormat)
+					return Err(Error::BadFormat);
 				}
 				let partial = input.take(nibble_count.div_ceil(nibble_ops::NIBBLE_PER_BYTE))?;
 				let partial_padding = nibble_ops::number_padding(nibble_count);

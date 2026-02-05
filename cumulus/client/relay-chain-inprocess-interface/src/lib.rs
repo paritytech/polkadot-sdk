@@ -113,7 +113,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 				if let Some(hash) = self.full_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
+					return Ok(None);
 				},
 		};
 		let header = self.full_client.header(hash)?;
@@ -351,7 +351,7 @@ pub fn check_block_in_chain(
 	let _lock = backend.get_import_lock().read();
 
 	if backend.blockchain().status(hash)? == BlockStatus::InChain {
-		return Ok(BlockCheckStatus::InChain)
+		return Ok(BlockCheckStatus::InChain);
 	}
 
 	let listener = client.import_notification_stream();
@@ -419,6 +419,7 @@ fn build_polkadot_full_node(
 		keep_finalized_for: None,
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
+		experimental_collator_protocol: false,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {

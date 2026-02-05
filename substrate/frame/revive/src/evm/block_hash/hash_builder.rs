@@ -315,7 +315,7 @@ impl IncrementalHashBuilder {
 	#[cfg(test)]
 	fn process_stats(&mut self, data_len: usize, index: u64) {
 		if self.stats.is_none() {
-			return
+			return;
 		}
 
 		let hb_current_size = self.calculate_current_size();

@@ -168,7 +168,7 @@ where
 		let max_unconfirmed_messages_in_confirmation_tx = <R as BridgeMessagesConfig<C::BridgeMessagesPalletInstance>>::BridgedChain
 			::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 		if bundled_messages > max_unconfirmed_messages_in_confirmation_tx {
-			return None
+			return None;
 		}
 
 		Some(bundled_messages)
@@ -229,13 +229,13 @@ where
 				?relayer,
 				"Relayer has submitted invalid messages transaction",
 			);
-			return slash_relayer_if_delivery_result
+			return slash_relayer_if_delivery_result;
 		}
 
 		// check whether the call has succeeded
 		let mut call_data = ExtensionCallData::default();
 		if !C::check_call_result(&call_info, &mut call_data, &relayer) {
-			return slash_relayer_if_delivery_result
+			return slash_relayer_if_delivery_result;
 		}
 
 		// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
@@ -338,7 +338,7 @@ where
 		if !RelayersPallet::<R, C::BridgeRelayersPalletInstance>::is_registration_active(
 			&data.relayer,
 		) {
-			return Ok((Default::default(), Some(data), origin))
+			return Ok((Default::default(), Some(data), origin));
 		}
 
 		// compute priority boost
@@ -443,7 +443,7 @@ where
 			?relayer,
 			"Relayer has submitted invalid messages call"
 		);
-		return false
+		return false;
 	}
 
 	true

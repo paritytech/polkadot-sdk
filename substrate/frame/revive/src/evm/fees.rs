@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo},
 	pallet_prelude::Weight,
-	traits::{fungible::Credit, Get, SuppressedDrop},
+	traits::{fungible::Credit, tokens::Balance, Get, SuppressedDrop},
 	weights::WeightToFee,
 };
 use frame_system::Config as SysConfig;
@@ -60,7 +60,7 @@ type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>:
 /// # Panics
 ///
 /// If either `P` or `Q` is zero.
-pub struct BlockRatioFee<const P: u128, const Q: u128, T: Config>(PhantomData<T>);
+pub struct BlockRatioFee<const P: u128, const Q: u128, T, B>(PhantomData<(T, B)>);
 
 /// The only [`InfoT`] implementation valid for [`Config::FeeInfo`].
 ///
@@ -174,7 +174,7 @@ pub trait InfoT<T: Config>: seal::Sealed {
 	}
 }
 
-impl<const P: u128, const Q: u128, T: Config> BlockRatioFee<P, Q, T> {
+impl<const P: u128, const Q: u128, T: SysConfig, B> BlockRatioFee<P, Q, T, B> {
 	const REF_TIME_TO_FEE: FixedU128 = {
 		assert!(P > 0 && Q > 0);
 		FixedU128::from_rational(P, Q)
@@ -182,21 +182,25 @@ impl<const P: u128, const Q: u128, T: Config> BlockRatioFee<P, Q, T> {
 
 	/// The proof_size to fee coefficient.
 	fn proof_size_to_fee() -> FixedU128 {
-		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let max_weight = <T as SysConfig>::BlockWeights::get().max_block;
 		let ratio =
 			FixedU128::from_rational(max_weight.ref_time().into(), max_weight.proof_size().into());
 		Self::REF_TIME_TO_FEE.saturating_mul(ratio)
 	}
 }
 
-impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q, T> {
-	type Balance = BalanceOf<T>;
+impl<const P: u128, const Q: u128, T, B> WeightToFee for BlockRatioFee<P, Q, T, B>
+where
+	T: SysConfig,
+	B: Balance,
+{
+	type Balance = B;
 
 	fn weight_to_fee(weight: &Weight) -> Self::Balance {
 		let ref_time_fee = Self::REF_TIME_TO_FEE
-			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.ref_time()));
+			.saturating_mul_int(Self::Balance::saturated_from(weight.ref_time()));
 		let proof_size_fee = Self::proof_size_to_fee()
-			.saturating_mul_int(BalanceOf::<T>::saturated_from(weight.proof_size()));
+			.saturating_mul_int(Self::Balance::saturated_from(weight.proof_size()));
 		ref_time_fee.max(proof_size_fee)
 	}
 }
@@ -204,7 +208,7 @@ impl<const P: u128, const Q: u128, T: Config> WeightToFee for BlockRatioFee<P, Q
 impl<const P: u128, const Q: u128, Address, Signature, E: EthExtra> InfoT<E::Config>
 	for Info<Address, Signature, E>
 where
-	E::Config: TxConfig<WeightToFee = BlockRatioFee<P, Q, E::Config>>,
+	E::Config: TxConfig<WeightToFee = BlockRatioFee<P, Q, E::Config, BalanceOf<E::Config>>>,
 	BalanceOf<E::Config>: From<OnChargeTransactionBalanceOf<E::Config>>,
 	<E::Config as frame_system::Config>::RuntimeCall:
 		Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,

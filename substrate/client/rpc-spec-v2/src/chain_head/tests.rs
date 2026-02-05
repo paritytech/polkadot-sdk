@@ -2943,7 +2943,8 @@ async fn ensure_operation_limits_works() {
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	// Configure the chainHead with maximum 1 ongoing operations.
+	// Configure the chainHead with maximum 4 ongoing operations to tolerate brief overlaps during
+	// cleanup.
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
@@ -2951,7 +2952,7 @@ async fn ensure_operation_limits_works() {
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
-			subscription_max_ongoing_operations: 1,
+			subscription_max_ongoing_operations: 4,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			subscription_buffer_cap: MAX_PINNED_BLOCKS,

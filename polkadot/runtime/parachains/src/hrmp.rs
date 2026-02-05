@@ -797,7 +797,7 @@ pub mod pallet {
 					if current_sender_deposit == new_sender_deposit &&
 						current_recipient_deposit == new_recipient_deposit
 					{
-						return Ok(())
+						return Ok(());
 					}
 
 					// sender
@@ -845,7 +845,7 @@ pub mod pallet {
 					channel.sender_deposit = new_sender_deposit;
 					channel.recipient_deposit = new_recipient_deposit;
 				} else {
-					return Err(Error::<T>::OpenHrmpChannelDoesntExist.into())
+					return Err(Error::<T>::OpenHrmpChannelDoesntExist.into());
 				}
 				Ok(())
 			})?;
@@ -999,7 +999,7 @@ impl<T: Config> Pallet<T> {
 				Some(req_data) => req_data,
 				None => {
 					// Can't normally happen but no need to panic.
-					continue
+					continue;
 				},
 			};
 
@@ -1057,7 +1057,7 @@ impl<T: Config> Pallet<T> {
 	fn process_hrmp_open_channel_requests(config: &HostConfiguration<BlockNumberFor<T>>) {
 		let mut open_req_channels = HrmpOpenChannelRequestsList::<T>::get();
 		if open_req_channels.is_empty() {
-			return
+			return;
 		}
 
 		// iterate the vector starting from the end making our way to the beginning. This way we
@@ -1066,7 +1066,7 @@ impl<T: Config> Pallet<T> {
 		loop {
 			// bail if we've iterated over all items.
 			if idx == 0 {
-				break
+				break;
 			}
 
 			idx -= 1;
@@ -1178,14 +1178,14 @@ impl<T: Config> Pallet<T> {
 		// (b) However, a parachain cannot read into "the future", therefore the watermark should
 		//     not be greater than the relay-chain context block which the parablock refers to.
 		if new_hrmp_watermark == relay_chain_parent_number {
-			return Ok(())
+			return Ok(());
 		}
 
 		if new_hrmp_watermark > relay_chain_parent_number {
 			return Err(HrmpWatermarkAcceptanceErr::AheadRelayParent {
 				new_watermark: new_hrmp_watermark,
 				relay_chain_parent_number,
-			})
+			});
 		}
 
 		if let Some(last_watermark) = HrmpWatermarks::<T>::get(&recipient) {
@@ -1193,11 +1193,11 @@ impl<T: Config> Pallet<T> {
 				return Err(HrmpWatermarkAcceptanceErr::AdvancementRule {
 					new_watermark: new_hrmp_watermark,
 					last_watermark,
-				})
+				});
 			}
 
 			if new_hrmp_watermark == last_watermark {
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -1212,7 +1212,7 @@ impl<T: Config> Pallet<T> {
 		{
 			return Err(HrmpWatermarkAcceptanceErr::LandsOnBlockWithNoMessages {
 				new_watermark: new_hrmp_watermark,
-			})
+			});
 		}
 		Ok(())
 	}
@@ -1243,7 +1243,7 @@ impl<T: Config> Pallet<T> {
 			return Err(OutboundHrmpAcceptanceErr::MoreMessagesThanPermitted {
 				sent: out_hrmp_msgs.len() as u32,
 				permitted: config.hrmp_max_message_num_per_candidate,
-			})
+			});
 		}
 
 		let mut last_recipient = None::<ParaId>;
@@ -1273,7 +1273,7 @@ impl<T: Config> Pallet<T> {
 					idx,
 					msg_size,
 					max_size: channel.max_message_size,
-				})
+				});
 			}
 
 			let new_total_size = channel.total_size + out_msg.data.len() as u32;
@@ -1282,7 +1282,7 @@ impl<T: Config> Pallet<T> {
 					idx,
 					total_size: new_total_size,
 					limit: channel.max_total_size,
-				})
+				});
 			}
 
 			let new_msg_count = channel.msg_count + 1;
@@ -1291,7 +1291,7 @@ impl<T: Config> Pallet<T> {
 					idx,
 					count: new_msg_count,
 					limit: channel.max_capacity,
-				})
+				});
 			}
 		}
 
@@ -1305,7 +1305,7 @@ impl<T: Config> Pallet<T> {
 
 		for recipient in recipients {
 			let Some(channel) = HrmpChannels::<T>::get(&HrmpChannelId { sender, recipient }) else {
-				continue
+				continue;
 			};
 			remaining.push((
 				recipient,
@@ -1384,7 +1384,7 @@ impl<T: Config> Pallet<T> {
 				None => {
 					// apparently, that since acceptance of this candidate the recipient was
 					// offboarded and the channel no longer exists.
-					continue
+					continue;
 				},
 			};
 

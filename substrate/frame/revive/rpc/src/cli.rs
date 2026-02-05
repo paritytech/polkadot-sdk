@@ -76,6 +76,12 @@ pub struct CliCommand {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub prometheus_params: PrometheusParams,
+
+	/// By default, the node rejects any transaction that's unprotected (i.e., that doesn't have a
+	/// chain-id). If the user wishes the submit such a transaction then they can use this flag to
+	/// instruct the RPC to ignore this check.
+	#[arg(long)]
+	pub allow_unprotected_txs: bool,
 }
 
 /// Initialize the logger
@@ -105,10 +111,12 @@ fn build_client(
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
 	database_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
+		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
 		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
@@ -164,6 +172,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		earliest_receipt_block,
 		index_last_n_blocks,
 		shared_params,
+		allow_unprotected_txs,
 		..
 	} = cmd;
 
@@ -206,6 +215,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		earliest_receipt_block,
 		&node_rpc_url,
 		&database_url,
+		rpc_config.max_request_size * 1024 * 1024,
+		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 	)?;
 
@@ -222,7 +233,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		&rpc_config,
 		prometheus_registry,
 		tokio_handle,
-		|| rpc_module(is_dev, client.clone()),
+		|| rpc_module(is_dev, client.clone(), allow_unprotected_txs),
 		None,
 	)?;
 
@@ -250,7 +261,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 }
 
 /// Create the JSON-RPC module.
-fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
+fn rpc_module(
+	is_dev: bool,
+	client: Client,
+	allow_unprotected_txs: bool,
+) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev {
 			vec![
@@ -263,6 +278,7 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		} else {
 			vec![]
 		})
+		.with_allow_unprotected_txs(allow_unprotected_txs)
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

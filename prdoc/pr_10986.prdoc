@@ -1,0 +1,10 @@
+title: '[Pool] Use active era for withdrawals'
+doc:
+- audience: Runtime Dev
+  description: Standardising using active era in pools and staking. Current Era should
+    only be used for election logic
+crates:
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-staking-async
+  bump: patch

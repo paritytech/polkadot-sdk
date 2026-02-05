@@ -299,9 +299,9 @@ impl RuntimeInfo {
 					})
 				});
 			let info = ValidatorInfo { our_index: Some(our_index), our_group };
-			return Ok(info)
+			return Ok(info);
 		}
-		return Ok(ValidatorInfo { our_index: None, our_group: None })
+		return Ok(ValidatorInfo { our_index: None, our_group: None });
 	}
 
 	/// Get our `ValidatorIndex`.
@@ -314,7 +314,7 @@ impl RuntimeInfo {
 		let keystore = self.keystore.as_ref()?;
 		for (i, v) in validators.iter().enumerate() {
 			if Keystore::has_keys(&**keystore, &[(v.to_raw_vec(), ValidatorId::ID)]) {
-				return Some(ValidatorIndex(i as u32))
+				return Some(ValidatorIndex(i as u32));
 			}
 		}
 		None

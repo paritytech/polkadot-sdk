@@ -156,7 +156,7 @@ pub(super) async fn update_view(
 				if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
 					// Ancestry has already been cached for this leaf.
 					next_overseer_message.replace(msg);
-					break
+					break;
 				}
 
 				assert_matches!(
@@ -1801,7 +1801,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 		test_helpers::Yield::new().await;
 		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
-		//Now send a response for the first fetch and examine the second fetch
+		// Now send a response for the first fetch and examine the second fetch
 		send_collation_and_assert_processing(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2534,7 +2534,7 @@ mod ah_stop_gap {
 					);
 				}
 
-				//connecting an invulnerable collator should succeed
+				// connecting an invulnerable collator should succeed
 				connect_and_declare_collator(
 					&mut virtual_overseer,
 					invulnerable_collator,
@@ -2588,7 +2588,7 @@ mod ah_stop_gap {
 				)
 				.await;
 
-				//connecting an invulnerable collator should succeed
+				// connecting an invulnerable collator should succeed
 				connect_and_declare_collator(
 					&mut virtual_overseer,
 					invulnerable_collator,

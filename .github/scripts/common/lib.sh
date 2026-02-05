@@ -355,6 +355,9 @@ function get_s3_url_base() {
       frame-omni-bencher)
         printf "https://releases.parity.io/frame-omni-bencher"
         ;;
+      eth-rpc)
+        printf "https://releases.parity.io/eth-rpc"
+        ;;
       *)
         printf "UNSUPPORTED BINARY $name"
         exit 1

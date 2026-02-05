@@ -40,7 +40,7 @@ pub mod slots_crowdloan_index_migration {
 						"para_id={:?}, old_fund_account={:?}, fund_id={:?}, leases={:?}",
 						para_id, old_fund_account, crowdloan.fund_index, leases,
 					);
-					break
+					break;
 				}
 			}
 		}
