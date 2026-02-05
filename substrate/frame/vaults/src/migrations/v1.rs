@@ -105,11 +105,11 @@ pub trait InitialVaultsConfig<T: Config> {
 /// Migration logic for V0 -> V1.
 ///
 /// This struct implements the actual migration. It is wrapped by
-/// [`MigrateToV1`] which uses [`VersionedMigration`] to handle version
+/// [`MigrateV0ToV1`] which uses [`VersionedMigration`] to handle version
 /// checking and updating automatically.
-struct InnerMigrateV0ToV1<T, I>(core::marker::PhantomData<(T, I)>);
+pub struct VersionUncheckedMigrateV0ToV1<T, I>(core::marker::PhantomData<(T, I)>);
 
-impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T, I> {
+impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T, I> {
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: crate::pallet::LOG_TARGET,
@@ -176,7 +176,7 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMi
 	}
 }
 
-/// [`UncheckedOnRuntimeUpgrade`] implementation [`InnerMigrateV0ToV1`] wrapped in a
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`VersionUncheckedMigrateV0ToV1`] wrapped in a
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
@@ -184,7 +184,7 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for InnerMi
 pub type MigrateV0ToV1<T, I> = frame_support::migrations::VersionedMigration<
 	0, // The migration will only execute when the on-chain storage version is 0
 	1, // The on-chain storage version will be set to 1 after the migration is complete
-	InnerMigrateV0ToV1<T, I>,
+	VersionUncheckedMigrateV0ToV1<T, I>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
@@ -261,7 +261,7 @@ mod tests {
 			assert!(OracleStalenessThreshold::<Test>::get().is_zero());
 
 			// Run migration
-			let _weight = InnerMigrateV0ToV1::<Test, TestVaultsConfig>::on_runtime_upgrade();
+			let _weight = VersionUncheckedMigrateV0ToV1::<Test, TestVaultsConfig>::on_runtime_upgrade();
 
 			// Verify all parameters are set correctly
 			assert_eq!(
