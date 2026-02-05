@@ -368,7 +368,9 @@ pub mod pallet {
 		/// Register approval for a dispatch to be made from a deterministic composite account if
 		/// approved by a total of `threshold - 1` of `other_signatories`.
 		///
-		/// If there are enough, then dispatch the call.
+		/// **If the approval threshold is met (including the sender's approval), this will
+		/// immediately execute the call.** This is the only way to execute a multisig call -
+		/// `approve_as_multi` will never trigger execution.
 		///
 		/// Payment: `DepositBase` will be reserved if this is the first approval, plus
 		/// `threshold` times `DepositFactor`. It is returned once this dispatch happens or
@@ -384,8 +386,9 @@ pub mod pallet {
 		/// transaction index) of the first approval transaction.
 		/// - `call`: The call to be executed.
 		///
-		/// NOTE: Unless this is the final approval, you will generally want to use
-		/// `approve_as_multi` instead, since it only requires a hash of the call.
+		/// NOTE: For intermediate approvals (not the final approval), you should generally use
+		/// `approve_as_multi` instead, since it only requires a hash of the call and is more
+		/// efficient.
 		///
 		/// Result is equivalent to the dispatched result if `threshold` is exactly `1`. Otherwise
 		/// on success, result is `Ok` and the result from the interior call, if it was executed,
@@ -436,6 +439,13 @@ pub mod pallet {
 		/// Register approval for a dispatch to be made from a deterministic composite account if
 		/// approved by a total of `threshold - 1` of `other_signatories`.
 		///
+		/// **This function will NEVER execute the call, even if the approval threshold is
+		/// reached.** It only registers approval. To actually execute the call, `as_multi` must
+		/// be called with the full call data by any of the signatories.
+		///
+		/// This function is more efficient than `as_multi` for intermediate approvals since it
+		/// only requires the call hash, not the full call data.
+		///
 		/// Payment: `DepositBase` will be reserved if this is the first approval, plus
 		/// `threshold` times `DepositFactor`. It is returned once this dispatch happens or
 		/// is cancelled.
@@ -450,7 +460,8 @@ pub mod pallet {
 		/// transaction index) of the first approval transaction.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
-		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
+		/// NOTE: To execute the call after approvals are gathered, any signatory must call
+		/// `as_multi` with the full call data. This function cannot execute the call.
 		///
 		/// ## Complexity
 		/// - `O(S)`.
