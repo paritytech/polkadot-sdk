@@ -109,7 +109,9 @@ pub trait InitialVaultsConfig<T: Config> {
 /// checking and updating automatically.
 pub struct VersionUncheckedMigrateV0ToV1<T, I>(core::marker::PhantomData<(T, I)>);
 
-impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T, I> {
+impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade
+	for VersionUncheckedMigrateV0ToV1<T, I>
+{
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: crate::pallet::LOG_TARGET,
@@ -261,7 +263,8 @@ mod tests {
 			assert!(OracleStalenessThreshold::<Test>::get().is_zero());
 
 			// Run migration
-			let _weight = VersionUncheckedMigrateV0ToV1::<Test, TestVaultsConfig>::on_runtime_upgrade();
+			let _weight =
+				VersionUncheckedMigrateV0ToV1::<Test, TestVaultsConfig>::on_runtime_upgrade();
 
 			// Verify all parameters are set correctly
 			assert_eq!(
