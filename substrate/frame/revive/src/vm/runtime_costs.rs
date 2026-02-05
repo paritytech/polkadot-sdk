@@ -297,9 +297,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				},
 			GetStorage { len, is_cold } =>
 				if is_cold {
-					cost_storage!(read, seal_get_storage, len, is_cold as u32)
+					cost_storage!(read, seal_get_storage_cold, len)
 				} else {
-					T::WeightInfo::seal_get_storage(len, 0)
+					T::WeightInfo::seal_get_storage_hot(len)
 				},
 			TakeStorage { len, is_cold } =>
 				if is_cold {

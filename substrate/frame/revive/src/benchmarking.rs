@@ -1435,11 +1435,12 @@ mod benchmarks {
 		info.write(&key, Some(vec![42u8; o as usize]), None, false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		// Whitelist key if c=0 (hot)
+		// Whitelist key if c=0 (hot) - pre-loads child trie nodes into proof recorder
 		if c == 0 {
-			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
-			full_key.extend_from_slice(&key.hash());
-			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
+			frame_benchmarking::add_to_whitelist_child(
+				info.child_trie_info().storage_key().to_vec(),
+				key.hash().to_vec(),
+			);
 		}
 
 		let result;
@@ -1505,12 +1506,10 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// c: is_cold (0 = hot, 1 = cold)
+	/// Benchmark for reading storage when the key is already cached (hot read).
+	/// PoV should be minimal since the storage is pre-loaded via whitelist.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage(
-		n: Linear<0, { limits::STORAGE_BYTES }>,
-		c: Linear<0, 1>,
-	) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_hot(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
@@ -1522,13 +1521,46 @@ mod benchmarks {
 
 		let out_ptr = max_key_len + 4;
 
-		// Whitelist key if c=0 (hot)
-		if c == 0 {
-			let mut full_key = info.child_trie_info().prefixed_storage_key().into_inner();
-			full_key.extend_from_slice(&key.hash());
-			frame_benchmarking::benchmarking::add_to_whitelist(full_key.into());
-			let _ = info.read(&key);
+		// Whitelist key - pre-loads child trie nodes into proof recorder
+		frame_benchmarking::add_to_whitelist_child(
+			info.child_trie_info().storage_key().to_vec(),
+			key.hash().to_vec(),
+		);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_get_storage(
+				memory.as_mut_slice(),
+				StorageFlags::empty().bits(),
+				0,           // key_ptr
+				max_key_len, // key_len
+				out_ptr,     // out_ptr
+				max_key_len, // out_len_ptr
+			);
 		}
+
+		assert_ok!(result);
+		assert_eq!(&info.read(&key).data.unwrap(), &memory[out_ptr as usize..]);
+		Ok(())
+	}
+
+	/// Benchmark for reading storage when the key is not cached (cold read).
+	/// PoV should scale with n since the storage proof includes the value.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn seal_get_storage_cold(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+		let max_key_len = limits::STORAGE_KEY_BYTES;
+		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
+			.map_err(|_| "Key has wrong length")?;
+		build_runtime!(runtime, instance, memory: [ key.unhashed(), n.to_le_bytes(), vec![0u8; n as _], ]);
+		let info = instance.info()?;
+
+		info.write(&key, Some(vec![42u8; n as usize]), None, false)
+			.map_err(|_| "Failed to write to storage during setup.")?;
+
+		let out_ptr = max_key_len + 4;
+
+		// No whitelist - this is a cold read
 
 		let result;
 		#[block]
