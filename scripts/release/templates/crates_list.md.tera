@@ -9,14 +9,10 @@ The following crates were updated to the corresponding versions:
 - pallet-dap@0.2.0
 - pallet-bags-list@44.0.1
 - pallet-nomination-pools@43.0.2
-- pallet-staking-async@45.1.0
 - pallet-staking-async-ah-client@0.7.1
 - pallet-staking-async-rc-client@0.7.1
-- pallet-staking-async-preset-store@0.10.0
 - pallet-staking-async@0.10.0
-- pallet-staking-async-ah-client@0.7.1
-- pallet-staking-async-preset-store@0.1.0
-- pallet-state-trie-migration@0.18.1
+- pallet-session@45.1.0
 - snowbridge-pallet-ethereum-client@0.18.1
 - westend-runtime@30.2.0
 - asset-hub-westend-runtime@0.42.0

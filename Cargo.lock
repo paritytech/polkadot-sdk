@@ -1359,7 +1359,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.40.0"
+version = "0.42.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -6723,7 +6723,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "45.0.1"
+version = "45.0.2"
 dependencies = [
  "array-bytes 6.2.2",
  "frame-support",
@@ -11742,7 +11742,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list"
-version = "44.0.0"
+version = "44.0.1"
 dependencies = [
  "aquamarine",
  "docify",
@@ -12224,7 +12224,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-dap"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12980,7 +12980,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "43.0.1"
+version = "43.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13564,7 +13564,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session"
-version = "45.0.0"
+version = "45.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13666,7 +13666,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -13696,7 +13696,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-ah-client"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13847,7 +13847,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-client"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -16520,7 +16520,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2512.1.0"
+version = "2512.2.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -22296,7 +22296,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -22469,7 +22469,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -27528,7 +27528,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "30.1.0"
+version = "30.2.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
