@@ -40,12 +40,12 @@ use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAd
 
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
+use alloc::{vec,  vec::Vec};
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};

@@ -18,11 +18,10 @@
 
 use super::*;
 use crate::xcm_config::Collectives;
-use alloc::{vec, vec::Vec};
 use frame_support::{
 	parameter_types,
 	traits::{
-		asset_ops::common_ops::ConfigurableAssetCategoryManager, tokens::UnityOrOuterConversion,
+		tokens::{UnityOrOuterConversion, asset_ops::common_ops::ConfigurableAssetCategoryManager},
 		EitherOf, EitherOfDiverse, FromContains,
 	},
 };
@@ -137,7 +136,7 @@ pub type TreasuryBalanceConverter = UnityOrOuterConversion<
 >;
 
 pub type AHWAssetCategories = ConfigurableAssetCategoryManager<
-	<Test as frame_system::Config>::AccountId,
+	AccountId,
 	VersionedLocatableAsset,
 	Balance,
 >;
