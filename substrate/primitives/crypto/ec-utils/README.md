@@ -19,5 +19,5 @@ The crate includes both:
 - **Host-side**: Host function implementations that call into the original
   Arkworks library to execute expensive operations natively on the host.
 
-Refer to [ark-substrate-examples](https://github.com/davxy/ark-substrate-examples)
+Refer to [`ark-substrate-examples`](https://github.com/davxy/ark-substrate-examples)
 for benchmarks and usage examples.
