@@ -29,13 +29,6 @@ impl AvailabilityChunks {
 		Self { downloads: Default::default(), uploads: Default::default() }
 	}
 
-	pub fn new_with_upload(auth_id: AuthorityDiscoveryId, count: u64) -> Self {
-		Self {
-			downloads: Default::default(),
-			uploads: vec![(auth_id, count)].into_iter().collect(),
-		}
-	}
-
 	pub fn note_candidate_chunk_downloaded(
 		&mut self,
 		authority_id: AuthorityDiscoveryId,
@@ -103,14 +96,19 @@ pub fn handle_chunk_uploaded(
 	authority_ids: HashSet<AuthorityDiscoveryId>,
 ) {
 	if let Some(session_info) = view.per_session.get(&session_index) {
-		let validator_authority_id =
-			session_info.authorities_ids.iter().find(|auth| authority_ids.contains(auth));
+		// Iterate through each authority we uploaded to and
+		// check if this authority is a validator in this session
+		// get or create the availability chunks entry for this session
+		// return as soon as we find.
+		for authority_id in authority_ids.iter() {
+			if session_info.authorities_ids.contains(authority_id) {
+				view.availability_chunks
+					.entry(session_index)
+					.or_insert_with(AvailabilityChunks::new)
+					.note_candidate_chunk_uploaded(authority_id.clone(), 1);
 
-		if let Some(auth_id) = validator_authority_id {
-			view.availability_chunks
-				.entry(session_index)
-				.and_modify(|av| av.note_candidate_chunk_uploaded(auth_id.clone(), 1))
-				.or_insert(AvailabilityChunks::new_with_upload(auth_id.clone(), 1));
+				return;
+			}
 		}
 	}
 }
