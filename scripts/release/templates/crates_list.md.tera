@@ -5,8 +5,8 @@ The following crates were updated to the corresponding versions:
 
 - snowbridge-beacon-primitives@0.18.1
 - frame-benchmarking@45.0.2
-- pallet-statement@0.2.0
 - pallet-dap@0.2.0
+- pallet-statement@0.2.0
 - pallet-bags-list@44.0.1
 - pallet-nomination-pools@43.0.2
 - pallet-staking-async-ah-client@0.7.1
