@@ -31,7 +31,7 @@ use crate::{
 		common::Score,
 		peer_manager::{
 			backend::Backend,
-			db::Db,
+			db::{Db, ScoreEntry},
 			persistence::{
 				decode_para_key, metadata_key, para_reputation_key, PersistenceError,
 				StoredMetadata, StoredParaReputations, REPUTATION_PARA_PREFIX,
@@ -85,20 +85,13 @@ impl PersistentDb {
 
 		let last_finalized = instance.inner.processed_finalized_block_number().await;
 
-		if para_count > 0 || last_finalized.is_some() {
-			gum::trace!(
-				target: LOG_TARGET,
-				?last_finalized,
-				para_count,
-				total_peer_entries = total_entries,
-				"Loaded existing reputation DB from disk"
-			);
-		} else {
-			gum::trace!(
-				target: LOG_TARGET,
-				"Reputation DB initialized fresh (no existing data on disk)"
-			);
-		}
+		gum::info!(
+			target: LOG_TARGET,
+			?last_finalized,
+			para_count,
+			total_peer_entries = total_entries,
+			"Reputation DB initialized"
+		);
 
 		Ok(instance)
 	}
@@ -138,7 +131,7 @@ impl PersistentDb {
 			if let Some(para_id) = decode_para_key(&key) {
 				let stored: StoredParaReputations =
 					Decode::decode(&mut &value[..]).map_err(PersistenceError::Codec)?;
-				let entries = stored.to_hashmap();
+				let entries: HashMap<PeerId, ScoreEntry> = stored.into();
 				let entry_count = entries.len();
 				total_entries += entry_count;
 				para_count += 1;
@@ -176,30 +169,22 @@ impl PersistentDb {
 		let mut tx = DBTransaction::new();
 		let key = para_reputation_key(*para_id);
 
-		if let Some(peer_scores) = self.inner.get_para_reputations(para_id) {
-			if peer_scores.is_empty() {
-				tx.delete(self.config.col_reputation_data, &key);
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					"Deleted empty para reputation entry from disk"
-				);
-			} else {
-				let stored = StoredParaReputations::from_hashmap(&peer_scores);
-				tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-				gum::trace!(
-					target: LOG_TARGET,
-					?para_id,
-					peers = peer_scores.len(),
-					"Persisted para reputation to disk"
-				);
-			}
-		} else {
+		let peer_scores = self.inner.get_para_reputations(para_id);
+		if peer_scores.is_empty() {
 			tx.delete(self.config.col_reputation_data, &key);
 			gum::trace!(
 				target: LOG_TARGET,
 				?para_id,
 				"Deleted para reputation entry from disk"
+			);
+		} else {
+			let stored: StoredParaReputations = peer_scores.into();
+			tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				peers = stored.entries.len(),
+				"Persisted para reputation to disk"
 			);
 		}
 
@@ -208,11 +193,15 @@ impl PersistentDb {
 
 	/// Persist dirty (modified) paras to disk.
 	///
-	/// This should be called periodically by the main loop (currently, every 10 minutes).
-	pub fn persist(&mut self, tx_opt: Option<&mut DBTransaction>) -> Result<(), PersistenceError> {
-		let should_write = tx_opt.is_none();
-		let mut owned_tx = DBTransaction::new();
-		let tx = tx_opt.unwrap_or(&mut owned_tx);
+	/// If `maybe_tx` is `None`, creates and commits its own transaction.
+	/// If `maybe_tx` is `Some`, adds to the provided transaction (caller commits later).
+	pub fn persist(&mut self, maybe_tx: Option<&mut DBTransaction>) -> Result<(), PersistenceError> {
+		let mut internal_tx = None;
+
+    	let tx = match maybe_tx {
+    	    Some(t) => t,
+    	    None => internal_tx.insert(DBTransaction::new()),
+    	};
 
 		// Write metadata
 		let meta = StoredMetadata { last_finalized: self.inner.get_last_finalized() };
@@ -224,22 +213,18 @@ impl PersistentDb {
 
 		for para_id in &self.dirty_paras {
 			let key = para_reputation_key(*para_id);
-			if let Some(peer_scores) = self.inner.get_para_reputations(para_id) {
-				if peer_scores.is_empty() {
-					tx.delete(self.config.col_reputation_data, &key);
-				} else {
-					let stored = StoredParaReputations::from_hashmap(&peer_scores);
-					tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-					total_entries += peer_scores.len();
-					para_count += 1;
-				}
-			} else {
-				// Para has no reputation data, delete from disk
+			let peer_scores = self.inner.get_para_reputations(para_id);
+			if peer_scores.is_empty() {
 				tx.delete(self.config.col_reputation_data, &key);
+			} else {
+				let stored: StoredParaReputations = (peer_scores).into();
+				tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
+				total_entries += stored.entries.len();
+				para_count += 1;
 			}
 		}
 
-		if should_write {
+		if let Some(owned_tx) = internal_tx {
 			self.disk_db.write(owned_tx).map_err(PersistenceError::Io)?;
 
 			gum::debug!(
@@ -251,7 +236,7 @@ impl PersistentDb {
 				"Periodic persistence completed: reputation DB written to disk"
 			);
 
-			// Clear dirty set after successful persistence
+			// Clear dirty set only after we successfully committed
 			self.dirty_paras.clear();
 		}
 
@@ -303,7 +288,7 @@ impl Backend for PersistentDb {
 	}
 
 	async fn prune_paras(&mut self, registered_paras: BTreeSet<ParaId>) {
-		// Collect paras to prune before modifying state
+		// Collects all paras that have reputations and are still registered
 		let paras_to_prune: Vec<ParaId> = self
 			.inner
 			.all_reputations()
@@ -976,5 +961,71 @@ mod tests {
 			Some(Score::new(30).unwrap()),
 			"After crash: slash should be persisted (30), but final bump should be lost (not 45)"
 		);
+	}
+
+	#[tokio::test]
+	async fn corrupted_metadata_returns_error() {
+		// Test that corrupted metadata in the database returns a codec error
+		let disk_db = make_db();
+		let config = make_config();
+
+		// Write some corrupted metadata directly to disk
+		let mut tx = DBTransaction::new();
+		tx.put_vec(config.col_reputation_data, metadata_key(), vec![0xff, 0xff, 0xff]);
+		disk_db.write(tx).expect("should write corrupted data");
+
+		// Attempt to create PersistentDb - should fail with codec error
+		let err = PersistentDb::new(disk_db, config, 100).await.err().unwrap();
+		assert!(matches!(err, PersistenceError::Codec(_)));
+	}
+
+	#[tokio::test]
+	async fn corrupted_para_reputation_returns_error() {
+		// Test that corrupted para reputation data returns a codec error
+		let disk_db = make_db();
+		let config = make_config();
+		let para_id = ParaId::from(100);
+
+		// Write some corrupted para reputation data directly to disk
+		let mut tx = DBTransaction::new();
+		let key = para_reputation_key(para_id);
+		tx.put_vec(config.col_reputation_data, &key, vec![0xde, 0xad, 0xbe, 0xef]);
+		disk_db.write(tx).expect("should write corrupted data");
+
+		// Attempt to create PersistentDb - should fail with codec error
+		let err = PersistentDb::new(disk_db, config, 100).await.err().unwrap();
+		assert!(matches!(err, PersistenceError::Codec(_)));
+	}
+
+	#[tokio::test]
+	async fn partial_corruption_fails_entire_load() {
+		// Test that even if only one para's data is corrupted, the entire load fails
+		let disk_db = make_db();
+		let config = make_config();
+		let para_id_100 = ParaId::from(100);
+		let para_id_200 = ParaId::from(200);
+
+		// First, write valid data for para 100
+		{
+			let mut db =
+				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let peer = PeerId::random();
+			let bumps =
+				[(para_id_100, [(peer, Score::new(50).unwrap())].into_iter().collect())]
+					.into_iter()
+					.collect();
+			db.process_bumps(10, bumps, None).await;
+			db.persist(None).expect("should persist");
+		}
+
+		// Now corrupt para 200's data
+		let mut tx = DBTransaction::new();
+		let key = para_reputation_key(para_id_200);
+		tx.put_vec(config.col_reputation_data, &key, vec![0xba, 0xad, 0xf0, 0x0d]);
+		disk_db.write(tx).expect("should write corrupted data");
+
+		// Attempt to reload - should fail because of corrupted para 200
+		let err = PersistentDb::new(disk_db, config, 100).await.err().unwrap();
+		assert!(matches!(err, PersistenceError::Codec(_)));
 	}
 }

@@ -236,8 +236,8 @@ impl Db {
 	pub(crate) fn get_para_reputations(
 		&self,
 		para_id: &ParaId,
-	) -> Option<HashMap<PeerId, ScoreEntry>> {
-		self.db.get(para_id).cloned()
+	) -> HashMap<PeerId, ScoreEntry> {
+		self.db.get(para_id).cloned().unwrap_or_default()
 	}
 
 	/// Set reputations for a specific para (for loading from disk).

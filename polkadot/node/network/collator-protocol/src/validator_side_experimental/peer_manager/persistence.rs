@@ -31,7 +31,7 @@ pub const REPUTATION_META_KEY: &[u8; 8] = b"Rep_meta";
 /// Serializable PeerId wrapper.
 /// PeerId is a Multihash which can be converted to/from bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SerializablePeerId(pub PeerId);
+pub(crate) struct SerializablePeerId(pub(crate) PeerId);
 
 impl Encode for SerializablePeerId {
 	fn encode(&self) -> Vec<u8> {
@@ -55,32 +55,32 @@ impl Decode for SerializablePeerId {
 /// Stored reputations for a single para.
 /// This is the VALUE stored in the DB, keyed by ParaId.
 #[derive(Debug, Clone, Encode, Decode, Default)]
-pub struct StoredParaReputations {
+pub(crate) struct StoredParaReputations {
 	/// Vec of (peer_id, score_entry) pairs.
-	pub entries: Vec<(SerializablePeerId, ScoreEntry)>,
+	pub(crate) entries: Vec<(SerializablePeerId, ScoreEntry)>,
 }
 
-impl StoredParaReputations {
-	/// Convert from in-memory HashMap to storable format.
-	pub fn from_hashmap(map: &HashMap<PeerId, ScoreEntry>) -> Self {
+impl From<HashMap<PeerId, ScoreEntry>> for StoredParaReputations {
+	fn from(map: HashMap<PeerId, ScoreEntry>) -> Self {
 		let entries = map
-			.iter()
-			.map(|(peer_id, entry)| (SerializablePeerId(*peer_id), *entry))
+			.into_iter()
+			.map(|(peer_id, entry)| (SerializablePeerId(peer_id), entry))
 			.collect();
 		StoredParaReputations { entries }
 	}
+}
 
-	/// Convert to in-memory HashMap.
-	pub fn to_hashmap(&self) -> HashMap<PeerId, ScoreEntry> {
-		self.entries.iter().map(|(peer_id, entry)| (peer_id.0, *entry)).collect()
+impl From<StoredParaReputations> for HashMap<PeerId, ScoreEntry> {
+	fn from(stored: StoredParaReputations) -> Self {
+		stored.entries.into_iter().map(|(peer_id, entry)| (peer_id.0, entry)).collect()
 	}
 }
 
 /// Metadata stored separately from per-para data.
 #[derive(Debug, Clone, Encode, Decode)]
-pub struct StoredMetadata {
+pub(crate) struct StoredMetadata {
 	/// The last finalized block number that was processed.
-	pub last_finalized: Option<BlockNumber>,
+	pub(crate) last_finalized: Option<BlockNumber>,
 }
 
 /// Generate key for a para's reputation data.
@@ -133,11 +133,11 @@ mod tests {
 		map.insert(peer1, ScoreEntry { score: Score::new(100).unwrap(), last_bumped: 1234567890 });
 		map.insert(peer2, ScoreEntry { score: Score::new(50).unwrap(), last_bumped: 9876543210 });
 
-		let stored = StoredParaReputations::from_hashmap(&map);
+		let stored: StoredParaReputations = map.into();
 		let encoded = stored.encode();
 		let decoded = StoredParaReputations::decode(&mut &encoded[..]).expect("decode should work");
 
-		let restored_map = decoded.to_hashmap();
+		let restored_map: HashMap<PeerId, ScoreEntry> = decoded.into();
 
 		assert_eq!(restored_map.len(), 2);
 		assert_eq!(restored_map.get(&peer1).unwrap().score, Score::new(100).unwrap());

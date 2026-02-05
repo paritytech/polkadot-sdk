@@ -50,12 +50,16 @@ use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
 
+/// Default interval for persisting the reputation database to disk (in seconds).
+const DEFAULT_PERSIST_INTERVAL_SECS: u64 = 600;
+
 /// Configuration for the reputation db.
 #[derive(Debug, Clone, Copy)]
 pub struct ReputationConfig {
 	/// The data column in the store to use for reputation data.
 	pub col_reputation_data: u32,
-	/// How often to persist the reputation database to disk. If None, defaults to 600 seconds.
+	/// How often to persist the reputation database to disk.
+	/// If None, defaults to DEFAULT_PERSIST_INTERVAL_SECS seconds.
 	pub persist_interval: Option<Duration>,
 }
 
@@ -68,7 +72,8 @@ pub(crate) async fn run<Context>(
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
-	let persist_interval = reputation_config.persist_interval.unwrap_or(Duration::from_secs(600));
+	let persist_interval =
+		reputation_config.persist_interval.unwrap_or(Duration::from_secs(DEFAULT_PERSIST_INTERVAL_SECS));
 	gum::info!(
 		LOG_TARGET,
 		persist_interval_secs = persist_interval.as_secs(),

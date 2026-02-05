@@ -28,6 +28,7 @@ use crate::{
 	},
 	LOG_TARGET,
 };
+use std::time::Duration;
 use fatality::Split;
 use futures::stream::FusedStream;
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
@@ -40,7 +41,6 @@ use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::rec
 use polkadot_primitives::{
 	BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
 };
-use std::time::Duration;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
