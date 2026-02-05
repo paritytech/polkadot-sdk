@@ -22,13 +22,16 @@ use crate::{
     session_info,
     shared,
 };
+use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-    vstaging::ApprovalStatistics,
-	AppVerify,
+    vstaging::{ApprovalStatistics, ApprovalStatisticsTallyLine},
     SessionIndex, ValidatorIndex, ValidatorSignature,
-    byzantine_threshold
+    byzantine_threshold,
+};
+use sp_runtime::{
+    traits::AppVerify,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -43,7 +46,6 @@ const LOG_TARGET: &str = "runtime::approvals_rewards";
 const APPROVAL_STATS_LONGEVITY: u64 = 64;
 
 pub use pallet::*;
-use polkadot_primitives::vstaging::ApprovalStatisticsTallyLine;
 
 pub trait WeightInfo {
     fn include_approvals_rewards_statistics() -> Weight;
@@ -329,73 +331,142 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn initializer_on_new_session(
         notification: &SessionChangeNotification<BlockNumberFor<T>>,
     ) {
-        let previous_session = notification.session_index.saturating_sub(1);
-        let session_info = match session_info::Sessions::<T>::get(previous_session) {
-            Some(s) => s,
-            None => return,
-        };
-
-        let validators_len = session_info.validators.len();
-
-        // Bound the collection to prevent excessive computation
-        // This is a safety check; in practice validators_len should always be <= MaxTalliesPerSubmission
-        const MAX_VALIDATORS_FOR_MEDIAN: usize = 2000;
-        if validators_len > MAX_VALIDATORS_FOR_MEDIAN {
-            log::warn!(
-                target: LOG_TARGET,
-                "Skipping median calculation: validator count {} exceeds maximum {}",
-                validators_len,
-                MAX_VALIDATORS_FOR_MEDIAN
-            );
+        // Skip processing for genesis session (session 0) as there's no previous session data
+        if notification.session_index == 0 {
             return;
         }
 
-        let mut rewards_matrix: Vec<Vec<ApprovalStatisticsTallyLine>> = vec![];
-        for idx in 0..validators_len {
-            let v_idx = ValidatorIndex(idx as u32);
-            if let Some(tally) = ApprovalsTallies::<T>::get((previous_session, v_idx)) {
-                rewards_matrix.push(tally);
+        let config = configuration::ActiveConfig::<T>::get();
+        let current_session = notification.session_index;
+
+        // Calculate the valid session range for processing
+        // We look back from the previous session up to dispute_period sessions ago
+        let oldest_valid_session = current_session.saturating_sub(config.dispute_period);
+        let newest_session_to_check = current_session.saturating_sub(1);
+
+        // Find the OLDEST session within the valid range that:
+        // 1. Has enough tallies (>= byzantine threshold)
+        // 2. Hasn't had medians calculated yet
+        let mut target_session = None;
+
+        for session_idx in oldest_valid_session..=newest_session_to_check {
+            // Skip if medians already calculated for this session
+            if AvailableApprovalsMedians::<T>::contains_key(session_idx) {
+                continue;
+            }
+
+            // Get session info
+            let session_info = match session_info::Sessions::<T>::get(session_idx) {
+                Some(s) => s,
+                None => continue,
+            };
+
+            let validators_len = session_info.validators.len();
+
+            // Bound check to prevent excessive computation
+            const MAX_VALIDATORS_FOR_MEDIAN: usize = 2000;
+            if validators_len > MAX_VALIDATORS_FOR_MEDIAN {
+                log::warn!(
+                    target: LOG_TARGET,
+                    "skipping session {}: validator count {} exceeds maximum {}",
+                    session_idx,
+                    validators_len,
+                    MAX_VALIDATORS_FOR_MEDIAN
+                );
+                continue;
+            }
+
+            // Count how many validators submitted tallies for this session
+            let mut tally_count = 0;
+            for idx in 0..validators_len {
+                let v_idx = ValidatorIndex(idx as u32);
+                if ApprovalsTallies::<T>::contains_key((session_idx, v_idx)) {
+                    tally_count += 1;
+                }
+            }
+
+            // Check if we have enough tallies to calculate medians
+            if tally_count >= byzantine_threshold(validators_len) {
+                target_session = Some((session_idx, session_info, validators_len));
+                break; // Found the oldest eligible session
             }
         }
 
-        if rewards_matrix.len() >= byzantine_threshold(validators_len) {
+        // If we found an eligible session, process it
+        if let Some((session_idx, session_info, validators_len)) = target_session {
+            // Collect all tallies for this session
+            let mut rewards_matrix: Vec<Vec<ApprovalStatisticsTallyLine>> = vec![];
+            let mut tally_keys_to_remove = Vec::new();
+
+            for idx in 0..validators_len {
+                let v_idx = ValidatorIndex(idx as u32);
+                let key = (session_idx, v_idx);
+
+                if let Some(tally) = ApprovalsTallies::<T>::get(key) {
+                    rewards_matrix.push(tally);
+                    tally_keys_to_remove.push(key);
+                }
+            }
+
+            // Calculate medians for each validator
             let mut approval_usages_medians = Vec::new();
             for (v_idx, _) in session_info.validators.into_iter().enumerate() {
-                let mut v: Vec<u32> = rewards_matrix.iter().map(|at| at[v_idx].approvals_usage).collect();
-                v.sort();
+                let mut v: Vec<u32> = rewards_matrix.iter()
+                    .filter_map(|at| at.get(v_idx).map(|line| line.approvals_usage))
+                    .collect();
 
-                // Calculate proper median: average of two middle elements for even-sized vectors
-                let median = if v.len() % 2 == 0 {
-                    // Even length: average of two middle elements
-                    let mid1 = v[v.len() / 2 - 1];
-                    let mid2 = v[v.len() / 2];
-                    // Use saturating operations to prevent overflow
-                    mid1.saturating_add(mid2) / 2
+                // Use 0 as median if we don't have data for this validator
+                let median = if v.is_empty() {
+                    0
                 } else {
-                    // Odd length: middle element
-                    v[v.len() / 2]
+                    v.sort();
+                    // Calculate proper median: average of two middle elements for even-sized vectors
+                    if v.len() % 2 == 0 {
+                        // Even length: average of two middle elements
+                        let mid1 = v[v.len() / 2 - 1];
+                        let mid2 = v[v.len() / 2];
+                        // Use saturating operations to prevent overflow
+                        mid1.saturating_add(mid2) / 2
+                    } else {
+                        // Odd length: middle element
+                        v[v.len() / 2]
+                    }
                 };
 
                 approval_usages_medians.push(median);
             }
 
-            AvailableApprovalsMedians::<T>::insert(previous_session, approval_usages_medians);
+            // Store the calculated medians
+            AvailableApprovalsMedians::<T>::insert(session_idx, approval_usages_medians);
 
-		// Emit event for monitoring
-		Self::deposit_event(Event::MediansCalculated(
-			previous_session,
-			validators_len as u32,
-			rewards_matrix.len() as u32,
-		));
+            // Remove the tallies for this session now that we've processed them
+            for key in tally_keys_to_remove {
+                ApprovalsTallies::<T>::remove(key);
+            }
+
+            // Emit event for monitoring
+            Self::deposit_event(Event::MediansCalculated(
+                session_idx,
+                validators_len as u32,
+                rewards_matrix.len() as u32,
+            ));
+
+            log::info!(
+                target: LOG_TARGET,
+                "calculated medians for session {} with {} tallies from {} validators",
+                session_idx,
+                rewards_matrix.len(),
+                validators_len
+            );
         }
 
-        // Prune old approval tallies to prevent unbounded storage growth
-        let config = configuration::ActiveConfig::<T>::get();
-        // Use saturating_sub to prevent underflow when session_index < dispute_period
-        let min_session_to_keep = notification.session_index.saturating_sub(config.dispute_period);
+        // Prune old approval tallies that are outside the dispute period
+        // Note: Tallies for sessions with calculated medians are already removed above
+        // This handles leftover tallies from sessions that didn't reach byzantine threshold
+        let min_session_to_keep = current_session.saturating_sub(config.dispute_period);
 
         // Pre-allocate with reasonable capacity and limit deletions per block
-        const MAX_DELETIONS_PER_BLOCK: usize = 1000;
+        const MAX_DELETIONS_PER_BLOCK: usize = 100;
         let mut drop_keys = Vec::with_capacity(MAX_DELETIONS_PER_BLOCK);
 
         // Collect keys to drop, but limit the number to prevent excessive computation
@@ -428,13 +499,13 @@ impl<T: Config> Pallet<T> {
         if removed_count == MAX_DELETIONS_PER_BLOCK {
             log::debug!(
                 target: LOG_TARGET,
-                "Pruned {} approval tallies (limit reached, more may remain)",
+                "pruned {} approval tallies (limit reached, more may remain)",
                 removed_count
             );
         } else if removed_count > 0 {
             log::debug!(
                 target: LOG_TARGET,
-                "Pruned {} approval tallies",
+                "pruned {} approval tallies",
                 removed_count
             );
         }

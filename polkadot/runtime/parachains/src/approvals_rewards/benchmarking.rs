@@ -16,7 +16,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use alloc::vec;
 use frame_benchmarking::v2::*;
 use polkadot_primitives::{PvfCheckStatement, ValidatorId, ValidatorIndex, ValidatorSignature};
 use polkadot_primitives::{
@@ -35,16 +34,13 @@ fn initialize<T>()
 where
     T: Config + shared::Config,
 {
-    // 0. generate a list of validators
     let validators = (0..VALIDATOR_NUM)
         .map(|_| <ValidatorId as RuntimeAppPublic>::generate_pair(None))
         .collect::<Vec<_>>();
 
-    // 1. Make sure PVF pre-checking is enabled in the config.
     let config = configuration::ActiveConfig::<T>::get();
     configuration::Pallet::<T>::force_set_active_config(config.clone());
 
-    // 2. initialize a new session with deterministic validator set.
     crate::shared::pallet::Pallet::<T>::set_active_validators_ascending(validators.clone());
     crate::shared::pallet::Pallet::<T>::set_session_index(SESSION_INDEX);
 }

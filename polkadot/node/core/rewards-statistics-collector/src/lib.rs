@@ -50,7 +50,11 @@ use polkadot_node_subsystem::{
     },
     overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender
 };
-use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, Header, SessionIndex, ValidatorId, ValidatorIndex, well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo};
+use polkadot_primitives::{
+    AuthorityDiscoveryId, BlockNumber, Hash, Header,
+    SessionIndex, ValidatorId, ValidatorIndex,
+    well_known_keys::relay_dispatch_queue_remaining_capacity, SessionInfo
+};
 use crate::{
     error::{FatalError, FatalResult, JfyiError, Result},
 };
@@ -285,9 +289,7 @@ pub(crate) async fn run_iteration<Context>(
 					.map_err(JfyiError::ChainApiCallError)?;
 				finalized_hashes.push(fin_block_hash);
 
-				let (mut before, after): (HashMap<_, _>, HashMap<_, _>) = view
-					.per_relay
-					.clone()
+				let (mut before, after): (HashMap<_, _>, HashMap<_, _>) = std::mem::take(&mut view.per_relay)
 					.into_iter()
 					.partition(|((_, relay_number), _)| *relay_number <= fin_block_number);
 
@@ -298,7 +300,6 @@ pub(crate) async fn run_iteration<Context>(
 					.collect::<HashMap<_, _>>();
 
 				aggregate_finalized_approvals_stats(view, finalized_views, metrics);
-				log_session_view_general_stats(view);
 
                 view.per_relay = after;
 				view.latest_finalized_block = (fin_block_number, fin_block_hash);
@@ -420,7 +421,22 @@ fn aggregate_finalized_approvals_stats(
 	finalized_relays: HashMap<&Hash, &PerRelayView>,
 	metrics: (&Metrics, bool),
 ) {
-	for (_, per_relay_view) in finalized_relays {
+	gum::debug!(
+		target: LOG_TARGET,
+		finalized_relay_count = finalized_relays.len(),
+		"aggregating finalized approval stats"
+	);
+
+	for (block_hash, per_relay_view) in finalized_relays {
+		gum::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			session_index = per_relay_view.session_index,
+			votes_count = per_relay_view.approvals_stats.votes.len(),
+			no_shows_count = per_relay_view.approvals_stats.no_shows.len(),
+			"processing relay block stats"
+		);
+
 		if let Some(session_view) = view.per_session.get_mut(&per_relay_view.session_index) {
 			metrics.0.record_approvals_stats(
 				per_relay_view.session_index,
@@ -429,22 +445,62 @@ fn aggregate_finalized_approvals_stats(
 				metrics.1,
 			);
 
+			let mut approvals_added = 0u32;
 			for (validator_idx, total_votes) in &per_relay_view.approvals_stats.votes {
 				session_view
 					.validators_tallies
 					.entry(*validator_idx)
 					.or_default()
 					.increment_approval_by(*total_votes);
+				approvals_added = approvals_added.saturating_add(*total_votes);
 			}
 
+			let mut no_shows_added = 0u32;
 			for (validator_idx, total_noshows) in &per_relay_view.approvals_stats.no_shows {
 				session_view
 					.validators_tallies
 					.entry(*validator_idx)
 					.or_default()
 					.increment_noshow_by(*total_noshows);
+				no_shows_added = no_shows_added.saturating_add(*total_noshows);
 			}
+
+			gum::debug!(
+				target: LOG_TARGET,
+				?block_hash,
+				session_index = per_relay_view.session_index,
+				approvals_added,
+				no_shows_added,
+				total_validators_in_session = session_view.validators_tallies.len(),
+				"aggregated stats for relay block into session view"
+			);
+		} else {
+			gum::warn!(
+				target: LOG_TARGET,
+				?block_hash,
+				session_index = per_relay_view.session_index,
+				"no session view found for relay block - stats not aggregated"
+			);
 		}
+	}
+
+	// Log final state of all sessions
+	for (session_idx, session_view) in &view.per_session {
+		let total_approvals: u32 = session_view.validators_tallies.values()
+			.map(|tally| tally.approvals)
+			.sum();
+		let total_no_shows: u32 = session_view.validators_tallies.values()
+			.map(|tally| tally.no_shows)
+			.sum();
+
+		gum::debug!(
+			target: LOG_TARGET,
+			session_index = ?session_idx,
+			validators_with_data = session_view.validators_tallies.len(),
+			total_approvals,
+			total_no_shows,
+			"session aggregated statistics"
+		);
 	}
 }
 
@@ -495,11 +551,28 @@ async fn submit_finalized_session_stats(
 
     match view.latest_finalized_session {
         Some(latest_fin_session) if latest_fin_session < current_fin_session => {
+            gum::info!(
+                target: LOG_TARGET,
+                ?latest_fin_session,
+                ?current_fin_session,
+                sessions_to_process = view.per_session.keys().filter(|k| **k < current_fin_session).count(),
+                "session finalized, checking for approval statistics to submit"
+            );
+
             // the previous session was finalized
             for (session_idx, session_view) in view
                 .per_session
                 .iter()
                 .filter(|stored_session_idx| stored_session_idx.0 < &current_fin_session) {
+
+                gum::debug!(
+                    target: LOG_TARGET,
+                    session_index = ?session_idx,
+                    validators_with_tallies = session_view.validators_tallies.len(),
+                    node_features_len = session_view.node_features.len(),
+                    has_credentials = session_view.credentials.is_some(),
+                    "processing finalized session for submission"
+                );
 
                 // Check if submission feature is enabled
                 let should_submit = session_view
@@ -508,16 +581,43 @@ async fn submit_finalized_session_stats(
                     .map(|b| *b)
                     .unwrap_or(false);
 
+                gum::info!(
+                    target: LOG_TARGET,
+                    session_index = ?session_idx,
+                    feature_enabled = should_submit,
+                    feature_index = FeatureIndex::SubmitApprovalStatistics as usize,
+                    "SubmitApprovalStatistics feature check result"
+                );
+
                 if !should_submit {
-                    gum::debug!(
+                    gum::warn!(
                         target: LOG_TARGET,
                         session_index = ?session_idx,
-                        "Skipping approval statistics submission: feature not enabled"
+                        "skipping approval statistics submission: feature not enabled"
                     );
                     continue;
                 }
 
                 if let Some(ref credentials) = session_view.credentials {
+                    // Skip submission if there are no tallies to submit
+                    if session_view.validators_tallies.is_empty() {
+                        gum::info!(
+                            target: LOG_TARGET,
+                            session_index = ?session_idx,
+                            validator_index = ?credentials.validator_index,
+                            "skipping approval statistics submission: no tallies accumulated"
+                        );
+                        continue;
+                    }
+
+                    gum::info!(
+                        target: LOG_TARGET,
+                        session_index = ?session_idx,
+                        validator_index = ?credentials.validator_index,
+                        tallies_count = session_view.validators_tallies.len(),
+                        "submitting approval statistics to runtime"
+                    );
+
                     sign_and_submit_approvals_tallies(
                         sender,
                         recent_block_hash,
@@ -527,35 +627,49 @@ async fn submit_finalized_session_stats(
                         metrics,
                         session_view.validators_tallies.clone(),
                     ).await;
+                } else {
+                    gum::warn!(
+                        target: LOG_TARGET,
+                        session_index = ?session_idx,
+                        "no credentials available for this validator - cannot submit"
+                    );
                 }
             }
 
+            let removed_sessions = view.per_session.keys()
+                .filter(|k| **k < current_fin_session)
+                .count();
+
             view.per_session.retain(|session_index, _| *session_index >= current_fin_session);
             view.latest_finalized_session = Some(current_fin_session);
+
+            gum::info!(
+                target: LOG_TARGET,
+                ?current_fin_session,
+                removed_sessions,
+                remaining_sessions = view.per_session.len(),
+                "cleaned up old session data"
+            );
         }
-        None => view.latest_finalized_session = Some(current_fin_session),
-        _ => {}
+        None => {
+            gum::debug!(
+                target: LOG_TARGET,
+                ?current_fin_session,
+                "first session finalized, initializing latest_finalized_session"
+            );
+            view.latest_finalized_session = Some(current_fin_session);
+        },
+        _ => {
+            gum::trace!(
+                target: LOG_TARGET,
+                ?current_fin_session,
+                latest_finalized = ?view.latest_finalized_session,
+                "no new session finalized"
+            );
+        }
     };
 
     Ok(())
-}
-
-fn log_session_view_general_stats(view: &View) {
-	for (session_index, session_view) in &view.per_session {
-		let session_tally = session_view
-			.validators_tallies
-			.values()
-			.map(|tally| (tally.approvals, tally.no_shows))
-			.fold((0, 0), |acc, (approvals, noshows)| (acc.0 + approvals, acc.1 + noshows));
-
-		gum::debug!(
-			target: LOG_TARGET,
-			session_idx = ?session_index,
-			approvals = ?session_tally.0,
-			noshows = ?session_tally.1,
-			"session collected statistics",
-		);
-	}
 }
 
 async fn sign_and_submit_approvals_tallies(
@@ -567,12 +681,18 @@ async fn sign_and_submit_approvals_tallies(
     metrics: &Metrics,
     tallies: HashMap<ValidatorIndex, PerValidatorTally>,
 ) {
-    gum::debug!(
+    let total_approvals: u32 = tallies.values().map(|t| t.approvals).sum();
+    let total_no_shows: u32 = tallies.values().map(|t| t.no_shows).sum();
+
+    gum::info!(
 		target: LOG_TARGET,
         ?relay_parent,
-		"submitting {} approvals tallies for session {}",
-        tallies.len(),
         session_index,
+        submitting_validator = ?credentials.validator_index,
+        tallies_count = tallies.len(),
+        total_approvals,
+        total_no_shows,
+		"preparing to submit approval tallies to runtime"
 	);
 
     let mut validators_indexes = tallies.keys().collect::<Vec<_>>();
@@ -581,6 +701,15 @@ async fn sign_and_submit_approvals_tallies(
     let mut approvals_tallies: Vec<ApprovalStatisticsTallyLine> = Vec::with_capacity(tallies.len());
     for validator_index in validators_indexes {
         let current_tally = tallies.get(validator_index).unwrap();
+
+        gum::trace!(
+            target: LOG_TARGET,
+            ?validator_index,
+            approvals = current_tally.approvals,
+            no_shows = current_tally.no_shows,
+            "adding tally line"
+        );
+
         approvals_tallies.push(ApprovalStatisticsTallyLine {
             validator_index: validator_index.clone(),
             approvals_usage: current_tally.approvals,
@@ -588,34 +717,61 @@ async fn sign_and_submit_approvals_tallies(
         });
     }
 
-    let payload = ApprovalStatistics(session_index.clone(), credentials.validator_index, approvals_tallies);
+    let payload = ApprovalStatistics(session_index.clone(), credentials.validator_index, approvals_tallies.clone());
+
+    gum::debug!(
+        target: LOG_TARGET,
+        ?relay_parent,
+        session_index,
+        submitter = ?credentials.validator_index,
+        payload_size = approvals_tallies.len(),
+        "created ApprovalStatistics payload"
+    );
 
     let signature = match polkadot_node_subsystem_util::sign(
         keystore,
         &credentials.validator_key,
         &payload.signing_payload(),
     ) {
-        Ok(Some(signature)) => signature,
+        Ok(Some(signature)) => {
+            gum::debug!(
+                target: LOG_TARGET,
+                ?relay_parent,
+                validator_index = ?credentials.validator_index,
+                "successfully signed approval statistics payload"
+            );
+            signature
+        },
         Ok(None) => {
-            gum::warn!(
+            gum::error!(
 				target: LOG_TARGET,
                 ?relay_parent,
 				validator_index = ?credentials.validator_index,
-				"private key for signing is not available",
+                session_index,
+				"private key for signing is not available in keystore"
 			);
             return
         },
         Err(e) => {
-            gum::warn!(
+            gum::error!(
 				target: LOG_TARGET,
                 ?relay_parent,
 				validator_index = ?credentials.validator_index,
-				"error signing the statement: {:?}",
-				e,
+                session_index,
+				error = ?e,
+				"error signing the approval statistics payload"
 			);
             return
         },
     };
+
+    gum::info!(
+        target: LOG_TARGET,
+        ?relay_parent,
+        session_index,
+        validator_index = ?credentials.validator_index,
+        "submitting signed approval statistics to runtime API"
+    );
 
     let (tx, rx) = oneshot::channel();
     let runtime_req = runtime_api_request(
@@ -628,12 +784,23 @@ async fn sign_and_submit_approvals_tallies(
     match runtime_req {
         Ok(()) => {
             metrics.on_approvals_submitted();
+            gum::info!(
+                target: LOG_TARGET,
+                ?relay_parent,
+                session_index,
+                validator_index = ?credentials.validator_index,
+                tallies_submitted = approvals_tallies.len(),
+                "successfully submitted approval statistics to runtime"
+            );
         },
         Err(e) => {
-            gum::warn!(
+            gum::error!(
 				target: LOG_TARGET,
-				"error occurred during submitting a approvals rewards tallies: {:?}",
-				e,
+                ?relay_parent,
+                session_index,
+                validator_index = ?credentials.validator_index,
+				error = ?e,
+				"error occurred during submitting approval rewards tallies"
 			);
         },
     }

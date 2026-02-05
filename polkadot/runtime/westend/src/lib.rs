@@ -1444,9 +1444,14 @@ impl parachains_paras::Config for Runtime {
 	>;
 }
 
+parameter_types! {
+	pub const MaxTalliesPerSubmission: u32 = 1024;
+}
+
 impl parachains_approvals_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
+	type WeightInfo = weights::polkadot_runtime_parachains_approvals_rewards::WeightInfo<Runtime>;
+	type MaxTalliesPerSubmission = MaxTalliesPerSubmission;
 }
 
 parameter_types! {
