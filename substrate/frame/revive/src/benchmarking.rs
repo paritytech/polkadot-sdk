@@ -1548,7 +1548,9 @@ mod benchmarks {
 	/// Benchmark for reading storage when the key is not cached (cold read).
 	/// PoV should scale with n since the storage proof includes the value.
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn seal_get_storage_cold(n: Linear<0, { limits::STORAGE_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_get_storage_cold(
+		n: Linear<0, { limits::STORAGE_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let max_key_len = limits::STORAGE_KEY_BYTES;
 		let key = Key::try_from_var(vec![0u8; max_key_len as usize])
 			.map_err(|_| "Key has wrong length")?;
