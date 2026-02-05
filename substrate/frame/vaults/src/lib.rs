@@ -611,7 +611,14 @@ pub mod pallet {
 		/// Stablecoin (pUSD) was minted against vault collateral.
 		Minted { owner: T::AccountId, amount: BalanceOf<T> },
 		/// Debt (pUSD) was repaid and burned.
-		Repaid { owner: T::AccountId, amount: BalanceOf<T> },
+		Repaid {
+			/// The vault owner who repaid debt.
+			owner: T::AccountId,
+			/// Principal portion burned.
+			principal: BalanceOf<T>,
+			/// Interest portion burned.
+			interest: BalanceOf<T>,
+		},
 		/// Excess pUSD returned when repayment exceeded debt.
 		ReturnedExcess { owner: T::AccountId, amount: BalanceOf<T> },
 		/// A vault entered liquidation due to undercollateralization.
@@ -1119,7 +1126,7 @@ pub mod pallet {
 		/// ## Events
 		///
 		/// - [`Event::InterestAccrued`]: Emitted if stability fees were accrued before repayment.
-		/// - [`Event::Repaid`]: Emitted for principal portion burned.
+		/// - [`Event::Repaid`]: Emitted when debt (interest and/or principal) is burned.
 		/// - [`Event::ReturnedExcess`]: Emitted if `amount` exceeded total obligation.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::repay())]
@@ -1170,9 +1177,13 @@ pub mod pallet {
 						Fortitude::Force,
 					)?;
 					vault.principal = vault.principal.saturating_sub(principal_to_pay);
+				}
+
+				if !interest_to_pay.is_zero() || !principal_to_pay.is_zero() {
 					Self::deposit_event(Event::Repaid {
 						owner: who.clone(),
-						amount: principal_to_pay,
+						principal: principal_to_pay,
+						interest: interest_to_pay,
 					});
 				}
 

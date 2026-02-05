@@ -465,6 +465,7 @@ mod repay {
 	/// Users can repay any portion of their debt at any time.
 	/// The repaid pUSD is burned (removed from circulation), reducing
 	/// the vault's debt and improving its collateralization ratio.
+	/// When interest has accrued, repayment covers interest first, then principal.
 	#[test]
 	fn works_partial_repayment() {
 		new_test_ext().execute_with(|| {
@@ -472,24 +473,57 @@ mod repay {
 			// 100 DOT = 421 USD, max mint at 200% = 210.5 pUSD
 			let deposit = 100 * DOT;
 			let mint_amount = 200 * PUSD;
-			let repay_amount = 80 * PUSD;
+			let first_repay = 80 * PUSD;
 
 			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
 			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
-			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), repay_amount));
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), first_repay));
 
 			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
-			assert_eq!(vault.principal, mint_amount - repay_amount);
-
-			// Check pUSD was burned
-			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), mint_amount - repay_amount);
+			assert_eq!(vault.principal, mint_amount - first_repay);
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), mint_amount - first_repay);
 
 			System::assert_has_event(
-				Event::<Test>::Repaid { owner: ALICE, amount: repay_amount }.into(),
+				Event::<Test>::Repaid { owner: ALICE, principal: first_repay, interest: 0 }.into(),
+			);
+
+			// Advance time to accrue interest
+			jump_to_block(5_256_000);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			let principal_before = vault.principal;
+			assert!(interest > 0, "Interest should have accrued");
+
+			// Repay amount that covers all interest + some principal
+			let principal_to_repay = 50 * PUSD;
+			let second_repay = interest + principal_to_repay;
+
+			// Alice needs extra pUSD to cover interest
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(ALICE),
+				STABLECOIN_ASSET_ID,
+				ALICE,
+				interest
+			));
+
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), second_repay));
+
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault_after.accrued_interest, 0, "Interest should be fully paid");
+			assert_eq!(
+				vault_after.principal,
+				principal_before - principal_to_repay,
+				"Principal should be reduced by the remainder"
+			);
+
+			System::assert_has_event(
+				Event::<Test>::Repaid { owner: ALICE, principal: principal_to_repay, interest }
+					.into(),
 			);
 		});
 	}
-
 	/// **Test: Overpayment is capped to actual debt**
 	///
 	/// If a user tries to repay more than they owe (but has sufficient balance),
