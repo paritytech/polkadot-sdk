@@ -1015,7 +1015,7 @@ where
 		let number = block.header.number();
 
 		if should_skip_verification(&*self.client, &block) {
-			return Ok(block)
+			return Ok(block);
 		}
 
 		debug!(
@@ -1234,7 +1234,7 @@ where
 		block: &mut BlockImportParams<Block>,
 	) -> Result<(), ConsensusError> {
 		if should_skip_verification(&*self.client, block) {
-			return Ok(())
+			return Ok(());
 		}
 
 		let parent_hash = *block.header.parent_hash();
@@ -1511,7 +1511,7 @@ where
 			if slot <= parent_slot {
 				return Err(ConsensusError::ClientImport(
 					babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-				))
+				));
 			}
 
 			let mut epoch_changes = self.epoch_changes.shared_data_locked();

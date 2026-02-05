@@ -1075,7 +1075,7 @@ where
 		let Some(gap_sync) = &self.gap_sync else { return };
 
 		if gap_sync.target != number {
-			return
+			return;
 		}
 
 		info!(
