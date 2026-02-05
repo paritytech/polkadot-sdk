@@ -60,7 +60,20 @@ use std::{
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
+/// The number of times the same peer is allowed to send us the same request before we consider it
+/// as spamming. This is a heuristic to avoid banning peers that are legitimately trying to sync,
+/// but are sending us the same request multiple times because of network issues or because they are
+/// not aware that we have already processed their request.
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
+
+/// The number of times the same peer is allowed to send us a request that we cannot fulfill.
+/// This means the peer is legitimately trying to sync, however we can't provide any response
+/// because we don't have the requested blocks.
+///
+/// Similar to `MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER_NOT_FOUND`, however we cannot fullfil the
+/// request.
+const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER_NOT_FOUND: usize =
+	MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER * 16;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -142,6 +155,9 @@ enum SeenRequestsValue {
 	First,
 	/// We have fulfilled the request `n` times.
 	Fulfilled(usize),
+	/// The node cannot serve the request, because our node doesn't have it around.
+	/// Keep track of this to avoid banning peers that are requesting blocks that we don't have.
+	NotFound(usize),
 }
 
 /// The full block server implementation of [`BlockServer`]. It handles
@@ -272,6 +288,17 @@ where
 					});
 				}
 			},
+			Some(SeenRequestsValue::NotFound(ref mut requests)) => {
+				*requests = requests.saturating_add(1);
+
+				if *requests > MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER_NOT_FOUND {
+					reputation_change = Some(if small_request {
+						rep::SAME_SMALL_REQUEST
+					} else {
+						rep::SAME_REQUEST
+					});
+				}
+			},
 			None => {
 				self.seen_requests.insert(key.clone(), SeenRequestsValue::First);
 			},
@@ -305,6 +332,16 @@ where
 					// it to `Fulfilled`.
 					if let SeenRequestsValue::First = value {
 						*value = SeenRequestsValue::Fulfilled(1);
+					}
+				}
+			} else {
+				if let Some(value) = self.seen_requests.get(&key) {
+					// If we cannot fulfill the request because we don't have the blocks, we set it
+					// to `NotFound`. This allows us to distinguish between peers that are
+					// spamming us with the same request and peers that are requesting blocks
+					// that we don't have.
+					if let SeenRequestsValue::First = value {
+						*value = SeenRequestsValue::NotFound(1);
 					}
 				}
 			}
