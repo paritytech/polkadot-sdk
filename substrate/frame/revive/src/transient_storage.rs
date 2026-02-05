@@ -29,7 +29,7 @@ use frame_support::DefaultNoBound;
 use sp_runtime::{DispatchError, DispatchResult, Saturating};
 
 /// Meter entry tracks transaction allocations.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MeterEntry {
 	/// Allocations made in the current transaction.
 	pub amount: u32,
@@ -56,7 +56,7 @@ impl MeterEntry {
 
 // The storage meter enforces a limit for each transaction,
 // which is calculated as free_storage * (1 - 1/16) for each subsequent frame.
-#[derive(DefaultNoBound)]
+#[derive(DefaultNoBound, Clone)]
 pub struct StorageMeter<T: Config> {
 	nested_meters: Vec<MeterEntry>,
 	root_meter: MeterEntry,
@@ -132,6 +132,7 @@ impl<T: Config> StorageMeter<T> {
 }
 
 /// An entry representing a journal change.
+#[derive(Clone)]
 struct JournalEntry {
 	key: Vec<u8>,
 	prev_value: Option<Vec<u8>>,
@@ -150,6 +151,7 @@ impl JournalEntry {
 }
 
 /// A journal containing transient storage modifications.
+#[derive(Clone)]
 struct Journal(Vec<JournalEntry>);
 
 impl Journal {
@@ -175,7 +177,7 @@ impl Journal {
 }
 
 /// Storage for maintaining the current transaction state.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Storage(BTreeMap<Vec<u8>, Vec<u8>>);
 
 impl Storage {
@@ -203,6 +205,7 @@ impl Storage {
 /// recorded in the journal (`write`). When the `commit_transaction` function is called, the marker
 /// to the journal index (checkpoint) of when that call was entered is discarded.
 /// On `rollback_transaction`, all entries are reverted up to the last checkpoint.
+#[derive(Clone)]
 pub struct TransientStorage<T: Config> {
 	// The storage and journal size is limited by the storage meter.
 	storage: Storage,

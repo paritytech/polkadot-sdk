@@ -75,7 +75,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -113,7 +113,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -185,7 +185,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		log::trace!(target: "whatiwant", "{weight_consumed}");
 		if let Ok(return_value) = result {
@@ -224,7 +224,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
