@@ -117,10 +117,10 @@ pub enum TransactionLimits<T: Config> {
 	EthereumGas {
 		/// The Ethereum gas limit
 		eth_gas_limit: BalanceOf<T>,
-		/// If this is provided, we will additionally ensure that execution will not exhaust this
+		/// The weight limit for this transaction. This ensures that execution will not exhaust
 		/// weight limit. This is required for eth_transact extrinsic execution to ensure that the
 		/// max extrinsic weights is not overstepped.
-		maybe_weight_limit: Option<Weight>,
+		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
 	},
@@ -481,8 +481,8 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, maybe_weight_limit, eth_tx_info } =>
-				math::ethereum_execution::new_root(eth_gas_limit, maybe_weight_limit, eth_tx_info),
+			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } =>
+				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info),
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
 				math::substrate_execution::new_root(weight_limit, deposit_limit),
 		}?;
