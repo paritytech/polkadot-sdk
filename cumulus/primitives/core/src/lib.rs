@@ -465,6 +465,33 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
+/// A relay chain storage key to be included in the storage proof.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq)]
+pub enum RelayStorageKey {
+	/// Top-level relay chain storage key.
+	Top(Vec<u8>),
+	/// Child trie storage key.
+	Child {
+		/// Unprefixed storage key identifying the child trie root location.
+		/// Prefix `:child_storage:default:` is added when accessing storage.
+		/// Used to derive `ChildInfo` for reading child trie data.
+		/// Usage: let child_info = ChildInfo::new_default(&storage_key);
+		storage_key: Vec<u8>,
+		/// Key within the child trie.
+		key: Vec<u8>,
+	},
+}
+
+/// Request for proving relay chain storage data.
+///
+/// Contains a list of storage keys (either top-level or child trie keys)
+/// to be included in the relay chain state proof.
+#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq, Eq, Default)]
+pub struct RelayProofRequest {
+	/// Storage keys to include in the relay chain state proof.
+	pub keys: Vec<RelayStorageKey>,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -511,5 +538,16 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Returns the target number of blocks per relay chain slot.
 		fn target_block_rate() -> u32;
+	}
+
+	/// API for specifying which relay chain storage data to include in storage proofs.
+	///
+	/// This API allows parachains to request both top-level relay chain storage keys
+	/// and child trie storage keys to be included in the relay chain state proof.
+	pub trait KeyToIncludeInRelayProof {
+		/// Returns relay chain storage proof requests.
+		///
+		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
+		fn keys_to_prove() -> RelayProofRequest;
 	}
 }

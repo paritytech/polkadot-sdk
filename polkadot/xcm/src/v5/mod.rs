@@ -186,8 +186,9 @@ pub mod prelude {
 			InstructionError, InstructionIndex, InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
-			Location, MaxAssetTransferFilters, MaybeErrorCode,
+			Location, MaxAssetTransferFilters, MaxPublishItems, MaybeErrorCode,
 			NetworkId::{self, *},
+			PublishData, PublishKey,
 			OriginKind, Outcome, PalletInfo, Parent, ParentThen, PreparedMessage, QueryId,
 			QueryResponseInfo, Reanchorable, Response, Result as XcmResult, SendError, SendResult,
 			SendXcm, Weight,
@@ -211,7 +212,17 @@ parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
 	pub MaxPalletsInfo: u32 = 64;
 	pub MaxAssetTransferFilters: u32 = 6;
+	pub MaxPublishItems: u32 = 10;
+	pub MaxPublishValueLength: u32 = 1024;
 }
+
+/// Key type for published data - a 32-byte hash
+pub type PublishKey = [u8; 32];
+
+pub type PublishData = BoundedVec<
+	(PublishKey, BoundedVec<u8, MaxPublishValueLength>),
+	MaxPublishItems,
+>;
 
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
@@ -1139,6 +1150,26 @@ pub enum Instruction<Call> {
 	/// - `hints`: A bounded vector of `ExecutionHint`, specifying the different hints that will
 	/// be activated.
 	SetHints { hints: BoundedVec<Hint, HintNumVariants> },
+
+	/// Publish data to the relay chain for other parachains to access.
+	///
+	/// This instruction allows parachains to publish key-value data pairs to the relay chain
+	/// which are stored in child tries on the relay chain indexed by the publisher's ParaId.
+	///
+	/// - `data`: The key-value pairs to be published, bounded by MaxPublishItems
+	///   - Keys: 32-byte hashes 
+	///   - Values: Bounded by MaxPublishValueLength
+	///
+	/// Safety: Origin must be a parachain (Sovereign Account). The relay chain will validate
+	/// the origin and store data in the appropriate child trie.
+	///
+	/// Kind: *Command*
+	///
+	/// Errors:
+	/// - NoPermission: If origin is not authorized by the configured filter
+	/// - BadOrigin: If origin is not a valid parachain
+	/// - PublishFailed: If the underlying handler fails 
+	Publish { data: PublishData },
 }
 
 #[derive(
@@ -1241,6 +1272,7 @@ impl<Call> Instruction<Call> {
 				InitiateTransfer { destination, remote_fees, preserve_origin, assets, remote_xcm },
 			ExecuteWithOrigin { descendant_origin, xcm } =>
 				ExecuteWithOrigin { descendant_origin, xcm: xcm.into() },
+			Publish { data } => Publish { data },
 		}
 	}
 }
@@ -1316,6 +1348,7 @@ impl<Call, W: XcmWeightInfo<Call>> GetWeight<W> for Instruction<Call> {
 				W::initiate_transfer(destination, remote_fees, preserve_origin, assets, remote_xcm),
 			ExecuteWithOrigin { descendant_origin, xcm } =>
 				W::execute_with_origin(descendant_origin, xcm),
+			Publish { data } => W::publish(data),
 		}
 	}
 }

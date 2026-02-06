@@ -108,6 +108,23 @@ pub mod pallet {
 				crate_version: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::crate_version(),
 			}
 		}
+
+		/// Return a valid origin for `Publish` benchmark.
+		///
+		/// Should return a parachain origin that is allowed by the BroadcastHandler filter.
+		/// If set to `Err`, benchmarks which rely on publish will be skipped.
+		fn publish_origin() -> Result<Location, BenchmarkError> {
+			// Avoid having to set on every runtime that does not want to recieve publish.
+			Err(BenchmarkError::Skip)
+		}
+
+		/// Ensure the publisher from the given origin is registered.
+		/// This should register the parachain as a publisher if not already registered.
+		/// If set to `Err`, benchmarks which rely on publish will be skipped.
+		fn ensure_publisher_registered(_origin: &Location) -> Result<(), BenchmarkError> {
+			// Avoid having to set on every runtime that does not want to recieve publish.
+			Err(BenchmarkError::Skip)
+		}
 	}
 
 	#[pallet::pallet]

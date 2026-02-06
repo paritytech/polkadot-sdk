@@ -271,4 +271,8 @@ impl<Call> XcmWeightInfo<Call> for AssetHubRococoXcmWeight<Call> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
+	fn publish(_data: &PublishData) -> Weight {
+		// AssetHubRococo does not currently support Publish operations
+		Weight::MAX
+	}
 }

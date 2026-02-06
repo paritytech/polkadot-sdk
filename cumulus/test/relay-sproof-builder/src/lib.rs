@@ -247,6 +247,9 @@ impl RelayStateSproofBuilder {
 			);
 			insert(relay_chain::well_known_keys::CURRENT_SLOT.to_vec(), self.current_slot.encode());
 
+			let (alice_key, alice_data) = generate_alice_account();
+			insert(alice_key, alice_data);
+
 			for (key, value) in self.additional_key_values {
 				insert(key, value);
 			}
@@ -271,6 +274,21 @@ fn convert_to_authority_weight_pair(
 		.iter()
 		.map(|auth| (auth.public().into(), Default::default()))
 		.collect()
+}
+
+/// Include to avoid `KeyToIncludeInRelayProof` test on test-pallet to break unit tests.
+fn generate_alice_account() -> (Vec<u8>, Vec<u8>) {
+	use codec::Encode;
+	use sp_keyring::Sr25519Keyring;
+
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let mut alice_key = sp_io::hashing::twox_128(b"System").to_vec();
+	alice_key.extend_from_slice(&sp_io::hashing::twox_128(b"Account"));
+	alice_key.extend_from_slice(&sp_io::hashing::blake2_128(&alice.encode()));
+	alice_key.extend_from_slice(&alice.encode());
+
+	let alice_account = (0u32, 0u32, 1u32, 0u32, 25_000_000_000_000u128, 0u128, 0u128, 0u128);
+	(alice_key, alice_account.encode())
 }
 
 /// Add a BABE pre-digest to a generic header

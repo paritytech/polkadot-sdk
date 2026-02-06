@@ -591,6 +591,7 @@ impl parachains_initializer::Config for Runtime {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type CoretimeOnNewSession = Coretime;
+	type OnNewSessionOutgoing = ();
 }
 
 impl parachains_session_info::Config for Runtime {

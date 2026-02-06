@@ -50,6 +50,8 @@ mod hrmp;
 pub use hrmp::{
 	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
 };
+mod broadcast_handler;
+pub use broadcast_handler::BroadcastHandler;
 mod event_emitter;
 mod record_xcm;
 mod weight;

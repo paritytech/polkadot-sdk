@@ -302,4 +302,8 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
 	}
+	fn publish(_data: &PublishData) -> Weight {
+		// AssetHubWestend does not currently support Publish operations
+		Weight::MAX
+	}
 }
