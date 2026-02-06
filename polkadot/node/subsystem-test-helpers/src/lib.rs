@@ -80,10 +80,11 @@ impl<T> Sink<T> for SingleItemSink<T> {
 		let mut state = self.0.lock();
 
 		match *state {
-			SinkState::Empty { ref mut read_waker } =>
+			SinkState::Empty { ref mut read_waker } => {
 				if let Some(waker) = read_waker.take() {
 					waker.wake();
-				},
+				}
+			},
 			_ => panic!("start_send called outside of empty sink state ensured by poll_ready"),
 		}
 

@@ -311,8 +311,9 @@ impl<E> Instance<E> {
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
-			Err(Error::Revert(msg)) =>
-				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() }),
+			Err(Error::Revert(msg)) => {
+				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() })
+			},
 			Err(Error::Panic(kind)) => Ok(ExecReturnValue {
 				flags: ReturnFlags::REVERT,
 				data: Panic::from(kind).abi_encode(),

@@ -77,8 +77,9 @@ impl PeerId {
 	pub fn from_multihash(multihash: Multihash) -> Result<PeerId, Multihash> {
 		match Code::try_from(multihash.code()) {
 			Ok(Code::Sha2_256) => Ok(PeerId { multihash }),
-			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH =>
-				Ok(PeerId { multihash }),
+			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH => {
+				Ok(PeerId { multihash })
+			},
 			_ => Err(multihash),
 		}
 	}

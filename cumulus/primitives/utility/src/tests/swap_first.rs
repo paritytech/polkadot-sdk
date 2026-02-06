@@ -538,12 +538,14 @@ pub mod mock {
 			a: &Asset,
 		) -> core::result::Result<(AssetId, Balance), xcm_executor::traits::Error> {
 			match a {
-				Asset { fun: Fungible(amount), id: AssetId(inner_location) } =>
+				Asset { fun: Fungible(amount), id: AssetId(inner_location) } => {
 					match inner_location.unpack() {
-						(0, [Junction::GeneralIndex(id)]) =>
-							Ok(((*id).try_into().unwrap(), *amount)),
+						(0, [Junction::GeneralIndex(id)]) => {
+							Ok(((*id).try_into().unwrap(), *amount))
+						},
 						_ => Err(xcm_executor::traits::Error::AssetNotHandled),
-					},
+					}
+				},
 				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
 			}
 		}

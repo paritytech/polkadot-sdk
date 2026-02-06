@@ -285,12 +285,13 @@ impl Def {
 
 		// ensure that if `task_enum` is specified, `tasks` is also specified
 		match (&task_enum, &tasks) {
-			(Some(_), None) =>
+			(Some(_), None) => {
 				return Err(syn::Error::new(
 					*item_span,
 					"Missing `#[pallet::tasks_experimental]` impl",
-				)),
-			(None, Some(tasks)) =>
+				))
+			},
+			(None, Some(tasks)) => {
 				if tasks.tasks_attr.is_none() {
 					return Err(syn::Error::new(
 						tasks.item_impl.impl_token.span(),
@@ -298,7 +299,8 @@ impl Def {
 						task enum has been omitted",
 					));
 				} else {
-				},
+				}
+			},
 			_ => (),
 		}
 

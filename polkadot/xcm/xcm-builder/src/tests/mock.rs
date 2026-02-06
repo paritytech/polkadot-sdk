@@ -617,12 +617,15 @@ pub struct TestTicket(LockTraceItem);
 impl Enact for TestTicket {
 	fn enact(self) -> Result<(), LockError> {
 		match &self.0 {
-			LockTraceItem::Lock { unlocker, asset, owner } =>
-				allow_unlock(unlocker.clone(), asset.clone(), owner.clone()),
-			LockTraceItem::Unlock { unlocker, asset, owner } =>
-				disallow_unlock(unlocker.clone(), asset.clone(), owner.clone()),
-			LockTraceItem::Reduce { locker, asset, owner } =>
-				disallow_request_unlock(locker.clone(), asset.clone(), owner.clone()),
+			LockTraceItem::Lock { unlocker, asset, owner } => {
+				allow_unlock(unlocker.clone(), asset.clone(), owner.clone())
+			},
+			LockTraceItem::Unlock { unlocker, asset, owner } => {
+				disallow_unlock(unlocker.clone(), asset.clone(), owner.clone())
+			},
+			LockTraceItem::Reduce { locker, asset, owner } => {
+				disallow_request_unlock(locker.clone(), asset.clone(), owner.clone())
+			},
 			_ => {},
 		}
 		LOCK_TRACE.with(move |l| l.borrow_mut().push(self.0));

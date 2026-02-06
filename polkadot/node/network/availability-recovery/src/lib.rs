@@ -454,10 +454,11 @@ async fn handle_recover<Context>(
 							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
 							true,
 						) |
-						(RecoveryStrategyKind::BackersThenSystematicChunks, _) =>
+						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => {
 							recovery_strategies.push_back(Box::new(FetchFull::new(
 								FetchFullParams { validators: backing_validators.to_vec() },
-							))),
+							)))
+						},
 						_ => {},
 					};
 

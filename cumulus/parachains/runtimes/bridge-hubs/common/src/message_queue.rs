@@ -122,8 +122,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) =>
-				XcmpProcessor::process_message(message, origin, meter, id),
+			Here | Parent | Sibling(_) => {
+				XcmpProcessor::process_message(message, origin, meter, id)
+			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
 			SnowbridgeV2(_) => Err(ProcessMessageError::Unsupported),
 		}
@@ -155,8 +156,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) =>
-				XcmpProcessor::process_message(message, origin, meter, id),
+			Here | Parent | Sibling(_) => {
+				XcmpProcessor::process_message(message, origin, meter, id)
+			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
 			SnowbridgeV2(_) => SnowbridgeProcessorV2::process_message(message, origin, meter, id),
 		}

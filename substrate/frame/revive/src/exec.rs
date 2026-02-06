@@ -910,8 +910,14 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Default::default()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+				Ok(ref output) => {
+					t.exit_child_span(&output, Default::default(), Default::default())
+				},
+				Err(e) => t.exit_child_span_with_error(
+					e.error.into(),
+					Default::default(),
+					Default::default(),
+				),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1063,12 +1069,13 @@ where
 				// is a delegate call or not
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
-					(None, None) =>
+					(None, None) => {
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
-						},
+						}
+					},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
@@ -1365,10 +1372,12 @@ where
 				.unwrap_or_default();
 
 			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) =>
-					executable.execute(self, entry_point, input_data),
-				ExecutableOrPrecompile::Precompile { instance, .. } =>
-					instance.call(input_data, self),
+				ExecutableOrPrecompile::Executable(executable) => {
+					executable.execute(self, entry_point, input_data)
+				},
+				ExecutableOrPrecompile::Precompile { instance, .. } => {
+					instance.call(input_data, self)
+				},
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
@@ -1450,8 +1459,9 @@ where
 					do_transaction()
 				};
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1471,10 +1481,17 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
 
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) => {
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed)
+						},
+						Err(e) => tracer.exit_child_span_with_error(
+							e.error.into(),
+							gas_consumed,
+							weight_consumed,
+						),
 					}
 				});
 
@@ -1495,7 +1512,8 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let weight_consumed = frame_meter.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed, weight_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -2145,8 +2163,14 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Default::default()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+					Ok(ref output) => {
+						t.exit_child_span(&output, Default::default(), Default::default())
+					},
+					Err(e) => t.exit_child_span_with_error(
+						e.error.into(),
+						Default::default(),
+						Default::default(),
+					),
 				});
 
 				result.map(|_| ())

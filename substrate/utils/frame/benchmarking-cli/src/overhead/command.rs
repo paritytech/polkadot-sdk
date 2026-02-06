@@ -279,8 +279,9 @@ impl OverheadCmd {
 		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
 	) -> Result<(GenesisStateHandler, Option<u32>)> {
 		let genesis_builder_to_source = || match self.params.genesis_builder {
-			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
-				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
+			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) => {
+				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone())
+			},
 			Some(GenesisBuilderPolicy::SpecGenesis) | None => {
 				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				SpecGenesisSource::SpecJson
@@ -346,13 +347,14 @@ impl OverheadCmd {
 		}
 
 		match self.params.genesis_builder {
-			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) =>
+			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) => {
 				if chain_spec.is_none() && self.shared_params.chain.is_none() {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
 					));
-				},
+				}
+			},
 			_ => {},
 		};
 		Ok(())

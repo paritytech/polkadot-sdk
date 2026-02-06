@@ -401,10 +401,11 @@ where
 			}
 		},
 		Some(2) => runtime_api.configuration(at_hash)?,
-		_ =>
+		_ => {
 			return Err(sp_blockchain::Error::VersionInvalid(
 				"Unsupported or invalid BabeApi version".to_string(),
-			)),
+			))
+		},
 	};
 	Ok(config)
 }
@@ -791,13 +792,14 @@ where
 		let sinks = &mut self.slot_notification_sinks.lock();
 		sinks.retain_mut(|sink| match sink.try_send((slot, epoch_descriptor.clone())) {
 			Ok(()) => true,
-			Err(e) =>
+			Err(e) => {
 				if e.is_full() {
 					warn!(target: LOG_TARGET, "Trying to notify a slot but the channel is full");
 					true
 				} else {
 					false
-				},
+				}
+			},
 		});
 	}
 
@@ -927,8 +929,9 @@ pub fn find_next_epoch_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, epoch_digest.is_some()) {
-			(Some(ConsensusLog::NextEpochData(_)), true) =>
-				return Err(babe_err(Error::MultipleEpochChangeDigests)),
+			(Some(ConsensusLog::NextEpochData(_)), true) => {
+				return Err(babe_err(Error::MultipleEpochChangeDigests))
+			},
 			(Some(ConsensusLog::NextEpochData(epoch)), false) => epoch_digest = Some(epoch),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -946,8 +949,9 @@ fn find_next_config_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, config_digest.is_some()) {
-			(Some(ConsensusLog::NextConfigData(_)), true) =>
-				return Err(babe_err(Error::MultipleConfigChangeDigests)),
+			(Some(ConsensusLog::NextConfigData(_)), true) => {
+				return Err(babe_err(Error::MultipleConfigChangeDigests))
+			},
 			(Some(ConsensusLog::NextConfigData(config)), false) => config_digest = Some(config),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -1200,11 +1204,12 @@ where
 		let import_result = self.inner.import_block(block).await;
 		let aux = match import_result {
 			Ok(ImportResult::Imported(aux)) => aux,
-			Ok(r) =>
+			Ok(r) => {
 				return Err(ConsensusError::ClientImport(format!(
 					"Unexpected import result: {:?}",
 					r
-				))),
+				)))
+			},
 			Err(r) => return Err(r.into()),
 		};
 
@@ -1271,8 +1276,9 @@ where
 				.get(babe_pre_digest.authority_index() as usize)
 			{
 				Some(author) => author.0.clone(),
-				None =>
-					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
+				None => {
+					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into()))
+				},
 			}
 		};
 		if let Err(err) = self
@@ -1321,12 +1327,14 @@ where
 			.await
 			.map_err(|e| {
 				ConsensusError::Other(Box::new(match e {
-					CheckInherentsError::CreateInherentData(e) =>
-						Error::<Block>::CreateInherents(e),
+					CheckInherentsError::CreateInherentData(e) => {
+						Error::<Block>::CreateInherents(e)
+					},
 					CheckInherentsError::Client(e) => Error::RuntimeApi(e),
 					CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
-					CheckInherentsError::CheckInherentsUnknownError(id) =>
-						Error::CheckInherentsUnhandled(id),
+					CheckInherentsError::CheckInherentsUnknownError(id) => {
+						Error::CheckInherentsUnhandled(id)
+					},
 				}))
 			})?;
 			let (_, inner_body) = new_block.deconstruct();
@@ -1552,18 +1560,21 @@ where
 			match (first_in_epoch, next_epoch_digest.is_some(), next_config_digest.is_some()) {
 				(true, true, _) => {},
 				(false, false, false) => {},
-				(false, false, true) =>
+				(false, false, true) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedConfigChange).into(),
-					)),
-				(true, false, _) =>
+					))
+				},
+				(true, false, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::ExpectedEpochChange(hash, slot)).into(),
-					)),
-				(false, true, _) =>
+					))
+				},
+				(false, true, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedEpochChange).into(),
-					)),
+					))
+				},
 			}
 
 			if let Some(next_epoch_descriptor) = next_epoch_digest {
