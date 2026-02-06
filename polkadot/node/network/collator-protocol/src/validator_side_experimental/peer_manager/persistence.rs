@@ -103,7 +103,7 @@ pub fn metadata_key() -> &'static [u8] {
 /// Returns None if the key doesn't match the expected format.
 pub fn decode_para_key(key: &[u8]) -> Option<ParaId> {
 	if key.len() != 16 || !key.starts_with(REPUTATION_PARA_PREFIX) {
-		return None
+		return None;
 	}
 	let mut bytes = [0u8; 4];
 	bytes.copy_from_slice(&key[12..16]);

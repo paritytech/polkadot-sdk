@@ -415,9 +415,8 @@ async fn extract_last_finalized_from_logs(
 	validator: &zombienet_sdk::NetworkNode,
 ) -> Result<u32, anyhow::Error> {
 	let logs = validator.logs().await?;
-	let persistence_re = Regex::new(
-		r"Periodic persistence completed:.*last_finalized=Some\((\d+)\)",
-	)?;
+	let persistence_re =
+		Regex::new(r"Periodic persistence completed:.*last_finalized=Some\((\d+)\)")?;
 
 	// Find the last occurrence
 	let mut last_finalized: Option<u32> = None;
@@ -437,9 +436,7 @@ async fn extract_para_count_from_persistence_logs(
 	validator: &zombienet_sdk::NetworkNode,
 ) -> Result<u32, anyhow::Error> {
 	let logs = validator.logs().await?;
-	let para_count_re = Regex::new(
-		r"Periodic persistence completed:.*para_count=(\d+)",
-	)?;
+	let para_count_re = Regex::new(r"Periodic persistence completed:.*para_count=(\d+)")?;
 
 	let mut para_count: Option<u32> = None;
 	for line in logs.lines().rev() {

@@ -297,8 +297,9 @@ impl PersistentDb {
 	fn load_metadata(&self) -> Result<Option<StoredMetadata>, PersistenceError> {
 		match self.disk_db.get(self.config.col_reputation_data, metadata_key())? {
 			None => Ok(None),
-			Some(raw) =>
-				StoredMetadata::decode(&mut &raw[..]).map(Some).map_err(PersistenceError::Codec),
+			Some(raw) => {
+				StoredMetadata::decode(&mut &raw[..]).map(Some).map_err(PersistenceError::Codec)
+			},
 		}
 	}
 
@@ -331,15 +332,14 @@ impl PersistentDb {
 		}
 
 		// Get the real finalized block from the DB
-        let current_finalized = self.inner.get_last_finalized();
+		let current_finalized = self.inner.get_last_finalized();
 		let final_log_info = match log_info {
-			Some(LogInfo::Periodic { dirty_para_count, .. }) =>
-				Some(LogInfo::Periodic {
-					total_entries: stats_total_entries,
-					para_count: stats_para_count,
-					dirty_para_count,
-					last_finalized: current_finalized,
-				}),
+			Some(LogInfo::Periodic { dirty_para_count, .. }) => Some(LogInfo::Periodic {
+				total_entries: stats_total_entries,
+				para_count: stats_para_count,
+				dirty_para_count,
+				last_finalized: current_finalized,
+			}),
 			other => other,
 		};
 
@@ -1038,7 +1038,7 @@ mod tests {
 		assert_eq!(db.query(&peer1, &para_id_200).await, None);
 
 		sleep(Duration::from_millis(50)).await;
-        handle.abort();
+		handle.abort();
 		drop(db);
 		let (reloaded, _) =
 			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
@@ -1081,13 +1081,13 @@ mod tests {
 		assert_eq!(db.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
 
 		sleep(Duration::from_millis(50)).await;
-        handle.abort();
+		handle.abort();
 		drop(db);
 		let (reloaded, _) =
 			PersistentDb::new(disk_db, config, 100).await.expect("should reload db");
 
 		assert_eq!(reloaded.query(&peer1, &para_id_100).await, Some(Score::new(20).unwrap()));
-		assert_eq!(reloaded.query(&peer2, &para_id_200).await,  Some(Score::new(75).unwrap()));
+		assert_eq!(reloaded.query(&peer2, &para_id_200).await, Some(Score::new(75).unwrap()));
 	}
 
 	#[tokio::test]

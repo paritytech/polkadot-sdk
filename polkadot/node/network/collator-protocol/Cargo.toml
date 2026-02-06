@@ -31,8 +31,8 @@ polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-tokio-util = { workspace = true }
 tokio.workspace = true
+tokio-util = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

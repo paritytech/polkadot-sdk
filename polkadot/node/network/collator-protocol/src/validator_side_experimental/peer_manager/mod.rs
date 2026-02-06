@@ -36,7 +36,7 @@ pub use backend::Backend;
 use connected::ConnectedPeers;
 #[cfg(test)]
 pub use db::Db;
-pub use persistent_db::{PersistentDb, LogInfo};
+pub use persistent_db::{LogInfo, PersistentDb};
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},

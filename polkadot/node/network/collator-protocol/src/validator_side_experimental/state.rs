@@ -23,7 +23,7 @@ use crate::{
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
-		peer_manager::{Backend, PersistentDb, LogInfo},
+		peer_manager::{Backend, LogInfo, PersistentDb},
 		Metrics, PeerManager,
 	},
 	LOG_TARGET,
@@ -634,18 +634,17 @@ impl State<PersistentDb> {
 	}
 
 	// Persist the reputation database to disk asynchronously.
-    /// Called on periodic timer
-    pub fn persist_to_disk_async(&mut self) {
+	/// Called on periodic timer
+	pub fn persist_to_disk_async(&mut self) {
+		// We pass placeholders; persist_async will calculate the actual stats
+		// inside the method before sending to the background task.
+		let log_info = LogInfo::Periodic {
+			total_entries: 0,
+			para_count: 0,
+			dirty_para_count: self.peer_manager.db.dirty_paras_count(),
+			last_finalized: None,
+		};
 
-        // We pass placeholders; persist_async will calculate the actual stats 
-        // inside the method before sending to the background task.
-        let log_info = LogInfo::Periodic {
-            total_entries: 0,
-            para_count: 0,
-            dirty_para_count: self.peer_manager.db.dirty_paras_count(),
-            last_finalized: None,
-        };
-        
-        self.peer_manager.db.persist_async(Some(log_info));
-    }
+		self.peer_manager.db.persist_async(Some(log_info));
+	}
 }
