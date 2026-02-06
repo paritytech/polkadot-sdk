@@ -330,8 +330,9 @@ where
 				);
 				return Err(error);
 			},
-			Some(Ok(result)) =>
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+			Some(Ok(result)) => {
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
+			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
 		}
 	}
@@ -655,7 +656,6 @@ where
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());
 
-		self.listener.remove_view(finalized_hash);
 		for view in dropped_views {
 			self.listener.remove_view(view);
 			self.dropped_stream_controller.remove_view(view);

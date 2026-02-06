@@ -599,10 +599,12 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		event: THandlerOutEvent<Self>,
 	) {
 		match event {
-			Either::Left(event) =>
-				self.ping.on_connection_handler_event(peer_id, connection_id, event),
-			Either::Right(event) =>
-				self.identify.on_connection_handler_event(peer_id, connection_id, event),
+			Either::Left(event) => {
+				self.ping.on_connection_handler_event(peer_id, connection_id, event)
+			},
+			Either::Right(event) => {
+				self.identify.on_connection_handler_event(peer_id, connection_id, event)
+			},
 		}
 	}
 

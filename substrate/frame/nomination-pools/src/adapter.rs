@@ -99,6 +99,9 @@ pub trait StakeStrategy {
 	}
 
 	/// See [`StakingInterface::current_era`].
+	///
+	/// Note: Named current_era for legacy interface compatibility. Returns active era which
+	/// should be used for all non-election staking logic.
 	fn current_era() -> EraIndex {
 		Self::CoreStaking::current_era()
 	}

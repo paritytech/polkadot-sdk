@@ -468,12 +468,12 @@ async fn distribute_collation<Context>(
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
 		None => {
-			gum::debug!(
+			gum::warn!(
 				target: LOG_TARGET,
 				para_id = %id,
 				candidate_relay_parent = %candidate_relay_parent,
 				candidate_hash = ?candidate_hash,
-				"Candidate relay parent is out of our view",
+				"Dropping candidate: candidate relay parent is out of our view",
 			);
 			return Ok(());
 		},
@@ -1205,8 +1205,9 @@ async fn handle_incoming_request<Context>(
 			};
 
 			let collation_with_core = match &req {
-				VersionedCollationRequest::V2(req) =>
-					per_relay_parent.collations.get_mut(&req.payload.candidate_hash),
+				VersionedCollationRequest::V2(req) => {
+					per_relay_parent.collations.get_mut(&req.payload.candidate_hash)
+				},
 			};
 			let (receipt, pov, parent_head_data) =
 				if let Some(collation_with_core) = collation_with_core {
@@ -1721,7 +1722,7 @@ fn process_out_of_view_collation(
 	let candidate_hash = collation.receipt.hash();
 
 	match collation.status {
-		CollationStatus::Created =>
+		CollationStatus::Created => {
 			if is_same_session {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1736,7 +1737,8 @@ fn process_out_of_view_collation(
 					pov_hash = ?collation.pov.hash(),
 					"Collation wasn't advertised because it was built on a relay chain block that is now part of an old session.",
 				)
-			},
+			}
+		},
 		CollationStatus::Advertised => gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,
@@ -1757,7 +1759,7 @@ fn process_out_of_view_collation(
 	let Some(mut stats) = collation_with_core.take_stats() else { return };
 
 	// If the collation stats are still available, it means it was never
-	// succesfully fetched, even if a fetch request was received, but not succeed.
+	// successfully fetched, even if a fetch request was received, but not succeed.
 	//
 	// Will expire in it's current state at the next block import.
 	stats.set_pre_backing_status(collation_status);

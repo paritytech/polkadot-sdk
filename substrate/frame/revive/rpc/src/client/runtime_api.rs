@@ -73,8 +73,9 @@ impl RuntimeApi {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
-				Some(Timestamp::current().as_millis()),
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
+				Some(Timestamp::current().as_millis())
+			},
 			_ => None,
 		};
 
