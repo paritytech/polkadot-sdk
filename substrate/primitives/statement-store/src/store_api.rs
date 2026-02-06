@@ -68,11 +68,13 @@ impl OptimizedTopicFilter {
 	pub fn matches(&self, statement: &Statement) -> bool {
 		match self {
 			OptimizedTopicFilter::Any => true,
-			OptimizedTopicFilter::MatchAll(topics) =>
+			OptimizedTopicFilter::MatchAll(topics) => {
 				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
-					topics.len(),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				statement.topics().iter().any(|topic| topics.contains(topic)),
+					topics.len()
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				statement.topics().iter().any(|topic| topics.contains(topic))
+			},
 		}
 	}
 }

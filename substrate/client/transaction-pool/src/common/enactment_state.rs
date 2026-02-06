@@ -107,8 +107,9 @@ where
 		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_best_block)) {
-				(Ok(Some(new)), Ok(Some(current))) =>
-					new.saturating_sub(current) > SKIP_MAINTENANCE_THRESHOLD.into(),
+				(Ok(Some(new)), Ok(Some(current))) => {
+					new.saturating_sub(current) > SKIP_MAINTENANCE_THRESHOLD.into()
+				},
 				_ => true,
 			};
 

@@ -1696,7 +1696,7 @@ impl<T: Config> Pallet<T> {
 					)?;
 					executable
 				},
-				Code::Upload(code) =>
+				Code::Upload(code) => {
 					if T::AllowEVMBytecode::get() {
 						ensure!(data.is_empty(), <Error<T>>::EvmConstructorNonEmptyData);
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
@@ -1704,7 +1704,8 @@ impl<T: Config> Pallet<T> {
 						executable
 					} else {
 						return Err(<Error<T>>::CodeRejected.into());
-					},
+					}
+				},
 				Code::Existing(code_hash) => {
 					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
@@ -2135,10 +2136,12 @@ impl<T: Config> Pallet<T> {
 	{
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(config.unwrap_or_default()).into(),
-			TracerType::PrestateTracer(config) =>
-				PrestateTracer::new(config.unwrap_or_default()).into(),
-			TracerType::ExecutionTracer(config) =>
-				ExecutionTracer::new(config.unwrap_or_default()).into(),
+			TracerType::PrestateTracer(config) => {
+				PrestateTracer::new(config.unwrap_or_default()).into()
+			},
+			TracerType::ExecutionTracer(config) => {
+				ExecutionTracer::new(config.unwrap_or_default()).into()
+			},
 		}
 	}
 

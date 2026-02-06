@@ -346,8 +346,9 @@ macro_rules! impl_versioned_validation_try_from {
 			fn try_from(x: &'a $from) -> Result<$out, Self::Error> {
 				#[allow(unreachable_patterns)] // when there is only one variant
 				match x {
-					ValidationProtocols::V3($v3_pat) =>
-						Ok(ValidationProtocols::V3($v3_out.clone())),
+					ValidationProtocols::V3($v3_pat) => {
+						Ok(ValidationProtocols::V3($v3_out.clone()))
+					},
 					_ => Err(crate::WrongVariant),
 				}
 			}

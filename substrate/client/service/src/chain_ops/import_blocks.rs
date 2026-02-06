@@ -392,11 +392,12 @@ where
 									state = Some(ImportState::Reading { block_iter });
 								}
 							},
-							Err(e) =>
+							Err(e) => {
 								return Poll::Ready(Err(Error::Other(format!(
 									"Error reading block #{}: {}",
 									read_block_count, e
-								)))),
+								))))
+							},
 						}
 					},
 				}

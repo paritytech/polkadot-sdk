@@ -247,8 +247,9 @@ impl Proof {
 		match self {
 			Proof::Sr25519 { signer, .. } => *signer,
 			Proof::Ed25519 { signer, .. } => *signer,
-			Proof::Secp256k1Ecdsa { signer, .. } =>
-				<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer).into(),
+			Proof::Secp256k1Ecdsa { signer, .. } => {
+				<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer).into()
+			},
 			Proof::OnChain { who, .. } => *who,
 		}
 	}

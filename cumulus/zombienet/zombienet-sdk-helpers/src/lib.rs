@@ -240,8 +240,9 @@ fn identifier_matches_header(
 			let header_hash = BlakeTwo256::hash(&header.encode());
 			header_hash == *hash
 		},
-		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
-			header.state_root == *storage_root,
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } => {
+			header.state_root == *storage_root
+		},
 	}
 }
 
