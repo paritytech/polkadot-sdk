@@ -371,33 +371,6 @@ impl PersistentDb {
 		}
 	}
 
-	/// Persist a single para's data to disk (called immediately after slash).
-	// fn persist_para(&self, para_id: &ParaId) -> Result<(), PersistenceError> {
-	// 	let mut tx = DBTransaction::new();
-	// 	let key = para_reputation_key(*para_id);
-	//
-	// 	let peer_scores = self.inner.get_para_reputations(para_id);
-	// 	if peer_scores.is_empty() {
-	// 		tx.delete(self.config.col_reputation_data, &key);
-	// 		gum::trace!(
-	// 			target: LOG_TARGET,
-	// 			?para_id,
-	// 			"Deleted para reputation entry from disk"
-	// 		);
-	// 	} else {
-	// 		let stored: StoredParaReputations = peer_scores.into();
-	// 		tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-	// 		gum::trace!(
-	// 			target: LOG_TARGET,
-	// 			?para_id,
-	// 			peers = stored.entries.len(),
-	// 			"Persisted para reputation to disk"
-	// 		);
-	// 	}
-	//
-	// 	self.disk_db.write(tx).map_err(PersistenceError::Io)
-	//}
-
 	/// Synchronous persist for shutdown
 	pub fn persist(&mut self) -> Result<(), PersistenceError> {
 		let mut tx = DBTransaction::new();
