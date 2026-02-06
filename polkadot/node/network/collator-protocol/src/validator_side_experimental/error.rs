@@ -47,6 +47,9 @@ pub enum Error {
 	#[fatal]
 	#[error("Failed to initialize reputation database: {0}")]
 	ReputationDbInit(String),
+	#[fatal]
+	#[error("Failed to spawn background task: {0}")]
+    SpawnTask(String),
 	#[error("Unable to retrieve block number for {0:?} from implicit view")]
 	BlockNumberNotFoundInImplicitView(Hash),
 	#[fatal(forward)]

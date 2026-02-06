@@ -72,8 +72,9 @@ pub(crate) async fn run<Context>(
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
-	let persist_interval =
-		reputation_config.persist_interval.unwrap_or(Duration::from_secs(DEFAULT_PERSIST_INTERVAL_SECS));
+	let persist_interval = reputation_config
+		.persist_interval
+		.unwrap_or(Duration::from_secs(DEFAULT_PERSIST_INTERVAL_SECS));
 	gum::info!(
 		LOG_TARGET,
 		persist_interval_secs = persist_interval.as_secs(),
@@ -114,14 +115,14 @@ async fn initialize<Context>(
 		let scheduled_paras = collation_manager.assignments();
 
 		// Create PersistentDb with disk persistence
-		let backend = match peer_manager::PersistentDb::new(
+		let (backend, task) = match peer_manager::PersistentDb::new(
 			db.clone(),
 			reputation_config,
 			MAX_STORED_SCORES_PER_PARA,
 		)
 		.await
 		{
-			Ok(backend) => backend,
+			Ok(result) => result,
 			Err(e) => {
 				gum::error!(
 					target: LOG_TARGET,
@@ -131,9 +132,15 @@ async fn initialize<Context>(
 				return Err(FatalError::ReputationDbInit(format!(
 					"PersistentDb init failed: {:?}",
 					e
-				)))
+				)));
 			},
 		};
+
+		// Background task for async writes
+		ctx.spawn("collator-reputation-persistence-task", task)
+			.map_err(|e| FatalError::SpawnTask(e.to_string()))?;
+
+		gum::debug!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
@@ -234,7 +241,7 @@ async fn run_inner<Context>(
 			},
 			_ = &mut persistence_timer => {
 				// Periodic persistence - write reputation DB to disk
-				state.persist_to_disk();
+				state.persist_to_disk_async();
 				// Reset the timer for the next interval
 				persistence_timer = create_persistence_timer(persist_interval);
 			},

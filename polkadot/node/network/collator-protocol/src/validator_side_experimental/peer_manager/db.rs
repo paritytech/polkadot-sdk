@@ -233,10 +233,7 @@ impl Db {
 	}
 
 	/// Get reputations for a specific para (for persistence).
-	pub(crate) fn get_para_reputations(
-		&self,
-		para_id: &ParaId,
-	) -> HashMap<PeerId, ScoreEntry> {
+	pub(crate) fn get_para_reputations(&self, para_id: &ParaId) -> HashMap<PeerId, ScoreEntry> {
 		self.db.get(para_id).cloned().unwrap_or_default()
 	}
 
