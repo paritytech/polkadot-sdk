@@ -6,4 +6,4 @@ doc:
     - Turn off runtime logging in bench bot to reduce spam log output
 crates:
 - name: frame-benchmarking-cli
-  bump: minor
+  bump: major
