@@ -669,8 +669,9 @@ mod benchmarks {
 		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
 		// Location conversions.
 		let origin_location: VersionedLocation = match origin_location.unpack() {
-			(0, [AccountId32 { network: _, id }]) =>
-				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
+			(0, [AccountId32 { network: _, id }]) => {
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into()
+			},
 			_ => {
 				tracing::error!(
 					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",

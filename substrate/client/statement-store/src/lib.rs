@@ -23,8 +23,8 @@
 //!
 //! Constraint management.
 //!
-//! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
+//! The statement store validates statements using node-side signature verification and
+//! static runtime allowance limits.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -55,19 +55,18 @@ use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
 use parking_lot::{lock_api::RwLockUpgradableReadGuard, RwLock};
 use prometheus_endpoint::Registry as PrometheusRegistry;
+use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Bytes, Decode, Encode,
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
-	runtime_api::{
-		InvalidStatement, StatementSource, StatementStoreExt, ValidStatement, ValidateStatement,
-	},
+	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
-	OptimizedTopicFilter, Proof, RejectionReason, Result, Statement, SubmitResult, Topic,
+	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
+	StatementAllowance, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -191,31 +190,37 @@ struct Index {
 	total_size: usize,
 }
 
-struct ClientWrapper<Block, Client> {
+struct ClientWrapper<Block, Client, BE> {
 	client: Arc<Client>,
 	_block: std::marker::PhantomData<Block>,
+	_backend: std::marker::PhantomData<BE>,
 }
 
-impl<Block, Client> ClientWrapper<Block, Client>
+impl<Block, Client, BE> ClientWrapper<Block, Client, BE>
 where
 	Block: BlockT,
 	Block::Hash: From<BlockHash>,
-	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-	Client::Api: ValidateStatement<Block>,
+	BE: Backend<Block> + 'static,
+	Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 {
-	fn validate_statement(
+	fn read_allowance(
 		&self,
-		block: Option<BlockHash>,
-		source: StatementSource,
-		statement: Statement,
-	) -> std::result::Result<ValidStatement, InvalidStatement> {
-		let api = self.client.runtime_api();
-		let block = block.map(Into::into).unwrap_or_else(|| {
-			// Validate against the finalized state.
-			self.client.info().finalized_hash
-		});
-		api.validate_statement(block, source, statement)
-			.map_err(|_| InvalidStatement::InternalError)?
+		account_id: &AccountId,
+		block_hash: Option<Block::Hash>,
+	) -> Result<Option<StatementAllowance>> {
+		use sp_statement_store::{statement_allowance_key, StatementAllowance};
+
+		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
+		let key = statement_allowance_key(account_id);
+		let storage_key = StorageKey(key);
+		self.client
+			.storage(block_hash, &storage_key)
+			.map_err(|e| Error::Storage(format!("Failed to read allowance: {:?}", e)))?
+			.map(|value| {
+				StatementAllowance::decode(&mut &value.0[..])
+					.map_err(|e| Error::Decode(format!("Failed to decode allowance: {:?}", e)))
+			})
+			.transpose()
 	}
 }
 
@@ -223,16 +228,10 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	subscription_manager: SubscriptionsHandle,
-	validate_fn: Box<
-		dyn Fn(
-				Option<BlockHash>,
-				StatementSource,
-				Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement>
-			+ Send
-			+ Sync,
+	read_allowance_fn: Box<
+		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
 	>,
+	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
 	time_override: Option<u64>,
@@ -299,10 +298,12 @@ impl Index {
 	) -> Result<()> {
 		match topic {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) =>
-				self.iterate_with_match_all(key, topics.iter(), f),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				self.iterate_with_match_any(key, topics.iter(), f),
+			OptimizedTopicFilter::MatchAll(topics) => {
+				self.iterate_with_match_all(key, topics.iter(), f)
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				self.iterate_with_match_any(key, topics.iter(), f)
+			},
 		}
 	}
 
@@ -462,7 +463,7 @@ impl Index {
 		hash: Hash,
 		statement: &Statement,
 		account: &AccountId,
-		validation: &ValidStatement,
+		validation: &StatementAllowance,
 		current_time: u64,
 	) -> std::result::Result<HashSet<Hash>, RejectionReason> {
 		let statement_len = statement.data_len();
@@ -578,7 +579,7 @@ impl Index {
 impl Store {
 	/// Create a new shared store instance. There should only be one per process.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
-	pub fn new_shared<Block, Client>(
+	pub fn new_shared<Block, Client, BE>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,
@@ -589,8 +590,8 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-		Client::Api: ValidateStatement<Block>,
+		BE: Backend<Block> + 'static,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let store =
 			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
@@ -618,7 +619,7 @@ impl Store {
 	/// Create a new instance.
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
 	#[doc(hidden)]
-	pub fn new<Block, Client>(
+	pub fn new<Block, Client, BE>(
 		path: &std::path::Path,
 		options: Options,
 		client: Arc<Client>,
@@ -629,8 +630,8 @@ impl Store {
 	where
 		Block: BlockT,
 		Block::Hash: From<BlockHash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-		Client::Api: ValidateStatement<Block>,
+		BE: Backend<Block> + 'static,
+		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
@@ -663,15 +664,17 @@ impl Store {
 			},
 		}
 
-		let validator = ClientWrapper { client, _block: Default::default() };
-		let validate_fn = Box::new(move |block, source, statement| {
-			validator.validate_statement(block, source, statement)
-		});
+		let storage_reader =
+			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
+		let read_allowance_fn =
+			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
+				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+			});
 
 		let store = Store {
 			db,
 			index: RwLock::new(Index::new(options)),
-			validate_fn,
+			read_allowance_fn,
 			keystore,
 			time_override: None,
 			metrics: PrometheusMetrics::new(prometheus),
@@ -1165,14 +1168,16 @@ impl StatementStore for Store {
 		}
 
 		match self.index.read().query(&hash) {
-			IndexQuery::Expired =>
+			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::KnownExpired;
-				},
-			IndexQuery::Exists =>
+				}
+			},
+			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::Known;
-				},
+				}
+			},
 			IndexQuery::Unknown => {},
 		}
 
@@ -1186,16 +1191,9 @@ impl StatementStore for Store {
 			return SubmitResult::Invalid(InvalidReason::NoProof);
 		};
 
-		// Validate.
-		let at_block = if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-			Some(*block_hash)
-		} else {
-			None
-		};
-		let validation_result = (self.validate_fn)(at_block, source, statement.clone());
-		let validation = match validation_result {
-			Ok(validation) => validation,
-			Err(InvalidStatement::BadProof) => {
+		match statement.verify_signature() {
+			SignatureVerificationResult::Valid(_) => {},
+			SignatureVerificationResult::Invalid => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Statement validation failed: BadProof, {:?}",
@@ -1204,17 +1202,49 @@ impl StatementStore for Store {
 				self.metrics.report(|metrics| metrics.validations_invalid.inc());
 				return SubmitResult::Invalid(InvalidReason::BadProof);
 			},
-			Err(InvalidStatement::NoProof) => {
+			SignatureVerificationResult::NoSignature => {
+				if let Some(Proof::OnChain { .. }) = statement.proof() {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement with OnChain proof accepted: {:?}",
+						HexDisplay::from(&hash),
+					);
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Statement validation failed: NoProof, {:?}",
+						HexDisplay::from(&hash),
+					);
+					self.metrics.report(|metrics| metrics.validations_invalid.inc());
+					return SubmitResult::Invalid(InvalidReason::NoProof);
+				}
+			},
+		};
+
+		let validation = match (self.read_allowance_fn)(
+			&account_id,
+			statement.proof().and_then(|p| match p {
+				Proof::OnChain { block_hash, .. } => Some(*block_hash),
+				_ => None,
+			}),
+		) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Statement validation failed: NoProof, {:?}",
-					HexDisplay::from(&hash),
+					"Account {} has no statement allowance set",
+					HexDisplay::from(&account_id),
 				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::NoProof);
+				return SubmitResult::Rejected(RejectionReason::NoAllowance);
 			},
-			Err(InvalidStatement::InternalError) =>
-				return SubmitResult::InternalError(Error::Runtime),
+			Err(e) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Reading statement allowance for account {} failed",
+					HexDisplay::from(&account_id),
+				);
+				return SubmitResult::InternalError(e);
+			},
 		};
 
 		let current_time = self.timestamp();
@@ -1329,9 +1359,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		runtime_api::{InvalidStatement, ValidStatement, ValidateStatement},
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, SignatureVerificationResult,
-		Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, Statement, StatementSource,
+		StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1346,48 +1375,116 @@ mod tests {
 	#[derive(Clone)]
 	pub(crate) struct TestClient;
 
-	pub(crate) struct RuntimeApi {
-		_inner: TestClient,
-	}
+	pub(crate) type TestBackend = sc_client_api::in_mem::Backend<Block>;
 
-	impl sp_api::ProvideRuntimeApi<Block> for TestClient {
-		type Api = RuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<'_, Self::Api> {
-			RuntimeApi { _inner: self.clone() }.into()
+	impl sc_client_api::StorageProvider<Block, TestBackend> for TestClient {
+		fn storage(
+			&self,
+			_hash: Hash,
+			key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+			use sp_statement_store::StatementAllowance;
+
+			assert_eq!(&key.0[0..21], b":statement-allowance:" as &[u8],);
+
+			// Extract account ID (32 bytes) from the storage key
+			let account_bytes = &key.0[21..53];
+			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
+			let allowance = match account_id {
+				1 => StatementAllowance::new(1, 1000),
+				2 => StatementAllowance::new(2, 1000),
+				3 => StatementAllowance::new(3, 1000),
+				4 => StatementAllowance::new(4, 1000),
+				42 => StatementAllowance::new(42, (42 * crate::MAX_STATEMENT_SIZE) as u32),
+				_ => StatementAllowance::new(100, 1000),
+			};
+			Ok(Some(sc_client_api::StorageData(allowance.encode())))
 		}
-	}
 
-	sp_api::mock_impl_runtime_apis! {
-		impl ValidateStatement<Block> for RuntimeApi {
-			fn validate_statement(
-				_source: StatementSource,
-				statement: Statement,
-			) -> std::result::Result<ValidStatement, InvalidStatement> {
-				use crate::tests::account;
-				match statement.verify_signature() {
-					SignatureVerificationResult::Valid(_) => Ok(ValidStatement{max_count: 100, max_size: 1000}),
-					SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-					SignatureVerificationResult::NoSignature => {
-						if let Some(Proof::OnChain { block_hash, .. }) = statement.proof() {
-							if block_hash == &CORRECT_BLOCK_HASH {
-								let (max_count, max_size) = match statement.account_id() {
-									Some(a) if a == account(1) => (1, 1000),
-									Some(a) if a == account(2) => (2, 1000),
-									Some(a) if a == account(3) => (3, 1000),
-									Some(a) if a == account(4) => (4, 1000),
-									Some(a) if a == account(42) => (42, 42 * crate::MAX_STATEMENT_SIZE as u32),
-									_ => (2, 2000),
-								};
-								Ok(ValidStatement{ max_count, max_size })
-							} else {
-								Err(InvalidStatement::BadProof)
-							}
-						} else {
-							Err(InvalidStatement::BadProof)
-						}
-					}
-				}
-			}
+		fn storage_hash(
+			&self,
+			_hash: Hash,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<Hash>> {
+			unimplemented!()
+		}
+
+		fn storage_keys(
+			&self,
+			_hash: Hash,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::KeysIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn storage_pairs(
+			&self,
+			_hash: Hash,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::PairsIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn child_storage(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
+			unimplemented!()
+		}
+
+		fn child_storage_keys(
+			&self,
+			_hash: Hash,
+			_child_info: sc_client_api::ChildInfo,
+			_prefix: Option<&sc_client_api::StorageKey>,
+			_start_key: Option<&sc_client_api::StorageKey>,
+		) -> sp_blockchain::Result<
+			sc_client_api::backend::KeysIter<
+				<TestBackend as sc_client_api::Backend<Block>>::State,
+				Block,
+			>,
+		> {
+			unimplemented!()
+		}
+
+		fn child_storage_hash(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<Hash>> {
+			unimplemented!()
+		}
+
+		fn closest_merkle_value(
+			&self,
+			_hash: Hash,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+			unimplemented!()
+		}
+
+		fn child_closest_merkle_value(
+			&self,
+			_hash: Hash,
+			_child_info: &sc_client_api::ChildInfo,
+			_key: &sc_client_api::StorageKey,
+		) -> sp_blockchain::Result<Option<sc_client_api::MerkleValue<Hash>>> {
+			unimplemented!()
 		}
 	}
 
@@ -1426,7 +1523,7 @@ mod tests {
 		let mut path: std::path::PathBuf = temp_dir.path().into();
 		path.push("db");
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,
@@ -1530,7 +1627,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,
@@ -1742,7 +1839,7 @@ mod tests {
 		let client = std::sync::Arc::new(TestClient);
 		let mut path: std::path::PathBuf = temp.path().into();
 		path.push("db");
-		let store = Store::new(
+		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
 			Default::default(),
 			client,

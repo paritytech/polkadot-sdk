@@ -27,12 +27,12 @@ pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
 	Db(String),
-	/// Error decoding statement structure.
-	#[error("Error decoding statement: {0:?}")]
+	/// Decoding error
+	#[error("Decoding error: {0:?}")]
 	Decode(String),
-	/// Error making runtime call.
-	#[error("Error calling into the runtime")]
-	Runtime,
+	/// Error reading from storage.
+	#[error("Storage error: {0:?}")]
+	Storage(String),
 }
 
 /// Filter for subscribing to statements with different topics.
@@ -68,11 +68,13 @@ impl OptimizedTopicFilter {
 	pub fn matches(&self, statement: &Statement) -> bool {
 		match self {
 			OptimizedTopicFilter::Any => true,
-			OptimizedTopicFilter::MatchAll(topics) =>
+			OptimizedTopicFilter::MatchAll(topics) => {
 				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
-					topics.len(),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				statement.topics().iter().any(|topic| topics.contains(topic)),
+					topics.len()
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				statement.topics().iter().any(|topic| topics.contains(topic))
+			},
 		}
 	}
 }
@@ -128,6 +130,8 @@ pub enum RejectionReason {
 	},
 	/// The global statement store is full and cannot accept new statements.
 	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
 }
 
 /// Reason why a statement failed validation.

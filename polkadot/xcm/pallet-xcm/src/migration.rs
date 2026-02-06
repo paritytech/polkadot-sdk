@@ -80,16 +80,19 @@ pub mod data {
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
 			match &self {
-				QueryStatus::Pending { responder, maybe_match_querier, .. } =>
+				QueryStatus::Pending { responder, maybe_match_querier, .. } => {
 					responder.identify_version() < minimal_allowed_xcm_version ||
 						maybe_match_querier
 							.as_ref()
 							.map(|v| v.identify_version() < minimal_allowed_xcm_version)
-							.unwrap_or(false),
-				QueryStatus::VersionNotifier { origin, .. } =>
-					origin.identify_version() < minimal_allowed_xcm_version,
-				QueryStatus::Ready { response, .. } =>
-					response.identify_version() < minimal_allowed_xcm_version,
+							.unwrap_or(false)
+				},
+				QueryStatus::VersionNotifier { origin, .. } => {
+					origin.identify_version() < minimal_allowed_xcm_version
+				},
+				QueryStatus::Ready { response, .. } => {
+					response.identify_version() < minimal_allowed_xcm_version
+				},
 			}
 		}
 

@@ -479,10 +479,11 @@ fn get_wasm_workspace_root() -> PathBuf {
 	loop {
 		match out_dir.parent() {
 			Some(parent) if out_dir.ends_with("build") => return parent.to_path_buf(),
-			_ =>
+			_ => {
 				if !out_dir.pop() {
 					break;
-				},
+				}
+			},
 		}
 	}
 
@@ -1046,8 +1047,9 @@ fn build_bloaty_blob(
 			let elf_path = target_directory.join(&blob_name);
 			let elf_metadata = match elf_path.metadata() {
 				Ok(path) => path,
-				Err(error) =>
-					panic!("internal error: couldn't read the metadata of {elf_path:?}: {error}"),
+				Err(error) => {
+					panic!("internal error: couldn't read the metadata of {elf_path:?}: {error}")
+				},
 			};
 
 			let polkavm_path = target_directory.join(format!("{}.polkavm", blob_name));

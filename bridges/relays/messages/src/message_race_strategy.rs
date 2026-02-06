@@ -221,8 +221,9 @@ where
 	fn best_at_source(&self) -> Option<MessageNonce> {
 		let best_in_queue = self.source_queue.back().map(|(_, range)| range.end());
 		match (best_in_queue, self.best_target_nonce) {
-			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce =>
-				Some(best_in_queue),
+			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce => {
+				Some(best_in_queue)
+			},
 			(_, Some(best_target_nonce)) => Some(best_target_nonce),
 			(_, None) => None,
 		}

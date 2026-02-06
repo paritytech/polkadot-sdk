@@ -89,8 +89,9 @@ async fn initialize<Context>(
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
 		{
-			Ok(peer_manager) =>
-				return Ok(Some(State::new(peer_manager, collation_manager, metrics))),
+			Ok(peer_manager) => {
+				return Ok(Some(State::new(peer_manager, collation_manager, metrics)))
+			},
 			Err(err) => {
 				log_error(Err(err))?;
 				continue;
@@ -207,14 +208,15 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				"DistributeCollation message is not expected on the validator side of the protocol",
 			);
 		},
-		NetworkBridgeUpdate(event) =>
+		NetworkBridgeUpdate(event) => {
 			if let Err(e) = handle_network_msg(sender, state, event).await {
 				gum::warn!(
 					target: LOG_TARGET,
 					err = ?e,
 					"Failed to handle incoming network message",
 				);
-			},
+			}
+		},
 		Seconded(_parent, stmt) => {
 			state.handle_seconded_collation(sender, stmt).await;
 		},

@@ -446,8 +446,9 @@ fn ensure_prep_hash_changes() {
 			PrecheckingMaxMemory(_) => continue,
 			PvfPrepTimeout(_, _) => continue,
 			PvfExecTimeout(_, _) => continue,
-			WasmExtBulkMemory =>
-				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..])),
+			WasmExtBulkMemory => {
+				(ExecutorParams::default(), ExecutorParams::from(&[WasmExtBulkMemory][..]))
+			},
 		};
 
 		assert_ne!(ep1.prep_hash(), ep2.prep_hash());
