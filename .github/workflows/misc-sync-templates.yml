@@ -136,7 +136,6 @@ jobs:
           sudo apt install -y \
             protobuf-compiler \
             clang
-          ls -alh /usr/lib/
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
 
