@@ -248,8 +248,9 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 
 		let result = SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info);
 		match result {
-			Ok(improved_by) =>
-				Ok(Some(VerifiedSubmitFinalityProofInfo { base: call_info, improved_by })),
+			Ok(improved_by) => {
+				Ok(Some(VerifiedSubmitFinalityProofInfo { base: call_info, improved_by }))
+			},
 			Err(Error::<T, I>::OldHeader) => Err(InvalidTransaction::Stale.into()),
 			Err(_) => Err(InvalidTransaction::Call.into()),
 		}

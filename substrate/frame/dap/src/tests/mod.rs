@@ -18,5 +18,4 @@
 //! Tests for the DAP pallet.
 
 mod genesis;
-mod migrations;
 mod on_unbalanced;

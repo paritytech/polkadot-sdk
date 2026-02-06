@@ -93,8 +93,9 @@ impl Check {
 	pub fn is_approved(&self, max_assignment_tick: Tick) -> bool {
 		match *self {
 			Check::Unapproved => false,
-			Check::Approved(_, last_assignment_tick) =>
-				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick),
+			Check::Approved(_, last_assignment_tick) => {
+				last_assignment_tick.map_or(true, |t| t <= max_assignment_tick)
+			},
 			Check::ApprovedOneThird => true,
 		}
 	}

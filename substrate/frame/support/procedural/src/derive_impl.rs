@@ -78,8 +78,9 @@ impl syn::parse::Parse for DeriveImplAttrArgs {
 				(default_impl_path, Some(args.clone()))
 			},
 			Some(PathSegment { arguments: PathArguments::None, .. }) => (default_impl_path, None),
-			_ =>
-				return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path")),
+			_ => {
+				return Err(syn::Error::new(default_impl_path.span(), "Invalid default impl path"))
+			},
 		};
 
 		let lookahead = input.lookahead1();
@@ -229,13 +230,14 @@ fn compute_disambiguation_path(
 ) -> Result<Path> {
 	match (disambiguation_path, foreign_impl.clone().trait_) {
 		(Some(disambiguation_path), _) => Ok(disambiguation_path),
-		(None, Some((_, foreign_impl_path, _))) =>
+		(None, Some((_, foreign_impl_path, _))) => {
 			if default_impl_path.segments.len() > 1 {
 				let scope = default_impl_path.segments.first();
 				Ok(parse_quote!(#scope :: #foreign_impl_path))
 			} else {
 				Ok(foreign_impl_path)
-			},
+			}
+		},
 		_ => Err(syn::Error::new(
 			default_impl_path.span(),
 			"Impl statement must have a defined type being implemented \

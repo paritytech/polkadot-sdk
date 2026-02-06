@@ -182,8 +182,9 @@ impl<
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
 			.map_err(|_| "VersionedMigration post_upgrade failed to decode PreUpgradeData")?
 		{
-			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) =>
-				Inner::post_upgrade(inner_bytes),
+			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) => {
+				Inner::post_upgrade(inner_bytes)
+			},
 			VersionedPostUpgradeData::Noop => Ok(()),
 		}
 	}

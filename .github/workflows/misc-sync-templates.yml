@@ -169,9 +169,13 @@ jobs:
           ]
           resolver = "2"
 
-          [workspace.dependencies]
           EOF
 
+          echo "$(toml get -r ../../Cargo.toml 'workspace.lints.rust' --output-toml)" >> Cargo.toml
+          echo "$(toml get -r ../../Cargo.toml 'workspace.lints.clippy' --output-toml)" >> Cargo.toml
+          echo "" >> Cargo.toml
+
+          echo "[workspace.dependencies]" >> Cargo.toml
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
 

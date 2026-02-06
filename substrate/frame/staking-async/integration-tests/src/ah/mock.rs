@@ -795,11 +795,12 @@ impl ExtBuilder {
 		.map(|(x, y)| (x, INITIAL_STAKE, pallet_staking_async::StakerStatus::Nominator(y)));
 
 		let stakers = validators.chain(nominators).collect::<Vec<_>>();
-		let balances = stakers
-			.clone()
-			.into_iter()
-			.map(|(x, _, _)| (x, INITIAL_BALANCE))
-			.collect::<Vec<_>>();
+		let mut balances: Vec<_> =
+			stakers.clone().into_iter().map(|(x, _, _)| (x, INITIAL_BALANCE)).collect();
+		// Fund DAP buffer account with ED so it can receive slashes.
+		use frame_support::sp_runtime::traits::AccountIdConversion;
+		let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+		balances.push((dap_buffer, 1));
 
 		pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 			.assimilate_storage(&mut t)
@@ -881,10 +882,12 @@ pub(crate) enum AssertSessionType {
 
 pub(crate) fn end_session_with(activate: bool, assert_starting_session: AssertSessionType) {
 	match assert_starting_session {
-		AssertSessionType::ElectionWithImmediateExport =>
-			end_session_and_assert_election(activate, true),
-		AssertSessionType::ElectionWithBufferedExport =>
-			end_session_and_assert_election(activate, false),
+		AssertSessionType::ElectionWithImmediateExport => {
+			end_session_and_assert_election(activate, true)
+		},
+		AssertSessionType::ElectionWithBufferedExport => {
+			end_session_and_assert_election(activate, false)
+		},
 		AssertSessionType::IdleOnlyExport => end_session_and_assert_idle(activate, true),
 		AssertSessionType::IdleNoExport => end_session_and_assert_idle(activate, false),
 	}
