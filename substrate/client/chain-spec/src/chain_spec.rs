@@ -65,8 +65,9 @@ impl<EHF> Clone for GenesisBuildAction<EHF> {
 		match self {
 			Self::Patch(ref p) => Self::Patch(p.clone()),
 			Self::Full(ref f) => Self::Full(f.clone()),
-			Self::NamedPreset(ref p, patch, _) =>
-				Self::NamedPreset(p.clone(), patch.clone(), Default::default()),
+			Self::NamedPreset(ref p, patch, _) => {
+				Self::NamedPreset(p.clone(), patch.clone(), Default::default())
+			},
 		}
 	}
 }
@@ -124,16 +125,18 @@ impl<EHF: HostFunctions> GenesisSource<EHF> {
 				Ok(genesis.genesis)
 			},
 			Self::Storage(storage) => Ok(Genesis::Raw(RawGenesis::from(storage.clone()))),
-			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) =>
+			Self::GenesisBuilderApi(GenesisBuildAction::Full(config), code) => {
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Config(config.clone()),
 					code: code.clone(),
-				})),
-			Self::GenesisBuilderApi(GenesisBuildAction::Patch(patch), code) =>
+				}))
+			},
+			Self::GenesisBuilderApi(GenesisBuildAction::Patch(patch), code) => {
 				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
-				})),
+				}))
+			},
 			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, patch, _), code) => {
 				let mut preset =
 					RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
@@ -168,8 +171,9 @@ where
 			// The `StateRootHash` variant exists as a way to keep note that other clients support
 			// it, but Substrate itself isn't capable of loading chain specs with just a hash at the
 			// moment.
-			Genesis::StateRootHash(_) =>
-				return Err("Genesis storage in hash format not supported".into()),
+			Genesis::StateRootHash(_) => {
+				return Err("Genesis storage in hash format not supported".into())
+			},
 			Genesis::RuntimeGenesis(RuntimeGenesisInner {
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
@@ -619,8 +623,12 @@ where
 				RawGenesis::from(storage)
 			},
 			(true, Genesis::Raw(raw)) => raw,
-			(_, genesis) =>
-				return Ok(ChainSpecJsonContainer { client_spec: self.client_spec.clone(), genesis }),
+			(_, genesis) => {
+				return Ok(ChainSpecJsonContainer {
+					client_spec: self.client_spec.clone(),
+					genesis,
+				})
+			},
 		};
 
 		Ok(ChainSpecJsonContainer {
@@ -970,7 +978,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_preset.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 
 		assert_eq!(actual, expected);
@@ -1014,7 +1022,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_patch_raw.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 
@@ -1045,7 +1053,7 @@ mod tests {
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_config_raw.json"))
 				.unwrap();
 
-		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		// wasm blob may change overtime so let's zero it. Also ensure it is there:
 		let actual = zeroize_code_key_in_json(false, actual.as_str());
 		let actual_raw = zeroize_code_key_in_json(true, actual_raw.as_str());
 

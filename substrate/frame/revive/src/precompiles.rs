@@ -311,8 +311,9 @@ impl<E> Instance<E> {
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
-			Err(Error::Revert(msg)) =>
-				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() }),
+			Err(Error::Revert(msg)) => {
+				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() })
+			},
 			Err(Error::Panic(kind)) => Ok(ExecReturnValue {
 				flags: ReturnFlags::REVERT,
 				data: Panic::from(kind).abi_encode(),
@@ -404,6 +405,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	}
 }
 
+/// The collision check is verified by a trybuild test in `ui-tests/src/ui/precompiles_ui.rs`.
 #[impl_trait_for_tuples::impl_for_tuples(20)]
 #[tuple_types_custom_trait_bound(PrimitivePrecompile<T=T>)]
 impl<T: Config> Precompiles<T> for Tuple {
@@ -467,6 +469,13 @@ impl<T: Config> Precompiles<T> for Tuple {
 		);
 		instance
 	}
+}
+
+/// This references the private trait inside the crate.
+#[cfg(feature = "trybuild")]
+#[allow(private_bounds)]
+pub const fn check_collision_for<T: Config, Tuple: Precompiles<T>>() {
+	let _ = <Tuple as Precompiles<T>>::CHECK_COLLISION;
 }
 
 impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
@@ -552,7 +561,7 @@ impl BuiltinAddressMatcher {
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}

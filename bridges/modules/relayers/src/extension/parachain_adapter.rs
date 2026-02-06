@@ -122,14 +122,16 @@ where
 		let relay_finality_call =
 			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
 		Ok(match (total_calls, relay_finality_call, para_finality_call, msgs_call) {
-			(3, Some(relay_finality_call), Some(para_finality_call), Some(msgs_call)) =>
+			(3, Some(relay_finality_call), Some(para_finality_call), Some(msgs_call)) => {
 				Some(ExtensionCallInfo::AllFinalityAndMsgs(
 					relay_finality_call,
 					para_finality_call,
 					msgs_call,
-				)),
-			(2, None, Some(para_finality_call), Some(msgs_call)) =>
-				Some(ExtensionCallInfo::ParachainFinalityAndMsgs(para_finality_call, msgs_call)),
+				))
+			},
+			(2, None, Some(para_finality_call), Some(msgs_call)) => {
+				Some(ExtensionCallInfo::ParachainFinalityAndMsgs(para_finality_call, msgs_call))
+			},
 			(1, None, None, Some(msgs_call)) => Some(ExtensionCallInfo::Msgs(msgs_call)),
 			_ => None,
 		})
@@ -181,7 +183,7 @@ where
 			?relayer,
 			"Relayer has submitted invalid parachain finality proof"
 		);
-		return false
+		return false;
 	}
 
 	true

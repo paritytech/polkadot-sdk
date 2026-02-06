@@ -174,7 +174,7 @@ impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
 				proved_header,
 				prove_calls,
 				_phantom: Default::default(),
-			}))
+			}));
 		}
 
 		Ok(None)
@@ -211,13 +211,14 @@ where
 	let max_messages_size_in_single_batch = P::TargetChain::max_extrinsic_size() / 3;
 	let limits = match params.limits {
 		Some(limits) => limits,
-		None =>
+		None => {
 			select_delivery_transaction_limits_rpc(
 				&params,
 				P::TargetChain::max_extrinsic_weight(),
 				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			)
-			.await?,
+			.await?
+		},
 	};
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
 		(limits.max_messages_in_single_batch / 2, limits.max_messages_weight_in_single_batch / 2);
@@ -702,8 +703,9 @@ mod tests {
 	impl From<MockUtilityCall<RuntimeCall>> for RuntimeCall {
 		fn from(value: MockUtilityCall<RuntimeCall>) -> RuntimeCall {
 			match value {
-				MockUtilityCall::batch_all(calls) =>
-					RuntimeCall::Utility(UtilityCall::<RuntimeCall>::batch_all(calls)),
+				MockUtilityCall::batch_all(calls) => {
+					RuntimeCall::Utility(UtilityCall::<RuntimeCall>::batch_all(calls))
+				},
 			}
 		}
 	}
@@ -755,8 +757,9 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } =>
-					assert_eq!(pallet_receive_messages_proof.encode(), call.encode()),
+				call @ CodegenBridgeMessagesCall::receive_messages_proof { .. } => {
+					assert_eq!(pallet_receive_messages_proof.encode(), call.encode())
+				},
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
 			_ => panic!("Unexpected RuntimeCall type"),
@@ -805,8 +808,9 @@ mod tests {
 		);
 		match relayer_call_builder_receive_messages_delivery_proof {
 			RuntimeCall::BridgeMessages(call) => match call {
-				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } =>
-					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode()),
+				call @ CodegenBridgeMessagesCall::receive_messages_delivery_proof { .. } => {
+					assert_eq!(pallet_receive_messages_delivery_proof.encode(), call.encode())
+				},
 				_ => panic!("Unexpected CodegenBridgeMessagesCall type"),
 			},
 			_ => panic!("Unexpected RuntimeCall type"),

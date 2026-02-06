@@ -118,13 +118,14 @@ where
 	async move {
 		let mut collation_requests = match params.collation_request_receiver {
 			Some(receiver) => receiver,
-			None =>
+			None => {
 				cumulus_client_collator::relay_chain_driven::init(
 					params.collator_key,
 					params.para_id,
 					params.overseer_handle,
 				)
-				.await,
+				.await
+			},
 		};
 
 		let mut collator = {
@@ -171,7 +172,7 @@ where
 			let parent_hash = parent_header.hash();
 
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
 			}
 
 			let Ok(Some(code)) =
@@ -228,7 +229,7 @@ where
 			if last_processed_slot >= *claim.slot() &&
 				last_relay_chain_block < *relay_parent_header.number()
 			{
-				continue
+				continue;
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
@@ -260,7 +261,7 @@ where
 
 			if let Some((collation, block_data)) = maybe_collation {
 				let Some(block_hash) = block_data.blocks().first().map(|b| b.hash()) else {
-					continue
+					continue;
 				};
 				let result_sender =
 					Some(collator.collator_service().announce_with_barrier(block_hash));

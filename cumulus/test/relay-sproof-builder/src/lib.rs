@@ -407,8 +407,9 @@ mod tests {
 		let digest_item = &header.digest().logs[0];
 
 		let pre_digest_data = match digest_item {
-			DigestItem::PreRuntime(id, data) if id == &sp_consensus_babe::BABE_ENGINE_ID =>
-				PreDigest::decode(&mut &data[..]).unwrap(),
+			DigestItem::PreRuntime(id, data) if id == &sp_consensus_babe::BABE_ENGINE_ID => {
+				PreDigest::decode(&mut &data[..]).unwrap()
+			},
 			_ => panic!("Expected a BABE pre-digest"),
 		};
 
