@@ -910,8 +910,9 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) =>
-					t.exit_child_span(&output, Default::default(), Default::default()),
+				Ok(ref output) => {
+					t.exit_child_span(&output, Default::default(), Default::default())
+				},
 				Err(e) => t.exit_child_span_with_error(
 					e.error.into(),
 					Default::default(),
@@ -1483,8 +1484,9 @@ where
 					let weight_consumed = frame_meter.weight_consumed();
 
 					match &output {
-						Ok(output) =>
-							tracer.exit_child_span(&output, gas_consumed, weight_consumed),
+						Ok(output) => {
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed)
+						},
 						Err(e) => tracer.exit_child_span_with_error(
 							e.error.into(),
 							gas_consumed,
@@ -2161,8 +2163,9 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) =>
-						t.exit_child_span(&output, Default::default(), Default::default()),
+					Ok(ref output) => {
+						t.exit_child_span(&output, Default::default(), Default::default())
+					},
 					Err(e) => t.exit_child_span_with_error(
 						e.error.into(),
 						Default::default(),
