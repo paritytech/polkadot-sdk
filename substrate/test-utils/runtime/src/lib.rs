@@ -327,8 +327,9 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
 		let v = match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			RuntimeCall::SubstrateTest(ref substrate_test_call) => {
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?
+			},
 			_ => Default::default(),
 		};
 		Ok((v, (), origin))

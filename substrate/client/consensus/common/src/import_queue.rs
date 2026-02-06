@@ -242,8 +242,9 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 ) -> BlockImportResult<B> {
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
-		SingleBlockVerificationOutcome::Verified(import_parameters) =>
-			import_single_block_metered(import_handle, import_parameters, None).await,
+		SingleBlockVerificationOutcome::Verified(import_parameters) => {
+			import_single_block_metered(import_handle, import_parameters, None).await
+		},
 	}
 }
 
@@ -262,8 +263,9 @@ where
 			trace!(target: LOG_TARGET, "Block already in chain {}: {:?}", number, hash);
 			Ok(BlockImportStatus::ImportedKnown(number, block_origin))
 		},
-		Ok(ImportResult::Imported(aux)) =>
-			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin)),
+		Ok(ImportResult::Imported(aux)) => {
+			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin))
+		},
 		Ok(ImportResult::MissingState) => {
 			debug!(
 				target: LOG_TARGET,

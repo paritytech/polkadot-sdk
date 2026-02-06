@@ -298,10 +298,12 @@ impl Index {
 	) -> Result<()> {
 		match topic {
 			OptimizedTopicFilter::Any => self.iterate_with_any(key, f),
-			OptimizedTopicFilter::MatchAll(topics) =>
-				self.iterate_with_match_all(key, topics.iter(), f),
-			OptimizedTopicFilter::MatchAny(topics) =>
-				self.iterate_with_match_any(key, topics.iter(), f),
+			OptimizedTopicFilter::MatchAll(topics) => {
+				self.iterate_with_match_all(key, topics.iter(), f)
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				self.iterate_with_match_any(key, topics.iter(), f)
+			},
 		}
 	}
 
@@ -1166,14 +1168,16 @@ impl StatementStore for Store {
 		}
 
 		match self.index.read().query(&hash) {
-			IndexQuery::Expired =>
+			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::KnownExpired;
-				},
-			IndexQuery::Exists =>
+				}
+			},
+			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
 					return SubmitResult::Known;
-				},
+				}
+			},
 			IndexQuery::Unknown => {},
 		}
 

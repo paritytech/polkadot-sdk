@@ -399,8 +399,9 @@ where
 
 			let body = if get_body {
 				match self.client.block_body(hash)? {
-					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
+					Some(mut extrinsics) => {
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+					},
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
 						break;

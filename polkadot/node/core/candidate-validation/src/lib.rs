@@ -421,8 +421,9 @@ async fn handle_active_leaves_update<Sender>(
 
 	if let Some(activated) = update.activated {
 		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
-			(Some(existing_index), Some(new_index)) =>
-				(new_index > existing_index).then_some(new_index),
+			(Some(existing_index), Some(new_index)) => {
+				(new_index > existing_index).then_some(new_index)
+			},
 			(None, Some(new_index)) => Some(new_index),
 			_ => None,
 		};
@@ -837,12 +838,13 @@ where
 
 	match validation_backend.precheck_pvf(pvf).await {
 		Ok(_) => PreCheckOutcome::Valid,
-		Err(prepare_err) =>
+		Err(prepare_err) => {
 			if prepare_err.is_deterministic() {
 				PreCheckOutcome::Invalid
 			} else {
 				PreCheckOutcome::Failed
-			},
+			}
+		},
 	}
 }
 
@@ -875,10 +877,11 @@ async fn validate_candidate_exhaustive(
 
 	// We only check the session index for backing.
 	match (exec_kind, candidate_receipt.descriptor.session_index()) {
-		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) => {
 			if session_index != expected_session_index {
 				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex));
-			},
+			}
+		},
 		(_, _) => {},
 	};
 
@@ -918,7 +921,7 @@ async fn validate_candidate_exhaustive(
 				)
 				.await
 		},
-		PvfExecKind::Approval | PvfExecKind::Dispute =>
+		PvfExecKind::Approval | PvfExecKind::Dispute => {
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
@@ -931,7 +934,8 @@ async fn validate_candidate_exhaustive(
 					exec_kind,
 					validation_code_bomb_limit,
 				)
-				.await,
+				.await
+		},
 	};
 
 	if let Err(ref error) = result {
@@ -949,27 +953,35 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout)),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
-		Err(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure)),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =>
+		Err(ValidationError::Invalid(WasmInvalidCandidate::HardTimeout)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::Timeout))
+		},
+		Err(ValidationError::Invalid(WasmInvalidCandidate::WorkerReportedInvalid(e))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e)))
+		},
+		Err(ValidationError::Invalid(WasmInvalidCandidate::PoVDecompressionFailure)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) => {
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
 				"ambiguous worker death".to_string(),
-			))),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
-		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) =>
-			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string()))),
+			)))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err)))
+		},
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err)))
+		},
+		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) => {
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string())))
+		},
 
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) => {
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
 				"ambiguous job death: {err}"
-			)))),
+			))))
+		},
 		Err(ValidationError::Preparation(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -988,7 +1000,7 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
-		Ok(res) =>
+		Ok(res) => {
 			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
@@ -1065,7 +1077,8 @@ async fn validate_candidate_exhaustive(
 						(*persisted_validation_data).clone(),
 					))
 				}
-			},
+			}
+		},
 	}
 }
 
@@ -1161,11 +1174,13 @@ trait ValidationBackend {
 					PossiblyInvalidError::AmbiguousJobDeath(_),
 				)) => break_if_no_retries_left!(num_death_retries_left),
 
-				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					break_if_no_retries_left!(num_job_error_retries_left),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) => {
+					break_if_no_retries_left!(num_job_error_retries_left)
+				},
 
-				Err(ValidationError::Internal(_)) =>
-					break_if_no_retries_left!(num_internal_retries_left),
+				Err(ValidationError::Internal(_)) => {
+					break_if_no_retries_left!(num_internal_retries_left)
+				},
 
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::RuntimeConstruction(_) |

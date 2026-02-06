@@ -507,8 +507,9 @@ impl Discovery {
 		let ip = match address.iter().next() {
 			Some(Protocol::Ip4(ip)) => IpNetwork::from(ip),
 			Some(Protocol::Ip6(ip)) => IpNetwork::from(ip),
-			Some(Protocol::Dns(_)) | Some(Protocol::Dns4(_)) | Some(Protocol::Dns6(_)) =>
-				return true,
+			Some(Protocol::Dns(_)) | Some(Protocol::Dns4(_)) | Some(Protocol::Dns6(_)) => {
+				return true
+			},
 			_ => return false,
 		};
 
@@ -668,8 +669,9 @@ impl Stream for Discovery {
 					record,
 				}));
 			},
-			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
-				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
+			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) => {
+				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id }))
+			},
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
 				match this.random_walk_query_id == Some(query_id) {
 					true => {
@@ -781,16 +783,18 @@ impl Stream for Discovery {
 		match Pin::new(&mut this.ping_event_stream).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(PingEvent::Ping { peer, ping })) =>
-				return Poll::Ready(Some(DiscoveryEvent::Ping { peer, rtt: ping })),
+			Poll::Ready(Some(PingEvent::Ping { peer, ping })) => {
+				return Poll::Ready(Some(DiscoveryEvent::Ping { peer, rtt: ping }))
+			},
 		}
 
 		if let Some(ref mut mdns_event_stream) = &mut this.mdns_event_stream {
 			match Pin::new(mdns_event_stream).poll_next(cx) {
 				Poll::Pending => {},
 				Poll::Ready(None) => return Poll::Ready(None),
-				Poll::Ready(Some(MdnsEvent::Discovered(addresses))) =>
-					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses })),
+				Poll::Ready(Some(MdnsEvent::Discovered(addresses))) => {
+					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }))
+				},
 			}
 		}
 

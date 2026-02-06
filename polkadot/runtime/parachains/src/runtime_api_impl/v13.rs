@@ -147,12 +147,13 @@ where
 			build()
 		},
 		OccupiedCoreAssumption::TimedOut => build(),
-		OccupiedCoreAssumption::Free =>
+		OccupiedCoreAssumption::Free => {
 			if !<inclusion::Pallet<Config>>::candidates_pending_availability(para_id).is_empty() {
 				None
 			} else {
 				build()
-			},
+			}
+		},
 	}
 }
 
@@ -290,12 +291,15 @@ where
 		.filter_map(|record| extract_event(record.event))
 		.filter_map(|event| {
 			Some(match event {
-				RawEvent::<T>::CandidateBacked(c, h, core, group) =>
-					CandidateEvent::CandidateBacked(c, h, core, group),
-				RawEvent::<T>::CandidateIncluded(c, h, core, group) =>
-					CandidateEvent::CandidateIncluded(c, h, core, group),
-				RawEvent::<T>::CandidateTimedOut(c, h, core) =>
-					CandidateEvent::CandidateTimedOut(c, h, core),
+				RawEvent::<T>::CandidateBacked(c, h, core, group) => {
+					CandidateEvent::CandidateBacked(c, h, core, group)
+				},
+				RawEvent::<T>::CandidateIncluded(c, h, core, group) => {
+					CandidateEvent::CandidateIncluded(c, h, core, group)
+				},
+				RawEvent::<T>::CandidateTimedOut(c, h, core) => {
+					CandidateEvent::CandidateTimedOut(c, h, core)
+				},
 				// Not needed for candidate events.
 				RawEvent::<T>::UpwardMessagesReceived { .. } => return None,
 				RawEvent::<T>::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),

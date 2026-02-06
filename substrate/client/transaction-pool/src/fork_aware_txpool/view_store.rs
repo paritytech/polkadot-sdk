@@ -330,8 +330,9 @@ where
 				);
 				return Err(error);
 			},
-			Some(Ok(result)) =>
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+			Some(Ok(result)) => {
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
+			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
 		}
 	}

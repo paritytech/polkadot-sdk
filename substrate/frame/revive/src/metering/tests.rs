@@ -528,8 +528,9 @@ fn substrate_nesting_works() {
 					.unwrap();
 
 				let scaled_call_resource = match call_resource {
-					Ethereum { gas, add_stipend } =>
-						Ethereum { gas: (gas as BalanceOf<Test>).div_ceil(gas_scale), add_stipend },
+					Ethereum { gas, add_stipend } => {
+						Ethereum { gas: (gas as BalanceOf<Test>).div_ceil(gas_scale), add_stipend }
+					},
 					_ => call_resource,
 				};
 				let nested = transaction_meter.new_nested(&scaled_call_resource);
