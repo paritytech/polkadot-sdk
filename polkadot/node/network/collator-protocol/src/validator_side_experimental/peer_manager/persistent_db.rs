@@ -603,7 +603,7 @@ mod tests {
 		// Create DB and add some reputation
 		{
 			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config.clone(), 100).await.expect("create");
+				PersistentDb::new(disk_db.clone(), config, 100).await.expect("create");
 
 			let bumps = [(para_id, [(peer, Score::new(100).unwrap())].into_iter().collect())]
 				.into_iter()
@@ -616,7 +616,7 @@ mod tests {
 
 		{
 			// 2. Slash (Async)
-			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			db.slash(&peer, &para_id, Score::new(30).unwrap()).await;
 
@@ -641,7 +641,7 @@ mod tests {
 		// Create DB and add some reputation
 		{
 			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config.clone(), 100).await.expect("create");
+				PersistentDb::new(disk_db.clone(), config, 100).await.expect("create");
 			let bumps = [(para_id, [(peer, Score::new(50).unwrap())].into_iter().collect())]
 				.into_iter()
 				.collect();
@@ -651,7 +651,7 @@ mod tests {
 
 		// Slash more than the current score - should remove entry
 		{
-			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			db.slash(&peer, &para_id, Score::new(100).unwrap()).await;
 
@@ -698,7 +698,7 @@ mod tests {
 
 		// Prune - only keep para 200 registered
 		{
-			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 			let registered_paras = [para_id_200].into_iter().collect();
 
 			db.prune_paras(registered_paras).await;
@@ -1012,7 +1012,7 @@ mod tests {
 		let para_id_100 = ParaId::from(100);
 		let para_id_200 = ParaId::from(200);
 
-		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
 			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
@@ -1057,7 +1057,7 @@ mod tests {
 		let para_id_100 = ParaId::from(100);
 		let para_id_200 = ParaId::from(200);
 
-		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = [
 			(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
@@ -1097,7 +1097,7 @@ mod tests {
 		let peer1 = PeerId::random();
 		let para_id_100 = ParaId::from(100);
 
-		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config.clone()).await;
+		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		// 1. Initial bump + Async Persist
 		let bumps1 = [(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect())]
