@@ -134,9 +134,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            protobuf-compiler
+            protobuf-compiler \
+            clang
+          ls -alh /usr/lib/
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
+
+      - name: List /usr/lib/libclang
+        if: ${{ github.event.inputs.debug }}
+        run: ls -alh /usr/lib/libclang*
 
       # 2. Yanking the template out of the monorepo workspace.
 
