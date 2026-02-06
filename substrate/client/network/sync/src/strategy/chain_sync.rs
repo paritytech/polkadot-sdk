@@ -418,12 +418,12 @@ where
 			peer
 		} else {
 			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
-			return Some((hash, number))
+			return Some((hash, number));
 		};
 
 		if let PeerSyncState::AncestorSearch { .. } = peer.state {
 			trace!(target: LOG_TARGET, "Peer {} is in the ancestor search state.", peer_id);
-			return None
+			return None;
 		}
 
 		let peer_info = is_best.then(|| {
@@ -453,7 +453,7 @@ where
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
-			return peer_info
+			return peer_info;
 		}
 
 		if ancient_parent {
@@ -464,7 +464,7 @@ where
 				hash,
 				announce.header,
 			);
-			return peer_info
+			return peer_info;
 		}
 
 		if self.status().state == SyncState::Idle {
@@ -525,14 +525,14 @@ where
 
 		if self.is_known(hash) {
 			debug!(target: LOG_TARGET, "Refusing to sync known hash {hash:?}");
-			return
+			return;
 		}
 
 		trace!(target: LOG_TARGET, "Downloading requested old fork {hash:?}");
 		for peer_id in &peers {
 			if let Some(peer) = self.peers.get_mut(peer_id) {
 				if let PeerSyncState::AncestorSearch { .. } = peer.state {
-					continue
+					continue;
 				}
 
 				if number > peer.best_number {
@@ -668,7 +668,7 @@ where
 		}
 		for (result, hash) in results {
 			if has_error {
-				break
+				break;
 			}
 
 			has_error |= result.is_err();
@@ -725,7 +725,7 @@ where
 
 					self.complete_gap_if_target(number);
 				},
-				Err(BlockImportError::IncompleteHeader(peer_id)) =>
+				Err(BlockImportError::IncompleteHeader(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
@@ -734,7 +734,8 @@ where
 						self.actions
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						self.restart();
-					},
+					}
+				},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
 					let extra_message = peer_id
 						.map_or_else(|| "".into(), |peer| format!(" received from ({peer})"));
@@ -751,14 +752,15 @@ where
 
 					self.restart();
 				},
-				Err(BlockImportError::BadBlock(peer_id)) =>
+				Err(BlockImportError::BadBlock(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
 						self.actions.push(SyncingAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
-					},
+					}
+				},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
 					// in the meantime because other chain has been finalized.
@@ -1524,14 +1526,17 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
+			ChainSyncMode::Full => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
 				BlockAttributes::HEADER |
 					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
+					BlockAttributes::INDEXED_BODY
+			},
 		}
 	}
 

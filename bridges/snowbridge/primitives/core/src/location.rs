@@ -83,15 +83,19 @@ impl DescribeLocation for DescribeTokenTerminal {
 
 			// Pallet
 			[PalletInstance(instance)] => Some((b"PalletInstance", *instance).encode()),
-			[PalletInstance(instance), GeneralIndex(index)] =>
-				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode()),
-			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((b"PalletInstance", *instance, b"GeneralKey", *data).encode()),
+			[PalletInstance(instance), GeneralIndex(index)] => {
+				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode())
+			},
+			[PalletInstance(instance), GeneralKey { data, .. }] => {
+				Some((b"PalletInstance", *instance, b"GeneralKey", *data).encode())
+			},
 
-			[PalletInstance(instance), AccountKey20 { key, .. }] =>
-				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode()),
-			[PalletInstance(instance), AccountId32 { id, .. }] =>
-				Some((b"PalletInstance", *instance, b"AccountId32", *id).encode()),
+			[PalletInstance(instance), AccountKey20 { key, .. }] => {
+				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode())
+			},
+			[PalletInstance(instance), AccountId32 { id, .. }] => {
+				Some((b"PalletInstance", *instance, b"AccountId32", *id).encode())
+			},
 
 			// Reject all other locations
 			_ => None,

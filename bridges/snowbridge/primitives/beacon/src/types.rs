@@ -392,41 +392,49 @@ pub enum VersionedExecutionPayloadHeader {
 impl VersionedExecutionPayloadHeader {
 	pub fn hash_tree_root(&self) -> Result<H256, SimpleSerializeError> {
 		match self {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) => {
 				hash_tree_root::<SSZExecutionPayloadHeader>(
 					execution_payload_header.clone().try_into()?,
-				),
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
+				)
+			},
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) => {
 				hash_tree_root::<crate::ssz::deneb::SSZExecutionPayloadHeader>(
 					execution_payload_header.clone().try_into()?,
-				),
+				)
+			},
 		}
 	}
 
 	pub fn block_hash(&self) -> H256 {
 		match self {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
-				execution_payload_header.block_hash,
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
-				execution_payload_header.block_hash,
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) => {
+				execution_payload_header.block_hash
+			},
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) => {
+				execution_payload_header.block_hash
+			},
 		}
 	}
 
 	pub fn block_number(&self) -> u64 {
 		match self {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
-				execution_payload_header.block_number,
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
-				execution_payload_header.block_number,
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) => {
+				execution_payload_header.block_number
+			},
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) => {
+				execution_payload_header.block_number
+			},
 		}
 	}
 
 	pub fn receipts_root(&self) -> H256 {
 		match self {
-			VersionedExecutionPayloadHeader::Capella(execution_payload_header) =>
-				execution_payload_header.receipts_root,
-			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) =>
-				execution_payload_header.receipts_root,
+			VersionedExecutionPayloadHeader::Capella(execution_payload_header) => {
+				execution_payload_header.receipts_root
+			},
+			VersionedExecutionPayloadHeader::Deneb(execution_payload_header) => {
+				execution_payload_header.receipts_root
+			},
 		}
 	}
 }
@@ -600,7 +608,7 @@ pub mod deneb {
 	use sp_std::prelude::*;
 
 	/// ExecutionPayloadHeader
-	/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#executionpayloadheader>
+	/// <https://github.com/ethereum/consensus-specs/blob/master/specs/deneb/beacon-chain.md#executionpayloadheader>
 	#[derive(
 		Default,
 		Encode,

@@ -46,10 +46,8 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::Ss58Codec;
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
 use sp_keyring::Sr25519Keyring;
-
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 
 #[cfg(feature = "bls-experimental")]
 use sp_application_crypto::{bls381, ecdsa_bls381};
@@ -329,8 +327,9 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
 		let v = match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			RuntimeCall::SubstrateTest(ref substrate_test_call) => {
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?
+			},
 			_ => Default::default(),
 		};
 		Ok((v, (), origin))
@@ -362,8 +361,12 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
@@ -479,7 +482,7 @@ fn code_using_trie() -> u64 {
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
 			if t.insert(key, value).is_err() {
-				return 101
+				return 101;
 			}
 		}
 	}
@@ -820,23 +823,6 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<PresetId> {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
-		}
-	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			_source: sp_statement_store::runtime_api::StatementSource,
-			statement: sp_statement_store::Statement,
-		) -> Result<
-			sp_statement_store::runtime_api::ValidStatement,
-			sp_statement_store::runtime_api::InvalidStatement,
-		> {
-			use sp_statement_store::runtime_api::{InvalidStatement, ValidStatement};
-
-			match statement.verify_signature() {
-				sp_statement_store::SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-			}
 		}
 	}
 }
@@ -1574,7 +1560,7 @@ mod tests {
 
 		#[test]
 		fn build_genesis_config_with_patch_json_works() {
-			//this tests shows how to do patching on native side
+			// this tests shows how to do patching on native side
 			sp_tracing::try_init_simple();
 
 			let mut t = BasicExternalities::new_empty();
@@ -1622,7 +1608,7 @@ mod tests {
 				storage.top.get(&array_bytes::hex2bytes(key).unwrap()).unwrap().clone()
 			};
 
-			//SubstrateTest|Authorities
+			// SubstrateTest|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d",
 			);
@@ -1632,7 +1618,7 @@ mod tests {
 			assert_eq!(authority_key_vec[0], Sr25519Keyring::Ferdie.public());
 			assert_eq!(authority_key_vec[1], Sr25519Keyring::Alice.public());
 
-			//Babe|Authorities
+			// Babe|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef",
 			);
@@ -1651,7 +1637,7 @@ mod tests {
 			);
 			assert_eq!(u64::decode(&mut &value[..]).unwrap(), 0);
 
-			//System|ParentHash
+			// System|ParentHash
 			let value: Vec<u8> = get_from_storage(
 				"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc",
 			);

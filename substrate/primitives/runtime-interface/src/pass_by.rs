@@ -273,6 +273,57 @@ impl<'a> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [u8]> {
 	}
 }
 
+/// Pass a pointer into the host by a fat pointer, writing it back after the host call ends.
+///
+/// This casts the value into a `&mut [u8]` and passes a pointer to that byte blob and its length
+/// to the host. The host *doesn't* read from this and instead creates a zero-initialized buffer
+/// as a mutable reference to the host function. After the host function finishes the byte blob
+/// is written back into the guest memory.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndWrite<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndWrite<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [u8]> {
+	type Owned = Vec<u8>;
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		let (_ptr, len) = unpack_ptr_and_len(arg);
+		Ok(alloc::vec![0u8; len as usize])
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a> IntoFFIValue for PassFatPointerAndWrite<&'a mut [u8]> {
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
+	}
+}
+
 /// Pass a pointer into the host and write to it after the host call ends.
 ///
 /// This casts a given type into `&mut [u8]` using `AsMut<[u8]>` and passes a pointer to

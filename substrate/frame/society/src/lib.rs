@@ -1062,7 +1062,7 @@ pub mod pallet {
 					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
-					return Ok(())
+					return Ok(());
 				}
 			}
 			Err(Error::<T, I>::NoPayout)?
@@ -1593,7 +1593,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		candidacy: &mut Candidacy<T::AccountId, BalanceOf<T, I>>,
 	) -> bool {
 		if RoundCount::<T, I>::get() != candidacy.round || candidacy.skeptic_struck {
-			return false
+			return false;
 		}
 		// We expect the skeptic to have voted.
 		let skeptic = match Skeptic::<T, I>::get() {
@@ -1678,7 +1678,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// We assume there's at least one member or this logic won't work.
 		let member_count = MemberCount::<T, I>::get();
 		if member_count < 1 {
-			return
+			return;
 		}
 		let maybe_head = NextHead::<T, I>::take();
 		if let Some(head) = maybe_head {
@@ -1988,7 +1988,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn pick_member(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count == 0 {
-			return None
+			return None;
 		}
 		let random_index = rng.next_u32() % member_count;
 		MemberByIndex::<T, I>::get(random_index)
@@ -2004,7 +2004,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 1 {
-			return None
+			return None;
 		}
 		let random_index = rng.next_u32() % (member_count - 1);
 		let pick = MemberByIndex::<T, I>::get(random_index);
@@ -2022,7 +2022,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
-			return None
+			return None;
 		}
 		// Founder is always at index 0, so we should never pick that one.
 		// Head will typically but not always be the highest index. We assume it is for now and
@@ -2084,7 +2084,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// is not a member or if `value` is zero.
 	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T, I>, value: BalanceOf<T, I>) {
 		if value.is_zero() {
-			return
+			return;
 		}
 		if let Some(MemberRecord { rank: 0, .. }) = Members::<T, I>::get(who) {
 			Payouts::<T, I>::mutate(who, |record| {
@@ -2114,7 +2114,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// whole slash is accounted for.
 				record.payouts[0].1.saturating_reduce(rest);
 				rest = Zero::zero();
-				break
+				break;
 			}
 		}
 		Payouts::<T, I>::insert(who, record);

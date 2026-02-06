@@ -7,8 +7,9 @@ use sp_std::prelude::*;
 
 pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<ReceiptEnvelope> {
 	match apply_merkle_proof(values) {
-		Some((root, data)) if root == receipts_root =>
-			ReceiptEnvelope::decode(&mut data.as_slice()).ok(),
+		Some((root, data)) if root == receipts_root => {
+			ReceiptEnvelope::decode(&mut data.as_slice()).ok()
+		},
 		Some((_, _)) => None,
 		None => None,
 	}
@@ -25,7 +26,7 @@ fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
 	let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
 		let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
 		if (*node).contains_hash(acc.into()) {
-			return Some(keccak_256(x))
+			return Some(keccak_256(x));
 		}
 		None
 	});
