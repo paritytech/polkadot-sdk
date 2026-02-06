@@ -18,7 +18,7 @@
 //! Trie-based state machine backend.
 
 #[cfg(feature = "std")]
-use crate::backend::AsTrieBackend;
+use crate::backend::MaybeAsTrieBackend;
 use crate::{
 	backend::{IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence, TrieBackendStorage},
@@ -542,11 +542,11 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<S: TrieBackendStorage<H>, H: Hasher, C> AsTrieBackend<H, C> for TrieBackend<S, H, C> {
+impl<S: TrieBackendStorage<H>, H: Hasher, C> MaybeAsTrieBackend<H, C> for TrieBackend<S, H, C> {
 	type TrieBackendStorage = S;
 
-	fn as_trie_backend(&self) -> &TrieBackend<S, H, C> {
-		self
+	fn as_trie_backend(&self) -> Option<&TrieBackend<S, H, C>> {
+		Some(self)
 	}
 }
 

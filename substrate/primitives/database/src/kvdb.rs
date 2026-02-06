@@ -18,7 +18,9 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 
-use crate::{error, Change, ColumnId, Database, Transaction};
+#[cfg(feature = "rocksdb")]
+use crate::DatabaseWithSeekableIterator;
+use crate::{error, Change, ColumnId, Database, SeekableIterator, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
@@ -99,6 +101,31 @@ fn commit_impl<H: Clone + AsRef<[u8]>>(
 	db.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
 }
 
+
+#[cfg(feature = "rocksdb")]
+impl<'a> SeekableIterator for kvdb_rocksdb::DBRawIterator<'a> {
+	fn seek(&mut self, key: &[u8]) {
+		kvdb_rocksdb::DBRawIterator::seek(self, key)
+	}
+
+	fn seek_prev(&mut self, key: &[u8]) {
+		kvdb_rocksdb::DBRawIterator::seek_for_prev(self, key)
+	}
+
+	fn get(&self) -> Option<(&[u8], Vec<u8>)> {
+		let (k, v) = self.item()?;
+		Some((k, v.to_owned()))
+	}
+
+	fn prev(&mut self) {
+		kvdb_rocksdb::DBRawIterator::prev(self)
+	}
+
+	fn next(&mut self) {
+		kvdb_rocksdb::DBRawIterator::next(self)
+	}
+}
+
 /// Wrap generic kvdb-based database into a trait object that implements [`Database`].
 pub fn as_database<D, H>(db: D) -> std::sync::Arc<dyn Database<H>>
 where
@@ -145,9 +172,20 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for RocksDbAdapter {
 	}
 }
 
+#[cfg(feature = "rocksdb")]
+impl<H: Clone + AsRef<[u8]>> DatabaseWithSeekableIterator<H> for RocksDbAdapter {
+	fn seekable_iter<'a>(&'a self, col: u32) -> Option<Box<dyn crate::SeekableIterator + 'a>> {
+		match self.0.raw_iter(col) {
+			Ok(iter) => Some(Box::new(iter)),
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+			Err(e) => panic!("Internal database error: {}", e),
+		}
+	}
+}
+
 /// Wrap RocksDB database into a trait object with `optimize_db` support.
 #[cfg(feature = "rocksdb")]
-pub fn as_rocksdb_database<H>(db: kvdb_rocksdb::Database) -> std::sync::Arc<dyn Database<H>>
+pub fn as_rocksdb_database<H>(db: kvdb_rocksdb::Database) -> std::sync::Arc<dyn DatabaseWithSeekableIterator<H>>
 where
 	H: Clone + AsRef<[u8]>,
 {

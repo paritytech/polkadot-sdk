@@ -215,8 +215,7 @@ where
 			let db_path = path
 				.to_str()
 				.ok_or_else(|| super::other_io_error("Invalid database path".into()))?;
-			let db_cfg =
-				kvdb_rocksdb::DatabaseConfig::with_columns(super::columns::v3::NUM_COLUMNS);
+			let db_cfg = kvdb_rocksdb::DatabaseConfig::with_columns(super::columns::v3::NUM_COLUMNS);
 			let db = RocksDbAdapter::new(
 				kvdb_rocksdb::Database::open(&db_cfg, db_path)?,
 				&super::columns::v3::ORDERED_COL,

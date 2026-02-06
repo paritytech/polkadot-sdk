@@ -387,6 +387,7 @@ impl BenchDb {
 		let db_config = sc_client_db::DatabaseSettings {
 			trie_cache_maximum_size: Some(16 * 1024 * 1024),
 			state_pruning: Some(PruningMode::ArchiveAll),
+			archive_diffs: false,
 			source: database_type.into_settings(dir.into()),
 			blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
 			metrics_registry: None,
