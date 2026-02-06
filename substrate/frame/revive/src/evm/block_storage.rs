@@ -88,6 +88,10 @@ impl EthereumCallResult {
 			base_call_weight.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
 		}
 
+		crate::if_tracing(|tracer| {
+			tracer.dispatch_result(base_call_weight, output.weight_consumed);
+		});
+
 		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);
 		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
 		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
@@ -156,8 +160,9 @@ pub fn with_ethereum_context<T: Config>(
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let EthereumCallResult { receipt_gas_info, result } = call();
 				match result {
-					Ok(post_info) =>
-						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info))),
+					Ok(post_info) => {
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info)))
+					},
 					Err(err) => TransactionOutcome::Rollback(Ok((
 						Some(err.error),
 						receipt_gas_info,

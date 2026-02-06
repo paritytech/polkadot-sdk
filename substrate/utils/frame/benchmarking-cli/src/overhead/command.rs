@@ -279,8 +279,9 @@ impl OverheadCmd {
 		chain_spec_from_api: Option<Box<dyn ChainSpec>>,
 	) -> Result<(GenesisStateHandler, Option<u32>)> {
 		let genesis_builder_to_source = || match self.params.genesis_builder {
-			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) =>
-				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone()),
+			Some(GenesisBuilderPolicy::Runtime) | Some(GenesisBuilderPolicy::SpecRuntime) => {
+				SpecGenesisSource::Runtime(self.params.genesis_builder_preset.clone())
+			},
 			Some(GenesisBuilderPolicy::SpecGenesis) | None => {
 				log::warn!(target: LOG_TARGET, "{WARN_SPEC_GENESIS_CTOR}");
 				SpecGenesisSource::SpecJson
@@ -292,7 +293,7 @@ impl OverheadCmd {
 			log::debug!(target: LOG_TARGET, "Initializing state handler with chain-spec from API: {:?}", chain_spec);
 
 			let source = genesis_builder_to_source();
-			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id))
+			return Ok((GenesisStateHandler::ChainSpec(chain_spec, source), self.params.para_id));
 		};
 
 		// Handle chain-spec passed in via CLI.
@@ -309,7 +310,7 @@ impl OverheadCmd {
 			return Ok((
 				GenesisStateHandler::ChainSpec(chain_spec, source),
 				self.params.para_id.or(para_id_from_chain_spec),
-			))
+			));
 		};
 
 		// Check for runtimes. In general, we make sure that `--runtime` and `--chain` are
@@ -346,13 +347,14 @@ impl OverheadCmd {
 		}
 
 		match self.params.genesis_builder {
-			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) =>
+			Some(GenesisBuilderPolicy::SpecGenesis | GenesisBuilderPolicy::SpecRuntime) => {
 				if chain_spec.is_none() && self.shared_params.chain.is_none() {
 					return Err((
 						ErrorKind::MissingRequiredArgument,
 						"Provide a chain spec via `--chain`.".to_string(),
 					));
-				},
+				}
+			},
 			_ => {},
 		};
 		Ok(())

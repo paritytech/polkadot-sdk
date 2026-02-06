@@ -220,7 +220,7 @@ impl<T: Config> Eras<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries
@@ -938,7 +938,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
 			// no election ongoing
 			let weight = T::DbWeight::get().reads(1);
-			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)))
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)));
 		};
 		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(

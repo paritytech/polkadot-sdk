@@ -111,7 +111,7 @@ pub(crate) mod v1_to_v2 {
 			.saturating_add(retiring.len()) ==
 			0
 		{
-			return T::DbWeight::get().reads(4)
+			return T::DbWeight::get().reads(4);
 		}
 		log::info!(
 			target: LOG_TARGET,

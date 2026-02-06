@@ -1,0 +1,74 @@
+title: Take the header size into account for the total block size
+
+doc:
+- audience: Runtime Dev
+  description: |
+    The `BlockSize` storage item (formerly `AllExtrinsicsLen`) in `frame-system` now includes the header overhead (digest size and
+    empty header size) in addition to the extrinsic lengths. This ensures that block size limits
+    accurately account for the full block size, not just the extrinsics. Additionally, inherent
+    digests are now limited to 20% of the maximum block size to prevent oversized headers.
+
+    **Breaking Change**: `AllExtrinsicsLen` has been renamed to `BlockSize` to better reflect its purpose.
+    External code using `frame_system::AllExtrinsicsLen` must be updated to use `frame_system::BlockSize`.
+
+    The deprecated `BlockLength::max` and `BlockLength::max_with_normal_ratio` functions have been
+    replaced with the new builder pattern across the entire codebase. Use
+    `BlockLength::builder().max_length(value).build()` or
+    `BlockLength::builder().max_length(value).modify_max_length_for_class(DispatchClass::Normal, |m| *m = ratio * value).build()`
+    instead.
+
+crates:
+- name: frame-system
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: sc-network-sync
+  bump: patch
+- name: frame-executive
+  bump: patch
+- name: polkadot-runtime-common
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: bp-polkadot-core
+  bump: patch
+- name: bp-polkadot-bulletin
+  bump: patch
+- name: parachains-common
+  bump: patch
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: major
+- name: cumulus-pallet-weight-reclaim
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bp-bridge-hub-cumulus
+  bump: patch
+- name: pallet-insecure-randomness-collective-flip
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: staging-node-cli
+  bump: patch
+- name: substrate-test-runtime
+  bump: patch
+- name: parachain-template-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch

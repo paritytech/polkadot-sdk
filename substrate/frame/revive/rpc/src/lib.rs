@@ -186,16 +186,21 @@ impl EthRpcServer for EthRpcServerImpl {
 				})?;
 
 			let is_chain_id_provided = match signed_transaction {
-				TransactionSigned::Transaction7702Signed(tx) =>
-					tx.transaction_7702_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction4844Signed(tx) =>
-					tx.transaction_4844_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction1559Signed(tx) =>
-					tx.transaction_1559_unsigned.chain_id != U256::zero(),
-				TransactionSigned::Transaction2930Signed(tx) =>
-					tx.transaction_2930_unsigned.chain_id != U256::zero(),
-				TransactionSigned::TransactionLegacySigned(tx) =>
-					tx.transaction_legacy_unsigned.chain_id.is_some(),
+				TransactionSigned::Transaction7702Signed(tx) => {
+					tx.transaction_7702_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction4844Signed(tx) => {
+					tx.transaction_4844_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction1559Signed(tx) => {
+					tx.transaction_1559_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::Transaction2930Signed(tx) => {
+					tx.transaction_2930_unsigned.chain_id != U256::zero()
+				},
+				TransactionSigned::TransactionLegacySigned(tx) => {
+					tx.transaction_legacy_unsigned.chain_id.is_some()
+				},
 			};
 
 			if !is_chain_id_provided {
