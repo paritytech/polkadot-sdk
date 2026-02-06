@@ -451,18 +451,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				);
 			}
 
+			let spawn_handle = Arc::new(task_manager.spawn_handle());
+
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
-
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
+						spawn_handle.clone(),
 					)
 				})
 			};
@@ -633,22 +635,24 @@ where
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
 		match parachain_config.network.network_backend {
-			sc_network::config::NetworkBackendType::Libp2p =>
+			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-				),
-			sc_network::config::NetworkBackendType::Litep2p =>
+				)
+			},
+			sc_network::config::NetworkBackendType::Litep2p => {
 				<Self as NodeSpec>::start_node::<sc_network::Litep2pNetworkBackend>(
 					parachain_config,
 					polkadot_config,
 					collator_options,
 					hwbench,
 					node_extra_args,
-				),
+				)
+			},
 		}
 	}
 }

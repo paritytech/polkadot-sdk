@@ -711,10 +711,11 @@ pub mod pallet {
 		/// Can be empty if the migration does not know or there are no prefixes.
 		pub fn affected_prefixes() -> Vec<Vec<u8>> {
 			match Cursor::<T>::get() {
-				Some(MigrationCursor::Active(cursor)) =>
+				Some(MigrationCursor::Active(cursor)) => {
 					T::Migrations::nth_migrating_prefixes(cursor.index)
 						.flatten()
-						.unwrap_or_default(),
+						.unwrap_or_default()
+				},
 				_ => Vec::new(),
 			}
 		}

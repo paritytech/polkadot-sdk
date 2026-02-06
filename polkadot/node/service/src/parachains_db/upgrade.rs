@@ -119,8 +119,9 @@ pub(crate) fn try_upgrade_db_to_next_version(
 			None if db_kind == DatabaseKind::RocksDB => CURRENT_VERSION,
 			// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -> 1` migration.
-			None if db_kind == DatabaseKind::ParityDB =>
-				migrate_from_version_0_to_1(db_path, db_kind)?,
+			None if db_kind == DatabaseKind::ParityDB => {
+				migrate_from_version_0_to_1(db_path, db_kind)?
+			},
 			None => unreachable!(),
 		}
 	} else {

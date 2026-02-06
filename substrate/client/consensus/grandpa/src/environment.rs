@@ -525,8 +525,9 @@ where
 
 		// find the hash of the latest block in the current set
 		let current_set_latest_hash = match next_change {
-			Some((_, n)) if n.is_zero() =>
-				return Err(Error::Safety("Authority set change signalled at genesis.".to_string())),
+			Some((_, n)) if n.is_zero() => {
+				return Err(Error::Safety("Authority set change signalled at genesis.".to_string()))
+			},
 			// the next set starts at `n` so the current one lasts until `n - 1`. if
 			// `n` is later than the best block, then the current set is still live
 			// at best block.
@@ -730,12 +731,13 @@ where
 		let local_id = local_authority_id(&self.voters, self.config.keystore.as_ref());
 
 		let has_voted = match self.voter_set_state.has_voted(round) {
-			HasVoted::Yes(id, vote) =>
+			HasVoted::Yes(id, vote) => {
 				if local_id.as_ref().map(|k| k == &id).unwrap_or(false) {
 					HasVoted::Yes(id, vote)
 				} else {
 					HasVoted::No
-				},
+				}
+			},
 			HasVoted::No => HasVoted::No,
 		};
 

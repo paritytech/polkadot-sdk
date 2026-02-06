@@ -612,10 +612,11 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	} else {
 		match extract_relay_parent(para_parent.digest()) {
 			Some(last_relay_parent) => last_relay_parent != relay_parent.hash(),
-			None =>
+			None => {
 				rpsr_digest::extract_relay_parent_storage_root(para_parent.digest())
 					.ok_or(())?
-					.0 != *relay_parent.state_root(),
+					.0 != *relay_parent.state_root()
+			},
 		}
 	};
 
