@@ -153,7 +153,7 @@ impl<Context> CollatorProtocolSubsystem {
 				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 				.boxed()
 			},
-			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_config } =>
+			ProtocolSide::ValidatorExperimental { keystore, metrics, db, reputation_config } => {
 				validator_side_experimental::run(ctx, keystore, metrics, db, reputation_config)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed()
