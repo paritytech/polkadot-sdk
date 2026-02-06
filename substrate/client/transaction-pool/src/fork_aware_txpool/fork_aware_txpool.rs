@@ -85,8 +85,8 @@ const FINALITY_TIMEOUT_THRESHOLD: usize = 128;
 
 /// The number of transactions that will be sent from the mempool to the newly created view during
 /// the maintain process.
-//todo [#8835]: better approach is needed - maybe time-budget approach?
-//note: yap parachain block size.
+// todo [#8835]: better approach is needed - maybe time-budget approach?
+// note: yap parachain block size.
 const MEMPOOL_TO_VIEW_BATCH_SIZE: usize = 7_000;
 
 /// Fork aware transaction pool task, that needs to be polled.
@@ -748,9 +748,10 @@ where
 
 		let insertion = match self.mempool.push_watched(source, at_number, xt.clone()).await {
 			Ok(result) => result,
-			Err(TxPoolApiError::ImmediatelyDropped) =>
+			Err(TxPoolApiError::ImmediatelyDropped) => {
 				self.attempt_transaction_replacement(source, at_number, true, xt.clone())
-					.await?,
+					.await?
+			},
 			Err(e) => return Err(e.into()),
 		};
 
@@ -794,7 +795,7 @@ where
 			return Ok(mempool_results
 				.into_iter()
 				.map(|r| r.map(|r| r.hash).map_err(Into::into))
-				.collect::<Vec<_>>())
+				.collect::<Vec<_>>());
 		}
 
 		// Submit all the transactions to the mempool
@@ -803,8 +804,9 @@ where
 			.zip(xts.clone())
 			.map(|(result, xt)| async move {
 				match result {
-					Err(TxPoolApiError::ImmediatelyDropped) =>
-						self.attempt_transaction_replacement(source, at_number, false, xt).await,
+					Err(TxPoolApiError::ImmediatelyDropped) => {
+						self.attempt_transaction_replacement(source, at_number, false, xt).await
+					},
 					_ => result,
 				}
 			})
@@ -991,8 +993,9 @@ where
 			"fatp::submit_one"
 		);
 		match self.submit_at(_at, source, vec![xt]).await {
-			Ok(mut v) =>
-				v.pop().expect("There is exactly one element in result of submit_at. qed."),
+			Ok(mut v) => {
+				v.pop().expect("There is exactly one element in result of submit_at. qed.")
+			},
 			Err(e) => Err(e),
 		}
 	}
@@ -1230,7 +1233,7 @@ where
 					?tree_route,
 					"Skipping ChainEvent - no last block in tree route"
 				);
-				return
+				return;
 			},
 		};
 
@@ -1240,7 +1243,7 @@ where
 				?hash_and_number,
 				"view already exists for block"
 			);
-			return
+			return;
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
@@ -1276,13 +1279,13 @@ where
 			let Some(oldest_block_number) =
 				included_transactions.first_key_value().map(|(k, _)| k.number)
 			else {
-				return
+				return;
 			};
 
 			if at.number.saturating_sub(oldest_block_number).into() <=
 				self.finality_timeout_threshold.into()
 			{
-				return
+				return;
 			}
 
 			let mut finality_timedout_blocks =
@@ -1375,7 +1378,7 @@ where
 		);
 
 		// 1. Capture all import notification from the very beginning, so first register all
-		//the listeners.
+		// the listeners.
 		self.import_notification_sink.add_view(
 			view.at.hash,
 			view.pool.validated_pool().import_notification_stream().boxed(),
@@ -1464,7 +1467,7 @@ where
 	/// Returns a `Vec` of transactions hashes
 	async fn fetch_block_transactions(&self, at: &HashAndNumber<Block>) -> Vec<TxHash<Self>> {
 		if let Some(txs) = self.included_transactions.lock().get(at) {
-			return txs.clone()
+			return txs.clone();
 		};
 
 		debug!(
@@ -1502,7 +1505,7 @@ where
 		let recent_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let Ok(tree_route) = self.api.tree_route(recent_finalized_block, at.hash) else {
-			return Default::default()
+			return Default::default();
 		};
 
 		let mut all_txs = HashSet::new();
@@ -1553,7 +1556,7 @@ where
 			.with_transactions(|iter| {
 				iter.filter(|(hash, _)| !view.is_imported(&hash) && !included_xts.contains(&hash))
 					.map(|(k, v)| (*k, v.clone()))
-					//todo [#8835]: better approach is needed - maybe time-budget approach?
+					// todo [#8835]: better approach is needed - maybe time-budget approach?
 					.take(MEMPOOL_TO_VIEW_BATCH_SIZE)
 					.collect::<HashMap<_, _>>()
 			})
@@ -1720,7 +1723,7 @@ where
 		self.metrics
 			.report(|metrics| metrics.unknown_from_block_import_txs.inc_by(unknown_count as _));
 
-		//resubmit
+		// resubmit
 		{
 			let mut resubmit_transactions = Vec::new();
 
@@ -1764,7 +1767,7 @@ where
 				let mut result = vec![];
 				for (tx_hash, tx) in txs {
 					result.push(
-						//find arc if tx is known
+						// find arc if tx is known
 						self.mempool
 							.get_by_hash(tx_hash)
 							.await
@@ -1890,7 +1893,7 @@ where
 			.await;
 
 		let Some(priority) = validated_tx.priority() else {
-			return Err(TxPoolApiError::ImmediatelyDropped)
+			return Err(TxPoolApiError::ImmediatelyDropped);
 		};
 
 		let insertion_info = self
@@ -1957,7 +1960,7 @@ where
 				});
 		}
 
-		return Ok(insertion_info)
+		return Ok(insertion_info);
 	}
 }
 
@@ -1984,10 +1987,11 @@ where
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
 			match self.api.tree_route(from, to) {
 				Ok(tree_route) => Ok(tree_route),
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
-					)),
+					))
+				},
 			}
 		};
 		let block_id_to_number =
@@ -2153,7 +2157,7 @@ mod reduce_multiview_result_tests {
 		let input = HashMap::from_iter(v.clone());
 		let r = reduce_multiview_result(input);
 
-		//order in HashMap is random, the result shall be one of:
+		// order in HashMap is random, the result shall be one of:
 		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
 	}
 

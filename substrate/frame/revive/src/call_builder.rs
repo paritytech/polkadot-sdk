@@ -268,7 +268,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 
 		let address = outcome.result?.addr;
@@ -447,8 +447,9 @@ impl VmBinaryModule {
 				// return execution right away without breaking up basic block
 				// SENTINEL is a hard coded syscall that terminates execution
 				0 => writeln!(text, "ecalli {}", crate::SENTINEL).unwrap(),
-				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 =>
-					text.push_str("fallthrough\n"),
+				i if i % (limits::code::BASIC_BLOCK_SIZE - 1) == 0 => {
+					text.push_str("fallthrough\n")
+				},
 				_ => text.push_str("a0 = a1 + a2\n"),
 			}
 		}

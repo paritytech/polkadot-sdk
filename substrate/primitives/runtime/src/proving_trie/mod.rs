@@ -41,7 +41,7 @@ use sp_trie::{trie_types::TrieError as SpTrieError, VerifyError};
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrieError {
-	/* From TrieError */
+	// From TrieError
 	/// Attempted to create a trie with a state root not in the DB.
 	InvalidStateRoot,
 	/// Trie item not found in the database,
@@ -52,7 +52,7 @@ pub enum TrieError {
 	DecoderError,
 	/// Hash is not value.
 	InvalidHash,
-	/* From VerifyError */
+	// From VerifyError
 	/// The statement being verified contains multiple key-value pairs with the same key.
 	DuplicateKey,
 	/// The proof contains at least one extraneous node.
@@ -107,8 +107,9 @@ impl From<TrieError> for &'static str {
 		match e {
 			TrieError::InvalidStateRoot => "The state root is not in the database.",
 			TrieError::IncompleteDatabase => "A trie item was not found in the database.",
-			TrieError::ValueAtIncompleteKey =>
-				"A value was found with a key that is not byte-aligned.",
+			TrieError::ValueAtIncompleteKey => {
+				"A value was found with a key that is not byte-aligned."
+			},
 			TrieError::DecoderError => "A corrupt trie item was encountered.",
 			TrieError::InvalidHash => "The hash does not match the expected value.",
 			TrieError::DuplicateKey => "The proof contains duplicate keys.",

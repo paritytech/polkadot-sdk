@@ -43,6 +43,7 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
+	DefaultNoBound,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
@@ -537,7 +538,12 @@ impl Default for Origin<Test> {
 	}
 }
 
+/// Dummy EVM bytecode for mocked addresses.
+/// This is minimal EVM bytecode (STOP) that terminates successfully.
+pub const MOCK_CODE: [u8; 1] = [0x00];
+
 /// A mock handler implementation for testing purposes.
+#[derive(DefaultNoBound)]
 pub struct MockHandlerImpl<T: crate::pallet::Config> {
 	// Always return this caller if set.
 	mock_caller: Option<H160>,
@@ -566,6 +572,14 @@ impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
 	}
+
+	fn mocked_code(&self, address: H160) -> Option<&[u8]> {
+		if self.mock_call.contains_key(&address) {
+			Some(&MOCK_CODE)
+		} else {
+			None
+		}
+	}
 }
 
 #[test]
@@ -575,7 +589,7 @@ fn ext_builder_with_genesis_config_works() {
 		balance: U256::from(100_000_100),
 		nonce: 42,
 		contract_data: Some(ContractData {
-			code: compile_module("dummy").unwrap().0,
+			code: compile_module("dummy").unwrap().0.into(),
 			storage: [([1u8; 32].into(), [2u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -591,7 +605,8 @@ fn ext_builder_with_genesis_config_works() {
 				revm::bytecode::opcode::PUSH1,
 				0x00,
 				revm::bytecode::opcode::RETURN,
-			],
+			]
+			.into(),
 			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
@@ -627,7 +642,7 @@ fn ext_builder_with_genesis_config_works() {
 
 			assert_eq!(
 				PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
-				contract_data.code
+				contract_data.code.0
 			);
 			assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
 			assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);

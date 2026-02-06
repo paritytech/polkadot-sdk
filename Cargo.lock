@@ -1416,6 +1416,7 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-common",
  "primitive-types 0.13.1",
  "scale-info",
@@ -1425,8 +1426,12 @@ dependencies = [
  "snowbridge-runtime-common",
  "sp-api",
  "sp-arithmetic",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -1449,6 +1454,7 @@ dependencies = [
  "substrate-wasm-builder",
  "testnet-parachains-constants",
  "tracing",
+ "westend-runtime",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -10762,7 +10768,6 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-keystore",
  "sp-runtime",
- "sp-statement-store",
  "substrate-frame-rpc-system",
  "substrate-state-trie-migration-rpc",
 ]
@@ -11294,6 +11299,7 @@ dependencies = [
  "pallet-dap",
  "pallet-election-provider-multi-block",
  "pallet-offences",
+ "pallet-proxy",
  "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
@@ -11308,6 +11314,9 @@ dependencies = [
  "sp-session",
  "sp-staking",
  "sp-tracing 16.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -13310,6 +13319,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-ui-tests"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
+ "trybuild",
+]
+
+[[package]]
 name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [
@@ -13530,7 +13553,6 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
- "pallet-dap",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -13649,14 +13671,19 @@ dependencies = [
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-common",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
  "sp-api",
  "sp-arithmetic",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -13697,6 +13724,7 @@ dependencies = [
 name = "pallet-staking-async-rc-client"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
@@ -13707,6 +13735,8 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
 ]
 
 [[package]]
@@ -13832,14 +13862,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-staking-async-reward-fn"
-version = "19.0.0"
-dependencies = [
- "log",
- "sp-arithmetic",
-]
-
-[[package]]
 name = "pallet-staking-async-runtime-api"
 version = "14.0.0"
 dependencies = [
@@ -13906,7 +13928,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -15146,6 +15167,7 @@ dependencies = [
  "rstest",
  "sc-keystore",
  "sc-network",
+ "sc-network-types",
  "schnellru",
  "sp-core 28.0.0",
  "sp-keyring",
@@ -16462,7 +16484,6 @@ dependencies = [
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
  "pallet-staking-async-rc-client",
- "pallet-staking-async-reward-fn",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
@@ -20504,7 +20525,9 @@ name = "sc-rpc"
 version = "29.0.0"
 dependencies = [
  "assert_matches",
+ "async-channel 1.9.0",
  "futures",
+ "futures-timer",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
@@ -20513,9 +20536,11 @@ dependencies = [
  "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
+ "sc-keystore",
  "sc-mixnet",
  "sc-network",
  "sc-rpc-api",
+ "sc-statement-store",
  "sc-tracing",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
@@ -20534,6 +20559,7 @@ dependencies = [
  "sp-statement-store",
  "sp-version",
  "substrate-test-runtime-client",
+ "tempfile",
  "tokio",
 ]
 
@@ -20770,18 +20796,23 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
+ "async-channel 1.9.0",
  "criterion",
+ "futures",
+ "itertools 0.11.0",
  "log",
  "parity-db",
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-keystore",
  "sc-network-statement",
+ "sc-utils",
  "sp-api",
  "sp-blockchain",
  "sp-core 28.0.0",
  "sp-runtime",
  "sp-statement-store",
+ "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -23050,7 +23081,9 @@ dependencies = [
  "ark-ed-on-bls12-377-ext",
  "ark-ed-on-bls12-381-bandersnatch",
  "ark-ed-on-bls12-381-bandersnatch-ext",
+ "ark-ff 0.5.0",
  "ark-scale",
+ "ark-std 0.5.0",
  "sp-runtime-interface 24.0.0",
 ]
 

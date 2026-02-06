@@ -21,7 +21,7 @@ use pallet_bridge_relayers::{Error::FailedToPayReward, RewardLedger};
 use crate::imports::*;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
-//1_000_000_000u128
+// 1_000_000_000u128
 #[test]
 fn claim_rewards_works() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());

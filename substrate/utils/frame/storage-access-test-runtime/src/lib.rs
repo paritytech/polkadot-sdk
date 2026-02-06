@@ -125,7 +125,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 	}
 
 	match payload {
-		StorageAccessPayload::Read(keys) =>
+		StorageAccessPayload::Read(keys) => {
 			for (key, maybe_child_info) in keys {
 				match maybe_child_info {
 					Some(child_info) => {
@@ -141,7 +141,8 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 							.ok_or("Value unexpectedly empty");
 					},
 				}
-			},
+			}
+		},
 		StorageAccessPayload::Write((changes, maybe_child_info)) => {
 			let delta = changes.iter().map(|(key, value)| (key.as_ref(), Some(value.as_ref())));
 			match maybe_child_info {
