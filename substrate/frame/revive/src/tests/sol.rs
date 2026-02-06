@@ -729,13 +729,33 @@ fn execution_tracing_works() {
 			step.weight_cost = Weight::zero();
 
 			match &mut step.kind {
-				ExecutionStepKind::EVMOpcode { stack, .. } =>
+				ExecutionStepKind::EVMOpcode { stack, .. } => {
 					for val in stack.iter_mut() {
 						*val = Bytes::from(vec![0u8]);
-					},
-				ExecutionStepKind::PVMSyscall { args, returned, .. } => {
-					for val in args.iter_mut() {
-						*val = 0;
+					}
+				},
+				ExecutionStepKind::PVMSyscall { op, args, returned, .. } => {
+					// Normalize call/delegate_call to their _evm variants so
+					// the test passes regardless of which resolc version
+					// compiled the fixtures (older emits call/delegate_call,
+					// newer emits call_evm/delegate_call_evm).
+					use crate::vm::pvm::env::lookup_syscall_index;
+					let call_idx = lookup_syscall_index("call").unwrap();
+					let call_evm_idx = lookup_syscall_index("call_evm").unwrap();
+					let delegate_idx = lookup_syscall_index("delegate_call").unwrap();
+					let delegate_evm_idx = lookup_syscall_index("delegate_call_evm").unwrap();
+					if *op == call_idx || *op == call_evm_idx {
+						*op = call_evm_idx;
+						// Clear args since the two variants have compatible
+						// behavior but different argument layouts.
+						args.clear();
+					} else if *op == delegate_idx || *op == delegate_evm_idx {
+						*op = delegate_evm_idx;
+						args.clear();
+					} else {
+						for val in args.iter_mut() {
+							*val = 0;
+						}
 					}
 					if returned.is_some() {
 						*returned = Some(0);
