@@ -126,12 +126,7 @@ fn create_registration(
 	session_index: u32,
 	authority_index: AuthorityIndex,
 ) -> RegistrationFor<Test> {
-	Registration {
-		block_number: 1u64,
-		session_index,
-		authority_index,
-		mixnode: test_mixnode(),
-	}
+	Registration { block_number: 1u64, session_index, authority_index, mixnode: test_mixnode() }
 }
 
 fn sign_registration(
@@ -166,10 +161,7 @@ fn authorize_accepts_valid_registration() {
 
 		let result = call.authorize(TransactionSource::External);
 		assert!(result.is_some(), "Call should have authorize logic");
-		assert!(
-			result.unwrap().is_ok(),
-			"Valid registration should be accepted"
-		);
+		assert!(result.unwrap().is_ok(), "Valid registration should be accepted");
 	});
 }
 

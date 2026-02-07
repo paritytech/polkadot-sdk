@@ -23,10 +23,10 @@
 
 extern crate alloc;
 
-#[cfg(test)]
-mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 pub use weights::*;
 
@@ -37,10 +37,7 @@ use core::cmp::Ordering;
 use frame::{
 	deps::{
 		sp_io::{self, MultiRemovalResults},
-		sp_runtime::{
-			self,
-			transaction_validity::TransactionValidityWithRefund,
-		},
+		sp_runtime::{self, transaction_validity::TransactionValidityWithRefund},
 	},
 	prelude::*,
 };
@@ -299,10 +296,8 @@ pub mod pallet {
 		fn integrity_test() {
 			use sp_runtime::traits::Block as BlockT;
 
-			let extrinsic_type_name =
-				core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
-			let extension_type_name =
-				core::any::type_name::<frame_system::AuthorizeCall<T>>();
+			let extrinsic_type_name = core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
+			let extension_type_name = core::any::type_name::<frame_system::AuthorizeCall<T>>();
 
 			assert!(
 				extrinsic_type_name.contains(extension_type_name),
