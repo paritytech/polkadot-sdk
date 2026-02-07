@@ -22,10 +22,7 @@
 use super::*;
 use frame::{
 	benchmarking::prelude::*,
-	deps::{
-		frame_support::traits::Authorize,
-		sp_core::sr25519,
-	},
+	deps::{frame_support::traits::Authorize, sp_core::sr25519},
 };
 use sp_application_crypto::Pair as _;
 use sp_mixnet::types::{AuthorityId, AuthoritySignature};
