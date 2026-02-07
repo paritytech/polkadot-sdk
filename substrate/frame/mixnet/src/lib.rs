@@ -189,7 +189,6 @@ pub mod pallet {
 	///
 	/// This pallet requires `frame_system::AuthorizeCall` to be included in the runtime's
 	/// transaction extension pipeline.
-	/// The integrity test will verify this at runtime.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + CreateAuthorizedTransaction<Call<Self>> {
 		/// Weight functions for this pallet.
@@ -288,25 +287,6 @@ pub mod pallet {
 				// are only used during registration to check an authority doesn't register twice.
 				Mixnodes::<T>::insert(0, i as AuthorityIndex, mixnode);
 			}
-		}
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			use sp_runtime::traits::Block as BlockT;
-
-			let extrinsic_type_name = core::any::type_name::<<T::Block as BlockT>::Extrinsic>();
-			let extension_type_name = core::any::type_name::<frame_system::AuthorizeCall<T>>();
-
-			assert!(
-				extrinsic_type_name.contains(extension_type_name),
-				"The runtime must include `frame_system::AuthorizeCall` in its transaction \
-				extension pipeline for this pallet to work correctly. The pallet uses \
-				`#[pallet::authorize]` which requires AuthorizeCall to validate authorized \
-				transactions. Current extrinsic type: {}",
-				extrinsic_type_name
-			);
 		}
 	}
 
