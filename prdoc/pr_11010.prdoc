@@ -27,3 +27,5 @@ doc:
 crates:
   - name: pallet-mixnet
     bump: major
+  - name: kitchensink-runtime
+    bump: patch
