@@ -1,8 +1,8 @@
 title: Migrate `pallet-mixnet` to use `TransactionExtension` API
 
 doc:
-  - audience: [Runtime Dev]
-    description: |
+  - audience: Runtime Dev
+    description: |-
       Migrates `pallet-mixnet` from the deprecated `ValidateUnsigned` trait to the modern
       `TransactionExtension` API using the `#[pallet::authorize]` attribute.
 
