@@ -564,7 +564,6 @@ where
 				registry,
 				MetricSources {
 					bandwidth: bandwidth.clone(),
-					connected_peers: num_connected.clone(),
 				},
 			)?),
 			None => None,

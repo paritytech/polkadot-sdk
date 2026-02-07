@@ -111,8 +111,13 @@ struct Metrics {
 }
 
 impl Metrics {
-	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
+	fn register(
+		r: &Registry,
+		major_syncing: Arc<AtomicBool>,
+		num_connected: Arc<AtomicUsize>,
+	) -> Result<Self, PrometheusError> {
 		MajorSyncingGauge::register(r, major_syncing)?;
+		NumConnectedGauge::register(r, num_connected)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
@@ -160,6 +165,35 @@ impl MajorSyncingGauge {
 }
 
 impl MetricSource for MajorSyncingGauge {
+	type N = u64;
+
+	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
+		set(&[], self.0.load(Ordering::Relaxed) as u64);
+	}
+}
+
+/// The connected peers metric.
+#[derive(Clone)]
+struct NumConnectedGauge(Arc<AtomicUsize>);
+
+impl NumConnectedGauge {
+	fn register(registry: &Registry, value: Arc<AtomicUsize>) -> Result<(), PrometheusError> {
+		prometheus_endpoint::register(
+			SourcedGauge::new(
+				&Opts::new(
+					"substrate_sub_libp2p_peers_count",
+					"Number of connected peers",
+				),
+				NumConnectedGauge(value),
+			)?,
+			registry,
+		)?;
+
+		Ok(())
+	}
+}
+
+impl MetricSource for NumConnectedGauge {
 	type N = u64;
 
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
@@ -394,7 +428,7 @@ where
 				tick_timeout,
 				peer_store_handle,
 				metrics: if let Some(r) = metrics_registry {
-					match Metrics::register(r, is_major_syncing.clone()) {
+					match Metrics::register(r, is_major_syncing.clone(), num_connected.clone()) {
 						Ok(metrics) => Some(metrics),
 						Err(err) => {
 							log::error!(target: LOG_TARGET, "Failed to register metrics {err:?}");
