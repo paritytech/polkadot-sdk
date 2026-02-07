@@ -1871,6 +1871,10 @@ pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
 
+	fn provider_name() -> &'static str {
+		"RelaychainDataProvider"
+	}
+
 	fn current_block_number() -> relay_chain::BlockNumber {
 		ValidationData::<T>::get()
 			.map(|d| d.relay_parent_number)

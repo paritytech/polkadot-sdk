@@ -2554,6 +2554,18 @@ pub trait BlockNumberProvider {
 		+ EncodeLike
 		+ Default;
 
+	/// Returns a human-readable name identifying this block number provider.
+	///
+	/// This is useful for application developers to determine which block number source
+	/// a pallet is configured with (e.g. local system block number vs relay chain block
+	/// number), so that the block numbers can be interpreted correctly.
+	///
+	/// The default implementation returns the type name of the implementor via
+	/// [`core::any::type_name`].
+	fn provider_name() -> &'static str {
+		core::any::type_name::<Self>()
+	}
+
 	/// Returns the current block number.
 	///
 	/// Provides an abstraction over an arbitrary way of providing the
