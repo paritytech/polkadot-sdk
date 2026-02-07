@@ -29,3 +29,5 @@ crates:
     bump: major
   - name: kitchensink-runtime
     bump: patch
+  - name: polkadot-sdk
+    bump: patch
