@@ -12734,6 +12734,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-application-crypto",
+ "sp-keystore",
  "sp-mixnet",
 ]
 

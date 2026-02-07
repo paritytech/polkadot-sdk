@@ -20,22 +20,20 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame::{
-	benchmarking::prelude::*,
-	deps::{frame_support::traits::Authorize, sp_core::sr25519},
-};
-use sp_application_crypto::Pair as _;
+use frame::{benchmarking::prelude::*, deps::frame_support::traits::Authorize};
 use sp_mixnet::types::{AuthorityId, AuthoritySignature};
 
 fn setup_registration<T: Config>() -> (RegistrationFor<T>, AuthoritySignature) {
 	let session_index = 0u32;
 	let authority_index = 0u32;
 
-	let pair = sr25519::Pair::from_seed(&[42u8; 32]);
-	let authority_id = AuthorityId::from(pair.public());
+	// Use RuntimeAppPublic to generate a keypair in the keystore.
+	// This works in both std and no_std (via host functions), unlike
+	// sp_core::Pair which requires the `full_crypto` feature (std only).
+	let authority_id = AuthorityId::generate_pair(None);
 
 	pallet::CurrentSessionIndex::<T>::put(session_index);
-	pallet::NextAuthorityIds::<T>::insert(authority_index, authority_id);
+	pallet::NextAuthorityIds::<T>::insert(authority_index, authority_id.clone());
 
 	let registration = Registration {
 		block_number: 1u32.into(),
@@ -47,7 +45,9 @@ fn setup_registration<T: Config>() -> (RegistrationFor<T>, AuthoritySignature) {
 			external_addresses: Default::default(),
 		},
 	};
-	let signature = AuthoritySignature::from(pair.sign(&registration.encode()));
+	let signature = authority_id
+		.sign(&registration.encode())
+		.expect("Key was just generated and is in keystore; qed");
 
 	(registration, signature)
 }

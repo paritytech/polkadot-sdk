@@ -24,6 +24,9 @@ serde = { features = ["derive"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-mixnet = { workspace = true }
 
+[dev-dependencies]
+sp-keystore = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [

@@ -105,7 +105,12 @@ impl Config for Test {
 }
 
 pub(crate) fn new_test_ext() -> TestState {
-	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+	use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
+
+	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	let mut ext = TestState::new(t);
+	ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
+	ext
 }
 
 fn generate_authority() -> (sr25519::Pair, AuthorityId) {
