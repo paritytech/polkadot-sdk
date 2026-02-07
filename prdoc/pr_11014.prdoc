@@ -1,0 +1,18 @@
+title: Add `provider_name()` to `BlockNumberProvider` trait
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds a `provider_name()` method to the `BlockNumberProvider` trait that returns a
+    human-readable name identifying the block number source. This allows application
+    developers to determine which block number provider a pallet is configured with
+    (e.g. local system block number vs relay chain block number). The default
+    implementation uses `core::any::type_name`. `frame_system::Pallet` returns "System"
+    and `RelaychainDataProvider` returns "RelaychainDataProvider".
+
+crates:
+- name: sp-runtime
+  bump: minor
+- name: frame-system
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch
