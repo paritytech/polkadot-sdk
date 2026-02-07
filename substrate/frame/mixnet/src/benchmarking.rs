@@ -24,16 +24,17 @@ use frame::{
 	benchmarking::prelude::*,
 	deps::{
 		frame_support::traits::Authorize,
-		sp_core::{sr25519, Pair},
+		sp_core::sr25519,
 	},
 };
+use sp_application_crypto::Pair as _;
 use sp_mixnet::types::{AuthorityId, AuthoritySignature};
 
 fn setup_registration<T: Config>() -> (RegistrationFor<T>, AuthoritySignature) {
 	let session_index = 0u32;
 	let authority_index = 0u32;
 
-	let (pair, _) = sr25519::Pair::generate();
+	let pair = sr25519::Pair::from_seed(&[42u8; 32]);
 	let authority_id = AuthorityId::from(pair.public());
 
 	pallet::CurrentSessionIndex::<T>::put(session_index);
