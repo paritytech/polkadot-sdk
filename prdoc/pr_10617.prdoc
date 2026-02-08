@@ -1,0 +1,14 @@
+title: "statement-store: use many workers for network statements processing"
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Adds --statement-network-workers CLI parameter to enable concurrent statement validation from the network.
+      Previously, statements were validated sequentially by a single worker. This change allows multiple workers
+      o process statements in parallel, improving throughput when statement store is enabled
+
+crates:
+  - name: sc-network-statement
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: major

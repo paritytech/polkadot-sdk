@@ -1,0 +1,13 @@
+title: Fix pallet-revive-fixtures
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixing two issues:
+
+    1. Build on rustc >= 1.92 was broken despite https://github.com/paritytech/polkadot-sdk/pull/10749. That PR was broken.
+    2. The nested cargo didn't properly inherit the parent toolchain (an older error). Leading to the situation where a `1.88` was only applied to the parent toolchain
+
+    Replacement for https://github.com/paritytech/polkadot-sdk/pull/10778.
+crates:
+- name: pallet-revive-fixtures
+  bump: patch

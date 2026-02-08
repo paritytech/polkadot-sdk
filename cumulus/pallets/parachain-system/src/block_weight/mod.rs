@@ -16,7 +16,7 @@
 
 //! Provides functionality to dynamically calculate the block weight for a parachain.
 //!
-//! With block bundling, parachains are relative free to choose whatever block interval they want.
+//! With block bundling, parachains are relatively free to choose whatever block interval they want.
 //! The block interval is the time between individual blocks. The available resources per block (max
 //! block weight) depend on the number of cores allocated to the parachain on the relay chain. Each
 //! relay chain cores provides an execution time of `2s` and a storage size of `10MiB`. Depending on
@@ -39,15 +39,13 @@
 //!
 //! Setup the transaction extension:
 #![doc = docify::embed!("src/block_weight/mock.rs", tx_extension_setup)]
-//!
 //! Setting up `MaximumBlockWeight`:
 #![doc = docify::embed!("src/block_weight/mock.rs", max_block_weight_setup)]
-//!
 //! Registering of the `PreInherents` hook:
 #![doc = docify::embed!("src/block_weight/mock.rs", pre_inherents_setup)]
 //! # Weight per context
 //!
-//! Depending on the context, [`MaxParachainBlockWeight`] may returns a different max weight. The
+//! Depending on the context, [`MaxParachainBlockWeight`] may return a different max weight. The
 //! max weight is only allowed to change in the first block of a core. Otherwise, all blocks need to
 //! follow the target block weight determined based on the number of cores and the target block
 //! rate. In the case of a first block, the following contexts may allow to access the full core
@@ -73,7 +71,7 @@ use frame_support::{
 	CloneNoBound, DebugNoBound,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::MAX_POV_SIZE;
+use polkadot_primitives::{executor_params::DEFAULT_BACKING_EXECUTION_TIMEOUT, MAX_POV_SIZE};
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::Digest;
@@ -89,13 +87,19 @@ pub use pre_inherents_hook::DynamicMaxBlockWeightHooks;
 pub use transaction_extension::DynamicMaxBlockWeight;
 
 const LOG_TARGET: &str = "runtime::parachain-system::block-weight";
+
 /// Maximum ref time per core
-const MAX_REF_TIME_PER_CORE_NS: u64 = 2 * WEIGHT_REF_TIME_PER_SECOND;
+const MAX_REF_TIME_PER_CORE_NS: u64 =
+	DEFAULT_BACKING_EXECUTION_TIMEOUT.as_secs() * WEIGHT_REF_TIME_PER_SECOND;
+
 /// The available weight per core on the relay chain.
 pub(crate) const FULL_CORE_WEIGHT: Weight =
 	Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 
 // Is set to `true` when we are currently inside of `pre_validate_extrinsic`.
+//
+// Forces `MaxParachainBlockWeight::get()` to return fractional weight, enabling detection of
+// transactions that exceed the fractional target limit.
 environmental::environmental!(inside_pre_validate: bool);
 
 /// The current block weight mode.
@@ -203,29 +207,28 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>>
 		let number_of_cores = CumulusDigestItem::find_core_info(&digest).map_or_else(
 			|| PreviousCoreCount::<Config>::get().map_or(1, |pc| pc.0),
 			|ci| ci.number_of_cores.0,
-		) as u32;
+		) as u64;
 
-		let target_blocks = TargetBlockRate::get();
+		let target_blocks = TargetBlockRate::get() as u64;
 
 		// Ensure we have at least one core and valid target blocks
 		if number_of_cores == 0 || target_blocks == 0 {
 			return FULL_CORE_WEIGHT;
 		}
 
+		let blocks_per_core = target_blocks.div_ceil(number_of_cores);
+
 		// At maximum we want to allow `6s` of ref time, because we don't want to overload nodes
 		// that are running with standard hardware. These nodes need to be able to import all the
 		// blocks in `6s`.
-		let total_ref_time = (number_of_cores as u64)
-			.saturating_mul(MAX_REF_TIME_PER_CORE_NS)
-			.min(WEIGHT_REF_TIME_PER_SECOND * 6);
-		let ref_time_per_block = total_ref_time
-			.saturating_div(target_blocks as u64)
-			.min(MAX_REF_TIME_PER_CORE_NS);
+		let ref_time_per_block = core::cmp::min(
+			MAX_REF_TIME_PER_CORE_NS / blocks_per_core, // Core allocation limit
+			(6 * WEIGHT_REF_TIME_PER_SECOND) / target_blocks, // Full node import limit
+		);
 
-		let total_pov_size = (number_of_cores as u64).saturating_mul(MAX_POV_SIZE as u64);
-		// Each block at max gets one core.
-		let proof_size_per_block =
-			total_pov_size.saturating_div(target_blocks as u64).min(MAX_POV_SIZE as u64);
+		// PoV size we can use as much as we can get from the cores, but at maximum it is one block
+		// per core. Or in other words, one block can not span across multiple cores.
+		let proof_size_per_block = MAX_POV_SIZE as u64 / blocks_per_core;
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
 	}
@@ -248,8 +251,12 @@ impl<Config: crate::Config, TargetBlockRate: Get<u32>> Get<Weight>
 		// Check if we are inside `pre_validate_extrinsic` of the transaction extension.
 		//
 		// When `pre_validate_extrinsic` calls this code, it is interested to know the
-		// `target_block_weight` which is then used to calculate the weight for each dispatch class.
-		// If `FullCore` mode is already enabled, the target weight is not important anymore.
+		// fractional `target_block_weight` which is then used to calculate the weight for each
+		// dispatch class. Fractional weight is returned to detect transactions exceeding the
+		// fractional target, enabling proper transition to `PotentialFullCore` mode.
+		//
+		// If `FullCore` mode is already enabled, the fractional target weight is not important
+		// anymore.
 		let in_pre_validate = inside_pre_validate::with(|v| *v).unwrap_or(false);
 
 		match crate::BlockWeightMode::<Config>::get().filter(|m| !m.is_stale()) {

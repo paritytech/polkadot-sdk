@@ -92,7 +92,7 @@ pub async fn assert_para_throughput(
 
 		// Do not count blocks with session changes, no backed blocks there.
 		if is_session_change(&block).await? {
-			continue
+			continue;
 		}
 
 		current_block_count += 1;
@@ -127,13 +127,12 @@ pub async fn assert_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let receipts = candidate_count
 			.get(&para_id)
-			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+			.ok_or_else(|| anyhow!("ParaId {} did not have any backed candidates", para_id))?;
 
 		if !expected_candidate_range.contains(&(receipts.len() as u32)) {
 			return Err(anyhow!(
-				"Candidate count {} not within range {expected_candidate_range:?}",
-				receipts.len()
-			))
+				"Candidate count {actual} not within range {expected_candidate_range:?}"
+			));
 		}
 	}
 
@@ -157,7 +156,7 @@ pub async fn assert_para_throughput(
 
 				// Genesis block is not part of a candidate :)
 				if block.number() == 0 {
-					break
+					break;
 				}
 
 				let ri = find_relay_block_identifier(&block)?;
@@ -168,7 +167,7 @@ pub async fn assert_para_throughput(
 				if *relay_identifier.get_or_insert(ri.clone()) != ri ||
 					*core_info.get_or_insert(ci.clone()) != ci
 				{
-					break
+					break;
 				}
 
 				num_blocks += 1;
@@ -179,7 +178,7 @@ pub async fn assert_para_throughput(
 		if !expected_number_of_blocks.contains(&num_blocks) {
 			return Err(anyhow!(
 				"Block number count {num_blocks} not within range {expected_number_of_blocks:?}",
-			))
+			));
 		}
 	}
 
@@ -310,8 +309,9 @@ fn identifier_matches_header(
 			let header_hash = BlakeTwo256::hash(&header.encode());
 			header_hash == *hash
 		},
-		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } =>
-			header.state_root == *storage_root,
+		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } => {
+			header.state_root == *storage_root
+		},
 	}
 }
 
@@ -448,7 +448,7 @@ async fn submit_tx_and_wait_for_finalization(
 			TxStatus::InFinalizedBlock(ref tx_in_block) => {
 				tx_in_block.wait_for_success().await?;
 				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
-				return Ok(tx_in_block.block_hash())
+				return Ok(tx_in_block.block_hash());
 			},
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
@@ -583,14 +583,14 @@ async fn ensure_is_block_in_core_impl(
 			if current_block.number() == 0 {
 				return Err(anyhow::anyhow!(
 					"Did not found block while going backwards from the best block"
-				))
+				));
 			}
 		}
 
 		// It possible that the first block we got is the same as the transaction got finalized.
 		// So, we just retry again until we found some more blocks.
 		if let Some(next_block) = next_block {
-			break next_block
+			break next_block;
 		}
 	};
 
@@ -615,8 +615,9 @@ pub async fn ensure_is_only_block_in_core(
 	let blocks = para_client.blocks();
 
 	match block_to_check {
-		BlockToCheck::Exact(block_hash) =>
-			ensure_is_block_in_core_impl(para_client, block_hash, true).await,
+		BlockToCheck::Exact(block_hash) => {
+			ensure_is_block_in_core_impl(para_client, block_hash, true).await
+		},
 		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
 			let start_block = blocks.at(start_block_hash).await?;
 
@@ -777,7 +778,7 @@ pub async fn wait_for_runtime_upgrade(
 		{
 			log::info!("Runtime upgraded in block {:?}", block.hash());
 
-			return Ok(block.hash())
+			return Ok(block.hash());
 		}
 	}
 

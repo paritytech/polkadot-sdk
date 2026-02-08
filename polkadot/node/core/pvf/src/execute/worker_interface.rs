@@ -224,7 +224,7 @@ async fn handle_result(
 			);
 
 			// Return a timeout error.
-			return Err(WorkerError::JobTimedOut)
+			return Err(WorkerError::JobTimedOut);
 		}
 	}
 
@@ -277,7 +277,7 @@ where
 			err: format!("{:?}", err),
 			path: worker_dir_path.to_str().map(String::from),
 		}
-		.into())
+		.into());
 	}
 
 	result

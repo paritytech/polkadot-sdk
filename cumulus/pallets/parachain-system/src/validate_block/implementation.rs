@@ -20,7 +20,9 @@ use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
+	relay_chain::{
+		BlockNumber as RNumber, Hash as RHash, UMPSignal, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR,
+	},
 	ClaimQueueOffset, CoreSelector, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
@@ -393,6 +395,12 @@ fn validate_blocks<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &B::Header
 			"Not a valid chain of blocks :(; {:?} not a parent of {:?}?",
 			array_bytes::bytes2hex("0x", expected_parent.as_ref()),
 			array_bytes::bytes2hex("0x", block.header().parent_hash().as_ref()),
+		);
+
+		let encoded_header_size = block.header().encoded_size();
+		assert!(
+			encoded_header_size <= MAX_HEAD_DATA_SIZE as usize,
+			"Header size {encoded_header_size} exceeds MAX_HEAD_DATA_SIZE {MAX_HEAD_DATA_SIZE}",
 		);
 
 		// Validate BlockBundleInfo consistency

@@ -65,7 +65,7 @@ where
 		if !is_first_block_in_core {
 			log::error!(
 				target: LOG_TARGET,
-				"Inherent block logic took longer than the target block weight, THIS IS A BUG!!!",
+				"Block initialization logic took longer than the target block weight, THIS IS A BUG!!!",
 			);
 
 			// We are already above the allowed maximum and do not want to accept any more
@@ -77,7 +77,7 @@ where
 		} else {
 			log::debug!(
 				target: LOG_TARGET,
-				"Inherent block logic took longer than the target block weight, going to use the full core",
+				"Block initialization logic took longer than the target block weight, going to use the full core",
 			);
 		}
 

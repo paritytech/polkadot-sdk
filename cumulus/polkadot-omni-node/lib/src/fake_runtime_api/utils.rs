@@ -124,7 +124,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl sp_session::SessionKeys<$block> for $runtime {
-				fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
+				fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
 					unimplemented!()
 				}
 
@@ -133,6 +133,7 @@ macro_rules! impl_node_runtime_apis {
 				) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 					unimplemented!()
 				}
+
 			}
 
 			impl
@@ -229,15 +230,6 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-					unimplemented!()
-				}
-			}
-
-			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
-				fn validate_statement(
-					_source: sp_statement_store::runtime_api::StatementSource,
-					_statement: sp_statement_store::Statement,
-				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
 					unimplemented!()
 				}
 			}

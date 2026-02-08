@@ -128,8 +128,8 @@ pub struct ErasedToken {
 
 #[derive(DefaultNoBound)]
 pub struct WeightMeter<T: Config> {
-	/// The overall weight limit of this weight meter. If it is None, then there is no restriction
-	pub weight_limit: Option<Weight>,
+	/// The overall weight limit of this weight meter.
+	pub weight_limit: Weight,
 	/// The current actual effective weight limit. Used to check whether the weight meter ran out
 	/// of resources. This weight limit needs to be adapted whenever the metering runs in ethereum
 	/// mode and there is a charge on the deposit meter.
@@ -149,10 +149,10 @@ pub struct WeightMeter<T: Config> {
 }
 
 impl<T: Config> WeightMeter<T> {
-	pub fn new(weight_limit: Option<Weight>, stipend: Option<Weight>) -> Self {
+	pub fn new(weight_limit: Weight, stipend: Option<Weight>) -> Self {
 		WeightMeter {
 			weight_limit,
-			effective_weight_limit: weight_limit.unwrap_or_default(),
+			effective_weight_limit: weight_limit,
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
@@ -199,7 +199,7 @@ impl<T: Config> WeightMeter<T> {
 		// any action
 		let new_consumed = self.weight_consumed.saturating_add(amount);
 		if new_consumed.any_gt(self.effective_weight_limit) {
-			return Err(<Error<T>>::OutOfGas.into())
+			return Err(<Error<T>>::OutOfGas.into());
 		}
 
 		self.weight_consumed = new_consumed;
@@ -241,7 +241,7 @@ impl<T: Config> WeightMeter<T> {
 		self.weight_consumed.saturating_accrue(weight_consumed);
 		if self.weight_consumed.any_gt(self.effective_weight_limit) {
 			self.weight_consumed = self.effective_weight_limit;
-			return Err(<Error<T>>::OutOfGas.into())
+			return Err(<Error<T>>::OutOfGas.into());
 		}
 
 		Ok(())
@@ -288,6 +288,6 @@ impl<T: Config> WeightMeter<T> {
 
 	#[cfg(test)]
 	pub fn nested(&mut self, amount: Weight) -> Self {
-		Self::new(Some(self.weight_left().min(amount)), None)
+		Self::new(self.weight_left().min(amount), None)
 	}
 }

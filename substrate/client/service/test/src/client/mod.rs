@@ -344,7 +344,7 @@ fn block_builder_does_not_include_invalid() {
 		.is_err());
 
 	let block = builder.build().unwrap().block;
-	//transfer from Eve should not be included
+	// transfer from Eve should not be included
 	assert_eq!(block.extrinsics.len(), 1);
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 
@@ -424,8 +424,8 @@ fn uncles_with_multiple_forks() {
 	// block tree:
 	// G -> A1 -> A2 -> A3 -> A4 -> A5
 	//      A1 -> B2 -> B3 -> B4
-	//	          B2 -> C3
-	//	    A1 -> D2
+	// 	          B2 -> C3
+	// 	    A1 -> D2
 	let client = substrate_test_runtime_client::new();
 
 	// G -> A1

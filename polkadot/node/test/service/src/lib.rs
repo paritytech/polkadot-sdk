@@ -102,13 +102,16 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		keep_finalized_for: None,
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
+		experimental_collator_protocol: false,
 	};
 
 	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
-			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params),
-		sc_network::config::NetworkBackendType::Litep2p =>
-			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
+		sc_network::config::NetworkBackendType::Libp2p => {
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
+		},
 	}
 }
 
@@ -395,7 +398,7 @@ impl PolkadotTestNode {
 		while let Some(notification) = import_notification_stream.next().await {
 			blocks.insert(notification.hash);
 			if blocks.len() == count {
-				break
+				break;
 			}
 		}
 	}

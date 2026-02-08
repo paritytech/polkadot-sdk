@@ -35,9 +35,10 @@ use sp_runtime::{
 	Digest,
 };
 
-type TxExtension = DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>>;
+type TxExtension =
+	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<TARGET_BLOCK_RATE>>;
 type TxExtensionOnlyOperational =
-	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<4>, 10, false>;
+	DynamicMaxBlockWeight<Runtime, CheckWeight<Runtime>, ConstU32<TARGET_BLOCK_RATE>, 10, false>;
 type MaximumBlockWeight = MaxParachainBlockWeight<Runtime, ConstU32<TARGET_BLOCK_RATE>>;
 
 #[test]
@@ -103,6 +104,17 @@ fn test_zero_cores() {
 		// With 0 cores, should return conservative default
 		assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 		assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
+	});
+}
+
+#[test]
+fn test_uneven_number_of_blocks_on_even_number_of_cores() {
+	TestExtBuilder::new().number_of_cores(2).build().execute_with(|| {
+		let weight = MaxParachainBlockWeight::<Runtime, ConstU32<3>>::get();
+
+		// Each block should get half of a core.
+		assert_eq!(weight.ref_time(), WEIGHT_REF_TIME_PER_SECOND);
+		assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64 / 2);
 	});
 }
 
@@ -1057,5 +1069,60 @@ fn on_poll_uses_correct_weight() {
 			OnPollMaxLeftWeight::set(Some(MaximumBlockWeight::target_block_weight()));
 
 			Executive::finalize_block();
+		});
+}
+
+// This test ensures when a transaction enables `PotentialFullCore` in `pre-dispatch`, but in post
+// dispatch the transaction has a lower weight we don't go back to `FractionalCore` if the total
+// block weight is above the target block weight.
+#[test]
+fn post_dispatch_is_taking_block_weight_into_account() {
+	TestExtBuilder::new()
+		.number_of_cores(2)
+		.first_block_in_core(true)
+		.build()
+		.execute_with(|| {
+			initialize_block_finished();
+			System::set_extrinsic_index(1);
+
+			let target_weight = MaximumBlockWeight::target_block_weight();
+
+			let sixty_percent = Weight::from_parts(
+				target_weight.ref_time() * 60 / 100,
+				target_weight.proof_size() * 60 / 100,
+			);
+
+			// Simulate on_initialize using 60% of target weight
+			register_weight(sixty_percent, DispatchClass::Mandatory);
+
+			let info = DispatchInfo {
+				call_weight: target_weight,
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
+			assert_ok!(TxExtension::validate_and_prepare(
+				TxExtension::new(Default::default()),
+				SystemOrigin::Signed(0).into(),
+				&CALL,
+				&info,
+				100,
+				0,
+			));
+
+			assert_matches!(
+				crate::BlockWeightMode::<Runtime>::get(),
+				Some(BlockWeightMode::PotentialFullCore { .. })
+			);
+
+			// Post-dispatch with actual_weight = 60% of target
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(sixty_percent),
+				pays_fee: Default::default(),
+			};
+
+			assert_ok!(TxExtension::post_dispatch((), &info, &mut post_info, 0, &Ok(())));
+
+			assert!(has_use_full_core_digest());
 		});
 }

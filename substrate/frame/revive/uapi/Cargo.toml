@@ -12,7 +12,6 @@ description = "Exposes all the host functions that a contract can import."
 workspace = true
 
 [package.metadata.docs.rs]
-features = ["unstable-hostfn"]
 targets = ["riscv64imac-unknown-none-elf"]
 
 [dependencies]
@@ -34,4 +33,3 @@ polkavm-derive = { version = "0.30.0" }
 default = ["scale"]
 scale = ["dep:codec", "scale-info"]
 precompiles-sol-interfaces = ["alloy-core"]
-unstable-hostfn = []

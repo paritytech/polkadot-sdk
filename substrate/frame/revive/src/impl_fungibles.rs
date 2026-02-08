@@ -45,7 +45,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError};
 use super::{address::AddressMapper, pallet, Config, ContractResult, ExecConfig, Pallet, Weight};
 use ethereum_standards::IERC20;
 
-const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 100_000);
+const WEIGHT_LIMIT: Weight = Weight::from_parts(10_000_000_000, 1000_000);
 
 impl<T: Config> Pallet<T> {
 	// Test checking account for the `fungibles::*` implementation.
@@ -75,7 +75,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -113,7 +113,7 @@ impl<T: Config> fungibles::Inspect<<T as frame_system::Config>::AccountId> for P
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -185,7 +185,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		log::trace!(target: "whatiwant", "{weight_consumed}");
 		if let Ok(return_value) = result {
@@ -224,7 +224,7 @@ impl<T: Config> fungibles::Mutate<<T as frame_system::Config>::AccountId> for Pa
 					<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			},
 			data,
-			ExecConfig::new_substrate_tx(),
+			&ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
@@ -293,14 +293,14 @@ mod tests {
 		AccountInfoOf, Code,
 	};
 	use frame_support::assert_ok;
-	const ERC20_PVM_CODE: &[u8] = include_bytes!("../fixtures/erc20/erc20.polkavm");
+	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
 
 	#[test]
 	fn call_erc20_contract() {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = EU256::from(1000);
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&amount);
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -325,7 +325,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -345,7 +345,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -363,7 +363,7 @@ mod tests {
 		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 			let _ =
 				<<Test as Config>::Currency as fungible::Mutate<_>>::set_balance(&ALICE, 1_000_000);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.to_vec();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&(EU256::from(amount * 2)));
 			let Contract { addr, .. } = BareInstantiateBuilder::<Test>::bare_instantiate(
@@ -399,7 +399,7 @@ mod tests {
 				&checking_account,
 				1_000_000,
 			);
-			let code = ERC20_PVM_CODE.to_vec();
+			let code = compile_module_with_type("MyToken", FixtureType::Resolc).unwrap().0.clone();
 			let amount = 1000;
 			let constructor_data = sol_data::Uint::<256>::abi_encode(&EU256::from(amount));
 			// We're instantiating the contract with the `CheckingAccount` so it has `amount` in it.

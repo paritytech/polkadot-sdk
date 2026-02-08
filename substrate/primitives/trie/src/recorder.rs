@@ -405,7 +405,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring node",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(
@@ -435,7 +435,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring node",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(
@@ -475,7 +475,7 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 						?hash,
 						"Ignoring value",
 					);
-					return
+					return;
 				}
 
 				tracing::trace!(

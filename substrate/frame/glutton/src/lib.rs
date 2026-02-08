@@ -213,7 +213,7 @@ pub mod pallet {
 
 			let mut meter = WeightMeter::with_limit(remaining_weight);
 			if meter.try_consume(T::WeightInfo::empty_on_idle()).is_err() {
-				return T::WeightInfo::empty_on_idle()
+				return T::WeightInfo::empty_on_idle();
 			}
 
 			let proof_size_limit =
@@ -434,7 +434,7 @@ pub mod pallet {
 			let base = T::WeightInfo::waste_ref_time_iter(0);
 			let slope = T::WeightInfo::waste_ref_time_iter(1).saturating_sub(base);
 			if !slope.proof_size().is_zero() || !base.proof_size().is_zero() {
-				return Err(())
+				return Err(());
 			}
 
 			match meter

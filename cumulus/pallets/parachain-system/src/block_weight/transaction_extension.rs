@@ -161,7 +161,7 @@ where
 
 					// If `BlockWeights` is configured correctly, it will internally call `MaxParachainBlockWeight::get()`
 					// and by setting this variable to `true`, we tell it the context. This is important as we want to get
-					// the `target_block_weight` and not the full core weight. Otherwise, we will here get a too huge weight
+					// the fractional `target_block_weight` and not the full core weight. Otherwise, we will here get a too huge weight
 					// and do not set the `PotentialFullCore` weight, leading to `CheckWeight` rejecting the extrinsic.
 					//
 					// All of this is only important for extrinsics that will enable the `PotentialFullCore` mode.
@@ -209,11 +209,10 @@ where
 						.any_gt(target_weight)
 					{
 						// When `ALLOW_NORMAL` is `true`, we want to allow all classes of transactions. Inherents are always allowed.
-						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational }
-							|| info.class == DispatchClass::Mandatory;
+						let class_allowed = ALLOW_NORMAL || matches!(info.class, DispatchClass::Operational | DispatchClass::Mandatory);
 
-						// If the `BlockBundleInfo` digest is not set (function returns `None`), it means we are in some offchain
-						// call like `validate_block`. In this case we assume this is the first block, otherwise these big
+						// If the `BundleInfo` digest is not set (function returns `None`), it means we are in some offchain
+						// call like `validate_transaction`. In this case we assume this is the first block, otherwise these big
 						// transactions will never be able to enter the tx pool.
 						let is_first_block = is_first_block_in_core_with_digest(&digest).unwrap_or(true);
 
@@ -238,18 +237,18 @@ where
 
 							return Err(InvalidTransaction::ExhaustsResources)
 						}
-					} else if is_potential {
-						log::trace!(
-							target: LOG_TARGET,
-							"Resetting back to `FractionOfCore`"
-						);
-						*mode =
-							Some(BlockWeightMode::<Config>::fraction_of_core(first_transaction_index.or(transaction_index)));
 					} else {
-						log::trace!(
-							target: LOG_TARGET,
-							"Not changing block weight mode"
-						);
+						if is_potential {
+							log::trace!(
+								target: LOG_TARGET,
+								"Resetting back to `FractionOfCore`"
+							);
+						} else {
+							log::trace!(
+								target: LOG_TARGET,
+								"Not changing block weight mode"
+							);
+						}
 
 						*mode =
 							Some(BlockWeightMode::<Config>::fraction_of_core(first_transaction_index.or(transaction_index)));
@@ -276,12 +275,8 @@ where
 						.saturating_sub(Config::WeightInfo::block_weight_tx_extension_full_core()),
 				BlockWeightMode::<Config>::FractionOfCore { .. } => {
 					let digest = frame_system::Pallet::<Config>::digest();
-					let target_block_weight =
-						MaxParachainBlockWeight::<Config, TargetBlockRate>::target_block_weight_with_digest(&digest);
-
-					let is_above_limit = frame_system::Pallet::<Config>::remaining_block_weight()
-						.consumed()
-						.any_gt(target_block_weight);
+					let is_above_limit =
+						block_weight_over_target_block_weight::<Config, TargetBlockRate>();
 
 					// If we are above the limit, it means the transaction used more weight than
 					// what it had announced, which should not happen.
@@ -321,8 +316,7 @@ where
 						Config::WeightInfo::block_weight_tx_extension_stays_fraction_of_core(),
 					)
 				},
-				// Now we need to check if the transaction required more weight than a fraction of a
-				// core block.
+				// Now we check if the transaction required more weight than the target weight.
 				BlockWeightMode::<Config>::PotentialFullCore {
 					first_transaction_index,
 					target_weight,
@@ -331,7 +325,11 @@ where
 					let block_weight = frame_system::BlockWeight::<Config>::get();
 					let extrinsic_class_weight = block_weight.get(info.class);
 
-					if extrinsic_class_weight.any_gt(*target_weight) {
+					// The transaction weight after execution is may not above the target weight,
+					// but the full block weight is maybe now above the target weight.
+					if extrinsic_class_weight.any_gt(*target_weight) ||
+						block_weight_over_target_block_weight::<Config, TargetBlockRate>()
+					{
 						log::trace!(
 							target: LOG_TARGET,
 							"Extrinsic class weight {extrinsic_class_weight:?} above target weight {target_weight:?}, enabling `FullCore` mode."

@@ -1030,7 +1030,7 @@ pub mod pallet {
 						} else {
 							let credit_out =
 								Self::withdraw(asset2.clone(), &pool_from, *amount_out, true)?;
-							return Ok(credit_out)
+							return Ok(credit_out);
 						}
 					}
 				}
@@ -1048,7 +1048,7 @@ pub mod pallet {
 					Err(_) => return Err((credit_in, Error::<T>::InvalidAssetPair.into())),
 				}
 			} else {
-				return Err((credit_in, Error::<T>::InvalidPath.into()))
+				return Err((credit_in, Error::<T>::InvalidPath.into()));
 			};
 
 			T::Assets::resolve(&pool_to, credit_in)
@@ -1097,7 +1097,7 @@ pub mod pallet {
 					Some(a) => a,
 					None => {
 						balance_path.push((asset2, amount_in));
-						break
+						break;
 					},
 				};
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
@@ -1123,7 +1123,7 @@ pub mod pallet {
 					Some(a) => a,
 					None => {
 						balance_path.push((asset1, amount_out));
-						break
+						break;
 					},
 				};
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
@@ -1188,7 +1188,7 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				return Err(Error::<T>::ZeroLiquidity)
+				return Err(Error::<T>::ZeroLiquidity);
 			}
 
 			let amount_in_with_fee = amount_in
@@ -1265,7 +1265,7 @@ pub mod pallet {
 
 					let new_element = pools.insert(pool_id);
 					if !new_element {
-						return Err(Error::<T>::NonUniquePath.into())
+						return Err(Error::<T>::NonUniquePath.into());
 					}
 				}
 			}

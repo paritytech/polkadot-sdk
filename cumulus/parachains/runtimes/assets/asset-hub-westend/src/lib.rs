@@ -34,7 +34,7 @@ mod bag_thresholds;
 pub mod governance;
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod migrations;
-mod staking;
+pub mod staking;
 
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
 
@@ -147,7 +147,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_020_004,
+	spec_version: 1_021_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -162,8 +162,12 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -262,6 +266,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// q
 	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
+	Balance,
 >;
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -691,8 +696,8 @@ pub enum ProxyType {
 	Governance,
 	/// Allows access to staking related calls.
 	///
-	/// Contains the `Staking`, `Session`, `Utility`, `FastUnstake`, `VoterList`, `NominationPools`
-	/// pallets.
+	/// Contains the `Staking`, `StakingRcClient`, `Session`, `Utility`, `VoterList`,
+	/// `NominationPools` pallets.
 	Staking,
 	/// Allows access to nomination pools related calls.
 	///
@@ -707,6 +712,13 @@ pub enum ProxyType {
 	OldAuction,
 	/// Placeholder variant to track the state before the Asset Hub Migration.
 	OldParaRegistration,
+	/// Operator proxy for validators. Can perform operational tasks: validating, chilling,
+	/// kicking, and managing session keys. Cannot bond/unbond funds, change reward
+	/// destinations, or nominate.
+	///
+	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
+	/// and `Utility` pallets.
+	StakingOperator,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -838,15 +850,34 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
+						RuntimeCall::StakingRcClient(..) |
 						RuntimeCall::Session(..) |
 						RuntimeCall::Utility(..) |
 						RuntimeCall::NominationPools(..) |
-						RuntimeCall::VoterList(..)
+						RuntimeCall::VoterList(..) |
+						RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+							proxy_type: ProxyType::StakingOperator,
+							..
+						}) | RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
+						proxy_type: ProxyType::StakingOperator,
+						..
+					})
 				)
 			},
 			ProxyType::NominationPools => {
 				matches!(c, RuntimeCall::NominationPools(..) | RuntimeCall::Utility(..))
 			},
+			ProxyType::StakingOperator => matches!(
+				c,
+				RuntimeCall::Staking(pallet_staking_async::Call::validate { .. }) |
+					RuntimeCall::Staking(pallet_staking_async::Call::chill { .. }) |
+					RuntimeCall::Staking(pallet_staking_async::Call::kick { .. }) |
+					RuntimeCall::StakingRcClient(
+						pallet_staking_async_rc_client::Call::set_keys { .. }
+					) | RuntimeCall::StakingRcClient(
+					pallet_staking_async_rc_client::Call::purge_keys { .. }
+				) | RuntimeCall::Utility { .. }
+			),
 		}
 	}
 
@@ -857,12 +888,14 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(_, ProxyType::Any) => false,
 			(ProxyType::Assets, ProxyType::AssetOwner) => true,
 			(ProxyType::Assets, ProxyType::AssetManager) => true,
+			(ProxyType::Staking, ProxyType::StakingOperator) => true,
 			(
 				ProxyType::NonTransfer,
 				ProxyType::Collator |
 				ProxyType::Governance |
 				ProxyType::Staking |
-				ProxyType::NominationPools,
+				ProxyType::NominationPools |
+				ProxyType::StakingOperator,
 			) => true,
 			_ => false,
 		}
@@ -1202,7 +1235,6 @@ impl pallet_revive::Config for Runtime {
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-	type UnsafeUnstableInterface = ConstBool<false>;
 	type AllowEVMBytecode = ConstBool<true>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
@@ -1398,6 +1430,9 @@ construct_runtime!(
 		Treasury: pallet_treasury = 94,
 		AssetRate: pallet_asset_rate = 95,
 		MultiAssetBounties: pallet_multi_asset_bounties = 96,
+
+		// Dynamic Allocation Pool / Issuance Buffer
+		Dap: pallet_dap = 100,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1639,8 +1674,8 @@ impl
 		assert_ok!(ForeignAssets::force_create(
 			RuntimeOrigin::root(),
 			asset_id.clone().into(),
-			account.clone().into(), /* owner */
-			true,                   /* is_sufficient */
+			account.clone().into(), // owner
+			true,                   // is_sufficient
 			1,
 		));
 
@@ -1679,6 +1714,9 @@ impl
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+type StakingRcClientBench<T> = pallet_staking_async_rc_client::benchmarking::Pallet<T>;
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
@@ -1707,6 +1745,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
+		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
@@ -1839,8 +1878,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -2227,9 +2266,16 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, PriceForParentDelivery};
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -2238,6 +2284,48 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				).into());
 
 				pub RandomParaId: ParaId = ParaId::new(43211234);
+			}
+
+			impl pallet_staking_async_rc_client::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					PriceForParentDelivery,
+				>;
+
+				fn account_to_location(account: Self::AccountId) -> Location {
+					[AccountId32 { network: None, id: account.into() }].into()
+				}
+
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Vec<u8>, Vec<u8>) {
+					use staking::RelayChainSessionKeys;
+					let keys = RelayChainSessionKeys::generate(&owner.encode(), None);
+					(keys.keys.encode(), keys.proof.encode())
+				}
+
+				fn setup_validator() -> Self::AccountId {
+					use frame_benchmarking::account;
+					use frame_support::traits::fungible::Mutate;
+
+					let stash: Self::AccountId = account("validator", 0, 0);
+					let balance = 10_000 * UNITS;
+
+					// Fund the account
+					let _ = Balances::mint_into(&stash, balance);
+
+					// Bond and validate
+					assert_ok!(Staking::bond(
+						RuntimeOrigin::signed(stash.clone()),
+						balance / 2,
+						pallet_staking_async::RewardDestination::Stash
+					));
+					assert_ok!(Staking::validate(
+						RuntimeOrigin::signed(stash.clone()),
+						pallet_staking_async::ValidatorPrefs::default()
+					));
+
+					stash
+				}
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -2475,7 +2563,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					assert_ok!(ForeignAssets::set_reserves(
 						RuntimeOrigin::signed(account),
 						roc_id.clone().into(),
-						vec![reserves.clone()],
+						vec![reserves.clone()].try_into().unwrap(),
 					));
 					(reserves.reserve, roc)
 				});

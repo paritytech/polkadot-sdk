@@ -135,12 +135,12 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 
 		if parent_core_info != *core_info {
 			tracing::trace!(target: LOG_TARGET, ?parent_core_info, ?core_info, "Core info doesn't match");
-			return None
+			return None;
 		}
 
 		if parent_bundle_info.index.saturating_add(1) != bundle_info.index {
 			tracing::trace!(target: LOG_TARGET, ?parent_bundle_info, ?bundle_info, "Block is not a child, based on the index");
-			return None
+			return None;
 		}
 
 		match load_ignored_nodes::<Block, _>(&*self.client, parent) {
@@ -180,7 +180,7 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 		let (Some(core_info), Some(bundle_info), Some(relay_block_identifier)) =
 			(core_info, bundle_info, relay_block_identifier)
 		else {
-			return Ok(())
+			return Ok(());
 		};
 
 		let parent_hash = *params.header.parent_hash();
@@ -213,7 +213,9 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			.map_err(sp_consensus::Error::ChainLookup)?;
 
 		if params.header.state_root() != &gen_storage_changes.transaction_storage_root {
-			return Err(sp_consensus::Error::Other(Box::new(sp_blockchain::Error::InvalidStateRoot)))
+			return Err(sp_consensus::Error::Other(Box::new(
+				sp_blockchain::Error::InvalidStateRoot,
+			)));
 		}
 
 		nodes_to_ignore.extend(ProofRecorderIgnoredNodes::<Block>::from_storage_proof::<

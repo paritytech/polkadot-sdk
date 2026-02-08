@@ -208,7 +208,7 @@ where
 
 			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-				continue
+				continue;
 			};
 
 			let best_hash = para_client.info().best_hash;
@@ -227,7 +227,7 @@ where
 			)
 			.await
 			else {
-				continue
+				continue;
 			};
 
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
@@ -259,7 +259,7 @@ where
 			)
 			.await
 			else {
-				continue
+				continue;
 			};
 
 			let Ok(max_pov_size) = relay_chain_data_cache
@@ -322,7 +322,7 @@ where
 					slot = ?slot_info.slot,
 					"Not eligible to claim slot."
 				);
-				continue
+				continue;
 			};
 
 			tracing::debug!(
@@ -434,7 +434,7 @@ where
 				}
 
 				if !cores.advance() {
-					break
+					break;
 				}
 			}
 		}
@@ -523,7 +523,7 @@ where
 			"Could not fetch validation code hash",
 		);
 
-		return Err(())
+		return Err(());
 	};
 
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
@@ -537,7 +537,7 @@ where
 	let mut parent_header = pov_parent_header.clone();
 
 	for block_index in 0..blocks_per_core {
-		//TODO: Remove when transaction streaming is implemented
+		// TODO: Remove when transaction streaming is implemented
 		// We require that the next node has imported our last block before it can start building
 		// the next block. To ensure that the next node is able to do so, we are skipping the last
 		// block in the parachain slot. In the future this can be removed again.
@@ -579,7 +579,7 @@ where
 		{
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to create inherent data.");
-				return Ok(None)
+				return Ok(None);
 			},
 			Ok(x) => x,
 		};
@@ -600,7 +600,7 @@ where
 		// For the special case of 3 blocks on 3 cores or 2 blocks on 2 cores, we are going to
 		// adjust the authoring duration on the last block.
 		//
-		//TODO: Remove when transaction streaming is implemented
+		// TODO: Remove when transaction streaming is implemented
 		let adjusted_time_left = if is_last_block_in_core &&
 			blocks_per_core == 1 &&
 			total_number_of_blocks <= 3 &&
@@ -690,7 +690,7 @@ where
 				%runtime_upgrade_digest,
 				"Stopping block production for core",
 			);
-			break
+			break;
 		}
 
 		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(
@@ -788,7 +788,7 @@ where
 		.map(|d| d.relay_parent_header.clone())
 	else {
 		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(())
+		return Err(());
 	};
 
 	if relay_parent_offset == 0 {

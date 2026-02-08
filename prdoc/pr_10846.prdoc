@@ -1,0 +1,13 @@
+title: 'net/metrics: Add metrics for inbound/outbound traffic '
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds a new metric for inbound / outbound traffic for individual request-response protocols.
+
+    - the PR is motivated by https://github.com/paritytech/polkadot-sdk/issues/10765 which shows a significant number of bytes as downloaded (4-5 MiB/s). This is suspicious for a fully synced validator, 1-2 blocks to the tip of the chain.
+    - It suggests a protocol is internally consuming too much bandwidth leading to network inefficiencies, wasted CPU, and in the case of the issue to OOM kills
+
+    cc @paritytech/sdk-node
+crates:
+- name: sc-network
+  bump: patch
