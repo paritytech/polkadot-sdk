@@ -19,37 +19,11 @@
 //! slot derived from the `internal_scheduling_parent`.
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use polkadot_primitives::{
-	CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
+	ApprovedPeerId, CollatorId, CollatorSignature, CoreSelector, Header as RelayChainHeader,
 };
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AppVerify, ConstU32},
-	BoundedVec,
-};
-
-/// A Multihash instance useful to hold peer ids in relation to reputation awards,
-/// in case of resubmission.
-#[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Debug,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub struct Multihash {
-	/// The code of the Multihash.
-	pub code: u64,
-	/// The digest.
-	pub digest: BoundedVec<u8, ConstU32<68>>, // 4 byte dig size + 64 bytes hash digest
-}
+use sp_runtime::traits::AppVerify;
 
 /// Payload signed by a collator for resubmission.
 ///
@@ -84,7 +58,7 @@ pub struct SignedSchedulingInfo {
 	/// Overrides the peer ID from the block's commitments, allowing the
 	/// resubmitting collator to receive reputation instead of the original
 	/// block author who failed to deliver.
-	pub peer_id: Multihash,
+	pub peer_id: ApprovedPeerId,
 	/// Signature by the eligible collator for the slot at `internal_scheduling_parent`.
 	/// Signs `SchedulingInfoPayload(core_selector, internal_scheduling_parent)`.
 	pub signature: CollatorSignature,
