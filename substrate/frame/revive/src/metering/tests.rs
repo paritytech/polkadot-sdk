@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	storage::AccountInfo,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
@@ -95,21 +96,11 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 	});
 }
 
-/// Test that storage deposit refunds work correctly when parent allocates storage
-/// and a nested call clears it.
+/// Test that storage deposit refunds and persisted ContractInfo are correct when
+/// parent allocates storage and a nested call clears it.
 ///
-/// This test validates the fix for <https://github.com/paritytech/contract-issues/issues/213>
-/// where storage deposit refunds failed in subframes because child frames couldn't see
-/// the parent frame's pending storage changes.
-///
-/// The test compares two scenarios:
-/// 1. `setAndClear()`: Sets storage and clears it directly (no nested call)
-/// 2. `setAndCallClear()`: Sets storage and clears it via nested call
-///
-/// Both should produce identical storage deposit results because the net storage
-/// change is the same. Before the fix, the nested call variant would fail because
-/// the child frame couldn't see the parent's pending storage allocation when
-/// calculating the refund.
+/// Compares `setAndClear()` (direct) vs `setAndCallClear()` (reentrant). Both have
+/// the same net effect so deposits and persisted ContractInfo must be identical.
 #[test_case(FixtureType::Solc   , "DepositPrecompile" ; "solc precompiles")]
 #[test_case(FixtureType::Resolc , "DepositPrecompile" ; "resolc precompiles")]
 #[test_case(FixtureType::Solc   , "DepositDirect" ; "solc direct")]
@@ -123,27 +114,23 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// First, get the result when setting and clearing storage directly (no nested call)
+		// Direct: set a=2, b=3, clear b in the same frame
 		let direct_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
 			.build();
+		let direct_info = AccountInfo::<Test>::load_contract(&caller_addr).unwrap();
 
-		// Clear storage to reset state for a fair comparison
+		// Reset storage for a fair comparison
 		builder::bare_call(caller_addr)
 			.data(DepositPrecompile::clearAllCall {}.abi_encode())
 			.build();
 
-		// Now get the result when clearing via nested call
-		// The parent sets storage (a=2, b=3), then calls this.clear() to clear it
-		// The child frame must see the parent's pending storage to calculate refunds correctly
+		// Reentrant: set a=2, b=3, then call this.clear() which clears b
 		let nested_result = builder::bare_call(caller_addr)
 			.data(DepositPrecompile::setAndCallClearCall {}.abi_encode())
 			.build();
+		let nested_info = AccountInfo::<Test>::load_contract(&caller_addr).unwrap();
 
-		// Both approaches should produce the same storage deposit result.
-		// Before the fix for issue #213, the nested call variant would produce
-		// different results because the child frame couldn't see the parent's
-		// pending storage allocation when calculating the refund.
 		assert_eq!(
 			direct_result.storage_deposit, nested_result.storage_deposit,
 			"Nested call should produce same net storage deposit as direct call"
@@ -151,6 +138,23 @@ fn nested_call_storage_refund(fixture_type: FixtureType, fixture_name: &str) {
 		assert_eq!(
 			direct_result.max_storage_deposit, nested_result.max_storage_deposit,
 			"Nested call should produce same max storage deposit as direct call"
+		);
+		assert_eq!(
+			direct_info.storage_items, nested_info.storage_items,
+			"storage_items: direct={}, nested={} (should be equal)",
+			direct_info.storage_items, nested_info.storage_items,
+		);
+		assert_eq!(
+			direct_info.storage_item_deposit, nested_info.storage_item_deposit,
+			"storage_item_deposit mismatch between direct and nested paths",
+		);
+		assert_eq!(
+			direct_info.storage_bytes, nested_info.storage_bytes,
+			"storage_bytes mismatch between direct and nested paths",
+		);
+		assert_eq!(
+			direct_info.storage_byte_deposit, nested_info.storage_byte_deposit,
+			"storage_byte_deposit mismatch between direct and nested paths",
 		);
 	});
 }
