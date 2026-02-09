@@ -194,6 +194,10 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		collection_name: &str,
 		size_info: AbridgedInboundMessagesSizeInfo,
 	) {
+		if self.hashed_messages.is_empty() {
+			return;
+		}
+
 		// We should check that the collection contains as many full messages as possible
 		// without exceeding the max expected size.
 		let AbridgedInboundMessagesSizeInfo { max_full_messages_size, first_hashed_msg_max_size } =
@@ -536,6 +540,22 @@ mod tests {
 
 	#[test]
 	fn check_enough_messages_included_advanced_works() {
+		let full_messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 0, data: vec![1; 50] },
+			)],
+			hashed_messages: vec![],
+		};
+		// This should work if there are no hashed messages.
+		full_messages.check_enough_messages_included_advanced(
+			"Test",
+			AbridgedInboundMessagesSizeInfo {
+				max_full_messages_size: 100,
+				first_hashed_msg_max_size: 25,
+			},
+		);
+
 		let mixed_messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![(
 				1000.into(),
