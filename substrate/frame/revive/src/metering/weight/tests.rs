@@ -93,8 +93,9 @@ fn refuse_to_execute_anything_if_zero() {
 #[test]
 fn nested_zero_weight_requested() {
 	let test_weight = 50000.into();
-	let mut weight_meter = WeightMeter::<Test>::new(test_weight, None);
-	let weight_for_nested_call = weight_meter.nested(0.into());
+	let weight_meter = WeightMeter::<Test>::new(test_weight, None);
+	let weight_for_nested_call =
+		WeightMeter::<Test>::new_nested(weight_meter.weight_left().min(0.into()), None);
 
 	assert_eq!(weight_meter.weight_left(), 50000.into());
 	assert_eq!(weight_for_nested_call.weight_left(), 0.into())
@@ -103,8 +104,9 @@ fn nested_zero_weight_requested() {
 #[test]
 fn nested_some_weight_requested() {
 	let test_weight = 50000.into();
-	let mut weight_meter = WeightMeter::<Test>::new(test_weight, None);
-	let weight_for_nested_call = weight_meter.nested(10000.into());
+	let weight_meter = WeightMeter::<Test>::new(test_weight, None);
+	let weight_for_nested_call =
+		WeightMeter::<Test>::new_nested(weight_meter.weight_left().min(10000.into()), None);
 
 	assert_eq!(weight_meter.weight_consumed(), 0.into());
 	assert_eq!(weight_for_nested_call.weight_left(), 10000.into())
@@ -113,8 +115,9 @@ fn nested_some_weight_requested() {
 #[test]
 fn nested_all_weight_requested() {
 	let test_weight = Weight::from_parts(50000, 50000);
-	let mut weight_meter = WeightMeter::<Test>::new(test_weight, None);
-	let weight_for_nested_call = weight_meter.nested(test_weight);
+	let weight_meter = WeightMeter::<Test>::new(test_weight, None);
+	let weight_for_nested_call =
+		WeightMeter::<Test>::new_nested(weight_meter.weight_left().min(test_weight), None);
 
 	assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
 	assert_eq!(weight_for_nested_call.weight_left(), 50_000.into())
@@ -123,8 +126,11 @@ fn nested_all_weight_requested() {
 #[test]
 fn nested_excess_weight_requested() {
 	let test_weight = Weight::from_parts(50000, 50000);
-	let mut weight_meter = WeightMeter::<Test>::new(test_weight, None);
-	let weight_for_nested_call = weight_meter.nested(test_weight + 10000.into());
+	let weight_meter = WeightMeter::<Test>::new(test_weight, None);
+	let weight_for_nested_call = WeightMeter::<Test>::new_nested(
+		weight_meter.weight_left().min(test_weight + 10000.into()),
+		None,
+	);
 
 	assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(0, 0));
 	assert_eq!(weight_for_nested_call.weight_left(), 50_000.into())
@@ -151,80 +157,89 @@ fn charge_exact_amount() {
 }
 
 #[test]
-fn eip150_overhead_root_meter() {
+fn eip_150_overhead_root_meter() {
 	// Fresh root meter with no consumption
 	let meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
-	assert_eq!(meter.eip150_total_overhead(), Weight::zero());
+	assert_eq!(meter.compute_eip_150_total_overhead(), Weight::zero());
 
 	// Root meter with consumption
 	let mut root_meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
 	root_meter.charge(SimpleToken(6300)).unwrap();
 	// Root meter doesn't add overhead for its own consumption
-	let overhead = root_meter.eip150_total_overhead();
+	let overhead = root_meter.compute_eip_150_total_overhead();
 	assert_eq!(overhead, Weight::zero());
 }
 
 #[test]
-fn eip150_overhead_nested_meter() {
+fn eip_150_overhead_nested_meter() {
 	// Nested meter with consumption
 	let mut nested_meter = WeightMeter::<Test>::new_nested(Weight::from_parts(10000, 5000), None);
 	nested_meter.charge(SimpleToken(6300)).unwrap();
 	// total_required = 6300 + 0 = 6300, overhead = ceil(6300/63) = 100
-	let overhead = nested_meter.eip150_total_overhead();
+	let overhead = nested_meter.compute_eip_150_total_overhead();
 	assert_eq!(overhead, Weight::from_parts(100, 0));
 }
 
 #[test]
-fn eip150_overhead_single_nested() {
+fn eip_150_overhead_single_nested() {
 	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
 	parent.charge(SimpleToken(1000)).unwrap();
 
-	let mut child = parent.nested(Weight::from_parts(50_000, 25_000));
+	let mut child = WeightMeter::<Test>::new_nested(
+		parent.weight_left().min(Weight::from_parts(50_000, 25_000)),
+		None,
+	);
 	child.charge(SimpleToken(6300)).unwrap();
 
 	// Before absorb: parent is root, so overhead = 0
-	assert_eq!(parent.eip150_total_overhead(), Weight::zero());
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::zero());
 
 	// Child is nested: overhead = ceil(6300/63) = 100
-	assert_eq!(child.eip150_total_overhead(), Weight::from_parts(100, 0));
+	assert_eq!(child.compute_eip_150_total_overhead(), Weight::from_parts(100, 0));
 
 	parent.absorb_nested(child);
 
 	// Parent is root, so doesn't add its own overhead
-	let overhead = parent.eip150_total_overhead();
+	let overhead = parent.compute_eip_150_total_overhead();
 	assert_eq!(overhead, Weight::from_parts(100, 0));
 }
 
 #[test]
-fn eip150_overhead_nested_two_levels() {
+fn eip_150_overhead_nested_two_levels() {
 	let mut root = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
 	root.charge(SimpleToken(1000)).unwrap();
 
-	let mut level1 = root.nested(Weight::from_parts(500_000, 250_000));
+	let mut level1 = WeightMeter::<Test>::new_nested(
+		root.weight_left().min(Weight::from_parts(500_000, 250_000)),
+		None,
+	);
 	level1.charge(SimpleToken(2000)).unwrap();
 
-	let mut level2 = level1.nested(Weight::from_parts(250_000, 125_000));
+	let mut level2 = WeightMeter::<Test>::new_nested(
+		level1.weight_left().min(Weight::from_parts(250_000, 125_000)),
+		None,
+	);
 	level2.charge(SimpleToken(6300)).unwrap();
 
 	// level2 is nested: overhead = ceil(6300/63) = 100
-	assert_eq!(level2.eip150_total_overhead(), Weight::from_parts(100, 0));
+	assert_eq!(level2.compute_eip_150_total_overhead(), Weight::from_parts(100, 0));
 
 	level1.absorb_nested(level2);
 
 	// level1.weight_overhead = 100 (from level2)
 	// level1 is nested: uses "required" = 8300 + 100 = 8400
 	// level1 total = 100 + ceil(8400/63) = 100 + 134 = 234
-	assert_eq!(level1.eip150_total_overhead(), Weight::from_parts(234, 0));
+	assert_eq!(level1.compute_eip_150_total_overhead(), Weight::from_parts(234, 0));
 
 	root.absorb_nested(level1);
 
 	// root.weight_overhead = 234 (from level1)
-	let overhead = root.eip150_total_overhead();
+	let overhead = root.compute_eip_150_total_overhead();
 	assert_eq!(overhead, Weight::from_parts(234, 0));
 }
 
 #[test]
-fn eip150_overhead_deep_nesting() {
+fn eip_150_overhead_deep_nesting() {
 	use crate::metering::math::apply_eip_150_to_weight;
 
 	const DEPTH: usize = 16;
@@ -257,7 +272,7 @@ fn eip150_overhead_deep_nesting() {
 	root.absorb_nested(level1);
 
 	// Get the total overhead
-	let overhead = root.eip150_total_overhead();
+	let overhead = root.compute_eip_150_total_overhead();
 
 	// Total consumed = (DEPTH + 1) * GAS_PER_LEVEL (root + all nested levels)
 	let total_consumed = (DEPTH as u64 + 1) * GAS_PER_LEVEL;

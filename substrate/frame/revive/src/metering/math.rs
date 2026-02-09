@@ -57,7 +57,7 @@ pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 
 /// Compute the EIP-150 63/64 overhead: the extra amount needed to compensate for the 1/64 loss.
 /// Returns `ceil(weight / 63)` for each component.
-pub(crate) fn eip_150_overhead(weight: Weight) -> Weight {
+pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
 	let ref_time = weight.ref_time();
 	let proof_size = weight.proof_size();
 	Weight::from_parts(ref_time.saturating_add(62) / 63, proof_size.saturating_add(62) / 63)
@@ -218,7 +218,11 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new_nested(nested_weight_limit, stipend),
+			weight: if should_apply_eip_150 {
+				WeightMeter::new_nested(nested_weight_limit, stipend)
+			} else {
+				WeightMeter::new(nested_weight_limit, stipend)
+			},
 			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
@@ -500,7 +504,11 @@ pub mod ethereum_execution {
 		let nested_max_total_gas = total_gas_consumption.saturating_add(&nested_gas_limit);
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new_nested(nested_weight_limit, stipend),
+			weight: if should_apply_eip_150 {
+				WeightMeter::new_nested(nested_weight_limit, stipend)
+			} else {
+				WeightMeter::new(nested_weight_limit, stipend)
+			},
 			deposit: meter.deposit.nested(nested_deposit_limit),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,

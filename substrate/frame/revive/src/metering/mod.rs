@@ -441,7 +441,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	///
 	/// For Ethereum gas mode, this includes the EIP-150 63/64 overhead for nested calls.
 	pub fn weight_required(&self) -> Weight {
-		self.weight.weight_required_with_eip150_overhead()
+		self.weight.weight_required_with_eip_150_overhead()
 	}
 
 	/// Get total storage deposit consumed in the current frame.

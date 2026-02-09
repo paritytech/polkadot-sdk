@@ -1148,7 +1148,6 @@ where
 			contract_info,
 			account_id,
 			entry_point,
-			// Apply EIP-150 rule only for nested calls (when origin is not the caller)
 			frame_meter: meter.new_nested(call_resources, !origin_is_caller)?,
 			allows_reentry: true,
 			read_only,

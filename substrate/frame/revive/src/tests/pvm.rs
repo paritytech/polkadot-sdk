@@ -2804,11 +2804,11 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
 		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as margin.
-		let eip150_margin = ((callee_min_deposit + 1) + 62) / 63;
+		let eip_150_margin = ((callee_min_deposit + 1) + 62) / 63;
 		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
 		// - +1 for callee's 1-byte storage data
 		// - +2 for caller's two 1-byte storage items
-		let deposit_limit = caller_min_deposit + eip150_margin + 3;
+		let deposit_limit = caller_min_deposit + eip_150_margin + 3;
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
