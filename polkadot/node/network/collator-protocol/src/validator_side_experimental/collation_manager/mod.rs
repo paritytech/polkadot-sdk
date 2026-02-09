@@ -899,10 +899,11 @@ impl FetchedCollation {
 				}
 			},
 			// Otherwise, do the explicit check for the para_id.
-			None =>
+			None => {
 				if advertised.para_id != candidate_receipt.descriptor.para_id() {
 					return Err(SecondingError::ParaIdMismatch);
-				},
+				}
+			},
 		}
 
 		if advertised.relay_parent != candidate_receipt.descriptor.relay_parent() {

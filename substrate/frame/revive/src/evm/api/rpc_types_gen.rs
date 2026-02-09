@@ -200,11 +200,13 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 				BlockNumberOrTagOrHash::BlockNumber(val.into())
 			},
 
-			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } =>
-				BlockNumberOrTagOrHash::BlockNumber(val),
+			BlockNumberOrTagOrHashWithAlias::NestedBlockNumber { block_number: val } => {
+				BlockNumberOrTagOrHash::BlockNumber(val)
+			},
 			BlockNumberOrTagOrHashWithAlias::BlockHash(val) |
-			BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } =>
-				BlockNumberOrTagOrHash::BlockHash(val),
+			BlockNumberOrTagOrHashWithAlias::NestedBlockHash { block_hash: val } => {
+				BlockNumberOrTagOrHash::BlockHash(val)
+			},
 		})
 	}
 }
@@ -544,8 +546,9 @@ impl HashesOrTransactionInfos {
 	pub fn contains_tx(&self, hash: H256) -> bool {
 		match self {
 			HashesOrTransactionInfos::Hashes(hashes) => hashes.iter().any(|h256| *h256 == hash),
-			HashesOrTransactionInfos::TransactionInfos(transaction_infos) =>
-				transaction_infos.iter().any(|ti| ti.hash == hash),
+			HashesOrTransactionInfos::TransactionInfos(transaction_infos) => {
+				transaction_infos.iter().any(|ti| ti.hash == hash)
+			},
 		}
 	}
 }

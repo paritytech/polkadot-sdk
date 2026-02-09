@@ -97,7 +97,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 			Some(match change {
 				Change::Set(col, key, value) => (col as u8, key, Some(value)),
 				Change::Remove(col, key) => (col as u8, key, None),
-				Change::Store(col, key, value) =>
+				Change::Store(col, key, value) => {
 					if ref_counted_column(col) {
 						(col as u8, key.as_ref().to_vec(), Some(value))
 					} else {
@@ -105,7 +105,8 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 							not_ref_counted_column.push(col);
 						}
 						return None;
-					},
+					}
+				},
 				Change::Reference(col, key) => {
 					if ref_counted_column(col) {
 						// FIXME accessing value is not strictly needed, optimize this in parity-db.
@@ -118,7 +119,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						return None;
 					}
 				},
-				Change::Release(col, key) =>
+				Change::Release(col, key) => {
 					if ref_counted_column(col) {
 						(col as u8, key.as_ref().to_vec(), None)
 					} else {
@@ -126,7 +127,8 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 							not_ref_counted_column.push(col);
 						}
 						return None;
-					},
+					}
+				},
 			})
 		}));
 

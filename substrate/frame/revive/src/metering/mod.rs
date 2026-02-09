@@ -156,10 +156,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		);
 
 		let mut new_meter = match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::new_nested_meter(self, limit),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::new_nested_meter(self, limit)
+			},
 		}?;
 
 		new_meter.adjust_effective_weight_limit()?;
@@ -353,8 +355,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Returns None if resources are exhausted or conversion fails.
 	pub fn eth_gas_left(&self) -> Option<BalanceOf<T>> {
 		let gas_left = match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::gas_left(self, eth_tx_info),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::gas_left(self, eth_tx_info)
+			},
 			TransactionLimits::WeightAndDeposit { .. } => math::substrate_execution::gas_left(self),
 		}?;
 
@@ -369,10 +372,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Returns None if resources are exhausted.
 	pub fn weight_left(&self) -> Option<Weight> {
 		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::weight_left(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::weight_left(self),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::weight_left(self, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::weight_left(self)
+			},
 		}
 	}
 
@@ -384,10 +389,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Returns None if resources are exhausted.
 	pub fn deposit_left(&self) -> Option<BalanceOf<T>> {
 		match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::deposit_left(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::deposit_left(self),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::deposit_left(self, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::deposit_left(self)
+			},
 		}
 	}
 
@@ -399,10 +406,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// - For substrate mode: synthesizes from weight+deposit usage
 	pub fn total_consumed_gas(&self) -> BalanceOf<T> {
 		let signed_gas = match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::total_consumed_gas(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::total_consumed_gas(self),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::total_consumed_gas(self, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::total_consumed_gas(self)
+			},
 		};
 
 		signed_gas.to_ethereum_gas().unwrap_or_default()
@@ -439,10 +448,12 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter
 	pub fn eth_gas_consumed(&self) -> BalanceOf<T> {
 		let signed_gas = match &self.transaction_limits {
-			TransactionLimits::EthereumGas { eth_tx_info, .. } =>
-				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { .. } =>
-				math::substrate_execution::eth_gas_consumed(self),
+			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
+				math::ethereum_execution::eth_gas_consumed(self, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::eth_gas_consumed(self)
+			},
 		};
 
 		signed_gas.to_ethereum_gas().unwrap_or_default()
@@ -481,10 +492,12 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } =>
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info),
-			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } =>
-				math::substrate_execution::new_root(weight_limit, deposit_limit),
+			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
+				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			},
+			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
+				math::substrate_execution::new_root(weight_limit, deposit_limit)
+			},
 		}?;
 
 		transaction_meter.adjust_effective_weight_limit()?;
