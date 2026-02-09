@@ -80,10 +80,10 @@ impl Default for PriceCurve {
 		// Default: SlowedExponentialDecrease with DESIGNv5 recommended parameters
 		Self::SlowedExponentialDecrease {
 			center: 10,
-			scale_factor: FixedU128::from(1000),               // S = 1000
-			linear_coeff: FixedU128::from_rational(65, 10000), // ε = 0.0065
-			center_ratio: FixedU128::from_rational(99, 100),   // δ = 0.99
-			minimum_price: FixedU128::from_rational(65, 100),  // 0.65 floor
+			scale_factor: FixedU128::from(10),                // S = 10
+			linear_coeff: FixedU128::from_rational(1, 1000),  // ε = 0.001
+			center_ratio: FixedU128::from_rational(99, 100),  // δ = 0.99
+			minimum_price: FixedU128::from_rational(65, 100), // 0.65 floor
 		}
 	}
 }

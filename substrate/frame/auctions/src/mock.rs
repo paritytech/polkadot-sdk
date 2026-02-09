@@ -397,7 +397,7 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const MinAuctionTab: u128 = 100 * PUSD_UNIT; // 100 pUSD minimum
+	pub const MinAuctionTab: u128 = 10 * PUSD_UNIT; // 10 pUSD minimum
 	pub const MinPurchaseAmount: u128 = DOT_UNIT; // 1 DOT minimum purchase
 	pub const SurplusAuctionThreshold: Permill = Permill::from_percent(5); // 5% of pUSD supply
 	pub const SurplusAuctionAmount: u128 = 10_000 * PUSD_UNIT; // 10,000 pUSD per auction
