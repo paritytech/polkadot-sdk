@@ -94,10 +94,12 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../../parachains/chain-specs/coretime-westend.json")[..],
 			)?)),
-			CoretimeRuntimeType::WestendLocal =>
-				Ok(Box::new(westend::local_config(*self, "westend-local"))),
-			CoretimeRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::local_config(*self, "westend-dev"))),
+			CoretimeRuntimeType::WestendLocal => {
+				Ok(Box::new(westend::local_config(*self, "westend-local")))
+			},
+			CoretimeRuntimeType::WestendDevelopment => {
+				Ok(Box::new(westend::local_config(*self, "westend-dev")))
+			},
 			other => Err(std::format!(
 				"No default config present for {:?}, you should provide a chain-spec as json file!",
 				other

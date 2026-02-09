@@ -175,7 +175,7 @@ impl Justifications {
 	/// not inserted.
 	pub fn append(&mut self, justification: Justification) -> bool {
 		if self.get(justification.0).is_some() {
-			return false
+			return false;
 		}
 		self.0.push(justification);
 		true
@@ -255,7 +255,7 @@ impl BuildStorage for sp_core::storage::Storage {
 			if let Some(map) = storage.children_default.get_mut(&k) {
 				map.data.extend(other_map.data.iter().map(|(k, v)| (k.clone(), v.clone())));
 				if !map.child_info.try_update(&other_map.child_info) {
-					return Err("Incompatible child info update".to_string())
+					return Err("Incompatible child info update".to_string());
 				}
 			} else {
 				storage.children_default.insert(k, other_map.clone());
@@ -676,8 +676,9 @@ impl DispatchError {
 	/// Return the same error but without the attached message.
 	pub fn stripped(self) -> Self {
 		match self {
-			DispatchError::Module(ModuleError { index, error, message: Some(_) }) =>
-				DispatchError::Module(ModuleError { index, error, message: None }),
+			DispatchError::Module(ModuleError { index, error, message: Some(_) }) => {
+				DispatchError::Module(ModuleError { index, error, message: None })
+			},
 			m => m,
 		}
 	}
@@ -753,8 +754,9 @@ impl From<TokenError> for &'static str {
 			TokenError::UnknownAsset => "The asset in question is unknown",
 			TokenError::Frozen => "Funds exist but are frozen",
 			TokenError::Unsupported => "Operation is not supported by the asset",
-			TokenError::CannotCreateHold =>
-				"Account cannot be created for recording amount on hold",
+			TokenError::CannotCreateHold => {
+				"Account cannot be created for recording amount on hold"
+			},
 			TokenError::NotExpendable => "Account that is desired to remain would die",
 			TokenError::Blocked => "Account cannot receive the assets",
 		}

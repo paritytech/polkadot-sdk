@@ -225,8 +225,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
-			BlockNumberOrTag::U256(block_number) =>
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32()),
+			BlockNumberOrTag::U256(block_number) => {
+				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
+			},
 			BlockNumberOrTag::BlockTag(_) => false,
 		}
 	}
@@ -334,7 +335,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 				query!(
 					r#"
-					INSERT INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
 					VALUES ($1, $2, $3)
 					"#,
 					transaction_hash,
@@ -617,15 +618,17 @@ mod tests {
 
 	async fn count(pool: &SqlitePool, table: &str, block_hash: Option<H256>) -> usize {
 		let count: i64 = match block_hash {
-			None =>
+			None => {
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
 					.fetch_one(pool)
-					.await,
-			Some(hash) =>
+					.await
+			},
+			Some(hash) => {
 				sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE block_hash = ?"))
 					.bind(hash.as_ref())
 					.fetch_one(pool)
-					.await,
+					.await
+			},
 		}
 		.unwrap();
 
@@ -763,6 +766,56 @@ mod tests {
 		);
 
 		return Ok(());
+	}
+
+	#[sqlx::test]
+	async fn test_reorg_same_transaction_hash(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Build two blocks at the same height with the same transaction hash
+		let tx_hash = H256::from([42u8; 32]);
+
+		// Block A at height 1
+		let block_a = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
+		let ethereum_hash_a = H256::from([2u8; 32]);
+		let receipts_a = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash,
+				transaction_index: U256::from(0),
+				..Default::default()
+			},
+		)];
+
+		provider.insert(&block_a, &receipts_a, &ethereum_hash_a).await?;
+
+		// Verify transaction points to block A
+		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
+		assert_eq!(found_hash, block_a.hash);
+
+		// Clear the in-memory map to simulate server restart
+		provider.block_number_to_hashes.lock().await.clear();
+
+		// Block B at same height 1 (re-org) with SAME transaction
+		let block_b = MockBlockInfo { hash: H256::from([3u8; 32]), number: 1 };
+		let ethereum_hash_b = H256::from([4u8; 32]);
+		let receipts_b = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash, // Same tx hash!
+				transaction_index: U256::from(0),
+				..Default::default()
+			},
+		)];
+
+		// This should NOT fail with UNIQUE constraint violation
+		provider.insert(&block_b, &receipts_b, &ethereum_hash_b).await?;
+
+		// Transaction should now point to block B
+		let (found_hash, _) = provider.find_transaction(&tx_hash).await.unwrap();
+		assert_eq!(found_hash, block_b.hash);
+
+		Ok(())
 	}
 
 	#[sqlx::test]

@@ -18,7 +18,7 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError,
+	Code, DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
@@ -151,7 +151,12 @@ impl Tracing for CallTracer {
 		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -167,7 +172,7 @@ impl Tracing for CallTracer {
 			}
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent
@@ -177,7 +182,13 @@ impl Tracing for CallTracer {
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: u64) {
+
+	fn exit_child_span_with_error(
+		&mut self,
+		error: DispatchError,
+		gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -187,13 +198,14 @@ impl Tracing for CallTracer {
 			trace.gas_used = gas_used;
 
 			trace.error = match error {
-				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-					Some(message.unwrap_or_default().to_string()),
+				DispatchError::Module(sp_runtime::ModuleError { message, .. }) => {
+					Some(message.unwrap_or_default().to_string())
+				},
 				_ => Some(format!("{:?}", error)),
 			};
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent

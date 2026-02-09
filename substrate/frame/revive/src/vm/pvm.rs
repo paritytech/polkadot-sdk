@@ -640,8 +640,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
-			Some(precompile) if precompile.has_contract_info() =>
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(precompile) if precompile.has_contract_info() => {
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
@@ -842,7 +843,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{
-				break exec_result
+				break exec_result;
 			}
 		};
 		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;

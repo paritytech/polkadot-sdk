@@ -91,7 +91,7 @@ use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
-	Justification, Justifications,
+	Digest, Justification, Justifications,
 };
 use substrate_test_runtime_client::Sr25519Keyring;
 pub use substrate_test_runtime_client::{
@@ -363,7 +363,7 @@ where
 		at: BlockId<Block>,
 		count: usize,
 		origin: BlockOrigin,
-		mut edit_block: F,
+		edit_block: F,
 		headers_only: bool,
 		inform_sync_about_new_best_block: bool,
 		announce_block: bool,
@@ -372,14 +372,44 @@ where
 	where
 		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
+		self.generate_blocks_at_with_inherent_digests(
+			at,
+			count,
+			origin,
+			edit_block,
+			|_| Digest::default(),
+			headers_only,
+			inform_sync_about_new_best_block,
+			announce_block,
+			fork_choice,
+		)
+	}
+
+	pub fn generate_blocks_at_with_inherent_digests<F, G>(
+		&mut self,
+		at: BlockId<Block>,
+		count: usize,
+		origin: BlockOrigin,
+		mut edit_block: F,
+		mut inherent_digests: G,
+		headers_only: bool,
+		inform_sync_about_new_best_block: bool,
+		announce_block: bool,
+		fork_choice: ForkChoiceStrategy,
+	) -> Vec<H256>
+	where
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
+		G: FnMut(usize) -> Digest,
+	{
 		let mut hashes = Vec::with_capacity(count);
 		let full_client = self.client.as_client();
 		let mut at = full_client.block_hash_from_id(&at).unwrap().unwrap();
-		for _ in 0..count {
+		for i in 0..count {
 			let builder = BlockBuilderBuilder::new(&*full_client)
 				.on_parent_block(at)
 				.fetch_parent_block_number(&*full_client)
 				.unwrap()
+				.with_inherent_digests(inherent_digests(i))
 				.build()
 				.unwrap();
 			let block = edit_block(builder);
@@ -1058,10 +1088,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 			if peer.sync_service.is_major_syncing() ||
 				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 			match (highest, peer.client.info().best_hash) {
 				(None, b) => highest = Some(b),
@@ -1077,10 +1107,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let peers = self.peers_mut();
 		for peer in peers {
 			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 		}
 
@@ -1101,7 +1131,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.await;
 
 				if self.is_in_sync().await {
-					break
+					break;
 				}
 			}
 		})
@@ -1121,7 +1151,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.await;
 
 			if self.is_idle().await {
-				break
+				break;
 			}
 		}
 	}
@@ -1140,11 +1170,11 @@ pub trait TestNetFactory: Default + Sized + Send {
 						Poll::Ready(())
 					})
 					.await;
-					continue 'outer
+					continue 'outer;
 				}
 			}
 
-			break
+			break;
 		}
 	}
 
@@ -1162,7 +1192,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 					let net_poll_future = peer.network.next_action();
 					pin_mut!(net_poll_future);
 					if let Poll::Pending = net_poll_future.poll(cx) {
-						break
+						break;
 					}
 				}
 				trace!(target: "sync", "-- Polling complete {}: {}", i, peer.id());
