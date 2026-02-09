@@ -40,7 +40,7 @@
 //!
 //! * **[`Tab`]**: The structured debt to be repaid, consisting of principal, accrued interest, and
 //!   liquidation penalty. Payments are applied in order: principal first (burned), then interest
-//!   (to Insurance Fund), then penalty (to Insurance Fund).
+//!   (burned, since it was already minted to IF on accrual), then penalty (to Insurance Fund).
 //!
 //! * **Lot**: The amount of collateral available for purchase in an auction. Decreases as buyers
 //!   take portions of the auction.
@@ -231,7 +231,7 @@ pub mod pallet {
 	///
 	/// Tracks the breakdown of debt to ensure correct payment distribution:
 	/// - Principal: burned to maintain pUSD peg (priority 1)
-	/// - Interest: transferred to Insurance Fund (priority 2)
+	/// - Interest: burned (was already minted to IF on accrual) (priority 2)
 	/// - Penalty: transferred to Insurance Fund (priority 3)
 	///
 	/// Keeper incentives are NOT included in the payment priority during takes.
@@ -242,8 +242,7 @@ pub mod pallet {
 	pub struct Tab<T: Config> {
 		/// Original principal debt - burned to maintain pUSD peg.
 		pub principal: BalanceOf<T>,
-		/// Accrued interest at liquidation time - transferred to the Insurance Fund as protocol
-		/// revenue.
+		/// Accrued interest at liquidation time - burned (was already minted to IF on accrual).
 		pub accrued_interest: BalanceOf<T>,
 		/// Liquidation penalty - goes to Insurance Fund.
 		pub penalty: BalanceOf<T>,
@@ -268,7 +267,7 @@ pub mod pallet {
 
 		/// Compute payment distribution without mutating state.
 		///
-		/// Payment priority: principal first (burn), then interest (to IF),
+		/// Payment priority: principal first (burn), then interest (burn),
 		/// then penalty (to IF).
 		///
 		/// Note: Keeper incentive is NOT included in the payment priority during takes.
@@ -371,7 +370,7 @@ pub mod pallet {
 		pub fn default_liquidation() -> Self {
 			Self {
 				buffer: FixedU128::from_rational(120, 100), // 20% above oracle
-				maximum_duration: 3600u32.into(),           // ~6 hours at 6s blocks
+				maximum_duration: 300u32.into(),            // ~30 minutes at 6s blocks
 				minimum_price: FixedU128::from_rational(65, 100), // 65% of initial
 				chip: Permill::from_parts(1000),            // 0.1%
 				tip: One::one(),                            // 1 pUSD flat fee
@@ -382,7 +381,7 @@ pub mod pallet {
 		/// Default config for surplus auctions.
 		pub fn default_surplus() -> Self {
 			Self {
-				minimum_price: FixedU128::from_rational(80, 100),
+				minimum_price: FixedU128::from_rational(795, 1000),
 				chip: Permill::zero(),
 				tip: Zero::zero(),
 				..Self::default_liquidation()
@@ -685,7 +684,8 @@ pub mod pallet {
 		},
 		/// Auction completed.
 		///
-		/// For liquidation: `remaining` is unsold DOT, `shortfall` is unpaid debt.
+		/// For liquidation: `remaining` is unsold DOT, `shortfall` is unpaid principal +
+		/// interest (bad debt). Penalty shortfall is excluded (no pUSD minted against it).
 		/// For surplus: `remaining` is unsold pUSD, `shortfall` is always zero.
 		AuctionCompleted {
 			/// Liquidation or Surplus.
@@ -694,7 +694,7 @@ pub mod pallet {
 			id: u32,
 			/// Remaining unsold amount (DOT for liquidation, pUSD for surplus).
 			remaining: BalanceOf<T>,
-			/// Unpaid debt (liquidation only, zero for surplus).
+			/// Unpaid principal + interest (liquidation only, zero for surplus).
 			shortfall: BalanceOf<T>,
 		},
 		/// Auction restarted by keeper.
@@ -822,7 +822,7 @@ pub mod pallet {
 						elapsed_u64,
 					);
 					if let Some(ratio) = current.checked_div(&auction.starting_price) {
-						is_stale = ratio < config.minimum_price;
+						is_stale = ratio <= config.minimum_price;
 					} else {
 						// starting_price is zero => stale.
 						is_stale = true;
@@ -1505,7 +1505,7 @@ pub mod pallet {
 			// Price fallen too low relative to initial
 			let current = Self::current_price(auction);
 			if let Some(ratio) = current.checked_div(&auction.starting_price) {
-				return ratio < config.minimum_price;
+				return ratio <= config.minimum_price;
 			}
 
 			// If division fails (starting_price is zero), definitely needs restart
@@ -1613,9 +1613,12 @@ pub mod pallet {
 			// 9. Check if auction is complete
 			if remaining_collateral.is_zero() || remaining_tab.is_zero() {
 				// Complete auction via CollateralManager.
-				// Only remaining PRINCIPAL is passed as shortfall (becomes bad debt).
-				// Interest/penalty shortfall is not collected, not recorded as bad debt.
-				let remaining_principal = auction.tab.principal;
+				// Shortfall = remaining principal + remaining interest (both are bad debt).
+				// Principal: pUSD was minted against it; unpaid principal = peg risk.
+				// Interest: was already minted into IF on accrual; unpaid = excess pUSD in
+				// circulation.
+				// Penalty: NOT included — no pUSD was minted against it, so not bad debt.
+				let shortfall = auction.tab.principal.saturating_add(auction.tab.accrued_interest);
 
 				// Cap keeper incentive to actual penalty collected (avoid overpaying if shortfall)
 				let actual_keeper_incentive =
@@ -1624,7 +1627,7 @@ pub mod pallet {
 				T::CollateralManager::complete_auction(
 					&vault_owner,
 					remaining_collateral,
-					remaining_principal,
+					shortfall,
 					&auction.keeper,
 					actual_keeper_incentive,
 				)?;
@@ -1633,7 +1636,7 @@ pub mod pallet {
 					auction_type: AuctionType::Liquidation,
 					id,
 					remaining: remaining_collateral,
-					shortfall: remaining_principal,
+					shortfall,
 				});
 
 				// Remove auction from storage
@@ -1858,8 +1861,11 @@ pub mod pallet {
 			// - penalty: Zero (no penalty)
 			let tab = Tab::new(pusd_amount, Zero::zero(), Zero::zero());
 
-			// 8. Create auction record
-			// Note: keeper_incentive is Zero for surplus auctions (tip=0, chip=0)
+			// 8. Surplus keeper incentive is tip only (no chip).
+			// Surplus auctions are not time-sensitive, so no percentage-based incentive.
+			let keeper_incentive = config.tip;
+
+			// 9. Create auction record
 			let id = NextAuctionId::<T>::mutate(|n| {
 				let id = *n;
 				*n = n.saturating_add(1);
@@ -1875,15 +1881,15 @@ pub mod pallet {
 				starting_block: now,
 				starting_price,
 				keeper: keeper.clone(),
-				keeper_incentive: Zero::zero(),
+				keeper_incentive,
 				penalty_collected: Zero::zero(),
 			};
 
-			// 9. Store auction and mark as active surplus auction
+			// 10. Store auction and mark as active surplus auction
 			Auctions::<T>::insert(id, auction);
 			ActiveSurplusAuctionId::<T>::put(id);
 
-			// 10. Emit event
+			// 11. Emit event
 			Self::deposit_event(Event::AuctionStarted {
 				auction_type: AuctionType::Surplus,
 				id,
