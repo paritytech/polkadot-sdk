@@ -491,14 +491,22 @@ fn auction_price_decreases_over_time() {
 #[test]
 fn auction_completion_records_shortfall() {
 	new_test_ext().execute_with(|| {
-		let collateral = 10 * DOT; // Small amount
-		let tab = 1000 * PUSD_UNIT; // Large debt
+		let collateral = 10 * DOT; // Small amount — worth ~42 pUSD at oracle price
+		let principal = 800 * PUSD_UNIT;
+		let interest = 150 * PUSD_UNIT;
+		let penalty = 50 * PUSD_UNIT;
+		// Total tab = 1000 pUSD, far exceeds collateral value → guaranteed shortfall
 
-		let auction_id = start_test_auction(VAULT_OWNER, collateral, tab).unwrap();
+		create_seized_hold(VAULT_OWNER, collateral);
+		let auction_id = crate::Pallet::<Test>::start_auction(
+			VAULT_OWNER,
+			collateral,
+			DebtComponents::new(principal, interest, penalty),
+			KEEPER,
+		)
+		.unwrap();
 
 		// Advance time so price drops, but stay above cusp (40%)
-		// With tau=21600, at block 10000 (~46% through), price is ~54% of initial
-		// which is above cusp, so no redo needed
 		run_to_block(10000);
 
 		let auction = Auctions::<Test>::get(auction_id).unwrap();
@@ -516,9 +524,26 @@ fn auction_completion_records_shortfall() {
 		// Auction should be completed with shortfall (tab > collateral_value)
 		assert!(Auctions::<Test>::get(auction_id).is_none());
 
-		// Shortfall should be recorded (the debt we couldn't raise from selling collateral)
+		// Shortfall = remaining principal + remaining interest (both are bad debt).
+		// Penalty is NOT included since no pUSD was minted against it.
 		let shortfall = get_shortfall_recorded();
-		assert!(shortfall > 0);
+		assert!(shortfall > 0, "should record shortfall");
+
+		// The collateral value (~42 pUSD) is applied to principal first (800),
+		// so almost all principal remains unpaid, plus ALL interest remains.
+		// Shortfall must be > principal alone (proving interest is included).
+		assert!(
+			shortfall > principal,
+			"shortfall ({shortfall}) should exceed principal ({principal}) because it includes unpaid interest"
+		);
+
+		// Shortfall must NOT include penalty (penalty = 50 pUSD).
+		// Maximum possible shortfall = principal + interest = 950 pUSD.
+		assert!(
+			shortfall <= principal + interest,
+			"shortfall ({shortfall}) should not exceed principal + interest ({})",
+			principal + interest
+		);
 	});
 }
 
@@ -676,9 +701,9 @@ fn take_rejects_dusty_remainder() {
 			config.chip = Permill::from_parts(0);
 		});
 
-		// Start auction with tab BELOW MinAuctionTab (100 PUSD)
+		// Start auction with tab BELOW MinAuctionTab (10 PUSD)
 		// This triggers the DustyAuction error path
-		let tab = 80 * PUSD_UNIT; // Below 100 PUSD min
+		let tab = 8 * PUSD_UNIT; // Below 10 PUSD min
 		let collateral = 100 * DOT;
 		let auction_id = start_test_auction(VAULT_OWNER, collateral, tab).unwrap();
 
@@ -689,9 +714,9 @@ fn take_rejects_dusty_remainder() {
 		let auction = Auctions::<Test>::get(auction_id).unwrap();
 		let price = crate::Pallet::<Test>::current_price(&auction);
 
-		// Try partial take - should fail because auction.tab < min_tab
-		// and a partial take would leave a dusty remainder
-		let partial_slice = 10 * DOT; // Small partial amount
+		// Try partial take - should fail because remaining tab after payment
+		// would be < MinAuctionTab and remaining collateral > 0
+		let partial_slice = DOT; // 1 DOT ≈ 4.17 pUSD, leaving ~3.83 pUSD remainder < 10 min
 
 		assert_noop!(
 			crate::Pallet::<Test>::take_liquidation(
@@ -740,8 +765,8 @@ fn take_adjusts_to_avoid_dust() {
 		let price = crate::Pallet::<Test>::current_price(&auction);
 
 		// Try to buy amount that would leave dust.
-		// Requesting collateral worth 450 PUSD would leave 50 PUSD < 100 PUSD min
-		let owe_target = 450 * PUSD_UNIT;
+		// Requesting collateral worth 495 PUSD would leave 5 PUSD < 10 PUSD min
+		let owe_target = 495 * PUSD_UNIT;
 		let slice = FixedU128::saturating_from_integer(owe_target)
 			.checked_div(&price)
 			.unwrap()
