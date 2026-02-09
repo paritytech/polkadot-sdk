@@ -17,5 +17,6 @@ The following crates were updated to the corresponding versions:
 - westend-runtime@30.2.0
 - asset-hub-westend-runtime@0.42.0
 - polkadot-sdk@2512.2.0
+- frame-omni-bencher@0.17.1
 
 </details>
