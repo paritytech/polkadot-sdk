@@ -1,0 +1,10 @@
+title: Fix `check_enough_messages_included_advanced()`
+doc:
+- audience: Todo
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/pull/9086
+
+    The check should succeed if there are no hashed messages.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
