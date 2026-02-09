@@ -32,21 +32,19 @@ fn determine_call_stipend<T: Config>() -> Weight {
 }
 
 /// Compute the ratio of requested gas to available gas.
-/// Returns a value in [0, 1] that can be used to scale weight and deposit proportionally.
-/// The ratio is capped at 1.0 to prevent allocating more resources than available.
-fn compute_gas_ratio<T: Config>(
+/// Returns a value in [0, 1]
+pub(crate) fn compute_gas_ratio<T: Config>(
 	gas_limit: BalanceOf<T>,
-	capped_remaining_gas: BalanceOf<T>,
+	remaining_gas: BalanceOf<T>,
 ) -> FixedU128 {
-	// Full allocation if gas_limit >= capped_remaining_gas or capped_remaining_gas is zero
-	if capped_remaining_gas.is_zero() || gas_limit >= capped_remaining_gas {
+	if remaining_gas.is_zero() || gas_limit >= remaining_gas {
 		return FixedU128::one();
 	}
 
-	FixedU128::from_rational(gas_limit.saturated_into(), capped_remaining_gas.saturated_into())
+	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
 }
 
-/// Apply EIP-150 63/64 rule to Weight: reduces both ref_time and proof_size by 1/64th.
+/// Apply EIP-150 rule to Weight: reduces both ref_time and proof_size by 1/64th.
 /// Returns `floor(weight * 63/64)` for each component.
 pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 	let ref_time = weight.ref_time();
@@ -57,25 +55,16 @@ pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 	)
 }
 
-/// Compute the reverse of EIP-150 63/64 rule: the correction amount needed.
+/// Compute the EIP-150 63/64 overhead: the extra amount needed to compensate for the 1/64 loss.
 /// Returns `ceil(weight / 63)` for each component.
-///
-/// This is used for dry-run estimation: if a nested call consumed `weight`, the caller needed
-/// `weight + correction` available before the call to ensure enough gas was forwarded.
-pub(crate) fn reverse_eip_150_to_weight(weight: Weight) -> Weight {
+pub(crate) fn eip_150_overhead(weight: Weight) -> Weight {
 	let ref_time = weight.ref_time();
 	let proof_size = weight.proof_size();
 	Weight::from_parts(ref_time.saturating_add(62) / 63, proof_size.saturating_add(62) / 63)
 }
 
-/// Apply EIP-150 63/64 rule to a balance (deposit or ethereum gas).
-/// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
-fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-	value.saturating_sub((value.saturating_add(63u32.into())) / 64u32.into())
-}
-
-/// Scale weight limit by the given ratio.
-fn scale_weight_limit(weight: Weight, ratio: FixedU128) -> Weight {
+/// Scale weight by the given ratio.
+pub(crate) fn scale_weight_limit(weight: Weight, ratio: FixedU128) -> Weight {
 	Weight::from_parts(
 		ratio.saturating_mul_int(weight.ref_time()),
 		ratio.saturating_mul_int(weight.proof_size()),
@@ -84,12 +73,20 @@ fn scale_weight_limit(weight: Weight, ratio: FixedU128) -> Weight {
 
 /// Validate that there's enough weight for the stipend and return the stipend weight.
 /// Returns `Err(Error::OutOfGas)` if `weight_left` is insufficient.
-fn validate_and_get_stipend<T: Config>(weight_left: Weight) -> Result<Weight, DispatchError> {
+pub(crate) fn validate_and_get_stipend<T: Config>(
+	weight_left: Weight,
+) -> Result<Weight, DispatchError> {
 	let weight_stipend = determine_call_stipend::<T>();
 	if weight_left.any_lt(weight_stipend) {
 		return Err(<Error<T>>::OutOfGas.into());
 	}
 	Ok(weight_stipend)
+}
+
+/// Apply EIP-150 rule to a balance (deposit or ethereum gas).
+/// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
+pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+	value.saturating_sub((value.saturating_add(63u32.into())) / 64u32.into())
 }
 
 pub mod substrate_execution {
@@ -128,9 +125,7 @@ pub mod substrate_execution {
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
 	///   weight+deposit) to derive per-frame limits.
 	///
-	/// The `should_apply_eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
-	/// When true, only 63/64 of remaining resources are forwarded to the nested frame.
-	/// When false (first frame entry), full resources are available.
+	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
 	///
 	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
 	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
@@ -223,7 +218,7 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit, stipend),
+			weight: WeightMeter::new_nested(nested_weight_limit, stipend),
 			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
@@ -359,9 +354,7 @@ pub mod ethereum_execution {
 	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
 	///   ethereum gas
 	///
-	/// The `should_apply_eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
-	/// When true, only 63/64 of remaining resources are forwarded to the nested frame.
-	/// When false (first frame entry), full resources are available.
+	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
 	///
 	/// The function ensures the nested frame's derived gas+resources remain within the parent's
 	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
@@ -507,7 +500,7 @@ pub mod ethereum_execution {
 		let nested_max_total_gas = total_gas_consumption.saturating_add(&nested_gas_limit);
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new(nested_weight_limit, stipend),
+			weight: WeightMeter::new_nested(nested_weight_limit, stipend),
 			deposit: meter.deposit.nested(nested_deposit_limit),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,

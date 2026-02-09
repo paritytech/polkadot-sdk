@@ -2783,7 +2783,10 @@ fn deposit_limit_in_nested_instantiate() {
 		let min_remaining = ((callee_needs * 64) + 62) / 63;
 		let outer_deposit = min_remaining + storage_cost;
 		let reserve = (min_remaining + 63) / 64;
-		assert!(reserve < storage_cost, "reserve ({reserve}) must be < storage_cost ({storage_cost})");
+		assert!(
+			reserve < storage_cost,
+			"reserve ({reserve}) must be < storage_cost ({storage_cost})"
+		);
 
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))

@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::SignedGas;
 use crate::{
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
 	TransactionMeter, WeightToken,
@@ -46,8 +47,6 @@ enum Charge {
 
 #[test]
 fn test_deposit_calculation() {
-	use super::SignedGas;
-
 	ExtBuilder::default()
 		.with_next_fee_multiplier(FixedU128::from_rational(2, 1))
 		.build()
@@ -61,6 +60,210 @@ fn test_deposit_calculation() {
 			assert_eq!(gas_result2, SignedGas::Positive(BalanceOf::<Test>::from(0u32)));
 		});
 }
+#[test]
+fn test_apply_eip_150_to_signed_gas() {
+	ExtBuilder::default().build().execute_with(|| {
+		let test_cases: Vec<(SignedGas<Test>, SignedGas<Test>)> = vec![
+			(SignedGas::Positive(6400), SignedGas::Positive(6300)),
+			(SignedGas::Positive(64), SignedGas::Positive(63)),
+			(SignedGas::Positive(65), SignedGas::Positive(63)),
+			(SignedGas::Positive(63), SignedGas::Positive(62)),
+			(SignedGas::Positive(1), SignedGas::Positive(0)),
+			(SignedGas::Positive(0), SignedGas::Positive(0)),
+			(SignedGas::Positive(123_456_789), SignedGas::Positive(121_527_776)),
+			(SignedGas::Negative(100), SignedGas::Negative(100)),
+			(SignedGas::Negative(0), SignedGas::Positive(0)),
+		];
+
+		for (input, expected) in test_cases {
+			assert_eq!(input.apply_eip_150(), expected, "failed for input {input:?}");
+		}
+	});
+}
+
+#[test]
+fn test_apply_eip_150_to_weight() {
+	use super::math::apply_eip_150_to_weight;
+
+	let test_cases: Vec<(Weight, Weight)> = vec![
+		(Weight::from_parts(6400, 6400), Weight::from_parts(6300, 6300)),
+		(Weight::from_parts(64, 64), Weight::from_parts(63, 63)),
+		(Weight::from_parts(63, 63), Weight::from_parts(62, 62)),
+		(Weight::from_parts(1, 1), Weight::from_parts(0, 0)),
+		(Weight::from_parts(0, 0), Weight::from_parts(0, 0)),
+		(Weight::from_parts(128, 64), Weight::from_parts(126, 63)),
+		(
+			Weight::from_parts(1_000_000_000, 500_000_000),
+			Weight::from_parts(984_375_000, 492_187_500),
+		),
+		(Weight::from_parts(65, 100), Weight::from_parts(63, 98)),
+		(Weight::from_parts(127, 129), Weight::from_parts(125, 126)),
+	];
+
+	for (input, expected) in test_cases {
+		assert_eq!(apply_eip_150_to_weight(input), expected, "failed for input {input:?}");
+	}
+}
+
+#[test]
+fn test_eip_150_overhead() {
+	use super::math::{apply_eip_150_to_weight, eip_150_overhead};
+
+	// Given consumed weight, verify: apply_eip_150(consumed + overhead) == consumed
+	let input_weights: Vec<Weight> = vec![
+		Weight::from_parts(0, 0),
+		Weight::from_parts(1, 1),
+		Weight::from_parts(62, 62),
+		Weight::from_parts(63, 127),
+		Weight::from_parts(128, 64),
+		Weight::from_parts(138, 201),
+		Weight::from_parts(6300, 3155),
+		Weight::from_parts(847_293_651, 42),
+		Weight::from_parts(5_183_492_761, 183_947),
+		Weight::from_parts(12_345_678_901, 7_629_384),
+	];
+
+	for consumed in input_weights {
+		let overhead = eip_150_overhead(consumed);
+		let required = consumed.saturating_add(overhead);
+		let available_to_nested = apply_eip_150_to_weight(required);
+
+		assert_eq!(
+			available_to_nested, consumed,
+			"failed for consumed={consumed:?}: overhead={overhead:?}, required={required:?}, available={available_to_nested:?}"
+		);
+	}
+}
+
+#[test]
+fn test_compute_gas_ratio() {
+	use super::math::compute_gas_ratio;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// (gas_limit, remaining_gas, expected_numerator, expected_denominator)
+		let ratio_cases: Vec<(u64, u64, u128, u128)> = vec![
+			(100, 100, 1, 1),
+			(200, 100, 1, 1),
+			(100, 0, 1, 1),
+			(0, 0, 1, 1),
+			(50, 100, 1, 2),
+			(25, 100, 1, 4),
+			(1, 100, 1, 100),
+			(0, 100, 0, 1),
+		];
+
+		for (gas_limit, remaining, num, denom) in ratio_cases {
+			assert_eq!(
+				compute_gas_ratio::<Test>(gas_limit, remaining),
+				FixedU128::from_rational(num, denom),
+				"failed for gas_limit={gas_limit}, remaining={remaining}"
+			);
+		}
+	});
+}
+
+#[test]
+fn test_apply_eip_150_to_balance() {
+	use super::math::apply_eip_150;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// (input, expected)
+		let test_cases: Vec<(u64, u64)> = vec![
+			(6400, 6300),
+			(64, 63),
+			(65, 63),
+			(63, 62),
+			(1, 0),
+			(0, 0),
+			(128, 126),
+			(127, 125),
+			(1_847_293_651, 1_818_429_687),
+			(123_456_789, 121_527_776),
+		];
+
+		for (input, expected) in test_cases {
+			assert_eq!(apply_eip_150::<Test>(input), expected, "failed for input {input}");
+		}
+	});
+}
+
+#[test]
+fn test_scale_weight_limit() {
+	use super::math::scale_weight_limit;
+
+	// (input_weight, ratio, expected_weight)
+	let test_cases: Vec<(Weight, FixedU128, Weight)> = vec![
+		(
+			Weight::from_parts(1000, 500),
+			FixedU128::from_rational(1, 1),
+			Weight::from_parts(1000, 500),
+		),
+		(Weight::from_parts(1000, 500), FixedU128::from_rational(0, 1), Weight::from_parts(0, 0)),
+		(
+			Weight::from_parts(1001, 503),
+			FixedU128::from_rational(1, 3),
+			Weight::from_parts(333, 167),
+		),
+		(
+			Weight::from_parts(1001, 503),
+			FixedU128::from_rational(2, 3),
+			Weight::from_parts(667, 335),
+		),
+		(
+			Weight::from_parts(1237, 891),
+			FixedU128::from_rational(5, 7),
+			Weight::from_parts(883, 636),
+		),
+		(
+			Weight::from_parts(847_293_651, 123_456_789),
+			FixedU128::from_rational(63, 64),
+			Weight::from_parts(834_054_687, 121_527_776),
+		),
+	];
+
+	for (input, ratio, expected) in test_cases {
+		assert_eq!(
+			scale_weight_limit(input, ratio),
+			expected,
+			"failed for input {input:?}, ratio {ratio:?}"
+		);
+	}
+}
+
+#[test]
+fn test_validate_and_get_stipend() {
+	use super::math::validate_and_get_stipend;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// With enough weight, should succeed and return stipend
+		let stipend = validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+
+		// With exactly stipend weight, should succeed
+		let result = validate_and_get_stipend::<Test>(stipend);
+		assert!(result.is_ok());
+
+		// With less than stipend (in ref_time), should fail
+		if stipend.ref_time() > 0 {
+			let insufficient = Weight::from_parts(stipend.ref_time() - 1, stipend.proof_size());
+			let result = validate_and_get_stipend::<Test>(insufficient);
+			assert!(result.is_err());
+		}
+
+		// With less than stipend (in proof_size), should fail
+		if stipend.proof_size() > 0 {
+			let insufficient = Weight::from_parts(stipend.ref_time(), stipend.proof_size() - 1);
+			let result = validate_and_get_stipend::<Test>(insufficient);
+			assert!(result.is_err());
+		}
+
+		// With zero weight, should fail (assuming stipend > 0)
+		if stipend.ref_time() > 0 || stipend.proof_size() > 0 {
+			let result = validate_and_get_stipend::<Test>(Weight::zero());
+			assert!(result.is_err());
+		}
+	});
+}
+
 
 /// Test that max_storage_deposit correctly tracks the peak storage allocation.
 ///
@@ -795,7 +998,7 @@ fn catch_constructor_test() {
 	});
 }
 
-/// Test that weight_required applies the 63/64 correction based on nesting depth.
+/// Test that weight_required applies the 63/64 overhead based on nesting depth.
 #[test]
 fn weight_required_accounts_for_nesting() {
 	use CallResources::NoLimits;
@@ -832,7 +1035,7 @@ fn weight_required_accounts_for_nesting() {
 			);
 
 			// Create a nested meter and charge some weight
-			// should_apply_eip_150 = true: specifically testing 63/64 correction tracking for nested calls
+			// should_apply_eip_150 = true: specifically testing 63/64 overhead tracking for nested calls
 			let mut nested = root_meter.new_nested(&NoLimits, true).unwrap();
 			nested.charge_weight_token(TestToken(500, 50)).unwrap();
 
@@ -843,7 +1046,7 @@ fn weight_required_accounts_for_nesting() {
 			let weight_consumed_after = root_meter.weight_consumed();
 			let weight_required_after = root_meter.weight_required();
 
-			// weight_required should be > weight_consumed after nesting (includes 63/64 correction)
+			// weight_required should be > weight_consumed after nesting (includes 63/64 overhead)
 			assert!(
 				weight_required_after.ref_time() > weight_consumed_after.ref_time(),
 				"weight_required ({:?}) should be > weight_consumed ({:?}) after nesting",
