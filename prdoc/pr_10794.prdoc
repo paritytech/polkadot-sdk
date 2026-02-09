@@ -7,3 +7,5 @@ doc:
 crates:
 - name: frame-benchmarking-cli
   bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
