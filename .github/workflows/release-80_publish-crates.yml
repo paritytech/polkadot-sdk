@@ -228,7 +228,7 @@ jobs:
 
       - name: Publish crates
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATESIO_PUBLISH_TOKEN || secrets.CRATESIO_PUBLISH_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
         run: |
           DRY_RUN="${{ inputs.dry_run }}"
           REGISTRY="${{ inputs.registry }}"
