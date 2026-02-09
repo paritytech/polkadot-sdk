@@ -910,8 +910,14 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Default::default()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+				Ok(ref output) => {
+					t.exit_child_span(&output, Default::default(), Default::default())
+				},
+				Err(e) => t.exit_child_span_with_error(
+					e.error.into(),
+					Default::default(),
+					Default::default(),
+				),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1475,10 +1481,17 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
 
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) => {
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed)
+						},
+						Err(e) => tracer.exit_child_span_with_error(
+							e.error.into(),
+							gas_consumed,
+							weight_consumed,
+						),
 					}
 				});
 
@@ -1499,7 +1512,8 @@ where
 					};
 
 					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let weight_consumed = frame_meter.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed, weight_consumed);
 				});
 
 				(false, Err(error.into()))
@@ -1760,7 +1774,6 @@ where
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match delete_contract(&args.trie_id, &args.code_hash) {
 				Ok(()) => {
-					// TODO: emit sucicide trace
 					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 					TransactionOutcome::Commit(Ok(()))
 				},
@@ -2149,8 +2162,14 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Default::default()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+					Ok(ref output) => {
+						t.exit_child_span(&output, Default::default(), Default::default())
+					},
+					Err(e) => t.exit_child_span_with_error(
+						e.error.into(),
+						Default::default(),
+						Default::default(),
+					),
 				});
 
 				result.map(|_| ())
