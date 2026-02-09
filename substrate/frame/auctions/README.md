@@ -101,13 +101,13 @@ The curve:
 
 ### Parameters
 
-| Parameter       | Description                           | Default |
-| --------------- | ------------------------------------- | ------- |
-| `center`        | Block where curve inflects            | 10      |
-| `scale_factor`  | Cubic term divisor (higher = flatter) | 1000    |
-| `linear_coeff`  | Linear decay rate                     | 0.0065  |
-| `center_ratio`  | Price ratio at center                 | 0.99    |
-| `minimum_price` | Floor as ratio of starting price      | 0.65    |
+| Parameter       | Description                           | Suggested |
+| --------------- | ------------------------------------- | --------- |
+| `center`        | Block where curve inflects            | 10        |
+| `scale_factor`  | Cubic term divisor (higher = flatter) | 10        |
+| `linear_coeff`  | Linear decay rate                     | 0.001     |
+| `center_ratio`  | Price ratio at center                 | 0.99      |
+| `minimum_price` | Floor as ratio of starting price      | 0.65      |
 
 ## Circuit Breaker
 
@@ -145,7 +145,7 @@ incentive = tip + (chip × total_tab)
 Auction debt is tracked with payment priority:
 
 1. **Principal** (burned) - maintains pUSD peg
-2. **Accrued Interest** (to Insurance Fund) - protocol revenue
+2. **Accrued Interest** (burned) - was already minted to IF on accrual
 3. **Penalty** (to Insurance Fund) - keeper incentive pool
 
 ## Configuration
@@ -169,8 +169,8 @@ impl pallet_auctions::Config for Runtime {
 | Parameter          | Description                  | Liquidation               | Surplus                   |
 | ------------------ | ---------------------------- | ------------------------- | ------------------------- |
 | `buffer`           | Initial price multiplier     | 1.2 (120%)                | 1.2                       |
-| `maximum_duration` | Blocks before restart needed | 3600                      | 3600                      |
-| `minimum_price`    | Price floor ratio            | 0.65                      | 0.80                      |
+| `maximum_duration` | Blocks before restart needed | 300                       | 300                       |
+| `minimum_price`    | Price floor ratio            | 0.65                      | 0.795                     |
 | `chip`             | Percentage keeper incentive  | 0.1%                      | 0%                        |
 | `tip`              | Flat keeper incentive        | 1 pUSD                    | 0                         |
 | `curve`            | Price decay curve            | SlowedExponentialDecrease | SlowedExponentialDecrease |
