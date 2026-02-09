@@ -78,7 +78,6 @@ jobs:
           echo "Stable branch: $STABLE_BRANCH"
           echo "STABLE_BRANCH=$STABLE_BRANCH" >> $GITHUB_OUTPUT
 
-          # I am calling it like this because we will call post crates workflow after on this one
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Checkout stable branch
