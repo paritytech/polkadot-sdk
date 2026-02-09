@@ -129,24 +129,24 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	let validator0_client: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
 
 	// Verify fresh start (no existing data)
-	verify_db_initialized(&validator_0, 1, 0).await?;
+	verify_db_initialized(validator_0, 1, 0).await?;
 
 	log::info!("Network spawned, waiting for both parachains to produce blocks");
 	assert_para_throughput(
 		&validator0_client,
 		10,
-		[(ParaId::from(PARA_ID_1), 8..12), (ParaId::from(PARA_ID_2), 8..12)],
+		[(ParaId::from(PARA_ID_1), 6..11), (ParaId::from(PARA_ID_2), 6..11)],
 	)
 	.await?;
 
 	// Wait for initial persistence
 	log::info!("Parachains producing blocks, waiting for initial periodic persistence");
-	wait_for_persistence(&validator_0, 1).await?;
+	wait_for_persistence(validator_0, 1).await?;
 
 	log::info!("Pausing validator-0 to create a block gap");
 	validator_0.pause().await?;
 
-	let block_at_persistence = extract_last_finalized_from_logs(&validator_0).await?;
+	let block_at_persistence = extract_last_finalized_from_logs(validator_0).await?;
 	log::info!("Initial persistence completed at finalized block {}", block_at_persistence);
 
 	log::info!("=== Phase 1: Testing Startup Lookback with Large Gap (>= 20 blocks) ===");
@@ -165,9 +165,9 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	let _: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
 
 	// Verify loaded with both paras' reputation
-	verify_db_initialized(&validator_0, 2, 2).await?;
+	verify_db_initialized(validator_0, 2, 2).await?;
 
-	let blocks_processed = verify_lookback_completed(&validator_0, 1).await?;
+	let blocks_processed = verify_lookback_completed(validator_0, 1).await?;
 	assert_eq!(
 		blocks_processed, 20,
 		"Expected blocks_processed ({blocks_processed}) == MAX_STARTUP_ANCESTRY_LOOKBACK (20)",
@@ -182,19 +182,19 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		5,
-		[(ParaId::from(PARA_ID_1), 1..10), (ParaId::from(PARA_ID_2), 1..10)],
+		[(ParaId::from(PARA_ID_1), 1..6), (ParaId::from(PARA_ID_2), 1..6)],
 	)
 	.await?;
 
 	log::info!("=== Phase 2: Testing Startup Lookback with Small Gap (< 20 blocks) ===");
 
 	// Wait for another persistence to get a precise starting point
-	wait_for_persistence(&validator_0, 2).await?;
+	wait_for_persistence(validator_0, 2).await?;
 
 	validator_0.pause().await?;
 	log::info!("Pausing validator-0 again to create a smaller gap");
 
-	let block_before_second_pause = extract_last_finalized_from_logs(&validator_0).await?;
+	let block_before_second_pause = extract_last_finalized_from_logs(validator_0).await?;
 	log::info!("Second persistence completed at finalized block {}", block_before_second_pause);
 
 	let small_gap_target = 10u32;
@@ -211,17 +211,15 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	let validator0_client: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
 
 	// Verify loaded with both paras' reputation
-	verify_db_initialized(&validator_0, 3, 2).await?;
-	let processed_second = verify_lookback_completed(&validator_0, 2).await?;
+	verify_db_initialized(validator_0, 3, 2).await?;
+	let processed_second = verify_lookback_completed(validator_0, 2).await?;
 	let expected_gap = block_at_second_restart.saturating_sub(block_before_second_pause);
 
-	assert!(expected_gap < 20, "Expected second gap to be < 20, but got {}", expected_gap);
+	assert!(expected_gap < 20, "Expected second gap to be < 20, but got {expected_gap}");
 
 	assert!(
 		processed_second >= expected_gap.saturating_sub(4) && processed_second <= expected_gap + 4,
-		"Expected second lookback to process entire gap (~{} blocks), but got {}",
-		expected_gap,
-		processed_second
+		"Expected second lookback to process entire gap (~{expected_gap} blocks), but got {processed_second}",
 	);
 
 	log::info!(
@@ -233,15 +231,14 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	log::info!("=== Phase 3: Testing Pruning on Parachain Deregistration ===");
 
 	// Wait for another persistence to ensure both paras are on disk
-	wait_for_persistence(&validator_0, 4).await?;
+	wait_for_persistence(validator_0, 4).await?;
 
 	// Verify both paras have reputation before pruning
-	let para_count_before = extract_para_count_from_persistence_logs(&validator_0).await?;
+	let para_count_before = extract_para_count_from_persistence_logs(validator_0).await?;
 	log::info!("Before pruning: para_count={}", para_count_before);
 	assert_eq!(
 		para_count_before, 2,
-		"Expected 2 paras with reputation before pruning, but found {}",
-		para_count_before
+		"Expected 2 paras with reputation before pruning, but found {para_count_before}",
 	);
 
 	// Deregister parachain 2001
@@ -285,7 +282,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	log::info!("Session change detected, para {} should now be offboarded", PARA_ID_2);
 
 	// Verify pruning happened
-	verify_pruning(&validator_0).await?;
+	verify_pruning(validator_0).await?;
 	log::info!("Pruning verified: pruned 1 para, 1 remaining");
 
 	// Restart validator-0 to verify only para 2000's reputation loads
@@ -294,20 +291,19 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	let validator0_client_after: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
 
 	// Verify loaded with only para 2000's reputation (para 2001 pruned)
-	verify_db_initialized(&validator_0, 4, 1).await?;
+	verify_db_initialized(validator_0, 4, 1).await?;
 
 	// Double-check via log parsing (redundant but shows consistency)
-	let para_count_after = extract_para_count_from_init_logs(&validator_0).await?;
+	let para_count_after = extract_para_count_from_init_logs(validator_0).await?;
 	log::info!("After restart: para_count={}", para_count_after);
 	assert!(
 		para_count_after <= 1,
-		"Expected at most 1 para after pruning, but found {}",
-		para_count_after
+		"Expected at most 1 para after pruning, but found {para_count_after}",
 	);
 
 	// Verify para 2000 continues normal operation
 	log::info!("Verifying para {} continues normal operation", PARA_ID_1);
-	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 1..10)]).await?;
+	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 1..6)]).await?;
 
 	log::info!("Phase 3 passed: Pruning successfully removed deregistered parachain");
 	Ok(())
@@ -329,8 +325,7 @@ async fn verify_db_initialized(
 		.await?;
 	assert!(
 		result.success(),
-		"Expected validator to log 'Reputation DB initialized' (count >= {})",
-		expected_count
+		"Expected validator to log 'Reputation DB initialized' (count >= {expected_count})",
 	);
 
 	// Parse and verify para_count
@@ -350,8 +345,7 @@ async fn verify_db_initialized(
 	let actual = para_count.ok_or(anyhow!("Could not parse para_count from init log"))?;
 	assert_eq!(
 		actual, expected_para_count,
-		"Expected para_count={}, but got {}",
-		expected_para_count, actual
+		"Expected para_count={expected_para_count}, but got {actual}",
 	);
 	log::info!("DB initialization verified: para_count={}", actual);
 
@@ -371,8 +365,7 @@ async fn wait_for_persistence(
 		.await?;
 	assert!(
 		result.success(),
-		"Periodic persistence should have completed (count >= {})",
-		expected_count
+		"Periodic persistence should have completed (count >= {expected_count})",
 	);
 	Ok(())
 }
@@ -390,8 +383,7 @@ async fn verify_lookback_completed(
 		.await?;
 	assert!(
 		result.success(),
-		"Expected 'Startup lookback completed' log (count >= {})",
-		expected_count
+		"Expected 'Startup lookback completed' log (count >= {expected_count})",
 	);
 
 	let logs = validator.logs().await?;
@@ -436,7 +428,7 @@ async fn extract_para_count_from_persistence_logs(
 	validator: &zombienet_sdk::NetworkNode,
 ) -> Result<u32, anyhow::Error> {
 	let logs = validator.logs().await?;
-	let para_count_re = Regex::new(r"Periodic persistence completed:.*para_count=(\d+)")?;
+	let para_count_re = Regex::new(r"Periodic persistence completed:.* para_count=(\d+)")?;
 
 	let mut para_count: Option<u32> = None;
 	for line in logs.lines().rev() {

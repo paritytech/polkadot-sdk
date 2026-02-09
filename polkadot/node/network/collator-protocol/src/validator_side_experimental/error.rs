@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::LOG_TARGET;
+use crate::{validator_side_experimental::peer_manager::PersistenceError, LOG_TARGET};
 use fatality::Nested;
 use polkadot_node_subsystem::{ChainApiError, SubsystemError};
 use polkadot_node_subsystem_util::{backing_implicit_view, runtime};
@@ -46,7 +46,7 @@ pub enum Error {
 	SubsystemReceive(#[source] SubsystemError),
 	#[fatal]
 	#[error("Failed to initialize reputation database: {0}")]
-	ReputationDbInit(String),
+	ReputationDbInit(PersistenceError),
 	#[fatal]
 	#[error("Failed to spawn background task: {0}")]
 	SpawnTask(String),

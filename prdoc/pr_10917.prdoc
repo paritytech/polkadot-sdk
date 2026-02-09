@@ -7,7 +7,8 @@ doc:
     Changes:
 
       - Adds `PersistentDb` wrapper that persists the in-memory reputation DB to disk
-      - Periodic persistence every 10 minutes (30s in test mode)
+      - Periodic persistence every 10 minutes
+      - Adds `--collator-reputation-persist-interval` CLI to specify the persistence interval in seconds.
       - Immediate persistence on slashes and parachain deregistration
       - Loads existing state on startup with lookback for missed blocks
 

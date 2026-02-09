@@ -23,7 +23,7 @@ use crate::{
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
-		peer_manager::{Backend, LogInfo, PersistentDb},
+		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
 	LOG_TARGET,
@@ -621,30 +621,15 @@ impl<B: Backend> State<B> {
 
 // Specific implementation for PersistentDb to support disk persistence.
 impl State<PersistentDb> {
-	/// Persist the reputation database to disk.
-	/// Called on graceful shutdown
-	pub fn persist_to_disk(&mut self) {
-		if let Err(e) = self.peer_manager.db.persist() {
-			gum::error!(
-				target: LOG_TARGET,
-				error = ?e,
-				"Failed to persist reputation DB to disk"
-			);
-		}
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	/// Called on periodic timer.
+	pub fn background_persist_reputations(&mut self) {
+		self.peer_manager.persist_to_disk_async();
 	}
 
-	// Persist the reputation database to disk asynchronously.
-	/// Called on periodic timer
-	pub fn persist_to_disk_async(&mut self) {
-		// We pass placeholders; persist_async will calculate the actual stats
-		// inside the method before sending to the background task.
-		let log_info = LogInfo::Periodic {
-			total_entries: 0,
-			para_count: 0,
-			dirty_para_count: self.peer_manager.db.dirty_paras_count(),
-			last_finalized: None,
-		};
-
-		self.peer_manager.db.persist_async(Some(log_info));
+	/// Persist the reputation database to disk and wait for completion.
+	/// Called on graceful shutdown.
+	pub async fn persist_reputations(&mut self) {
+		self.peer_manager.persist_and_wait().await;
 	}
 }

@@ -36,7 +36,8 @@ pub use backend::Backend;
 use connected::ConnectedPeers;
 #[cfg(test)]
 pub use db::Db;
-pub use persistent_db::{LogInfo, PersistentDb};
+pub use persistence::PersistenceError;
+pub use persistent_db::PersistentDb;
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
@@ -73,7 +74,7 @@ enum DeclarationOutcome {
 }
 
 pub struct PeerManager<B> {
-	pub(crate) db: B,
+	db: B,
 	connected: ConnectedPeers,
 	/// The `SessionIndex` of the last finalized block
 	latest_finalized_session: Option<SessionIndex>,
@@ -415,6 +416,23 @@ impl<B: Backend> PeerManager<B> {
 		sender
 			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
+	}
+}
+
+impl PeerManager<PersistentDb> {
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	pub fn persist_to_disk_async(&mut self) {
+		self.db.persist_async(None);
+	}
+
+	/// Persist and wait for the background writer to finish the write.
+	pub async fn persist_and_wait(&mut self) {
+		if self.db.persist_and_wait().await.is_err() {
+			gum::error!(
+				target: LOG_TARGET,
+				"Failed to persist reputation DB: background writer closed"
+			);
+		}
 	}
 }
 

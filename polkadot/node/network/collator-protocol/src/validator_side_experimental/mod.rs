@@ -94,7 +94,7 @@ async fn initialize<Context>(
 	metrics: Metrics,
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
-) -> FatalResult<Option<State<peer_manager::PersistentDb>>> {
+) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
 			Some(activated_leaf) => {
@@ -129,15 +129,12 @@ async fn initialize<Context>(
 					error = ?e,
 					"Failed to initialize persistent reputation DB"
 				);
-				return Err(FatalError::ReputationDbInit(format!(
-					"PersistentDb init failed: {:?}",
-					e
-				)));
+				return Err(FatalError::ReputationDbInit(e));
 			},
 		};
 
 		// Background task for async writes
-		ctx.spawn("collator-reputation-persistence-task", task)
+		ctx.spawn_blocking("collator-reputation-persistence-task", task)
 			.map_err(|e| FatalError::SpawnTask(e.to_string()))?;
 
 		gum::debug!(target: LOG_TARGET, "Spawned background reputation persistence task");
@@ -224,7 +221,7 @@ async fn run_inner<Context>(
 					}
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
 						// Persist to disk before shutdown
-						state.persist_to_disk();
+						state.persist_reputations().await;
 						break
 					},
 					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, number))) => {
@@ -242,7 +239,7 @@ async fn run_inner<Context>(
 			},
 			_ = &mut persistence_timer => {
 				// Periodic persistence - write reputation DB to disk
-				state.persist_to_disk_async();
+				state.background_persist_reputations();
 				// Reset the timer for the next interval
 				persistence_timer = create_persistence_timer(persist_interval);
 			},

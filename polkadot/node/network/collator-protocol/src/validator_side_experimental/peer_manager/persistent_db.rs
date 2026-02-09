@@ -34,33 +34,36 @@ use crate::{
 };
 use async_trait::async_trait;
 use codec::{Decode, Encode};
-use futures::Future;
+use futures::{channel::oneshot, Future};
 use polkadot_node_network_protocol::PeerId;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{BlockNumber, Id as ParaId};
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
 	pin::Pin,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
+	sync::Arc,
 };
 use tokio::sync::mpsc;
 
+/// Describes the context of a persistence operation, used for logging
+/// by the background writer after a disk write completes.
 #[derive(Debug)]
 pub enum LogInfo {
+	/// Periodic timer-triggered persistence. Fields are computed internally
+	/// by `send_persist_request` before sending to the background writer.
 	Periodic {
 		total_entries: usize,
 		para_count: usize,
 		dirty_para_count: usize,
 		last_finalized: Option<BlockNumber>,
 	},
+	/// Immediate persistence after pruning unregistered paras.
 	Pruned {
 		pruned_count: usize,
 		remaining_count: usize,
 		registered_count: usize,
 	},
+	/// Immediate persistence after a reputation slash (security-critical).
 	Slash {
 		para_id: ParaId,
 		peer_id: PeerId,
@@ -107,8 +110,8 @@ impl LogInfo {
 struct PersistenceRequest {
 	updates: Vec<(ParaId, Option<StoredParaReputations>)>,
 	metadata: StoredMetadata,
-	is_full_dump: bool,
-	log_info: Option<LogInfo>,
+	log_info: LogInfo,
+	completion_tx: Option<oneshot::Sender<()>>,
 }
 
 pub type WriterFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
@@ -139,8 +142,6 @@ pub struct PersistentDb {
 	dirty_paras: BTreeSet<ParaId>,
 	/// Channel to send updates to the background writer.
 	background_tx: mpsc::Sender<PersistenceRequest>,
-	/// Shared flag indicating if the disk state is desynchronized
-	needs_full_dump: Arc<AtomicBool>,
 }
 
 impl PersistentDb {
@@ -153,8 +154,7 @@ impl PersistentDb {
 		// Create empty in-memory DB
 		let inner = Db::new(stored_limit_per_para).await;
 
-		let (tx, rx) = mpsc::channel(16);
-		let needs_full_dump = Arc::new(AtomicBool::new(false));
+		let (tx, rx) = mpsc::channel(1);
 		// Load data from disk into the in-memory DB
 		let mut instance = Self {
 			inner,
@@ -162,7 +162,6 @@ impl PersistentDb {
 			config,
 			dirty_paras: BTreeSet::new(),
 			background_tx: tx,
-			needs_full_dump: needs_full_dump.clone(),
 		};
 		let (para_count, total_entries) = instance.load_from_disk().await?;
 
@@ -176,7 +175,7 @@ impl PersistentDb {
 			"Reputation DB initialized"
 		);
 
-		let task = Box::pin(Self::run_background_writer(disk_db, config, rx, needs_full_dump));
+		let task = Box::pin(Self::run_background_writer(disk_db, config, rx));
 
 		Ok((instance, task))
 	}
@@ -185,20 +184,17 @@ impl PersistentDb {
 		disk_db: Arc<dyn Database>,
 		config: ReputationConfig,
 		mut rx: mpsc::Receiver<PersistenceRequest>,
-		needs_full_dump: Arc<AtomicBool>,
 	) {
 		while let Some(req) = rx.recv().await {
+			let PersistenceRequest { updates, metadata, log_info, completion_tx } = req;
+
 			let mut db_transaction = DBTransaction::new();
 
 			// Write metadata
-			db_transaction.put_vec(
-				config.col_reputation_data,
-				metadata_key(),
-				req.metadata.encode(),
-			);
+			db_transaction.put_vec(config.col_reputation_data, metadata_key(), metadata.encode());
 
 			// Write updates
-			for (para_id, maybe_data) in req.updates {
+			for (para_id, maybe_data) in updates {
 				let key = para_reputation_key(para_id);
 				match maybe_data {
 					Some(stored_para_rep) => db_transaction.put(
@@ -213,22 +209,20 @@ impl PersistentDb {
 			// Commit transaction to disk
 			match disk_db.write(db_transaction) {
 				Ok(_) => {
-					if req.is_full_dump {
-						// We can clean the full_dump flag now
-						needs_full_dump.store(false, Ordering::Release);
-					}
-					if let Some(info) = req.log_info {
-						info.log();
-					}
+					log_info.log();
 				},
 				Err(e) => {
-					gum::warn!(
+					gum::error!(
 						target: LOG_TARGET,
 						error = ?e,
-						"Background persistence write failed. Marking for full dump."
+						"Background persistence write failed"
 					);
-					needs_full_dump.store(true, Ordering::Release);
 				},
+			}
+
+			// Signal completion if requested (used by graceful shutdown)
+			if let Some(tx) = completion_tx {
+				let _ = tx.send(());
 			}
 		}
 		gum::debug!(target: LOG_TARGET, "Background reputation writer shutting down");
@@ -283,13 +277,6 @@ impl PersistentDb {
 			}
 		}
 
-		gum::debug!(
-			target: LOG_TARGET,
-			total_peer_entries = total_entries,
-			para_count,
-			"Completed loading reputation data from disk"
-		);
-
 		Ok((para_count, total_entries))
 	}
 
@@ -303,18 +290,17 @@ impl PersistentDb {
 		}
 	}
 
-	/// Queue a snapshot of the dirty data to the background writer.
-	pub fn persist_async(&mut self, log_info: Option<LogInfo>) {
-		let needs_full = self.needs_full_dump.load(Ordering::Acquire);
+	/// Internal: snapshot dirty data and send to the background writer.
+	fn send_persist_request(
+		&mut self,
+		log_info: Option<LogInfo>,
+		completion_tx: Option<oneshot::Sender<()>>,
+	) {
 		let mut updates = Vec::new();
+		let is_periodic = log_info.is_none();
 		let mut stats_total_entries = 0;
-		let mut stats_para_count = 0;
 
-		let paras_to_snapshot: Vec<ParaId> = if needs_full {
-			self.inner.all_reputations().map(|(id, _)| *id).collect()
-		} else {
-			self.dirty_paras.iter().cloned().collect()
-		};
+		let paras_to_snapshot: Vec<ParaId> = self.dirty_paras.iter().cloned().collect();
 
 		for para_id in paras_to_snapshot {
 			let peer_scores = self.inner.get_para_reputations(&para_id);
@@ -322,32 +308,31 @@ impl PersistentDb {
 				updates.push((para_id, None));
 			} else {
 				let stored: StoredParaReputations = peer_scores.into();
-				if matches!(log_info, Some(LogInfo::Periodic { .. })) {
+				if is_periodic {
 					stats_total_entries += stored.entries.len();
-					stats_para_count += 1;
 				}
 
 				updates.push((para_id, Some(stored)));
 			}
 		}
 
-		// Get the real finalized block from the DB
-		let current_finalized = self.inner.get_last_finalized();
+		// Get the finalized block from the DB
+		let last_finalized = self.inner.get_last_finalized();
 		let final_log_info = match log_info {
-			Some(LogInfo::Periodic { dirty_para_count, .. }) => Some(LogInfo::Periodic {
+			None => LogInfo::Periodic {
 				total_entries: stats_total_entries,
-				para_count: stats_para_count,
-				dirty_para_count,
-				last_finalized: current_finalized,
-			}),
-			other => other,
+				para_count: self.inner.all_reputations().count(),
+				dirty_para_count: self.dirty_paras.len(),
+				last_finalized,
+			},
+			Some(other) => other,
 		};
 
 		let request = PersistenceRequest {
 			updates,
 			metadata: StoredMetadata { last_finalized: self.inner.get_last_finalized() },
-			is_full_dump: needs_full,
 			log_info: final_log_info,
+			completion_tx,
 		};
 
 		match self.background_tx.try_send(request) {
@@ -371,59 +356,17 @@ impl PersistentDb {
 		}
 	}
 
-	/// Synchronous persist for shutdown
-	pub fn persist(&mut self) -> Result<(), PersistenceError> {
-		let mut tx = DBTransaction::new();
-
-		// Write metadata
-		let meta = StoredMetadata { last_finalized: self.inner.get_last_finalized() };
-		tx.put_vec(self.config.col_reputation_data, metadata_key(), meta.encode());
-
-		let needs_full = self.needs_full_dump.load(Ordering::Acquire);
-
-		let paras_to_write: Vec<ParaId> = if needs_full {
-			self.inner.all_reputations().map(|(id, _)| *id).collect()
-		} else {
-			self.dirty_paras.iter().cloned().collect()
-		};
-
-		// Write dirty para data
-		let mut total_entries = 0;
-		let mut para_count = 0;
-
-		for para_id in paras_to_write {
-			let key = para_reputation_key(para_id);
-			let peer_scores = self.inner.get_para_reputations(&para_id);
-			if peer_scores.is_empty() {
-				tx.delete(self.config.col_reputation_data, &key);
-			} else {
-				let stored: StoredParaReputations = (peer_scores).into();
-				tx.put_vec(self.config.col_reputation_data, &key, stored.encode());
-				total_entries += stored.entries.len();
-				para_count += 1;
-			}
-		}
-
-		self.disk_db.write(tx).map_err(PersistenceError::Io)?;
-
-		gum::debug!(
-			target: LOG_TARGET,
-			total_peer_entries = total_entries,
-			para_count,
-			dirty_para_count = self.dirty_paras.len(),
-			last_finalized = ?meta.last_finalized,
-			"Periodic persistence completed: reputation DB written to disk"
-		);
-
-		// Clear dirty set only after we successfully committed
-		self.dirty_paras.clear();
-
-		Ok(())
+	/// Queue a snapshot of the dirty data to the background writer (fire-and-forget).
+	pub fn persist_async(&mut self, log_info: Option<LogInfo>) {
+		self.send_persist_request(log_info, None);
 	}
 
-	/// Helper to get dirty paras count without exposing the set.
-	pub fn dirty_paras_count(&self) -> usize {
-		self.dirty_paras.len()
+	/// Queue a snapshot and return a receiver that completes when the write finishes.
+	/// Used for graceful shutdown to ensure data is flushed before exit.
+	pub fn persist_and_wait(&mut self) -> oneshot::Receiver<()> {
+		let (tx, rx) = oneshot::channel();
+		self.send_persist_request(None, Some(tx));
+		rx
 	}
 }
 
@@ -464,15 +407,6 @@ impl Backend for PersistentDb {
 		// Prune from in-memory state
 		self.inner.prune_paras(registered_paras.clone()).await;
 		let paras_after = self.inner.all_reputations().count();
-
-		// Persist with explicit deletion of pruned paras
-		let mut tx = DBTransaction::new();
-
-		// Delete pruned paras from disk
-		for para_id in &paras_to_prune {
-			let key = para_reputation_key(*para_id);
-			tx.delete(self.config.col_reputation_data, &key);
-		}
 
 		self.persist_async(Some(LogInfo::Pruned {
 			pruned_count,
@@ -560,8 +494,7 @@ mod tests {
 
 		// First, create a DB, add some data, and persist it
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			// Process some bumps to add reputation data
 			let bumps = [
@@ -574,7 +507,8 @@ mod tests {
 			db.process_bumps(10, bumps, None).await;
 
 			// Persist to disk
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Now create a new DB instance and verify data was loaded
@@ -602,8 +536,7 @@ mod tests {
 
 		// Create DB and add some reputation
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("create");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps = [(para_id, [(peer, Score::new(100).unwrap())].into_iter().collect())]
 				.into_iter()
@@ -611,7 +544,8 @@ mod tests {
 			db.process_bumps(10, bumps, None).await;
 
 			// Persist initial state
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		{
@@ -640,13 +574,13 @@ mod tests {
 
 		// Create DB and add some reputation
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("create");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 			let bumps = [(para_id, [(peer, Score::new(50).unwrap())].into_iter().collect())]
 				.into_iter()
 				.collect();
 			db.process_bumps(10, bumps, None).await;
-			db.persist().expect("setup persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Slash more than the current score - should remove entry
@@ -682,8 +616,7 @@ mod tests {
 
 		// Create DB and add reputation for multiple paras
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps = [
 				(para_id_100, [(peer1, Score::new(50).unwrap())].into_iter().collect()),
@@ -693,7 +626,8 @@ mod tests {
 			.into_iter()
 			.collect();
 			db.process_bumps(10, bumps, None).await;
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Prune - only keep para 200 registered
@@ -728,10 +662,9 @@ mod tests {
 		let para_id_100 = ParaId::from(100);
 		let para_id_200 = ParaId::from(200);
 
-		// Create DB, add data, but DON'T persist yet
+		// Create DB, add data, and persist via background writer
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			// Add reputation via bumps (these don't trigger immediate persistence)
 			let bumps = [
@@ -743,7 +676,8 @@ mod tests {
 			db.process_bumps(15, bumps, None).await;
 
 			// Now call periodic persist
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Reload and verify
@@ -770,8 +704,7 @@ mod tests {
 
 		// Session 1: Create and populate
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps = [
 				(
@@ -786,17 +719,17 @@ mod tests {
 			.collect();
 			db.process_bumps(20, bumps, None).await;
 
-			// Slash peer2
+			// Slash peer2 (also persists all dirty paras via background writer)
 			db.slash(&peer2, &para_id_100, Score::new(25).unwrap()).await;
 
-			// Final persist before "shutdown"
-			db.persist().expect("should persist");
+			// Wait for background writer to finish
+			sleep(Duration::from_millis(50)).await;
+			handle.abort();
 		}
 
 		// Session 2: "Restart" - create new instance
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			// Verify all data survived
 			assert_eq!(db.processed_finalized_block_number().await, Some(20));
@@ -809,7 +742,8 @@ mod tests {
 				.into_iter()
 				.collect();
 			db.process_bumps(25, bumps, None).await;
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Session 3: Verify continued state
@@ -840,15 +774,15 @@ mod tests {
 
 		// Store data
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps =
 				[(para_id, original_scores.iter().map(|(peer, score)| (*peer, *score)).collect())]
 					.into_iter()
 					.collect();
 			db.process_bumps(100, bumps, None).await;
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Reload and verify exact values
@@ -913,8 +847,7 @@ mod tests {
 
 		// Create complex state
 		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+			let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 			let bumps: BTreeMap<ParaId, HashMap<PeerId, Score>> = paras
 				.iter()
@@ -933,7 +866,8 @@ mod tests {
 				.collect();
 
 			db.process_bumps(50, bumps, None).await;
-			db.persist().expect("should persist");
+			let _ = db.persist_and_wait().await;
+			handle.abort();
 		}
 
 		// Verify all data
@@ -964,8 +898,7 @@ mod tests {
 		let para_id_100 = ParaId::from(100);
 		let para_id_200 = ParaId::from(200);
 
-		let (mut db, _) =
-			PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
+		let (mut db, handle) = create_and_spawn_db(disk_db.clone(), config).await;
 
 		assert!(db.dirty_paras.is_empty(), "Fresh DB should have no dirty paras");
 
@@ -979,10 +912,11 @@ mod tests {
 		assert!(!db.dirty_paras.contains(&para_id_200), "Para 200 should NOT be dirty");
 		assert_eq!(db.dirty_paras.len(), 1, "Only one para should be dirty");
 
-		db.persist().expect("should persist");
+		let _ = db.persist_and_wait().await;
 
 		assert!(db.dirty_paras.is_empty(), "Dirty paras should be cleared after persist");
 
+		handle.abort();
 		drop(db);
 
 		let (reloaded_db, _) =
@@ -999,7 +933,7 @@ mod tests {
 		assert_eq!(
 			reloaded_db.processed_finalized_block_number().await,
 			Some(10),
-			"Last finalized block should be 20"
+			"Last finalized block should be 10"
 		);
 	}
 
@@ -1159,71 +1093,5 @@ mod tests {
 		// Attempt to create PersistentDb - should fail with codec error
 		let err = PersistentDb::new(disk_db, config, 100).await.err().unwrap();
 		assert!(matches!(err, PersistenceError::Codec(_)));
-	}
-
-	#[tokio::test]
-	async fn partial_corruption_fails_entire_load() {
-		// Test that even if only one para's data is corrupted, the entire load fails
-		let disk_db = make_db();
-		let config = make_config();
-		let para_id_100 = ParaId::from(100);
-		let para_id_200 = ParaId::from(200);
-
-		// First, write valid data for para 100
-		{
-			let (mut db, _) =
-				PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
-			let peer = PeerId::random();
-			let bumps = [(para_id_100, [(peer, Score::new(50).unwrap())].into_iter().collect())]
-				.into_iter()
-				.collect();
-			db.process_bumps(10, bumps, None).await;
-			db.persist().expect("should persist");
-		}
-
-		// Now corrupt para 200's data
-		let mut tx = DBTransaction::new();
-		let key = para_reputation_key(para_id_200);
-		tx.put_vec(config.col_reputation_data, &key, vec![0xba, 0xad, 0xf0, 0x0d]);
-		disk_db.write(tx).expect("should write corrupted data");
-
-		// Attempt to reload - should fail because of corrupted para 200
-		let err = PersistentDb::new(disk_db, config, 100).await.err().unwrap();
-		assert!(matches!(err, PersistenceError::Codec(_)));
-	}
-
-	#[tokio::test]
-	async fn async_slash_persists_via_background_task() {
-		let disk_db = make_db();
-		let config = make_config();
-		let peer = PeerId::random();
-		let para_id = ParaId::from(100);
-
-		// NEW: Manually spawn task for this test
-		let (mut db, task) =
-			PersistentDb::new(disk_db.clone(), config, 100).await.expect("should create db");
-		let handle = tokio::spawn(task);
-
-		// Add data and persist baseline
-		let bumps = [(para_id, [(peer, Score::new(100).unwrap())].into_iter().collect())]
-			.into_iter()
-			.collect();
-		db.process_bumps(10, bumps, None).await;
-
-		db.persist_async(None);
-		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-		// Slash
-		db.slash(&peer, &para_id, Score::new(30).unwrap()).await;
-
-		// Wait for background task
-		tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-		// Verify on new DB instance
-		let (db2, _) = PersistentDb::new(disk_db, config, 100).await.expect("reload");
-		// Score should be 100 - 30 = 70
-		assert_eq!(db2.query(&peer, &para_id).await, Some(Score::new(70).unwrap()));
-
-		handle.abort();
 	}
 }

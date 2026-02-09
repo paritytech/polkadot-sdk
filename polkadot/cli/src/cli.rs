@@ -173,7 +173,9 @@ pub struct RunCmd {
 
 	/// Collator reputation persistence interval in seconds.
 	/// If not specified, defaults to 600 seconds (10 minutes).
-	#[arg(long)]
+	/// This should be used only with experimental_collator_protocol
+	/// and only on validators.
+	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
 	pub collator_reputation_persist_interval: Option<u64>,
 }
 
