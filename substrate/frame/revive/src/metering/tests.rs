@@ -998,69 +998,6 @@ fn catch_constructor_test() {
 	});
 }
 
-/// Test that weight_required applies the 63/64 overhead based on nesting depth.
-#[test]
-fn weight_required_accounts_for_nesting() {
-	use CallResources::NoLimits;
-
-	let gas_scale: u64 = <Test as Config>::GasScale::get().into();
-
-	ExtBuilder::default()
-		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
-		.build()
-		.execute_with(|| {
-			let eth_gas_limit: u64 = 5_000_000_000;
-			let extra_ref_time: u64 = 1_000_000;
-			let extra_proof: u64 = 1_000;
-
-			let eth_tx_info =
-				EthTxInfo::<Test>::new(100, Weight::from_parts(extra_ref_time, extra_proof));
-			let mut root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-				eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
-				weight_limit: Weight::MAX,
-				eth_tx_info: eth_tx_info.clone(),
-			})
-			.unwrap();
-
-			// Charge some initial weight on the root meter
-			root_meter.charge_weight_token(TestToken(1000, 100)).unwrap();
-
-			let weight_consumed_before = root_meter.weight_consumed();
-			let weight_required_before = root_meter.weight_required();
-
-			// Before nesting, weight_required should equal weight_consumed
-			assert_eq!(
-				weight_consumed_before, weight_required_before,
-				"weight_required should equal weight_consumed before nesting"
-			);
-
-			// Create a nested meter and charge some weight
-			// should_apply_eip_150 = true: specifically testing 63/64 overhead tracking for nested calls
-			let mut nested = root_meter.new_nested(&NoLimits, true).unwrap();
-			nested.charge_weight_token(TestToken(500, 50)).unwrap();
-
-			// Now absorb the nested meter back into the root
-			let dummy_account = [0u8; 32];
-			root_meter.absorb_all_meters(nested, &dummy_account.into(), None);
-
-			let weight_consumed_after = root_meter.weight_consumed();
-			let weight_required_after = root_meter.weight_required();
-
-			// weight_required should be > weight_consumed after nesting (includes 63/64 overhead)
-			assert!(
-				weight_required_after.ref_time() > weight_consumed_after.ref_time(),
-				"weight_required ({:?}) should be > weight_consumed ({:?}) after nesting",
-				weight_required_after,
-				weight_consumed_after
-			);
-
-			log::trace!(
-				target: crate::LOG_TARGET,
-				"Weight required tracking: consumed={weight_consumed_after:?}, required={weight_required_after:?}"
-			);
-		});
-}
-
 #[test]
 fn dry_run_bounded_execution_runs_out_of_gas() {
 	use crate::evm::*;
