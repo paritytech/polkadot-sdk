@@ -251,7 +251,7 @@ mod benchmarks {
 		if spend_exists {
 			let id = match Spends::<T, I>::get(0).unwrap().status {
                 
-                PaymentState::Attempted { executions, remaining_amount } => {
+                PaymentState::Attempted { executions, .. } => {
                     executions.first()
                         .expect("No executions found in Attempted state")
                         .payment_id
@@ -291,7 +291,7 @@ mod benchmarks {
 
 			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
 			match Spends::<T, I>::get(0).unwrap().status { 
-                PaymentState::Attempted { executions, remaining_amount } => {
+                PaymentState::Attempted { executions, .. } => {
                     let id = executions.first()
                         .expect("No executions found in Attempted state")
                         .payment_id;
