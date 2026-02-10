@@ -58,17 +58,9 @@ pub enum LogInfo {
 		last_finalized: Option<BlockNumber>,
 	},
 	/// Immediate persistence after pruning unregistered paras.
-	Pruned {
-		pruned_count: usize,
-		remaining_count: usize,
-		registered_count: usize,
-	},
+	Pruned { pruned_count: usize, remaining_count: usize, registered_count: usize },
 	/// Immediate persistence after a reputation slash (security-critical).
-	Slash {
-		para_id: ParaId,
-		peer_id: PeerId,
-		value: Score,
-	},
+	Slash { para_id: ParaId, peer_id: PeerId, value: Score },
 }
 
 impl LogInfo {
