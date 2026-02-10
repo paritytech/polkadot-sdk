@@ -246,10 +246,10 @@ where
 			.next()
 			.and_then(|asset| Matcher::matches_nonfungibles(&asset).ok());
 		let Some((class, instance)) = maybe else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, MatchError::AccountIdConversionFailed.into()))
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
 		};
 		Assets::mint_into(&class, &instance, &who).map_err(|e| {
 			tracing::debug!(target: LOG_TARGET, ?e, ?class, ?instance, ?who, "Failed to mint asset");

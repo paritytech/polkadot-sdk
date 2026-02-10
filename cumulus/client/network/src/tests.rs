@@ -289,12 +289,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.relay_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.relay_client.header(hash)?;
 

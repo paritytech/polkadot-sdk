@@ -324,13 +324,13 @@ where
 				.ok()
 		});
 		let Some((asset_id, fungibles_id, amount)) = maybe else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, MatchError::AccountIdConversionFailed.into()))
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
 		};
 		let Some(imbalance) = what.fungible.remove(&asset_id) else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = fungibles::Credit::<AccountId, Assets>::zero(fungibles_id);

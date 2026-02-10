@@ -143,8 +143,9 @@ where
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
 			// We track this asset's teleports to ensure no more come in than have gone out.
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checking_account, instance),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checking_account, instance)
+			},
 			// We track this asset's teleports to ensure no more go out than have come in.
 			Some((_, MintLocation::NonLocal)) => Self::can_accrue_checked(instance),
 			_ => Ok(()),
@@ -164,8 +165,9 @@ where
 				// We track this asset's teleports to ensure no more come in than have gone out.
 				Some((_, MintLocation::Local)) => Self::reduce_checked(instance),
 				// We track this asset's teleports to ensure no more go out than have come in.
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checking_account, instance),
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checking_account, instance)
+				},
 				_ => (),
 			}
 		}
@@ -185,8 +187,9 @@ where
 			// We track this asset's teleports to ensure no more come in than have gone out.
 			Some((_, MintLocation::Local)) => Self::can_accrue_checked(instance),
 			// We track this asset's teleports to ensure no more go out than have come in.
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checking_account, instance),
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checking_account, instance)
+			},
 			_ => Ok(()),
 		}
 	}
@@ -202,8 +205,9 @@ where
 		if let Some(instance) = Matcher::matches_nonfungible(what) {
 			match CheckingAccount::get() {
 				// We track this asset's teleports to ensure no more come in than have gone out.
-				Some((checking_account, MintLocation::Local)) =>
-					Self::accrue_checked(checking_account, instance),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::accrue_checked(checking_account, instance)
+				},
 				// We track this asset's teleports to ensure no more go out than have come in.
 				Some((_, MintLocation::NonLocal)) => Self::reduce_checked(instance),
 				_ => (),
@@ -231,7 +235,7 @@ where
 			.and_then(|asset| Matcher::matches_nonfungible(&asset));
 		let Some(instance) = maybe else { return Err((what, MatchError::AssetNotHandled.into())) };
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, MatchError::AccountIdConversionFailed.into()))
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
 		};
 		NonFungible::mint_into(&instance, &who).map_err(|e| {
 			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to mint asset");

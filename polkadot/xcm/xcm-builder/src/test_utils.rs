@@ -127,7 +127,7 @@ impl ClaimAssets for TestAssetTrap {
 					if l == origin && a.0.contains_asset(asset) {
 						let (_, claimed) = t.swap_remove(*i as usize);
 						TrappedAssets::set(t);
-						return Some(claimed.0)
+						return Some(claimed.0);
 					}
 				}
 			}

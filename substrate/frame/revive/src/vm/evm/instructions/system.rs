@@ -93,7 +93,7 @@ pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let [memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
-		return ControlFlow::Continue(())
+		return ControlFlow::Continue(());
 	};
 	let code_offset = as_usize_saturated(code_offset);
 
@@ -181,7 +181,7 @@ pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<H
 	}
 
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
-		return ControlFlow::Continue(())
+		return ControlFlow::Continue(());
 	};
 
 	// Note: This can't panic because we resized memory.
@@ -212,7 +212,7 @@ pub fn memory_resize<'a, E: Ext>(
 	len: usize,
 ) -> ControlFlow<Halt, Option<usize>> {
 	if len == 0 {
-		return ControlFlow::Continue(None)
+		return ControlFlow::Continue(None);
 	}
 
 	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;

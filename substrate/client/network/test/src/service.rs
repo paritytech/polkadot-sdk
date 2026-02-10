@@ -364,7 +364,7 @@ async fn notifications_state_consistent() {
 		iterations += 1;
 		if iterations >= 1_000 {
 			assert!(something_happened);
-			break
+			break;
 		}
 
 		// Start by sending a notification from node1 to node2 and vice-versa. Part of the
@@ -392,10 +392,12 @@ async fn notifications_state_consistent() {
 			// forever while nothing at all happens on the network.
 			let continue_test = futures_timer::Delay::new(Duration::from_millis(20));
 			match future::select(future::select(next1, next2), continue_test).await {
-				future::Either::Left((future::Either::Left((Some(ev), _)), _)) =>
-					future::Either::Left(ev),
-				future::Either::Left((future::Either::Right((Some(ev), _)), _)) =>
-					future::Either::Right(ev),
+				future::Either::Left((future::Either::Left((Some(ev), _)), _)) => {
+					future::Either::Left(ev)
+				},
+				future::Either::Left((future::Either::Right((Some(ev), _)), _)) => {
+					future::Either::Right(ev)
+				},
 				future::Either::Right(_) => continue,
 				_ => break,
 			}
@@ -630,7 +632,7 @@ async fn fallback_name_working() {
 				},
 				NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 					assert_eq!(negotiated_fallback, None);
-					break
+					break;
 				},
 				_ => {},
 			}
@@ -645,7 +647,7 @@ async fn fallback_name_working() {
 			},
 			NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 				assert_eq!(negotiated_fallback, Some(PROTOCOL_NAME.into()));
-				break
+				break;
 			},
 			_ => {},
 		}

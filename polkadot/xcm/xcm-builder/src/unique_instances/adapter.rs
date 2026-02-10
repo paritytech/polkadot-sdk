@@ -80,10 +80,10 @@ where
 			.next()
 			.and_then(|asset| Matcher::matches_instance(&asset).ok());
 		let Some(instance_id) = maybe else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, MatchError::AccountIdConversionFailed.into()))
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
 		};
 
 		InstanceOps::restore(&instance_id, WithConfig::from(Owner::with_config_value(who)))

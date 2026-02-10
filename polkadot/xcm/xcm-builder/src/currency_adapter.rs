@@ -162,10 +162,12 @@ impl<
 		let amount: Currency::Balance =
 			Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
-			Some((checked_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checked_account, amount),
-			Some((checked_account, MintLocation::NonLocal)) =>
-				Self::can_accrue_checked(checked_account, amount),
+			Some((checked_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checked_account, amount)
+			},
+			Some((checked_account, MintLocation::NonLocal)) => {
+				Self::can_accrue_checked(checked_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -174,10 +176,12 @@ impl<
 		tracing::trace!(target: "xcm::currency_adapter", ?origin, ?what, "check_in origin");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
-				Some((checked_account, MintLocation::Local)) =>
-					Self::reduce_checked(checked_account, amount),
-				Some((checked_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checked_account, amount),
+				Some((checked_account, MintLocation::Local)) => {
+					Self::reduce_checked(checked_account, amount)
+				},
+				Some((checked_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checked_account, amount)
+				},
 				None => (),
 			}
 		}
@@ -187,10 +191,12 @@ impl<
 		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "can_check_out");
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
-			Some((checked_account, MintLocation::Local)) =>
-				Self::can_accrue_checked(checked_account, amount),
-			Some((checked_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checked_account, amount),
+			Some((checked_account, MintLocation::Local)) => {
+				Self::can_accrue_checked(checked_account, amount)
+			},
+			Some((checked_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checked_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -199,10 +205,12 @@ impl<
 		tracing::trace!(target: "xcm::currency_adapter", ?dest, ?what, "check_out");
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckedAccount::get() {
-				Some((checked_account, MintLocation::Local)) =>
-					Self::accrue_checked(checked_account, amount),
-				Some((checked_account, MintLocation::NonLocal)) =>
-					Self::reduce_checked(checked_account, amount),
+				Some((checked_account, MintLocation::Local)) => {
+					Self::accrue_checked(checked_account, amount)
+				},
+				Some((checked_account, MintLocation::NonLocal)) => {
+					Self::reduce_checked(checked_account, amount)
+				},
 				None => (),
 			}
 		}
@@ -222,10 +230,10 @@ impl<
 			.and_then(|asset| Matcher::matches_fungible(&asset).map(|_| asset.id));
 		let Some(asset_id) = maybe else { return Err((what, Error::AssetNotHandled.into())) };
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, Error::AccountIdConversionFailed.into()))
+			return Err((what, Error::AccountIdConversionFailed.into()));
 		};
 		let Some(imbalance) = what.fungible.remove(&asset_id) else {
-			return Err((what, Error::AssetNotHandled.into()))
+			return Err((what, Error::AssetNotHandled.into()));
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = Currency::NegativeImbalance::zero();

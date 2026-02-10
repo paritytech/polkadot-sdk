@@ -76,7 +76,7 @@ where
 				target: "xcm::SingleAssetExchangeAdapter::exchange_asset",
 				?give, "No fungible asset was in `give`.",
 			);
-			return Err(give)
+			return Err(give);
 		};
 
 		let Ok((give_asset_id, _)) = Matcher::matches_fungibles(&give_asset) else {
@@ -85,7 +85,7 @@ where
 				?give_asset,
 				"Could not map XCM asset give to FRAME asset.",
 			);
-			return Err(give)
+			return Err(give);
 		};
 		let Ok((want_asset_id, want_amount)) = Matcher::matches_fungibles(&want_asset) else {
 			tracing::trace!(
@@ -93,7 +93,7 @@ where
 				?want_asset,
 				"Could not map XCM asset want to FRAME asset."
 			);
-			return Err(give)
+			return Err(give);
 		};
 
 		// We have to do this to convert the XCM assets into credit the pool can use.
@@ -125,7 +125,7 @@ where
 						Box::new(credit_in),
 					);
 					give.subsume_assets(taken);
-					return Err(give)
+					return Err(give);
 				},
 			};
 			// We don't have leftover assets if exchange was maximal.
@@ -152,7 +152,7 @@ where
 							Box::new(credit_in),
 						);
 						give.subsume_assets(taken);
-						return Err(give)
+						return Err(give);
 					},
 				};
 			(credit_out, if credit_change.peek() > 0 { Some(credit_change) } else { None })

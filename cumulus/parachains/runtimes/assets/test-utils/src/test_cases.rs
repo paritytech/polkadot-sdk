@@ -1600,8 +1600,9 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				.into_iter()
 				.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 				.find_map(|e| match e {
-					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
-						Some(message_hash),
+					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
+						Some(message_hash)
+					},
 					_ => None,
 				});
 

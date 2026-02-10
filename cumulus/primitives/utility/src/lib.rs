@@ -791,8 +791,9 @@ mod test_trader {
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
 			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					Asset { fun: Fungible(amount), id: AssetId(_id) } =>
-						Ok((Location::new(0, [GeneralIndex(1)]), *amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } => {
+						Ok((Location::new(0, [GeneralIndex(1)]), *amount))
+					},
 					_ => Err(Error::AssetNotHandled),
 				}
 			}
@@ -927,8 +928,9 @@ mod test_trader {
 		impl MatchesFungibles<TestAssetId, TestBalance> for TestAssets {
 			fn matches_fungibles(a: &Asset) -> Result<(TestAssetId, TestBalance), Error> {
 				match a {
-					Asset { fun: Fungible(amount), id: AssetId(_id) } =>
-						Ok((Location::new(0, [GeneralIndex(1)]), *amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } => {
+						Ok((Location::new(0, [GeneralIndex(1)]), *amount))
+					},
 					_ => Err(Error::AssetNotHandled),
 				}
 			}

@@ -65,10 +65,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use sp_statement_store::{
-	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
-	SignatureVerificationResult, Statement,
-};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -163,8 +159,12 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -1144,18 +1144,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			1
-		}
-	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			_source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement> {
-			match statement.verify_signature() {
-				SignatureVerificationResult::Invalid => Err(InvalidStatement::BadProof),
-				_ => Ok(ValidStatement { max_count: 100_000, max_size: 1_000_000 }),
-			}
 		}
 	}
 }

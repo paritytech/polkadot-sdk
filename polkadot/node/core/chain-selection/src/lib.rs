@@ -144,11 +144,11 @@ impl LeafEntrySet {
 		let mut pos = None;
 		for (i, e) in self.inner.iter().enumerate() {
 			if e == &new {
-				return
+				return;
 			}
 			if e < &new {
 				pos = Some(i);
-				break
+				break;
 			}
 		}
 
@@ -397,11 +397,11 @@ async fn run<Context, B>(
 			Err(e) => {
 				e.trace();
 				// All errors are considered fatal right now:
-				break
+				break;
 			},
 			Ok(()) => {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				break
+				break;
 			},
 		}
 	}
@@ -499,7 +499,7 @@ async fn fetch_finalized(
 		Ok(number) => number,
 		Err(err) => {
 			gum::warn!(target: LOG_TARGET, ?err, "Fetching finalized number failed");
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -568,7 +568,7 @@ async fn handle_active_leaf(
 	let header = match fetch_header(sender, hash).await? {
 		None => {
 			gum::warn!(target: LOG_TARGET, ?hash, "Missing header for new head");
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 		Some(h) => h,
 	};
@@ -597,7 +597,7 @@ async fn handle_active_leaf(
 
 				// If we don't know the weight, we can't import the block.
 				// And none of its descendants either.
-				break
+				break;
 			},
 			Some(w) => w,
 		};

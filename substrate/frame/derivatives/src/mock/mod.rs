@@ -167,7 +167,9 @@ impl ContainsPair<Asset, Location> for TrustAssetsFromSiblings {
 		match (asset_location.unpack(), origin.unpack()) {
 			((1, [Parachain(asset_para_id), ..]), (1, [Parachain(origin_para_id)]))
 				if asset_para_id == origin_para_id =>
-				true,
+			{
+				true
+			},
 			_ => false,
 		}
 	}
@@ -208,8 +210,9 @@ pub struct SiblingAssetToReserveLocationConvert;
 impl ConvertLocation<AccountId> for SiblingAssetToReserveLocationConvert {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(para_id), ..]) =>
-				LocationToAccountId::convert_location(&Location::new(1, Parachain(*para_id))),
+			(1, [Parachain(para_id), ..]) => {
+				LocationToAccountId::convert_location(&Location::new(1, Parachain(*para_id)))
+			},
 			_ => None,
 		}
 	}

@@ -43,11 +43,28 @@ pub struct DebugSettings {
 	bypass_eip_3607: bool,
 	/// Whether to enable PolkaVM logs.
 	pvm_logs: bool,
+	/// Whether to disable execution tracing.
+	disable_execution_tracing: bool,
 }
 
 impl DebugSettings {
-	pub fn new(allow_unlimited_contract_size: bool, bypass_eip_3607: bool, pvm_logs: bool) -> Self {
-		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs }
+	pub fn set_bypass_eip_3607(mut self, value: bool) -> Self {
+		self.bypass_eip_3607 = value;
+		self
+	}
+
+	pub fn set_allow_unlimited_contract_size(mut self, value: bool) -> Self {
+		self.allow_unlimited_contract_size = value;
+		self
+	}
+
+	pub fn set_enable_pvm_logs(mut self, value: bool) -> Self {
+		self.pvm_logs = value;
+		self
+	}
+
+	pub fn is_execution_tracing_enabled<T: Config>() -> bool {
+		T::DebugEnabled::get() && !DebugSettingsOf::<T>::get().disable_execution_tracing
 	}
 
 	/// Returns true if unlimited contract size is allowed.

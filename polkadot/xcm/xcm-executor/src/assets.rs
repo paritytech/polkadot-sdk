@@ -99,10 +99,10 @@ pub struct AssetsInHolding {
 impl PartialEq for AssetsInHolding {
 	fn eq(&self, other: &Self) -> bool {
 		if self.non_fungible != other.non_fungible {
-			return false
+			return false;
 		}
 		if self.fungible.len() != other.fungible.len() {
-			return false
+			return false;
 		}
 		if !self
 			.fungible
@@ -110,7 +110,7 @@ impl PartialEq for AssetsInHolding {
 			.zip(other.fungible.iter())
 			.all(|(left, right)| left.0 == right.0 && left.1.amount() == right.1.amount())
 		{
-			return false
+			return false;
 		}
 		true
 	}
@@ -287,10 +287,12 @@ impl AssetsInHolding {
 	/// Returns `true` if `asset` is contained within `self`.
 	pub fn contains_asset(&self, asset: &Asset) -> bool {
 		match asset {
-			Asset { fun: Fungible(amount), id } =>
-				self.fungible.get(id).map_or(false, |a| a.amount() >= *amount),
-			Asset { fun: NonFungible(instance), id } =>
-				self.non_fungible.contains(&(id.clone(), *instance)),
+			Asset { fun: Fungible(amount), id } => {
+				self.fungible.get(id).map_or(false, |a| a.amount() >= *amount)
+			},
+			Asset { fun: NonFungible(instance), id } => {
+				self.non_fungible.contains(&(id.clone(), *instance))
+			},
 		}
 	}
 
@@ -305,18 +307,18 @@ impl AssetsInHolding {
 			match asset {
 				Asset { fun: Fungible(amount), id } => {
 					if self.fungible.get(id).map_or(true, |a| a.amount() < *amount) {
-						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()))
+						return Err(TakeError::AssetUnderflow((id.clone(), *amount).into()));
 					}
 				},
 				Asset { fun: NonFungible(instance), id } => {
 					let id_instance = (id.clone(), *instance);
 					if !self.non_fungible.contains(&id_instance) {
-						return Err(TakeError::AssetUnderflow(id_instance.into()))
+						return Err(TakeError::AssetUnderflow(id_instance.into()));
 					}
 				},
 			}
 		}
-		return Ok(())
+		return Ok(());
 	}
 
 	/// Mutates `self` to its original value less `mask` and returns assets that were removed.
@@ -342,8 +344,9 @@ impl AssetsInHolding {
 		match mask {
 			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => match maybe_limit {
 				None => return Ok(self.swapped(AssetsInHolding::new())),
-				Some(limit) if self.len() <= limit =>
-					return Ok(self.swapped(AssetsInHolding::new())),
+				Some(limit) if self.len() <= limit => {
+					return Ok(self.swapped(AssetsInHolding::new()))
+				},
 				Some(0) => return Ok(AssetsInHolding::new()),
 				Some(limit) => {
 					let fungible = mem::replace(&mut self.fungible, Default::default());
@@ -365,12 +368,13 @@ impl AssetsInHolding {
 				},
 			},
 			AssetFilter::Wild(AllOfCounted { fun: WildFungible, id, .. }) |
-			AssetFilter::Wild(AllOf { fun: WildFungible, id }) =>
+			AssetFilter::Wild(AllOf { fun: WildFungible, id }) => {
 				if maybe_limit.map_or(true, |l| l >= 1) {
 					if let Some((id, amount)) = self.fungible.remove_entry(&id) {
 						taken.fungible.insert(id, amount);
 					}
-				},
+				}
+			},
 			AssetFilter::Wild(AllOfCounted { fun: WildNonFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildNonFungible, id }) => {
 				let non_fungible = mem::replace(&mut self.non_fungible, Default::default());
@@ -463,43 +467,45 @@ impl AssetsInHolding {
 		let mut masked = Assets::new();
 		let maybe_limit = mask.limit().map(|x| x as usize);
 		if maybe_limit.map_or(false, |l| l == 0) {
-			return masked
+			return masked;
 		}
 		match mask {
 			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => {
 				if maybe_limit.map_or(true, |l| self.len() <= l) {
-					return self.assets_iter().collect::<Vec<Asset>>().into()
+					return self.assets_iter().collect::<Vec<Asset>>().into();
 				} else {
 					for (c, accounting) in self.fungible.iter() {
 						masked.push((c.clone(), accounting.amount()).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
 					for (c, instance) in self.non_fungible.iter() {
 						masked.push((c.clone(), *instance).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
 				}
 			},
 			AssetFilter::Wild(AllOfCounted { fun: WildFungible, id, .. }) |
-			AssetFilter::Wild(AllOf { fun: WildFungible, id }) =>
+			AssetFilter::Wild(AllOf { fun: WildFungible, id }) => {
 				if let Some(accounting) = self.fungible.get(&id) {
 					masked.push((id.clone(), accounting.amount()).into());
-				},
+				}
+			},
 			AssetFilter::Wild(AllOfCounted { fun: WildNonFungible, id, .. }) |
-			AssetFilter::Wild(AllOf { fun: WildNonFungible, id }) =>
+			AssetFilter::Wild(AllOf { fun: WildNonFungible, id }) => {
 				for (c, instance) in self.non_fungible.iter() {
 					if c == id {
 						masked.push((c.clone(), *instance).into());
 						if maybe_limit.map_or(false, |l| masked.len() >= l) {
-							return masked
+							return masked;
 						}
 					}
-				},
-			AssetFilter::Definite(assets) =>
+				}
+			},
+			AssetFilter::Definite(assets) => {
 				for asset in assets.inner().iter() {
 					match asset {
 						Asset { fun: Fungible(amount), id } => {
@@ -515,7 +521,8 @@ impl AssetsInHolding {
 							}
 						},
 					}
-				},
+				}
+			},
 		}
 		masked
 	}

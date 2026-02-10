@@ -25,14 +25,93 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
+  # Prepare snapshots for all networks. Runs before the actual migration checks.
+  # For scheduled runs: always create fresh snapshots.
+  # For PRs: use cached snapshots if available, create if not.
+  prepare-snapshots:
+    runs-on: ubuntu-latest
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    strategy:
+      fail-fast: false
+      matrix:
+        network:
+          [
+            westend,
+            asset-hub-westend,
+            bridge-hub-westend,
+            collectives-westend,
+            coretime-westend,
+          ]
+        include:
+          - network: westend
+            uri: "wss://try-runtime-westend.polkadot.io:443"
+          - network: asset-hub-westend
+            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
+          - network: bridge-hub-westend
+            uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
+          - network: collectives-westend
+            uri: "wss://westend-collectives-rpc.polkadot.io:443"
+          - network: coretime-westend
+            uri: "wss://westend-coretime-rpc.polkadot.io:443"
+    steps:
+      - name: Check if snapshot exists in cache
+        id: cache-restore
+        if: ${{ github.event_name != 'schedule' }}
+        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        with:
+          lookup-only: true
+          path: snapshot.raw
+          key: try-runtime-snapshot-${{ matrix.network }}-
+          fail-on-cache-miss: false
+
+      - name: Download CLI
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
+        run: |
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.10.1/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+          chmod +x ./try-runtime
+          ./try-runtime --version
+
+      - name: Generate snapshot for ${{ matrix.network }}
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
+        run: |
+          echo "Generating snapshot for ${{ matrix.network }}..."
+          for i in {1..10}; do
+            echo "Snapshot creation attempt $i/10"
+            if ./try-runtime create-snapshot --uri ${{ matrix.uri }} -- snapshot.raw; then
+              if [ -f "snapshot.raw" ] && [ -s "snapshot.raw" ]; then
+                echo "Snapshot created successfully"
+                break
+              fi
+            fi
+            echo "Snapshot creation failed, attempt $i/10"
+            rm -f snapshot.raw
+            if [ $i -eq 10 ]; then
+              echo "All snapshot creation attempts failed"
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Get Date
+        id: get-date
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
+        run: |
+          echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+
+      - name: Save snapshot to cache
+        if: ${{ steps.cache-restore.outputs.cache-matched-key == '' }}
+        uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        with:
+          path: snapshot.raw
+          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
+
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    # We need to set this to rather long to allow the snapshot to be created, but the average time
-    # should be much lower.
+    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' }}
     timeout-minutes: 120
-    needs: [preflight]
+    needs: [preflight, prepare-snapshots]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     strategy:
@@ -50,78 +129,55 @@ jobs:
           - network: westend
             package: westend-runtime
             wasm: westend_runtime.compact.compressed.wasm
-            uri: "wss://try-runtime-westend.polkadot.io:443"
             subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
             command_extra_args: ""
           - network: asset-hub-westend
             package: asset-hub-westend-runtime
             wasm: asset_hub_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
             command_extra_args: ""
           - network: bridge-hub-westend
             package: bridge-hub-westend-runtime
             wasm: bridge_hub_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
+            command_extra_args: ""
           - network: collectives-westend
             package: collectives-westend-runtime
             wasm: collectives_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-collectives-rpc.polkadot.io:443"
             command_extra_args: "--disable-spec-name-check"
             subcommand_extra_args: " --blocktime 6000"
           - network: coretime-westend
             package: coretime-westend-runtime
             wasm: coretime_westend_runtime.compact.compressed.wasm
-            uri: "wss://westend-coretime-rpc.polkadot.io:443"
             subcommand_extra_args: " --blocktime 6000"
+            command_extra_args: ""
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Download CLI
         run: |
-          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.8.0/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+          curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.10.1/try-runtime-x86_64-unknown-linux-musl -o try-runtime
           chmod +x ./try-runtime
           echo "Using try-runtime-cli version:"
           ./try-runtime --version
 
-      - name: Get Date
-        id: get-date
-        run: |
-          echo "today=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Download Snapshot
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - name: Restore snapshot from cache
+        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
         with:
           path: snapshot.raw
-          key: try-runtime-snapshot-${{ matrix.network }}-${{ steps.get-date.outputs.today }}
-          save-always: true
-
-      - name: Create Snapshot If Stale
-        if: ${{ hashFiles('snapshot.raw') == '' }}
-        run: |
-          echo "Creating new snapshot for today (${{ steps.get-date.outputs.today }})"
-          ./try-runtime create-snapshot --uri ${{ matrix.uri }} snapshot.raw
+          key: try-runtime-snapshot-${{ matrix.network }}-
+          fail-on-cache-miss: true
 
       - name: Build Runtime
-        if: ${{ github.event_name != 'schedule' }}
         id: required1
         run: |
           echo "---------- Building ${{ matrix.package }} runtime ----------"
           forklift cargo build --release --locked -p ${{ matrix.package }} --features try-runtime -q
 
       - name: Run Check
-        if: ${{ github.event_name != 'schedule' }}
         id: required2
         run: |
-          # Disable the check for asset-hub-westend temporarily due to frequent failures.
-          if [ "${{ matrix.network }}" = "asset-hub-westend" ]; then
-            echo "Skipping runtime migration check for asset-hub-westend due to frequent failures."
-            exit 0
-          fi
-
           echo "Running ${{ matrix.network }} runtime migration check"
           export RUST_LOG=remote-ext=debug,runtime=debug
 
@@ -132,7 +188,7 @@ jobs:
           sleep 5
 
       - name: Stop all workflows if failed
-        if: ${{ failure() && github.event_name != 'schedule' && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
+        if: ${{ failure() && (steps.required1.conclusion == 'failure' || steps.required2.conclusion == 'failure') }}
         uses: ./.github/actions/workflow-stopper
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}

@@ -157,10 +157,12 @@ where
 		// Check we handle this asset
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_reduce_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_accrue_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -173,10 +175,12 @@ where
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::reduce_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::accrue_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}
@@ -191,10 +195,12 @@ where
 		);
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		match CheckingAccount::get() {
-			Some((checking_account, MintLocation::Local)) =>
-				Self::can_accrue_checked(checking_account, amount),
-			Some((checking_account, MintLocation::NonLocal)) =>
-				Self::can_reduce_checked(checking_account, amount),
+			Some((checking_account, MintLocation::Local)) => {
+				Self::can_accrue_checked(checking_account, amount)
+			},
+			Some((checking_account, MintLocation::NonLocal)) => {
+				Self::can_reduce_checked(checking_account, amount)
+			},
 			None => Ok(()),
 		}
 	}
@@ -208,10 +214,12 @@ where
 		);
 		if let Some(amount) = Matcher::matches_fungible(what) {
 			match CheckingAccount::get() {
-				Some((checking_account, MintLocation::Local)) =>
-					Self::accrue_checked(checking_account, amount),
-				Some((checking_account, MintLocation::NonLocal)) =>
-					Self::reduce_checked(checking_account, amount),
+				Some((checking_account, MintLocation::Local)) => {
+					Self::accrue_checked(checking_account, amount)
+				},
+				Some((checking_account, MintLocation::NonLocal)) => {
+					Self::reduce_checked(checking_account, amount)
+				},
 				None => (),
 			}
 		}
@@ -234,13 +242,13 @@ where
 			.next()
 			.and_then(|asset| Matcher::matches_fungible(&asset).map(|amount| (asset.id, amount)));
 		let Some((asset_id, amount)) = maybe else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		let Some(who) = AccountIdConverter::convert_location(who) else {
-			return Err((what, MatchError::AccountIdConversionFailed.into()))
+			return Err((what, MatchError::AccountIdConversionFailed.into()));
 		};
 		let Some(imbalance) = what.fungible.remove(&asset_id) else {
-			return Err((what, MatchError::AssetNotHandled.into()))
+			return Err((what, MatchError::AssetNotHandled.into()));
 		};
 		// "manually" build the concrete credit and move the imbalance there.
 		let mut credit = fungible::Credit::<AccountId, Fungible>::zero();

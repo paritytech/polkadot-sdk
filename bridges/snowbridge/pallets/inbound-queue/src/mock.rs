@@ -185,7 +185,7 @@ impl StaticLookup for MockChannelLookup {
 		if channel_id !=
 			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
-			return None
+			return None;
 		}
 		Some(Channel { agent_id: H256::zero(), para_id: ASSET_HUB_PARAID.into() })
 	}
