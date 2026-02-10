@@ -6035,7 +6035,7 @@ checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "27.0.1"
+version = "28.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -16520,7 +16520,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2512.2.0"
+version = "2512.3.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -28304,7 +28304,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
