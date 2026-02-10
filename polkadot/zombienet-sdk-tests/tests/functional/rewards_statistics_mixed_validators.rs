@@ -190,14 +190,16 @@ pub async fn assert_para_throughput_for_included_parablocks(
 
 		if !expected_candidate_range.0.contains(actual_backed) {
 			let range = expected_candidate_range.0;
-			return Err(anyhow!("Candidate Backed count {actual_backed} not within range {range:?}"))
+			return Err(anyhow!(
+				"Candidate Backed count {actual_backed} not within range {range:?}"
+			));
 		}
 
 		if !expected_candidate_range.1.contains(actual_included) {
 			let range = expected_candidate_range.1;
 			return Err(anyhow!(
 				"Candidate Included count {actual_included} not within range {range:?}"
-			))
+			));
 		}
 	}
 

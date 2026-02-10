@@ -184,7 +184,7 @@ where
 						_ => self.params.metrics.on_recovery_failed(strategy_type),
 					}
 					_ = self.state.get_download_chunks_metrics();
-					return Err(err)
+					return Err(err);
 				},
 				Ok(data) => {
 					self.params.metrics.on_recovery_succeeded(strategy_type, data.encoded_size());
@@ -194,7 +194,7 @@ where
 							self.state.get_download_chunks_metrics(),
 						),
 					);
-					return Ok(data)
+					return Ok(data);
 				},
 			}
 		}

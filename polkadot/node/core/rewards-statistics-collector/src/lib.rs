@@ -259,10 +259,12 @@ pub(crate) async fn run_iteration<Context>(
 				view.latest_finalized_block = (fin_block_number, fin_block_hash);
 			},
 			FromOrchestra::Communication { msg } => match msg {
-				RewardsStatisticsCollectorMessage::ChunksDownloaded(session_index, downloads) =>
-					handle_chunks_downloaded(view, session_index, downloads),
-				RewardsStatisticsCollectorMessage::ChunkUploaded(session_index, authority_ids) =>
-					handle_chunk_uploaded(view, session_index, authority_ids),
+				RewardsStatisticsCollectorMessage::ChunksDownloaded(session_index, downloads) => {
+					handle_chunks_downloaded(view, session_index, downloads)
+				},
+				RewardsStatisticsCollectorMessage::ChunkUploaded(session_index, authority_ids) => {
+					handle_chunk_uploaded(view, session_index, authority_ids)
+				},
 				RewardsStatisticsCollectorMessage::CandidateApproved(
 					block_hash,
 					block_number,

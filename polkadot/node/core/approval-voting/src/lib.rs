@@ -4151,13 +4151,14 @@ fn collect_useful_approvals<Sender>(
 				?candidate_hash,
 				"approval entry not found, cannot collect useful approvals."
 			);
-			return
+			return;
 		},
 	};
 
 	let collected_useful_approvals: Vec<ValidatorIndex> = match status.required_tranches {
-		RequiredTranches::All =>
-			candidate_approvals.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect(),
+		RequiredTranches::All => {
+			candidate_approvals.iter_ones().map(|idx| ValidatorIndex(idx as _)).collect()
+		},
 		RequiredTranches::Exact { needed, .. } => {
 			let mut assigned_mask = approval_entry.assignments_up_to(needed);
 			assigned_mask &= candidate_approvals;
@@ -4171,7 +4172,7 @@ fn collect_useful_approvals<Sender>(
 				?candidate_hash,
 				"approval status required tranches still pending when collecting useful approvals"
 			);
-			return
+			return;
 		},
 	};
 
