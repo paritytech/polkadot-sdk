@@ -210,6 +210,10 @@ impl<T: Config> WeightMeter<T> {
 	/// Absorb the remaining weight of a nested meter after we are done using it.
 	///
 	/// Automatically computes and accumulates the EIP-150 63/64 overhead for dry-run estimation.
+	///
+	/// NOTE: Overestimates overhead for sequential subcalls because each child's overhead is
+	/// summed independently, but the 1/64 retained gas is returned after each call and reused
+	/// by subsequent calls. Safe (never underestimates) but wasteful for many sequential calls.
 	pub fn absorb_nested(&mut self, nested: Self) {
 		self.weight_consumed_highest = self
 			.weight_consumed
