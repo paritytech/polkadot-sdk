@@ -126,33 +126,36 @@ pub struct ErasedToken {
 	pub token: Box<dyn Any>,
 }
 
-/// EIP-150 63/64 overhead tracking for dry-run gas estimation.
+/// EIP-150 peak tracking: stores the peak weight this meter must have at the start
+/// so that every subcall receives enough weight after the 63/64 split.
 #[derive(Clone, Copy, Debug)]
-enum Eip150Overhead {
-	/// Top-level call: only passes through overhead from absorbed children.
+enum Eip150Peak {
+	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
 	TopCall(Weight),
-	/// Subcall: adds own overhead plus children's overhead.
+	/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
 	Subcall(Weight),
 }
 
-impl Default for Eip150Overhead {
+impl Default for Eip150Peak {
 	fn default() -> Self {
 		Self::TopCall(Weight::zero())
 	}
 }
 
-impl Eip150Overhead {
-	/// Get the accumulated overhead from absorbed children.
-	fn accumulated(&self) -> Weight {
+impl Eip150Peak {
+	/// Get the peak weight requirement across all call boundaries.
+	fn get(&self) -> Weight {
 		match self {
 			Self::TopCall(w) | Self::Subcall(w) => *w,
 		}
 	}
 
-	/// Add overhead to the accumulated value.
-	fn add_accumulated(&mut self, amount: Weight) {
+	/// Update the peak if the new value is higher.
+	fn update(&mut self, new: Weight) {
 		match self {
-			Self::TopCall(w) | Self::Subcall(w) => *w = w.saturating_add(amount),
+			Self::TopCall(w) | Self::Subcall(w) => {
+				*w = w.max(new);
+			},
 		}
 	}
 }
@@ -174,8 +177,8 @@ pub struct WeightMeter<T: Config> {
 	/// We have to track it separately in order to avoid the loss of precision that happens when
 	/// converting from ref_time to the execution engine unit.
 	engine_meter: EngineMeter<T>,
-	/// EIP-150 63/64 overhead tracking for dry-run gas estimation.
-	eip_150_overhead: Eip150Overhead,
+	/// EIP-150 63/64 peak tracking for dry-run weight estimation.
+	eip_150_peak: Eip150Peak,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -189,7 +192,7 @@ impl<T: Config> WeightMeter<T> {
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
-			eip_150_overhead: Eip150Overhead::TopCall(Weight::zero()),
+			eip_150_peak: Eip150Peak::TopCall(Weight::zero()),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -199,7 +202,7 @@ impl<T: Config> WeightMeter<T> {
 	/// Create a new nested weight meter with the given limit and optional stipend.
 	pub fn new_nested(weight_limit: Weight, stipend: Option<Weight>) -> Self {
 		let mut meter = Self::new(weight_limit, stipend);
-		meter.eip_150_overhead = Eip150Overhead::Subcall(Weight::zero());
+		meter.eip_150_peak = Eip150Peak::Subcall(Weight::zero());
 		meter
 	}
 
@@ -208,36 +211,40 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
-	///
-	/// Automatically computes and accumulates the EIP-150 63/64 overhead for dry-run estimation.
-	///
-	/// NOTE: Overestimates overhead for sequential subcalls because each child's overhead is
-	/// summed independently, but the 1/64 retained gas is returned after each call and reused
-	/// by subsequent calls. Safe (never underestimates) but wasteful for many sequential calls.
 	pub fn absorb_nested(&mut self, nested: Self) {
+		// Weight this meter must have had at the start so that enough remains
+		// at this point to cover the nested call plus its EIP-150 overhead.
+		let peak_at_subcall = self
+			.weight_consumed
+			.saturating_add(nested.weight_required())
+			.saturating_add(nested.compute_eip_150_total_overhead());
+		self.eip_150_peak.update(peak_at_subcall);
+
 		self.weight_consumed_highest = self
 			.weight_consumed
 			.saturating_add(nested.weight_required())
 			.max(self.weight_consumed_highest);
 		self.weight_consumed = self.weight_consumed.saturating_add(nested.weight_consumed);
-		// Add the EIP-150 overhead (includes both this level and nested levels)
-		self.eip_150_overhead.add_accumulated(nested.compute_eip_150_total_overhead());
 	}
 
 	/// Compute the total EIP-150 overhead for this meter.
 	///
-	/// Returns the total overhead to pass to `absorb_nested`, which includes:
-	/// - The 63/64 overhead for this nesting level (only if this is a nested meter)
-	/// - Any accumulated overhead from deeper nesting levels
+	/// Returns the extra weight the parent needs beyond `weight_required()` to account for
+	/// all 63/64 losses at and below this level.
 	pub fn compute_eip_150_total_overhead(&self) -> Weight {
 		use super::math::compute_eip_150_overhead;
 
-		match self.eip_150_overhead {
-			Eip150Overhead::TopCall(accumulated) => accumulated,
-			Eip150Overhead::Subcall(accumulated) => {
-				let overhead_this_level =
-					compute_eip_150_overhead(self.weight_required().saturating_add(accumulated));
-				accumulated.saturating_add(overhead_this_level)
+		match self.eip_150_peak {
+			Eip150Peak::TopCall(peak) => peak.saturating_sub(self.weight_required()),
+			Eip150Peak::Subcall(peak) => {
+				// Minimum weight this meter needs at call start to cover both its own
+				// charges and all internal 63/64 splits from children.
+				// Note: peak can be zero when there are no children.
+				let min_weight_needed = peak.max(self.weight_required());
+				// Extra weight beyond weight_required for children's 63/64 splits.
+				let children_overhead = min_weight_needed.saturating_sub(self.weight_required());
+				// Add the 63/64 overhead the parent loses when forwarding to this meter.
+				children_overhead.saturating_add(compute_eip_150_overhead(min_weight_needed))
 			},
 		}
 	}
@@ -335,8 +342,13 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Returns the amount of weight required including the EIP-150 63/64 overhead.
-	pub fn weight_required_with_eip_150_overhead(&self) -> Weight {
-		self.weight_required().saturating_add(self.eip_150_overhead.accumulated())
+	pub fn weight_required_with_eip_150(&self) -> Weight {
+		self.weight_required().max(self.eip_150_peak.get())
+	}
+
+	/// Returns the EIP-150 peak weight tracked across all call boundaries.
+	pub fn eip_150_peak(&self) -> Weight {
+		self.eip_150_peak.get()
 	}
 
 	/// Returns how much weight was spent

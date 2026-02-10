@@ -35,6 +35,18 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	<EVMGas as Token<T>>::weight(&gas)
 }
 
+/// Validate that there's enough weight for the stipend and return the stipend weight.
+/// Returns `Err(Error::OutOfGas)` if `weight_left` is insufficient.
+pub(crate) fn validate_and_get_stipend<T: Config>(
+	weight_left: Weight,
+) -> Result<Weight, DispatchError> {
+	let weight_stipend = determine_call_stipend::<T>();
+	if weight_left.any_lt(weight_stipend) {
+		return Err(<Error<T>>::OutOfGas.into());
+	}
+	Ok(weight_stipend)
+}
+
 /// Compute the ratio of requested gas to available gas.
 /// Returns a value in [0, 1]
 pub(crate) fn compute_gas_ratio<T: Config>(
@@ -79,18 +91,6 @@ pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight 
 		ratio.saturating_mul_int(weight.ref_time()),
 		ratio.saturating_mul_int(weight.proof_size()),
 	)
-}
-
-/// Validate that there's enough weight for the stipend and return the stipend weight.
-/// Returns `Err(Error::OutOfGas)` if `weight_left` is insufficient.
-pub(crate) fn validate_and_get_stipend<T: Config>(
-	weight_left: Weight,
-) -> Result<Weight, DispatchError> {
-	let weight_stipend = determine_call_stipend::<T>();
-	if weight_left.any_lt(weight_stipend) {
-		return Err(<Error<T>>::OutOfGas.into());
-	}
-	Ok(weight_stipend)
 }
 
 /// Apply EIP-150 rule to a balance (deposit or ethereum gas).

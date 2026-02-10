@@ -1855,11 +1855,7 @@ fn gas_estimation_for_subcalls() {
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 
 			assert_ok!(&result_orig.result);
-			// EIP-150 overhead makes weight_required >= weight_consumed.
-			assert!(
-				result_orig.weight_required.all_gte(result_orig.weight_consumed),
-				"weight_required should be >= weight_consumed"
-			);
+			assert_eq!(result_orig.weight_required, result_orig.weight_consumed);
 
 			// Make the same call using the estimated gas. Should succeed.
 			let result = builder::bare_call(addr_caller)
@@ -1874,7 +1870,7 @@ fn gas_estimation_for_subcalls() {
 			// Check that it fails with too little ref_time
 			let result = builder::bare_call(addr_caller)
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
-					weight_limit: result_orig.weight_consumed.sub_ref_time(1),
+					weight_limit: result_orig.weight_required.sub_ref_time(1),
 					deposit_limit: result_orig.storage_deposit.charge_or_zero().into(),
 				})
 				.data(input.clone())
@@ -1884,7 +1880,7 @@ fn gas_estimation_for_subcalls() {
 			// Check that it fails with too little proof_size
 			let result = builder::bare_call(addr_caller)
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
-					weight_limit: result_orig.weight_consumed.sub_proof_size(1),
+					weight_limit: result_orig.weight_required.sub_proof_size(1),
 					deposit_limit: result_orig.storage_deposit.charge_or_zero().into(),
 				})
 				.data(input.clone())

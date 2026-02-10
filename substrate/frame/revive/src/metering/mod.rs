@@ -212,6 +212,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
@@ -220,6 +221,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
@@ -235,11 +237,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 		);
 	}
 
@@ -257,6 +261,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
 				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}, \
 				child_weight_left={:?}, \
 				child_deposit_left={:?}, \
 				child_weight_consumed={:?}, \
@@ -265,6 +270,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 			other.weight_left(),
 			other.deposit_left(),
 			other.weight_consumed(),
@@ -283,11 +289,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				parent_weight_left={:?}, \
 				parent_deposit_left={:?}, \
 				parent_weight_consumed={:?}, \
-				parent_deposit_consumed={:?}",
+				parent_deposit_consumed={:?}, \
+				parent_eip_150_peak={:?}",
 			self.weight_left(),
 			self.deposit_left(),
 			self.weight_consumed(),
 			self.deposit_consumed(),
+			self.weight.eip_150_peak(),
 		);
 	}
 
@@ -450,7 +458,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	///
 	/// For Ethereum gas mode, this includes the EIP-150 63/64 overhead for nested calls.
 	pub fn weight_required(&self) -> Weight {
-		self.weight.weight_required_with_eip_150_overhead()
+		self.weight.weight_required_with_eip_150()
 	}
 
 	/// Get total storage deposit consumed in the current frame.
