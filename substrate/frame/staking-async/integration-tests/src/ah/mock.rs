@@ -573,9 +573,8 @@ impl MockXcmExecutor {
 		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
 			let mut withdrawn = AssetsInHolding::new();
 			for asset in fees.inner() {
-				withdrawn.subsume_assets(
-					LocalAssetTransactor::withdraw_asset(asset, &origin, None)?,
-				);
+				withdrawn
+					.subsume_assets(LocalAssetTransactor::withdraw_asset(asset, &origin, None)?);
 			}
 			BurnFees::handle_fee(withdrawn, None, FeeReason::ChargeFees);
 		}
