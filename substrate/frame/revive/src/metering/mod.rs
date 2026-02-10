@@ -16,7 +16,7 @@
 // limitations under the License.
 
 mod gas;
-mod math;
+pub(crate) mod math;
 mod storage;
 mod weight;
 
@@ -451,12 +451,11 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.weight.weight_consumed()
 	}
 
-	/// Get total weight required
-	/// This is the maximum amount of weight consumption that occurred during execution so far
-	/// This is relevant because consumed weight can decrease in case it is adjusted a posteriori
-	/// for some operations
+	/// Get total weight required including the EIP-150 63/64 overhead for nested calls.
 	///
-	/// For Ethereum gas mode, this includes the EIP-150 63/64 overhead for nested calls.
+	/// This is the maximum amount of weight consumption that occurred during execution so far.
+	/// This is relevant because consumed weight can decrease in case it is adjusted a posteriori
+	/// for some operations.
 	pub fn weight_required(&self) -> Weight {
 		self.weight.weight_required_with_eip_150()
 	}

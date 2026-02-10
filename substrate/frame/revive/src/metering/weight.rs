@@ -143,7 +143,7 @@ impl Default for Eip150Peak {
 }
 
 impl Eip150Peak {
-	/// Get the peak weight requirement across all call boundaries.
+	/// Get the tracked peak weight.
 	fn get(&self) -> Weight {
 		match self {
 			Self::TopCall(w) | Self::Subcall(w) => *w,
@@ -212,18 +212,16 @@ impl<T: Config> WeightMeter<T> {
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
 	pub fn absorb_nested(&mut self, nested: Self) {
-		// Weight this meter must have had at the start so that enough remains
-		// at this point to cover the nested call plus its EIP-150 overhead.
-		let peak_at_subcall = self
-			.weight_consumed
-			.saturating_add(nested.weight_required())
-			.saturating_add(nested.compute_eip_150_total_overhead());
-		self.eip_150_peak.update(peak_at_subcall);
+		let current_weight_consumed_highest =
+			self.weight_consumed.saturating_add(nested.weight_required());
 
-		self.weight_consumed_highest = self
-			.weight_consumed
-			.saturating_add(nested.weight_required())
-			.max(self.weight_consumed_highest);
+		// Add the nested call's EIP-150 63/64 overhead on top.
+		let current_eip_150_peak =
+			current_weight_consumed_highest.saturating_add(nested.compute_eip_150_total_overhead());
+		self.eip_150_peak.update(current_eip_150_peak);
+
+		self.weight_consumed_highest =
+			current_weight_consumed_highest.max(self.weight_consumed_highest);
 		self.weight_consumed = self.weight_consumed.saturating_add(nested.weight_consumed);
 	}
 
