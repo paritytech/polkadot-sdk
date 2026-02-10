@@ -65,7 +65,6 @@ pallet-staking = { workspace = true }
 pallet-staking-async = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-runtime-api = { workspace = true }
-pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
@@ -204,7 +203,6 @@ runtime-benchmarks = [
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-state-trie-migration/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
@@ -281,7 +279,6 @@ try-runtime = [
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-staking-async/try-runtime",
 	"pallet-staking/try-runtime",
-	"pallet-state-trie-migration/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
@@ -367,7 +364,6 @@ std = [
 	"pallet-staking-async/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
-	"pallet-state-trie-migration/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
