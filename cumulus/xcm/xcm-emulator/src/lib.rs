@@ -94,9 +94,8 @@ use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-/// Relay chain slot duration in milliseconds. It matches the `RELAY_SLOT_DURATION` const
-/// used by `FixedVelocityConsensusHook` defined in aura-ext pallet to validate parachain block
-/// production timing.
+/// Relay chain slot duration in milliseconds (6 seconds).
+/// This is used to calculate timestamps and derive parachain slots from relay chain slots.
 pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
 thread_local! {
@@ -211,7 +210,6 @@ pub trait Network {
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
 		relay_parent_offset: u64,
-		slot_duration: u64,
 	) -> ParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
@@ -694,15 +692,21 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode,
+						RELAY_CHAIN_SLOT_DURATION_MILLIS
 					};
 
 					let para_id = Self::para_id().into();
 
 					Self::ext_wrapper(|| {
-						// Increase Relay Chain block number
+						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
+
+						let relay_blocks_per_para_block =
+							(slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
+
+						// Increase Relay Chain block number by relay_blocks_per_para_block
 						let mut relay_block_number = N::relay_block_number();
-						relay_block_number += 1;
+						relay_block_number += relay_blocks_per_para_block;
 						N::set_relay_block_number(relay_block_number);
 
 						// Initialize a new Parachain block
@@ -718,7 +722,6 @@ macro_rules! decl_test_parachains {
 
 						// Initialze `System`.
 						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
-						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
@@ -730,9 +733,7 @@ macro_rules! decl_test_parachains {
 
 					// 1. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
 					let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
-						// We need to satisfy `pallet_timestamp::on_finalize`.
-						// The timestamp must match the relay chain slot since Aura uses the relay chain slot from the digest.
-					now: relay_block_number as u64 * slot_duration,
+						now: relay_block_number as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS,
 					}.into();
 					$crate::assert_ok!(
 						timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
@@ -742,7 +743,7 @@ macro_rules! decl_test_parachains {
 					let relay_parent_offset = <<<Self as $crate::Chain>::Runtime as $crate::ParachainSystemConfig>::RelayParentOffset as $crate::Get<u32>>::get();
 
 					// 2. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
-						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64, slot_duration);
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, relay_parent_offset as u64);
 						let (data, mut downward_messages, mut horizontal_messages) =
 							$crate::deconstruct_parachain_inherent_data(data);
 						let inbound_messages_data = $crate::InboundMessagesData::new(
@@ -1206,14 +1207,10 @@ macro_rules! decl_test_networks {
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
 					relay_parent_offset: u64,
-					slot_duration: u64,
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
-					sproof.current_slot = $crate::polkadot_primitives::Slot::from(
-						relay_parent_number as u64 * slot_duration
-							/ $crate::RELAY_CHAIN_SLOT_DURATION_MILLIS,
-					);
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 					sproof.host_config.max_upward_message_size = 1024 * 1024;
 					sproof.num_authorities = relay_parent_offset + 1;
 

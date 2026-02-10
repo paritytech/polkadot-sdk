@@ -1,10 +1,14 @@
-title: 'xcm-emulator: scale relay slot by parachain slot duration'
+title: 'xcm-emulator: advance relay block number by relay_blocks_per_para_block'
 doc:
 - audience: Runtime Dev
   description: |-
-    `AuraDigestProvider` sets `CurrentSlot = relay_block_number`, but the sproof builder was also setting `current_slot = relay_block_number`. For parachains with `slot duration != relay slot duration` (e.g. 12s Polkadot/Kusama chains), `FixedVelocityConsensusHook` derives a different para_slot and panics.
+    After `AuraDigestProvider` was introduced, emulated integration tests for parachains with
+    `slot_duration != relay_slot_duration` (e.g. 12s Polkadot/Kusama chains) panic because
+    `FixedVelocityConsensusHook` derives a parachain slot that doesn't match `CurrentSlot`.
 
-    Scale `sproof.current_slot` by `slot_duration / RELAY_CHAIN_SLOT_DURATION` so the hook's derivation matches `CurrentSlot` for any slot duration.
+    Fix by advancing the relay block number by `slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS`
+    per parachain block (instead of always +1), matching the real-world ratio and the dev mode
+    inherent data provider logic. The timestamp now uses the relay chain slot duration directly.
 crates:
 - name: xcm-emulator
   bump: patch
