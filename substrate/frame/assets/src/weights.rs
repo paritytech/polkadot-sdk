@@ -109,9 +109,7 @@ pub trait WeightInfo {
 	fn balance() -> Weight;
 	fn allowance() -> Weight;
 	fn migration_v2_foreign_asset_set_reserve_weight() -> Weight;
-	fn get_name() -> Weight;
-	fn get_symbol() -> Weight;
-	fn get_decimals() -> Weight;
+	fn get_metadata() -> Weight;
 }
 
 /// Weights for `pallet_assets` using the Substrate node and recommended hardware.
@@ -404,26 +402,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 9_596_000 picoseconds.
 		Weight::from_parts(10_031_000, 0)
 	}
-	fn get_name() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_390_000 picoseconds.
-		Weight::from_parts(10_914_000, 0)
-	}
-	fn get_symbol() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_587_000 picoseconds.
-		Weight::from_parts(11_121_000, 0)
-	}
-	fn get_decimals() -> Weight {
+	fn get_metadata() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `344`
 		//  Estimated: `0`
 		// Minimum execution time: 10_591_000 picoseconds.
-		Weight::from_parts(11_015_000, 0)
+		Weight::from_parts(11_121_000, 0)
 	}
 }
 
@@ -716,25 +700,11 @@ impl WeightInfo for () {
 		// Minimum execution time: 9_596_000 picoseconds.
 		Weight::from_parts(10_031_000, 0)
 	}
-	fn get_name() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_390_000 picoseconds.
-		Weight::from_parts(10_914_000, 0)
-	}
-	fn get_symbol() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_587_000 picoseconds.
-		Weight::from_parts(11_121_000, 0)
-	}
-	fn get_decimals() -> Weight {
+	fn get_metadata() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `344`
 		//  Estimated: `0`
 		// Minimum execution time: 10_591_000 picoseconds.
-		Weight::from_parts(11_015_000, 0)
+		Weight::from_parts(11_121_000, 0)
 	}
 }
