@@ -16,5 +16,7 @@ doc:
 crates:
 - name: xcm-emulator
   bump: major
+  validate: false
 - name: emulated-integration-tests-common
   bump: major
+  validate: false
