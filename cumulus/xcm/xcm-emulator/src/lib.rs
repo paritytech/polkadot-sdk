@@ -288,10 +288,6 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
-	type DigestProvider: Convert<
-		(BlockNumberFor<Self::Runtime>, BlockNumberFor<Self::Runtime>),
-		Digest,
-	>;
 	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
@@ -628,7 +624,6 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					$( DigestProvider: $digest_provider:ty,)?
 					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
@@ -670,7 +665,6 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
-				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
@@ -692,7 +686,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode,
+						Dispatchable, Chain, TestExt, Zero, AdditionalInherentCode,
 						RELAY_CHAIN_SLOT_DURATION_MILLIS
 					};
 
@@ -720,8 +714,16 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 
-						// Initialze `System`.
-						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
+						// Build aura digest: derive para slot from relay block number and slot durations.
+						let aura_slot: $crate::Slot = (relay_block_number as u64
+							* RELAY_CHAIN_SLOT_DURATION_MILLIS
+							/ slot_duration)
+							.into();
+						let mut digest = $crate::Digest::default();
+						digest.logs.push($crate::DigestItem::PreRuntime(
+							$crate::AURA_ENGINE_ID,
+							$crate::Encode::encode(&aura_slot),
+						));
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
@@ -821,8 +823,6 @@ macro_rules! decl_test_parachains {
 			$crate::__impl_check_assertion!($name, N);
 		)+
 	};
-	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
-	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
 	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
