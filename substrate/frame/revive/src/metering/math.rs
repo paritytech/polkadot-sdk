@@ -26,6 +26,10 @@ use num_traits::One;
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
 
+/// EIP-150: A subcall receives at most 63/64ths of the parent's remaining gas.
+pub(crate) const EIP_150_NUMERATOR: u64 = 63;
+pub(crate) const EIP_150_DENOMINATOR: u64 = 64;
+
 fn determine_call_stipend<T: Config>() -> Weight {
 	let gas = EVMGas(CALL_STIPEND);
 	<EVMGas as Token<T>>::weight(&gas)
@@ -50,8 +54,11 @@ pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 	let ref_time = weight.ref_time();
 	let proof_size = weight.proof_size();
 	Weight::from_parts(
-		ref_time.saturating_sub(ref_time.saturating_add(63) / 64),
-		proof_size.saturating_sub(proof_size.saturating_add(63) / 64),
+		ref_time
+			.saturating_sub(ref_time.saturating_add(EIP_150_DENOMINATOR - 1) / EIP_150_DENOMINATOR),
+		proof_size.saturating_sub(
+			proof_size.saturating_add(EIP_150_DENOMINATOR - 1) / EIP_150_DENOMINATOR,
+		),
 	)
 }
 
@@ -60,7 +67,10 @@ pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
 	let ref_time = weight.ref_time();
 	let proof_size = weight.proof_size();
-	Weight::from_parts(ref_time.saturating_add(62) / 63, proof_size.saturating_add(62) / 63)
+	Weight::from_parts(
+		ref_time.saturating_add(EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR,
+		proof_size.saturating_add(EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR,
+	)
 }
 
 /// Scale weight by the given ratio.
@@ -86,7 +96,10 @@ pub(crate) fn validate_and_get_stipend<T: Config>(
 /// Apply EIP-150 rule to a balance (deposit or ethereum gas).
 /// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
 pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-	value.saturating_sub((value.saturating_add(63u32.into())) / 64u32.into())
+	value.saturating_sub(
+		(value.saturating_add((EIP_150_DENOMINATOR as u32 - 1).into())) /
+			(EIP_150_DENOMINATOR as u32).into(),
+	)
 }
 
 pub mod substrate_execution {

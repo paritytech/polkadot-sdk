@@ -67,10 +67,14 @@ impl<T: Config> SignedGas<T> {
 	/// Apply EIP-150 reduces gas by 1/64th.
 	/// Returns `floor(gas * 63/64)`.
 	pub fn apply_eip_150(&self) -> Self {
+		use super::math::EIP_150_DENOMINATOR;
 		match self {
 			Positive(gas) => {
 				// Callee gets at most 63/64 of remaining gas
-				Positive(gas.saturating_sub(gas.saturating_add(63u32.into()) / 64u32.into()))
+				Positive(gas.saturating_sub(
+					gas.saturating_add((EIP_150_DENOMINATOR as u32 - 1).into()) /
+						(EIP_150_DENOMINATOR as u32).into(),
+				))
 			},
 			// Negative gas remains unchanged
 			Negative(amount) => Self::safe_new_negative(*amount),
