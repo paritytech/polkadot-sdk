@@ -64,7 +64,7 @@ pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
 }
 
 /// Scale weight by the given ratio.
-pub(crate) fn scale_weight_limit(weight: Weight, ratio: FixedU128) -> Weight {
+pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
 	Weight::from_parts(
 		ratio.saturating_mul_int(weight.ref_time()),
 		ratio.saturating_mul_int(weight.proof_size()),
@@ -192,7 +192,7 @@ pub mod substrate_execution {
 					let gas_limit = capped_remaining_gas.min(*gas);
 					let ratio = compute_gas_ratio::<T>(gas_limit, capped_remaining_gas);
 
-					let mut weight_limit = scale_weight_limit(capped_weight_left, ratio);
+					let mut weight_limit = scale_weight_by_ratio(capped_weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(capped_deposit_left);
 
 					// Stipend: check against uncapped `weight_left` (parent's actual budget) but
@@ -437,7 +437,7 @@ pub mod ethereum_execution {
 						let ratio = compute_gas_ratio::<T>(eth_gas_limit, eth_capped_remaining_gas);
 
 						(
-							scale_weight_limit(capped_weight_left, ratio),
+							scale_weight_by_ratio(capped_weight_left, ratio),
 							meter
 								.deposit
 								.limit

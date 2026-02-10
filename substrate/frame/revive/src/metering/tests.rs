@@ -188,8 +188,8 @@ fn test_apply_eip_150_to_balance() {
 }
 
 #[test]
-fn test_scale_weight_limit() {
-	use super::math::scale_weight_limit;
+fn test_scale_weight_by_ratio() {
+	use super::math::scale_weight_by_ratio;
 
 	// (input_weight, ratio, expected_weight)
 	let test_cases: Vec<(Weight, FixedU128, Weight)> = vec![
@@ -223,7 +223,7 @@ fn test_scale_weight_limit() {
 
 	for (input, ratio, expected) in test_cases {
 		assert_eq!(
-			scale_weight_limit(input, ratio),
+			scale_weight_by_ratio(input, ratio),
 			expected,
 			"failed for input {input:?}, ratio {ratio:?}"
 		);
