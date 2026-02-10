@@ -177,8 +177,10 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 		block_at_restart.saturating_sub(block_at_persistence)
 	);
 
-	// Verify validator resumes normal operation
 	let relay_client: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
+	wait_for_peer_reconnection(&relay_client).await?;
+
+	// Verify validator resumes normal operation
 	assert_para_throughput(
 		&relay_client,
 		5,
@@ -197,9 +199,12 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	let block_before_second_pause = extract_last_finalized_from_logs(validator_0).await?;
 	log::info!("Second persistence completed at finalized block {}", block_before_second_pause);
 
+	// Fresh subscription to avoid stale buffered blocks from Phase 1
+	let mut finalized_blocks_2 = validator_1_client.blocks().subscribe_finalized().await?;
+
 	let small_gap_target = 10u32;
 	let block_at_second_restart = wait_for_block_gap(
-		&mut finalized_blocks_1,
+		&mut finalized_blocks_2,
 		block_before_second_pause,
 		small_gap_target,
 		"small gap",
@@ -209,6 +214,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	log::info!("Restarting validator-0 (second restart - small gap)");
 	validator_0.restart(None).await?;
 	let validator0_client: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
+	wait_for_peer_reconnection(&validator0_client).await?;
 
 	// Verify loaded with both paras' reputation
 	verify_db_initialized(validator_0, 3, 2).await?;
@@ -217,9 +223,16 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 
 	assert!(expected_gap < 20, "Expected second gap to be < 20, but got {expected_gap}");
 
+	// The key invariant: lookback should NOT be capped at MAX (20),
+	// and should process approximately the gap. Cross-node timing
+	// differences mean the exact value can drift, so use wide bounds.
 	assert!(
-		processed_second >= expected_gap.saturating_sub(4) && processed_second <= expected_gap + 4,
-		"Expected second lookback to process entire gap (~{expected_gap} blocks), but got {processed_second}",
+		processed_second < 20,
+		"Small gap should process fewer than MAX_STARTUP_ANCESTRY_LOOKBACK blocks, got {processed_second}",
+	);
+	assert!(
+		processed_second >= expected_gap.saturating_sub(6),
+		"Expected lookback to process approximately {expected_gap} blocks, got {processed_second}",
 	);
 
 	log::info!(
@@ -289,6 +302,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	log::info!("Restarting validator-0 to verify pruned state persisted");
 	validator_0.restart(None).await?;
 	let validator0_client_after: OnlineClient<PolkadotConfig> = validator_0.wait_client().await?;
+	wait_for_peer_reconnection(&validator0_client_after).await?;
 
 	// Verify loaded with only para 2000's reputation (para 2001 pruned)
 	verify_db_initialized(validator_0, 4, 1).await?;
@@ -310,6 +324,18 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 }
 
 // === Helper Functions ===
+
+/// Wait for a few finalized blocks to allow peers to reconnect after a node restart.
+async fn wait_for_peer_reconnection(
+	client: &OnlineClient<PolkadotConfig>,
+) -> Result<(), anyhow::Error> {
+	log::info!("Waiting for peers to reconnect after restart");
+	let mut blocks = client.blocks().subscribe_finalized().await?;
+	for _ in 0..3 {
+		let _ = blocks.next().await;
+	}
+	Ok(())
+}
 
 async fn verify_db_initialized(
 	validator: &zombienet_sdk::NetworkNode,

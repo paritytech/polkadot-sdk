@@ -23,8 +23,8 @@ use crate::{
 			backend::Backend,
 			db::{Db, ScoreEntry},
 			persistence::{
-				decode_para_key, metadata_key, para_reputation_key, PersistenceError,
-				StoredMetadata, StoredParaReputations, REPUTATION_PARA_PREFIX,
+				metadata_key, para_list_key, para_reputation_key, PersistenceError,
+				StoredMetadata, StoredParaList, StoredParaReputations,
 			},
 			ReputationUpdate,
 		},
@@ -102,6 +102,7 @@ impl LogInfo {
 struct PersistenceRequest {
 	updates: Vec<(ParaId, Option<StoredParaReputations>)>,
 	metadata: StoredMetadata,
+	para_list: StoredParaList,
 	log_info: LogInfo,
 	completion_tx: Option<oneshot::Sender<()>>,
 }
@@ -178,12 +179,19 @@ impl PersistentDb {
 		mut rx: mpsc::Receiver<PersistenceRequest>,
 	) {
 		while let Some(req) = rx.recv().await {
-			let PersistenceRequest { updates, metadata, log_info, completion_tx } = req;
+			let PersistenceRequest { updates, metadata, para_list, log_info, completion_tx } = req;
 
 			let mut db_transaction = DBTransaction::new();
 
 			// Write metadata
 			db_transaction.put_vec(config.col_reputation_data, metadata_key(), metadata.encode());
+
+			// Write para list
+			db_transaction.put_vec(
+				config.col_reputation_data,
+				para_list_key(),
+				para_list.encode(),
+			);
 
 			// Write updates
 			for (para_id, maybe_data) in updates {
@@ -243,16 +251,14 @@ impl PersistentDb {
 			);
 		}
 
-		// Load all para reputations
-		let iter = self
-			.disk_db
-			.iter_with_prefix(self.config.col_reputation_data, REPUTATION_PARA_PREFIX);
+		// Load para list
+		let para_list = self.load_para_list()?;
 
 		let mut total_entries = 0;
 		let mut para_count = 0;
-		for result in iter {
-			let (key, value) = result.map_err(PersistenceError::Io)?;
-			if let Some(para_id) = decode_para_key(&key) {
+		for para_id in para_list {
+			let key = para_reputation_key(para_id);
+			if let Some(value) = self.disk_db.get(self.config.col_reputation_data, &key)? {
 				let stored: StoredParaReputations =
 					Decode::decode(&mut &value[..]).map_err(PersistenceError::Codec)?;
 				let entries: HashMap<PeerId, ScoreEntry> = stored.into();
@@ -278,6 +284,18 @@ impl PersistentDb {
 			None => Ok(None),
 			Some(raw) => {
 				StoredMetadata::decode(&mut &raw[..]).map(Some).map_err(PersistenceError::Codec)
+			},
+		}
+	}
+
+	/// Load the list of stored para IDs from disk.
+	fn load_para_list(&self) -> Result<Vec<ParaId>, PersistenceError> {
+		match self.disk_db.get(self.config.col_reputation_data, para_list_key())? {
+			None => Ok(Vec::new()),
+			Some(raw) => {
+				let list = StoredParaList::decode(&mut &raw[..])
+					.map_err(PersistenceError::Codec)?;
+				Ok(list.paras)
 			},
 		}
 	}
@@ -323,6 +341,9 @@ impl PersistentDb {
 		let request = PersistenceRequest {
 			updates,
 			metadata: StoredMetadata { last_finalized: self.inner.get_last_finalized() },
+			para_list: StoredParaList {
+				paras: self.inner.all_reputations().map(|(para_id, _)| *para_id).collect(),
+			},
 			log_info: final_log_info,
 			completion_tx,
 		};
@@ -440,7 +461,7 @@ mod tests {
 
 	fn make_db() -> Arc<dyn Database> {
 		let db = kvdb_memorydb::create(NUM_COLUMNS);
-		let db = DbAdapter::new(db, &[DATA_COL]);
+		let db = DbAdapter::new(db, &[]);
 		Arc::new(db)
 	}
 
@@ -1076,8 +1097,10 @@ mod tests {
 		let config = make_config();
 		let para_id = ParaId::from(100);
 
-		// Write some corrupted para reputation data directly to disk
+		// Write a valid para list that references the para, but corrupted para data
 		let mut tx = DBTransaction::new();
+		let para_list = StoredParaList { paras: vec![para_id] };
+		tx.put_vec(config.col_reputation_data, para_list_key(), para_list.encode());
 		let key = para_reputation_key(para_id);
 		tx.put_vec(config.col_reputation_data, &key, vec![0xde, 0xad, 0xbe, 0xef]);
 		disk_db.write(tx).expect("should write corrupted data");

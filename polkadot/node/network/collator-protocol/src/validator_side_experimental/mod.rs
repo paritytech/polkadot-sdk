@@ -32,10 +32,11 @@ use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
 use futures_timer::Delay;
 use polkadot_node_network_protocol::{
-	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, PeerId,
+	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
+	CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
+	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
 	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::database::Database;
@@ -137,7 +138,7 @@ async fn initialize<Context>(
 		ctx.spawn_blocking("collator-reputation-persistence-task", task)
 			.map_err(|e| FatalError::SpawnTask(e.to_string()))?;
 
-		gum::debug!(target: LOG_TARGET, "Spawned background reputation persistence task");
+		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
@@ -166,13 +167,45 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
 			FromOrchestra::Communication { msg } => {
-				// TODO: we should actually disconnect peers connected on collation protocol while
-				// we're still bootstrapping. OR buffer these messages until we've bootstrapped.
-				gum::warn!(
-					target: LOG_TARGET,
-					?msg,
-					"Received msg before first active leaves update. This is not expected - message will be dropped."
-				)
+				// Disconnect peers that connect before the subsystem is initialized.
+				// They will reconnect later when we're ready.
+				match msg {
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerConnected(peer_id, ..),
+					) => {
+						gum::trace!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that connected before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerMessage(peer_id, ..),
+					) => {
+						gum::trace!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that sent message before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					msg => {
+						gum::trace!(
+							target: LOG_TARGET,
+							?msg,
+							"Received msg before first active leaves update, dropping.",
+						);
+					},
+				}
 			},
 		}
 	}

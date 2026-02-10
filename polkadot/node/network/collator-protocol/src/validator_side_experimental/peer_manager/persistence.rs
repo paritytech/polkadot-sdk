@@ -27,6 +27,8 @@ use super::db::ScoreEntry;
 pub const REPUTATION_PARA_PREFIX: &[u8; 12] = b"Rep_per_para";
 /// Key for metadata.
 pub const REPUTATION_META_KEY: &[u8; 8] = b"Rep_meta";
+/// Key for the list of stored para IDs.
+pub const REPUTATION_PARA_LIST_KEY: &[u8; 12] = b"Rep_paralist";
 
 /// Serializable PeerId wrapper.
 /// PeerId is a Multihash which can be converted to/from bytes.
@@ -85,11 +87,9 @@ pub(crate) struct StoredMetadata {
 
 /// Generate key for a para's reputation data.
 /// Key format: "Rep_per_para" (12 bytes) + ParaId (4 bytes, big-endian)
-/// Using big-endian for lexicographic ordering when iterating.
 pub fn para_reputation_key(para_id: ParaId) -> [u8; 16] {
 	let mut key = [0u8; 12 + 4];
 	key[..12].copy_from_slice(REPUTATION_PARA_PREFIX);
-	// Use big-endian for lexicographic ordering
 	key[12..].copy_from_slice(&u32::from(para_id).to_be_bytes());
 	key
 }
@@ -99,15 +99,15 @@ pub fn metadata_key() -> &'static [u8] {
 	REPUTATION_META_KEY
 }
 
-/// Decode a para key to extract the ParaId.
-/// Returns None if the key doesn't match the expected format.
-pub fn decode_para_key(key: &[u8]) -> Option<ParaId> {
-	if key.len() != 16 || !key.starts_with(REPUTATION_PARA_PREFIX) {
-		return None;
-	}
-	let mut bytes = [0u8; 4];
-	bytes.copy_from_slice(&key[12..16]);
-	Some(ParaId::from(u32::from_be_bytes(bytes)))
+/// Returns the para list key.
+pub fn para_list_key() -> &'static [u8] {
+	REPUTATION_PARA_LIST_KEY
+}
+
+/// Stored list of para IDs that have reputation data on disk.
+#[derive(Debug, Clone, Encode, Decode, Default)]
+pub(crate) struct StoredParaList {
+	pub(crate) paras: Vec<ParaId>,
 }
 
 /// Errors during persistence operations.
