@@ -211,6 +211,8 @@ impl pallet_assets::Config for Test {
     type Holder = ();
     type WeightInfo = ();
     type ReserveData = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 impl Config for Test {
