@@ -870,11 +870,9 @@ impl Store {
 			}
 		}
 
-		if successfully_expired > 0 {
-			self.metrics.report(|metrics| {
-				metrics.statements_expired_total.inc_by(successfully_expired);
-			});
-		}
+		self.metrics.report(|metrics| {
+			metrics.statements_expired_total.inc_by(successfully_expired);
+		});
 
 		let mut index = self.index.write();
 		let new_len = index
@@ -913,6 +911,8 @@ impl Store {
 		let deleted_count = deleted.len() as u64;
 		if let Err(e) = self.db.commit(deleted) {
 			log::warn!(target: LOG_TARGET, "Error writing to the statement database: {:?}", e);
+		} else {
+			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 
 		// Report storage metrics
@@ -1316,8 +1316,8 @@ impl StatementStore for Store {
 				);
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
+			self.subscription_manager.notify(statement);
 		} // Release index lock
-		self.subscription_manager.notify(statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New

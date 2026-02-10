@@ -33,7 +33,8 @@ use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
-	register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
+	Registry, U64,
 };
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -94,7 +95,11 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
+	known_statements_received: Counter<U64>,
+	skipped_oversized_statements: Counter<U64>,
+	propagated_statements_chunks: Histogram,
 	pending_statements: Gauge<U64>,
+	ignored_statements: Counter<U64>,
 	peers_connected: Gauge<U64>,
 	statements_received: Counter<U64>,
 	bytes_sent_total: Counter<U64>,
@@ -117,10 +122,40 @@ impl Metrics {
 				)?,
 				r,
 			)?,
+			known_statements_received: register(
+				Counter::new(
+					"substrate_sync_known_statement_received",
+					"Number of statements received via gossiping that were already in the statement store",
+				)?,
+				r,
+			)?,
+			skipped_oversized_statements: register(
+				Counter::new(
+					"substrate_sync_skipped_oversized_statements",
+					"Number of oversized statements that were skipped to be gossiped",
+				)?,
+				r,
+			)?,
+			propagated_statements_chunks: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sync_propagated_statements_chunks",
+						"Distribution of chunk sizes when propagating statements",
+					).buckets(exponential_buckets(1.0, 2.0, 14)?),
+				)?,
+				r,
+			)?,
 			pending_statements: register(
 				Gauge::new(
 					"substrate_sync_pending_statement_validations",
 					"Number of pending statement validations",
+				)?,
+				r,
+			)?,
+			ignored_statements: register(
+				Counter::new(
+					"substrate_sync_ignored_statements",
+					"Number of statements ignored due to exceeding MAX_PENDING_STATEMENTS limit",
 				)?,
 				r,
 			)?,
@@ -158,10 +193,9 @@ impl Metrics {
 						"substrate_sync_statement_sent_latency_seconds",
 						"Time to send statement messages to peers",
 					)
-					// Buckets from 1ms to ~10s: 0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25,
-					// 0.5, 1, 2.5, 5, 10
+					// Buckets from 1μs to ~1s covering microsecond to millisecond range.
 					.buckets(vec![
-						0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+						0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0,
 					]),
 				)?,
 				r,
@@ -172,8 +206,9 @@ impl Metrics {
 						"substrate_sync_statement_validation_pipeline_duration_seconds",
 						"End-to-end time from receiving a statement to completing validation",
 					)
+					// Buckets from 1μs to ~1s covering microsecond to millisecond range.
 					.buckets(vec![
-						0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+						0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0,
 					]),
 				)?,
 				r,
@@ -282,9 +317,16 @@ impl StatementHandlerPrototype {
 			num_submission_workers = 1;
 		}
 
+		let metrics =
+			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
+
+		let validation_histogram =
+			metrics.as_ref().map(|m| m.validation_pipeline_duration_seconds.clone());
+
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
+			let histogram = validation_histogram.clone();
 			executor(
 				async move {
 					loop {
@@ -293,7 +335,9 @@ impl StatementHandlerPrototype {
 						match task {
 							None => return,
 							Some((statement, completion)) => {
+								let _timer = histogram.as_ref().map(|h| h.start_timer());
 								let result = store.submit(statement, StatementSource::Network);
+								drop(_timer);
 								if completion.send(result).is_err() {
 									log::debug!(
 										target: LOG_TARGET,
@@ -322,11 +366,7 @@ impl StatementHandlerPrototype {
 			peers: HashMap::new(),
 			statement_store,
 			queue_sender,
-			metrics: if let Some(r) = metrics_registry {
-				Some(Metrics::register(r)?)
-			} else {
-				None
-			},
+			metrics,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
@@ -345,9 +385,8 @@ pub struct StatementHandler<
 	/// Interval at which we call `propagate_statements`.
 	propagate_timeout: stream::Fuse<Pin<Box<dyn Stream<Item = ()> + Send>>>,
 	/// Pending statements verification tasks.
-	pending_statements: FuturesUnordered<
-		Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>, Instant)> + Send>>,
-	>,
+	pending_statements:
+		FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>,
 	/// As multiple peers can send us the same statement, we group
 	/// these peers using the statement hash while the statement is
 	/// imported. This prevents that we import the same statement
@@ -507,9 +546,8 @@ where
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn pending_statements_mut(
 		&mut self,
-	) -> &mut FuturesUnordered<
-		Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>, Instant)> + Send>>,
-	> {
+	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
+	{
 		&mut self.pending_statements
 	}
 
@@ -524,10 +562,7 @@ where
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
 					});
 				},
-				(hash, result, received_at) = self.pending_statements.select_next_some() => {
-					self.metrics.as_ref().map(|metrics| {
-						metrics.validation_pipeline_duration_seconds.observe(received_at.elapsed().as_secs_f64());
-					});
+				(hash, result) = self.pending_statements.select_next_some() => {
 					if let Some(peers) = self.pending_statements_peers.remove(&hash) {
 						if let Some(result) = result {
 							peers.into_iter().for_each(|p| self.on_handle_statement_import(p, &result));
@@ -574,13 +609,14 @@ where
 				let encoded = chunk.encode();
 				let bytes_to_send = encoded.len() as u64;
 
-				let _sent_latency_timer =
+				let sent_latency_timer =
 					self.metrics.as_ref().map(|m| m.sent_latency_seconds.start_timer());
 				let send_result = timeout(
 					SEND_TIMEOUT,
 					self.notification_service.send_async_notification(peer, encoded),
 				)
 				.await;
+				drop(sent_latency_timer);
 
 				if let Err(e) = send_result {
 					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
@@ -591,11 +627,15 @@ where
 				self.metrics.as_ref().map(|metrics| {
 					metrics.propagated_statements.inc_by(chunk.len() as u64);
 					metrics.bytes_sent_total.inc_by(bytes_to_send);
+					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
 				});
 				SendChunkResult::Sent(chunk_end)
 			},
 			ChunkResult::SkipOversized => {
 				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
+				self.metrics.as_ref().map(|metrics| {
+					metrics.skipped_oversized_statements.inc();
+				});
 				SendChunkResult::Skipped
 			},
 		}
@@ -730,6 +770,9 @@ where
 						statements_left,
 						MAX_PENDING_STATEMENTS,
 					);
+					self.metrics.as_ref().map(|metrics| {
+						metrics.ignored_statements.inc_by(statements_left);
+					});
 					break;
 				}
 
@@ -737,6 +780,10 @@ where
 				peer.known_statements.insert(hash);
 
 				if self.statement_store.has_statement(&hash) {
+					self.metrics.as_ref().map(|metrics| {
+						metrics.known_statements_received.inc();
+					});
+
 					if let Some(peers) = self.pending_statements_peers.get(&hash) {
 						if peers.contains(&who) {
 							log::trace!(
@@ -754,13 +801,12 @@ where
 				match self.pending_statements_peers.entry(hash) {
 					Entry::Vacant(entry) => {
 						let (completion_sender, completion_receiver) = oneshot::channel();
-						let received_at = Instant::now();
 						match self.queue_sender.try_send((s, completion_sender)) {
 							Ok(()) => {
 								self.pending_statements.push(
 									async move {
 										let res = completion_receiver.await;
-										(hash, res.ok(), received_at)
+										(hash, res.ok())
 									}
 									.boxed(),
 								);

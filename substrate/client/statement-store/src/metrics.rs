@@ -61,6 +61,7 @@ impl MetricsLink {
 pub struct Metrics {
 	pub submitted_statements: Counter<U64>,
 	pub validations_invalid: Counter<U64>,
+	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
 	pub bytes_total: Gauge<U64>,
 	pub accounts_total: Gauge<U64>,
@@ -87,6 +88,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sub_statement_store_validations_invalid",
 					"Total number of statements that were fail validation during submission",
+				)?,
+				registry,
+			)?,
+			statements_pruned: register(
+				Counter::new(
+					"substrate_sub_statement_store_block_statements",
+					"Total number of statements that was requested to be pruned by block events",
 				)?,
 				registry,
 			)?,
