@@ -353,4 +353,9 @@ impl<T: Config> WeightMeter<T> {
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
 	}
+
+	#[cfg(test)]
+	pub fn nested(&mut self, amount: Weight) -> Self {
+		Self::new(self.weight_left().min(amount), None)
+	}
 }
