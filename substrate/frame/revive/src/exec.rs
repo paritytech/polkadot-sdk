@@ -1197,13 +1197,21 @@ where
 		// See the `in_memory_changes_not_discarded` test for more information.
 		// We do not store on instantiate because we do not allow to call into a contract
 		// from its own constructor.
+		//
+		// Additionally, we need to apply pending storage changes to the ContractInfo before
+		// saving it, so that child frames can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
 		let frame = self.top_frame();
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
+			let mut contract_with_pending_changes = contract.clone();
+			frame
+				.frame_meter
+				.apply_pending_storage_changes(&mut contract_with_pending_changes);
 			AccountInfo::<T>::insert_contract(
 				&T::AddressMapper::to_address(&frame.account_id),
-				contract.clone(),
+				contract_with_pending_changes,
 			);
 		}
 
@@ -1570,25 +1578,15 @@ where
 			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
 			if let Some(contract) = contract {
-				// optimization: Predecessor is the same contract.
-				// We can just copy the contract into the predecessor without a storage write.
-				// This is possible when there is no other contract in-between that could
-				// trigger a rollback.
-				if prev.account_id == *account_id {
-					prev.contract_info = CachedContract::Cached(contract);
-					return;
-				}
-
-				// Predecessor is a different contract: We persist the info and invalidate the first
-				// stale cache we find. This triggers a reload from storage on next use. We skip(1)
-				// because that case is already handled by the optimization above. Only the first
+				// Persist the info and invalidate the first stale cache we find.
+				// This triggers a reload from storage on next use. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
 				AccountInfo::<T>::insert_contract(
 					&T::AddressMapper::to_address(account_id),
 					contract,
 				);
-				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
+				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
 				}
 			}
@@ -1900,7 +1898,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let top_frame = self.top_frame_mut();
-		let contract_info = top_frame.contract_info().clone();
+		// Clone the contract info and apply pending storage changes so that
+		// the child frame can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
+		let mut contract_info = top_frame.contract_info().clone();
+		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
 		let account_id = top_frame.account_id.clone();
 		let value = top_frame.value_transferred;
 		if let Some(executable) = self.push_frame(
@@ -2110,11 +2112,19 @@ where
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
+			//
+			// When cloning the cached contract, we apply pending storage changes so that
+			// the child frame can correctly calculate storage deposit refunds.
+			// See: <https://github.com/paritytech/contract-issues/issues/213>
 			let cached_info = self
 				.frames()
 				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)
 				.and_then(|f| match &f.contract_info {
-					CachedContract::Cached(contract) => Some(contract.clone()),
+					CachedContract::Cached(contract) => {
+						let mut contract_with_pending = contract.clone();
+						f.frame_meter.apply_pending_storage_changes(&mut contract_with_pending);
+						Some(contract_with_pending)
+					},
 					_ => None,
 				});
 
