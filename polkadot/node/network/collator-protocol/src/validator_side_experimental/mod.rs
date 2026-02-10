@@ -115,7 +115,7 @@ async fn initialize<Context>(
 		let scheduled_paras = collation_manager.assignments();
 
 		// Create PersistentDb with disk persistence
-		let (backend, task) = match peer_manager::PersistentDb::new(
+		let (backend, task) = match PersistentDb::new(
 			db.clone(),
 			reputation_config,
 			MAX_STORED_SCORES_PER_PARA,
@@ -196,7 +196,7 @@ fn create_persistence_timer(interval: Duration) -> Fuse<Pin<Box<dyn Future<Outpu
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn run_inner<Context>(
 	mut ctx: Context,
-	mut state: State<peer_manager::PersistentDb>,
+	mut state: State<PersistentDb>,
 	persist_interval: Duration,
 ) -> FatalResult<()> {
 	let mut timer = create_timer(None);
