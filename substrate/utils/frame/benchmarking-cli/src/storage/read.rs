@@ -29,7 +29,9 @@ use sp_trie::StorageProof;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::{
-	cmd::StorageCmd, get_wasm_module, keys_selection::select_entries,
+	cmd::StorageCmd,
+	get_wasm_module,
+	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
 	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 };
 use crate::shared::BenchRecord;
@@ -98,9 +100,26 @@ impl StorageCmd {
 		for key in keys.as_slice() {
 			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 				(true, Some(info)) => {
-					// child tree key
-					for ck in client.child_storage_keys(best_hash, info.clone(), None, None)? {
-						child_nodes.push((ck, info.clone()));
+					// child tree key: sample with select_entries when child_keys_limit is set
+					match select_entries(
+						self.params.child_keys_limit,
+						self.params.random_seed,
+						|first_key_ref| {
+							let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+							Ok(client
+								.child_storage_keys(best_hash, info.clone(), None, fk.as_ref())?
+								.map(|ck| (ck, info.clone())))
+						},
+						|| {
+							Ok(client
+								.child_storage_keys(best_hash, info.clone(), None, None)?
+								.map(|ck| (ck, info.clone())))
+						},
+						|(k, _): &(sp_storage::StorageKey, ChildInfo)| k.0.as_slice(),
+					) {
+						Ok((entries, _)) => child_nodes.extend(entries),
+						Err(SelectEntriesEmptyStorage::Input(_)) => {},
+						Err(e) => return Err(e),
 					}
 				},
 				_ => {

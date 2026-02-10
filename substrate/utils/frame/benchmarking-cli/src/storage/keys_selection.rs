@@ -18,7 +18,9 @@
 use crate::shared::new_rng;
 use log::warn;
 use rand::prelude::*;
-use sc_cli::Result;
+use sc_cli::{Error, Result};
+
+pub(crate) type EmptyStorage = Error;
 
 /// Returns a shuffled list of entries and an RNG. Behavior:
 ///
@@ -72,7 +74,7 @@ where
 	};
 
 	if entries.is_empty() {
-		return Err("Can't process benchmarking with empty storage".into())
+		return Err(EmptyStorage::Input("Can't process benchmarking with empty storage".into()));
 	}
 
 	let (mut rng, _) = new_rng(random_seed);
