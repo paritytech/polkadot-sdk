@@ -11,4 +11,4 @@ doc:
     inherent data provider logic. The timestamp now uses the relay chain slot duration directly.
 crates:
 - name: xcm-emulator
-  bump: patch
+  bump: minor
