@@ -24,7 +24,7 @@ mod imports {
 
 	// Cumulus
 	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, Chain, Parachain, TestExt,
+		assert_expected_events, Chain, Parachain, Test, TestArgs, TestContext, TestExt,
 	};
 	pub(crate) use westend_system_emulated_network::{
 		asset_hub_westend_emulated_chain::{
@@ -34,8 +34,12 @@ mod imports {
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::{
 			self,
-			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
-			genesis::ED as CORETIME_WESTEND_ED, CoretimeWestendParaPallet as CoretimeWestendPallet,
+			coretime_westend_runtime::{
+				xcm_config::TokenRelayLocation as RelayLocation,
+				ExistentialDeposit as CoretimeWestendExistentialDeposit,
+			},
+			genesis::ED as CORETIME_WESTEND_ED,
+			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
@@ -47,9 +51,13 @@ mod imports {
 		CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
 		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
+		PenpalBParaReceiver as PenpalBReceiver,
 		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
+
+	pub(crate) type SystemParaToParaTest = Test<CoretimeWestend, PenpalB>;
+	pub(crate) type ParaToSystemParaTest = Test<PenpalB, CoretimeWestend>;
 }
 
 #[cfg(test)]
