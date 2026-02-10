@@ -67,11 +67,16 @@ pub const ASSET_HUB_ROCOCO_ID: u32 = 1000;
 pub const ASSET_HUB_WESTEND_ID: u32 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
-pub struct AuraDigestProvider {}
+pub struct AuraDigestProvider<const PARA_SLOT_DURATION_MILLIS: u64 = 6000>;
 
-impl Convert<(BlockNumber, RelayBlockNumber), Digest> for AuraDigestProvider {
+impl<const PARA_SLOT_DURATION_MILLIS: u64> Convert<(BlockNumber, RelayBlockNumber), Digest>
+	for AuraDigestProvider<PARA_SLOT_DURATION_MILLIS>
+{
 	fn convert((_, relay_block_number): (BlockNumber, RelayBlockNumber)) -> Digest {
-		let slot: Slot = (relay_block_number as u64).into();
+		let slot: Slot = (relay_block_number as u64 *
+			xcm_emulator::RELAY_CHAIN_SLOT_DURATION_MILLIS /
+			PARA_SLOT_DURATION_MILLIS)
+			.into();
 		let mut digest = Digest::default();
 		digest.logs.push(DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode()));
 		digest

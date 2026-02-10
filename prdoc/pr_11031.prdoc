@@ -1,4 +1,4 @@
-title: 'xcm-emulator: advance relay block number by relay_blocks_per_para_block'
+title: 'xcm-emulator: fix emulated integration tests for non-6s parachains'
 doc:
 - audience: Runtime Dev
   description: |-
@@ -9,6 +9,11 @@ doc:
     Fix by advancing the relay block number by `slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS`
     per parachain block (instead of always +1), matching the real-world ratio and the dev mode
     inherent data provider logic. The timestamp now uses the relay chain slot duration directly.
+
+    `AuraDigestProvider` gains a const generic `PARA_SLOT_DURATION_MILLIS` (default 6000) so the
+    digest slot is scaled to match the parachain's actual slot duration.
 crates:
 - name: xcm-emulator
+  bump: minor
+- name: emulated-integration-tests-common
   bump: minor
