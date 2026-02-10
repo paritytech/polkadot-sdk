@@ -134,13 +134,12 @@ pub mod substrate_execution {
 		limit: &CallResources<T>,
 		should_apply_eip_150: bool,
 	) -> Result<FrameMeter<T>, DispatchError> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (
+			self_consumed_weight,
+			self_consumed_deposit,
+			total_consumed_weight,
+			total_consumed_deposit,
+		) = meter.consumed_resources();
 
 		let weight_left = meter
 			.weight
@@ -276,13 +275,7 @@ pub mod substrate_execution {
 	/// This returns a `SignedGas` as the consumed gas can be negative (when there are major storage
 	/// deposit refunds)
 	pub fn total_consumed_gas<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let consumed_weight_gas =
 			SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee_average(&total_consumed_weight));
@@ -369,13 +362,12 @@ pub mod ethereum_execution {
 		eth_tx_info: &EthTxInfo<T>,
 		should_apply_eip_150: bool,
 	) -> Result<FrameMeter<T>, DispatchError> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (
+			self_consumed_weight,
+			self_consumed_deposit,
+			total_consumed_weight,
+			total_consumed_deposit,
+		) = meter.consumed_resources();
 
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
@@ -463,8 +455,7 @@ pub mod ethereum_execution {
 						)
 					};
 
-					// Stipend: check against uncapped `weight_left` (parent's actual budget).
-					// The stipend is added to gas_limit but passed separately to WeightMeter.
+					// Stipend: validate against uncapped `weight_left`, add to gas_limit.
 					let (gas_limit, stipend) = if *add_stipend {
 						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
 						let gas_with_stipend =
@@ -523,13 +514,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> Option<SignedGas<T>> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
@@ -542,13 +527,8 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> Option<Weight> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (self_consumed_weight, _, total_consumed_weight, total_consumed_deposit) =
+			meter.consumed_resources();
 
 		let weight_left = eth_tx_info.weight_remaining(
 			&meter.max_total_gas,
@@ -580,13 +560,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit)
 	}
@@ -596,13 +570,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		eth_tx_info: &EthTxInfo<T>,
 	) -> SignedGas<T> {
-		let self_consumed_weight = meter.weight.weight_consumed();
-		let self_consumed_deposit = meter.deposit.consumed();
-
-		let total_consumed_weight =
-			meter.total_consumed_weight_before.saturating_add(self_consumed_weight);
-		let total_consumed_deposit =
-			meter.total_consumed_deposit_before.saturating_add(&self_consumed_deposit);
+		let (_, _, total_consumed_weight, total_consumed_deposit) = meter.consumed_resources();
 
 		let total_gas_consumed =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);

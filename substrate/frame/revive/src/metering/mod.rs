@@ -194,6 +194,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(new_meter)
 	}
 
+	/// Returns self-consumed and total-consumed weight and deposit.
+	pub(crate) fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
+		let self_weight = self.weight.weight_consumed();
+		let self_deposit = self.deposit.consumed();
+		let total_weight = self.total_consumed_weight_before.saturating_add(self_weight);
+		let total_deposit = self.total_consumed_deposit_before.saturating_add(&self_deposit);
+		(self_weight, self_deposit, total_weight, total_deposit)
+	}
+
 	/// Absorb only the weight consumption from a nested frame meter.
 	pub fn absorb_weight_meter_only(&mut self, other: FrameMeter<T>) {
 		log::trace!(

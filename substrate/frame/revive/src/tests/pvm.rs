@@ -1855,9 +1855,7 @@ fn gas_estimation_for_subcalls() {
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
 
 			assert_ok!(&result_orig.result);
-			// With EIP-150 63/64 rule on nested calls, weight_required includes the 64/63
-			// correction to ensure enough gas is forwarded to nested calls. So weight_required
-			// can be >= weight_consumed (equal when no nested calls, greater when there are).
+			// EIP-150 overhead makes weight_required >= weight_consumed.
 			assert!(
 				result_orig.weight_required.all_gte(result_orig.weight_consumed),
 				"weight_required should be >= weight_consumed"
