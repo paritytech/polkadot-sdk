@@ -36,7 +36,6 @@ fn determine_call_stipend<T: Config>() -> Weight {
 }
 
 /// Validate that there's enough weight for the stipend and return the stipend weight.
-/// Returns `Err(Error::OutOfGas)` if `weight_left` is insufficient.
 pub(crate) fn validate_and_get_stipend<T: Config>(
 	weight_left: Weight,
 ) -> Result<Weight, DispatchError> {
@@ -231,7 +230,7 @@ pub mod substrate_execution {
 
 		Ok(FrameMeter::<T> {
 			weight: if should_apply_eip_150 {
-				WeightMeter::new_nested(nested_weight_limit, stipend)
+				WeightMeter::new_with_eip_150(nested_weight_limit, stipend)
 			} else {
 				WeightMeter::new(nested_weight_limit, stipend)
 			},
@@ -509,7 +508,7 @@ pub mod ethereum_execution {
 
 		Ok(FrameMeter::<T> {
 			weight: if should_apply_eip_150 {
-				WeightMeter::new_nested(nested_weight_limit, stipend)
+				WeightMeter::new_with_eip_150(nested_weight_limit, stipend)
 			} else {
 				WeightMeter::new(nested_weight_limit, stipend)
 			},

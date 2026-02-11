@@ -199,8 +199,8 @@ impl<T: Config> WeightMeter<T> {
 		}
 	}
 
-	/// Create a new nested weight meter with the given limit and optional stipend.
-	pub fn new_nested(weight_limit: Weight, stipend: Option<Weight>) -> Self {
+	/// Create a new weight meter for a subcall where the EIP-150 63/64 rule applies.
+	pub fn new_with_eip_150(weight_limit: Weight, stipend: Option<Weight>) -> Self {
 		let mut meter = Self::new(weight_limit, stipend);
 		meter.eip_150_peak = Eip150Peak::Subcall(Weight::zero());
 		meter

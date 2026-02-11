@@ -170,7 +170,8 @@ fn eip_150_overhead_top_call() {
 #[test]
 fn eip_150_overhead_subcall() {
 	// Subcall leaf meter (no children): peak stays at zero
-	let mut subcall_meter = WeightMeter::<Test>::new_nested(Weight::from_parts(10000, 5000), None);
+	let mut subcall_meter =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(10000, 5000), None);
 	subcall_meter.charge(SimpleToken(6300)).unwrap();
 	assert_eq!(subcall_meter.eip_150_peak(), Weight::zero());
 	assert_eq!(subcall_meter.weight_required(), Weight::from_parts(6300, 0));
@@ -192,7 +193,7 @@ fn eip_150_overhead_single_subcall() {
 	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
 	parent.charge(SimpleToken(parent_consumption)).unwrap();
 
-	let mut child = WeightMeter::<Test>::new_nested(Weight::from_parts(50_000, 25_000), None);
+	let mut child = WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(50_000, 25_000), None);
 	child.charge(SimpleToken(child_consumption)).unwrap();
 
 	// Before absorb: parent is top-call with no children yet, peak and overhead are zero.
@@ -222,10 +223,12 @@ fn eip_150_overhead_nested_two_levels() {
 	let mut top_call_meter = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
 	top_call_meter.charge(SimpleToken(1000)).unwrap();
 
-	let mut level1 = WeightMeter::<Test>::new_nested(Weight::from_parts(500_000, 250_000), None);
+	let mut level1 =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
 	level1.charge(SimpleToken(2000)).unwrap();
 
-	let mut level2 = WeightMeter::<Test>::new_nested(Weight::from_parts(250_000, 125_000), None);
+	let mut level2 =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(250_000, 125_000), None);
 	level2.charge(SimpleToken(6300)).unwrap();
 
 	// level2 is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
