@@ -23,8 +23,8 @@ use crate::{
 			backend::Backend,
 			db::{Db, ScoreEntry},
 			persistence::{
-				metadata_key, para_list_key, para_reputation_key, PersistenceError,
-				StoredMetadata, StoredParaList, StoredParaReputations,
+				metadata_key, para_list_key, para_reputation_key, PersistenceError, StoredMetadata,
+				StoredParaList, StoredParaReputations,
 			},
 			ReputationUpdate,
 		},
@@ -187,11 +187,7 @@ impl PersistentDb {
 			db_transaction.put_vec(config.col_reputation_data, metadata_key(), metadata.encode());
 
 			// Write para list
-			db_transaction.put_vec(
-				config.col_reputation_data,
-				para_list_key(),
-				para_list.encode(),
-			);
+			db_transaction.put_vec(config.col_reputation_data, para_list_key(), para_list.encode());
 
 			// Write updates
 			for (para_id, maybe_data) in updates {
@@ -293,8 +289,8 @@ impl PersistentDb {
 		match self.disk_db.get(self.config.col_reputation_data, para_list_key())? {
 			None => Ok(Vec::new()),
 			Some(raw) => {
-				let list = StoredParaList::decode(&mut &raw[..])
-					.map_err(PersistenceError::Codec)?;
+				let list =
+					StoredParaList::decode(&mut &raw[..]).map_err(PersistenceError::Codec)?;
 				Ok(list.paras)
 			},
 		}
