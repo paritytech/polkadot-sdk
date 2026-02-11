@@ -13,7 +13,7 @@ import {
   coordToIndex,
   type MerkleTree,
 } from "../chain/merkle.ts";
-import { BattleshipClient } from "../chain/battleship.ts";
+import { BattleshipClient, resetLocalNonce } from "../chain/battleship.ts";
 import type {
   Player,
   ChainCell,
@@ -72,6 +72,11 @@ export class OnchainGame {
 
   private pendingRevealTx: { coord: Position; submittedAt: number } | null = null;
   private readonly REVEAL_RESUBMIT_TIMEOUT_MS = 15000;
+  private lastSuccessfulRevealRound = -1;
+  private _lastRevealTime = 0;
+  private lastAttackRound = -1;
+  private _lastAttackTime = 0;
+  private _lastAttackPos: Position | null = null;
 
   private currentShipIndex = 0;
   private placementOrientation: Orientation = "horizontal";
@@ -201,7 +206,8 @@ export class OnchainGame {
       this.isOurTurn &&
       this.pendingAttack === null &&
       !this.isAttacking &&
-      !this.isRevealing
+      !this.isRevealing &&
+      this.lastAttackRound < this.currentRound
     );
   }
 
@@ -381,10 +387,14 @@ export class OnchainGame {
   async attack(pos: Position): Promise<boolean> {
     if (!this.battleshipClient || this.gameId === null) return false;
     if (!this.isOurTurn) return false;
-    if (this.pendingAttack !== null) return false; // Can't attack during pending reveal
-    if (this.isAttacking) return false; // Prevent double-click
+    if (this.pendingAttack !== null) return false;
+    if (this.isAttacking) return false;
+    if (this.lastAttackRound >= this.currentRound) return false;
 
     this.isAttacking = true;
+    this.lastAttackRound = this.currentRound;
+    this._lastAttackTime = Date.now();
+    this._lastAttackPos = pos;
     console.log(`[${this.player}] Attacking ${String.fromCharCode(65 + pos.x)}${pos.y + 1}...`);
     this.setMessage(`Attacking ${String.fromCharCode(65 + pos.x)}${pos.y + 1}...`);
 
@@ -407,7 +417,7 @@ export class OnchainGame {
       if (result.ok) {
         this.pendingAttack = pos;
         if (this.phase !== "finished") {
-          this.setMessage("Attack sent. Waiting for opponent to reveal...");
+          this.setMessage("Waiting for opponent to reveal...");
         }
         this.notifyStateChange();
         return true;
@@ -444,7 +454,7 @@ export class OnchainGame {
     const index = coordToIndex(coord.x, coord.y);
 
     if (!this.merkleTree) {
-      console.error(`[${this.player}] Cannot reveal - no merkle tree! Did you resume a game without placing ships?`);
+      console.error(`[${this.player}] Cannot reveal - no merkle tree!`);
       this.setMessage("ERROR: Cannot reveal - local state lost. Please surrender.");
       return;
     }
@@ -452,59 +462,10 @@ export class OnchainGame {
     this.isRevealing = true;
     this.pendingRevealTx = { coord, submittedAt: Date.now() };
 
-    const ourData = await this.battleshipClient.getPlayerData(this.gameId, this.account.address);
-    if (ourData?.grid_root) {
-      const chainRootHex = Array.from(ourData.grid_root.asBytes() as Uint8Array).map(b => b.toString(16).padStart(2, '0')).join('');
-      const localRootHex = Array.from(this.merkleTree.root).map(b => b.toString(16).padStart(2, '0')).join('');
-      if (chainRootHex !== localRootHex) {
-        console.error(`[${this.player}] ROOT MISMATCH! chain=${chainRootHex}, local=${localRootHex}`);
-      }
-    }
-
-    const freshGame = await this.battleshipClient.getGame(this.gameId);
-    if (freshGame.game?.phase?.type === 'Playing' && freshGame.game.phase.value?.pending_attack) {
-      const chainCoord = freshGame.game.phase.value.pending_attack;
-      const chainX = typeof chainCoord.x === 'bigint' ? Number(chainCoord.x) : Number(chainCoord.x);
-      const chainY = typeof chainCoord.y === 'bigint' ? Number(chainCoord.y) : Number(chainCoord.y);
-      if (chainX !== coord.x || chainY !== coord.y) {
-        console.error(`[${this.player}] COORD MISMATCH! local=(${coord.x},${coord.y}) chain=(${chainX},${chainY}) - aborting reveal`);
-        this.isRevealing = false;
-        this.pendingRevealTx = null;
-        return;
-      }
-      console.log(`[${this.player}] Verified pending_attack matches: (${chainX},${chainY})`);
-    }
-
     const cell = this.ourCells[index];
     const proof = generateProof(this.merkleTree, index);
 
-    const saltHex = Array.from(cell.salt).map(b => b.toString(16).padStart(2, '0')).join('');
-    const rootHex = Array.from(this.merkleTree.root).map(b => b.toString(16).padStart(2, '0')).join('');
-    console.log(`[${this.player}] Revealing cell ${String.fromCharCode(65 + coord.x)}${coord.y + 1} (index ${index})...`);
-    console.log(`[${this.player}] Cell: isOccupied=${cell.isOccupied}, salt=${saltHex}`);
-    console.log(`[${this.player}] Using merkle root: ${rootHex}`);
-    console.log(`[${this.player}] Proof length: ${proof.length}, hashes: ${proof.map(p => Array.from(p).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16) + '...').join(', ')}`);
-    
-    if (cell.salt.length !== 32) {
-      console.error(`[${this.player}] INVALID SALT LENGTH: ${cell.salt.length}, expected 32`);
-    }
-    for (let i = 0; i < proof.length; i++) {
-      if (proof[i].length !== 32) {
-        console.error(`[${this.player}] INVALID PROOF[${i}] LENGTH: ${proof[i].length}, expected 32`);
-      }
-    }
-
-    const { verifyProof, getCellLeafHash } = await import("../chain/merkle.ts");
-    const leafHash = getCellLeafHash(cell);
-    const leafHashHex = Array.from(leafHash).map(b => b.toString(16).padStart(2, '0')).join('');
-    console.log(`[${this.player}] Leaf hash: ${leafHashHex}`);
-    
-    const localValid = verifyProof(this.merkleTree.root, proof, 100, index, leafHash);
-    console.log(`[${this.player}] Local proof verification:`, localValid);
-    if (!localValid) {
-      console.error(`[${this.player}] LOCAL VERIFICATION FAILED! index=${index}`);
-      console.error(`[${this.player}] Expected root: ${rootHex}`);
-    }
+    console.log(`[${this.player}] Revealing cell ${String.fromCharCode(65 + coord.x)}${coord.y + 1} (index ${index}), occupied=${cell.isOccupied}, round=${this.currentRound}`);
 
     this.setMessage(`Revealing cell ${String.fromCharCode(65 + coord.x)}${coord.y + 1}...`);
 
@@ -526,24 +487,28 @@ export class OnchainGame {
 
       if (result.ok) {
         this.pendingRevealTx = null;
+        this.lastSuccessfulRevealRound = this.currentRound;
+        this._lastRevealTime = Date.now();
+        this.currentRound++;
+        this.pendingAttack = null;
+        this.isOurTurn = false;
         if (cell.isOccupied) {
           this.ourBoard.receiveAttack(coord);
         }
         if (this.phase !== "finished") {
-          this.setMessage("Cell revealed.");
+          this.setMessage("Opponent's turn...");
         }
+        this.notifyStateChange();
       } else if (this.phase !== "finished") {
         this.setMessage("Failed to reveal cell");
       }
     } catch (e: unknown) {
-      // On any error (especially Stale), clear pendingRevealTx so next poll
-      // fetches fresh pending_attack and generates new proof
       this.pendingRevealTx = null;
       const errorStr = String(e);
       if (errorStr.includes('Stale')) {
-        console.log(`[${this.player}] Reveal tx was Stale - will regenerate proof on next poll`);
+        console.log(`[${this.player}] Reveal tx was Stale - will retry`);
       } else {
-        console.log(`[${this.player}] Reveal error, will retry with fresh proof:`, e);
+        console.log(`[${this.player}] Reveal error, will retry:`, e);
       }
     } finally {
       this.isRevealing = false;
@@ -597,7 +562,7 @@ export class OnchainGame {
       } finally {
         this.isPolling = false;
       }
-    }, 1000); // Poll every 1 second for faster response
+    }, 500);
   }
 
   private stopPolling(): void {
@@ -617,25 +582,39 @@ export class OnchainGame {
     this.eventUnsubscribe = this.battleshipClient.subscribeToEvents(this.gameId, {
       onGameEnded: (event) => {
         console.log(`[${this.player}] GameEnded event received via subscription:`, event);
-        const weAreWinner = event.winner === this.account.address;
-        this.winner = weAreWinner ? this.player : (this.player === "alice" ? "bob" : "alice");
-        this.setPhase("finished");
-        
-        const reason = event.reason;
-        if (reason === "Surrender") {
-          this.setMessage(weAreWinner ? "Opponent surrendered! You win!" : "You surrendered.");
-        } else if (reason === "Timeout") {
-          this.setMessage(weAreWinner ? "Opponent timed out! You win!" : "You timed out.");
-        } else if (reason === "AllShipsSunk") {
-          this.setMessage(weAreWinner ? "Victory! All enemy ships sunk!" : "Defeat! All ships sunk.");
-        } else {
-          this.setMessage(weAreWinner ? "You win!" : "Defeat!");
-        }
-        
-        this.stopPolling();
-        this.onGameEndCallback?.(this.winner, reason.toLowerCase());
+        this.handleGameEndedEvent(event);
       },
     });
+  }
+
+  private handleGameEndedEvent(event: { winner: string; loser: string; reason: string }): void {
+    const weAreWinner = event.winner === this.account.address;
+    this.winner = weAreWinner ? this.player : (this.player === "alice" ? "bob" : "alice");
+    this.setPhase("finished");
+
+    const reason = event.reason;
+    if (reason === "Surrender") {
+      this.setMessage(weAreWinner ? "Opponent surrendered! You win!" : "You surrendered.");
+    } else if (reason === "Timeout") {
+      this.setMessage(weAreWinner ? "Opponent timed out! You win!" : "You timed out.");
+    } else if (reason === "InvalidMerkleProof") {
+      this.setMessage(weAreWinner ? "Opponent cheated! Invalid merkle proof." : "Cheating detected: invalid merkle proof.");
+    } else if (reason === "TooManyHits") {
+      this.setMessage(weAreWinner ? "Opponent cheated! Too many ship cells." : "Cheating detected: too many ship cells.");
+    } else if (reason === "InvalidHitPattern") {
+      this.setMessage(weAreWinner ? "Opponent cheated! Invalid ship pattern." : "Cheating detected: invalid ship pattern.");
+    } else if (reason === "NotEnoughShips") {
+      this.setMessage(weAreWinner ? "Opponent cheated! Not enough ships." : "Cheating detected: not enough ships.");
+    } else if (reason === "Cheating" || reason === "InvalidWinnerGrid") {
+      this.setMessage(weAreWinner ? "Opponent cheated! You win!" : "Cheating detected.");
+    } else if (reason === "AllShipsSunk" || reason === "ValidWin") {
+      this.setMessage(weAreWinner ? "Victory! All enemy ships sunk!" : "Defeat! All ships sunk.");
+    } else {
+      this.setMessage(weAreWinner ? "You win!" : "Defeat!");
+    }
+
+    this.stopPolling();
+    this.onGameEndCallback?.(this.winner, reason.toLowerCase());
   }
 
   private pollErrorCount = 0;
@@ -645,8 +624,7 @@ export class OnchainGame {
     if (!this.battleshipClient || this.gameId === null) return;
     if (this.phase === "finished") return;
 
-    const blockHash = await this.battleshipClient.getBestBlockHash();
-    const { game, error } = await this.battleshipClient.getGame(this.gameId, blockHash);
+    const { game, error } = await this.battleshipClient.getGame(this.gameId);
     
     if (error) {
       this.pollErrorCount++;
@@ -666,45 +644,11 @@ export class OnchainGame {
     this.pollErrorCount = 0;
     
     if (!game) {
-      console.log(`[${this.player}] Game #${this.gameId} no longer exists`);
-      if (this.phase !== "finished" && this.phase !== "menu") {
-        const event = await this.battleshipClient.getGameEndedEvent(this.gameId);
-        console.log(`[${this.player}] GameEnded event:`, event);
-        
-        if (event) {
-          const weAreWinner = event.winner === this.account.address;
-          this.winner = weAreWinner ? this.player : (this.player === "alice" ? "bob" : "alice");
-          this.setPhase("finished");
-          
-          const reason = event.reason;
-          if (reason === "Surrender") {
-            this.setMessage(weAreWinner ? "Opponent surrendered! You win!" : "You surrendered.");
-          } else if (reason === "Timeout") {
-            this.setMessage(weAreWinner ? "Opponent timed out! You win!" : "You timed out.");
-          } else if (reason === "InvalidMerkleProof") {
-            this.setMessage(weAreWinner ? "Opponent cheated! Invalid merkle proof." : "Cheating detected: invalid merkle proof.");
-          } else if (reason === "TooManyHits") {
-            this.setMessage(weAreWinner ? "Opponent cheated! Too many ship cells." : "Cheating detected: too many ship cells.");
-          } else if (reason === "InvalidHitPattern") {
-            this.setMessage(weAreWinner ? "Opponent cheated! Invalid ship pattern." : "Cheating detected: invalid ship pattern.");
-          } else if (reason === "NotEnoughShips") {
-            this.setMessage(weAreWinner ? "Opponent cheated! Not enough ships." : "Cheating detected: not enough ships.");
-          } else if (reason === "Cheating" || reason === "InvalidWinnerGrid") {
-            this.setMessage(weAreWinner ? "Opponent cheated! You win!" : "Cheating detected.");
-          } else if (reason === "AllShipsSunk") {
-            this.setMessage(weAreWinner ? "Victory! All enemy ships sunk!" : "Defeat! All ships sunk.");
-          } else {
-            this.setMessage(weAreWinner ? "You win!" : "Defeat!");
-          }
-          
-          this.stopPolling();
-          this.onGameEndCallback?.(this.winner, reason.toLowerCase());
-        } else {
-          this.winner = null;
-          this.setPhase("finished");
-          this.setMessage("Game ended unexpectedly. Check chain events for details.");
-          this.stopPolling();
-          this.onGameEndCallback?.(null, "unknown");
+      console.log(`[${this.player}] Game #${this.gameId} returned null from getGame`);
+      if (this.phase !== "menu") {
+        const cached = this.battleshipClient.getCachedGameEndedEvent(this.gameId);
+        if (cached) {
+          this.handleGameEndedEvent(cached);
         }
       }
       return;
@@ -767,19 +711,22 @@ export class OnchainGame {
     }
 
     if (phase.type === "Playing") {
-      if (this.phase !== "battle") {
+      const phaseChanged = this.phase !== "battle";
+      if (phaseChanged) {
         this.setPhase("battle");
       }
-
-      // Update opponent board with revealed attack results
-      await this.updateOpponentBoardFromChain();
 
       const currentTurn = phase.value?.current_turn;
       const pendingAttack = phase.value?.pending_attack;
       const roundValue = phase.value?.round;
-      this.currentRound = typeof roundValue === 'bigint' ? Number(roundValue) : Number(roundValue ?? 0);
+      const newRound = typeof roundValue === 'bigint' ? Number(roundValue) : Number(roundValue ?? 0);
+      const roundChanged = newRound !== this.currentRound;
+      this.currentRound = newRound;
 
-      // Determine if it's our turn
+      if (phaseChanged || roundChanged) {
+        await this.updateOpponentBoardFromChain();
+      }
+
       const weArePlayer1 = this.player === "alice";
       const isPlayer1Turn = currentTurn?.type === "Player1";
       this.isOurTurn = weArePlayer1 === isPlayer1Turn;
@@ -799,31 +746,43 @@ export class OnchainGame {
         const coord = { x, y };
         this.pendingAttack = coord;
 
-        // The defender (NOT current_turn) needs to reveal
-        // For UI purposes, neither player can attack during pending reveal
-        if (!this.isOurTurn && !this.isRevealing) {
-          // We're the defender, reveal the cell
+        const alreadyRevealedThisRound = this.lastSuccessfulRevealRound >= this.currentRound;
+        if (!this.isOurTurn && !this.isRevealing && !alreadyRevealedThisRound) {
           console.log(`[${this.player}] Need to reveal cell at`, coord);
           await this.handlePendingAttack(coord);
+        } else if (!this.isOurTurn && !this.isRevealing && alreadyRevealedThisRound) {
+          // Chain still shows pendingAttack despite us thinking we revealed.
+          // The fire-and-forget tx may not have been included. Retry after timeout.
+          if (!this.pendingRevealTx) {
+            const timeSinceReveal = Date.now() - (this._lastRevealTime || 0);
+            if (timeSinceReveal > 5000) {
+              console.log(`[${this.player}] Reveal for round ${this.currentRound} not confirmed after ${timeSinceReveal}ms, retrying`);
+              resetLocalNonce(this.account.address);
+              this.lastSuccessfulRevealRound = -1;
+              await this.handlePendingAttack(coord);
+            }
+          }
         } else if (this.isOurTurn) {
-          // We're the attacker, waiting for reveal
           this.setMessage("Waiting for opponent to reveal...");
         }
       } else {
         this.pendingRevealTx = null;
+        this.pendingAttack = null;
 
-        if (!this.isOurTurn) {
-          this.pendingAttack = null;
-        }
-
-        // Don't update message if we're in the middle of attacking or waiting for reveal
         if (this.isAttacking) {
-          // Keep current "Attacking..." message
-        } else if (this.pendingAttack !== null) {
-          // We attacked but chain hasn't updated yet - keep waiting message
-          this.setMessage("Waiting for opponent to reveal...");
-        } else if (this.isOurTurn) {
+          // attack in flight
+        } else if (this.isOurTurn && this.lastAttackRound < this.currentRound) {
           this.setMessage("Your turn - click enemy waters to attack!");
+        } else if (this.isOurTurn) {
+          const timeSinceAttack = Date.now() - (this._lastAttackTime || 0);
+          if (timeSinceAttack > 5000 && this._lastAttackPos) {
+            console.log(`[${this.player}] Attack for round ${this.currentRound} not confirmed after ${timeSinceAttack}ms, retrying`);
+            resetLocalNonce(this.account.address);
+            this.lastAttackRound = -1;
+            this.attack(this._lastAttackPos);
+          } else {
+            this.setMessage("Waiting for chain confirmation...");
+          }
         } else {
           this.setMessage("Opponent's turn...");
         }
@@ -877,6 +836,8 @@ export class OnchainGame {
         this.setMessage(weWon ? "Opponent cheated! Not enough ships." : "Cheating detected: not enough ships.");
       } else if (reason === "Cheating" || reason === "InvalidWinnerGrid") {
         this.setMessage(weWon ? "Opponent cheated! You win!" : "Cheating detected.");
+      } else if (reason === "AllShipsSunk" || reason === "ValidWin") {
+        this.setMessage(weWon ? "Victory! All enemy ships sunk!" : "Defeat! All ships sunk.");
       } else {
         this.setMessage(weWon ? "Victory!" : "Defeat!");
       }
@@ -917,7 +878,8 @@ export class OnchainGame {
     try {
       // Get current block from chain
       const client = await getChainClient();
-      const api = client.getUnsafeApi();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const api = client.getUnsafeApi() as any;
       const currentBlock = await api.query.System.Number.getValue({ at: "best" });
 
       const timeoutBlock = lastActionBlock + timeout;
@@ -1011,6 +973,10 @@ export class OnchainGame {
     this.lastLoggedPhase = null;
     this.lastOpponentDataHash = "";
     this.pendingRevealTx = null;
+    this.lastSuccessfulRevealRound = -1;
+    this.lastAttackRound = -1;
+    this._lastAttackTime = 0;
+    this._lastAttackPos = null;
     this.setPhase("menu");
     this.setMessage("");
     this.stopPolling();

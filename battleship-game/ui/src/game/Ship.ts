@@ -78,7 +78,7 @@ export function getRandomPlacement(
   existingShips: PlacedShip[]
 ): { position: Position; orientation: Orientation } | null {
   const orientations: Orientation[] = ["horizontal", "vertical"];
-  const maxAttempts = 100;
+  const maxAttempts = 500;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const orientation = orientations[Math.floor(Math.random() * 2)];

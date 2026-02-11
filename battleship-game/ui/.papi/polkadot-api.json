@@ -1,0 +1,9 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "entries": {
+    "battleship": {
+      "wsUrl": "ws://localhost:35105"
+    }
+  }
+}

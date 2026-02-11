@@ -3,8 +3,7 @@ import { Renderer } from "./render/Renderer.ts";
 import { InputHandler } from "./input/InputHandler.ts";
 import { isDevMode, getPlayerFromUrl, getDevPlayerAccount, type PlayerAccount } from "./chain/accounts.ts";
 import { getWalletManager, WalletManager, type WalletInfo, type WalletAccount } from "./chain/wallet.ts";
-import { getChainClient, setRpcEndpoint } from "./chain/client.ts";
-import { getStatementStore, type GameAnnouncement } from "./chain/statementStore.ts";
+import { getChainClient } from "./chain/client.ts";
 import { BattleshipClient } from "./chain/battleship.ts";
 import type { Position, Player } from "./types/index.ts";
 
@@ -109,11 +108,7 @@ class BattleshipApp {
   }
 
   private applyRpcEndpoint(): void {
-    const input = document.getElementById("rpc-endpoint-input") as HTMLInputElement;
-    if (input?.value) {
-      setRpcEndpoint(input.value);
-      localStorage.setItem("battleship-rpc-endpoint", input.value);
-    }
+    // Light client mode - RPC endpoint not used, connecting via chain spec bootnodes
   }
 
   private toggleDevModeUI(devMode: boolean): void {
@@ -141,11 +136,14 @@ class BattleshipApp {
 
   private async loadDevBalance(address: string): Promise<void> {
     try {
+      console.log(`[loadDevBalance] Fetching balance for ${address.slice(0, 8)}...`);
       this.currentBalance = await this.walletManager.getBalance(address);
-      const balanceEl = document.getElementById("selected-balance");
-      if (balanceEl) {
-        balanceEl.textContent = WalletManager.formatBalance(this.currentBalance) + " UNIT";
-      }
+      const formatted = WalletManager.formatBalance(this.currentBalance) + " UNIT";
+      console.log(`[loadDevBalance] Balance: ${formatted}`);
+      const selectedEl = document.getElementById("selected-balance");
+      if (selectedEl) selectedEl.textContent = formatted;
+      const lobbyEl = document.getElementById("lobby-balance");
+      if (lobbyEl) lobbyEl.textContent = formatted;
     } catch (e) {
       console.error("Failed to load dev balance:", e);
     }
@@ -273,11 +271,11 @@ class BattleshipApp {
   }
 
   private async onAccountReady(): Promise<void> {
+    this.showScreen("game-lobby");
+    this.setupLobby();
     if (this.currentAccount) {
       await this.loadDevBalance(this.currentAccount.address);
     }
-    this.showScreen("game-lobby");
-    this.setupLobby();
     await this.checkExistingGame();
     await this.refreshGamesList();
     this.startLobbyRefresh();
@@ -289,6 +287,7 @@ class BattleshipApp {
   private async checkExistingGame(): Promise<void> {
     if (!this.currentAccount) return;
     try {
+      await getChainClient();
       const client = await getChainClient();
       const battleshipClient = await BattleshipClient.create(client);
       const gameId = await battleshipClient.getPlayerGame(this.currentAccount.address);
@@ -333,6 +332,7 @@ class BattleshipApp {
   private async cancelOrSurrenderExistingGame(): Promise<void> {
     if (!this.currentAccount || this.existingGameId === null) return;
     try {
+      await getChainClient();
       const client = await getChainClient();
       const battleshipClient = await BattleshipClient.create(client);
       if (this.existingGamePhase === "WaitingForOpponent") {
@@ -393,9 +393,20 @@ class BattleshipApp {
 
     try {
       const client = await getChainClient();
-      const statementStore = getStatementStore(client);
-      const games = await statementStore.getAvailableGames();
-      const filteredGames = games.filter((g) => g.creator !== this.currentAccount?.address);
+      const battleshipClient = await BattleshipClient.create(client);
+      const waitingGameIds = await battleshipClient.findWaitingGames();
+
+      const filteredGames: { gameId: bigint; creator: string; potAmount: bigint }[] = [];
+      for (const gameId of waitingGameIds) {
+        const { game } = await battleshipClient.getGame(gameId);
+        if (game && game.player1?.toString() !== this.currentAccount?.address) {
+          filteredGames.push({
+            gameId,
+            creator: game.player1?.toString() || "unknown",
+            potAmount: game.pot_amount ?? 0n,
+          });
+        }
+      }
 
       gamesList.querySelectorAll(".game-card").forEach((el) => el.remove());
 
@@ -415,23 +426,22 @@ class BattleshipApp {
     }
   }
 
-  private createGameCard(game: GameAnnouncement): HTMLElement {
+  private createGameCard(game: { gameId: bigint; creator: string; potAmount: bigint }): HTMLElement {
     const card = document.createElement("div");
     card.className = "game-card";
 
-    const potAmount = BigInt(game.potAmount);
-    const stakeFormatted = WalletManager.formatBalance(potAmount);
-    const prizeFormatted = WalletManager.formatBalance(potAmount * 2n);
+    const stakeFormatted = WalletManager.formatBalance(game.potAmount);
+    const prizeFormatted = WalletManager.formatBalance(game.potAmount * 2n);
 
     card.innerHTML = `
-      <div class="game-id">Game by ${this.truncateAddress(game.creator)}</div>
+      <div class="game-id">Game #${game.gameId} by ${this.truncateAddress(game.creator)}</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-prize">Winner receives: ${prizeFormatted} UNIT</div>
       <button class="btn btn-success">Join Game</button>
     `;
 
     const joinBtn = card.querySelector("button");
-    joinBtn?.addEventListener("click", () => this.joinGame(game));
+    joinBtn?.addEventListener("click", () => this.handleJoinGame(game.gameId));
 
     return card;
   }
@@ -532,33 +542,37 @@ class BattleshipApp {
 
     try {
       const client = await getChainClient();
-      const statementStore = getStatementStore(client);
+      const battleshipClient = await BattleshipClient.create(client);
+      const { ok, gameId: returnedGameId } = await battleshipClient.createGame(this.currentAccount.signer, potAmount);
 
-      const announcement: GameAnnouncement = {
-        creator: this.currentAccount.address,
-        potAmount: potAmount.toString(),
-        timestamp: Date.now(),
-      };
-      console.log("Announcing game:", announcement);
+      let gameId = returnedGameId;
+      if (ok && gameId === undefined) {
+        // Fallback: query PlayerGame to find the game ID
+        console.log("GameId not returned, querying PlayerGame...");
+        const queriedId = await battleshipClient.getPlayerGame(this.currentAccount.address);
+        if (queriedId !== null && queriedId !== undefined) {
+          gameId = queriedId;
+          console.log("Found gameId from PlayerGame query:", gameId);
+        }
+      }
 
-      const success = await statementStore.announceGame(announcement, this.currentAccount.signer);
-
-      if (success) {
-        this.showWaitingForOpponent(announcement);
+      if (ok && gameId !== undefined) {
+        console.log("Game created on-chain with ID:", gameId);
+        this.showWaitingForOpponent(gameId, potAmount);
       } else {
-        alert("Failed to announce game. Please try again.");
+        alert("Failed to create game. Please try again.");
       }
     } catch (e) {
       console.error("Failed to create game:", e);
-      alert("Failed to announce game. Please try again.");
+      alert("Failed to create game. Please try again.");
     }
   }
 
-  private _pendingAnnouncement: GameAnnouncement | null = null;
+  private _pendingGameId: bigint | null = null;
   private waitingCheckInterval: number | null = null;
 
-  private showWaitingForOpponent(announcement: GameAnnouncement): void {
-    this._pendingAnnouncement = announcement;
+  private showWaitingForOpponent(gameId: bigint, potAmount: bigint): void {
+    this._pendingGameId = gameId;
     this.stopLobbyRefresh();
 
     const gamesList = document.getElementById("games-list");
@@ -571,9 +585,9 @@ class BattleshipApp {
     const waitingCard = document.createElement("div");
     waitingCard.className = "game-card waiting-card";
     waitingCard.id = "waiting-card";
-    const stakeFormatted = WalletManager.formatBalance(BigInt(announcement.potAmount));
+    const stakeFormatted = WalletManager.formatBalance(potAmount);
     waitingCard.innerHTML = `
-      <div class="game-id">Your Game</div>
+      <div class="game-id">Your Game #${gameId}</div>
       <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
       <div class="game-status">Waiting for opponent to join...</div>
       <button class="btn btn-danger" id="cancel-game-btn">Cancel</button>
@@ -586,39 +600,34 @@ class BattleshipApp {
 
     document.getElementById("create-game-btn")?.setAttribute("disabled", "true");
 
-    this.waitingCheckInterval = window.setInterval(() => this.checkForJoinResponses(), 3000);
+    this.waitingCheckInterval = window.setInterval(() => this.checkForOpponentJoined(), 3000);
   }
 
-  private async checkForJoinResponses(): Promise<void> {
-    if (!this._pendingAnnouncement || !this.currentAccount) return;
+  private async checkForOpponentJoined(): Promise<void> {
+    if (this._pendingGameId === null || !this.currentAccount) return;
 
     try {
       const client = await getChainClient();
-      const statementStore = getStatementStore(client);
-      console.log("Checking for join responses for:", this._pendingAnnouncement.creator, this._pendingAnnouncement.timestamp);
-      const responses = await statementStore.getJoinResponses(
-        this._pendingAnnouncement.creator,
-        this._pendingAnnouncement.timestamp
-      );
-      console.log("Join responses found:", responses.length, responses);
+      const battleshipClient = await BattleshipClient.create(client);
+      const { game } = await battleshipClient.getGame(this._pendingGameId);
+      console.log(`[checkForOpponentJoined] game #${this._pendingGameId} phase: ${game?.phase?.type}`);
 
-      if (responses.length > 0) {
-        const joiner = responses[0];
-        console.log("Join response received from:", joiner.joiner);
-        await this.acceptJoinResponse(joiner);
+      if (game && game.phase?.type !== "WaitingForOpponent") {
+        console.log("[checkForOpponentJoined] Opponent joined! phase:", game.phase?.type);
+        await this.onOpponentJoined(this._pendingGameId);
       }
     } catch (e) {
-      console.error("Failed to check join responses:", e);
+      console.error("[checkForOpponentJoined] Failed:", e);
     }
   }
 
-  private async acceptJoinResponse(_response: { joiner: string; timestamp: number }): Promise<void> {
-    if (!this._pendingAnnouncement || !this.currentAccount) return;
+  private async onOpponentJoined(gameId: bigint): Promise<void> {
+    if (!this.currentAccount) return;
 
     this.stopWaitingCheck();
 
     const statusEl = document.querySelector("#waiting-card .game-status");
-    if (statusEl) statusEl.textContent = "Opponent found! Creating game...";
+    if (statusEl) statusEl.textContent = "Opponent found! Starting game...";
 
     const player = isDevMode() ? this.devModePlayer : "player";
     this.game = new OnchainGame(player, this.currentAccount);
@@ -628,23 +637,13 @@ class BattleshipApp {
     this.game.onMessageChange((msg) => this.setStatus(msg));
     this.game.onGameEnd((winner, reason) => this.handleGameEnd(winner, reason));
 
-    const potAmount = BigInt(this._pendingAnnouncement.potAmount);
-    const success = await this.game.createGame(potAmount);
+    const success = await this.game.joinExistingGame(gameId);
 
     if (success) {
-      const gameState = this.game.getState();
-      if (gameState.gameId !== null) {
-        const client = await getChainClient();
-        const statementStore = getStatementStore(client);
-        const updatedAnnouncement: GameAnnouncement = {
-          ...this._pendingAnnouncement,
-          onChainGameId: gameState.gameId.toString(),
-        };
-        await statementStore.announceGame(updatedAnnouncement, this.currentAccount.signer, 101);
-      }
+      this._pendingGameId = null;
       this.startGame();
     } else {
-      alert("Failed to create on-chain game.");
+      alert("Failed to start game.");
       this.cancelWaiting();
     }
   }
@@ -656,9 +655,17 @@ class BattleshipApp {
     }
   }
 
-  private cancelWaiting(): void {
-    console.log("Cancelling wait for:", this._pendingAnnouncement?.creator);
-    this._pendingAnnouncement = null;
+  private async cancelWaiting(): Promise<void> {
+    if (this._pendingGameId !== null && this.currentAccount) {
+      try {
+        const client = await getChainClient();
+        const battleshipClient = await BattleshipClient.create(client);
+        await battleshipClient.cancelGame(this.currentAccount.signer, this._pendingGameId);
+      } catch (e) {
+        console.error("Failed to cancel game on-chain:", e);
+      }
+    }
+    this._pendingGameId = null;
     this.stopWaitingCheck();
     document.getElementById("waiting-card")?.remove();
     document.getElementById("create-game-btn")?.removeAttribute("disabled");
@@ -666,139 +673,45 @@ class BattleshipApp {
     this.refreshGamesList();
   }
 
-  private joiningGame: GameAnnouncement | null = null;
-  private joinCheckInterval: number | null = null;
-
-  private async joinGame(game: GameAnnouncement): Promise<void> {
+  private async handleJoinGame(gameId: bigint): Promise<void> {
     if (!this.currentAccount) return;
-
-    const potAmount = BigInt(game.potAmount);
-    if (this.currentBalance < potAmount) {
-      alert("Insufficient balance to join this game");
-      return;
-    }
 
     this.stopLobbyRefresh();
 
-    const client = await getChainClient();
-    const statementStore = getStatementStore(client);
-
-    const success = await statementStore.sendJoinResponse(
-      game.creator,
-      game.timestamp,
-      this.currentAccount.address,
-      this.currentAccount.signer
-    );
-
-    if (success) {
-      this.joiningGame = game;
-      this.showWaitingForGameCreation(game);
-      this.joinCheckInterval = window.setInterval(() => this.checkForOnChainGame(), 3000);
-    } else {
-      alert("Failed to send join request.");
-      this.startLobbyRefresh();
-    }
-  }
-
-  private showWaitingForGameCreation(game: GameAnnouncement): void {
-    const gamesList = document.getElementById("games-list");
-    const noGamesMsg = document.getElementById("no-games-message");
-    if (gamesList) {
-      gamesList.querySelectorAll(".game-card").forEach((el) => el.remove());
-    }
-    if (noGamesMsg) noGamesMsg.style.display = "none";
-
-    const waitingCard = document.createElement("div");
-    waitingCard.className = "game-card waiting-card";
-    waitingCard.id = "join-waiting-card";
-    const stakeFormatted = WalletManager.formatBalance(BigInt(game.potAmount));
-    waitingCard.innerHTML = `
-      <div class="game-id">Joining ${this.truncateAddress(game.creator)}'s game</div>
-      <div class="game-stake">Stake: ${stakeFormatted} UNIT</div>
-      <div class="game-status">Waiting for host to create game...</div>
-      <button class="btn btn-danger" id="cancel-join-btn">Cancel</button>
-    `;
-    gamesList?.appendChild(waitingCard);
-
-    document.getElementById("cancel-join-btn")?.addEventListener("click", () => {
-      this.cancelJoin();
-    });
-
-    document.getElementById("create-game-btn")?.setAttribute("disabled", "true");
-  }
-
-  private async checkForOnChainGame(): Promise<void> {
-    if (!this.joiningGame || !this.currentAccount) return;
-
     try {
-      const client = await getChainClient();
-      const statementStore = getStatementStore(client);
-      const games = await statementStore.getAvailableGames();
-      console.log("Checking for on-chain game. Looking for:", this.joiningGame?.creator, this.joiningGame?.timestamp);
-      console.log("Available games:", games);
+      const player = isDevMode() ? this.devModePlayer : "player";
+      this.game = new OnchainGame(player, this.currentAccount);
+      await this.game.initialize();
 
-      const updatedGame = games.find(
-        (g) =>
-          g.creator === this.joiningGame?.creator &&
-          g.timestamp === this.joiningGame?.timestamp &&
-          g.onChainGameId
-      );
+      this.game.onStateChange(() => this.updateUI());
+      this.game.onMessageChange((msg) => this.setStatus(msg));
+      this.game.onGameEnd((winner, reason) => this.handleGameEnd(winner, reason));
 
-      if (updatedGame?.onChainGameId) {
-        console.log("On-chain game found:", updatedGame.onChainGameId);
-        await this.joinOnChainGame(BigInt(updatedGame.onChainGameId));
+      console.log(`[handleJoinGame] calling joinExistingGame(${gameId})...`);
+      const success = await this.game.joinExistingGame(gameId);
+      console.log(`[handleJoinGame] joinExistingGame result: ${success}`);
+
+      if (success) {
+        console.log(`[handleJoinGame] calling startGame()`);
+        this.startGame();
       } else {
-        console.log("No on-chain game ID yet");
+        console.log(`[handleJoinGame] join failed, returning to lobby`);
+        alert("Failed to join game. It may have been cancelled or already joined.");
+        this.game = null;
+        this.startLobbyRefresh();
+        this.refreshGamesList();
       }
     } catch (e) {
-      console.error("Failed to check for on-chain game:", e);
+      console.error("[handleJoinGame] Failed to join game:", e);
+      alert("Failed to join game. Please try again.");
+      this.game = null;
+      this.startLobbyRefresh();
+      this.refreshGamesList();
     }
-  }
-
-  private async joinOnChainGame(onChainGameId: bigint): Promise<void> {
-    if (!this.currentAccount || !this.joiningGame) return;
-
-    this.stopJoinCheck();
-
-    const statusEl = document.querySelector("#join-waiting-card .game-status");
-    if (statusEl) statusEl.textContent = "Game found! Joining...";
-
-    const player = isDevMode() ? this.devModePlayer : "player";
-    this.game = new OnchainGame(player, this.currentAccount);
-    await this.game.initialize();
-
-    this.game.onStateChange(() => this.updateUI());
-    this.game.onMessageChange((msg) => this.setStatus(msg));
-    this.game.onGameEnd((winner, reason) => this.handleGameEnd(winner, reason));
-
-    const success = await this.game.joinExistingGame(onChainGameId);
-
-    if (success) {
-      this.joiningGame = null;
-      this.startGame();
-    } else {
-      alert("Failed to join on-chain game.");
-      this.cancelJoin();
-    }
-  }
-
-  private stopJoinCheck(): void {
-    if (this.joinCheckInterval) {
-      clearInterval(this.joinCheckInterval);
-      this.joinCheckInterval = null;
-    }
-  }
-
-  private cancelJoin(): void {
-    this.joiningGame = null;
-    this.stopJoinCheck();
-    document.getElementById("join-waiting-card")?.remove();
-    document.getElementById("create-game-btn")?.removeAttribute("disabled");
-    this.startLobbyRefresh();
-    this.refreshGamesList();
   }
 
   private startGame(): void {
+    console.log("[startGame] Showing game screen");
     this.showScreen("game");
 
     this.renderer = new Renderer();

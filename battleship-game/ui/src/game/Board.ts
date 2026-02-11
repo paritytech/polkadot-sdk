@@ -140,14 +140,28 @@ export class Board {
   }
 
   placeShipsRandomly(): void {
-    this.reset();
+    const MAX_GRID_RETRIES = 50;
 
-    for (const definition of SHIP_DEFINITIONS) {
-      const placement = getRandomPlacement(definition, this.ships);
-      if (placement) {
-        this.placeShip(definition, placement.position, placement.orientation);
+    for (let gridAttempt = 0; gridAttempt < MAX_GRID_RETRIES; gridAttempt++) {
+      this.reset();
+      let allPlaced = true;
+
+      for (const definition of SHIP_DEFINITIONS) {
+        const placement = getRandomPlacement(definition, this.ships);
+        if (placement) {
+          this.placeShip(definition, placement.position, placement.orientation);
+        } else {
+          allPlaced = false;
+          break;
+        }
+      }
+
+      if (allPlaced && this.ships.length === SHIP_DEFINITIONS.length) {
+        return;
       }
     }
+
+    throw new Error("Failed to place all ships after maximum retries");
   }
 
   reset(): void {

@@ -1,97 +1,205 @@
 import type { PolkadotClient, PolkadotSigner } from "polkadot-api";
-import { Binary, type TxFinalizedPayload } from "polkadot-api";
+import { AccountId } from "polkadot-api";
+import { Bytes, Vector, Struct, u8, u32, u64, bool } from "scale-ts";
+import { firstValueFrom } from "rxjs";
 import type { ChainCell } from "../types/index.ts";
 
+function bytesToHex(bytes: Uint8Array): string {
+  return (
+    "0x" +
+    Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  );
+}
+
+// --- Manual SCALE encoding for calls with nested [u8;32] fields ---
+// polkadot-api's fixedStr codec uses TextEncoder.encode() on hex strings,
+// producing garbage for H256/[u8;32] fields in nested structs.
+// We encode the call data manually using scale-ts with raw Uint8Array values.
+
+const BATTLESHIP_PALLET_INDEX = 0x32; // 50
+const COMMIT_GRID_CALL_INDEX = 0x02;
+const REVEAL_CELL_CALL_INDEX = 0x04;
+const REVEAL_WINNER_GRID_CALL_INDEX = 0x05;
+
+const ScaleCell = Struct({ salt: Bytes(32), is_occupied: bool });
+const ScaleCoordinate = Struct({ x: u8, y: u8 });
+const ScaleCellReveal = Struct({
+  cell: ScaleCell,
+  proof: Vector(Bytes(32)),
+  coord: ScaleCoordinate,
+});
+const ScaleRevealCellArgs = Struct({
+  game_id: u64,
+  reveal: ScaleCellReveal,
+  expected_round: u32,
+});
+const ScaleCommitGridArgs = Struct({
+  game_id: u64,
+  grid_root: Bytes(32),
+});
+const ScaleRevealWinnerGridArgs = Struct({
+  game_id: u64,
+  full_grid: Vector(ScaleCell),
+});
+
+function encodeCommitGridCall(
+  gameId: bigint,
+  gridRoot: Uint8Array,
+): Uint8Array {
+  const argsEncoded = ScaleCommitGridArgs.enc({
+    game_id: gameId,
+    grid_root: gridRoot,
+  });
+  const callData = new Uint8Array(2 + argsEncoded.length);
+  callData[0] = BATTLESHIP_PALLET_INDEX;
+  callData[1] = COMMIT_GRID_CALL_INDEX;
+  callData.set(argsEncoded, 2);
+  return callData;
+}
+
+function encodeRevealCellCall(
+  gameId: bigint,
+  cell: ChainCell,
+  proof: Uint8Array[],
+  coord: { x: number; y: number },
+  expectedRound: number,
+): Uint8Array {
+  const argsEncoded = ScaleRevealCellArgs.enc({
+    game_id: gameId,
+    reveal: {
+      cell: { salt: cell.salt, is_occupied: cell.isOccupied },
+      proof,
+      coord,
+    },
+    expected_round: expectedRound,
+  });
+  const callData = new Uint8Array(2 + argsEncoded.length);
+  callData[0] = BATTLESHIP_PALLET_INDEX;
+  callData[1] = REVEAL_CELL_CALL_INDEX;
+  callData.set(argsEncoded, 2);
+  return callData;
+}
+
+function encodeRevealWinnerGridCall(
+  gameId: bigint,
+  cells: ChainCell[],
+): Uint8Array {
+  const argsEncoded = ScaleRevealWinnerGridArgs.enc({
+    game_id: gameId,
+    full_grid: cells.map((c) => ({
+      salt: c.salt,
+      is_occupied: c.isOccupied,
+    })),
+  });
+  const callData = new Uint8Array(2 + argsEncoded.length);
+  callData[0] = BATTLESHIP_PALLET_INDEX;
+  callData[1] = REVEAL_WINNER_GRID_CALL_INDEX;
+  callData.set(argsEncoded, 2);
+  return callData;
+}
+
+/** Wrap a signer so that signTx replaces the call data with our manually encoded bytes. */
+function wrapSignerWithCallData(
+  signer: PolkadotSigner,
+  rawCallData: Uint8Array,
+): PolkadotSigner {
+  return {
+    publicKey: signer.publicKey,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signTx: ((_origCallData: Uint8Array, ...rest: any[]) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (signer as any).signTx(rawCallData, ...rest)) as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signBytes: (signer as any).signBytes,
+  } as PolkadotSigner;
+}
+
 export interface TxResult {
-  result: TxFinalizedPayload;
-  onReorged: (callback: () => void) => void;
+  ok: boolean;
 }
 
 const TX_TIMEOUT_MS = 60000;
 
-async function submitAndWaitBestBlock(
+const localNonceMap = new Map<string, number>();
+
+export function resetLocalNonce(address: string) {
+  localNonceMap.delete(address);
+}
+
+async function submitFireAndForget(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
   signer: PolkadotSigner,
-  label = "tx"
+  client: PolkadotClient,
+  label = "tx",
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  api?: any,
 ): Promise<TxResult> {
   const startTime = Date.now();
-  console.log(`[${label}] Submitting transaction... (t=0ms)`);
 
-  const observable = tx.signSubmitAndWatch(signer, {
-    mortality: { mortal: true, period: 4096 },
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pubkey = (signer as any).publicKey;
+  const address = pubkey ? AccountId().dec(pubkey) : "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const request = (client as any)._request;
 
-  let reorgCallback: (() => void) | null = null;
+  // Query confirmed on-chain nonce from storage (not system_accountNextIndex which includes pool txs)
+  let storageNonce = 0;
+  try {
+    if (api) {
+      const acct = await api.query.System.Account.getValue(address, { at: "best" });
+      storageNonce = acct?.nonce ?? 0;
+    }
+  } catch { /* ignore */ }
+  const cachedNonce = localNonceMap.get(address) ?? 0;
+  let nonce = Math.max(storageNonce, cachedNonce);
 
-  return new Promise((resolve, reject) => {
-    let resolved = false;
+  console.log(`[${label}] nonce=${nonce} (t=${Date.now() - startTime}ms)`);
 
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        sub.unsubscribe();
-        console.log(`[${label}] Transaction timed out after ${TX_TIMEOUT_MS}ms`);
-        reject(new Error(`Transaction timeout after ${TX_TIMEOUT_MS}ms`));
+  // Smoldot parachain state can lag 1 block — hedge by trying nonce N and N+1
+  let accepted = false;
+  for (const tryNonce of [nonce, nonce + 1]) {
+    try {
+      const signedTx = await tx.sign(signer, { mortality: { mortal: false }, nonce: tryNonce });
+      await request("author_submitExtrinsic", [bytesToHex(signedTx as Uint8Array)]);
+      console.log(`[${label}] Accepted nonce=${tryNonce} (t=${Date.now() - startTime}ms)`);
+      nonce = tryNonce;
+      accepted = true;
+      break;
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("1010") || msg.includes("Stale")) {
+        console.log(`[${label}] Stale nonce=${tryNonce}, trying next`);
+        continue;
+      } else if (msg.includes("1014") || msg.includes("Priority") || msg.includes("Already")) {
+        console.log(`[${label}] Already/Priority nonce=${tryNonce}, treating as accepted`);
+        nonce = tryNonce;
+        accepted = true;
+        break;
+      } else if (msg.includes("1012") || msg.includes("Future")) {
+        console.log(`[${label}] Future nonce=${tryNonce}, previous was accepted`);
+        nonce = tryNonce - 1;
+        accepted = true;
+        break;
+      } else {
+        console.error(`[${label}] Unexpected error nonce=${tryNonce}:`, msg.slice(0, 120));
+        if (tryNonce === nonce) continue;
+        throw e;
       }
-    }, TX_TIMEOUT_MS);
+    }
+  }
 
-    const sub = observable.subscribe({
-      next: (e: { type: string; found?: boolean; block?: { number: number } }) => {
-        console.log(`[${label}] Event: ${e.type}${e.found !== undefined ? ` found=${e.found}` : ''}${e.block ? ` block=${e.block.number}` : ''} (t=${Date.now() - startTime}ms)`);
+  if (!accepted) {
+    const lastNonce = nonce + 2;
+    console.log(`[${label}] Both stale, last resort nonce=${lastNonce}`);
+    const signedTx = await tx.sign(signer, { mortality: { mortal: false }, nonce: lastNonce });
+    await request("author_submitExtrinsic", [bytesToHex(signedTx as Uint8Array)]);
+    nonce = lastNonce;
+  }
 
-        if (e.type === "finalized") {
-          clearTimeout(timeout);
-          sub.unsubscribe();
-          return;
-        }
-
-        if (e.type === "invalid" || e.type === "dropped") {
-          clearTimeout(timeout);
-          sub.unsubscribe();
-          if (!resolved) {
-            reject(new Error(`Transaction ${e.type}`));
-          } else {
-            reorgCallback?.();
-          }
-        } else if (e.type === "txBestBlocksState") {
-          if (e.found === true && !resolved) {
-            clearTimeout(timeout);
-            resolved = true;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const block = (e as any).block;
-            console.log(`[${label}] Included in best block #${block?.number} (t=${Date.now() - startTime}ms)`);
-            resolve({
-              result: e as unknown as TxFinalizedPayload,
-              onReorged: (cb) => { reorgCallback = cb; }
-            });
-          } else if (e.found === false && resolved) {
-            console.log(`[${label}] Reorged out of best block! (t=${Date.now() - startTime}ms)`);
-            reorgCallback?.();
-          }
-        }
-      },
-      error: (err: Error) => {
-        clearTimeout(timeout);
-        sub.unsubscribe();
-        if (!resolved) {
-          reject(err);
-        } else {
-          reorgCallback?.();
-        }
-      }
-    });
-  });
-}
-
-// NOTE: This file needs to be updated once PAPI descriptors are generated.
-// For now, we use a dynamic API approach.
-// After running `npx papi add battleship -w ws://localhost:9944 && npx papi generate`,
-// update imports to use the generated types.
-
-export interface GameCreatedEvent {
-  gameId: bigint;
-  player1: string;
-  potAmount: bigint;
+  localNonceMap.set(address, nonce + 1);
+  console.log(`[${label}] Submitted nonce=${nonce} (t=${Date.now() - startTime}ms)`);
+  return { ok: true };
 }
 
 export interface GameJoinedEvent {
@@ -119,23 +227,10 @@ export interface GameEndedEvent {
   prize: bigint;
 }
 
-// Helper to extract events from transaction result
-// Events have nested structure: { type: "PalletName", value: { type: "EventName", value: {...} } }
-function extractEvents<T>(
-  result: { events: Array<{ type: string; value: { type: string; value: unknown } }> },
-  palletName: string,
-  eventName: string
-): T[] {
-  return result.events
-    .filter((e) => e.type === palletName && e.value?.type === eventName)
-    .map((e) => e.value.value as T);
-}
-
 export class BattleshipClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private api: any;
   private client: PolkadotClient;
-  // Cache for GameEnded events (gameId -> event)
   private gameEndedCache: Map<string, { winner: string; loser: string; reason: string }> = new Map();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,55 +243,96 @@ export class BattleshipClient {
     return new BattleshipClient(client.getUnsafeApi(), client);
   }
 
+  private async getNextGameId(): Promise<bigint> {
+    try {
+      const nextId = await this.api.query.Battleship.NextGameId.getValue({ at: "best" });
+      if (nextId === undefined || nextId === null) return 0n;
+      return typeof nextId === "bigint" ? nextId : BigInt(nextId);
+    } catch {
+      return 0n;
+    }
+  }
+
   async createGame(
     signer: PolkadotSigner,
-    potAmount: bigint
+    potAmount: bigint,
+    maxRetries = 3
   ): Promise<{ ok: boolean; gameId?: bigint }> {
-    try {
-      const tx = this.api.tx.Battleship.create_game({
-        pot_amount: potAmount,
-      });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "create_game");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pubkey = (signer as any).publicKey;
+    const address = pubkey
+      ? AccountId().dec(pubkey)
+      : "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
 
-      if (!result.ok) {
-        console.error("create_game failed:", JSON.stringify(result.dispatchError, null, 2));
-        return { ok: false };
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const predictedId = await this.getNextGameId();
+        console.log(`create_game(${attempt}): predicted gameId = ${predictedId}`);
+
+        const tx = this.api.tx.Battleship.create_game({ pot_amount: potAmount });
+        await submitFireAndForget(tx, signer, this.client, `create_game(${attempt})`, this.api);
+
+        let confirmedId: bigint | undefined;
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, i < 4 ? 1500 : 500));
+          const playerGame = await this.getPlayerGame(address);
+          if (i < 5) console.log(`create_game: poll(${i}) =`, playerGame);
+          if (playerGame !== null) {
+            confirmedId = playerGame;
+            break;
+          }
+        }
+
+        if (confirmedId !== undefined) {
+          console.log(`create_game: confirmed gameId=${confirmedId}`);
+          return { ok: true, gameId: confirmedId };
+        }
+
+        console.log(`create_game(${attempt}): not confirmed, clearing nonce cache for retry`);
+        localNonceMap.delete(address);
+      } catch (e) {
+        const msg = String(e);
+        console.error(`create_game(${attempt}) failed:`, msg.slice(0, 100));
+        localNonceMap.delete(address);
       }
-
-      console.log("create_game events:", result.events);
-
-      const events = extractEvents<{ game_id: bigint; player1: string; pot_amount: bigint }>(
-        result,
-        "Battleship",
-        "GameCreated"
-      );
-      console.log("GameCreated events found:", events);
-
-      if (events.length > 0) {
-        return { ok: true, gameId: events[0].game_id };
-      }
-
-      return { ok: true };
-    } catch (e) {
-      console.error("create_game error:", e);
-      return { ok: false };
+      await new Promise(r => setTimeout(r, 3000));
     }
+    return { ok: false };
   }
 
   async joinGame(
     signer: PolkadotSigner,
-    gameId: bigint
+    gameId: bigint,
+    maxRetries = 3
   ): Promise<{ ok: boolean }> {
-    try {
-      const tx = this.api.tx.Battleship.join_game({
-        game_id: gameId,
-      });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "join_game");
-      return { ok: result.ok };
-    } catch (e) {
-      console.error("join_game error:", e);
-      return { ok: false };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pubkey = (signer as any).publicKey;
+    const address = pubkey ? AccountId().dec(pubkey) : "";
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const tx = this.api.tx.Battleship.join_game({ game_id: gameId });
+        await submitFireAndForget(tx, signer, this.client, `join_game(${attempt})`, this.api);
+
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, i < 4 ? 1500 : 500));
+          const { game } = await this.getGame(gameId);
+          if (game && game.phase?.type !== "WaitingForOpponent") {
+            console.log(`join_game: confirmed, phase=${game.phase?.type}`);
+            return { ok: true };
+          }
+          if (i < 5) console.log(`join_game: poll(${i}) phase=${game?.phase?.type}`);
+        }
+
+        console.log(`join_game(${attempt}): not confirmed, clearing nonce cache`);
+        localNonceMap.delete(address);
+      } catch (e) {
+        console.error(`join_game(${attempt}) failed:`, String(e).slice(0, 100));
+        localNonceMap.delete(address);
+      }
+      await new Promise(r => setTimeout(r, 3000));
     }
+    return { ok: false };
   }
 
   async commitGrid(
@@ -205,14 +341,15 @@ export class BattleshipClient {
     gridRoot: Uint8Array
   ): Promise<{ ok: boolean }> {
     try {
-      const rootHex = Array.from(gridRoot).map(b => b.toString(16).padStart(2, '0')).join('');
-      console.log("commit_grid:", { gameId, gridRootHex: rootHex });
-      const tx = this.api.tx.Battleship.commit_grid({
+      const rawCallData = encodeCommitGridCall(gameId, gridRoot);
+      const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
+      // Use a dummy call to get a tx object, then sign with our wrapped signer
+      // which injects the correctly-encoded call data
+      const dummyTx = this.api.tx.Battleship.surrender({
         game_id: gameId,
-        grid_root: Binary.fromBytes(gridRoot),
       });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "commit_grid");
-      return { ok: result.ok };
+      await submitFireAndForget(dummyTx, wrappedSigner, this.client, "commit_grid", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("commit_grid error:", e);
       return { ok: false };
@@ -225,7 +362,7 @@ export class BattleshipClient {
     x: number,
     y: number,
     round: number,
-    onReorged?: () => void
+    _onReorged?: () => void
   ): Promise<{ ok: boolean }> {
     try {
       const tx = this.api.tx.Battleship.attack({
@@ -233,11 +370,8 @@ export class BattleshipClient {
         coordinate: { x, y },
         expected_round: round,
       });
-      const { result, onReorged: registerReorg } = await submitAndWaitBestBlock(tx, signer, "attack");
-      if (onReorged) {
-        registerReorg(onReorged);
-      }
-      return { ok: result.ok };
+      await submitFireAndForget(tx, signer, this.client, "attack", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("attack error:", e);
       return { ok: false };
@@ -251,56 +385,24 @@ export class BattleshipClient {
     proof: Uint8Array[],
     coord: { x: number; y: number },
     round: number,
-    onReorged?: () => void
+    _onReorged?: () => void,
   ): Promise<{ ok: boolean }> {
     try {
-      const saltHex = Array.from(cell.salt).map(b => b.toString(16).padStart(2, '0')).join('');
-      console.log("reveal_cell full data:", {
+      const rawCallData = encodeRevealCellCall(
         gameId,
-        saltHex,
-        saltLength: cell.salt.length,
-        isOccupied: cell.isOccupied,
-        proofLength: proof.length,
+        cell,
+        proof,
         coord,
         round,
-      });
-
-      const tx = this.api.tx.Battleship.reveal_cell({
+      );
+      const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
+      // Use a dummy call to get a tx object, then sign with our wrapped signer
+      // which injects the correctly-encoded call data
+      const dummyTx = this.api.tx.Battleship.surrender({
         game_id: gameId,
-        reveal: {
-          cell: {
-            salt: Binary.fromBytes(cell.salt),
-            is_occupied: cell.isOccupied,
-          },
-          proof: proof.map((p) => Binary.fromBytes(p)),
-          coord: { x: coord.x, y: coord.y },
-        },
-        expected_round: round,
       });
-      const { result, onReorged: registerReorg } = await submitAndWaitBestBlock(tx, signer, "reveal_cell");
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const events = (result as any).events;
-      if (events) {
-        for (const event of events) {
-          if (event.event?.type === "Battleship" && event.event?.value?.type === "GameEnded") {
-            const data = event.event.value.value;
-            console.error("reveal_cell caused GameEnded:", {
-              winner: data.winner?.toString(),
-              loser: data.loser?.toString(),
-              reason: data.reason?.type,
-            });
-          }
-        }
-      }
-      
-      if (!result.ok) {
-        console.error("reveal_cell dispatch error:", result.dispatchError);
-      }
-      if (onReorged) {
-        registerReorg(onReorged);
-      }
-      return { ok: result.ok };
+      await submitFireAndForget(dummyTx, wrappedSigner, this.client, "reveal_cell", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("reveal_cell error:", e);
       return { ok: false };
@@ -310,18 +412,16 @@ export class BattleshipClient {
   async revealWinnerGrid(
     signer: PolkadotSigner,
     gameId: bigint,
-    cells: ChainCell[]
+    cells: ChainCell[],
   ): Promise<{ ok: boolean }> {
     try {
-      const tx = this.api.tx.Battleship.reveal_winner_grid({
+      const rawCallData = encodeRevealWinnerGridCall(gameId, cells);
+      const wrappedSigner = wrapSignerWithCallData(signer, rawCallData);
+      const dummyTx = this.api.tx.Battleship.surrender({
         game_id: gameId,
-        full_grid: cells.map((c) => ({
-          salt: Binary.fromBytes(c.salt),
-          is_occupied: c.isOccupied,
-        })),
       });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "reveal_winner_grid");
-      return { ok: result.ok };
+      await submitFireAndForget(dummyTx, wrappedSigner, this.client, "reveal_winner_grid", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("reveal_winner_grid error:", e);
       return { ok: false };
@@ -333,14 +433,9 @@ export class BattleshipClient {
     gameId: bigint
   ): Promise<{ ok: boolean }> {
     try {
-      const tx = this.api.tx.Battleship.surrender({
-        game_id: gameId,
-      });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "surrender");
-      if (!result.ok) {
-        console.error("surrender dispatch error:", JSON.stringify(result.dispatchError, null, 2));
-      }
-      return { ok: result.ok };
+      const tx = this.api.tx.Battleship.surrender({ game_id: gameId });
+      await submitFireAndForget(tx, signer, this.client, "surrender", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("surrender error:", e);
       return { ok: false };
@@ -352,14 +447,9 @@ export class BattleshipClient {
     gameId: bigint
   ): Promise<{ ok: boolean }> {
     try {
-      const tx = this.api.tx.Battleship.cancel_game({
-        game_id: gameId,
-      });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "cancel_game");
-      if (!result.ok) {
-        console.error("cancel_game dispatch error:", JSON.stringify(result.dispatchError, null, 2));
-      }
-      return { ok: result.ok };
+      const tx = this.api.tx.Battleship.cancel_game({ game_id: gameId });
+      await submitFireAndForget(tx, signer, this.client, "cancel_game", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("cancel_game error:", e);
       return { ok: false };
@@ -371,11 +461,9 @@ export class BattleshipClient {
     gameId: bigint
   ): Promise<{ ok: boolean }> {
     try {
-      const tx = this.api.tx.Battleship.claim_timeout_win({
-        game_id: gameId,
-      });
-      const { result } = await submitAndWaitBestBlock(tx, signer, "claim_timeout_win");
-      return { ok: result.ok };
+      const tx = this.api.tx.Battleship.claim_timeout_win({ game_id: gameId });
+      await submitFireAndForget(tx, signer, this.client, "claim_timeout_win", this.api);
+      return { ok: true };
     } catch (e) {
       console.error("claim_timeout_win error:", e);
       return { ok: false };
@@ -383,9 +471,11 @@ export class BattleshipClient {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async getGame(gameId: bigint, atBlockHash?: string): Promise<{ game: any | null; error?: Error }> {
+  async getGame(gameId: bigint, _atBlockHash?: string): Promise<{ game: any | null; error?: Error }> {
     try {
-      const game = await this.api.query.Battleship.Games.getValue(gameId, { at: atBlockHash || "best" });
+      const game = await this.api.query.Battleship.Games.getValue(gameId, {
+        at: "best",
+      });
       return { game };
     } catch (e) {
       console.error("getGame error:", e);
@@ -393,10 +483,20 @@ export class BattleshipClient {
     }
   }
 
+  async gameExistsOnNode(gameId: bigint): Promise<boolean> {
+    try {
+      const game = await this.api.query.Battleship.Games.getValue(gameId, {
+        at: "best",
+      });
+      return game !== null && game !== undefined;
+    } catch {
+      return true;
+    }
+  }
+
   async getBestBlockHash(): Promise<string> {
-    const { first } = await import('rxjs');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const block = await this.client.bestBlocks$.pipe(first()).toPromise() as any;
+    const block: any = await firstValueFrom(this.client.bestBlocks$ as any);
     return block?.hash;
   }
 
@@ -418,8 +518,11 @@ export class BattleshipClient {
 
   async getPlayerGame(player: string): Promise<bigint | null> {
     try {
-      const gameId = await this.api.query.Battleship.PlayerGame.getValue(player, { at: "best" });
-      return gameId ?? null;
+      const gameId = await this.api.query.Battleship.PlayerGame.getValue(player, {
+        at: "best",
+      });
+      if (gameId === null || gameId === undefined) return null;
+      return typeof gameId === "bigint" ? gameId : BigInt(gameId);
     } catch (e) {
       console.error("[getPlayerGame] Failed:", e);
       return null;
@@ -428,14 +531,17 @@ export class BattleshipClient {
 
   async findWaitingGames(): Promise<bigint[]> {
     try {
-      const entries = await this.api.query.Battleship.Games.getEntries({ at: "best" });
+      const nextId = await this.getNextGameId();
       const waitingGames: bigint[] = [];
+      const startId = nextId > 20n ? nextId - 20n : 0n;
 
-      for (const entry of entries) {
-        const game = entry.value;
-        if (game && game.phase && game.phase.type === "WaitingForOpponent") {
-          waitingGames.push(entry.keyArgs[0] as bigint);
-        }
+      for (let id = startId; id < nextId; id++) {
+        try {
+          const game = await this.api.query.Battleship.Games.getValue(id, { at: "best" });
+          if (game && game.phase && game.phase.type === "WaitingForOpponent") {
+            waitingGames.push(id);
+          }
+        } catch { /* skip */ }
       }
 
       return waitingGames;
@@ -454,29 +560,46 @@ export class BattleshipClient {
     }
 
     try {
-      for (const at of ["best", "finalized"] as const) {
-        const events = await this.api.query.System.Events.getValue({ at });
-        
-        for (const event of events) {
-          if (event.event?.type === "Battleship" && event.event?.value?.type === "GameEnded") {
-            const data = event.event.value.value;
-            if (data?.game_id === gameId) {
-              const result = {
-                winner: data.winner?.toString() || "",
-                loser: data.loser?.toString() || "",
-                reason: data.reason?.type || "unknown",
-              };
-              this.gameEndedCache.set(cacheKey, result);
-              return result;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const request = (this.client as any)._request;
+      const latestHash = await request("chain_getBlockHash", []) as string;
+      const latestHeader = await request("chain_getHeader", [latestHash]) as { number: string };
+      const latestNum = parseInt(latestHeader.number, 16);
+      const SEARCH_DEPTH = 100;
+
+      for (let n = latestNum; n >= Math.max(0, latestNum - SEARCH_DEPTH); n--) {
+        try {
+          const blockHash = await request("chain_getBlockHash", [n]) as string;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const events: any[] = await this.api.query.System.Events.getValue({ at: blockHash });
+          if (!events) continue;
+
+          for (const event of events) {
+            if (event.event?.type === "Battleship" && event.event?.value?.type === "GameEnded") {
+              const data = event.event.value.value;
+              if (data?.game_id === gameId) {
+                const result = {
+                  winner: data.winner?.toString() || "",
+                  loser: data.loser?.toString() || "",
+                  reason: data.reason?.type || "unknown",
+                };
+                console.log(`[getGameEndedEvent] Found in block #${n} (${blockHash})`);
+                this.gameEndedCache.set(cacheKey, result);
+                return result;
+              }
             }
           }
-        }
+        } catch { /* skip block */ }
       }
       return null;
     } catch (e) {
       console.error("getGameEndedEvent error:", e);
       return null;
     }
+  }
+
+  getCachedGameEndedEvent(gameId: bigint): { winner: string; loser: string; reason: string } | null {
+    return this.gameEndedCache.get(gameId.toString()) ?? null;
   }
 
   cacheGameEndedEvent(gameId: bigint, event: { winner: string; loser: string; reason: string }): void {
@@ -498,19 +621,24 @@ export class BattleshipClient {
     console.log(`[subscribeToEvents] Starting subscription for game ${gameId}`);
     let cancelled = false;
     let gameEndedHandled = false;
+    const processedHashes = new Set<string>();
 
-    const processBlockEvents = async (at: "best" | "finalized") => {
+    const processBlockByHash = async (blockHash: string) => {
       if (cancelled || gameEndedHandled) return;
-      
+      if (processedHashes.has(blockHash)) return;
+      processedHashes.add(blockHash);
+
       try {
-        const events = await this.api.query.System.Events.getValue({ at });
-        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const events: any[] = await this.api.query.System.Events.getValue({ at: blockHash });
+        if (!events) return;
+
         for (const event of events) {
           if (event.event?.type !== "Battleship") continue;
-          
+
           const eventType = event.event?.value?.type;
           const data = event.event?.value?.value;
-          
+
           if (data?.game_id !== gameId) continue;
 
           if (eventType === "GameEnded" && !gameEndedHandled) {
@@ -527,18 +655,20 @@ export class BattleshipClient {
               loser: endedEvent.loser,
               reason: endedEvent.reason,
             });
-            console.log(`[subscribeToEvents] GameEnded event found in ${at} block for game ${gameId}:`, endedEvent);
+            console.log(`[subscribeToEvents] GameEnded event in block ${blockHash} for game ${gameId}:`, endedEvent);
             handlers.onGameEnded?.(endedEvent);
           }
         }
       } catch (e) {
-        console.error(`[subscribeToEvents] Error processing ${at} block:`, e);
+        console.error(`[subscribeToEvents] Error processing block ${blockHash}:`, e);
       }
     };
 
     const bestBlockSub = this.client.bestBlocks$.subscribe({
-      next: () => {
-        processBlockEvents("best");
+      next: (blocks: { hash: string }[]) => {
+        for (const block of blocks) {
+          processBlockByHash(block.hash);
+        }
       },
       error: (err) => {
         console.error("[subscribeToEvents] Best block subscription error:", err);
@@ -546,19 +676,19 @@ export class BattleshipClient {
     });
 
     const finalizedSub = this.client.finalizedBlock$.subscribe({
-      next: () => {
-        processBlockEvents("finalized");
+      next: (block: { hash: string }) => {
+        processBlockByHash(block.hash);
       },
       error: (err) => {
         console.error("[subscribeToEvents] Finalized subscription error:", err);
       },
     });
 
-    const subscription = { 
-      unsubscribe: () => { 
-        bestBlockSub.unsubscribe(); 
-        finalizedSub.unsubscribe(); 
-      } 
+    const subscription = {
+      unsubscribe: () => {
+        bestBlockSub.unsubscribe();
+        finalizedSub.unsubscribe();
+      }
     };
 
     return () => {

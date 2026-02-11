@@ -564,8 +564,9 @@ pub mod pallet {
 			let mut game = Games::<T>::get(game_id).ok_or(Error::<T>::GameNotFound)?;
 
 			let (current_turn, attack_coord, current_round) = match &game.phase {
-				GamePhase::Playing { current_turn, pending_attack: Some(coord), round } =>
-					(*current_turn, *coord, *round),
+				GamePhase::Playing { current_turn, pending_attack: Some(coord), round } => {
+					(*current_turn, *coord, *round)
+				},
 				_ => return Err(Error::<T>::InvalidGamePhase.into()),
 			};
 
@@ -598,8 +599,24 @@ pub mod pallet {
 					// Get the committed grid root for the defender
 					let grid_root = data.grid_root.ok_or(Error::<T>::InvalidGamePhase)?;
 
-					// Verify merkle proof
 					let leaf = reveal.cell.to_leaf();
+					let leaf_hash = sp_core::hashing::blake2_256(&leaf);
+					log::info!(
+						"[reveal_cell] grid_root={}, leaf_hash={}, index={}, proof_len={}, salt={}, occupied={}",
+						sp_core::hexdisplay::HexDisplay::from(&grid_root.as_ref()),
+						sp_core::hexdisplay::HexDisplay::from(&&leaf_hash[..]),
+						attack_coord.to_index(),
+						reveal.proof.len(),
+						sp_core::hexdisplay::HexDisplay::from(&reveal.cell.salt),
+						reveal.cell.is_occupied,
+					);
+					for (i, p) in reveal.proof.iter().enumerate() {
+						log::info!(
+							"[reveal_cell] proof[{}]={}",
+							i,
+							sp_core::hexdisplay::HexDisplay::from(&p.as_ref()),
+						);
+					}
 					let valid = binary_merkle_tree::verify_proof::<BlakeTwo256, _, _>(
 						&grid_root,
 						reveal.proof.iter().cloned(),
@@ -607,6 +624,7 @@ pub mod pallet {
 						attack_coord.to_index(),
 						&leaf,
 					);
+					log::info!("[reveal_cell] verify_proof result={}", valid);
 
 					if !valid {
 						return Err(Error::<T>::InvalidMerkleProof);
@@ -637,10 +655,12 @@ pub mod pallet {
 				Err(err @ Error::<T>::TooManyHits) |
 				Err(err @ Error::<T>::InvalidHitPattern) => {
 					let (winner, loser) = match current_turn {
-						PlayerRole::Player1 =>
-							(game.player1.clone(), game.player2.clone().unwrap()),
-						PlayerRole::Player2 =>
-							(game.player2.clone().unwrap(), game.player1.clone()),
+						PlayerRole::Player1 => {
+							(game.player1.clone(), game.player2.clone().unwrap())
+						},
+						PlayerRole::Player2 => {
+							(game.player2.clone().unwrap(), game.player1.clone())
+						},
 					};
 					let reason = match err {
 						Error::<T>::InvalidMerkleProof => GameEndReason::InvalidMerkleProof,
@@ -830,28 +850,34 @@ pub mod pallet {
 					if pending_attack.is_some() {
 						// Defender timed out
 						match current_turn {
-							PlayerRole::Player1 =>
-								(game.player1.clone(), game.player2.clone().unwrap()),
-							PlayerRole::Player2 =>
-								(game.player2.clone().unwrap(), game.player1.clone()),
+							PlayerRole::Player1 => {
+								(game.player1.clone(), game.player2.clone().unwrap())
+							},
+							PlayerRole::Player2 => {
+								(game.player2.clone().unwrap(), game.player1.clone())
+							},
 						}
 					} else {
 						// Current player (attacker) timed out
 						match current_turn {
-							PlayerRole::Player1 =>
-								(game.player2.clone().unwrap(), game.player1.clone()),
-							PlayerRole::Player2 =>
-								(game.player1.clone(), game.player2.clone().unwrap()),
+							PlayerRole::Player1 => {
+								(game.player2.clone().unwrap(), game.player1.clone())
+							},
+							PlayerRole::Player2 => {
+								(game.player1.clone(), game.player2.clone().unwrap())
+							},
 						}
 					}
 				},
 				GamePhase::PendingWinnerReveal { winner } => {
 					// Winner hasn't revealed - loser wins
 					match winner {
-						PlayerRole::Player1 =>
-							(game.player2.clone().unwrap(), game.player1.clone()),
-						PlayerRole::Player2 =>
-							(game.player1.clone(), game.player2.clone().unwrap()),
+						PlayerRole::Player1 => {
+							(game.player2.clone().unwrap(), game.player1.clone())
+						},
+						PlayerRole::Player2 => {
+							(game.player1.clone(), game.player2.clone().unwrap())
+						},
 					}
 				},
 				GamePhase::Finished { .. } => {
@@ -982,14 +1008,18 @@ pub mod pallet {
 				return true;
 			}
 
-			let components = Self::find_connected_components(hits);
-
-			// At most 5 ships
-			if components.len() > 5 {
+			// Total hits can't exceed total ship cells
+			if hits.len() > 17 {
 				return false;
 			}
 
-			let mut sizes = Vec::new();
+			let components = Self::find_connected_components(hits);
+
+			// Each connected component must form a straight line and fit
+			// within a single ship (size <= 5). Note: during intermediate
+			// states, a single ship may produce multiple disconnected
+			// components (e.g. hits at non-adjacent cells), so we cannot
+			// restrict the number of components to 5.
 			for component in &components {
 				// Check straight line
 				let all_same_x = component.iter().all(|c| c.x == component[0].x);
@@ -998,24 +1028,12 @@ pub mod pallet {
 					return false;
 				}
 
-				// Check size <= 5
+				// Check size <= 5 (largest ship)
 				if component.len() > 5 {
 					return false;
 				}
-				sizes.push(component.len());
 			}
 
-			// Validate sizes are achievable
-			sizes.sort();
-			sizes.reverse();
-			let mut remaining = vec![5usize, 4, 3, 3, 2];
-			for size in sizes {
-				if let Some(pos) = remaining.iter().position(|&s| s >= size) {
-					remaining.remove(pos);
-				} else {
-					return false;
-				}
-			}
 			true
 		}
 

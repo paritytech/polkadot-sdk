@@ -192,7 +192,8 @@ export class WalletManager {
   async getBalance(address: string): Promise<bigint> {
     try {
       const client = await getChainClient();
-      const api = client.getUnsafeApi();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const api = client.getUnsafeApi() as any;
       const accountInfo = await api.query.System.Account.getValue(address, {
         at: "best",
       });

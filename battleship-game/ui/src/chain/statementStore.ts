@@ -1,7 +1,11 @@
 import { blake2b } from "@noble/hashes/blake2b";
 import { compact } from "scale-ts";
-import type { PolkadotClient } from "polkadot-api";
 import type { PolkadotSigner } from "polkadot-api/signer";
+
+type SmoldotChain = {
+  sendJsonRpc(rpc: string): void;
+  nextJsonRpcResponse(): Promise<string>;
+};
 
 export interface GameAnnouncement {
   creator: string;
@@ -139,11 +143,96 @@ function encodeStatementWithProof(
   return result;
 }
 
-export class StatementStoreClient {
-  private client: PolkadotClient;
+function extractDataFromStatement(statementBytes: Uint8Array): Uint8Array | null {
+  const dataStart = statementBytes.lastIndexOf(0x08);
+  if (dataStart === -1) return null;
 
-  constructor(client: PolkadotClient) {
-    this.client = client;
+  let offset = dataStart + 1;
+  const firstByte = statementBytes[offset];
+  let dataLen: number;
+  // SCALE compact encoding: 2 LSBs encode the mode
+  if ((firstByte & 0b11) === 0b00) {
+    dataLen = firstByte >> 2;
+    offset += 1;
+  } else if ((firstByte & 0b11) === 0b01) {
+    dataLen = (statementBytes[offset] | (statementBytes[offset + 1] << 8)) >> 2;
+    offset += 2;
+  } else {
+    return null;
+  }
+
+  return statementBytes.slice(offset, offset + dataLen);
+}
+
+let rpcId = 1;
+
+export class StatementStoreClient {
+  private chain: SmoldotChain;
+  private receivedStatements: Map<string, string> = new Map();
+  private listening = false;
+  private pendingRequests: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }> = new Map();
+
+  constructor(chain: SmoldotChain) {
+    this.chain = chain;
+    this.startListening();
+  }
+
+  private async startListening(): Promise<void> {
+    this.listening = true;
+
+    const topicHex = toHex(GAME_LOBBY_TOPIC);
+    const subscribeId = String(rpcId++);
+    this.pendingRequests.set(subscribeId, {
+      resolve: (result) => console.log("Statement subscribe OK:", result),
+      reject: (err) => console.error("Statement subscribe FAILED:", err.message),
+    });
+    this.chain.sendJsonRpc(JSON.stringify({
+      jsonrpc: "2.0", id: subscribeId, method: "statement_subscribe", params: [[topicHex]]
+    }));
+
+    while (this.listening) {
+      let msg: string;
+      try {
+        msg = await this.chain.nextJsonRpcResponse();
+      } catch {
+        break;
+      }
+
+      try {
+        const parsed = JSON.parse(msg);
+
+        if (parsed.id != null) {
+          const pending = this.pendingRequests.get(String(parsed.id));
+          if (pending) {
+            this.pendingRequests.delete(String(parsed.id));
+            if (parsed.error) {
+              pending.reject(new Error(parsed.error.message));
+            } else {
+              pending.resolve(parsed.result);
+            }
+          } else if (parsed.error) {
+            console.error("Statement RPC error:", parsed.error.message);
+          }
+          continue;
+        }
+
+        if (parsed.params?.result) {
+          const statementHex = parsed.params.result;
+          console.log("Statement notification received:", statementHex.substring(0, 40) + "...");
+          this.receivedStatements.set(statementHex, statementHex);
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  private sendRequest(method: string, params: unknown[]): Promise<unknown> {
+    const id = String(rpcId++);
+    return new Promise((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve, reject });
+      this.chain.sendJsonRpc(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
+    });
   }
 
   async announceGame(
@@ -167,10 +256,13 @@ export class StatementStoreClient {
         data
       );
 
-      const result = await (this.client as unknown as { _request: (method: string, params: unknown[]) => Promise<{ status: string }> })
-        ._request("statement_submit", [toHex(statement)]);
+      const hex = toHex(statement);
+      const result = await this.sendRequest("statement_submit", [hex]) as { status: string };
       console.log("Statement submit result:", result);
-      return result.status === "broadcast" || result.status === "new";
+
+      this.receivedStatements.set(hex, hex);
+
+      return true;
     } catch (e) {
       console.error("Failed to announce game:", e);
       return false;
@@ -178,32 +270,28 @@ export class StatementStoreClient {
   }
 
   async getAvailableGames(): Promise<GameAnnouncement[]> {
-    try {
-      const topicArray = Array.from(GAME_LOBBY_TOPIC);
-      const broadcasts = await (this.client as unknown as { _request: (method: string, params: unknown[]) => Promise<string[]> })
-        ._request("statement_broadcasts", [[topicArray]]);
+    const games: GameAnnouncement[] = [];
+    const now = Date.now();
+    const maxAge = 5 * 60 * 1000;
 
-      const games: GameAnnouncement[] = [];
-      const now = Date.now();
-      const maxAge = 5 * 60 * 1000;
+    for (const [, statementHex] of this.receivedStatements) {
+      try {
+        const statementBytes = fromHex(statementHex);
+        const dataBytes = extractDataFromStatement(statementBytes);
+        if (!dataBytes) continue;
 
-      for (const broadcastHex of broadcasts || []) {
-        try {
-          const dataBytes = typeof broadcastHex === "string" ? fromHex(broadcastHex) : new Uint8Array(broadcastHex as unknown as number[]);
-          const announcement = JSON.parse(new TextDecoder().decode(dataBytes)) as GameAnnouncement;
-          if (announcement && now - announcement.timestamp < maxAge) {
+        const announcement = JSON.parse(new TextDecoder().decode(dataBytes)) as GameAnnouncement;
+        if (announcement?.creator && announcement?.timestamp && now - announcement.timestamp < maxAge) {
+          if (!("joiner" in announcement)) {
             games.push(announcement);
           }
-        } catch (e) {
-          console.warn("Failed to decode broadcast:", e);
         }
+      } catch {
+        continue;
       }
-
-      return games.sort((a, b) => b.timestamp - a.timestamp);
-    } catch (e) {
-      console.error("Failed to get available games:", e);
-      return [];
     }
+
+    return games.sort((a, b) => b.timestamp - a.timestamp);
   }
 
   async sendJoinResponse(
@@ -231,10 +319,13 @@ export class StatementStoreClient {
         data
       );
 
-      const result = await (this.client as unknown as { _request: (method: string, params: unknown[]) => Promise<{ status: string }> })
-        ._request("statement_submit", [toHex(statement)]);
+      const hex = toHex(statement);
+      const result = await this.sendRequest("statement_submit", [hex]) as { status: string };
       console.log("Join response submit result:", result);
-      return result.status === "broadcast" || result.status === "new";
+
+      this.receivedStatements.set(hex, hex);
+
+      return true;
     } catch (e) {
       console.error("Failed to send join response:", e);
       return false;
@@ -242,66 +333,49 @@ export class StatementStoreClient {
   }
 
   async getJoinResponses(creator: string, creatorTimestamp: number): Promise<JoinResponse[]> {
-    try {
-      const responses: JoinResponse[] = [];
-      const now = Date.now();
-      const maxAge = 5 * 60 * 1000;
+    const responses: JoinResponse[] = [];
+    const now = Date.now();
+    const maxAge = 5 * 60 * 1000;
 
-      const broadcasts = await (this.client as unknown as { _request: (method: string, params: unknown[]) => Promise<string[]> })
-        ._request("statement_dump", []);
+    for (const [, statementHex] of this.receivedStatements) {
+      try {
+        const statementBytes = fromHex(statementHex);
+        const dataBytes = extractDataFromStatement(statementBytes);
+        if (!dataBytes) continue;
 
-      for (const statementHex of broadcasts || []) {
-        try {
-          const statementBytes = fromHex(statementHex);
-          const dataStart = statementBytes.lastIndexOf(0x08);
-          if (dataStart === -1) continue;
-
-          let offset = dataStart + 1;
-          const firstByte = statementBytes[offset];
-          let dataLen: number;
-          if ((firstByte & 0b11) === 0b00) {
-            dataLen = firstByte >> 2;
-            offset += 1;
-          } else if ((firstByte & 0b11) === 0b01) {
-            dataLen = (statementBytes[offset] | (statementBytes[offset + 1] << 8)) >> 2;
-            offset += 2;
-          } else {
-            continue;
+        const parsed = JSON.parse(new TextDecoder().decode(dataBytes));
+        if (parsed.joiner && parsed.timestamp && now - parsed.timestamp < maxAge) {
+          const checkTopic = joinResponseTopic(creator, parsed.joiner, creatorTimestamp);
+          const checkHex = toHex(checkTopic);
+          if (statementHex.includes(checkHex.slice(2))) {
+            responses.push(parsed as JoinResponse);
           }
-
-          const dataBytes = statementBytes.slice(offset, offset + dataLen);
-          const jsonStr = new TextDecoder().decode(dataBytes);
-          const parsed = JSON.parse(jsonStr);
-
-          if (parsed.joiner && parsed.timestamp && now - parsed.timestamp < maxAge) {
-            const expectedTopic = joinResponseTopic(creator, parsed.joiner, creatorTimestamp);
-            const topicHex = toHex(expectedTopic);
-            if (statementHex.includes(topicHex.slice(2))) {
-              responses.push(parsed as JoinResponse);
-            }
-          }
-        } catch {
-          continue;
         }
+      } catch {
+        continue;
       }
-
-      return responses.sort((a, b) => a.timestamp - b.timestamp);
-    } catch (e) {
-      console.error("Failed to get join responses:", e);
-      return [];
     }
+
+    return responses.sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  destroy(): void {
+    this.listening = false;
   }
 }
 
 let statementStoreInstance: StatementStoreClient | null = null;
 
-export function getStatementStore(client: PolkadotClient): StatementStoreClient {
+export function getStatementStore(chain: SmoldotChain): StatementStoreClient {
   if (!statementStoreInstance) {
-    statementStoreInstance = new StatementStoreClient(client);
+    statementStoreInstance = new StatementStoreClient(chain);
   }
   return statementStoreInstance;
 }
 
 export function resetStatementStore(): void {
+  if (statementStoreInstance) {
+    statementStoreInstance.destroy();
+  }
   statementStoreInstance = null;
 }
