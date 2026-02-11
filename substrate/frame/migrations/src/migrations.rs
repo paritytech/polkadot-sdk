@@ -207,9 +207,10 @@ where
 {
 	fn storage_prefix() -> Vec<u8> {
 		match Storage::get() {
-			Some(storage) =>
+			Some(storage) => {
 				frame_support::storage::storage_prefix(Pallet::get().as_bytes(), storage.as_bytes())
-					.to_vec(),
+					.to_vec()
+			},
 			None => twox_128(Pallet::get().as_bytes()).to_vec(),
 		}
 	}
