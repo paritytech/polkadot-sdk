@@ -471,28 +471,28 @@ pub mod pallet {
 	/// Below this ratio, a vault becomes eligible for liquidation.
 	/// Also used as the threshold for collateral withdrawals.
 	#[pallet::storage]
-	pub type MinimumCollateralizationRatio<T: Config> = StorageValue<_, FixedU128, ValueQuery>;
+	pub type MinimumCollateralizationRatio<T: Config> = StorageValue<_, FixedU128>;
 
 	/// Initial collateralization ratio
 	/// Required when minting new debt. This is higher than the minimum ratio
 	/// to create a safety buffer preventing immediate liquidation after minting.
 	#[pallet::storage]
-	pub type InitialCollateralizationRatio<T: Config> = StorageValue<_, FixedU128, ValueQuery>;
+	pub type InitialCollateralizationRatio<T: Config> = StorageValue<_, FixedU128>;
 
 	/// Stability fee (annual interest rate).
 	#[pallet::storage]
-	pub type StabilityFee<T: Config> = StorageValue<_, Permill, ValueQuery>;
+	pub type StabilityFee<T: Config> = StorageValue<_, Permill>;
 
 	/// Liquidation penalty
 	/// Applied to the debt during liquidation. The penalty is converted to DOT
 	/// and deducted from the collateral returned to the vault owner.
 	/// This incentivizes vault owners to maintain safe collateral levels.
 	#[pallet::storage]
-	pub type LiquidationPenalty<T: Config> = StorageValue<_, Permill, ValueQuery>;
+	pub type LiquidationPenalty<T: Config> = StorageValue<_, Permill>;
 
 	/// Maximum total debt allowed in the system.
 	#[pallet::storage]
-	pub type MaximumIssuance<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type MaximumIssuance<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Accumulated bad debt in pUSD.
 	/// This represents unbacked principal left after liquidation auctions.
@@ -504,13 +504,13 @@ pub mod pallet {
 	/// This is a **hard limit** - liquidations are blocked when exceeded.
 	/// Governance can adjust this parameter to control auction exposure.
 	#[pallet::storage]
-	pub type MaxLiquidationAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type MaxLiquidationAmount<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Maximum pUSD debt that a single vault can have.
 	///
 	/// Should be well below [`MaxLiquidationAmount`] to ensure liquidations proceed smoothly.
 	#[pallet::storage]
-	pub type MaxPositionAmount<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type MaxPositionAmount<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Current pUSD at risk in active auctions.
 	///
@@ -530,22 +530,22 @@ pub mod pallet {
 
 	/// Minimum collateral deposit required to create a vault.
 	#[pallet::storage]
-	pub type MinimumDeposit<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type MinimumDeposit<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Minimum amount of stablecoin that can be minted in a single operation.
 	#[pallet::storage]
-	pub type MinimumMint<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type MinimumMint<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	/// Duration (in milliseconds) before a vault is considered stale for `on_idle` fee accrual.
 	/// Suggested value: 14,400,000 ms (~4 hours).
 	#[pallet::storage]
-	pub type StaleVaultThreshold<T: Config> = StorageValue<_, MomentOf<T>, ValueQuery>;
+	pub type StaleVaultThreshold<T: Config> = StorageValue<_, MomentOf<T>>;
 
 	/// Maximum age (in milliseconds) of oracle price before operations are paused.
 	/// When the oracle price is older than this threshold, price-dependent operations
 	/// (mint, withdraw with debt, liquidate) will fail.
 	#[pallet::storage]
-	pub type OracleStalenessThreshold<T: Config> = StorageValue<_, MomentOf<T>, ValueQuery>;
+	pub type OracleStalenessThreshold<T: Config> = StorageValue<_, MomentOf<T>>;
 
 	/// Genesis configuration for the vaults pallet.
 	#[pallet::genesis_config]
@@ -772,6 +772,11 @@ pub mod pallet {
 		/// The [`InitialCollateralizationRatio`] cannot be set below
 		/// [`MinimumCollateralizationRatio`] as it would prevent any borrowing.
 		InitialRatioMustExceedMinimum,
+		/// Pallet parameters have not been initialized.
+		///
+		/// The pallet requires all parameters to be set via migration or governance
+		/// before any operations can proceed.
+		NotConfigured,
 	}
 
 	#[pallet::hooks]
@@ -791,7 +796,10 @@ pub mod pallet {
 			}
 
 			let current_timestamp = T::TimeProvider::now();
-			let stale_threshold = StaleVaultThreshold::<T>::get();
+			let stale_threshold = match StaleVaultThreshold::<T>::get() {
+				Some(t) => t,
+				None => return meter.consumed(),
+			};
 			let per_vault_weight = Self::on_idle_per_vault_weight();
 			let max_items = T::MaxOnIdleItems::get();
 
@@ -894,7 +902,10 @@ pub mod pallet {
 		pub fn create_vault(origin: OriginFor<T>, initial_deposit: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(initial_deposit >= MinimumDeposit::<T>::get(), Error::<T>::BelowMinimumDeposit);
+			ensure!(
+				initial_deposit >= MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+				Error::<T>::BelowMinimumDeposit
+			);
 
 			Vaults::<T>::try_mutate_exists(&who, |maybe_vault| -> DispatchResult {
 				ensure!(maybe_vault.is_none(), Error::<T>::VaultAlreadyExists);
@@ -1006,7 +1017,8 @@ pub mod pallet {
 				} else {
 					// Prevent dust vaults: remaining collateral must meet MinimumDeposit.
 					ensure!(
-						remaining_collateral >= MinimumDeposit::<T>::get(),
+						remaining_collateral >=
+							MinimumDeposit::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 						Error::<T>::BelowMinimumDeposit
 					);
 
@@ -1019,7 +1031,8 @@ pub mod pallet {
 							remaining_collateral,
 							total_obligation,
 						)?;
-						let initial_ratio = InitialCollateralizationRatio::<T>::get();
+						let initial_ratio = InitialCollateralizationRatio::<T>::get()
+							.ok_or(Error::<T>::NotConfigured)?;
 						ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 					}
 
@@ -1076,7 +1089,10 @@ pub mod pallet {
 
 				ensure!(vault.status == VaultStatus::Healthy, Error::<T>::VaultInLiquidation);
 
-				ensure!(amount >= MinimumMint::<T>::get(), Error::<T>::BelowMinimumMint);
+				ensure!(
+					amount >= MinimumMint::<T>::get().ok_or(Error::<T>::NotConfigured)?,
+					Error::<T>::BelowMinimumMint
+				);
 
 				Self::update_vault_fees(vault, &who, None)?;
 
@@ -1085,7 +1101,8 @@ pub mod pallet {
 
 				// Check vault's resulting debt does not exceed MaxPositionAmount
 				ensure!(
-					new_principal <= MaxPositionAmount::<T>::get(),
+					new_principal <=
+						MaxPositionAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxPositionAmount
 				);
 
@@ -1094,7 +1111,8 @@ pub mod pallet {
 				// Check collateralization ratio (CR). Use InitialCollateralizationRatio for minting
 				// to create safety buffer.
 				let ratio = Self::get_collateralization_ratio(vault, &who)?;
-				let initial_ratio = InitialCollateralizationRatio::<T>::get();
+				let initial_ratio =
+					InitialCollateralizationRatio::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 				ensure!(ratio >= initial_ratio, Error::<T>::UnsafeCollateralizationRatio);
 
 				Self::do_mint(&who, amount, MintPurpose::Principal)?;
@@ -1259,11 +1277,13 @@ pub mod pallet {
 				ensure!(!total_obligation.is_zero(), Error::<T>::VaultIsSafe);
 				let ratio =
 					Self::calculate_collateralization_ratio(collateral_seized, total_obligation)?;
-				let min_ratio = MinimumCollateralizationRatio::<T>::get();
+				let min_ratio =
+					MinimumCollateralizationRatio::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 				ensure!(ratio < min_ratio, Error::<T>::VaultIsSafe);
 
 				// Calculate liquidation penalty in pUSD (applied to principal)
-				let liquidation_penalty = LiquidationPenalty::<T>::get();
+				let liquidation_penalty =
+					LiquidationPenalty::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 				let penalty_pusd = liquidation_penalty.mul_floor(principal);
 
 				// Total debt for the auction includes principal + interest + penalty
@@ -1274,7 +1294,8 @@ pub mod pallet {
 				// Check if liquidation would exceed hard limit.
 				// Track only principal - interest/penalty are protocol revenue, not solvency risk.
 				let current_liquidation = CurrentLiquidationAmount::<T>::get();
-				let max_liquidation = MaxLiquidationAmount::<T>::get();
+				let max_liquidation =
+					MaxLiquidationAmount::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 				let new_liquidation_amount = current_liquidation
 					.checked_add(&principal)
 					.ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -1416,9 +1437,10 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			// Minimum ratio cannot exceed initial ratio (would allow immediate-liquidation mints)
-			let initial_ratio = InitialCollateralizationRatio::<T>::get();
+			if let Some(initial_ratio) = InitialCollateralizationRatio::<T>::get() {
 			ensure!(ratio <= initial_ratio, Error::<T>::InitialRatioMustExceedMinimum);
-			let old_value = MinimumCollateralizationRatio::<T>::get();
+			}
+			let old_value = MinimumCollateralizationRatio::<T>::get().unwrap_or_default();
 			MinimumCollateralizationRatio::<T>::put(ratio);
 			Self::deposit_event(Event::MinimumCollateralizationRatioUpdated {
 				old_value,
@@ -1451,7 +1473,7 @@ pub mod pallet {
 		pub fn set_stability_fee(origin: OriginFor<T>, fee: Permill) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
-			let old_value = StabilityFee::<T>::get();
+			let old_value = StabilityFee::<T>::get().unwrap_or_default();
 			StabilityFee::<T>::put(fee);
 			Self::deposit_event(Event::StabilityFeeUpdated { old_value, new_value: fee });
 			Ok(())
@@ -1488,9 +1510,10 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			// Initial ratio must be >= minimum ratio to allow borrowing
-			let min_ratio = MinimumCollateralizationRatio::<T>::get();
+			if let Some(min_ratio) = MinimumCollateralizationRatio::<T>::get() {
 			ensure!(ratio >= min_ratio, Error::<T>::InitialRatioMustExceedMinimum);
-			let old_value = InitialCollateralizationRatio::<T>::get();
+			}
+			let old_value = InitialCollateralizationRatio::<T>::get().unwrap_or_default();
 			InitialCollateralizationRatio::<T>::put(ratio);
 			Self::deposit_event(Event::InitialCollateralizationRatioUpdated {
 				old_value,
@@ -1525,7 +1548,7 @@ pub mod pallet {
 		pub fn set_liquidation_penalty(origin: OriginFor<T>, penalty: Permill) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
-			let old_value = LiquidationPenalty::<T>::get();
+			let old_value = LiquidationPenalty::<T>::get().unwrap_or_default();
 			LiquidationPenalty::<T>::put(penalty);
 			Self::deposit_event(Event::LiquidationPenaltyUpdated { old_value, new_value: penalty });
 			Ok(())
@@ -1606,7 +1629,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
-			let old_value = MaxLiquidationAmount::<T>::get();
+			let old_value = MaxLiquidationAmount::<T>::get().unwrap_or_default();
 			MaxLiquidationAmount::<T>::put(new_value);
 			Self::deposit_event(Event::MaxLiquidationAmountUpdated { old_value, new_value });
 			Ok(())
@@ -1675,7 +1698,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
-			let old_value = MaximumIssuance::<T>::get();
+			let old_value = MaximumIssuance::<T>::get().unwrap_or_default();
 
 			// Emergency can only lower the ceiling
 			if level == VaultsManagerLevel::Emergency {
@@ -1715,7 +1738,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
-			let old_value = MaxPositionAmount::<T>::get();
+			let old_value = MaxPositionAmount::<T>::get().unwrap_or_default();
 			MaxPositionAmount::<T>::put(new_value);
 			Self::deposit_event(Event::MaxPositionAmountUpdated { old_value, new_value });
 			Ok(())
@@ -1750,7 +1773,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 
-			let old_value = MinimumDeposit::<T>::get();
+			let old_value = MinimumDeposit::<T>::get().unwrap_or_default();
 			MinimumDeposit::<T>::put(new_value);
 
 			Self::deposit_event(Event::MinimumDepositUpdated { old_value, new_value });
@@ -1782,7 +1805,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 
-			let old_value = MinimumMint::<T>::get();
+			let old_value = MinimumMint::<T>::get().unwrap_or_default();
 			MinimumMint::<T>::put(new_value);
 
 			Self::deposit_event(Event::MinimumMintUpdated { old_value, new_value });
@@ -1819,7 +1842,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 
-			let old_value = StaleVaultThreshold::<T>::get();
+			let old_value = StaleVaultThreshold::<T>::get().unwrap_or_default();
 			StaleVaultThreshold::<T>::put(new_value);
 
 			Self::deposit_event(Event::StaleVaultThresholdUpdated { old_value, new_value });
@@ -1856,7 +1879,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 
-			let old_value = OracleStalenessThreshold::<T>::get();
+			let old_value = OracleStalenessThreshold::<T>::get().unwrap_or_default();
 			OracleStalenessThreshold::<T>::put(new_value);
 
 			Self::deposit_event(Event::OracleStalenessThresholdUpdated { old_value, new_value });
@@ -2127,7 +2150,8 @@ pub mod pallet {
 			if matches!(purpose, MintPurpose::Principal) {
 				let total_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
 				ensure!(
-					total_issuance.saturating_add(amount) <= MaximumIssuance::<T>::get(),
+					total_issuance.saturating_add(amount) <=
+						MaximumIssuance::<T>::get().ok_or(Error::<T>::NotConfigured)?,
 					Error::<T>::ExceedsMaxDebt
 				);
 			}
@@ -2247,7 +2271,7 @@ pub mod pallet {
 			}
 
 			let millis_elapsed = now.saturating_sub(vault.last_fee_update);
-			let stability_fee = StabilityFee::<T>::get();
+			let stability_fee = StabilityFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let annual_interest_pusd = stability_fee.mul_floor(vault.principal);
 
 			let elapsed_ratio = FixedU128::saturating_from_rational(
@@ -2298,7 +2322,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::PriceNotAvailable)?;
 
 			let current_time = T::TimeProvider::now();
-			let threshold = OracleStalenessThreshold::<T>::get();
+			let threshold =
+				OracleStalenessThreshold::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let price_age = current_time.saturating_sub(price_timestamp);
 
 			ensure!(price_age <= threshold, Error::<T>::OracleStale);

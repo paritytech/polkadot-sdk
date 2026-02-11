@@ -155,24 +155,21 @@ impl<T: Config, I: InitialVaultsConfig<T>> UncheckedOnRuntimeUpgrade
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		// Verify parameters are set (non-zero where applicable)
 		ensure!(
-			!MinimumCollateralizationRatio::<T>::get().is_zero(),
+			MinimumCollateralizationRatio::<T>::get().is_some(),
 			"MinimumCollateralizationRatio not set"
 		);
 		ensure!(
-			!InitialCollateralizationRatio::<T>::get().is_zero(),
+			InitialCollateralizationRatio::<T>::get().is_some(),
 			"InitialCollateralizationRatio not set"
 		);
 		// StabilityFee and LiquidationPenalty can legitimately be zero
-		ensure!(!MaximumIssuance::<T>::get().is_zero(), "MaximumIssuance not set");
-		ensure!(!MaxLiquidationAmount::<T>::get().is_zero(), "MaxLiquidationAmount not set");
-		ensure!(!MaxPositionAmount::<T>::get().is_zero(), "MaxPositionAmount not set");
-		ensure!(!MinimumDeposit::<T>::get().is_zero(), "MinimumDeposit not set");
-		ensure!(!MinimumMint::<T>::get().is_zero(), "MinimumMint not set");
-		ensure!(!StaleVaultThreshold::<T>::get().is_zero(), "StaleVaultThreshold not set");
-		ensure!(
-			!OracleStalenessThreshold::<T>::get().is_zero(),
-			"OracleStalenessThreshold not set"
-		);
+		ensure!(MaximumIssuance::<T>::get().is_some(), "MaximumIssuance not set");
+		ensure!(MaxLiquidationAmount::<T>::get().is_some(), "MaxLiquidationAmount not set");
+		ensure!(MaxPositionAmount::<T>::get().is_some(), "MaxPositionAmount not set");
+		ensure!(MinimumDeposit::<T>::get().is_some(), "MinimumDeposit not set");
+		ensure!(MinimumMint::<T>::get().is_some(), "MinimumMint not set");
+		ensure!(StaleVaultThreshold::<T>::get().is_some(), "StaleVaultThreshold not set");
+		ensure!(OracleStalenessThreshold::<T>::get().is_some(), "OracleStalenessThreshold not set");
 
 		Ok(())
 	}
@@ -254,13 +251,13 @@ mod tests {
 			OracleStalenessThreshold::<Test>::kill();
 
 			// Verify storage is empty before migration
-			assert!(MinimumCollateralizationRatio::<Test>::get().is_zero());
-			assert!(InitialCollateralizationRatio::<Test>::get().is_zero());
-			assert!(MaximumIssuance::<Test>::get().is_zero());
-			assert!(MinimumDeposit::<Test>::get().is_zero());
-			assert!(MinimumMint::<Test>::get().is_zero());
-			assert!(StaleVaultThreshold::<Test>::get().is_zero());
-			assert!(OracleStalenessThreshold::<Test>::get().is_zero());
+			assert!(MinimumCollateralizationRatio::<Test>::get().is_none());
+			assert!(InitialCollateralizationRatio::<Test>::get().is_none());
+			assert!(MaximumIssuance::<Test>::get().is_none());
+			assert!(MinimumDeposit::<Test>::get().is_none());
+			assert!(MinimumMint::<Test>::get().is_none());
+			assert!(StaleVaultThreshold::<Test>::get().is_none());
+			assert!(OracleStalenessThreshold::<Test>::get().is_none());
 
 			// Run migration
 			let _weight =
@@ -269,21 +266,21 @@ mod tests {
 			// Verify all parameters are set correctly
 			assert_eq!(
 				MinimumCollateralizationRatio::<Test>::get(),
-				FixedU128::saturating_from_rational(180, 100)
+				Some(FixedU128::saturating_from_rational(180, 100))
 			);
 			assert_eq!(
 				InitialCollateralizationRatio::<Test>::get(),
-				FixedU128::saturating_from_rational(200, 100)
+				Some(FixedU128::saturating_from_rational(200, 100))
 			);
-			assert_eq!(StabilityFee::<Test>::get(), Permill::from_percent(4));
-			assert_eq!(LiquidationPenalty::<Test>::get(), Permill::from_percent(13));
-			assert_eq!(MaximumIssuance::<Test>::get(), 20_000_000_000_000);
-			assert_eq!(MaxLiquidationAmount::<Test>::get(), 20_000_000_000_000);
-			assert_eq!(MaxPositionAmount::<Test>::get(), 10_000_000_000_000);
-			assert_eq!(MinimumDeposit::<Test>::get(), 100_000_000_000_000);
-			assert_eq!(MinimumMint::<Test>::get(), 5_000_000);
-			assert_eq!(StaleVaultThreshold::<Test>::get(), 14_400_000);
-			assert_eq!(OracleStalenessThreshold::<Test>::get(), 3_600_000);
+			assert_eq!(StabilityFee::<Test>::get(), Some(Permill::from_percent(4)));
+			assert_eq!(LiquidationPenalty::<Test>::get(), Some(Permill::from_percent(13)));
+			assert_eq!(MaximumIssuance::<Test>::get(), Some(20_000_000_000_000));
+			assert_eq!(MaxLiquidationAmount::<Test>::get(), Some(20_000_000_000_000));
+			assert_eq!(MaxPositionAmount::<Test>::get(), Some(10_000_000_000_000));
+			assert_eq!(MinimumDeposit::<Test>::get(), Some(100_000_000_000_000));
+			assert_eq!(MinimumMint::<Test>::get(), Some(5_000_000));
+			assert_eq!(StaleVaultThreshold::<Test>::get(), Some(14_400_000));
+			assert_eq!(OracleStalenessThreshold::<Test>::get(), Some(3_600_000));
 		});
 	}
 }

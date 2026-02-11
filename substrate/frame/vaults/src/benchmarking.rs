@@ -36,7 +36,9 @@ use sp_runtime::{FixedU128, Permill, SaturatedConversion, Saturating};
 /// A larger deposit for scenarios requiring extra collateral headroom
 fn large_deposit<T: Config>() -> BalanceOf<T> {
 	// 10x minimum to allow minting and withdrawals
-	MinimumDeposit::<T>::get().saturating_mul(10u32.into())
+	MinimumDeposit::<T>::get()
+		.expect("set in genesis; qed")
+		.saturating_mul(10u32.into())
 }
 
 /// Safe mint amount that maintains ICR with large_deposit
@@ -62,7 +64,7 @@ fn ensure_insurance_fund<T: Config>() {
 	if !frame_system::Pallet::<T>::account_exists(&insurance_fund) {
 		frame_system::Pallet::<T>::inc_providers(&insurance_fund);
 	}
-	fund_account::<T>(&insurance_fund, MinimumDeposit::<T>::get());
+	fund_account::<T>(&insurance_fund, MinimumDeposit::<T>::get().expect("set in genesis; qed"));
 }
 
 /// Ensure the stablecoin asset exists
@@ -74,7 +76,7 @@ fn ensure_stablecoin_asset<T: Config>() {
 fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
 	let current_issuance = T::Asset::total_issuance(T::StablecoinAssetId::get());
 	let required = current_issuance.saturating_add(amount).saturating_mul(2u32.into());
-	let current_max = MaximumIssuance::<T>::get();
+	let current_max = MaximumIssuance::<T>::get().unwrap_or_default();
 	if current_max < required {
 		MaximumIssuance::<T>::put(required);
 	}
@@ -83,7 +85,7 @@ fn ensure_can_mint<T: Config>(amount: BalanceOf<T>) {
 /// Ensure MaxPositionAmount is set high enough for the given mint amount
 fn ensure_max_position_amount<T: Config>(amount: BalanceOf<T>) {
 	let required = amount.saturating_mul(2u32.into());
-	let current_max = MaxPositionAmount::<T>::get();
+	let current_max = MaxPositionAmount::<T>::get().unwrap_or_default();
 	if current_max < required {
 		MaxPositionAmount::<T>::put(required);
 	}
@@ -141,7 +143,8 @@ fn create_vault_with_debt<T: Config>(owner: &T::AccountId) -> Result<BalanceOf<T
 /// This represents the realistic maximum time a vault could go without
 /// fee updates, since `on_idle` processes vaults that exceed this threshold.
 fn advance_to_stale_threshold<T: Config>() {
-	let stale_threshold: u64 = StaleVaultThreshold::<T>::get().saturated_into();
+	let stale_threshold: u64 =
+		StaleVaultThreshold::<T>::get().expect("set in genesis; qed").saturated_into();
 	T::BenchmarkHelper::advance_time(stale_threshold + 1);
 }
 
@@ -158,7 +161,7 @@ mod benchmarks {
 	#[benchmark]
 	fn create_vault() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let deposit = MinimumDeposit::<T>::get();
+		let deposit = MinimumDeposit::<T>::get().expect("set in genesis; qed");
 
 		// Fund account with enough balance
 		fund_account::<T>(&caller, deposit.saturating_mul(2u32.into()));
@@ -186,7 +189,7 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		// Fund additional collateral
-		let additional = MinimumDeposit::<T>::get();
+		let additional = MinimumDeposit::<T>::get().expect("set in genesis; qed");
 		fund_account::<T>(&caller, additional.saturating_mul(2u32.into()));
 
 		let collateral_before = VaultsStorage::<T>::get(&caller)
@@ -219,7 +222,7 @@ mod benchmarks {
 		advance_to_stale_threshold::<T>();
 
 		// Withdraw a small amount (must remain above minimum)
-		let withdraw_amount = MinimumDeposit::<T>::get();
+		let withdraw_amount = MinimumDeposit::<T>::get().expect("set in genesis; qed");
 		let collateral_before = VaultsStorage::<T>::get(&caller)
 			.ok_or(BenchmarkError::Stop("Vault not found"))?
 			.get_held_collateral(&caller);
@@ -421,7 +424,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_ratio);
 
 		// Verify ratio was updated
-		assert_eq!(MinimumCollateralizationRatio::<T>::get(), new_ratio);
+		assert_eq!(MinimumCollateralizationRatio::<T>::get(), Some(new_ratio));
 		Ok(())
 	}
 
@@ -434,7 +437,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_ratio);
 
 		// Verify ratio was updated
-		assert_eq!(InitialCollateralizationRatio::<T>::get(), new_ratio);
+		assert_eq!(InitialCollateralizationRatio::<T>::get(), Some(new_ratio));
 		Ok(())
 	}
 
@@ -447,7 +450,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_fee);
 
 		// Verify fee was updated
-		assert_eq!(StabilityFee::<T>::get(), new_fee);
+		assert_eq!(StabilityFee::<T>::get(), Some(new_fee));
 		Ok(())
 	}
 
@@ -460,7 +463,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_penalty);
 
 		// Verify penalty was updated
-		assert_eq!(LiquidationPenalty::<T>::get(), new_penalty);
+		assert_eq!(LiquidationPenalty::<T>::get(), Some(new_penalty));
 		Ok(())
 	}
 
@@ -473,7 +476,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_amount);
 
 		// Verify amount was updated
-		assert_eq!(MaxLiquidationAmount::<T>::get(), new_amount);
+		assert_eq!(MaxLiquidationAmount::<T>::get(), Some(new_amount));
 		Ok(())
 	}
 
@@ -487,20 +490,22 @@ mod benchmarks {
 		_(RawOrigin::Root, new_amount);
 
 		// Verify amount was updated
-		assert_eq!(MaximumIssuance::<T>::get(), new_amount);
+		assert_eq!(MaximumIssuance::<T>::get(), Some(new_amount));
 		Ok(())
 	}
 
 	/// Benchmark: set_minimum_deposit
 	#[benchmark]
 	fn set_minimum_deposit() -> Result<(), BenchmarkError> {
-		let new_value: BalanceOf<T> = MinimumDeposit::<T>::get().saturating_mul(2u32.into());
+		let new_value: BalanceOf<T> = MinimumDeposit::<T>::get()
+			.expect("set in genesis; qed")
+			.saturating_mul(2u32.into());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_value);
 
 		// Verify value was updated
-		assert_eq!(MinimumDeposit::<T>::get(), new_value);
+		assert_eq!(MinimumDeposit::<T>::get(), Some(new_value));
 		Ok(())
 	}
 
@@ -513,7 +518,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_value);
 
 		// Verify value was updated
-		assert_eq!(MinimumMint::<T>::get(), new_value);
+		assert_eq!(MinimumMint::<T>::get(), Some(new_value));
 		Ok(())
 	}
 
@@ -527,7 +532,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_value);
 
 		// Verify value was updated
-		assert_eq!(StaleVaultThreshold::<T>::get(), new_value);
+		assert_eq!(StaleVaultThreshold::<T>::get(), Some(new_value));
 		Ok(())
 	}
 
@@ -541,7 +546,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_value);
 
 		// Verify value was updated
-		assert_eq!(OracleStalenessThreshold::<T>::get(), new_value);
+		assert_eq!(OracleStalenessThreshold::<T>::get(), Some(new_value));
 		Ok(())
 	}
 
@@ -554,7 +559,7 @@ mod benchmarks {
 		_(RawOrigin::Root, new_amount);
 
 		// Verify amount was updated
-		assert_eq!(MaxPositionAmount::<T>::get(), new_amount);
+		assert_eq!(MaxPositionAmount::<T>::get(), Some(new_amount));
 		Ok(())
 	}
 
