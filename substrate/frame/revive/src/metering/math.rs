@@ -438,10 +438,10 @@ pub mod ethereum_execution {
 					// Scale weight and deposit proportionally based on gas ratio.
 					// TODO: Only apply ratio scaling when should_apply_eip_150 is false?
 					let (nested_weight_limit, nested_deposit_limit) = if should_apply_eip_150 {
-						let eth_gas_limit = gas_limit.to_ethereum_gas().unwrap_or(0u32.into());
-						let eth_capped_remaining_gas =
-							capped_remaining_gas.to_ethereum_gas().unwrap_or(1u32.into());
-						let ratio = compute_gas_ratio::<T>(eth_gas_limit, eth_capped_remaining_gas);
+						let ratio = compute_gas_ratio::<T>(
+							gas_limit.to_weight_fee().unwrap_or(0u32.into()),
+							capped_remaining_gas.to_weight_fee().unwrap_or(1u32.into()),
+						);
 
 						(
 							scale_weight_by_ratio(capped_weight_left, ratio),
