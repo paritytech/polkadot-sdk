@@ -279,6 +279,7 @@ fn rpc_module(
 			vec![]
 		})
 		.with_allow_unprotected_txs(allow_unprotected_txs)
+		.with_use_pending_for_estimate_gas(is_dev)
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

@@ -7,8 +7,9 @@ use sp_std::prelude::*;
 
 pub fn verify_receipt_proof(receipts_root: H256, values: &[Vec<u8>]) -> Option<ReceiptEnvelope> {
 	match apply_merkle_proof(values) {
-		Some((root, data)) if root == receipts_root =>
-			ReceiptEnvelope::decode(&mut data.as_slice()).ok(),
+		Some((root, data)) if root == receipts_root => {
+			ReceiptEnvelope::decode(&mut data.as_slice()).ok()
+		},
 		Some((_, _)) => None,
 		None => None,
 	}

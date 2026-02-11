@@ -648,4 +648,25 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn get_name() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `344`
+		//  Estimated: `0`
+		// Minimum execution time: 10_390_000 picoseconds.
+		Weight::from_parts(10_914_000, 0)
+	}
+	fn get_symbol() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `344`
+		//  Estimated: `0`
+		// Minimum execution time: 10_587_000 picoseconds.
+		Weight::from_parts(11_121_000, 0)
+	}
+	fn get_decimals() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `344`
+		//  Estimated: `0`
+		// Minimum execution time: 10_591_000 picoseconds.
+		Weight::from_parts(11_015_000, 0)
+	}
 }

@@ -498,8 +498,9 @@ pub mod pallet {
 				match pending.keys.entry(dispute_proof.validator_index) {
 					Entry::Vacant(_) => return Err(Error::<T>::InvalidValidatorIndex.into()),
 					// check that `validator_index` matches `validator_id`
-					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id =>
-						return Err(Error::<T>::ValidatorIndexIdMismatch.into()),
+					Entry::Occupied(e) if e.get() != &dispute_proof.validator_id => {
+						return Err(Error::<T>::ValidatorIndexIdMismatch.into())
+					},
 					Entry::Occupied(e) => {
 						e.remove(); // the report is correct
 					},
