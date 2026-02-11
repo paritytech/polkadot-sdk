@@ -79,6 +79,12 @@ mod create_vault {
 		build_and_execute(|| {
 			let deposit = 100 * DOT;
 
+			// Vault::default() produces a healthy, zero-debt vault
+			let default_vault = Vault::<Test>::default();
+			assert_eq!(default_vault.status, VaultStatus::Healthy);
+			assert!(default_vault.principal.is_zero());
+			assert!(default_vault.accrued_interest.is_zero());
+
 			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
 
 			// Check vault exists
@@ -706,6 +712,9 @@ mod close_vault {
 			// (alice_before - deposit during hold + deposit released = alice_before)
 			assert_eq!(Balances::free_balance(ALICE), alice_before);
 
+			System::assert_has_event(
+				Event::<Test>::CollateralWithdrawn { owner: ALICE, amount: deposit }.into(),
+			);
 			System::assert_has_event(Event::<Test>::VaultClosed { owner: ALICE }.into());
 		});
 	}
@@ -2690,6 +2699,29 @@ mod mint_edge_cases {
 		});
 	}
 
+	/// **Test: Minting beyond `MaxPositionAmount` fails**
+	///
+	/// When vault principal would exceed `MaxPositionAmount`, the mint
+	/// must be rejected with `ExceedsMaxPositionAmount`.
+	#[test]
+	fn mint_exceeds_max_position_amount() {
+		build_and_execute(|| {
+			// Lower MaxPositionAmount to something testable
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Mint up to the limit
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Mint more should fail
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD),
+				Error::<Test>::ExceedsMaxPositionAmount
+			);
+		});
+	}
+
 	/// **Test: Cannot mint after vault removed (post-auction)**
 	///
 	/// Once a vault is removed after auction completion,
@@ -2821,9 +2853,24 @@ mod repay_edge_cases {
 				"InsuranceFund should receive interest on accrual"
 			);
 
+			// Partial interest-only repay: repay 1 pUSD (less than ~8 pUSD interest).
+			// Only interest should decrease; principal stays the same.
+			let partial = 1 * PUSD;
+			assert!(partial < interest);
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), partial));
+
+			let vault_partial = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault_partial.accrued_interest,
+				interest - partial,
+				"Interest should be partially reduced"
+			);
+			assert_eq!(vault_partial.principal, 200 * PUSD, "Principal unchanged after partial");
+			let remaining_interest = vault_partial.accrued_interest;
+
 			// Repay 50 pUSD with interest-first ordering:
-			// - First ~8 pUSD goes to interest (burned)
-			// - Remaining ~42 pUSD goes to debt (burned)
+			// - First remaining interest goes to interest (burned)
+			// - Remaining goes to principal (burned)
 			let repay_amount = 50 * PUSD;
 			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), repay_amount));
 
@@ -2832,8 +2879,8 @@ mod repay_edge_cases {
 			// Interest should be cleared (paid first)
 			assert_eq!(vault_after.accrued_interest, 0, "Interest should be cleared");
 
-			// Debt should be reduced by (repay_amount - interest)
-			let debt_paid = repay_amount - interest;
+			// Debt should be reduced by (repay_amount - remaining_interest)
+			let debt_paid = repay_amount - remaining_interest;
 			assert_eq!(
 				vault_after.principal,
 				200 * PUSD - debt_paid,
