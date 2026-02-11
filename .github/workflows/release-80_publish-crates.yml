@@ -126,7 +126,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install parity-publish
-        run: cargo install parity-publish --locked -q
+        run: cargo install parity-publish@0.10.9 --locked -q
 
       - name: Run parity-publish plan
         run: |
@@ -164,7 +164,7 @@ jobs:
           . ./.github/scripts/release/release_lib.sh
 
           git add Plan.toml
-          if [ "${{ inputs.is_patch }}" = "true" ]; then
+          if [ "${{ inputs.is_patch }}" = true ]; then
             git add scripts/release/templates/crates_list.md.tera
           fi
 
@@ -232,7 +232,7 @@ jobs:
           DRY_RUN="${{ inputs.dry_run }}"
           REGISTRY="${{ inputs.registry }}"
 
-          if [ "$DRY_RUN" = "true" ]; then
+          if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
             parity-publish apply -p -d
