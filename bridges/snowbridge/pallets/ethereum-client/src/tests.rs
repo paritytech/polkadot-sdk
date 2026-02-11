@@ -767,7 +767,7 @@ fn verify_message() {
 #[test]
 fn verify_message_invalid_proof() {
 	let (event_log, mut proof) = get_message_verification_payload();
-	proof.receipt_proof.1[0] = TEST_HASH.into();
+	proof.receipt_proof[0] = TEST_HASH.into();
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());
