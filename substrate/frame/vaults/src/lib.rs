@@ -222,13 +222,12 @@ pub mod pallet {
 				Balanced as FungibleBalanced, Credit, Inspect, InspectHold,
 				Mutate as FungibleMutate, MutateHold,
 			},
-			fungibles,
 			fungibles::{
-				Balanced as FungiblesBalanced, Inspect as FungiblesInspect,
-				Mutate as FungiblesMutate,
+				Balanced as FungiblesBalanced, Credit as FungiblesCredit,
+				Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 			},
 			tokens::{imbalance::OnUnbalanced, Fortitude, Precision, Preservation, Restriction},
-			Time,
+			DefensiveSaturating, Time,
 		},
 		weights::WeightMeter,
 		DefaultNoBound,
@@ -324,7 +323,7 @@ pub mod pallet {
 		/// Constrained to use the same Balance type as Currency.
 		/// Also implements `Balanced` for creating credits during surplus transfers.
 		type Asset: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId, Balance = BalanceOf<Self>>
-			+ fungibles::Balanced<Self::AccountId>;
+			+ FungiblesBalanced<Self::AccountId>;
 
 		/// The `AssetId` type for `pallet_assets` (used for pUSD).
 		type AssetId: Parameter + Member + Copy + MaybeSerializeDeserialize + MaxEncodedLen;
@@ -358,7 +357,7 @@ pub mod pallet {
 		///
 		/// Use `ResolveTo<TreasuryAccount, Assets>` for simple single-account deposit.
 		/// The credit is created from the Insurance Fund's pUSD.
-		type SurplusHandler: OnUnbalanced<fungibles::Credit<Self::AccountId, Self::Asset>>;
+		type SurplusHandler: OnUnbalanced<FungiblesCredit<Self::AccountId, Self::Asset>>;
 
 		/// Origin allowed to update protocol parameters.
 		///
@@ -1602,7 +1601,7 @@ pub mod pallet {
 
 			// Reduce bad debt
 			BadDebt::<T>::mutate(|debt| {
-				*debt = debt.saturating_sub(burned);
+				*debt = debt.defensive_saturating_sub(burned);
 			});
 
 			Self::deposit_event(Event::BadDebtRepaid { amount: burned });
