@@ -59,6 +59,23 @@ pub(crate) fn compute_gas_ratio<T: Config>(
 	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
 }
 
+/// Scale weight by the given ratio.
+pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
+	Weight::from_parts(
+		ratio.saturating_mul_int(weight.ref_time()),
+		ratio.saturating_mul_int(weight.proof_size()),
+	)
+}
+
+/// Apply EIP-150 rule to a balance (deposit or ethereum gas).
+/// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
+pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+	value.saturating_sub(
+		(value.saturating_add((EIP_150_DENOMINATOR as u32 - 1).into())) /
+			(EIP_150_DENOMINATOR as u32).into(),
+	)
+}
+
 /// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
 pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 	Weight::from_parts(
@@ -76,23 +93,6 @@ pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
 	Weight::from_parts(
 		weight.ref_time().div_ceil(EIP_150_NUMERATOR),
 		weight.proof_size().div_ceil(EIP_150_NUMERATOR),
-	)
-}
-
-/// Scale weight by the given ratio.
-pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
-	Weight::from_parts(
-		ratio.saturating_mul_int(weight.ref_time()),
-		ratio.saturating_mul_int(weight.proof_size()),
-	)
-}
-
-/// Apply EIP-150 rule to a balance (deposit or ethereum gas).
-/// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
-pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-	value.saturating_sub(
-		(value.saturating_add((EIP_150_DENOMINATOR as u32 - 1).into())) /
-			(EIP_150_DENOMINATOR as u32).into(),
 	)
 }
 
