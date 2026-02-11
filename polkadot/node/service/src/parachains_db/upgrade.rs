@@ -467,9 +467,7 @@ fn paritydb_migrate_from_version_2_to_3(path: &Path) -> Result<Version, Error> {
 /// - add a new column for reputation
 fn parity_db_migrate_from_version_5_to_6(path: &Path) -> Result<Version, Error> {
 	let mut options = paritydb_version_3_config(path);
-	let mut column_config = parity_db::ColumnOptions::default();
-	column_config.btree_index = true;
-	parity_db::Db::add_column(&mut options, column_config)
+	parity_db::Db::add_column(&mut options, parity_db::ColumnOptions::default())
 		.map_err(|e| other_io_error(format!("Error adding a new column {:?}", e)))?;
 	Ok(6)
 }
