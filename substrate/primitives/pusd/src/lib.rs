@@ -54,11 +54,6 @@ pub struct DebtComponents<Balance> {
 }
 
 impl<Balance: Saturating + Copy> DebtComponents<Balance> {
-	/// Create new debt components.
-	pub const fn new(principal: Balance, interest: Balance, penalty: Balance) -> Self {
-		Self { principal, interest, penalty }
-	}
-
 	/// Total debt to recover from the auction.
 	pub fn total(&self) -> Balance {
 		self.principal.saturating_add(self.interest).saturating_add(self.penalty)

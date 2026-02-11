@@ -1273,11 +1273,10 @@ pub mod pallet {
 				Self::update_vault_fees(vault, &vault_owner, None)?;
 
 				let principal = vault.principal;
-				let accrued_interest = vault.accrued_interest;
+				let interest = vault.accrued_interest;
 				let collateral_seized = vault.get_held_collateral(&vault_owner);
-				let total_obligation = principal
-					.checked_add(&accrued_interest)
-					.ok_or(Error::<T>::ArithmeticOverflow)?;
+				let total_obligation =
+					principal.checked_add(&interest).ok_or(Error::<T>::ArithmeticOverflow)?;
 
 				// Check if vault is undercollateralized
 				// CR = HeldCollateral × Price / (Principal + AccruedInterest)
@@ -1292,12 +1291,11 @@ pub mod pallet {
 				// Calculate liquidation penalty in pUSD (applied to principal)
 				let liquidation_penalty =
 					LiquidationPenalty::<T>::get().ok_or(Error::<T>::NotConfigured)?;
-				let penalty_pusd = liquidation_penalty.mul_floor(principal);
+				let penalty = liquidation_penalty.mul_floor(principal);
 
 				// Total debt for the auction includes principal + interest + penalty
-				let total_debt = total_obligation
-					.checked_add(&penalty_pusd)
-					.ok_or(Error::<T>::ArithmeticOverflow)?;
+				let total_debt =
+					total_obligation.checked_add(&penalty).ok_or(Error::<T>::ArithmeticOverflow)?;
 
 				// Check if liquidation would exceed hard limit.
 				// Track only principal - interest/penalty are protocol revenue, not solvency risk.
@@ -1315,10 +1313,10 @@ pub mod pallet {
 				CurrentLiquidationAmount::<T>::put(new_liquidation_amount);
 
 				// Emit penalty collected event
-				if !penalty_pusd.is_zero() {
+				if !penalty.is_zero() {
 					Self::deposit_event(Event::LiquidationPenaltyAdded {
 						owner: vault_owner.clone(),
-						amount: penalty_pusd,
+						amount: penalty,
 					});
 				}
 
@@ -1336,10 +1334,11 @@ pub mod pallet {
 				T::Currency::hold(&HoldReason::Seized.into(), &vault_owner, collateral_seized)?;
 
 				// Start the auction - collateral (native DOT) is held with Seized reason
+				let debt = DebtComponents { principal, interest, penalty };
 				let auction_id = T::AuctionsHandler::start_auction(
 					vault_owner.clone(),
 					collateral_seized,
-					DebtComponents::new(principal, accrued_interest, penalty_pusd),
+					debt,
 					keeper.clone(),
 				)?;
 
