@@ -28,3 +28,4 @@ doc:
 crates:
 - name: sp-trie
   bump: patch
+  validate: false
