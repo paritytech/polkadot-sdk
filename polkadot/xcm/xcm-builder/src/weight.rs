@@ -103,14 +103,16 @@ impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> 
 		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
 		let instruction_weight = match instruction {
-			Transact { ref mut call, .. } =>
+			Transact { ref mut call, .. } => {
 				call.ensure_decoded()
 					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
-					.call_weight,
-			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
+					.call_weight
+			},
+			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } => {
 				Self::weight_with_limit(xcm, instructions_left, weight_limit)
-					.map_err(|outcome_error| outcome_error.error)?,
+					.map_err(|outcome_error| outcome_error.error)?
+			},
 			_ => Weight::zero(),
 		};
 		let total_weight = T::get().checked_add(&instruction_weight).ok_or(XcmError::Overflow)?;
@@ -197,14 +199,16 @@ where
 		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
 		let instruction_weight = match instruction {
-			Transact { ref mut call, .. } =>
+			Transact { ref mut call, .. } => {
 				call.ensure_decoded()
 					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
-					.call_weight,
-			SetErrorHandler(xcm) | SetAppendix(xcm) =>
+					.call_weight
+			},
+			SetErrorHandler(xcm) | SetAppendix(xcm) => {
 				Self::weight_with_limit(xcm, instructions_left, weight_limit)
-					.map_err(|outcome_error| outcome_error.error)?,
+					.map_err(|outcome_error| outcome_error.error)?
+			},
 			_ => Weight::zero(),
 		};
 		let total_weight = instruction

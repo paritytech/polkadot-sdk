@@ -310,8 +310,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 				// Make sure to first process all justifications
 				while let Poll::Ready(justification) = futures::poll!(justification_port.next()) {
 					match justification {
-						Some(ImportJustification(who, hash, number, justification)) =>
-							worker.import_justification(who, hash, number, justification).await,
+						Some(ImportJustification(who, hash, number, justification)) => {
+							worker.import_justification(who, hash, number, justification).await
+						},
 						None => {
 							log::debug!(
 								target: LOG_TARGET,
@@ -361,8 +362,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 				});
 				match result {
 					Ok(()) => JustificationImportResult::Success,
-					Err(sp_consensus::Error::OutdatedJustification) =>
-						JustificationImportResult::OutdatedJustification,
+					Err(sp_consensus::Error::OutdatedJustification) => {
+						JustificationImportResult::OutdatedJustification
+					},
 					Err(_) => JustificationImportResult::Failure,
 				}
 			},

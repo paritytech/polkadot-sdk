@@ -47,8 +47,9 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
+		SyncMode::LightState { skip_proofs, storage_chain_mode } => {
+			ChainSyncMode::LightState { skip_proofs, storage_chain_mode }
+		},
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }
@@ -191,7 +192,7 @@ where
 		response: Box<dyn Any + Send>,
 	) {
 		match key {
-			StateStrategy::<B>::STRATEGY_KEY =>
+			StateStrategy::<B>::STRATEGY_KEY => {
 				if let Some(state) = &mut self.state {
 					let Ok(response) = response.downcast::<Vec<u8>>() else {
 						warn!(target: LOG_TARGET, "Failed to downcast state response");
@@ -209,8 +210,9 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
-			WarpSync::<B>::STRATEGY_KEY =>
+				}
+			},
+			WarpSync::<B>::STRATEGY_KEY => {
 				if let Some(warp) = &mut self.warp {
 					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {
@@ -220,8 +222,9 @@ where
 						 or warp strategy is not active",
 					);
 					debug_assert!(false);
-				},
-			ChainSync::<B, Client>::STRATEGY_KEY =>
+				}
+			},
+			ChainSync::<B, Client>::STRATEGY_KEY => {
 				if let Some(chain_sync) = &mut self.chain_sync {
 					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
 				} else {
@@ -231,7 +234,8 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
+				}
+			},
 			key => {
 				warn!(
 					target: LOG_TARGET,

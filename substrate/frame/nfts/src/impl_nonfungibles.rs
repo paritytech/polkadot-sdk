@@ -130,7 +130,9 @@ impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Palle
 			(Some(cc), Some(ic))
 				if cc.is_setting_enabled(CollectionSetting::TransferableItems) &&
 					ic.is_setting_enabled(ItemSetting::Transferable) =>
-				true,
+			{
+				true
+			},
 			_ => false,
 		}
 	}

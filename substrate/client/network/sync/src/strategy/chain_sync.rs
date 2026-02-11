@@ -278,14 +278,17 @@ impl ChainSyncMode {
 	/// Returns the base block attributes required for this sync mode.
 	pub fn required_block_attributes(&self, is_gap: bool, is_archive: bool) -> BlockAttributes {
 		let attrs = match self {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
+			ChainSyncMode::Full => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
+				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+			},
+			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
 				BlockAttributes::HEADER |
 					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
+					BlockAttributes::INDEXED_BODY
+			},
 		};
 		// Skip body requests for gap sync only if not in archive mode.
 		// Archive nodes need bodies to maintain complete block history.
@@ -805,7 +808,7 @@ where
 
 					self.complete_gap_if_target(number);
 				},
-				Err(BlockImportError::IncompleteHeader(peer_id)) =>
+				Err(BlockImportError::IncompleteHeader(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
@@ -814,7 +817,8 @@ where
 						self.actions
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						self.restart();
-					},
+					}
+				},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
 					let extra_message = peer_id
 						.map_or_else(|| "".into(), |peer| format!(" received from ({peer})"));
@@ -831,14 +835,15 @@ where
 
 					self.restart();
 				},
-				Err(BlockImportError::BadBlock(peer_id)) =>
+				Err(BlockImportError::BadBlock(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
 						self.actions.push(SyncingAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
-					},
+					}
+				},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
 					// in the meantime because other chain has been finalized.

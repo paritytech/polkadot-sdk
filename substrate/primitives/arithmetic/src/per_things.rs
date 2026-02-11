@@ -502,10 +502,12 @@ impl Rounding {
 		match (rounding, negative) {
 			(Low, true) | (Major, _) | (High, false) => Up,
 			(High, true) | (Minor, _) | (Low, false) => Down,
-			(NearestPrefMajor, _) | (NearestPrefHigh, false) | (NearestPrefLow, true) =>
-				NearestPrefUp,
-			(NearestPrefMinor, _) | (NearestPrefLow, false) | (NearestPrefHigh, true) =>
-				NearestPrefDown,
+			(NearestPrefMajor, _) | (NearestPrefHigh, false) | (NearestPrefLow, true) => {
+				NearestPrefUp
+			},
+			(NearestPrefMinor, _) | (NearestPrefLow, false) | (NearestPrefHigh, true) => {
+				NearestPrefDown
+			},
 		}
 	}
 }
