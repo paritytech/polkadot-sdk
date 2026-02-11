@@ -15,3 +15,5 @@ crates:
   bump: none
 - name: snowbridge-pallet-inbound-queue-v2-fixtures
   bump: none
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch
