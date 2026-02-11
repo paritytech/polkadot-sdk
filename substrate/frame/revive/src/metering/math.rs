@@ -59,28 +59,23 @@ pub(crate) fn compute_gas_ratio<T: Config>(
 	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
 }
 
-/// Apply EIP-150 rule to Weight: reduces both ref_time and proof_size by 1/64th.
-/// Returns `floor(weight * 63/64)` for each component.
+/// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
 pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
-	let ref_time = weight.ref_time();
-	let proof_size = weight.proof_size();
 	Weight::from_parts(
-		ref_time
-			.saturating_sub(ref_time.saturating_add(EIP_150_DENOMINATOR - 1) / EIP_150_DENOMINATOR),
-		proof_size.saturating_sub(
-			proof_size.saturating_add(EIP_150_DENOMINATOR - 1) / EIP_150_DENOMINATOR,
-		),
+		weight
+			.ref_time()
+			.saturating_sub(weight.ref_time().div_ceil(EIP_150_DENOMINATOR)),
+		weight
+			.proof_size()
+			.saturating_sub(weight.proof_size().div_ceil(EIP_150_DENOMINATOR)),
 	)
 }
 
-/// Compute the EIP-150 63/64 overhead: the extra amount needed to compensate for the 1/64 loss.
-/// Returns `ceil(weight / 63)` for each component.
+/// Compute the EIP-150 63/64 overhead: `ceil(weight / 63)` for each component.
 pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
-	let ref_time = weight.ref_time();
-	let proof_size = weight.proof_size();
 	Weight::from_parts(
-		ref_time.saturating_add(EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR,
-		proof_size.saturating_add(EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR,
+		weight.ref_time().div_ceil(EIP_150_NUMERATOR),
+		weight.proof_size().div_ceil(EIP_150_NUMERATOR),
 	)
 }
 
