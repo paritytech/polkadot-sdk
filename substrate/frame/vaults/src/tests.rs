@@ -18,9 +18,9 @@
 use crate::{
 	mock::*, BadDebt, CollateralManager, CurrentLiquidationAmount, Error, Event, HoldReason,
 	InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount, MaxPositionAmount,
-	MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
+	MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint, OnIdleCursor,
 	OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown, StabilityFee,
-	StaleVaultThreshold, VaultStatus, Vaults as VaultsStorage,
+	StaleVaultThreshold, Vault, VaultStatus, Vaults as VaultsStorage,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
@@ -31,7 +31,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::{
-	traits::{Bounded, CheckedDiv, Zero},
+	traits::{Bounded, CheckedDiv, One, Zero},
 	FixedPointNumber, FixedU128, Permill, Saturating, TokenError,
 };
 
@@ -4341,6 +4341,211 @@ mod not_configured {
 
 			// Now the system should be ready
 			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+		});
+	}
+}
+mod on_idle_coverage {
+	use super::*;
+
+	/// **Test: `on_idle` cursor persists across blocks with `MaxOnIdleItems` = 1**
+	///
+	/// When `MaxOnIdleItems` limits processing to 1 vault per call,
+	/// the cursor must persist so subsequent calls resume from where we left off.
+	#[test]
+	fn cursor_persists_across_blocks() {
+		build_and_execute(|| {
+			set_max_on_idle_items(1);
+
+			// Create 3 vaults with debt so they accrue fees
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(CHARLIE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(CHARLIE), 100 * PUSD));
+
+			// Advance past stale threshold (4 hours = 14_400_000 ms)
+			advance_timestamp(15_000_000);
+
+			// First on_idle: processes 1 vault, peeks next → stopped_early, cursor set
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_some(),
+				"Cursor should be set after partial pass"
+			);
+
+			// Second on_idle: resumes from cursor, processes 1, peeks next → stopped_early
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_some(),
+				"Cursor should still be set (1 more vault remaining)"
+			);
+
+			// Third on_idle: resumes, processes last vault, iter exhausted → cursor cleared
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should be cleared after full pass"
+			);
+
+			// Reset for try_state validation
+			set_max_on_idle_items(u32::MAX);
+		});
+	}
+
+	/// **Test: `on_idle` clears cursor after a full pass**
+	///
+	/// When all vaults are processed in a single call, the cursor
+	/// should be cleared (not set).
+	#[test]
+	fn clears_cursor_after_full_pass() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Advance past stale threshold
+			advance_timestamp(15_000_000);
+
+			Vaults::on_idle(1, Weight::MAX);
+
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should be cleared after processing all vaults"
+			);
+		});
+	}
+}
+
+mod try_state_violations {
+	use super::*;
+
+	/// **Test: `do_try_state` fails when any parameter is not configured**
+	///
+	/// Killing each of the 11 parameters one at a time should cause
+	/// `do_try_state` to return an error.
+	#[test]
+	fn fails_when_param_not_configured() {
+		macro_rules! assert_param_required {
+			($storage:ty, $restore_value:expr) => {
+				<$storage>::kill();
+				assert!(
+					VaultsPallet::<Test>::do_try_state().is_err(),
+					"do_try_state should fail when {} is not configured",
+					stringify!($storage)
+				);
+				<$storage>::put($restore_value);
+				assert_ok!(VaultsPallet::<Test>::do_try_state());
+			};
+		}
+
+		new_test_ext().execute_with(|| {
+			assert_ok!(VaultsPallet::<Test>::do_try_state());
+
+			assert_param_required!(MinimumCollateralizationRatio::<Test>, ratio(180));
+			assert_param_required!(InitialCollateralizationRatio::<Test>, ratio(200));
+			assert_param_required!(StabilityFee::<Test>, Permill::from_percent(4));
+			assert_param_required!(LiquidationPenalty::<Test>, Permill::from_percent(13));
+			assert_param_required!(MaximumIssuance::<Test>, 20_000_000 * PUSD);
+			assert_param_required!(MaxLiquidationAmount::<Test>, 20_000_000 * PUSD);
+			assert_param_required!(MaxPositionAmount::<Test>, 10_000_000 * PUSD);
+			assert_param_required!(MinimumDeposit::<Test>, 100 * DOT);
+			assert_param_required!(MinimumMint::<Test>, 5 * PUSD);
+			assert_param_required!(StaleVaultThreshold::<Test>, 14_400_000u64);
+			assert_param_required!(OracleStalenessThreshold::<Test>, 3_600_000u64);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when InitialCR < MinimumCR**
+	#[test]
+	fn fails_when_initial_ratio_below_minimum() {
+		new_test_ext().execute_with(|| {
+			// MinimumCR = 180%, set InitialCR = 150% (below minimum)
+			InitialCollateralizationRatio::<Test>::put(ratio(150));
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when InitialCR < MinimumCR"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when MinimumCR <= 100%**
+	#[test]
+	fn fails_when_min_ratio_not_above_100() {
+		new_test_ext().execute_with(|| {
+			// Also lower InitialCR to avoid the InitialCR >= MinCR check failing first
+			MinimumCollateralizationRatio::<Test>::put(FixedU128::one());
+			InitialCollateralizationRatio::<Test>::put(FixedU128::one());
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when MinimumCR = 100%"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when MaxPositionAmount > MaxLiquidationAmount**
+	#[test]
+	fn fails_when_max_position_exceeds_max_liquidation() {
+		new_test_ext().execute_with(|| {
+			MaxPositionAmount::<Test>::put(30_000_000 * PUSD);
+			MaxLiquidationAmount::<Test>::put(20_000_000 * PUSD);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when MaxPositionAmount > MaxLiquidationAmount"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when liquidated vault still has VaultDeposit hold**
+	#[test]
+	fn fails_when_liquidated_vault_has_deposit_hold() {
+		new_test_ext().execute_with(|| {
+			// Create a vault (holds collateral with VaultDeposit reason)
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Raw-write the vault status to InLiquidation without releasing the hold
+			VaultsStorage::<Test>::mutate(ALICE, |maybe_vault| {
+				let vault = maybe_vault.as_mut().expect("vault exists");
+				vault.status = VaultStatus::InLiquidation;
+			});
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when InLiquidation vault still has VaultDeposit hold"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when healthy vault with debt has no collateral**
+	#[test]
+	fn fails_when_healthy_vault_with_debt_has_no_collateral() {
+		new_test_ext().execute_with(|| {
+			// Raw-insert a vault with debt but no collateral hold
+			let mut vault = Vault::<Test>::new();
+			vault.principal = 100 * PUSD;
+			VaultsStorage::<Test>::insert(ALICE, vault);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when healthy vault has debt but no collateral"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when CurrentLiquidationAmount > MaxLiquidationAmount**
+	#[test]
+	fn fails_when_current_liquidation_exceeds_max() {
+		new_test_ext().execute_with(|| {
+			CurrentLiquidationAmount::<Test>::put(30_000_000 * PUSD);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when CurrentLiquidationAmount > MaxLiquidationAmount"
+			);
 		});
 	}
 }

@@ -22,7 +22,7 @@ use frame_support::{
 	traits::{
 		fungibles::{Balanced as FungiblesBalanced, Credit as FungiblesCredit},
 		tokens::imbalance::{OnUnbalanced, ResolveTo},
-		AsEnsureOriginWithArg, ConstU128, EnsureOrigin, Hooks, Time,
+		AsEnsureOriginWithArg, ConstU128, EnsureOrigin, Get, Hooks, Time,
 	},
 };
 use frame_system::{EnsureRoot, EnsureSigned, GenesisConfig, RawOrigin};
@@ -58,6 +58,20 @@ thread_local! {
 	// Timestamp when mock oracle price was last updated (milliseconds since Unix epoch)
 	// Default: 0 (will be set to current timestamp on first price set or in test setup)
 	static MOCK_PRICE_TIMESTAMP: RefCell<u64> = const { RefCell::new(0) };
+	// Max items to process per on_idle call (default: unlimited)
+	static MAX_ON_IDLE_ITEMS: RefCell<u32> = const { RefCell::new(u32::MAX) };
+}
+
+pub struct MockMaxOnIdleItems;
+
+impl Get<u32> for MockMaxOnIdleItems {
+	fn get() -> u32 {
+		MAX_ON_IDLE_ITEMS.with(|v| *v.borrow())
+	}
+}
+
+pub fn set_max_on_idle_items(n: u32) {
+	MAX_ON_IDLE_ITEMS.with(|v| *v.borrow_mut() = n);
 }
 
 /// Mock Timestamp implementation for testing.
@@ -240,8 +254,6 @@ parameter_types! {
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
 	pub const FeeHandlerAccount: u64 = FEE_HANDLER;
 	pub const TreasuryAccount: u64 = TREASURY;
-	/// Max items to process in on_idle (unlimited for tests)
-	pub const MaxOnIdleItems: u32 = u32::MAX;
 	// DOT from AH perspective is at Location::here()
 	pub CollateralLocation: Location = Location::here();
 }
@@ -319,7 +331,7 @@ impl crate::Config for Test {
 	type FeeHandler = ResolveTo<FeeHandlerAccount, Balances>;
 	type SurplusHandler = SurplusPusdToTreasury;
 	type TimeProvider = MockTimestamp;
-	type MaxOnIdleItems = MaxOnIdleItems;
+	type MaxOnIdleItems = MockMaxOnIdleItems;
 	type Oracle = MockOracle;
 	type CollateralLocation = CollateralLocation;
 	type AuctionsHandler = MockAuctions;
