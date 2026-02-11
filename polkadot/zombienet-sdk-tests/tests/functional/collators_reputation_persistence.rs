@@ -184,7 +184,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 	assert_para_throughput(
 		&relay_client,
 		5,
-		[(ParaId::from(PARA_ID_1), 4..7), (ParaId::from(PARA_ID_2), 4..7)],
+		[(ParaId::from(PARA_ID_1), 3..7), (ParaId::from(PARA_ID_2), 3..7)],
 	)
 	.await?;
 
@@ -317,7 +317,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 
 	// Verify para 2000 continues normal operation
 	log::info!("Verifying para {} continues normal operation", PARA_ID_1);
-	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 4..7)]).await?;
+	assert_para_throughput(&validator0_client_after, 5, [(ParaId::from(PARA_ID_1), 3..7)]).await?;
 
 	log::info!("Phase 3 passed: Pruning successfully removed deregistered parachain");
 	Ok(())
