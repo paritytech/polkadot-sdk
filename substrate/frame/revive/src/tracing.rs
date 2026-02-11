@@ -69,7 +69,10 @@ pub trait Tracing {
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 
-	/// Called before a contract call is executed
+	/// Called before a contract call is executed.
+	///
+	/// For CALL/DELEGATECALL opcodes:
+	/// - `gas_limit`: gas forwarded to the child call
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
@@ -114,10 +117,22 @@ pub trait Tracing {
 	fn log_event(&mut self, _event: H160, _topics: &[H256], _data: &[u8]) {}
 
 	/// Called after a contract call is executed
-	fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: u64) {}
+	fn exit_child_span(
+		&mut self,
+		_output: &ExecReturnValue,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
+	}
 
 	/// Called when a contract call terminates with an error
-	fn exit_child_span_with_error(&mut self, _error: DispatchError, _gas_used: u64) {}
+	fn exit_child_span_with_error(
+		&mut self,
+		_error: DispatchError,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
+	}
 
 	/// Check if the tracer is an execution tracer.
 	fn is_execution_tracer(&self) -> bool {

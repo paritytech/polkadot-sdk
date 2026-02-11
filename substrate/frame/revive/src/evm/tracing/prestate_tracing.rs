@@ -17,7 +17,7 @@
 use crate::{
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode,
+	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -275,11 +275,21 @@ where
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: u64) {
+	fn exit_child_span_with_error(
+		&mut self,
+		_error: crate::DispatchError,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		self.calls.pop();
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: u64) {
+	fn exit_child_span(
+		&mut self,
+		output: &ExecReturnValue,
+		_gas_used: u64,
+		_weight_consumed: Weight,
+	) {
 		let current_addr = self.calls.pop().unwrap_or_default();
 		if output.did_revert() {
 			return;
