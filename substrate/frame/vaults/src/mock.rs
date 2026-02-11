@@ -404,6 +404,18 @@ pub fn new_test_ext() -> TestState {
 	ext
 }
 
+/// Build test externalities and execute with try_state checks.
+///
+/// Runs `do_try_state()` after the test closure to verify all invariants hold.
+/// Use this instead of `new_test_ext().execute_with()` for all tests.
+pub fn build_and_execute(test: impl FnOnce()) {
+	let mut ext = new_test_ext();
+	ext.execute_with(|| {
+		test();
+		crate::Pallet::<Test>::do_try_state().unwrap();
+	});
+}
+
 /// Milliseconds per block (6 second block time).
 pub const MILLIS_PER_BLOCK: u64 = 6000;
 

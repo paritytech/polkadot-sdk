@@ -781,6 +781,15 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(!T::MaxOnIdleItems::get().is_zero(), "MaxOnIdleItems must be non-zero");
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		/// Idle block housekeeping: update fees for stale vaults.
 		///
 		/// Vaults inactive for >= `StaleVaultThreshold` get their fees updated.
@@ -1438,7 +1447,7 @@ pub mod pallet {
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			// Minimum ratio cannot exceed initial ratio (would allow immediate-liquidation mints)
 			if let Some(initial_ratio) = InitialCollateralizationRatio::<T>::get() {
-			ensure!(ratio <= initial_ratio, Error::<T>::InitialRatioMustExceedMinimum);
+				ensure!(ratio <= initial_ratio, Error::<T>::InitialRatioMustExceedMinimum);
 			}
 			let old_value = MinimumCollateralizationRatio::<T>::get().unwrap_or_default();
 			MinimumCollateralizationRatio::<T>::put(ratio);
@@ -1511,7 +1520,7 @@ pub mod pallet {
 			ensure!(level == VaultsManagerLevel::Full, Error::<T>::InsufficientPrivilege);
 			// Initial ratio must be >= minimum ratio to allow borrowing
 			if let Some(min_ratio) = MinimumCollateralizationRatio::<T>::get() {
-			ensure!(ratio >= min_ratio, Error::<T>::InitialRatioMustExceedMinimum);
+				ensure!(ratio >= min_ratio, Error::<T>::InitialRatioMustExceedMinimum);
 			}
 			let old_value = InitialCollateralizationRatio::<T>::get().unwrap_or_default();
 			InitialCollateralizationRatio::<T>::put(ratio);
@@ -2349,6 +2358,139 @@ pub mod pallet {
 					insurance_fund
 				);
 			}
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config> Pallet<T> {
+		/// Validate all pallet invariants.
+		///
+		/// Called by `try_state` hook and `build_and_execute` in tests.
+		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_params_configured()?;
+			Self::try_state_param_relationships()?;
+			Self::try_state_vault_invariants()?;
+			Self::try_state_system_invariants()?;
+			Ok(())
+		}
+
+		/// Ensure all 11 configurable parameters are set.
+		fn try_state_params_configured() -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				MinimumCollateralizationRatio::<T>::get().is_some(),
+				"MinimumCollateralizationRatio not configured"
+			);
+			ensure!(
+				InitialCollateralizationRatio::<T>::get().is_some(),
+				"InitialCollateralizationRatio not configured"
+			);
+			ensure!(StabilityFee::<T>::get().is_some(), "StabilityFee not configured");
+			ensure!(LiquidationPenalty::<T>::get().is_some(), "LiquidationPenalty not configured");
+			ensure!(MaximumIssuance::<T>::get().is_some(), "MaximumIssuance not configured");
+			ensure!(
+				MaxLiquidationAmount::<T>::get().is_some(),
+				"MaxLiquidationAmount not configured"
+			);
+			ensure!(MaxPositionAmount::<T>::get().is_some(), "MaxPositionAmount not configured");
+			ensure!(MinimumDeposit::<T>::get().is_some(), "MinimumDeposit not configured");
+			ensure!(MinimumMint::<T>::get().is_some(), "MinimumMint not configured");
+			ensure!(
+				StaleVaultThreshold::<T>::get().is_some(),
+				"StaleVaultThreshold not configured"
+			);
+			ensure!(
+				OracleStalenessThreshold::<T>::get().is_some(),
+				"OracleStalenessThreshold not configured"
+			);
+			Ok(())
+		}
+
+		/// Ensure parameter cross-relationships hold.
+		fn try_state_param_relationships() -> Result<(), sp_runtime::TryRuntimeError> {
+			if let (Some(min_ratio), Some(init_ratio)) = (
+				MinimumCollateralizationRatio::<T>::get(),
+				InitialCollateralizationRatio::<T>::get(),
+			) {
+				ensure!(
+					init_ratio >= min_ratio,
+					"InitialCollateralizationRatio must be >= MinimumCollateralizationRatio"
+				);
+			}
+			if let Some(min_ratio) = MinimumCollateralizationRatio::<T>::get() {
+				ensure!(
+					min_ratio > FixedU128::one(),
+					"MinimumCollateralizationRatio must be > 100%"
+				);
+			}
+			if let (Some(max_position), Some(max_liquidation)) =
+				(MaxPositionAmount::<T>::get(), MaxLiquidationAmount::<T>::get())
+			{
+				ensure!(
+					max_position <= max_liquidation,
+					"MaxPositionAmount must be <= MaxLiquidationAmount"
+				);
+			}
+			Ok(())
+		}
+
+		/// Ensure all vaults satisfy basic invariants.
+		fn try_state_vault_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (owner, vault) in Vaults::<T>::iter() {
+				if vault.status == VaultStatus::InLiquidation {
+					let vault_deposit_hold =
+						T::Currency::balance_on_hold(&HoldReason::VaultDeposit.into(), &owner);
+					ensure!(
+						vault_deposit_hold.is_zero(),
+						"Vault in liquidation should not have VaultDeposit hold"
+					);
+				}
+
+				if vault.status == VaultStatus::Healthy {
+					let total_debt = vault
+						.principal
+						.checked_add(&vault.accrued_interest)
+						.unwrap_or(Bounded::max_value());
+					if !total_debt.is_zero() {
+						let collateral = vault.get_held_collateral(&owner);
+						ensure!(
+							!collateral.is_zero(),
+							"Healthy vault with debt must have non-zero collateral"
+						);
+					}
+				}
+			}
+			Ok(())
+		}
+
+		/// Ensure system-level accumulators are consistent.
+		fn try_state_system_invariants() -> Result<(), sp_runtime::TryRuntimeError> {
+			// CurrentLiquidationAmount must not exceed MaxLiquidationAmount
+			if let Some(max_liq) = MaxLiquidationAmount::<T>::get() {
+				let current_liq = CurrentLiquidationAmount::<T>::get();
+				ensure!(
+					current_liq <= max_liq,
+					"CurrentLiquidationAmount exceeds MaxLiquidationAmount"
+				);
+			}
+
+			// Total pUSD supply should respect MaximumIssuance.
+			// Note: interest mints bypass MaximumIssuance by design (MintPurpose::Interest),
+			// so total supply can slightly exceed the ceiling. We log a warning instead
+			// of failing for this check.
+			if let Some(max_issuance) = MaximumIssuance::<T>::get() {
+				let total_supply = T::Asset::total_issuance(T::StablecoinAssetId::get());
+				if total_supply > max_issuance {
+					log::warn!(
+						target: LOG_TARGET,
+						"Total pUSD supply ({:?}) exceeds MaximumIssuance ({:?}). \
+						 This can happen due to interest mints.",
+						total_supply,
+						max_issuance,
+					);
+				}
+			}
+
+			Ok(())
 		}
 	}
 }
