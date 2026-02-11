@@ -299,7 +299,7 @@ impl Registry {
 			None => {
 				wildcards.remove(&subscriber);
 			},
-			Some(filters) =>
+			Some(filters) => {
 				for key in filters.iter() {
 					let remove_key = match listeners.get_mut(key) {
 						Some(ref mut set) => {
@@ -312,7 +312,8 @@ impl Registry {
 					if remove_key {
 						listeners.remove(key);
 					}
-				},
+				}
+			},
 		}
 	}
 

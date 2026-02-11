@@ -61,14 +61,15 @@ use super::{modify_reputation, tick_stream, LOG_TARGET};
 
 mod claim_queue_state;
 mod collation;
-mod error;
-mod metrics;
+pub mod error;
 
 use claim_queue_state::ClaimQueueState;
+pub(crate) use claim_queue_state::PerLeafClaimQueueState;
+pub use collation::BlockedCollationId;
 use collation::{
-	fetched_collation_sanity_check, BlockedCollationId, CollationEvent, CollationFetchError,
-	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
-	PendingCollationFetch, ProspectiveCandidate,
+	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
+	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
+	ProspectiveCandidate,
 };
 use error::{Error, FetchError, HoldOffError, Result, SecondingError};
 
@@ -77,7 +78,7 @@ const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000); // Asset Hub's para id is 1
 #[cfg(test)]
 mod tests;
 
-pub use metrics::Metrics;
+pub use crate::validator_side_metrics::Metrics;
 
 const COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor("An unexpected message");
 /// Message could not be decoded properly.
@@ -335,8 +336,9 @@ impl PeerData {
 	fn is_inactive(&self, policy: &crate::CollatorEvictionPolicy) -> bool {
 		match self.state {
 			PeerState::Connected(connected_at) => connected_at.elapsed() >= policy.undeclared,
-			PeerState::Collating(ref state) =>
-				state.last_active.elapsed() >= policy.inactive_collator,
+			PeerState::Collating(ref state) => {
+				state.last_active.elapsed() >= policy.inactive_collator
+			},
 		}
 	}
 }
@@ -344,7 +346,7 @@ impl PeerData {
 #[derive(Debug)]
 struct GroupAssignments {
 	/// Current assignments.
-	current: Vec<ParaId>,
+	current: VecDeque<ParaId>,
 }
 
 /// Represents the result from a hold off operation.
@@ -511,6 +513,12 @@ struct State {
 }
 
 impl State {
+	fn collations(&self, relay_parent: &Hash) -> Option<&Collations> {
+		self.per_relay_parent
+			.get(relay_parent)
+			.map(|per_relay_parent| &per_relay_parent.collations)
+	}
+
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
@@ -518,16 +526,14 @@ impl State {
 	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
 	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let seconded = self
-			.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
+			.collations(relay_parent)
+			.map_or(0, |collations| collations.seconded_for_para(para_id));
 
-		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
-			match rp_state.collations.status {
+		let pending_fetch =
+			self.collations(relay_parent).map_or(0, |collations| match collations.status {
 				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
 				_ => 0,
-			}
-		});
+			});
 
 		let waiting_for_validation = self
 			.fetched_candidates
@@ -562,9 +568,8 @@ impl State {
 
 	/// Returns the number of collations pending to be fetched for a `ParaId`
 	fn in_waiting_queue_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
-		self.per_relay_parent
-			.get(relay_parent)
-			.map_or(0, |rp_state| rp_state.collations.queued_for_para(para_id))
+		self.collations(relay_parent)
+			.map_or(0, |collations| collations.queued_for_para(para_id))
 	}
 }
 
@@ -634,8 +639,8 @@ where
 		}
 	}
 
-	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
-	let collations = Collations::new(&assignment.current);
+	let assignment = GroupAssignments { current: assigned_paras };
+	let collations = Collations::new(assignment.current.iter());
 
 	Ok(Some(PerRelayParent {
 		assignment,
@@ -738,7 +743,7 @@ async fn note_good_collation(
 }
 
 /// Notify a collator that its collation got seconded.
-async fn notify_collation_seconded(
+pub async fn notify_collation_seconded(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	peer_id: PeerId,
 	version: CollationVersion,
@@ -747,14 +752,16 @@ async fn notify_collation_seconded(
 ) {
 	let statement = statement.into();
 	let wire_message = match version {
-		CollationVersion::V1 =>
+		CollationVersion::V1 => {
 			CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 				protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-			)),
-		CollationVersion::V2 =>
+			))
+		},
+		CollationVersion::V2 => {
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-			)),
+			))
+		},
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -1265,12 +1272,11 @@ fn ensure_seconding_limit_is_respected(
 		"Checking seconding limit",
 	);
 
+	let in_waiting_queue = state.in_waiting_queue_for_para(relay_parent, &para_id);
 	let mut has_claim_at_some_path = false;
 	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
 		for ancestor in &path {
-			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id) +
-				state.in_waiting_queue_for_para(relay_parent, &para_id);
 			cq_state.add_leaf(
 				&ancestor,
 				&state
@@ -1280,12 +1286,17 @@ fn ensure_seconding_limit_is_respected(
 					.assignment
 					.current,
 			);
+
+			let seconded_and_pending =
+				state.seconded_and_pending_for_para(&ancestor, &para_id) + in_waiting_queue;
 			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(ancestor, &para_id);
+				// It doesn't matter which type of claim we make for the purposes of this subsystem
+				// (pending or seconded).
+				cq_state.claim_pending_at(ancestor, &para_id, None);
 			}
 		}
 
-		if cq_state.can_claim_at(relay_parent, &para_id) {
+		if cq_state.has_or_can_claim_at(relay_parent, &para_id, None) {
 			has_claim_at_some_path = true;
 			break;
 		}
@@ -1854,7 +1865,9 @@ async fn process_msg<Context>(
 				Entry::Occupied(entry)
 					if entry.get().pending_collation.commitments_hash ==
 						Some(candidate_receipt.commitments_hash) =>
-					entry.remove().collator_id,
+				{
+					entry.remove().collator_id
+				},
 				Entry::Occupied(_) => {
 					gum::error!(
 						target: LOG_TARGET,
@@ -1885,6 +1898,7 @@ pub(crate) async fn run<Context>(
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
 ) -> std::result::Result<(), SubsystemError> {
+	gum::info!(target: LOG_TARGET, "Running legacy collator protocol");
 	run_inner(
 		ctx,
 		keystore,
@@ -2123,7 +2137,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	}
 }
 
-async fn request_persisted_validation_data<Sender>(
+pub async fn request_persisted_validation_data<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
 	para_id: ParaId,
@@ -2144,7 +2158,7 @@ where
 	.map_err(SecondingError::RuntimeApi)
 }
 
-async fn request_prospective_validation_data<Sender>(
+pub async fn request_prospective_validation_data<Sender>(
 	sender: &mut Sender,
 	candidate_relay_parent: Hash,
 	parent_head_data_hash: Hash,
@@ -2197,7 +2211,12 @@ async fn kick_off_seconding<Context>(
 	};
 
 	// Sanity check of the candidate receipt version.
-	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_relay_parent)?;
+	descriptor_version_sanity_check(
+		candidate_receipt.descriptor(),
+		per_relay_parent.v2_receipts,
+		per_relay_parent.current_core,
+		per_relay_parent.session_index,
+	)?;
 
 	let collations = &mut per_relay_parent.collations;
 
@@ -2474,7 +2493,7 @@ async fn handle_collation_fetch_response(
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
+fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<VecDeque<ParaId>> {
 	let relay_parent_state = state
 		.per_relay_parent
 		.get(relay_parent)
@@ -2499,7 +2518,9 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 			for para_id in &scheduled_paras {
 				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
 				for _ in 0..seconded_and_pending {
-					cq_state.claim_at(&ancestor, &para_id);
+					// It doesn't matter which type of claim we make for the purposes of this
+					// subsystem (pending or seconded).
+					cq_state.claim_pending_at(ancestor, &para_id, None);
 				}
 			}
 		}
@@ -2513,7 +2534,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 	// 3rd spot from the claim queue but it should be good enough.
 	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
-		.map(|cq| cq.unclaimed_at(relay_parent))
+		.map(|cq| cq.get_free_at(relay_parent))
 		.max_by(|a, b| a.len().cmp(&b.len()))
 		.unwrap_or_default();
 
@@ -2572,27 +2593,26 @@ fn get_next_collation_to_fetch(
 }
 
 // Sanity check the candidate descriptor version.
-fn descriptor_version_sanity_check(
+pub fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
-	per_relay_parent: &PerRelayParent,
+	v2_receipts: bool,
+	current_core: CoreIndex,
+	current_session_index: SessionIndex,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
-		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+		CandidateDescriptorVersion::V2 if v2_receipts => {
 			if let Some(core_index) = descriptor.core_index() {
-				if core_index != per_relay_parent.current_core {
-					return Err(SecondingError::InvalidCoreIndex(
-						core_index.0,
-						per_relay_parent.current_core.0,
-					));
+				if core_index != current_core {
+					return Err(SecondingError::InvalidCoreIndex(core_index.0, current_core.0));
 				}
 			}
 
 			if let Some(session_index) = descriptor.session_index() {
-				if session_index != per_relay_parent.session_index {
+				if session_index != current_session_index {
 					return Err(SecondingError::InvalidSessionIndex(
 						session_index,
-						per_relay_parent.session_index,
+						current_session_index,
 					));
 				}
 			}

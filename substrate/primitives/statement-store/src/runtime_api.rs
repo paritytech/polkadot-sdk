@@ -33,26 +33,6 @@ use Debug;
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
-/// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
-pub struct ValidStatement {
-	/// Max statement count for this account, as calculated by the runtime.
-	pub max_count: u32,
-	/// Max total data size for this account, as calculated by the runtime.
-	pub max_size: u32,
-}
-
-/// An reason for an invalid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
-pub enum InvalidStatement {
-	/// Failed proof validation.
-	BadProof,
-	/// Missing proof.
-	NoProof,
-	/// Validity could not be checked because of internal error.
-	InternalError,
-}
-
 /// The source of the statement.
 ///
 /// Depending on the source we might apply different validation schemes.
@@ -74,17 +54,6 @@ impl StatementSource {
 			StatementSource::Chain | StatementSource::Local => true,
 			StatementSource::Network => false,
 		}
-	}
-}
-
-sp_api::decl_runtime_apis! {
-	/// Runtime API trait for statement validation.
-	pub trait ValidateStatement {
-		/// Validate the statement.
-		fn validate_statement(
-			source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement>;
 	}
 }
 

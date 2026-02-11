@@ -14,13 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::num::NonZeroU16;
+use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
+	request_response::{outgoing::RequestError, v2 as request_v2},
+	PeerId,
+};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
+	PersistedValidationData,
+};
+use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
-use polkadot_node_network_protocol::peer_set::CollationVersion;
-use polkadot_primitives::Id as ParaId;
+/// The following parameters (`MAX_SCORE`, `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY`)
+/// determine how fast collators build reputation, how fast they lose it due to inactivity and how
+/// many collators we can have per parachain.
+///
+/// The combination of `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY` determines the maximum
+/// number of collators for the parachain. We assume that each collator has got an equal chance in
+/// having its collation included (and therefore getting score for it). This means that for a set of
+/// N collators, for N blocks each collator will gain `VALID_INCLUDED_CANDIDATE_BUMP` points and
+/// lose (N-1)*INACTIVITY_DECAY points. With the values below (VALID_INCLUDED_CANDIDATE_BUMP=100
+/// and INACTIVITY_DECAY=1) with N=100 collators no longer gain any score.
+///
+/// The time to reach max score is also controlled by these two parameters. With the values below
+/// (VALID_INCLUDED_CANDIDATE_BUMP=100 and INACTIVITY_DECAY=1) for N=50 a collator will reach
+/// `MAX_SCORE` for around 81 hours (69 days). For N=20 - ~20hrs.
 
-/// Maximum reputation score.
-pub const MAX_SCORE: u16 = 5000;
+///  Maximum reputation score. Scores higher than this will be
+/// saturated to this value.
+pub const MAX_SCORE: u16 = 35_000;
+/// Reputation bump for getting a valid candidate included in a finalized block.
+pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 100;
+/// Reputation slash for peer inactivity (for each included candidate of the para that was not
+/// authored by the peer)
+pub const INACTIVITY_DECAY: u16 = 1;
 
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
@@ -36,16 +64,25 @@ pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 /// notifications.
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
-/// Reputation bump for getting a valid candidate included.
-pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
-
-/// Reputation slash for peer inactivity (for each included candidate of the para that was not
-/// authored by the peer)
-pub const INACTIVITY_DECAY: u16 = 1;
-
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
-pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
+pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
+
+/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
+pub const FAILED_FETCH_SLASH: Score = Score::new(140).expect("140 is less than MAX_SCORE");
+
+/// Slashing value for an invalid collation (half of the ma).
+pub const INVALID_COLLATION_SLASH: Score =
+	Score::new(MAX_SCORE / 2).expect("1/2 MAX_SCORE is less than MAX_SCORE");
+
+/// The maximum acceptable delay which can be applied on an advertisement from a collator with score
+/// less than the maximum score for the parachain.
+pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
+
+/// The minimum interval after which we may want to stop the main loop in order to fetch available
+/// advertised collations.
+pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(150);
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);
@@ -54,24 +91,26 @@ impl Score {
 	/// Create a new instance. Fail if over the `MAX_SCORE`.
 	pub const fn new(val: u16) -> Option<Self> {
 		if val > MAX_SCORE {
-			None
-		} else {
-			Some(Self(val))
+			return None;
 		}
+
+		Some(Self(val))
 	}
 
 	/// Add `val` to the inner value, saturating at `MAX_SCORE`.
 	pub fn saturating_add(&mut self, val: u16) {
-		if (self.0 + val) <= MAX_SCORE {
-			self.0 += val;
-		} else {
-			self.0 = MAX_SCORE;
-		}
+		let sum = self.0.saturating_add(val);
+		self.0 = std::cmp::min(sum, MAX_SCORE);
 	}
 
 	/// Subtract `val` from the inner value, saturating at 0.
 	pub fn saturating_sub(&mut self, val: u16) {
 		self.0 = self.0.saturating_sub(val);
+	}
+
+	/// Returns the ration (self / rhs) between the current score and rhs.
+	pub fn ratio(&self, rhs: &Self) -> f32 {
+		self.0 as f32 / rhs.0 as f32
 	}
 }
 
@@ -97,6 +136,118 @@ pub enum PeerState {
 	Connected,
 	/// Peer has declared.
 	Collating(ParaId),
+}
+
+#[derive(Debug, PartialEq)]
+/// Outcome of triaging a new connection.
+pub enum TryAcceptOutcome {
+	/// Connection was accepted.
+	Added,
+	/// Connection was accepted, but it replaced the slot(s) of some peers
+	/// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	/// one peer can hold connection slots for multiple paraids.
+	/// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	/// maintained a connection slot for another para (therefore not disconnected).
+	/// The number of peers in the set is bound to the number of scheduled paras.
+	Replaced(HashSet<PeerId>),
+	/// Connection was rejected.
+	Rejected,
+}
+
+impl TryAcceptOutcome {
+	/// Combine two outcomes into one. If at least one of them allows the connection,
+	/// the connection is allowed.
+	pub fn combine(self, other: Self) -> Self {
+		use TryAcceptOutcome::*;
+		match (self, other) {
+			(Added, Added) => Added,
+			(Rejected, Rejected) => Rejected,
+			(Added, Rejected) | (Rejected, Added) => Added,
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
+				Replaced(replaced_a)
+			},
+			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
+		}
+	}
+}
+
+/// Candidate supplied with a para head it's built on top of.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub struct ProspectiveCandidate {
+	/// Candidate hash.
+	pub candidate_hash: CandidateHash,
+	/// Parent head-data hash as supplied in advertisement.
+	pub parent_head_data_hash: Hash,
+}
+
+/// Identifier of a collation being requested.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Advertisement {
+	/// Candidate's relay parent.
+	pub relay_parent: Hash,
+	/// Parachain id.
+	pub para_id: ParaId,
+	/// Peer that advertised this collation.
+	pub peer_id: PeerId,
+	/// Optional candidate hash and parent head-data hash if were
+	/// supplied in advertisement.
+	pub prospective_candidate: Option<ProspectiveCandidate>,
+}
+
+impl Advertisement {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
+	}
+}
+
+/// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
+pub type CollationFetchResponse = (
+	Advertisement,
+	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
+);
+
+/// Any error that can occur when awaiting a collation fetch response.
+#[derive(Debug, thiserror::Error)]
+pub enum CollationFetchError {
+	#[error("Future was cancelled.")]
+	Cancelled,
+	#[error("{0}")]
+	Request(#[from] RequestError),
+}
+
+/// Whether we can start seconding a fetched candidate or not.
+pub enum CanSecond {
+	/// Seconding is not possible. Returns an optional reputation slash, together with the rejected
+	/// collation info.
+	No(Option<Score>, SecondingRejectionInfo),
+	/// Seconding can begin. Returns all the needed data for seconding.
+	Yes(CandidateReceipt, PoV, PersistedValidationData),
+	/// Seconding is blocked because we are waiting for the parent to be seconded.
+	/// Returns the hash of the parent candidate header, together with the rejected collation info.
+	BlockedOnParent(Hash, SecondingRejectionInfo),
+}
+
+/// Information that identifies a collation that was rejected from seconding.
+#[derive(Debug)]
+pub struct SecondingRejectionInfo {
+	pub relay_parent: Hash,
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub maybe_output_head_hash: Option<Hash>,
+	pub maybe_candidate_hash: Option<CandidateHash>,
+}
+
+impl From<&Advertisement> for SecondingRejectionInfo {
+	fn from(advertisement: &Advertisement) -> Self {
+		SecondingRejectionInfo {
+			relay_parent: advertisement.relay_parent,
+			peer_id: advertisement.peer_id,
+			para_id: advertisement.para_id,
+			maybe_output_head_hash: None,
+			maybe_candidate_hash: advertisement.candidate_hash(),
+		}
+	}
 }
 
 #[cfg(test)]

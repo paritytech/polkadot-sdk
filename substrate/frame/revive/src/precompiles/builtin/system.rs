@@ -44,8 +44,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::terminate(_) if env.is_read_only() =>
-				Err(crate::Error::<T>::StateChangeDenied.into()),
+			ISystemCalls::terminate(_) if env.is_read_only() => {
+				Err(crate::Error::<T>::StateChangeDenied.into())
+			},
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::HashBlake256(input.len() as u32))?;

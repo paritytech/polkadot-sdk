@@ -533,10 +533,12 @@ async fn handle_to_host(
 			handle_execute_pvf(artifacts, prepare_queue, execute_queue, awaiting_prepare, inputs)
 				.await?;
 		},
-		ToHost::HeadsUp { active_pvfs } =>
-			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
-		ToHost::UpdateActiveLeaves { update, ancestors } =>
-			handle_update_active_leaves(execute_queue, update, ancestors).await?,
+		ToHost::HeadsUp { active_pvfs } => {
+			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?
+		},
+		ToHost::UpdateActiveLeaves { update, ancestors } => {
+			handle_update_active_leaves(execute_queue, update, ancestors).await?
+		},
 		#[cfg(feature = "test-utils")]
 		ToHost::ReplaceArtifactChecksum { checksum, new_checksum } => {
 			artifacts.replace_artifact_checksum(checksum, new_checksum);
@@ -567,8 +569,9 @@ async fn handle_precheck_pvf(
 				*last_time_needed = SystemTime::now();
 				let _ = result_sender.send(Ok(()));
 			},
-			ArtifactState::Preparing { waiting_for_response, num_failures: _ } =>
-				waiting_for_response.push(result_sender),
+			ArtifactState::Preparing { waiting_for_response, num_failures: _ } => {
+				waiting_for_response.push(result_sender)
+			},
 			ArtifactState::FailedToProcess { error, .. } => {
 				// Do not retry an artifact that previously failed preparation.
 				let _ = result_sender.send(PrecheckResult::Err(error.clone()));
@@ -887,8 +890,9 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { checksum, path, size, .. }) =>
-			ArtifactState::Prepared { checksum, path, last_time_needed: SystemTime::now(), size },
+		Ok(PrepareSuccess { checksum, path, size, .. }) => {
+			ArtifactState::Prepared { checksum, path, last_time_needed: SystemTime::now(), size }
+		},
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;

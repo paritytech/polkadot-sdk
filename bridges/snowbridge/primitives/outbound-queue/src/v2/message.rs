@@ -214,23 +214,26 @@ impl Command {
 				initParams: Bytes::from(initializer.params.clone()),
 			}
 			.abi_encode(),
-			Command::SetOperatingMode { mode } =>
-				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode(),
-			Command::UnlockNativeToken { token, recipient, amount, .. } =>
+			Command::SetOperatingMode { mode } => {
+				SetOperatingModeParams { mode: (*mode) as u8 }.abi_encode()
+			},
+			Command::UnlockNativeToken { token, recipient, amount, .. } => {
 				UnlockNativeTokenParams {
 					token: Address::from(token.as_fixed_bytes()),
 					recipient: Address::from(recipient.as_fixed_bytes()),
 					amount: *amount,
 				}
-				.abi_encode(),
-			Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
+				.abi_encode()
+			},
+			Command::RegisterForeignToken { token_id, name, symbol, decimals } => {
 				RegisterForeignTokenParams {
 					foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
 					name: Bytes::from(name.to_vec()),
 					symbol: Bytes::from(symbol.to_vec()),
 					decimals: *decimals,
 				}
-				.abi_encode(),
+				.abi_encode()
+			},
 			Command::MintForeignToken { token_id, recipient, amount } => MintForeignTokenParams {
 				foreignTokenID: FixedBytes::from(token_id.as_fixed_bytes()),
 				recipient: Address::from(recipient.as_fixed_bytes()),

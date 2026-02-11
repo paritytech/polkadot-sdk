@@ -96,10 +96,12 @@ impl From<request_response::OutboundFailure> for OutboundFailure {
 		match out {
 			request_response::OutboundFailure::DialFailure => OutboundFailure::DialFailure,
 			request_response::OutboundFailure::Timeout => OutboundFailure::Timeout,
-			request_response::OutboundFailure::ConnectionClosed =>
-				OutboundFailure::ConnectionClosed,
-			request_response::OutboundFailure::UnsupportedProtocols =>
-				OutboundFailure::UnsupportedProtocols,
+			request_response::OutboundFailure::ConnectionClosed => {
+				OutboundFailure::ConnectionClosed
+			},
+			request_response::OutboundFailure::UnsupportedProtocols => {
+				OutboundFailure::UnsupportedProtocols
+			},
 			request_response::OutboundFailure::Io(error) => OutboundFailure::Io(Arc::new(error)),
 		}
 	}
@@ -133,8 +135,9 @@ impl From<request_response::InboundFailure> for InboundFailure {
 			request_response::InboundFailure::ResponseOmission => InboundFailure::ResponseOmission,
 			request_response::InboundFailure::Timeout => InboundFailure::Timeout,
 			request_response::InboundFailure::ConnectionClosed => InboundFailure::ConnectionClosed,
-			request_response::InboundFailure::UnsupportedProtocols =>
-				InboundFailure::UnsupportedProtocols,
+			request_response::InboundFailure::UnsupportedProtocols => {
+				InboundFailure::UnsupportedProtocols
+			},
 			request_response::InboundFailure::Io(error) => InboundFailure::Io(Arc::new(error)),
 		}
 	}
@@ -434,8 +437,9 @@ impl RequestResponsesBehaviour {
 					inbound_queue: protocol.inbound_queue,
 					request_timeout: protocol.request_timeout,
 				}),
-				Entry::Occupied(e) =>
-					return Err(RegisterError::DuplicateProtocol(e.key().clone())),
+				Entry::Occupied(e) => {
+					return Err(RegisterError::DuplicateProtocol(e.key().clone()))
+				},
 			};
 		}
 
@@ -1087,7 +1091,9 @@ impl Codec for GenericCodec {
 			Ok(l) => l,
 			Err(unsigned_varint::io::ReadError::Io(err))
 				if matches!(err.kind(), io::ErrorKind::UnexpectedEof) =>
-				return Ok(Err(())),
+			{
+				return Ok(Err(()))
+			},
 			Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, err)),
 		};
 
