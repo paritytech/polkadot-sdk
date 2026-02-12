@@ -12,34 +12,34 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-cumulus-primitives-core.default-features = true
 cumulus-primitives-core.workspace = true
-cumulus-relay-chain-interface.default-features = true
+cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
-polkadot-overseer.default-features = true
+cumulus-relay-chain-interface.default-features = true
 polkadot-overseer.workspace = true
-prometheus-endpoint.default-features = true
+polkadot-overseer.default-features = true
 prometheus-endpoint.workspace = true
-sc-client-api.default-features = true
+prometheus-endpoint.default-features = true
 sc-client-api.workspace = true
-sc-rpc-api.default-features = true
+sc-client-api.default-features = true
 sc-rpc-api.workspace = true
-sc-service.default-features = true
+sc-rpc-api.default-features = true
 sc-service.workspace = true
-sp-authority-discovery.default-features = true
+sc-service.default-features = true
 sp-authority-discovery.workspace = true
-sp-consensus-babe.default-features = true
+sp-authority-discovery.default-features = true
 sp-consensus-babe.workspace = true
-sp-core.default-features = true
+sp-consensus-babe.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
+sp-runtime.default-features = true
 sp-state-machine.workspace = true
-sp-storage.default-features = true
+sp-state-machine.default-features = true
 sp-storage.workspace = true
-sp-version.default-features = true
+sp-storage.default-features = true
 sp-version.workspace = true
+sp-version.default-features = true
 
 tokio = { features = ["sync"], workspace = true, default-features = true }
 

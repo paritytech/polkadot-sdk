@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.36.2"
+version = "0.36.3"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -6569,7 +6569,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "frame-support",
@@ -23558,7 +23558,7 @@ dependencies = [
 
 [[package]]
 name = "sp-trie"
-version = "41.1.0"
+version = "41.1.1"
 dependencies = [
  "ahash",
  "array-bytes 6.2.2",

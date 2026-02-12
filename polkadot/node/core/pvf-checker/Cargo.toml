@@ -13,23 +13,23 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum.default-features = true
 gum.workspace = true
-polkadot-node-subsystem.default-features = true
+gum.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-node-subsystem-util.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-node-subsystem-util.workspace = true
-polkadot-primitives.default-features = true
+polkadot-node-subsystem-util.default-features = true
 polkadot-primitives.workspace = true
-sp-keystore.default-features = true
+polkadot-primitives.default-features = true
 sp-keystore.workspace = true
+sp-keystore.default-features = true
 
 [dev-dependencies]
 futures-timer = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-sc-keystore = { default-features = true, workspace = true }
-sp-application-crypto = { default-features = true, workspace = true }
-sp-core = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
-sp-runtime = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
+sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
+sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sp-runtime = { default-features = true, path = "../../../../substrate/primitives/runtime" }

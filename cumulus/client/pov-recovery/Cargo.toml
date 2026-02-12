@@ -15,49 +15,49 @@ workspace = true
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
-polkadot-node-primitives.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-node-subsystem.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-node-subsystem.workspace = true
-polkadot-overseer.default-features = true
+polkadot-node-subsystem.default-features = true
 polkadot-overseer.workspace = true
-polkadot-primitives.default-features = true
+polkadot-overseer.default-features = true
 polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
 rand = { workspace = true, default-features = true }
-sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-consensus.default-features = true
+sc-client-api.default-features = true
 sc-consensus.workspace = true
-sc-network.default-features = true
+sc-consensus.default-features = true
 sc-network.workspace = true
-sp-api.default-features = true
+sc-network.default-features = true
 sp-api.workspace = true
-sp-consensus.default-features = true
+sp-api.default-features = true
 sp-consensus.workspace = true
-sp-maybe-compressed-blob.default-features = true
+sp-consensus.default-features = true
 sp-maybe-compressed-blob.workspace = true
-sp-runtime.default-features = true
+sp-maybe-compressed-blob.default-features = true
 sp-runtime.workspace = true
-sp-version.default-features = true
+sp-runtime.default-features = true
 sp-version.workspace = true
+sp-version.default-features = true
 tracing = { workspace = true, default-features = true }
 
 # Cumulus
 async-trait = { workspace = true }
-cumulus-primitives-core.default-features = true
 cumulus-primitives-core.workspace = true
-cumulus-relay-chain-interface.default-features = true
+cumulus-primitives-core.default-features = true
 cumulus-relay-chain-interface.workspace = true
-cumulus-relay-chain-streams.default-features = true
+cumulus-relay-chain-interface.default-features = true
 cumulus-relay-chain-streams.workspace = true
+cumulus-relay-chain-streams.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sc-utils = { default-features = true, workspace = true }
-sp-blockchain = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sc-utils = { default-features = true, path = "../../../substrate/client/utils" }
+sp-blockchain = { default-features = true, path = "../../../substrate/primitives/blockchain" }
+sp-tracing = { default-features = true, path = "../../../substrate/primitives/tracing" }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Cumulus
-cumulus-test-client = { workspace = true }
+cumulus-test-client = { path = "../../test/client" }

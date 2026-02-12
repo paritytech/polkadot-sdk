@@ -33,18 +33,18 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, workspace = true }
-frame-election-provider-support = { default-features = true, workspace = true }
-frame-support = { features = ["experimental"], default-features = true, workspace = true }
-pallet-bags-list = { default-features = true, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-staking-reward-curve = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
+frame-benchmarking = { default-features = true, path = "../benchmarking" }
+frame-election-provider-support = { default-features = true, path = "../election-provider-support" }
+frame-support = { features = ["experimental"], default-features = true, path = "../support" }
+pallet-bags-list = { default-features = true, path = "../bags-list" }
+pallet-balances = { default-features = true, path = "../balances" }
+pallet-staking-reward-curve = { default-features = true, path = "reward-curve" }
+pallet-timestamp = { default-features = true, path = "../timestamp" }
 rand_chacha = { workspace = true, default-features = true }
-sp-core = { default-features = true, workspace = true }
-sp-npos-elections = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
-substrate-test-utils = { workspace = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]
@@ -69,10 +69,7 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-bags-list/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -82,9 +79,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authorship/try-runtime",
-	"pallet-bags-list/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

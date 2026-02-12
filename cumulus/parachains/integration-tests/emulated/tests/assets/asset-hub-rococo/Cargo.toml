@@ -12,8 +12,8 @@ workspace = true
 
 [dependencies]
 assert_matches = { workspace = true }
-asset-test-utils.default-features = true
 asset-test-utils.workspace = true
+asset-test-utils.default-features = true
 codec = { workspace = true }
 cumulus-pallet-parachain-system.workspace = true
 emulated-integration-tests-common.workspace = true
@@ -26,16 +26,16 @@ pallet-message-queue.workspace = true
 pallet-treasury.workspace = true
 pallet-utility.workspace = true
 pallet-xcm.workspace = true
-parachains-common.default-features = true
 parachains-common.workspace = true
-polkadot-runtime-common.default-features = true
+parachains-common.default-features = true
 polkadot-runtime-common.workspace = true
-rococo-runtime-constants.default-features = true
+polkadot-runtime-common.default-features = true
 rococo-runtime-constants.workspace = true
+rococo-runtime-constants.default-features = true
 rococo-system-emulated-network.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
 xcm.workspace = true
 xcm-executor.workspace = true
-xcm-runtime-apis.default-features = true
 xcm-runtime-apis.workspace = true
+xcm-runtime-apis.default-features = true
