@@ -18,20 +18,20 @@ codec = { features = ["derive"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 polkadot-parachain-primitives.workspace = true
-polkadot-primitives.workspace = true
 polkadot-primitives.default-features = true
+polkadot-primitives.workspace = true
 sc-keystore.workspace = true
 schnorrkel = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-application-crypto.workspace = true
 sp-application-crypto.default-features = true
-sp-consensus-babe.workspace = true
+sp-application-crypto.workspace = true
 sp-consensus-babe.default-features = true
+sp-consensus-babe.workspace = true
 sp-consensus-slots.workspace = true
-sp-keystore.workspace = true
 sp-keystore.default-features = true
-sp-maybe-compressed-blob.workspace = true
+sp-keystore.workspace = true
 sp-maybe-compressed-blob.default-features = true
+sp-maybe-compressed-blob.workspace = true
 thiserror = { workspace = true }
 
 [target.'cfg(not(target_os = "unknown"))'.dependencies]

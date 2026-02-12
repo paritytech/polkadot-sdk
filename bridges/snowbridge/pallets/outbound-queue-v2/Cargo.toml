@@ -44,8 +44,8 @@ xcm-builder.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { default-features = false, path = "../../../../substrate/frame/message-queue" }
-snowbridge-test-utils = { path = "../../test-utils" }
+pallet-message-queue = { default-features = false, workspace = true }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -58,6 +58,7 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-message-queue/std",
 	"scale-info/std",
 	"serde/std",
 	"snowbridge-beacon-primitives/std",
@@ -80,7 +81,9 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -89,5 +92,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"sp-runtime/try-runtime",
 ]
