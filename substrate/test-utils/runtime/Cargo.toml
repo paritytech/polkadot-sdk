@@ -51,6 +51,8 @@ sp-trie.workspace = true
 sp-version.workspace = true
 trie-db = { workspace = true }
 
+stp-shield.workspace = true
+
 # 3rd party
 array-bytes = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }

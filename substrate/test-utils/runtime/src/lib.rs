@@ -87,6 +87,9 @@ pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
 
+#[cfg(feature = "std")]
+use std::{cell::RefCell, thread_local};
+
 const LOG_TARGET: &str = "substrate-test-runtime";
 
 // Include the WASM binary
@@ -509,6 +512,12 @@ pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEp
 	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 };
 
+#[cfg(feature = "std")]
+thread_local! {
+    pub static DECODE_SHIELDED_TX_RESULT: RefCell<Option<stp_shield::ShieldedTransaction>> = const { RefCell::new(None) };
+	pub static UNSHIELD_TX_RESULT: RefCell<Option<<Block as BlockT>::Extrinsic>> = const { RefCell::new(None) };
+}
+
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
@@ -822,6 +831,32 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<PresetId> {
 			vec![PresetId::from("foobar"), PresetId::from("staging")]
+		}
+	}
+	
+	impl stp_shield::ShieldApi<Block> for Runtime {
+		#[cfg(feature = "std")]
+		fn try_decode_shielded_tx(_uxt: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			DECODE_SHIELDED_TX_RESULT.with(|result| {
+				result.borrow().clone()
+			})
+		}
+		
+		#[cfg(feature = "std")]
+		fn try_unshield_tx(_shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+			UNSHIELD_TX_RESULT.with(|result| {
+				result.borrow().clone()
+			})
+		}
+		
+		#[cfg(not(feature = "std"))]
+		fn try_decode_shielded_tx(_uxt: <Block as BlockT>::Extrinsic) -> Option<stp_shield::ShieldedTransaction> {
+			None
+		}
+
+		#[cfg(not(feature = "std"))]
+		fn try_unshield_tx(_shielded_tx: stp_shield::ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+			None
 		}
 	}
 }

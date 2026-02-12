@@ -8014,6 +8014,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hybrid-array"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2d35805454dc9f8662a98d6d61886ffe26bd465f5960e0e55345c70d5c0d2a9"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
 name = "hyper"
 version = "0.14.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8030,7 +8039,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.9",
+ "socket2 0.5.9",
  "tokio",
  "tower-service",
  "tracing",
@@ -8984,6 +8993,16 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "tiny-keccak",
+]
+
+[[package]]
+name = "kem"
+version = "0.3.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b8645470337db67b01a7f966decf7d0bafedbae74147d33e641c67a91df239f"
+dependencies = [
+ "rand_core 0.6.4",
+ "zeroize",
 ]
 
 [[package]]
@@ -10301,6 +10320,19 @@ dependencies = [
  "rand_distr",
  "subtle 2.5.0",
  "thiserror 1.0.65",
+ "zeroize",
+]
+
+[[package]]
+name = "ml-kem"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcaee19a45f916d98f24a551cc9a2cdae705a040e66f3cbc4f3a282ea6a2e982"
+dependencies = [
+ "hybrid-array",
+ "kem",
+ "rand_core 0.6.4",
+ "sha3 0.10.8",
  "zeroize",
 ]
 
@@ -14177,7 +14209,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand 0.8.5",
- "rand_core 0.5.1",
+ "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
 ]
@@ -17708,7 +17740,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "once_cell",
@@ -17754,7 +17786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -19236,10 +19268,13 @@ dependencies = [
 name = "sc-basic-authorship"
 version = "0.50.0"
 dependencies = [
+ "chacha20poly1305",
  "futures",
  "log",
+ "ml-kem",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "rand 0.8.5",
  "sc-block-builder",
  "sc-client-api",
  "sc-proposer-metrics",
@@ -19252,6 +19287,7 @@ dependencies = [
  "sp-core 37.0.0",
  "sp-inherents",
  "sp-runtime 42.0.0",
+ "stc-shield",
  "stp-shield",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -24605,6 +24641,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "stc-shield"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chacha20poly1305",
+ "futures",
+ "log",
+ "ml-kem",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "sc-client-api",
+ "sc-service",
+ "sp-consensus",
+ "sp-inherents",
+ "sp-runtime 42.0.0",
+ "stp-shield",
+]
+
+[[package]]
 name = "stp-shield"
 version = "0.1.0"
 dependencies = [
@@ -24998,6 +25054,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie 40.0.0",
  "sp-version 40.0.0",
+ "stp-shield",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
@@ -26702,9 +26759,9 @@ dependencies = [
 
 [[package]]
 name = "typenum"
-version = "1.16.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "497961ef93d974e23eb6f433eb5fe1b7930b659f06d12dec6fc44a8f554c0bba"
+checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
 name = "ucd-trie"

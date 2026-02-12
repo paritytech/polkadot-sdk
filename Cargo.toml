@@ -1470,6 +1470,9 @@ zombienet-sdk = { version = "0.3.0" }
 zstd = { version = "0.12.4", default-features = false }
 
 stp-shield = { path = "/Users/loris/Work/subtensor/primitives/shield", default-features = false }
+stc-shield = { path = "/Users/loris/Work/subtensor/client/shield", default-features = false }
+ml-kem = { version = "0.2.2", default-features = false }
+chacha20poly1305 = { version = "0.10", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
