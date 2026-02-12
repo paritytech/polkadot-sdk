@@ -223,19 +223,19 @@ where
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let block = candidate.block;
 
-		// TODO: create new ParachainBlockData based on the new `sp_state_machine::StorageProof`
-		todo!();
-		// let compact_proof = match candidate
-		// 	.proof
-		// 	.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
-		// {
-		// 	Ok(proof) => proof,
-		// 	Err(e) => {
-		// 		tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
-		// 		return None
-		// 	},
-		// };
+		let compact_proof = match candidate
+			.proof
+			.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root())
+		{
+			Ok(proof) => proof,
+			Err(e) => {
+				tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
+				return None
+			},
+		};
 
+		// TODO: finish handling the rest of the collation process.
+		todo!()
 		// // Create the parachain block data for the validators.
 		// let (collation_info, _api_version) = self
 		// 	.fetch_collation_info(block_hash, block.header())

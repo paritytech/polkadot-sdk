@@ -376,7 +376,9 @@ where
 						sp_api::StorageProof::Trie(trie_proof) => Proof::Trie(
 							trie_proof.into_iter_nodes().map(|node| node.into()).collect(),
 						),
-						sp_api::StorageProof::Nomt(witness) => Proof::Nomt(witness),
+						// TODO: handle the new `NomtStorageProof` struct if remains unchanged.
+						// sp_api::StorageProof::Nomt(witness) => Proof::Nomt(witness),
+						sp_api::StorageProof::Nomt(witness) => todo!(),
 					})
 					.map(|proof| ReadProof { at: block, proof })
 			})
@@ -539,7 +541,9 @@ where
 						sp_api::StorageProof::Trie(trie_proof) => Proof::Trie(
 							trie_proof.into_iter_nodes().map(|node| node.into()).collect(),
 						),
-						sp_api::StorageProof::Nomt(witness) => Proof::Nomt(witness),
+						// TODO: handle the new `NomtStorageProof` struct if remains unchanged.
+						// sp_api::StorageProof::Nomt(witness) => Proof::Nomt(witness),
+						sp_api::StorageProof::Nomt(witness) => todo!(),
 					})
 					.map(|proof| ReadProof { at: block, proof })
 			})

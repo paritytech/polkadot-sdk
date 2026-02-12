@@ -3,8 +3,8 @@ use crate::{
 	stats::StateMachineStats,
 	trie_backend::{DefaultCache, TrieBackend, TrieBackendBuilder},
 	trie_backend_essence::TrieBackendStorage,
-	BackendTransaction, IterArgs, StorageKey, StorageProof, StorageValue, TrieCacheProvider,
-	UsageInfo,
+	BackendTransaction, IterArgs, NomtStorageProof, StorageKey, StorageProof, StorageValue,
+	TrieCacheProvider, UsageInfo,
 };
 
 use crate::backend::{AsTrieBackend, NomtBackendTransaction};
@@ -441,11 +441,14 @@ where
 
 				// Joing reads that happened within this session before performing the update.
 				let read_recorder = read_recorder.borrow_mut();
-				let reads = read_recorder.as_ref().map(|read_recorder| {
+				let mut reads = read_recorder.as_ref().map(|read_recorder| {
 					read_recorder.join_staging_reads();
-					&read_recorder.reads
+					// TODO: Reads currently need to be moved within the Proof, which
+					// requires cloning them here. It would be better to avoid this cloning.
+					read_recorder.reads.lock().clone()
 				});
 
+				// TODO: `if let` refactor.
 				let mut actual_access: Vec<_> = if reads.is_none() {
 					delta
 						.into_iter()
@@ -464,7 +467,8 @@ where
 						.collect()
 				} else {
 					// UNWRAP: Above reads have been checked to not be None.
-					let mut reads = reads.unwrap().lock();
+					// let mut reads = reads.unwrap().lock();
+					let mut reads = reads.unwrap();
 					let mut actual_access = vec![];
 					for (key, maybe_val) in delta.into_iter() {
 						let maybe_val = maybe_val.as_ref().map(|inner_val| inner_val.to_vec());
@@ -477,11 +481,8 @@ where
 						};
 						actual_access.push((key, key_read_write));
 					}
-					actual_access.extend(
-						std::mem::take(&mut *reads)
-							.into_iter()
-							.map(|(key, val)| (key, KeyReadWrite::Read(val))),
-					);
+					actual_access
+						.extend(reads.into_iter().map(|(key, val)| (key, KeyReadWrite::Read(val))));
 					actual_access.extend(child_deltas);
 					actual_access
 				};
@@ -752,10 +753,17 @@ impl NomtReadRecorder {
 		self.reads.lock().extend(staging_reads.into_iter());
 	}
 
-	fn drain_storage_proof(self) -> NomtWitness {
+	fn drain_storage_proof(self) -> NomtStorageProof {
 		// UNWRAP: the recorder is moved here, it is not expected to be used anymore
 		// within other state backends.
-		Arc::into_inner(self.witness).unwrap().into_inner().unwrap()
+		let witness = Arc::into_inner(self.witness).unwrap().into_inner().unwrap();
+		let reads = Arc::into_inner(self.reads)
+			.unwrap()
+			.into_inner()
+			.into_iter()
+			.filter_map(|(_key, maybe_val)| maybe_val)
+			.collect();
+		NomtStorageProof { witness, reads }
 	}
 }
 

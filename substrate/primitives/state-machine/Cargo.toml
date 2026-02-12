@@ -18,7 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 arbitrary = { features = ["derive"], optional = true, workspace = true }
-codec = { workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 hash-db = { workspace = true }
 log = { workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }

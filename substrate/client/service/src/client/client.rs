@@ -74,10 +74,10 @@ use sp_runtime::{
 use sp_state_machine::{
 	prove_child_read, prove_range_read_with_child_with_size, prove_read,
 	read_range_proof_check_with_child_on_proving_backend, Backend as StateBackend,
-	ChildStorageCollection, KeyValueStates, KeyValueStorageLevel, StorageCollection, StorageProof,
-	MAX_NESTED_TRIE_DEPTH,
+	ChildStorageCollection, CompactProof, KeyValueStates, KeyValueStorageLevel, StorageCollection,
+	StorageProof, MAX_NESTED_TRIE_DEPTH,
 };
-use sp_trie::{proof_size_extension::ProofSizeExt, CompactProof, MerkleValue};
+use sp_trie::{proof_size_extension::ProofSizeExt, MerkleValue};
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,

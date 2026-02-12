@@ -54,6 +54,9 @@ pub use log::{debug, error as log_error, warn};
 #[cfg(feature = "std")]
 pub use tracing::trace;
 
+use alloc::vec::Vec;
+use nomt_core::{proof::MultiProof as NomtMultiProof, witness::Witness as NomtWitness};
+
 /// In no_std we skip logs for state_machine, this macro
 /// is a noops.
 #[cfg(not(feature = "std"))]
@@ -159,14 +162,38 @@ mod std_reexport {
 	};
 	pub use sp_trie::{
 		trie_types::{TrieDBMutV0, TrieDBMutV1},
-		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, TrieMut,
+		DBValue, LayoutV0, LayoutV1, MemoryDB, TrieMut,
 	};
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, codec::Encode, codec::Decode)]
+pub struct NomtStorageProof {
+	pub witness: NomtWitness,
+	// NOTE: This is here only to make PoV creation easier.
+	// This data is *not* required to be here within a standard substrate-based chain.
+	// But PoV is created by `Self::into_compact_proof` without any additional parameter,
+	// thus the easiest way to be able to encode reads within the compact proof
+	// is to carry them around along the nomt witness.
+	pub reads: Vec<Vec<u8>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, codec::Encode, codec::Decode)]
 pub enum StorageProof {
 	Trie(sp_trie::StorageProof),
-	Nomt(nomt_core::witness::Witness),
+	Nomt(NomtStorageProof),
+}
+
+#[derive(Debug, Clone, codec::Encode, codec::Decode)]
+pub struct NomtCompactProof {
+	proof: NomtMultiProof,
+	values: Vec<Vec<u8>>,
+}
+
+/// Storage proof in compact form.
+#[derive(Debug, Clone, codec::Encode, codec::Decode)]
+pub enum CompactProof {
+	Trie(sp_trie::CompactProof),
+	Nomt(NomtCompactProof),
 }
 
 #[cfg(feature = "std")]
@@ -175,6 +202,27 @@ impl StorageProof {
 		match self {
 			StorageProof::Trie(trie_proof) => Some(trie_proof),
 			StorageProof::Nomt(_) => None,
+		}
+	}
+
+	/// Encode as a compact proof with default trie layout.
+	// TODO: properly handle error.
+	pub fn into_compact_proof<H: hash_db::Hasher>(self, root: H::Out) -> Result<CompactProof, ()> {
+		match self {
+			StorageProof::Trie(trie_proof) =>
+				Ok(CompactProof::Trie(trie_proof.into_compact_proof::<H>(root).map_err(|_| ())?)),
+			StorageProof::Nomt(NomtStorageProof { witness, reads }) => {
+				let mut path_proofs: Vec<_> = witness
+					.path_proofs
+					.into_iter()
+					.map(|nomt_core::witness::WitnessedPath { inner, .. }| inner)
+					.collect();
+				path_proofs.sort_by(|p1, p2| p1.terminal.path().cmp(p2.terminal.path()));
+
+				let multi_proof = NomtMultiProof::from_path_proofs(path_proofs);
+
+				Ok(CompactProof::Nomt(NomtCompactProof { proof: multi_proof, values: reads }))
+			},
 		}
 	}
 }
