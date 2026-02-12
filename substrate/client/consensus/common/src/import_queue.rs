@@ -219,8 +219,8 @@ pub enum BlockImportError {
 	MissingState,
 
 	/// Block has an unknown parent
-	#[error("block has an unknown parent")]
-	UnknownParent,
+	#[error("block has an unknown parent (origin = {0:?})")]
+	UnknownParent(Option<RuntimeOrigin>),
 
 	/// Block import has been cancelled. This can happen if the parent block fails to be imported.
 	#[error("import has been cancelled")]
@@ -278,7 +278,7 @@ where
 				target: LOG_TARGET,
 				"Block with unknown parent {}: {:?}, parent: {:?}", number, hash, parent_hash
 			);
-			Err(BlockImportError::UnknownParent)
+			Err(BlockImportError::UnknownParent(block_origin))
 		},
 		Ok(ImportResult::KnownBad) => {
 			debug!(target: LOG_TARGET, "Peer gave us a bad block {}: {:?}", number, hash);

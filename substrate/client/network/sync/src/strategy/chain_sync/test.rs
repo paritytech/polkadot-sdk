@@ -1341,3 +1341,130 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		assert!(sync.gap_sync.is_none());
 	}
 }
+
+/// Test that `UnknownParent` error triggers ancestor search instead of causing sync issues.
+///
+/// This test demonstrates the fix for a scenario where:
+/// 1. A peer sends a block whose parent was pruned (e.g., after a fork reorg)
+/// 2. Previously, this could cause repeated requests for the same unreachable block,
+///    eventually triggering "Same block request multiple times" ban
+/// 3. With the fix, we initiate ancestor search to find where chains diverged
+#[test]
+fn unknown_parent_triggers_ancestor_search() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id = PeerId::random();
+	let peer_best_hash = Hash::random();
+	let peer_best_number = 100u64;
+
+	// Add a peer that claims to have a longer chain
+	sync.add_peer(peer_id, peer_best_hash, peer_best_number);
+
+	// Verify peer starts in Available state
+	{
+		let peer = sync.peers.get(&peer_id).expect("Peer should exist");
+		assert!(
+			matches!(peer.state, PeerSyncState::Available),
+			"Peer should start in Available state, got {:?}",
+			peer.state
+		);
+	}
+
+	// Simulate receiving a block with an unknown parent from this peer.
+	// This happens when:
+	// - The peer is on a different fork
+	// - We pruned the fork blocks after a reorg
+	// - The peer sends us a block whose parent we don't have
+	let unknown_block_hash = Hash::random();
+	let results = vec![(
+		Err(BlockImportError::UnknownParent(Some(peer_id))),
+		unknown_block_hash,
+	)];
+
+	sync.on_blocks_processed(0, 1, results);
+
+	// Verify the peer transitioned to AncestorSearch state
+	{
+		let peer = sync.peers.get(&peer_id).expect("Peer should still exist");
+		assert!(
+			matches!(peer.state, PeerSyncState::AncestorSearch { .. }),
+			"Peer should be in AncestorSearch state after UnknownParent error, got {:?}",
+			peer.state
+		);
+
+		// Verify the ancestor search starts from the peer's common_number
+		if let PeerSyncState::AncestorSearch { start, current, .. } = peer.state {
+			assert_eq!(
+				start, peer.common_number,
+				"Ancestor search should start from common_number"
+			);
+			assert_eq!(
+				current, peer.common_number,
+				"Ancestor search current should equal common_number"
+			);
+		}
+	}
+
+	// Verify that state_sync was reset (as per the handler logic)
+	assert!(sync.state_sync.is_none(), "state_sync should be None after UnknownParent");
+}
+
+/// Test that `UnknownParent` error without peer origin doesn't crash and handles gracefully.
+#[test]
+fn unknown_parent_without_origin_handles_gracefully() {
+	sp_tracing::try_init_simple();
+
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id = PeerId::random();
+
+	// Add a peer
+	sync.add_peer(peer_id, Hash::random(), 100);
+
+	// Simulate receiving a block with unknown parent but NO origin
+	// (e.g., locally generated or origin lost)
+	let unknown_block_hash = Hash::random();
+	let results = vec![(
+		Err(BlockImportError::UnknownParent(None)), // No peer origin
+		unknown_block_hash,
+	)];
+
+	// This should not panic
+	sync.on_blocks_processed(0, 1, results);
+
+	// Peer should remain in Available state since we don't know who sent the bad block
+	{
+		let peer = sync.peers.get(&peer_id).expect("Peer should still exist");
+		assert!(
+			matches!(peer.state, PeerSyncState::Available),
+			"Peer should remain Available when UnknownParent has no origin, got {:?}",
+			peer.state
+		);
+	}
+}

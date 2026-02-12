@@ -86,7 +86,7 @@ impl Metrics {
 			Err(BlockImportError::VerificationFailed(_, _)) => "verification_failed",
 			Err(BlockImportError::BadBlock(_)) => "bad_block",
 			Err(BlockImportError::MissingState) => "missing_state",
-			Err(BlockImportError::UnknownParent) => "unknown_parent",
+			Err(BlockImportError::UnknownParent(_)) => "unknown_parent",
 			Err(BlockImportError::Cancelled) => "cancelled",
 			Err(BlockImportError::Other(_)) => "failed",
 		};

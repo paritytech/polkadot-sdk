@@ -767,7 +767,43 @@ where
 					// Don't mark it as bad as it still may be synced if explicitly requested.
 					trace!(target: LOG_TARGET, "Obsolete block {hash:?}");
 				},
-				e @ Err(BlockImportError::UnknownParent) | e @ Err(BlockImportError::Other(_)) => {
+				Err(BlockImportError::UnknownParent(peer_id)) => {
+					warn!(
+						target: LOG_TARGET,
+						"💔 Error importing block {hash:?} from {peer_id:?}: unknown parent"
+					);
+
+					// When the peer is provided clear its queue and trigger an ancestor search to
+					// find the common ancestor with this peer.
+					if let Some(peer) = peer_id {
+						// Clear blocks from this peer in our queue
+						self.blocks.clear_peer_download(&peer);
+
+						// Check were we have diverged from the peer.
+						if let Some(peer_sync) = self.peers.get_mut(&peer) {
+							debug!(
+								target: LOG_TARGET,
+								"Ancestor search with {peer} after unknown parent. Previous state was {:?}",
+								peer_sync.state,
+							);
+
+							// Force rediscovery of the common ancestor with this peer by setting
+							// the common number to the best number we know for this peer.
+							// This will trigger an ancestor search from that point.
+							let current = peer_sync.common_number;
+							peer_sync.state = PeerSyncState::AncestorSearch {
+								start: current,
+								current,
+								state: AncestorSearchState::ExponentialBackoff(One::one()),
+							};
+						}
+					}
+
+					// Don't restart everything as this may be caused by a
+					// single bad block in the chain.
+					self.state_sync = None;
+				},
+				e @ Err(BlockImportError::Other(_)) => {
 					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {}", e.unwrap_err());
 					self.state_sync = None;
 					self.restart();
