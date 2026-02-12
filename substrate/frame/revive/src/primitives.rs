@@ -469,3 +469,20 @@ pub enum CodeRemoved {
 	/// The code was removed. (refcount == 0)
 	Yes,
 }
+
+#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
+pub enum SimulationError {
+	DispatchError(DispatchError),
+}
+
+impl From<DispatchError> for SimulationError {
+	fn from(value: DispatchError) -> Self {
+		Self::DispatchError(value)
+	}
+}
+
+impl<T: Config> From<crate::Error<T>> for SimulationError {
+	fn from(value: crate::Error<T>) -> Self {
+		Self::DispatchError(value.into())
+	}
+}

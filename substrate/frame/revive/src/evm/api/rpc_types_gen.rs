@@ -18,7 +18,7 @@
 #![allow(missing_docs)]
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
@@ -554,7 +554,9 @@ impl HashesOrTransactionInfos {
 }
 
 /// log
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, Encode, Decode, TypeInfo,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Log {
 	/// address
@@ -1106,6 +1108,211 @@ pub struct FeeHistoryResult {
 	/// ascending order, weighted by gas used. Zeroes are returned if the block is empty.
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub reward: Vec<Vec<U256>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationParameters {
+	/// Definition of blocks that can contain calls and overrides.
+	///
+	/// The maximum number of entries that could exist here is 256, any requests with more blocks
+	/// than this are considered invalid.
+	pub block_state_calls: Vec<BlockStateCall>,
+
+	/// Adds ETH transfers as ERC20 transfer events to the logs.
+	///
+	/// These transfers have emitter contract parameter set as address([0xE; 20]). This allows you
+	/// to track movements of ETH in your calls.
+	#[serde(default)]
+	pub trace_transfers: bool,
+
+	/// When true, the `eth_simulateV1` does all the validation that a normal EVM would do, except
+	/// contract sender and signature checks. When false, `eth_simulateV1` behaves like `eth_call`.
+	#[serde(default)]
+	pub validation: bool,
+
+	/// When true, the method returns full transaction objects, otherwise, just hashes are
+	/// returned.
+	#[serde(default)]
+	pub return_full_transactions: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockStateCall {
+	/// Overrides fields such as block number or time in a simulated block.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub block_overrides: Option<BlockOverrides>,
+
+	/// State overrides can be used to replace existing blockchain state with new state.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub state_overrides: Option<StateOverrides>,
+
+	/// An array of transaction call objects.
+	pub calls: Vec<GenericTransaction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockOverrides {
+	/// Block number
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub number: Option<u64>,
+
+	/// The previous value of randomness beacon
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub prev_randao: Option<U256>,
+
+	/// Block timestamp
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub time: Option<u64>,
+
+	/// Gas limit
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub gas_limit: Option<u64>,
+
+	/// Fee recipient (also known as coinbase).
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub fee_recipient: Option<H160>,
+
+	/// Withdrawals made by validators.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub withdrawals: Option<Vec<ValidatorWithdrawal>>,
+
+	/// Base fee per unit of gas (see EIP-1559).
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub base_fee_per_gas: Option<U256>,
+
+	/// Base fee per unit of blob gas (see EIP-4844).
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub blob_base_fee: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidatorWithdrawal {
+	pub index: u64,
+	pub validator_index: u64,
+	pub address: H160,
+	pub amount: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+pub struct StateOverrides(pub BTreeMap<H160, AddressStateOverride>);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct AddressStateOverride {
+	/// Fake balance to set for the account before executing the call.
+	pub balance: Option<U256>,
+
+	/// Fake nonce to set for the account before executing the call.
+	pub nonce: Option<U256>,
+
+	/// Fake EVM bytecode to inject into the account before executing the call.
+	pub code: Option<Bytes>,
+
+	/// Fake key-value mapping to override all slots in the account storage before executing the
+	/// call.
+	pub state: Option<BTreeMap<H256, Bytes32>>,
+
+	/// Fake key-value mapping to override individual slots in the account storage before executing
+	/// the call.
+	pub state_diff: Option<BTreeMap<H256, Bytes32>>,
+
+	/// Moves precompile to given address.
+	pub move_precompile_to_address: Option<H160>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+pub struct SimulationResponse<SimulationError>(pub Vec<SimulationBlock<SimulationError>>);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationBlock<SimulationError> {
+	/// Base fee per gas
+	pub base_fee_per_gas: U256,
+	/// Blob gas used
+	pub blob_gas_used: U256,
+	/// Difficulty
+	pub difficulty: U256,
+	/// Excess blob gas
+	pub excess_blob_gas: U256,
+	/// Extra data
+	pub extra_data: Bytes,
+	/// Gas limit
+	pub gas_limit: U256,
+	/// Gas used
+	pub gas_used: U256,
+	/// Hash
+	pub hash: H256,
+	/// Bloom filter
+	pub logs_bloom: Bytes256,
+	/// Coinbase
+	pub miner: Address,
+	/// Mix hash
+	pub mix_hash: H256,
+	/// Nonce
+	pub nonce: Bytes8,
+	/// Number
+	pub number: U256,
+	/// Parent Beacon Block Root
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub parent_beacon_block_root: Option<H256>,
+	/// Parent block hash
+	pub parent_hash: H256,
+	/// Receipts root
+	pub receipts_root: H256,
+	/// Requests root
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub requests_hash: Option<H256>,
+	/// Ommers hash
+	pub sha_3_uncles: H256,
+	/// Block size
+	pub size: U256,
+	/// State root
+	pub state_root: H256,
+	/// Timestamp
+	pub timestamp: U256,
+	/// Total difficulty
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub total_difficulty: Option<U256>,
+	pub transactions: HashesOrTransactionInfos,
+	/// Transactions root
+	pub transactions_root: H256,
+	/// Uncles
+	pub uncles: Vec<H256>,
+	/// Withdrawals
+	pub withdrawals: Vec<Withdrawal>,
+	/// Withdrawals root
+	pub withdrawals_root: H256,
+	/// The result of the various calls in the simulation
+	pub calls: Vec<SimulationCallResult<SimulationError>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[serde(rename_all = "camelCase", tag = "status")]
+pub enum SimulationCallResult<SimulationError> {
+	/// Simulation call result returned when the simulation of the call succeeds
+	#[serde(rename = "0x1")]
+	Success {
+		/// Transactions return data
+		return_data: Bytes,
+		/// Gas used by the transaction
+		gas_used: U256,
+		/// Log events emitted during call. This includes ETH logs, if `traceTransfers` is enabled
+		logs: Vec<Log>,
+	},
+	/// Simulation call result returned when the simulation of the call fails
+	#[serde(rename = "0x0")]
+	Failed {
+		/// Transactions return data
+		return_data: Bytes,
+		/// Gas used by the transaction
+		gas_used: U256,
+		/// Error code, data and message
+		error: SimulationError,
+	},
 }
 
 #[cfg(test)]
