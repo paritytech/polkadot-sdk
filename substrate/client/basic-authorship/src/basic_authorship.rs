@@ -29,8 +29,8 @@ use futures::{
 use log::{debug, error, info, trace, warn};
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
-use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxHash, TxInvalidityReportMap};
+use sp_api::{ApiExt, ApiRef, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -40,6 +40,7 @@ use sp_runtime::{
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
+use stp_shield::{ShieldApi, ShieldKeystoreExt, ShieldKeystorePtr, ShieldedTransaction};
 
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -82,6 +83,8 @@ pub struct ProposerFactory<A, C, PR> {
 	telemetry: Option<TelemetryHandle>,
 	/// When estimating the block size, should the proof be included?
 	include_proof_in_block_size_estimation: bool,
+	/// The MEV shield keystore.
+	shield_keystore: ShieldKeystorePtr,
 	/// phantom member to pin the `ProofRecording` type.
 	_phantom: PhantomData<PR>,
 }
@@ -97,6 +100,7 @@ impl<A, C, PR> Clone for ProposerFactory<A, C, PR> {
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
+			shield_keystore: self.shield_keystore.clone(),
 			_phantom: self._phantom,
 		}
 	}
@@ -113,6 +117,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
+		shield_keystore: ShieldKeystorePtr,
 	) -> Self {
 		ProposerFactory {
 			spawn_handle: Box::new(spawn_handle),
@@ -123,6 +128,7 @@ impl<A, C> ProposerFactory<A, C, DisableProofRecording> {
 			telemetry,
 			client,
 			include_proof_in_block_size_estimation: false,
+			shield_keystore,
 			_phantom: PhantomData,
 		}
 	}
@@ -141,6 +147,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 		transaction_pool: Arc<A>,
 		prometheus: Option<&PrometheusRegistry>,
 		telemetry: Option<TelemetryHandle>,
+		shield_keystore: ShieldKeystorePtr,
 	) -> Self {
 		ProposerFactory {
 			client,
@@ -151,6 +158,7 @@ impl<A, C> ProposerFactory<A, C, EnableProofRecording> {
 			soft_deadline_percent: DEFAULT_SOFT_DEADLINE_PERCENT,
 			telemetry,
 			include_proof_in_block_size_estimation: true,
+			shield_keystore,
 			_phantom: PhantomData,
 		}
 	}
@@ -221,6 +229,7 @@ where
 			default_block_size_limit: self.default_block_size_limit,
 			soft_deadline_percent: self.soft_deadline_percent,
 			telemetry: self.telemetry.clone(),
+			shield_keystore: self.shield_keystore.clone(),
 			_phantom: PhantomData,
 			include_proof_in_block_size_estimation: self.include_proof_in_block_size_estimation,
 		};
@@ -234,7 +243,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	type CreateProposer = future::Ready<Result<Self::Proposer, Self::Error>>;
@@ -259,6 +268,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool, PR> {
 	include_proof_in_block_size_estimation: bool,
 	soft_deadline_percent: Percent,
 	telemetry: Option<TelemetryHandle>,
+	shield_keystore: ShieldKeystorePtr,
 	_phantom: PhantomData<PR>,
 }
 
@@ -267,7 +277,7 @@ where
 	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	type Proposal =
@@ -318,7 +328,7 @@ where
 	A: TransactionPool<Block = Block>,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
-	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
+	C::Api: ApiExt<Block> + BlockBuilderApi<Block> + ShieldApi<Block>,
 	PR: ProofRecording,
 {
 	async fn propose_with(
@@ -449,9 +459,31 @@ where
 			let pending_tx_data = (**pending_tx.data()).clone();
 			let pending_tx_hash = pending_tx.hash().clone();
 
+			let mut api = self.client.runtime_api();
+			api.register_extension(ShieldKeystoreExt::from(self.shield_keystore.clone()));
+
+			let maybe_shielded_tx = api
+				.try_decode_shielded_tx(self.parent_hash, pending_tx_data.clone())
+				.ok()
+				.flatten();
+
+			let pending_tx_data_size = if let Some(shielded_tx) = &maybe_shielded_tx {
+				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16 bytes
+				// for the tag (source: https://www.rfc-editor.org/rfc/rfc8439#section-2.8) so we need
+				// to subtract it from the ciphertext length to get the plaintext length
+				const TAG_SIZE: usize = 16;
+				let unshielded_tx_size = shielded_tx.aead_ct.len().saturating_sub(TAG_SIZE);
+
+				// We will push the shielded tx wrapper and the unshielded inner tx to the block builder
+				// so we should account for both when estimating the block size
+				pending_tx_data.encoded_size() + unshielded_tx_size
+			} else {
+				pending_tx_data.encoded_size()
+			};
+
 			let block_size =
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
-			if block_size + pending_tx_data.encoded_size() > block_size_limit {
+			if block_size + pending_tx_data_size > block_size_limit {
 				pending_iterator.report_invalid(&pending_tx);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;
@@ -479,31 +511,34 @@ where
 				}
 			}
 
-			trace!(target: LOG_TARGET, "[{:?}] Pushing to the block.", pending_tx_hash);
+			let tx_type = if maybe_shielded_tx.is_some() { "shield wrapper" } else { "normal" };
+			trace!(target: LOG_TARGET, "[{:?}] Pushing {} transaction to the block.", pending_tx_hash, tx_type);
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
-					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
+					trace!(target: LOG_TARGET, "[{:?}] Pushed {} transaction to the block.", pending_tx_hash, tx_type);
+
+					let Some(shielded_tx) = maybe_shielded_tx else {
+						continue;
+					};
+
+					if let Err(end_reason) = self.unshield_and_push_inner_tx(
+						&mut api,
+						block_builder,
+						pending_tx_hash,
+						shielded_tx,
+						&mut skipped,
+						soft_deadline,
+					) {
+						break end_reason;
+					}
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
-					if skipped < MAX_SKIPPED_TRANSACTIONS {
-						skipped += 1;
-						debug!(target: LOG_TARGET,
-							"Block seems full, but will try {} more transactions before quitting.",
-							MAX_SKIPPED_TRANSACTIONS - skipped,
-						);
-					} else if (self.now)() < soft_deadline {
-						debug!(target: LOG_TARGET,
-							"Block seems full, but we still have time before the soft deadline, \
-							 so we will try a bit more before quitting."
-						);
-					} else {
-						debug!(
-							target: LOG_TARGET,
-							"Reached block weight limit, proceeding with proposing."
-						);
-						break EndProposingReason::HitBlockWeightLimit
+					if let Err(end_reason) =
+						self.report_exhausted_resources(&mut skipped, soft_deadline)
+					{
+						break end_reason;
 					}
 				},
 				Err(e) => {
@@ -532,6 +567,69 @@ where
 
 		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
+	}
+
+	fn unshield_and_push_inner_tx(
+		&self,
+		api: &mut ApiRef<'_, C::Api>,
+		block_builder: &mut sc_block_builder::BlockBuilder<'_, Block, C>,
+		shielded_tx_hash: TxHash<A>,
+		shielded_tx: ShieldedTransaction,
+		skipped: &mut usize,
+		soft_deadline: time::Instant,
+	) -> Result<(), EndProposingReason> {
+		let Some(unshielded_tx_data) =
+			api.try_unshield_tx(self.parent_hash, shielded_tx).ok().flatten()
+		else {
+			debug!(target: LOG_TARGET, "[{:?}] Failed to unshield transaction", shielded_tx_hash);
+			return Ok(());
+		};
+		trace!(target: LOG_TARGET, "[{:?}] Unshielded inner transaction: {:?}", shielded_tx_hash, unshielded_tx_data);
+
+		match sc_block_builder::BlockBuilder::push(block_builder, unshielded_tx_data) {
+			Ok(()) => {
+				debug!(target: LOG_TARGET, "[{:?}] Pushed unshielded transaction to the block.", shielded_tx_hash);
+			},
+			Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
+				debug!(target: LOG_TARGET, "[{:?}] Unshielded transaction exhausted resources", shielded_tx_hash);
+				self.report_exhausted_resources(skipped, soft_deadline)?;
+			},
+			Err(e) => {
+				debug!(
+					target: LOG_TARGET,
+					"[{:?}] Invalid unshielded transaction: {} at: {}", shielded_tx_hash, e, self.parent_hash
+				);
+			},
+		}
+
+		Ok(())
+	}
+
+	fn report_exhausted_resources(
+		&self,
+		skipped: &mut usize,
+		soft_deadline: time::Instant,
+	) -> Result<(), EndProposingReason> {
+		if *skipped < MAX_SKIPPED_TRANSACTIONS {
+			*skipped += 1;
+			debug!(target: LOG_TARGET,
+				"Block seems full, but will try {} more transactions before quitting.",
+				MAX_SKIPPED_TRANSACTIONS - *skipped,
+			);
+			Ok(())
+		} else if (self.now)() < soft_deadline {
+			debug!(target: LOG_TARGET,
+				"Block seems full, but we still have time before the soft deadline, \
+				 so we will try a bit more before quitting."
+			);
+			Ok(())
+		} else {
+			debug!(
+				target: LOG_TARGET,
+				"Reached block weight limit, proceeding with proposing."
+			);
+			Err(EndProposingReason::HitBlockWeightLimit)
+		}
 	}
 
 	/// Prints a summary and does telemetry + metrics.
