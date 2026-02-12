@@ -2277,8 +2277,7 @@ mod remote_test {
 	/// ```
 	///
 	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT) WAH
-	/// staking pallet indices align with PAH. Also, ensure WAH ED is same as PAH (decrease it by
-	/// 10x in `../../../constants/src/westend.rs`).
+	/// staking pallet indices align with PAH.
 	#[tokio::test]
 	#[ignore]
 	async fn np_claim_trapped_balance() {
@@ -2325,9 +2324,8 @@ mod remote_test {
 			let mut total_claimed = 0u128;
 			let mut success_count = 0u32;
 
-			// Print table header
-			println!("| Member | Pool | Trapped DOT |");
-			println!("|--------|------|-------------|");
+			// Print CSV header
+			println!("Member,Pool,TrappedDOT");
 
 			for event_record in new_events {
 				if let RuntimeEvent::NominationPools(
@@ -2345,7 +2343,7 @@ mod remote_test {
 					let whole = amount / DOT_DECIMALS;
 					let fraction = (amount % DOT_DECIMALS) / (DOT_DECIMALS / 100);
 
-					println!("| {:?} | {} | {}.{:02} |", member, pool_id, whole, fraction);
+					println!("{:?},{},{}.{:02}", member, pool_id, whole, fraction);
 				}
 			}
 
@@ -2353,9 +2351,10 @@ mod remote_test {
 			let total_whole = total_claimed / DOT_DECIMALS;
 			let total_fraction = (total_claimed % DOT_DECIMALS) / (DOT_DECIMALS / 100);
 
-			println!("Total members: {}", total_members);
-			println!("Successful claims: {}", success_count);
-			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
+			println!("\nSummary");
+			println!("Total members,{}", total_members);
+			println!("Successful claims,{}", success_count);
+			println!("Total claimed,{}.{:02} DOT", total_whole, total_fraction);
 		});
 	}
 }
