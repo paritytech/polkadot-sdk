@@ -1,6 +1,5 @@
-The following crates were updated to the corresponding versions: 
+The following crates were updated to the corresponding versions:
 
-- sp-metadata-ir@0.12.2
-- frame-support@43.0.1
-- substrate-wasm-builder@29.0.1
-- pallet-example-view-functions@0.5.1
+- sp-trie@41.1.1
+- frame-benchmarking@43.0.1
+- asset-hub-westend-runtime@0.36.3
