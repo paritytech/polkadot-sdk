@@ -19252,6 +19252,7 @@ dependencies = [
  "sp-core 37.0.0",
  "sp-inherents",
  "sp-runtime 42.0.0",
+ "stp-shield",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
 ]
@@ -24601,6 +24602,17 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "stp-shield"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api 37.0.0",
+ "sp-externalities 0.30.0",
+ "sp-runtime 42.0.0",
 ]
 
 [[package]]
