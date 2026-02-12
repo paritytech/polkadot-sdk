@@ -30,11 +30,11 @@ use frame_support::{
 	},
 };
 use frame_system::{Pallet as System, RawOrigin};
-use sp_arithmetic::{FixedU64, Perbill};
+use sp_arithmetic::Perbill;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{BlockNumberProvider, MaybeConvert},
-	FixedPointNumber, Saturating,
+	Saturating,
 };
 
 const SEED: u32 = 0;
@@ -113,9 +113,14 @@ fn setup_and_start_sale<T: Config>() -> Result<StartedSale<BalanceOf<T>>, Benchm
 	setup_leases::<T>(T::MaxLeasedCores::get(), 1, 10);
 
 	let initial_price = 10_000_000u32.into();
-	let (start_price, end_price) = get_start_end_price::<T>(initial_price);
 	Broker::<T>::do_start_sales(initial_price, MAX_CORE_COUNT.into())
 		.map_err(|_| BenchmarkError::Weightless)?;
+
+	// Get actual prices from the created sale
+	let sale_info = SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+	let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+	let start_price = Broker::<T>::sale_price(&sale_info, now);
+	let end_price = sale_info.end_price;
 
 	let sale_data = StartedSale {
 		start_price,
@@ -127,20 +132,6 @@ fn setup_and_start_sale<T: Config>() -> Result<StartedSale<BalanceOf<T>>, Benchm
 	};
 
 	Ok(sale_data)
-}
-
-fn get_start_end_price<T: Config>(initial_price: BalanceOf<T>) -> (BalanceOf<T>, BalanceOf<T>) {
-	let end_price = <T as Config>::PriceAdapter::adapt_price(SalePerformance {
-		sellout_price: None,
-		end_price: initial_price,
-		ideal_cores_sold: 0,
-		cores_offered: 0,
-		cores_sold: 0,
-	})
-	.end_price;
-	let start_price = <T as Config>::PriceAdapter::leadin_factor_at(FixedU64::from(0))
-		.saturating_mul_int(end_price);
-	(start_price, end_price)
 }
 
 #[benchmarks]
@@ -262,7 +253,6 @@ mod benches {
 		let latest_region_begin = Broker::<T>::latest_timeslice_ready_to_commit(&config);
 
 		let initial_price = 10_000_000u32.into();
-		let (start_price, end_price) = get_start_end_price::<T>(initial_price);
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
@@ -272,6 +262,13 @@ mod benches {
 		assert!(SaleInfo::<T>::get().is_some());
 		let sale_start = RCBlockNumberProviderOf::<T::Coretime>::current_block_number() +
 			config.interlude_length;
+
+		// Use the PriceAdapter to get the expected prices
+		let sale_info = SaleInfo::<T>::get().unwrap();
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let start_price = Broker::<T>::sale_price(&sale_info, now);
+		let end_price = sale_info.end_price;
+
 		assert_last_event::<T>(
 			Event::SaleInitialized {
 				sale_start,
@@ -882,7 +879,6 @@ mod benches {
 
 		// Start sales so we can test the auto-renewals.
 		let initial_price = 10_000_000u32.into();
-		let (start_price, _) = get_start_end_price::<T>(initial_price);
 		Broker::<T>::do_start_sales(
 			initial_price,
 			n.saturating_sub(n_reservations)
@@ -891,6 +887,11 @@ mod benches {
 				.expect("Upper limit of n is a u16."),
 		)
 		.expect("Configuration was initialized before; qed");
+
+		// Get actual prices from the created sale
+		let sale_info = SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let start_price = Broker::<T>::sale_price(&sale_info, now);
 
 		// Advance to the fixed price period.
 		advance_to::<T>(2);
