@@ -19268,13 +19268,10 @@ dependencies = [
 name = "sc-basic-authorship"
 version = "0.50.0"
 dependencies = [
- "chacha20poly1305",
  "futures",
  "log",
- "ml-kem",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "rand 0.8.5",
  "sc-block-builder",
  "sc-client-api",
  "sc-proposer-metrics",

@@ -715,17 +715,8 @@ fn skip_shielded_txs() -> bool {
 mod tests {
 	use super::*;
 
-	use chacha20poly1305::{
-		aead::{Aead, Payload},
-		KeyInit, XChaCha20Poly1305, XNonce,
-	};
 	use futures::executor::block_on;
-	use ml_kem::{
-		kem::{Decapsulate, DecapsulationKey, EncapsulationKey},
-		Ciphertext, EncodedSizeUser, KemCore, MlKem768, MlKem768Params,
-	};
 	use parking_lot::Mutex;
-	use rand::rngs::OsRng;
 	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
@@ -733,10 +724,13 @@ mod tests {
 	use sp_blockchain::HeaderBackend;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_runtime::{generic::BlockId, traits::NumberFor, Perbill};
-	use stp_shield::{Result as TraitResult, ShieldKeystore};
+	use stp_shield::{Result as TraitResult, ShieldKeystore, ShieldedTransaction};
 	use substrate_test_runtime_client::{
 		prelude::*,
-		runtime::{Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer},
+		runtime::{
+			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer,
+			SHIELD_TEST_DECODE_KEY, SHIELD_TEST_UNSHIELD_KEY,
+		},
 		TestClientBuilder, TestClientBuilderExt,
 	};
 
@@ -777,7 +771,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let hashof0 = client.info().genesis_hash;
 		block_on(txpool.submit_at(hashof0, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
@@ -837,7 +831,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let mut proposer_factory = ProposerFactory::new(
 			spawner.clone(),
@@ -881,7 +875,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let genesis_hash = client.info().best_hash;
 
@@ -944,7 +938,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 
 		let medium = |nonce| {
 			ExtrinsicBuilder::new_fill_block(Perbill::from_parts(MEDIUM))
@@ -1059,7 +1053,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
@@ -1172,7 +1166,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |nonce| {
@@ -1248,7 +1242,7 @@ mod tests {
 			spawner.clone(),
 			client.clone(),
 		));
-		let shield_keystore = Arc::new(TestShieldKeystore::new());
+		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
 
 		let tiny = |who| {
@@ -1330,17 +1324,247 @@ mod tests {
 		);
 	}
 
-	struct TestShieldKeystore {
-		enc_key: EncapsulationKey<MlKem768Params>,
-		dec_key: DecapsulationKey<MlKem768Params>,
+	// --- Shielded transaction tests ---
+
+	/// Creates a test client with mock shielded tx data injected into genesis storage.
+	fn shielded_test_client(
+		decode: Option<ShieldedTransaction>,
+		unshield: Option<Extrinsic>,
+	) -> Arc<substrate_test_runtime_client::TestClient> {
+		let mut builder = TestClientBuilder::new();
+		if let Some(tx) = decode {
+			builder = builder
+				.add_extra_storage(SHIELD_TEST_DECODE_KEY.to_vec(), tx.encode());
+		}
+		if let Some(ext) = unshield {
+			builder = builder
+				.add_extra_storage(SHIELD_TEST_UNSHIELD_KEY.to_vec(), ext.encode());
+		}
+		Arc::new(builder.build())
 	}
 
-	impl TestShieldKeystore {
-		fn new() -> Self {
-			let (dec_key, enc_key) = MlKem768::generate(&mut OsRng);
-			Self { enc_key, dec_key }
-		}
+	#[test]
+	fn shielded_tx_and_inner_tx_both_included_in_block() {
+		let client = shielded_test_client(
+			Some(mock_shielded_tx(100)),
+			Some(extrinsic(1)),
+		);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit one extrinsic (this becomes the wrapper)
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer = block_on(proposer_factory.init(
+			&client.expect_header(genesis_hash).unwrap(),
+		))
+		.unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should contain: wrapper extrinsic + unshielded inner extrinsic
+		assert_eq!(block.extrinsics().len(), 2);
 	}
+
+	#[test]
+	fn shielded_tx_included_when_unshielding_fails() {
+		// Decode succeeds but unshielding fails (no unshield key in storage)
+		let client = shielded_test_client(
+			Some(mock_shielded_tx(100)),
+			None,
+		);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit one extrinsic
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0)])).unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer = block_on(proposer_factory.init(
+			&client.expect_header(genesis_hash).unwrap(),
+		))
+		.unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should contain only the wrapper (inner unshielding failed gracefully)
+		assert_eq!(block.extrinsics().len(), 1);
+	}
+
+	#[test]
+	fn should_skip_shielded_txs_when_env_var_is_set() {
+		let client = shielded_test_client(
+			Some(mock_shielded_tx(100)),
+			Some(extrinsic(2)),
+		);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+
+		// Submit extrinsics to the pool
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0), extrinsic(1)]))
+			.unwrap();
+		block_on(txpool.maintain(chain_event(
+			client.expect_header(genesis_hash).expect("there should be header"),
+		)));
+		assert_eq!(txpool.ready().count(), 2);
+
+		// Set env var to skip shielded txs
+		let _env_guard = EnvVarGuard::set("SUBSTRATE_SKIP_SHIELDED_TXS", "1");
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer = block_on(proposer_factory.init(
+			&client.expect_header(genesis_hash).unwrap(),
+		))
+		.unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block =
+			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
+				.map(|r| r.block)
+				.unwrap();
+
+		// Block should have 0 extrinsics, all were shielded and skipped
+		assert_eq!(block.extrinsics().len(), 0);
+
+		// Transactions should still be in the pool (they weren't reported as invalid, just skipped)
+		assert_eq!(txpool.ready().count(), 2);
+	}
+
+	#[test]
+	fn block_size_accounts_for_unshielded_tx_size() {
+		let aead_ct_len = 10_000;
+		let client = shielded_test_client(
+			Some(mock_shielded_tx(aead_ct_len)),
+			Some(extrinsic(1)),
+		);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let txpool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner.clone(),
+			client.clone(),
+		));
+		let shield_keystore = Arc::new(TestShieldKeystore);
+		let genesis_hash = client.info().genesis_hash;
+		let genesis_header =
+			client.expect_header(genesis_hash).expect("there should be header");
+
+		let wrapper_tx = extrinsic(0);
+		let wrapper_encoded_size = wrapper_tx.encoded_size();
+
+		// Submit the wrapper to the pool
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![wrapper_tx])).unwrap();
+		block_on(txpool.maintain(chain_event(genesis_header.clone())));
+
+		// Compute base block size (header + empty extrinsics vector encoding)
+		let base_block_size = {
+			let builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(genesis_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
+			builder.estimate_block_size(false)
+		};
+
+		// aead_ct of 10_000 bytes means estimated inner = 9_984 bytes.
+		// The limit fits base + wrapper + half the estimated inner (so wrapper alone fits,
+		// but combined does not)
+		let estimated_inner_size = aead_ct_len - 16;
+		let block_size_limit = base_block_size + wrapper_encoded_size + estimated_inner_size / 2;
+
+		let mut proposer_factory = ProposerFactory::new(
+			spawner.clone(),
+			client.clone(),
+			txpool.clone(),
+			None,
+			None,
+			shield_keystore,
+		);
+
+		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
+
+		let deadline = time::Duration::from_secs(9);
+		let block = block_on(proposer.propose(
+			Default::default(),
+			Default::default(),
+			deadline,
+			Some(block_size_limit),
+		))
+		.map(|r| r.block)
+		.unwrap();
+
+		// Block should have 0 extrinsics, the shielded tx was too large to fit
+		// because the block size estimation accounts for wrapper + estimated inner
+		assert_eq!(block.extrinsics().len(), 0);
+	}
+
+	/// Minimal shield keystore stub, no actual decryption is performed in these tests
+	/// since the test runtime returns mock data from storage instead.
+	struct TestShieldKeystore;
 
 	impl ShieldKeystore for TestShieldKeystore {
 		fn roll_for_next_slot(&self) -> TraitResult<()> {
@@ -1348,29 +1572,53 @@ mod tests {
 		}
 
 		fn next_public_key(&self) -> TraitResult<Vec<u8>> {
-			Ok(self.enc_key.as_bytes().to_vec())
+			Ok(Vec::new())
 		}
 
-		fn mlkem768_decapsulate(&self, ciphertext: &[u8]) -> TraitResult<[u8; 32]> {
-			let ciphertext = Ciphertext::<MlKem768>::try_from(ciphertext).unwrap();
-			let shared_secret = self.dec_key.decapsulate(&ciphertext).unwrap();
-
-			Ok(shared_secret.into())
+		fn mlkem768_decapsulate(&self, _ciphertext: &[u8]) -> TraitResult<[u8; 32]> {
+			Ok([0u8; 32])
 		}
 
 		fn aead_decrypt(
 			&self,
-			key: [u8; 32],
-			nonce: [u8; 24],
-			msg: &[u8],
-			aad: &[u8],
+			_key: [u8; 32],
+			_nonce: [u8; 24],
+			_msg: &[u8],
+			_aad: &[u8],
 		) -> TraitResult<Vec<u8>> {
-			let aead = XChaCha20Poly1305::new((&key).into());
-			let nonce = XNonce::from_slice(&nonce);
-			let payload = Payload { msg, aad };
-			let decrypted = aead.decrypt(nonce, payload).unwrap();
+			Ok(Vec::new())
+		}
+	}
 
-			Ok(decrypted)
+	fn mock_shielded_tx(aead_ct_len: usize) -> ShieldedTransaction {
+		ShieldedTransaction {
+			key_hash: [0u8; 16],
+			kem_ct: vec![0u8; 32],
+			aead_ct: vec![0u8; aead_ct_len],
+			nonce: [0u8; 24],
+		}
+	}
+
+	/// RAII guard that sets an environment variable and restores the previous value on drop.
+	struct EnvVarGuard {
+		key: &'static str,
+		prev: Option<String>,
+	}
+
+	impl EnvVarGuard {
+		fn set(key: &'static str, value: &str) -> Self {
+			let prev = std::env::var(key).ok();
+			std::env::set_var(key, value);
+			Self { key, prev }
+		}
+	}
+
+	impl Drop for EnvVarGuard {
+		fn drop(&mut self) {
+			match &self.prev {
+				Some(val) => std::env::set_var(self.key, val),
+				None => std::env::remove_var(self.key),
+			}
 		}
 	}
 }
