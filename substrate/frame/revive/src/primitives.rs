@@ -595,7 +595,7 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 		&mut self,
 		SimulationPayload { block_overrides, state_overrides, calls }: SimulationPayload,
 	) -> Result<(), SimulationError> {
-		let (last_block_number, last_block_timestamp) = self.last_block_number_and_timestamp();
+		let (last_block_number, ..) = self.last_block_number_and_timestamp();
 		let block_overrides = block_overrides.unwrap_or_default();
 		let state_overrides = state_overrides.unwrap_or_default();
 
@@ -603,18 +603,8 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 			.number
 			.or_else(|| last_block_number.checked_add(U256::one()))
 			.ok_or(SimulationError::OverflowError)?;
-		let block_timestamp_override = block_overrides
-			.time
-			.or_else(|| last_block_timestamp.checked_add(U256::one()))
-			.ok_or(SimulationError::OverflowError)?;
-
 		if block_number_override <= last_block_number {
 			return Err(SimulationError::BlockNumberOverrideMustBeMonotonicallyIncreasing);
-		}
-		if block_timestamp_override < last_block_timestamp {
-			return Err(
-				SimulationError::BlockTimestampOverrideMustBeEqualOrMonotonicallyIncreasing,
-			);
 		}
 
 		let gap_blocks_to_add = block_number_override
@@ -622,6 +612,17 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 			.and_then(|value| value.checked_sub(last_block_number))
 			.ok_or(SimulationError::OverflowError)?;
 		self.insert_gap_blocks_by_quantity(gap_blocks_to_add)?;
+
+		let (_, last_block_timestamp) = self.last_block_number_and_timestamp();
+		let block_timestamp_override = block_overrides
+			.time
+			.or_else(|| last_block_timestamp.checked_add(U256::one()))
+			.ok_or(SimulationError::OverflowError)?;
+		if block_timestamp_override < last_block_timestamp {
+			return Err(
+				SimulationError::BlockTimestampOverrideMustBeEqualOrMonotonicallyIncreasing,
+			);
+		}
 
 		let resolved_block_override = ResolvedSimulationBlockOverrides {
 			block_number: block_number_override,
@@ -657,14 +658,15 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 		Ok(())
 	}
 
-	/// Inserts a single gap block with an incremented block number and the same timestamp as the
-	/// last block.
+	/// Inserts a single gap block with an incremented block number and timestamp
 	fn insert_gap_block(&mut self) -> Result<(), SimulationError> {
 		let (last_block_number, last_block_timestamp) = self.last_block_number_and_timestamp();
 		let gap_block_number = last_block_number
 			.checked_add(U256::one())
-			.ok_or(SimulationError::BlockNumberOverrideMustBeMonotonicallyIncreasing)?;
-		let gap_timestamp = last_block_timestamp;
+			.ok_or(SimulationError::OverflowError)?;
+		let gap_timestamp = last_block_timestamp
+			.checked_add(U256::one())
+			.ok_or(SimulationError::OverflowError)?;
 
 		let resolved_block_override =
 			ResolvedSimulationBlockOverrides::new(gap_block_number, gap_timestamp);
