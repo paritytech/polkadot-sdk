@@ -604,7 +604,6 @@ impl pallet_multisig::Config for Runtime {
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
-	// TODO add migration.
 	type BlockNumberProvider = RelayChainBlockNumberProvider;
 }
 
