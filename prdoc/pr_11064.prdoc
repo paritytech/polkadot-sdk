@@ -1,0 +1,33 @@
+title: Refactor multisig pallet to use fungible traits instead of Currency
+doc:
+- audience: Runtime Dev
+  description: |
+    The multisig pallet now uses the modern `fungible` traits (`Inspect`, `Mutate`,
+    `InspectHold`, `MutateHold`) instead of the deprecated `Currency` / `ReservableCurrency`
+    traits. Deposits are now managed via hold/release with a `HoldReason::MultisigOperation`
+    reason instead of reserve/unreserve.
+
+    Breaking change: the `Config` trait replaces `type Currency` with `type Fungible`.
+    Runtimes must update their multisig configuration accordingly:
+    ```rust
+    // Before
+    type Currency = Balances;
+    // After
+    type Fungible = Balances;
+    ```
+
+    A multi-block migration (`LazyMigrationV1ToV2`) is provided to convert existing reserved
+    deposits to holds. Runtimes with `pallet_migrations` should register it in their
+    `Migrations` tuple.
+
+migrations:
+  runtime:
+  - reference: pallet_multisig::migrations::v2::LazyMigrationV1ToV2
+    description: |
+      Stepped migration that converts multisig deposits from Currency::reserve to
+      Fungible::hold with HoldReason::MultisigOperation. Iterates through all Multisigs
+      storage entries, unreserves the old deposit, and creates a new hold.
+
+crates:
+- name: pallet-multisig
+  bump: major
