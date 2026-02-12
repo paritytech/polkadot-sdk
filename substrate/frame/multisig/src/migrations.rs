@@ -59,7 +59,7 @@ pub mod v2 {
 		}
 
 		fn step(
-			cursor: Option<Self::Cursor>,
+			mut cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 			let required = T::WeightInfo::v2_migration_step(T::MaxSignatories::get());
@@ -69,18 +69,18 @@ pub mod v2 {
 				return Err(SteppedMigrationError::InsufficientWeight { required });
 			}
 
+			// Get iterator, resuming from cursor if present
+			let mut iter = if let Some(ref last_key) = cursor {
+				Multisigs::<T>::iter_from(last_key.to_vec())
+			} else {
+				Multisigs::<T>::iter()
+			};
+
 			// Loop to process as many entries as weight allows
 			loop {
 				if meter.try_consume(required).is_err() {
 					break;
 				}
-
-				// Get iterator, resuming from cursor if present
-				let mut iter = if let Some(ref last_key) = cursor {
-					Multisigs::<T>::iter_from(last_key.to_vec())
-				} else {
-					Multisigs::<T>::iter()
-				};
 
 				// Process next entry
 				if let Some((multisig_account, call_hash, multisig_data)) = iter.next() {
@@ -133,12 +133,13 @@ pub mod v2 {
 
 					// Update cursor with the current key
 					let raw_key = Multisigs::<T>::hashed_key_for(&multisig_account, &call_hash);
-					let cursor = BoundedVec::try_from(raw_key).unwrap_or_else(|mut raw_key| {
-						// Truncate if too long (shouldn't happen with 256 limit)
-						raw_key.truncate(256);
-						BoundedVec::try_from(raw_key).expect("truncated to bound; qed")
-					});
-					return Ok(Some(cursor));
+					cursor = Some(
+						BoundedVec::try_from(raw_key).unwrap_or_else(|mut raw_key| {
+							// Truncate if too long (shouldn't happen with 256 limit)
+							raw_key.truncate(256);
+							BoundedVec::try_from(raw_key).expect("truncated to bound; qed")
+						}),
+					);
 				} else {
 					// No more entries - migration complete
 					log!(info, "Migration v1 to v2 complete");
