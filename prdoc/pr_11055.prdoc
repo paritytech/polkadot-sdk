@@ -9,4 +9,4 @@ doc:
 crates:
 - name: pallet-staking-async-ah-client
   bump: major
-  validate: false  
+  validate: false
