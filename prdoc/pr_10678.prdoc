@@ -24,9 +24,9 @@ crates:
   - name: cumulus-relay-chain-interface
     bump: major
   - name: cumulus-relay-chain-rpc-interface
-    bump: patch
+    bump: minor
   - name: cumulus-relay-chain-inprocess-interface
-    bump: patch
+    bump: minor
   - name: cumulus-client-parachain-inherent
     bump: major
   - name: cumulus-client-consensus-aura
@@ -34,7 +34,7 @@ crates:
   - name: cumulus-pallet-parachain-system
     bump: major
   - name: cumulus-pallet-solo-to-para
-    bump: patch
+    bump: minor
   - name: cumulus-test-relay-sproof-builder
     bump: patch
   - name: cumulus-test-runtime
