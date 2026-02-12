@@ -118,7 +118,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 2);
-		assert_eq!(Balances::reserved_balance(1), 3);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 3);
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
@@ -129,7 +129,7 @@ fn multisig_deposit_is_taken_and_returned() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(1), 5);
-		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 0);
 	});
 }
 
@@ -155,10 +155,10 @@ fn cancel_multisig_returns_deposit() {
 			Weight::zero()
 		));
 		assert_eq!(Balances::free_balance(1), 6);
-		assert_eq!(Balances::reserved_balance(1), 4);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 4);
 		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
 		assert_eq!(Balances::free_balance(1), 10);
-		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), 0);
 	});
 }
 
@@ -822,7 +822,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 			Weight::zero()
 		));
 
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 
 		// Poke without changing deposit requirements
@@ -832,7 +832,7 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 
 		// Verify balances unchanged (except for fee)
-		assert_eq!(Balances::reserved_balance(1), initial_deposit);
+		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), initial_deposit);
 		assert!(Balances::free_balance(1) <= initial_free);
 
 		// Verify no event was emitted
@@ -861,7 +861,7 @@ fn poke_deposit_works_when_deposit_increases() {
 		));
 
 		// Record initial balances
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 		let initial_base: u64 = MultisigDepositBase::get();
 		let initial_factor: u64 = MultisigDepositFactor::get();
@@ -890,7 +890,7 @@ fn poke_deposit_works_when_deposit_increases() {
 
 		// Verify exact balance changes
 		assert_eq!(
-			Balances::reserved_balance(1),
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
 			expected_new_deposit,
 			"Reserved balance should be exactly base(3) + factor(2) * threshold(2) = 7"
 		);
@@ -934,7 +934,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 			Weight::zero()
 		));
 
-		let initial_deposit = Balances::reserved_balance(1);
+		let initial_deposit = Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1);
 		let initial_free = Balances::free_balance(1);
 
 		// Verify initial deposit calculation (3 + 2 * 2 = 7)
@@ -965,7 +965,7 @@ fn poke_deposit_works_when_deposit_decreases() {
 		let deposit_decrease = initial_deposit.saturating_sub(expected_new_deposit);
 
 		assert_eq!(
-			Balances::reserved_balance(1),
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
 			expected_new_deposit,
 			"Reserved balance should be exactly base(1) + factor(1) * threshold(2) = 3"
 		);
