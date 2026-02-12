@@ -8,4 +8,4 @@ doc:
     on-chain
 crates:
 - name: pallet-staking-async-ah-client
-  bump: patch
+  bump: major
