@@ -466,6 +466,12 @@ where
 				.try_decode_shielded_tx(self.parent_hash, pending_tx_data.clone())
 				.ok()
 				.flatten();
+			
+			if skip_shielded_txs() && maybe_shielded_tx.is_some() {
+				// We don't report the transaction as invalid so it stay in the pool
+				// and may be gossiped to other block authors that allow them.
+				continue;
+			}
 
 			let pending_tx_data_size = if let Some(shielded_tx) = &maybe_shielded_tx {
 				// The ciphertext length for XChaCha20Poly1305 is the length of the plaintext + 16 bytes
@@ -522,6 +528,7 @@ where
 						continue;
 					};
 
+					// The shield wrapper paid the unshield fee.
 					if let Err(end_reason) = self.unshield_and_push_inner_tx(
 						&mut api,
 						block_builder,
@@ -696,6 +703,10 @@ where
 			"hash" => ?<Block as BlockT>::Hash::from(block.header().hash()),
 		);
 	}
+}
+
+fn skip_shielded_txs() -> bool {
+	std::env::var("SUBSTRATE_SKIP_SHIELDED_TXS").is_ok_and(|v| v.trim() == "1")
 }
 
 #[cfg(test)]
