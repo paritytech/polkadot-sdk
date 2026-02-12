@@ -1110,14 +1110,14 @@ pub struct FeeHistoryResult {
 	pub reward: Vec<Vec<U256>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationParameters {
 	/// Definition of blocks that can contain calls and overrides.
 	///
 	/// The maximum number of entries that could exist here is 256, any requests with more blocks
 	/// than this are considered invalid.
-	pub block_state_calls: Vec<BlockStateCall>,
+	pub block_state_calls: Vec<SimulationPayload>,
 
 	/// Adds ETH transfers as ERC20 transfer events to the logs.
 	///
@@ -1137,9 +1137,9 @@ pub struct SimulationParameters {
 	pub return_full_transactions: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockStateCall {
+pub struct SimulationPayload {
 	/// Overrides fields such as block number or time in a simulated block.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub block_overrides: Option<BlockOverrides>,
@@ -1152,12 +1152,14 @@ pub struct BlockStateCall {
 	pub calls: Vec<GenericTransaction>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockOverrides {
 	/// Block number
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub number: Option<u64>,
+	pub number: Option<U256>,
 
 	/// The previous value of randomness beacon
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1165,7 +1167,7 @@ pub struct BlockOverrides {
 
 	/// Block timestamp
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub time: Option<u64>,
+	pub time: Option<U256>,
 
 	/// Gas limit
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1188,7 +1190,7 @@ pub struct BlockOverrides {
 	pub blob_base_fee: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase")]
 pub struct ValidatorWithdrawal {
 	pub index: u64,
@@ -1197,10 +1199,12 @@ pub struct ValidatorWithdrawal {
 	pub amount: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo,
+)]
 pub struct StateOverrides(pub BTreeMap<H160, AddressStateOverride>);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressStateOverride {
 	/// Fake balance to set for the account before executing the call.
@@ -1224,10 +1228,10 @@ pub struct AddressStateOverride {
 	pub move_precompile_to_address: Option<H160>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 pub struct SimulationResponse<SimulationError>(pub Vec<SimulationBlock<SimulationError>>);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationBlock<SimulationError> {
 	/// Base fee per gas
@@ -1290,7 +1294,7 @@ pub struct SimulationBlock<SimulationError> {
 	pub calls: Vec<SimulationCallResult<SimulationError>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[serde(rename_all = "camelCase", tag = "status")]
 pub enum SimulationCallResult<SimulationError> {
 	/// Simulation call result returned when the simulation of the call succeeds
