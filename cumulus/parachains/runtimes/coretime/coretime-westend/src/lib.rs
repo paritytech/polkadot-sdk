@@ -458,7 +458,7 @@ parameter_types! {
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
 	type MaxSignatories = ConstU32<100>;
