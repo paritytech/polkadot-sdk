@@ -461,6 +461,13 @@ pub mod pallet {
 		Unexpected(UnexpectedKind),
 		/// Session keys updated for a validator.
 		SessionKeysUpdated { stash: T::AccountId, update: SessionKeysUpdate },
+		/// Session key update from AssetHub failed on the relay chain.
+		/// Logged as an event for fail-safe observability.
+		SessionKeysUpdateFailed {
+			stash: T::AccountId,
+			update: SessionKeysUpdate,
+			error: DispatchError,
+		},
 	}
 
 	/// The type of session keys update received from AssetHub.
@@ -663,11 +670,25 @@ pub mod pallet {
 					},
 				};
 
-			T::SessionInterface::set_keys(&stash, session_keys)?;
-			Self::deposit_event(Event::SessionKeysUpdated {
-				stash,
-				update: SessionKeysUpdate::Set,
-			});
+			match T::SessionInterface::set_keys(&stash, session_keys) {
+				Ok(()) => Self::deposit_event(Event::SessionKeysUpdated {
+					stash,
+					update: SessionKeysUpdate::Set,
+				}),
+				Err(error) => {
+					log!(
+						warn,
+						"SessionKeysUpdateFailed: set_keys failed for {:?}: {:?}",
+						stash,
+						error
+					);
+					Self::deposit_event(Event::SessionKeysUpdateFailed {
+						stash,
+						update: SessionKeysUpdate::Set,
+						error,
+					});
+				},
+			}
 			Ok(())
 		}
 
@@ -681,11 +702,25 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received purge_keys request from AssetHub for {stash:?}");
 
-			T::SessionInterface::purge_keys(&stash)?;
-			Self::deposit_event(Event::SessionKeysUpdated {
-				stash,
-				update: SessionKeysUpdate::Purged,
-			});
+			match T::SessionInterface::purge_keys(&stash) {
+				Ok(()) => Self::deposit_event(Event::SessionKeysUpdated {
+					stash,
+					update: SessionKeysUpdate::Purged,
+				}),
+				Err(error) => {
+					log!(
+						warn,
+						"SessionKeysUpdateFailed: purge_keys failed for {:?}: {:?}",
+						stash,
+						error
+					);
+					Self::deposit_event(Event::SessionKeysUpdateFailed {
+						stash,
+						update: SessionKeysUpdate::Purged,
+						error,
+					});
+				},
+			}
 			Ok(())
 		}
 	}
@@ -1099,6 +1134,28 @@ mod keys_from_ah_tests {
 				assert!(SetKeysCalls::get().is_empty());
 			});
 
+			// emits SessionKeysUpdateFailed when SessionInterface::set_keys fails
+			hypothetically!({
+				SetKeysCalls::take();
+				let error = DispatchError::Corruption;
+				SetKeysError::set(Some(error));
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert!(SetKeysCalls::get().is_empty());
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdateFailed {
+						stash,
+						update: SessionKeysUpdate::Set,
+						error,
+					}
+					.into(),
+				);
+				SetKeysError::take();
+			});
+
 			// handles invalid keys gracefully
 			hypothetically!({
 				SetKeysCalls::take();
@@ -1140,6 +1197,24 @@ mod keys_from_ah_tests {
 					DispatchError::BadOrigin
 				);
 				assert!(PurgeKeysCalls::get().is_empty());
+			});
+
+			// emits SessionKeysUpdateFailed when SessionInterface::purge_keys fails
+			hypothetically!({
+				PurgeKeysCalls::take();
+				let error = DispatchError::Corruption;
+				PurgeKeysError::set(Some(error));
+				assert_ok!(StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::root(), stash));
+				assert!(PurgeKeysCalls::get().is_empty());
+				System::assert_has_event(
+					Event::<Test>::SessionKeysUpdateFailed {
+						stash,
+						update: SessionKeysUpdate::Purged,
+						error,
+					}
+					.into(),
+				);
+				PurgeKeysError::take();
 			});
 		});
 	}
