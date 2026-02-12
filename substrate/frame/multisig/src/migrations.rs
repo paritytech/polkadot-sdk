@@ -38,39 +38,18 @@ pub mod v2 {
 	/// Pallet migrations ID.
 	const PALLET_MIGRATIONS_ID: &[u8; 15] = b"pallet-multisig";
 
-	/// Weight functions for the migration.
-	pub mod weights {
-		use frame::weights_prelude::*;
-
-		/// Weight functions needed for the migration.
-		pub trait WeightInfo {
-			fn step() -> Weight;
-		}
-
-		impl WeightInfo for () {
-			fn step() -> Weight {
-				// Read: 1 Multisigs entry
-				// Write: 2 balance operations (unreserve + hold)
-				Weight::from_parts(25_000_000, 6811)
-					.saturating_add(RocksDbWeight::get().reads(1))
-					.saturating_add(RocksDbWeight::get().writes(2))
-			}
-		}
-	}
-
 	/// Migration to convert deposits from Currency::reserve to Fungible::hold.
 	///
 	/// This migration iterates through all entries in `Multisigs` storage and converts
 	/// the depositor's reserved balance to a hold with `HoldReason::MultisigOperation`.
-	pub struct LazyMigrationV1ToV2<T, OldCurrency, W = ()>(
-		core::marker::PhantomData<(T, OldCurrency, W)>,
+	pub struct LazyMigrationV1ToV2<T, OldCurrency>(
+		core::marker::PhantomData<(T, OldCurrency)>,
 	);
 
-	impl<T, OldCurrency, W> SteppedMigration for LazyMigrationV1ToV2<T, OldCurrency, W>
+	impl<T, OldCurrency> SteppedMigration for LazyMigrationV1ToV2<T, OldCurrency>
 	where
 		T: Config,
 		OldCurrency: ReservableCurrency<T::AccountId, Balance = BalanceOf<T>>,
-		W: weights::WeightInfo,
 	{
 		type Cursor = BoundedVec<u8, ConstU32<256>>;
 		type Identifier = MigrationId<15>;
@@ -83,7 +62,7 @@ pub mod v2 {
 			cursor: Option<Self::Cursor>,
 			meter: &mut WeightMeter,
 		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-			let required = W::step();
+			let required = T::WeightInfo::v2_migration_step(T::MaxSignatories::get());
 
 			// Check minimum weight requirement
 			if meter.remaining().any_lt(required) {
