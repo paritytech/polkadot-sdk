@@ -304,7 +304,7 @@ pub mod pallet {
 			Self::apply_update(update)
 		}
 
-		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
+		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
 		/// Verifies that provided next sync committee is valid through a series of checks
 		/// (including checking that a sync committee period isn't skipped and that the header is
 		/// signed by the current sync committee.
@@ -460,7 +460,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/master/specs/altair/light-client/sync-protocol.md#apply_light_client_update>
+		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#apply_light_client_update>
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
 		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
@@ -676,7 +676,7 @@ pub mod pallet {
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
 			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot -
-			// 1. See: https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+			// 1. See: https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 			// In validate_light_client_update: fork_version_slot = max(signature_slot, 1) - 1
 			let fork_version = Self::compute_fork_version(compute_epoch(
 				signature_slot.saturating_sub(1),
