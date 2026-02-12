@@ -1476,7 +1476,7 @@ pub type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
 	// unreleased
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime, Balances>,
 	// unreleased
 	InitStorageVersions,
 	// unreleased
