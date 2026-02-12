@@ -20,8 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame::benchmarking::prelude::*;
-use frame::traits::ReservableCurrency;
+use frame::{benchmarking::prelude::*, traits::ReservableCurrency};
 
 use crate::Pallet as Multisig;
 
@@ -419,20 +418,17 @@ mod benchmarks {
 				let deposit = multisig_data.deposit;
 
 				// Step 2: Unreserve old balance (simulating OldCurrency::unreserve)
-				let remaining =
-					<T::Fungible as ReservableCurrency<T::AccountId>>::unreserve(depositor, deposit);
+				let remaining = <T::Fungible as ReservableCurrency<T::AccountId>>::unreserve(
+					depositor, deposit,
+				);
 
 				// Step 3: Calculate amount to hold (same as migration)
 				let to_hold = deposit.saturating_sub(remaining);
 
 				// Step 4: Hold with fungible trait
 				if !to_hold.is_zero() {
-					T::Fungible::hold(
-						&HoldReason::MultisigOperation.into(),
-						depositor,
-						to_hold,
-					)
-					.map_err(|_| "failed to hold")?;
+					T::Fungible::hold(&HoldReason::MultisigOperation.into(), depositor, to_hold)
+						.map_err(|_| "failed to hold")?;
 				}
 			}
 

@@ -832,7 +832,10 @@ fn poke_deposit_charges_fee_when_deposit_unchanged() {
 		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 
 		// Verify balances unchanged (except for fee)
-		assert_eq!(Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1), initial_deposit);
+		assert_eq!(
+			Balances::balance_on_hold(&HoldReason::MultisigOperation.into(), &1),
+			initial_deposit
+		);
 		assert!(Balances::free_balance(1) <= initial_free);
 
 		// Verify no event was emitted

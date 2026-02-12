@@ -22,11 +22,13 @@ use frame::prelude::*;
 
 pub mod v2 {
 	use super::*;
-	use frame::deps::frame_support::{
-		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		weights::WeightMeter,
+	use frame::{
+		deps::frame_support::{
+			migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+			weights::WeightMeter,
+		},
+		traits::ReservableCurrency,
 	};
-	use frame::traits::ReservableCurrency;
 
 	#[cfg(feature = "try-runtime")]
 	extern crate alloc;
@@ -42,9 +44,7 @@ pub mod v2 {
 	///
 	/// This migration iterates through all entries in `Multisigs` storage and converts
 	/// the depositor's reserved balance to a hold with `HoldReason::MultisigOperation`.
-	pub struct LazyMigrationV1ToV2<T, OldCurrency>(
-		core::marker::PhantomData<(T, OldCurrency)>,
-	);
+	pub struct LazyMigrationV1ToV2<T, OldCurrency>(core::marker::PhantomData<(T, OldCurrency)>);
 
 	impl<T, OldCurrency> SteppedMigration for LazyMigrationV1ToV2<T, OldCurrency>
 	where
@@ -133,13 +133,11 @@ pub mod v2 {
 
 					// Update cursor with the current key
 					let raw_key = Multisigs::<T>::hashed_key_for(&multisig_account, &call_hash);
-					cursor = Some(
-						BoundedVec::try_from(raw_key).unwrap_or_else(|mut raw_key| {
-							// Truncate if too long (shouldn't happen with 256 limit)
-							raw_key.truncate(256);
-							BoundedVec::try_from(raw_key).expect("truncated to bound; qed")
-						}),
-					);
+					cursor = Some(BoundedVec::try_from(raw_key).unwrap_or_else(|mut raw_key| {
+						// Truncate if too long (shouldn't happen with 256 limit)
+						raw_key.truncate(256);
+						BoundedVec::try_from(raw_key).expect("truncated to bound; qed")
+					}));
 				} else {
 					// No more entries - migration complete
 					log!(info, "Migration v1 to v2 complete");
@@ -192,10 +190,8 @@ pub mod v2 {
 			for (depositor_key, expected_hold) in depositor_totals.iter() {
 				let depositor: T::AccountId = Decode::decode(&mut &depositor_key[..])
 					.expect("depositor was encoded correctly; qed");
-				let actual_hold = T::Fungible::balance_on_hold(
-					&HoldReason::MultisigOperation.into(),
-					&depositor,
-				);
+				let actual_hold =
+					T::Fungible::balance_on_hold(&HoldReason::MultisigOperation.into(), &depositor);
 
 				// The hold should be at least what we expected to migrate
 				// (could be more if there were existing holds)
