@@ -19,7 +19,7 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
-use sp_trie::CompactProof;
+use sp_state_machine::CompactProof;
 
 /// Special prefix used by [`ParachainBlockData`] from version 1 and upwards to distinguish from the
 /// unversioned legacy/v0 version.

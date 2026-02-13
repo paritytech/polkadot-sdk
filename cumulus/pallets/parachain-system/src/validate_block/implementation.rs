@@ -17,6 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use crate::RelayChainBlockNumber;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -27,7 +28,9 @@ use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
-use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	HeadData, HorizontalMessages, UpwardMessages, ValidationCode, ValidationResult,
+};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
@@ -46,6 +49,20 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
+
+struct ValidateBlockData<B: BlockT> {
+	parent_header: B::Header,
+	parachain_head: bytes::Bytes,
+	relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
+	relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
+	processed_downward_messages: u32,
+	upward_messages: UpwardMessages,
+	upward_message_signals: Vec<Vec<u8>>,
+	horizontal_messages: HorizontalMessages,
+	hrmp_watermark: RelayChainBlockNumber,
+	head_data: Option<HeadData>,
+	new_validation_code: Option<sp_runtime::Vec<u8>>,
+}
 
 /// Validate the given parachain block.
 ///
@@ -159,15 +176,98 @@ where
 		b.header().hash()
 	});
 
-	let mut processed_downward_messages = 0;
-	let mut upward_messages = BoundedVec::default();
-	let mut upward_message_signals = Vec::<Vec<_>>::new();
-	let mut horizontal_messages = BoundedVec::default();
-	let mut hrmp_watermark = Default::default();
-	let mut head_data = None;
-	let mut new_validation_code = None;
-	let num_blocks = blocks.len();
+	let mut validation_data = ValidateBlockData::<B> {
+		parent_header,
+		parachain_head,
+		relay_parent_number,
+		relay_parent_storage_root,
+		processed_downward_messages: 0,
+		upward_messages: BoundedVec::default(),
+		upward_message_signals: Vec::<Vec<_>>::new(),
+		horizontal_messages: BoundedVec::default(),
+		hrmp_watermark: Default::default(),
+		head_data: None,
+		new_validation_code: None,
+	};
 
+	match proof {
+		sp_state_machine::CompactProof::Trie(proof) =>
+			trie_backend_validate_block::<B, E, PSC>(proof, blocks, &mut validation_data),
+		sp_state_machine::CompactProof::Nomt(proof) => todo!(),
+	}
+
+	if !validation_data.upward_message_signals.is_empty() {
+		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
+		let mut approved_peer = None;
+
+		validation_data.upward_message_signals.iter().for_each(|s| {
+			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
+				UMPSignal::SelectCore(selector, offset) => match &selected_core {
+					Some(selected_core) if *selected_core != (selector, offset) => {
+						panic!(
+							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
+							(selector, offset),
+						)
+					},
+					Some(_) => {},
+					None => {
+						selected_core = Some((selector, offset));
+					},
+				},
+				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
+					Some(approved_peer) if *approved_peer != new_approved_peer => {
+						panic!(
+							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
+						)
+					},
+					Some(_) => {},
+					None => {
+						approved_peer = Some(new_approved_peer);
+					},
+				},
+			}
+		});
+
+		validation_data
+			.upward_messages
+			.try_push(UMP_SEPARATOR)
+			.expect("UMPSignals does not fit in UMPMessages");
+		validation_data
+			.upward_messages
+			.try_extend(validation_data.upward_message_signals.into_iter())
+			.expect("UMPSignals does not fit in UMPMessages");
+	}
+
+	ValidationResult {
+		head_data: validation_data.head_data.expect("HeadData not set"),
+		new_validation_code: validation_data.new_validation_code.map(Into::into),
+		upward_messages: validation_data.upward_messages,
+		processed_downward_messages: validation_data.processed_downward_messages,
+		horizontal_messages: validation_data.horizontal_messages,
+		hrmp_watermark: validation_data.hrmp_watermark,
+	}
+}
+
+fn trie_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
+	proof: sp_trie::CompactProof,
+	blocks: Vec<B::LazyBlock>,
+	ValidateBlockData {
+		ref parent_header,
+		ref parachain_head,
+		ref relay_parent_number,
+		ref relay_parent_storage_root,
+		ref mut processed_downward_messages,
+		ref mut upward_messages,
+		ref mut upward_message_signals,
+		ref mut horizontal_messages,
+		ref mut hrmp_watermark,
+		ref mut head_data,
+		ref mut new_validation_code,
+	}: &mut ValidateBlockData<B>,
+) where
+	B::Extrinsic: ExtrinsicCall,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
+{
 	// Create the db
 	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
 		Ok((db, _)) => db,
@@ -176,6 +276,8 @@ where
 
 	core::mem::drop(proof);
 
+	let num_blocks = blocks.len();
+	let mut parent_header = parent_header.clone();
 	let cache_provider = trie_cache::CacheProvider::new();
 	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
@@ -230,11 +332,11 @@ where
 					crate::ValidationData::<PSC>::get()
 						.expect("`ValidationData` must be set after executing a block; qed"),
 					&parachain_head,
-					relay_parent_number,
-					relay_parent_storage_root,
+					*relay_parent_number,
+					*relay_parent_storage_root,
 				);
 
-				new_validation_code =
+				*new_validation_code =
 					new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
 
 				let mut found_separator = false;
@@ -262,14 +364,14 @@ where
 							)
 					});
 
-				processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
+				*processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
 				horizontal_messages.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter()).expect(
 					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
 				);
-				hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+				*hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
 
 				if block_index + 1 == num_blocks {
-					head_data = Some(
+					*head_data = Some(
 						crate::CustomValidationHeadData::<PSC>::get()
 							.map_or_else(|| HeadData(parent_header.encode()), HeadData),
 					);
@@ -302,55 +404,6 @@ where
 				},
 			);
 		}
-	}
-
-	if !upward_message_signals.is_empty() {
-		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
-		let mut approved_peer = None;
-
-		upward_message_signals.iter().for_each(|s| {
-			match UMPSignal::decode(&mut &s[..]).expect("Failed to decode `UMPSignal`") {
-				UMPSignal::SelectCore(selector, offset) => match &selected_core {
-					Some(selected_core) if *selected_core != (selector, offset) => {
-						panic!(
-							"All `SelectCore` signals need to select the same core: {selected_core:?} vs {:?}",
-							(selector, offset),
-						)
-					},
-					Some(_) => {},
-					None => {
-						selected_core = Some((selector, offset));
-					},
-				},
-				UMPSignal::ApprovedPeer(new_approved_peer) => match &approved_peer {
-					Some(approved_peer) if *approved_peer != new_approved_peer => {
-						panic!(
-							"All `ApprovedPeer` signals need to select the same peer_id: {new_approved_peer:?} vs {approved_peer:?}",
-						)
-					},
-					Some(_) => {},
-					None => {
-						approved_peer = Some(new_approved_peer);
-					},
-				},
-			}
-		});
-
-		upward_messages
-			.try_push(UMP_SEPARATOR)
-			.expect("UMPSignals does not fit in UMPMessages");
-		upward_messages
-			.try_extend(upward_message_signals.into_iter())
-			.expect("UMPSignals does not fit in UMPMessages");
-	}
-
-	ValidationResult {
-		head_data: head_data.expect("HeadData not set"),
-		new_validation_code: new_validation_code.map(Into::into),
-		upward_messages,
-		processed_downward_messages,
-		horizontal_messages,
-		hrmp_watermark,
 	}
 }
 

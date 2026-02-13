@@ -4949,6 +4949,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-runtime",
+ "sp-state-machine",
  "sp-trie",
  "staging-xcm",
  "tracing",
@@ -11153,6 +11154,7 @@ dependencies = [
 [[package]]
 name = "nomt"
 version = "1.0.0-preview"
+source = "git+https://github.com/thrumdev/enomt#f3c0414676bf702037d2fa62414943610e76e52e"
 dependencies = [
  "ahash",
  "anyhow",
@@ -11180,6 +11182,7 @@ dependencies = [
 [[package]]
 name = "nomt-core"
 version = "1.0.0-preview"
+source = "git+https://github.com/thrumdev/enomt#f3c0414676bf702037d2fa62414943610e76e52e"
 dependencies = [
  "arrayvec 0.7.6",
  "bitvec",

@@ -234,88 +234,86 @@ where
 			},
 		};
 
-		// TODO: finish handling the rest of the collation process.
-		todo!()
-		// // Create the parachain block data for the validators.
-		// let (collation_info, _api_version) = self
-		// 	.fetch_collation_info(block_hash, block.header())
-		// 	.map_err(|e| {
-		// 		tracing::error!(
-		// 			target: LOG_TARGET,
-		// 			error = ?e,
-		// 			"Failed to collect collation info.",
-		// 		)
-		// 	})
-		// 	.ok()
-		// 	.flatten()?;
+		// Create the parachain block data for the validators.
+		let (collation_info, _api_version) = self
+			.fetch_collation_info(block_hash, block.header())
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to collect collation info.",
+				)
+			})
+			.ok()
+			.flatten()?;
 
-		// // Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
-		// //
-		// // We are always using the `api_version` of the parent block. The `api_version` can only
-		// // change with a runtime upgrade and this is when we want to observe the old
-		// `api_version`. // Because this old `api_version` is the one used to validate this
-		// block. Otherwise we // already assume the `api_version` is higher than what the relay
-		// chain will use and this // will lead to validation errors.
-		// let api_version = self
-		// 	.runtime_api
-		// 	.runtime_api()
-		// 	.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
-		// 	.ok()
-		// 	.flatten()?;
+		// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
+		//
+		// We are always using the `api_version` of the parent block. The `api_version` can only
+		// change with a runtime upgrade and this is when we want to observe the old `api_version`.
+		// Because this old `api_version` is the one used to validate this block. Otherwise we
+		// already assume the `api_version` is higher than what the relay chain will use and this
+		// will lead to validation errors.
+		let api_version = self
+			.runtime_api
+			.runtime_api()
+			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+			.ok()
+			.flatten()?;
 
-		// let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
+		let block_data = ParachainBlockData::<Block>::new(vec![block], compact_proof);
 
-		// let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
-		// 	block_data: BlockData(if api_version >= 3 {
-		// 		block_data.encode()
-		// 	} else {
-		// 		let block_data = block_data.as_v0();
+		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
+			block_data: BlockData(if api_version >= 3 {
+				block_data.encode()
+			} else {
+				let block_data = block_data.as_v0();
 
-		// 		if block_data.is_none() {
-		// 			tracing::error!(
-		// 				target: LOG_TARGET,
-		// 				"Trying to submit a collation with multiple blocks is not supported by the current
-		// runtime." 			);
-		// 		}
+				if block_data.is_none() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Trying to submit a collation with multiple blocks is not supported by the current runtime."
+					);
+				}
 
-		// 		block_data?.encode()
-		// 	}),
-		// });
+				block_data?.encode()
+			}),
+		});
 
-		// let upward_messages = collation_info
-		// 	.upward_messages
-		// 	.try_into()
-		// 	.map_err(|e| {
-		// 		tracing::error!(
-		// 			target: LOG_TARGET,
-		// 			error = ?e,
-		// 			"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
-		// 		)
-		// 	})
-		// 	.ok()?;
-		// let horizontal_messages = collation_info
-		// 	.horizontal_messages
-		// 	.try_into()
-		// 	.map_err(|e| {
-		// 		tracing::error!(
-		// 			target: LOG_TARGET,
-		// 			error = ?e,
-		// 			"Number of horizontal messages should not be greater than
-		// `MAX_HORIZONTAL_MESSAGE_NUM`", 		)
-		// 	})
-		// 	.ok()?;
+		let upward_messages = collation_info
+			.upward_messages
+			.try_into()
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+				)
+			})
+			.ok()?;
+		let horizontal_messages = collation_info
+			.horizontal_messages
+			.try_into()
+			.map_err(|e| {
+				tracing::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Number of horizontal messages should not be greater than
+		`MAX_HORIZONTAL_MESSAGE_NUM`", 		)
+			})
+			.ok()?;
 
-		// let collation = Collation {
-		// 	upward_messages,
-		// 	new_validation_code: collation_info.new_validation_code,
-		// 	processed_downward_messages: collation_info.processed_downward_messages,
-		// 	horizontal_messages,
-		// 	hrmp_watermark: collation_info.hrmp_watermark,
-		// 	head_data: collation_info.head_data,
-		// 	proof_of_validity: MaybeCompressedPoV::Compressed(pov),
-		// };
+		let collation = Collation {
+			upward_messages,
+			new_validation_code: collation_info.new_validation_code,
+			processed_downward_messages: collation_info.processed_downward_messages,
+			horizontal_messages,
+			hrmp_watermark: collation_info.hrmp_watermark,
+			head_data: collation_info.head_data,
+			proof_of_validity: MaybeCompressedPoV::Compressed(pov),
+		};
 
-		// Some((collation, block_data))
+		Some((collation, block_data))
 	}
 
 	/// Inform the networking systems that the block should be announced after an appropriate
