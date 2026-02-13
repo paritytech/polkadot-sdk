@@ -535,12 +535,14 @@ pub struct KeysMessageToXcm;
 impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
 		let encoded_call = match msg {
-			rc_client::KeysMessage::SetKeys { stash, keys } =>
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
-					.encode(),
-			rc_client::KeysMessage::PurgeKeys { stash } =>
+					.encode()
+			},
+			rc_client::KeysMessage::PurgeKeys { stash } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
-					.encode(),
+					.encode()
+			},
 		};
 		rc_client::build_transact_xcm(encoded_call)
 	}

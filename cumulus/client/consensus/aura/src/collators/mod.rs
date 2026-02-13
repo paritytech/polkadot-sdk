@@ -25,7 +25,9 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT};
+use cumulus_primitives_core::{
+	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -125,7 +127,7 @@ async fn check_validation_code_or_log(
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -135,7 +137,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -646,6 +649,31 @@ mod tests {
 		// Should not send any message if authorities list is empty
 		assert_eq!(messages_recorder.lock().unwrap().len(), 0);
 	}
+}
+
+/// Fetches relay chain storage proof requests from the parachain runtime.
+///
+/// Queries the runtime API to determine which relay chain storage keys
+/// (both top-level and child trie keys) should be included in the relay chain state proof.
+///
+/// Falls back to an empty request if the runtime API call fails or is not implemented.
+fn get_relay_proof_request<Block, Client>(
+	client: &Client,
+	parent_hash: Block::Hash,
+) -> RelayProofRequest
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: KeyToIncludeInRelayProof<Block>,
+{
+	client.runtime_api().keys_to_prove(parent_hash).unwrap_or_else(|e| {
+		tracing::debug!(
+			target: crate::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay proof requests from runtime, using empty request"
+		);
+		Default::default()
+	})
 }
 
 /// Holds a relay parent and its descendants.

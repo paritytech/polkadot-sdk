@@ -135,15 +135,17 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		let events: Vec<CandidateEvent> = match c_rx.await {
 			Ok(Ok(events)) => events,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("CandidateEvents", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("CandidateEvents", error))
+			},
 		};
 
 		events
 			.into_iter()
 			.filter_map(|e| match e {
-				CandidateEvent::CandidateIncluded(receipt, _, core, group) =>
-					Some((receipt.hash(), receipt, core, group)),
+				CandidateEvent::CandidateIncluded(receipt, _, core, group) => {
+					Some((receipt.hash(), receipt, core, group))
+				},
 				_ => None,
 			})
 			.collect()
@@ -163,8 +165,9 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		let session_index = match s_rx.await {
 			Ok(Ok(s)) => s,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("SessionIndexForChild", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("SessionIndexForChild", error))
+			},
 		};
 
 		// We can't determine if the block is finalized or not - try processing it
@@ -214,8 +217,9 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		match s_rx.await {
 			Ok(Ok(s)) => s,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("CurrentBabeEpoch", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("CurrentBabeEpoch", error))
+			},
 		}
 	};
 

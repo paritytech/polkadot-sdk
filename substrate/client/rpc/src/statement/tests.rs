@@ -23,8 +23,9 @@ use futures::FutureExt;
 use jsonrpsee::{RpcModule, Subscription};
 use sc_statement_store::Store;
 use sp_core::traits::SpawnNamed;
-use sp_statement_store::{Statement, Topic};
+use sp_statement_store::{statement_allowance_key, Statement, StatementAllowance, Topic};
 use std::sync::Arc;
+use substrate_test_runtime_client::{TestClientBuilder, TestClientBuilderExt};
 
 async fn subscribe_to_topics(
 	api_rpc: &RpcModule<StatementStore>,
@@ -71,7 +72,14 @@ fn generate_statements() -> Vec<Statement> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 10)]
 async fn subscribe_works() {
 	let executor = test_executor();
-	let client = Arc::new(substrate_test_runtime_client::new());
+	let client = Arc::new(
+		TestClientBuilder::with_default_backend()
+			.add_extra_storage(
+				statement_allowance_key([0; 32]),
+				StatementAllowance { max_count: 1000, max_size: 10_000_000 }.encode(),
+			)
+			.build(),
+	);
 	let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
 	let store = Store::new_shared(
 		temp_dir.path(),
@@ -113,10 +121,11 @@ async fn subscribe_works() {
 		async move {
 			for statement in submitted_clone {
 				let encoded_statement: Bytes = statement.encode().into();
-				let _: SubmitResult = api_rpc_clone
+				let result: SubmitResult = api_rpc_clone
 					.call("statement_submit", (encoded_statement,))
 					.await
 					.expect("Failed to submit statement");
+				assert_eq!(result, SubmitResult::New);
 			}
 		}
 		.boxed(),

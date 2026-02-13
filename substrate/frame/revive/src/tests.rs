@@ -43,6 +43,7 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU32, ConstU64, FindAuthor, OriginTrait, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, Weight},
+	DefaultNoBound,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ChargeTransactionPayment, ConstFeeMultiplier, Multiplier};
@@ -537,7 +538,12 @@ impl Default for Origin<Test> {
 	}
 }
 
+/// Dummy EVM bytecode for mocked addresses.
+/// This is minimal EVM bytecode (STOP) that terminates successfully.
+pub const MOCK_CODE: [u8; 1] = [0x00];
+
 /// A mock handler implementation for testing purposes.
+#[derive(DefaultNoBound)]
 pub struct MockHandlerImpl<T: crate::pallet::Config> {
 	// Always return this caller if set.
 	mock_caller: Option<H160>,
@@ -565,6 +571,14 @@ impl<T: crate::pallet::Config> MockHandler<T> for MockHandlerImpl<T> {
 
 	fn mock_delegated_caller(&self, _dest: H160, input_data: &[u8]) -> Option<DelegateInfo<T>> {
 		self.mock_delegate_caller.get(&input_data.to_vec()).cloned()
+	}
+
+	fn mocked_code(&self, address: H160) -> Option<&[u8]> {
+		if self.mock_call.contains_key(&address) {
+			Some(&MOCK_CODE)
+		} else {
+			None
+		}
 	}
 }
 

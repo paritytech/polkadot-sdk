@@ -1,0 +1,35 @@
+title: add external transient_storage to pallet_revive::ExecConfig
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    This PR adds the ability to supply external copy of `TransientStorage` to `pallet_revive::ExecConfig` to be used during execution.
+    This is required by testing in foundry as we only enter `pallet_revive` during a `CALL` or `CREATE` instruction and we need to carryover 
+    the transient storage to other following calls as they happen within an external tx.
+    For example this is required to support more testing scenarious inside `foundry-polkadot` because only a subset of execution happens on `pallet-revive`.
+    e.g: 
+    ```solidity
+    fn example_test() { // this entrypoint is executed on the side of `foundry-polkadot`
+    Example contract = new Example(); // happens on pallet-revive
+    contract.setTransientStorage(5); // happens on pallet-revive
+
+    uint256 result = contract.getTransientStorage(); // happens on pallet-revive and returns `0` aka the default value 
+    // `result` above is `0` because `transient_storage` is reset after every call to `pallet-revive` and in `foundry-polkadot`
+    // only `CALL` and `CREATE` within function calls(already executed on foundry's revm) are forwarded to `pallet-revive`,
+    // so for assertion below to pass we would need to have our external `transient_storage` instance to be manually supplied
+    // to pallet-revive and be persistent within the wrapping call
+    assertEq(5, result); // fails without this PR with `5 != 0` 
+    }
+    ```
+    link for the test-file inside `foundry-polkadot`:
+    - [click me](https://github.com/paritytech/foundry-polkadot/blob/3ff8bf9fae5505e9a72335e33d4e816dbc6bea41/testdata/default/revive/TransientStorage.t.sol)
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-xcm-precompiles
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: minor 
+- name: assets-common
+  bump: minor

@@ -134,9 +134,14 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            protobuf-compiler
+            protobuf-compiler \
+            clang
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt clippy rust-src
+
+      - name: List /usr/lib/libclang
+        if: ${{ github.event.inputs.debug }}
+        run: ls -alh /usr/lib/libclang*
 
       # 2. Yanking the template out of the monorepo workspace.
 
@@ -169,9 +174,13 @@ jobs:
           ]
           resolver = "2"
 
-          [workspace.dependencies]
           EOF
 
+          echo "$(toml get -r ../../Cargo.toml 'workspace.lints.rust' --output-toml)" >> Cargo.toml
+          echo "$(toml get -r ../../Cargo.toml 'workspace.lints.clippy' --output-toml)" >> Cargo.toml
+          echo "" >> Cargo.toml
+
+          echo "[workspace.dependencies]" >> Cargo.toml
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
 
