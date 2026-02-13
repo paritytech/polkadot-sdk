@@ -70,7 +70,7 @@ color-eyre = { workspace = true }
 polkadot-jemalloc-shim = { workspace = true }
 
 # Crates in our workspace, defined as dependencies so we can pass them feature flags.
-polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
+polkadot-cli = { workspace = true, default-features = true }
 polkadot-node-core-pvf = { workspace = true, default-features = true }
 polkadot-node-core-pvf-prepare-worker = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
@@ -94,6 +94,9 @@ tokio = { workspace = true, default-features = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
+default = ["rococo-native", "westend-native"]
+rococo-native = ["polkadot-cli/rococo-native"]
+westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
 try-runtime = ["polkadot-cli/try-runtime"]
 fast-runtime = ["polkadot-cli/fast-runtime"]
