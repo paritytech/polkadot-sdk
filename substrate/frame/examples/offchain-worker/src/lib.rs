@@ -245,10 +245,12 @@ pub mod pallet {
 			let should_send = Self::choose_transaction_type(block_number);
 			let res = match should_send {
 				TransactionType::Signed => Self::fetch_price_and_send_signed(),
-				TransactionType::AuthorizedForAny =>
-					Self::fetch_price_and_send_authorized_tx_for_any_account(block_number),
-				TransactionType::AuthorizedForAll =>
-					Self::fetch_price_and_send_authorized_tx_for_all_accounts(block_number),
+				TransactionType::AuthorizedForAny => {
+					Self::fetch_price_and_send_authorized_tx_for_any_account(block_number)
+				},
+				TransactionType::AuthorizedForAll => {
+					Self::fetch_price_and_send_authorized_tx_for_all_accounts(block_number)
+				},
 				TransactionType::Raw => Self::fetch_price_and_send_raw_authorized(block_number),
 				TransactionType::None => Ok(()),
 			};
@@ -437,8 +439,9 @@ impl<T: Config> Pallet<T> {
 				match last_send {
 					// If we already have a value in storage and the block number is recent enough
 					// we avoid sending another transaction at this time.
-					Ok(Some(block)) if block_number < block + T::GracePeriod::get() =>
-						Err(RECENTLY_SENT),
+					Ok(Some(block)) if block_number < block + T::GracePeriod::get() => {
+						Err(RECENTLY_SENT)
+					},
 					// In every other case we attempt to acquire the lock and send a transaction.
 					_ => Ok(block_number),
 				}
@@ -488,7 +491,7 @@ impl<T: Config> Pallet<T> {
 		if !signer.can_sign() {
 			return Err(
 				"No local accounts available. Consider adding one via `author_insertKey` RPC.",
-			)
+			);
 		}
 		// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
@@ -523,7 +526,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -561,7 +564,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -604,7 +607,7 @@ impl<T: Config> Pallet<T> {
 		// anyway.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if next_authorized_at > block_number {
-			return Err("Too early to send authorized transaction")
+			return Err("Too early to send authorized transaction");
 		}
 
 		// Make an external HTTP request to fetch the current price.
@@ -670,7 +673,7 @@ impl<T: Config> Pallet<T> {
 		// Let's check the status code before we proceed to reading the response.
 		if response.code != 200 {
 			log::warn!("Unexpected status code: {}", response.code);
-			return Err(http::Error::Unknown)
+			return Err(http::Error::Unknown);
 		}
 
 		// Next we want to fully read the response body and collect it to a vector of bytes.
@@ -750,12 +753,12 @@ impl<T: Config> Pallet<T> {
 		// Now let's check if the transaction has any chance to succeed.
 		let next_authorized_at = NextAuthorizedAt::<T>::get();
 		if &next_authorized_at > block_number {
-			return InvalidTransaction::Stale.into()
+			return InvalidTransaction::Stale.into();
 		}
 		// Let's make sure to reject transactions from the future.
 		let current_block = <system::Pallet<T>>::block_number();
 		if &current_block < block_number {
-			return InvalidTransaction::Future.into()
+			return InvalidTransaction::Future.into();
 		}
 
 		// We prioritize transactions that are more far away from current average.

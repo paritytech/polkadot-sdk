@@ -910,8 +910,14 @@ where
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Default::default()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+				Ok(ref output) => {
+					t.exit_child_span(&output, Default::default(), Default::default())
+				},
+				Err(e) => t.exit_child_span_with_error(
+					e.error.into(),
+					Default::default(),
+					Default::default(),
+				),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -1063,12 +1069,13 @@ where
 				// is a delegate call or not
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
-					(None, None) =>
+					(None, None) => {
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
-						},
+						}
+					},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
@@ -1190,13 +1197,21 @@ where
 		// See the `in_memory_changes_not_discarded` test for more information.
 		// We do not store on instantiate because we do not allow to call into a contract
 		// from its own constructor.
+		//
+		// Additionally, we need to apply pending storage changes to the ContractInfo before
+		// saving it, so that child frames can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
 		let frame = self.top_frame();
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
+			let mut contract_with_pending_changes = contract.clone();
+			frame
+				.frame_meter
+				.apply_pending_storage_changes(&mut contract_with_pending_changes);
 			AccountInfo::<T>::insert_contract(
 				&T::AddressMapper::to_address(&frame.account_id),
-				contract.clone(),
+				contract_with_pending_changes,
 			);
 		}
 
@@ -1239,7 +1254,12 @@ where
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
-				frame.frame_meter.eth_gas_left().unwrap_or_default().into(),
+				frame
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1265,7 +1285,9 @@ where
 			*caller_frame = Default::default();
 		}
 
-		self.transient_storage.start_transaction();
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.start_transaction();
+		});
 		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
@@ -1358,10 +1380,12 @@ where
 				.unwrap_or_default();
 
 			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) =>
-					executable.execute(self, entry_point, input_data),
-				ExecutableOrPrecompile::Precompile { instance, .. } =>
-					instance.call(input_data, self),
+				ExecutableOrPrecompile::Executable(executable) => {
+					executable.execute(self, entry_point, input_data)
+				},
+				ExecutableOrPrecompile::Precompile { instance, .. } => {
+					instance.call(input_data, self)
+				},
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
@@ -1443,8 +1467,9 @@ where
 					do_transaction()
 				};
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1458,14 +1483,23 @@ where
 					// we treat the initial frame meter differently to address
 					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
-						frame_meter.total_consumed_gas().into()
+						frame_meter.total_consumed_gas()
 					} else {
-						frame_meter.eth_gas_consumed().into()
+						frame_meter.eth_gas_consumed()
 					};
 
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
+
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) => {
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed)
+						},
+						Err(e) => tracer.exit_child_span_with_error(
+							e.error.into(),
+							gas_consumed,
+							weight_consumed,
+						),
 					}
 				});
 
@@ -1480,23 +1514,26 @@ where
 					// we treat the initial frame meter differently to address
 					// https://github.com/paritytech/polkadot-sdk/issues/8362
 					let gas_consumed = if is_first_frame {
-						frame_meter.total_consumed_gas().into()
+						frame_meter.total_consumed_gas()
 					} else {
-						frame_meter.eth_gas_consumed().into()
+						frame_meter.eth_gas_consumed()
 					};
 
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed, weight_consumed);
 				});
 
 				(false, Err(error.into()))
 			},
 		};
-
-		if success {
-			self.transient_storage.commit_transaction();
-		} else {
-			self.transient_storage.rollback_transaction();
-		}
+		self.with_transient_storage_mut(|transient_storage| {
+			if success {
+				transient_storage.commit_transaction();
+			} else {
+				transient_storage.rollback_transaction();
+			}
+		});
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1541,25 +1578,15 @@ where
 			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
 			if let Some(contract) = contract {
-				// optimization: Predecessor is the same contract.
-				// We can just copy the contract into the predecessor without a storage write.
-				// This is possible when there is no other contract in-between that could
-				// trigger a rollback.
-				if prev.account_id == *account_id {
-					prev.contract_info = CachedContract::Cached(contract);
-					return;
-				}
-
-				// Predecessor is a different contract: We persist the info and invalidate the first
-				// stale cache we find. This triggers a reload from storage on next use. We skip(1)
-				// because that case is already handled by the optimization above. Only the first
+				// Persist the info and invalidate the first stale cache we find.
+				// This triggers a reload from storage on next use. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
 				AccountInfo::<T>::insert_contract(
 					&T::AddressMapper::to_address(account_id),
 					contract,
 				);
-				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
+				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
 				}
 			}
@@ -1630,7 +1657,7 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation)
+			return transfer_with_dust::<T>(from, to, value, preservation);
 		}
 
 		let origin = origin.account_id()?;
@@ -1745,7 +1772,6 @@ where
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match delete_contract(&args.trie_id, &args.code_hash) {
 				Ok(()) => {
-					// TODO: emit sucicide trace
 					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 					TransactionOutcome::Commit(Ok(()))
 				},
@@ -1836,6 +1862,24 @@ where
 		}
 		true
 	}
+
+	fn with_transient_storage_mut<R, F: FnOnce(&mut TransientStorage<T>) -> R>(
+		&mut self,
+		f: F,
+	) -> R {
+		if let Some(transient) = &self.exec_config.test_env_transient_storage {
+			f(&mut transient.borrow_mut())
+		} else {
+			f(&mut self.transient_storage)
+		}
+	}
+	fn with_transient_storage<R, F: FnOnce(&TransientStorage<T>) -> R>(&self, f: F) -> R {
+		if let Some(transient) = &self.exec_config.test_env_transient_storage {
+			f(&transient.borrow())
+		} else {
+			f(&self.transient_storage)
+		}
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1854,7 +1898,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let top_frame = self.top_frame_mut();
-		let contract_info = top_frame.contract_info().clone();
+		// Clone the contract info and apply pending storage changes so that
+		// the child frame can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
+		let mut contract_info = top_frame.contract_info().clone();
+		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
 		let account_id = top_frame.account_id.clone();
 		let value = top_frame.value_transferred;
 		if let Some(executable) = self.push_frame(
@@ -1884,7 +1932,12 @@ where
 			tracer.terminate(
 				addr,
 				*beneficiary,
-				self.top_frame().frame_meter.eth_gas_left().unwrap_or_default().into(),
+				self.top_frame()
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 				crate::Pallet::<T>::evm_balance(&addr),
 			);
 		});
@@ -2059,11 +2112,19 @@ where
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
+			//
+			// When cloning the cached contract, we apply pending storage changes so that
+			// the child frame can correctly calculate storage deposit refunds.
+			// See: <https://github.com/paritytech/contract-issues/issues/213>
 			let cached_info = self
 				.frames()
 				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)
 				.and_then(|f| match &f.contract_info {
-					CachedContract::Cached(contract) => Some(contract.clone()),
+					CachedContract::Cached(contract) => {
+						let mut contract_with_pending = contract.clone();
+						f.frame_meter.apply_pending_storage_changes(&mut contract_with_pending);
+						Some(contract_with_pending)
+					},
 					_ => None,
 				});
 
@@ -2111,8 +2172,14 @@ where
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Default::default()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Default::default()),
+					Ok(ref output) => {
+						t.exit_child_span(&output, Default::default(), Default::default())
+					},
+					Err(e) => t.exit_child_span_with_error(
+						e.error.into(),
+						Default::default(),
+						Default::default(),
+					),
 				});
 
 				result.map(|_| ())
@@ -2129,13 +2196,15 @@ where
 	}
 
 	fn get_transient_storage(&self, key: &Key) -> Option<Vec<u8>> {
-		self.transient_storage.read(self.account_id(), key)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key)
+		})
 	}
 
 	fn get_transient_storage_size(&self, key: &Key) -> Option<u32> {
-		self.transient_storage
-			.read(self.account_id(), key)
-			.map(|value| value.len() as _)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key).map(|value| value.len() as _)
+		})
 	}
 
 	fn set_transient_storage(
@@ -2145,7 +2214,9 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let account_id = self.account_id().clone();
-		self.transient_storage.write(&account_id, key, value, take_old)
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.write(&account_id, key, value, take_old)
+		})
 	}
 
 	fn account_id(&self) -> &T::AccountId {
@@ -2204,8 +2275,13 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into()
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return sp_io::hashing::keccak_256(code).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2219,8 +2295,13 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return code.len() as u64
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return code.len() as u64;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)

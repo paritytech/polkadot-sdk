@@ -205,8 +205,9 @@ impl<BlockNumber: Copy + UniqueSaturatedInto<u64>, BlockHash: Copy>
 			TransactionEra::Immortal => sp_runtime::generic::Era::immortal(),
 			// `unique_saturated_into` is fine here - mortality `u64::MAX` is not something we
 			// expect to see on any chain
-			TransactionEra::Mortal(header_id, period) =>
-				sp_runtime::generic::Era::mortal(period as _, header_id.0.unique_saturated_into()),
+			TransactionEra::Mortal(header_id, period) => {
+				sp_runtime::generic::Era::mortal(period as _, header_id.0.unique_saturated_into())
+			},
 		}
 	}
 
@@ -396,7 +397,9 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 			Ok(RawOrigin::Root) => Ok(()),
 			Ok(RawOrigin::Signed(ref signer))
 				if Self::OwnerStorage::get().as_ref() == Some(signer) =>
-				Ok(()),
+			{
+				Ok(())
+			},
 			_ => Err(BadOrigin),
 		}
 	}

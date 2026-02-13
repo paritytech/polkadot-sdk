@@ -191,7 +191,6 @@ impl<T: Config<I>, I: 'static> ReceiveMessagesProofSetup<T, I> {
 mod benchmarks {
 	use super::*;
 
-	//
 	// Benchmarks that are used directly by the runtime calls weight formulae.
 	//
 
@@ -501,7 +500,6 @@ mod benchmarks {
 		assert!(T::is_relayer_rewarded(&relayer2_id));
 	}
 
-	//
 	// Benchmarks that the runtime developers may use for proper pallet configuration.
 	//
 

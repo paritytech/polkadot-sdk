@@ -690,8 +690,9 @@ mod tests {
 			let entry = self.storage.entry(key.clone());
 			let result = match (entry, take_old) {
 				(Entry::Vacant(_), _) => WriteOutcome::New,
-				(Entry::Occupied(entry), false) =>
-					WriteOutcome::Overwritten(entry.remove().len() as u32),
+				(Entry::Occupied(entry), false) => {
+					WriteOutcome::Overwritten(entry.remove().len() as u32)
+				},
 				(Entry::Occupied(entry), true) => WriteOutcome::Taken(entry.remove()),
 			};
 			if let Some(value) = value {
@@ -1305,7 +1306,7 @@ mod tests {
 		)
 		.unwrap();
 
-		//value does not exist (wrong key length)
+		// value does not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned
@@ -2961,7 +2962,7 @@ mod tests {
 		// value cleared
 		assert_eq!(ext.storage.get(&[1u8; 64].to_vec()), None);
 
-		//value did not exist (wrong key length)
+		// value did not exist (wrong key length)
 		let input = (63, [1u8; 64]).encode();
 		let result = execute(CODE, input, &mut ext).unwrap();
 		// sentinel returned

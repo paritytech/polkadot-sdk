@@ -62,8 +62,9 @@ impl TransactionSigned {
 			Transaction2930Signed(tx) => Transaction2930Unsigned(tx.transaction_2930_unsigned),
 			Transaction1559Signed(tx) => Transaction1559Unsigned(tx.transaction_1559_unsigned),
 			Transaction4844Signed(tx) => Transaction4844Unsigned(tx.transaction_4844_unsigned),
-			TransactionLegacySigned(tx) =>
-				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
+			TransactionLegacySigned(tx) => {
+				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned)
+			},
 		}
 	}
 
@@ -315,7 +316,7 @@ impl Decodable for Transaction1559Signed {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-2930
+// See https://eips.ethereum.org/EIPS/eip-2930
 impl Encodable for Transaction2930Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(8);
@@ -333,7 +334,7 @@ impl Encodable for Transaction2930Unsigned {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-2930
+// See https://eips.ethereum.org/EIPS/eip-2930
 impl Encodable for Transaction2930Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_2930_unsigned;
@@ -386,7 +387,7 @@ impl Decodable for Transaction2930Signed {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-7702
+// See https://eips.ethereum.org/EIPS/eip-7702
 impl Encodable for Transaction7702Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		s.begin_list(10);
@@ -447,7 +448,7 @@ impl Encodable for Transaction4844Unsigned {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-7702
+// See https://eips.ethereum.org/EIPS/eip-7702
 impl Encodable for Transaction7702Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_7702_unsigned;
@@ -468,7 +469,7 @@ impl Encodable for Transaction7702Signed {
 	}
 }
 
-//See https://eips.ethereum.org/EIPS/eip-4844
+// See https://eips.ethereum.org/EIPS/eip-4844
 impl Encodable for Transaction4844Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_4844_unsigned;

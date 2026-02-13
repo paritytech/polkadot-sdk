@@ -188,7 +188,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 		match location.unpack() {
 			(0, [PalletInstance(instance), GeneralIndex(index)])
 				if *instance == pallet_instance =>
-				Some(NativeOrWithId::WithId(*index as u32)),
+			{
+				Some(NativeOrWithId::WithId(*index as u32))
+			},
 			(0, []) => Some(NativeOrWithId::Native),
 			_ => None,
 		}
@@ -197,8 +199,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 	fn convert_back(asset_id: &NativeOrWithId<u32>) -> Option<Location> {
 		let pallet_instance = TrustBackedAssetsPalletIndex::get();
 		Some(match asset_id {
-			NativeOrWithId::WithId(id) =>
-				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())]),
+			NativeOrWithId::WithId(id) => {
+				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())])
+			},
 			NativeOrWithId::Native => Location::new(0, []),
 		})
 	}
@@ -282,8 +285,9 @@ where
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
-			Ok(frame_system::RawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into()),
+			Ok(frame_system::RawOrigin::Signed(who)) => {
+				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})

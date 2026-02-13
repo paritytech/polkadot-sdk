@@ -27,7 +27,6 @@ pub enum Sign {
 	Minus = -1,
 	/// Zero value sign
 	Zero = 0,
-	#[allow(dead_code)] // "constructed" with `mem::transmute` in `i256_sign` below
 	/// Positive value sign
 	Plus = 1,
 }
@@ -43,9 +42,10 @@ const FLIPH_BITMASK_U64: u64 = 0x7FFF_FFFF_FFFF_FFFF;
 pub fn i256_sign(val: &U256) -> Sign {
 	if val.bit(255) {
 		Sign::Minus
+	} else if val.is_zero() {
+		Sign::Zero
 	} else {
-		// SAFETY: false == 0 == Zero, true == 1 == Plus
-		unsafe { core::mem::transmute::<bool, Sign>(!val.is_zero()) }
+		Sign::Plus
 	}
 }
 

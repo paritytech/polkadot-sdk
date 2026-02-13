@@ -112,7 +112,7 @@ impl StatementStore {
 					e.get_mut().known_by_backing = true;
 				}
 
-				return Ok(false)
+				return Ok(false);
 			},
 			HEntry::Vacant(e) => {
 				e.insert(StoredStatement { statement, known_by_backing: origin.is_local() });
@@ -134,7 +134,7 @@ impl StatementStore {
 						"groups passed into `insert` differ from those used at store creation"
 					);
 
-					return Err(Error::ValidatorUnknown)
+					return Err(Error::ValidatorUnknown);
 				},
 			};
 

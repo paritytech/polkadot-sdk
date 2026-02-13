@@ -80,11 +80,12 @@ impl GenericTransaction {
 		// * Here's Nick's article: https://weka.medium.com/how-to-send-ether-to-11-440-people-187e332566b7
 		match (self.chain_id, self.r#type.as_ref()) {
 			(None, Some(super::Byte(TYPE_LEGACY))) => {},
-			(Some(chain_id), ..) =>
+			(Some(chain_id), ..) => {
 				if chain_id != <T as Config>::ChainId::get().into() {
 					log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 					return Err(InvalidTransaction::Call);
-				},
+				}
+			},
 			(None, ..) => {
 				log::debug!(target: LOG_TARGET, "Invalid chain_id None");
 				return Err(InvalidTransaction::Call);
@@ -149,7 +150,7 @@ impl GenericTransaction {
 
 				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call)
+					return Err(InvalidTransaction::Call);
 				}
 
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }

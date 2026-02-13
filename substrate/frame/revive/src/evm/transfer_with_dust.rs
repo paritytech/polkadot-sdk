@@ -67,7 +67,7 @@ fn ensure_sufficient_dust<T: Config>(
 	required_dust: u32,
 ) -> DispatchResult {
 	if from_info.dust >= required_dust {
-		return Ok(())
+		return Ok(());
 	}
 
 	let plank = T::NativeToEthRatio::get();
@@ -101,14 +101,14 @@ pub(crate) fn transfer_with_dust<T: Config>(
 
 	if from_info.balance(from, preservation) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, preservation));
-		return Err(Error::<T>::TransferFailed.into())
+		return Err(Error::<T>::TransferFailed.into());
 	} else if from == to || value.is_zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let (value, dust) = value.deconstruct();
 	if dust == 0 {
-		return transfer_balance::<T>(from, to, value, preservation)
+		return transfer_balance::<T>(from, to, value, preservation);
 	}
 
 	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
@@ -140,9 +140,9 @@ pub(crate) fn burn_with_dust<T: Config>(
 
 	if from_info.balance(from, Preservation::Preserve) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, Preservation::Preserve));
-		return Err(Error::<T>::TransferFailed.into())
+		return Err(Error::<T>::TransferFailed.into());
 	} else if value.is_zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let (value, dust) = value.deconstruct();
@@ -159,7 +159,7 @@ pub(crate) fn burn_with_dust<T: Config>(
 			log::debug!(target: LOG_TARGET, "Burning {value:?} from {from:?} failed. Err: {err:?}");
 			Error::<T>::TransferFailed
 		})?;
-		return Ok(())
+		return Ok(());
 	}
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;

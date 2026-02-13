@@ -39,7 +39,7 @@ impl<T: Config> Memory<T> {
 	/// Panics on out of bounds,if the range is non-empty.
 	pub fn slice(&self, range: Range<usize>) -> &[u8] {
 		if range.is_empty() {
-			return &[]
+			return &[];
 		}
 		&self.data[range]
 	}
@@ -51,6 +51,10 @@ impl<T: Config> Memory<T> {
 	/// Panics on out of bounds.
 	pub fn slice_mut(&mut self, offset: usize, len: usize) -> &mut [u8] {
 		&mut self.data[offset..offset + len]
+	}
+
+	fn get_word(&self, offset: usize) -> &[u8; 32] {
+		self.data[offset..offset + 32].try_into().unwrap()
 	}
 
 	/// Get the current memory size in bytes
@@ -125,6 +129,20 @@ impl<T: Config> Memory<T> {
 	/// Panics if range is out of scope of allocated memory.
 	pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
 		self.data.copy_within(src..src + len, dst);
+	}
+
+	/// Returns a snapshot of the memory in 32-byte chunks, limited to the specified number of
+	/// chunks.
+	pub fn snapshot(&self, limit: usize) -> Vec<crate::evm::Bytes> {
+		let mut memory_bytes = Vec::new();
+		let words_to_read = core::cmp::min(self.size().div_ceil(32), limit);
+
+		for i in 0..words_to_read {
+			let word = self.get_word(i * 32);
+			memory_bytes.push(crate::evm::Bytes(word.to_vec()));
+		}
+
+		memory_bytes
 	}
 }
 

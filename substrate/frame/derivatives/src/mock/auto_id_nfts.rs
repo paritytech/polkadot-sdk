@@ -66,16 +66,18 @@ impl Update<ChangeOwnerFrom<AccountId>> for PredefinedIdNfts {
 
 		unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::try_mutate(id, |owner| {
 			match owner {
-				Some(current_owner) =>
+				Some(current_owner) => {
 					if *current_owner == check_owner {
 						*owner = Some(*new_owner);
 						Ok(())
 					} else {
 						Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::NoPermission
 							.into())
-					},
-				None =>
-					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into()),
+					}
+				},
+				None => {
+					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into())
+				},
 			}
 		})
 	}
