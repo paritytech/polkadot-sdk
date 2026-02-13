@@ -10,21 +10,11 @@ doc:
     - Introduced `GapSyncStats` to track bandwidth usage: header bytes, body bytes, justification bytes
     - Logged on gap sync completion to provide visibility into bandwidth savings
 crates:
-- name: sc-consensus-babe
-  bump: patch
-- name: sc-consensus
-  bump: patch
-- name: sc-consensus-grandpa
-  bump: patch
 - name: sc-network-sync
-  bump: patch
+  bump: major
 - name: sc-service
-  bump: patch
+  bump: major
 - name: sc-client-db
-  bump: patch
-- name: cumulus-client-pov-recovery
-  bump: patch
-- name: sp-consensus
   bump: patch
 - name: sc-cli
   bump: patch
