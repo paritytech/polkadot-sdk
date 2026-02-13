@@ -1058,7 +1058,6 @@ pub mod pallet {
 		/// - `core`: Core which the target potential renewal record refers to.
 		/// - `when`: Timeslice which the target potential renewal record refers to.
 		#[pallet::call_index(27)]
-		#[pallet::weight(T::WeightInfo::remove_potential_renewal())]
 		pub fn remove_potential_renewal(
 			origin: OriginFor<T>,
 			core: CoreIndex,
