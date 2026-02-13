@@ -201,10 +201,59 @@ Most zombienet tests use `rococo-local`, so building only rococo saves significa
 - No WASM builds, no runtime builds
 - Perfect for test-only changes or node logic changes
 
-### Future Optimizations (Planned)
+### Future Optimizations (In Progress)
 
-Additional optimizations are planned:
-- **Omninode migration**: Replace polkadot-parachain (saves ~20-30 min)
+#### Omninode Migration (Phase 2 - In Progress)
+
+The `polkadot-omni-node` is a universal parachain binary that loads runtimes from chain spec files
+instead of embedding them at compile time. This eliminates the need to build `polkadot-parachain`
+which embeds 10+ runtimes (~20-30 min build time).
+
+**Using omninode for zombienet tests:**
+
+1. **Build omninode (once)**:
+```bash
+cargo build --release -p polkadot-omni-node
+```
+
+2. **Generate chain specs** (see `scripts/generate-glutton-chain-specs.sh` for example):
+```bash
+# Build the runtime
+cargo build --release -p glutton-westend-runtime
+
+# Generate chain spec with custom configuration
+chain-spec-builder create \
+  --relay-chain "rococo-local" \
+  --para-id 2000 \
+  -r target/release/wbuild/glutton-westend-runtime/glutton_westend_runtime.compact.compressed.wasm \
+  patch glutton-config.json \
+  > glutton-westend-local-2000-spec.json
+```
+
+3. **Use in zombienet config**:
+```toml
+[[parachains]]
+id = 2000
+chain_spec_path = "./zombienet-chain-specs/glutton-westend-local-2000-spec.json"
+
+[parachains.collator]
+command = "polkadot-omni-node"  # Instead of polkadot-parachain
+```
+
+**Example migration**: See `polkadot/zombienet_tests/functional/0013-systematic-chunk-recovery-omninode.toml`
+for a complete example of migrating a glutton test to use omninode.
+
+**Compatible tests** (can use omninode):
+- Tests using glutton runtime (0013, 0014, 0015, 0019)
+- Tests using asset-hub, bridge-hub, coretime, people runtimes
+- Any test using real parachain runtimes with GenesisBuilder support
+
+**Incompatible tests** (cannot use omninode):
+- Tests using test-parachain (needs custom CLI flags like `--fail-pov-recovery`)
+- Tests using undying/adder collators (custom genesis generation)
+
+#### Other Planned Optimizations
+
 - **Feature-gate polkadot-parachain runtimes**: Build only needed runtimes
 - **Metadata-only testing**: Use pre-built metadata files for subxt tests
 
