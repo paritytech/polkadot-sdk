@@ -33,7 +33,6 @@ pub use storage::Diff;
 pub use weight::{ChargedAmount, Token};
 
 use frame_support::{DebugNoBound, DefaultNoBound};
-use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
 use sp_runtime::{FixedPointNumber, Weight};
@@ -467,12 +466,13 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		self.deposit.consumed()
 	}
 
-	/// Get maximum storage deposit required at any point.
+	/// Get maximum storage deposit required at any point including the EIP-150 63/64 overhead for
+	/// nested calls.
 	///
 	/// Returns the highest deposit amount needed during execution,
 	/// accounting for temporary storage spikes before later refunds.
 	pub fn deposit_required(&self) -> DepositOf<T> {
-		self.deposit.max_charged()
+		StorageDeposit::Charge(self.deposit.deposit_required_with_eip_150())
 	}
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter

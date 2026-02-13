@@ -30,8 +30,8 @@ use crate::{
 	exec::Key,
 	limits,
 	metering::{
-		math::{EIP_150_DENOMINATOR, EIP_150_NUMERATOR},
 		TransactionLimits,
+		math::{EIP_150_DENOMINATOR, EIP_150_NUMERATOR},
 	},
 	precompiles::alloy::sol_types::{
 		SolType,

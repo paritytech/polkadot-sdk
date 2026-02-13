@@ -18,11 +18,11 @@
 use super::{
 	BalanceOf, CallResources, Config, DispatchError, Error, EthTxInfo, FixedPointNumber, FixedU128,
 	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, SignedGas, State,
-	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
+	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter,
 };
 use crate::vm::evm::EVMGas;
 use core::marker::PhantomData;
-use num_traits::One;
+use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
 
@@ -76,6 +76,12 @@ pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
 	)
 }
 
+/// Compute the EIP-150 63/64 overhead for a deposit balance: `ceil(value / 63)`.
+pub(crate) fn compute_eip_150_overhead_for_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+	(value.saturating_add((EIP_150_NUMERATOR as u32 - 1).into())) /
+		(EIP_150_NUMERATOR as u32).into()
+}
+
 /// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
 pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 	Weight::from_parts(
@@ -89,7 +95,7 @@ pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
 }
 
 /// Compute the EIP-150 63/64 overhead: `ceil(weight / 63)` for each component.
-pub(crate) fn compute_eip_150_overhead(weight: Weight) -> Weight {
+pub(crate) fn compute_eip_150_weight_overhead(weight: Weight) -> Weight {
 	Weight::from_parts(
 		weight.ref_time().div_ceil(EIP_150_NUMERATOR),
 		weight.proof_size().div_ceil(EIP_150_NUMERATOR),
@@ -229,7 +235,11 @@ pub mod substrate_execution {
 			} else {
 				WeightMeter::new(nested_weight_limit, stipend)
 			},
-			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
+			deposit: if should_apply_eip_150 {
+				meter.deposit.nested_with_eip_150(Some(nested_deposit_limit))
+			} else {
+				meter.deposit.nested(Some(nested_deposit_limit))
+			},
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -507,7 +517,11 @@ pub mod ethereum_execution {
 			} else {
 				WeightMeter::new(nested_weight_limit, stipend)
 			},
-			deposit: meter.deposit.nested(nested_deposit_limit),
+			deposit: if should_apply_eip_150 {
+				meter.deposit.nested_with_eip_150(nested_deposit_limit)
+			} else {
+				meter.deposit.nested(nested_deposit_limit)
+			},
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,

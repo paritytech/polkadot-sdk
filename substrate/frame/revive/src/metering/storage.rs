@@ -26,7 +26,7 @@ use crate::{
 	StorageDeposit as Deposit, storage::ContractInfo,
 };
 use alloc::vec::Vec;
-use core::{marker::PhantomData, mem};
+use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedU128,
@@ -70,6 +70,48 @@ pub trait Ext<T: Config> {
 /// It uses [`frame_support::traits::fungible::Mutate`] in order to do accomplish the reserves.
 pub enum ReservingExt {}
 
+/// EIP-150 peak tracking for deposit: stores the peak deposit this meter must have
+/// so that every subcall receives enough deposit after the 63/64 split.
+pub(crate) enum Eip150DepositPeak<T: Config> {
+	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
+	TopCall(BalanceOf<T>),
+	/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
+	Subcall(BalanceOf<T>),
+}
+
+impl<T: Config> Default for Eip150DepositPeak<T> {
+	fn default() -> Self {
+		Self::TopCall(Zero::zero())
+	}
+}
+
+impl<T: Config> Debug for Eip150DepositPeak<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
+			Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
+		}
+	}
+}
+
+impl<T: Config> Eip150DepositPeak<T> {
+	/// Get the tracked peak deposit.
+	fn get(&self) -> BalanceOf<T> {
+		match self {
+			Self::TopCall(v) | Self::Subcall(v) => *v,
+		}
+	}
+
+	/// Update the peak if the new value is higher.
+	fn update(&mut self, new: BalanceOf<T>) {
+		match self {
+			Self::TopCall(v) | Self::Subcall(v) => {
+				*v = (*v).max(new);
+			},
+		}
+	}
+}
+
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
 #[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State> {
@@ -92,6 +134,8 @@ pub struct RawMeter<T: Config, E, S: State> {
 	///
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
+	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
+	pub(crate) eip_150_peak: Eip150DepositPeak<T>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -252,6 +296,13 @@ where
 		RawMeter { limit, ..Default::default() }
 	}
 
+	/// Like [`Self::nested`] but marks the child as subject to the EIP-150 63/64 rule.
+	pub fn nested_with_eip_150(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
+		let mut meter = self.nested(limit);
+		meter.eip_150_peak = Eip150DepositPeak::Subcall(Zero::zero());
+		meter
+	}
+
 	/// Reset this meter to its original setting.
 	pub fn reset(&mut self) {
 		self.own_contribution = Default::default();
@@ -281,6 +332,9 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
+		// Track deposit EIP-150 peak before absorb modifies the meters.
+		self.update_eip_150_peak_from_child(&absorbed);
+
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
 		// now have the contract information `info`. Before that we only took net charges related to
 		// the contract storage into account but ignored net refunds.
@@ -317,6 +371,9 @@ where
 	///
 	/// - `absorbed`: The child storage meter
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
+		// Track deposit EIP-150 peak before absorb modifies the meters.
+		self.update_eip_150_peak_from_child(&absorbed);
+
 		self.max_charged = self
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
@@ -347,6 +404,46 @@ where
 	/// Recaluclate the max deposit value
 	fn recalulculate_max_charged(&mut self) {
 		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
+	}
+
+	/// Track the EIP-150 deposit peak when absorbing a child meter.
+	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
+		let consumed_deposit = self.consumed().charge_or_zero();
+		let child_deposit_required = child.max_charged().charge_or_zero();
+		let child_deposit_overhead = child.compute_eip_150_total_overhead();
+		let current_deposit_peak = consumed_deposit
+			.saturating_add(child_deposit_required)
+			.saturating_add(child_deposit_overhead);
+		self.eip_150_peak.update(current_deposit_peak);
+	}
+
+	/// Get the tracked EIP-150 deposit peak.
+	pub(crate) fn eip_150_peak(&self) -> BalanceOf<T> {
+		self.eip_150_peak.get()
+	}
+
+	/// Compute the total EIP-150 deposit overhead for this meter.
+	///
+	/// For subcalls: children overhead + own 63/64 overhead.
+	/// For top calls: children overhead only.
+	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
+		use super::math::compute_eip_150_overhead_for_balance;
+
+		let deposit_required = self.max_charged().charge_or_zero();
+		match self.eip_150_peak {
+			Eip150DepositPeak::TopCall(peak) => peak.saturating_sub(deposit_required),
+			Eip150DepositPeak::Subcall(peak) => {
+				let min_needed = peak.max(deposit_required);
+				let children_overhead = min_needed.saturating_sub(deposit_required);
+				children_overhead
+					.saturating_add(compute_eip_150_overhead_for_balance::<T>(min_needed))
+			},
+		}
+	}
+
+	/// Get the deposit required including EIP-150 63/64 overhead.
+	pub(crate) fn deposit_required_with_eip_150(&self) -> BalanceOf<T> {
+		self.eip_150_peak.get().max(self.max_charged().charge_or_zero())
 	}
 
 	/// The amount of balance still available from the current meter.

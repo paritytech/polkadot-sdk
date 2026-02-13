@@ -60,6 +60,7 @@ fn test_deposit_calculation() {
 			assert_eq!(gas_result2, SignedGas::Positive(BalanceOf::<Test>::from(0u32)));
 		});
 }
+
 #[test]
 fn test_apply_eip_150_to_signed_gas() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -107,7 +108,7 @@ fn test_apply_eip_150_to_weight() {
 
 #[test]
 fn test_compute_eip_150_overhead() {
-	use super::math::{apply_eip_150_to_weight, compute_eip_150_overhead};
+	use super::math::{apply_eip_150_to_weight, compute_eip_150_weight_overhead};
 
 	// Given consumed weight, verify: apply_eip_150(consumed + overhead) == consumed
 	let input_weights: Vec<Weight> = vec![
@@ -124,7 +125,7 @@ fn test_compute_eip_150_overhead() {
 	];
 
 	for consumed in input_weights {
-		let overhead = compute_eip_150_overhead(consumed);
+		let overhead = compute_eip_150_weight_overhead(consumed);
 		let required = consumed.saturating_add(overhead);
 		let available_to_nested = apply_eip_150_to_weight(required);
 
@@ -263,7 +264,6 @@ fn test_validate_and_get_stipend() {
 		}
 	});
 }
-
 
 /// Test that max_storage_deposit correctly tracks the peak storage allocation.
 ///
