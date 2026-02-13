@@ -78,3 +78,7 @@ crates:
   - name: pallet-multi-asset-bounties
     bump: patch
     note: Test mock updated to remove `type Currency` from preimage config.
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
