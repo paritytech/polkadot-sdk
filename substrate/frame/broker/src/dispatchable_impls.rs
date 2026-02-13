@@ -685,7 +685,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::AssignmentAdded {
 			timeslice,
 			core,
-			assignment: assignment.clone(),
+			assignment: assignment,
 		});
 
 		Ok(())
