@@ -1203,7 +1203,7 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 		}
 
 		if Multisig::on_chain_storage_version() == StorageVersion::new(0) {
-			Multisig::in_code_storage_version().put::<Multisig>();
+			StorageVersion::new(1).put::<Multisig>();
 			writes.saturating_inc();
 		}
 
