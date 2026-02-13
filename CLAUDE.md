@@ -115,6 +115,99 @@ zombienet --provider native spawn ./zombienet/examples/small_network.toml
 ./target/release/polkadot-parachain --collator --alice --force-authoring --tmp
 ```
 
+## Optimizing Zombienet Test Build Times
+
+Building all binaries for zombienet tests can take 30-60 minutes. Here are optimizations to reduce this to 10-15 minutes (first build) or 2-5 minutes (subsequent runs).
+
+### Quick Start - Two-Step Workflow
+
+**Step 1: Initial build (run once, ~10-15 minutes)**
+```bash
+./scripts/zombienet-quick-build.sh
+```
+
+**Step 2: Run tests with fast iteration (~2-5 minutes per run)**
+```bash
+./scripts/zombienet-dev-test.sh cumulus          # Run cumulus tests
+./scripts/zombienet-dev-test.sh substrate        # Run substrate tests
+./scripts/zombienet-dev-test.sh polkadot         # Run polkadot tests
+```
+
+The dev test script automatically sets `SKIP_WASM_BUILD=1` to skip WASM rebuilds between test runs.
+
+### What Gets Built
+
+The quick-build script builds:
+- `polkadot` with **only rococo runtime** (skips westend, saves ~5 minutes)
+- `polkadot-parachain` (still needs all 10 runtimes - ~20-30 min)
+- `test-parachain` (9 WASM variants for elastic scaling tests)
+
+**Total savings: ~5 minutes from selective relay chain runtime build**
+
+### Manual Selective Builds
+
+Build polkadot with only the runtime you need:
+```bash
+# For rococo tests (most common - 25+ tests use this):
+cargo build --profile testnet --no-default-features --features rococo-native,fast-runtime \
+  --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+
+# For westend tests (only ~5 tests use this):
+cargo build --profile testnet --no-default-features --features westend-native,fast-runtime \
+  --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+
+# For both runtimes (default behavior):
+cargo build --profile testnet --features fast-runtime \
+  --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+```
+
+### Skip WASM Rebuilds for Fast Iteration
+
+After initial build, skip WASM rebuilds if you haven't changed runtime code:
+```bash
+# Method 1: Use the dev test script (recommended)
+./scripts/zombienet-dev-test.sh cumulus test_name
+
+# Method 2: Manual with SKIP_WASM_BUILD
+SKIP_WASM_BUILD=1 cargo test -p cumulus-zombienet-sdk-tests --features zombie-ci -- test_name
+
+# Method 3: Using the run.sh scripts
+SKIP_WASM_BUILD=1 ./cumulus/zombienet/zombienet-sdk/run.sh test_name
+```
+
+### Available Runtime Features
+
+The `polkadot` binary supports these features:
+- `rococo-native` - Rococo relay chain runtime (used by 25+ tests)
+- `westend-native` - Westend relay chain runtime (used by ~5 tests)
+- Default: Both runtimes enabled
+
+Most zombienet tests use `rococo-local`, so building only rococo saves significant time.
+
+### Understanding Build Times
+
+**Full build (30-60 minutes):**
+- polkadot + 2 runtimes: ~10-15 min
+- polkadot-parachain + 10 runtimes: ~20-30 min
+- test-parachain + 9 WASM variants: ~5-10 min
+
+**Optimized build (10-15 minutes):**
+- polkadot + rococo only: ~5-8 min (saved ~5 min!)
+- polkadot-parachain + 10 runtimes: ~20-30 min (future: omninode migration)
+- test-parachain + 9 variants: ~5-10 min (needed for tests)
+
+**Fast iteration (2-5 minutes):**
+- SKIP_WASM_BUILD=1: Only recompiles changed Rust code
+- No WASM builds, no runtime builds
+- Perfect for test-only changes or node logic changes
+
+### Future Optimizations (Planned)
+
+Additional optimizations are planned:
+- **Omninode migration**: Replace polkadot-parachain (saves ~20-30 min)
+- **Feature-gate polkadot-parachain runtimes**: Build only needed runtimes
+- **Metadata-only testing**: Use pre-built metadata files for subxt tests
+
 ## UI Tests
 
 UI tests verify macro output. Update them with:
