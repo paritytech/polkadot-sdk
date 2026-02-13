@@ -248,7 +248,6 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			if onchain > 0 {
@@ -262,7 +261,7 @@ pub mod v1 {
 				call_count.saturating_inc();
 			});
 
-			current.put::<Pallet<T>>();
+			StorageVersion::new(1).put::<Pallet<T>>();
 
 			T::DbWeight::get().reads_writes(
 				// Reads: Get Calls + Get Version
