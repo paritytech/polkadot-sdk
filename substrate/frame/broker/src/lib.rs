@@ -1074,7 +1074,6 @@ pub mod pallet {
 		/// - `core`: The core to which the assignment should be added.
 		/// - `assignment`: The workload schedule to assign to the core.
 		#[pallet::call_index(29)]
-		#[pallet::weight(T::WeightInfo::add_assignment())]
 		pub fn add_assignment(
 			origin: OriginFor<T>,
 			timeslice: Timeslice,
