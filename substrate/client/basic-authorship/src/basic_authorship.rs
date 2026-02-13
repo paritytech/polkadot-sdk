@@ -728,8 +728,8 @@ mod tests {
 	use substrate_test_runtime_client::{
 		prelude::*,
 		runtime::{
-			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer,
-			SHIELD_TEST_DECODE_KEY, SHIELD_TEST_UNSHIELD_KEY,
+			Block as TestBlock, Extrinsic, ExtrinsicBuilder, Transfer, SHIELD_TEST_DECODE_KEY,
+			SHIELD_TEST_UNSHIELD_KEY,
 		},
 		TestClientBuilder, TestClientBuilderExt,
 	};
@@ -1333,22 +1333,17 @@ mod tests {
 	) -> Arc<substrate_test_runtime_client::TestClient> {
 		let mut builder = TestClientBuilder::new();
 		if let Some(tx) = decode {
-			builder = builder
-				.add_extra_storage(SHIELD_TEST_DECODE_KEY.to_vec(), tx.encode());
+			builder = builder.add_extra_storage(SHIELD_TEST_DECODE_KEY.to_vec(), tx.encode());
 		}
 		if let Some(ext) = unshield {
-			builder = builder
-				.add_extra_storage(SHIELD_TEST_UNSHIELD_KEY.to_vec(), ext.encode());
+			builder = builder.add_extra_storage(SHIELD_TEST_UNSHIELD_KEY.to_vec(), ext.encode());
 		}
 		Arc::new(builder.build())
 	}
 
 	#[test]
 	fn shielded_tx_and_inner_tx_both_included_in_block() {
-		let client = shielded_test_client(
-			Some(mock_shielded_tx(100)),
-			Some(extrinsic(1)),
-		);
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(1)));
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1375,10 +1370,8 @@ mod tests {
 			shield_keystore,
 		);
 
-		let proposer = block_on(proposer_factory.init(
-			&client.expect_header(genesis_hash).unwrap(),
-		))
-		.unwrap();
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
 
 		let deadline = time::Duration::from_secs(9);
 		let block =
@@ -1393,10 +1386,7 @@ mod tests {
 	#[test]
 	fn shielded_tx_included_when_unshielding_fails() {
 		// Decode succeeds but unshielding fails (no unshield key in storage)
-		let client = shielded_test_client(
-			Some(mock_shielded_tx(100)),
-			None,
-		);
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), None);
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1423,10 +1413,8 @@ mod tests {
 			shield_keystore,
 		);
 
-		let proposer = block_on(proposer_factory.init(
-			&client.expect_header(genesis_hash).unwrap(),
-		))
-		.unwrap();
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
 
 		let deadline = time::Duration::from_secs(9);
 		let block =
@@ -1440,10 +1428,7 @@ mod tests {
 
 	#[test]
 	fn should_skip_shielded_txs_when_env_var_is_set() {
-		let client = shielded_test_client(
-			Some(mock_shielded_tx(100)),
-			Some(extrinsic(2)),
-		);
+		let client = shielded_test_client(Some(mock_shielded_tx(100)), Some(extrinsic(2)));
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1456,8 +1441,7 @@ mod tests {
 		let genesis_hash = client.info().genesis_hash;
 
 		// Submit extrinsics to the pool
-		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0), extrinsic(1)]))
-			.unwrap();
+		block_on(txpool.submit_at(genesis_hash, SOURCE, vec![extrinsic(0), extrinsic(1)])).unwrap();
 		block_on(txpool.maintain(chain_event(
 			client.expect_header(genesis_hash).expect("there should be header"),
 		)));
@@ -1475,10 +1459,8 @@ mod tests {
 			shield_keystore,
 		);
 
-		let proposer = block_on(proposer_factory.init(
-			&client.expect_header(genesis_hash).unwrap(),
-		))
-		.unwrap();
+		let proposer =
+			block_on(proposer_factory.init(&client.expect_header(genesis_hash).unwrap())).unwrap();
 
 		let deadline = time::Duration::from_secs(9);
 		let block =
@@ -1496,10 +1478,7 @@ mod tests {
 	#[test]
 	fn block_size_accounts_for_unshielded_tx_size() {
 		let aead_ct_len = 10_000;
-		let client = shielded_test_client(
-			Some(mock_shielded_tx(aead_ct_len)),
-			Some(extrinsic(1)),
-		);
+		let client = shielded_test_client(Some(mock_shielded_tx(aead_ct_len)), Some(extrinsic(1)));
 		let spawner = sp_core::testing::TaskExecutor::new();
 		let txpool = Arc::from(BasicPool::new_full(
 			Default::default(),
@@ -1510,8 +1489,7 @@ mod tests {
 		));
 		let shield_keystore = Arc::new(TestShieldKeystore);
 		let genesis_hash = client.info().genesis_hash;
-		let genesis_header =
-			client.expect_header(genesis_hash).expect("there should be header");
+		let genesis_header = client.expect_header(genesis_hash).expect("there should be header");
 
 		let wrapper_tx = extrinsic(0);
 		let wrapper_encoded_size = wrapper_tx.encoded_size();
