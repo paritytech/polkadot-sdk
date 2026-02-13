@@ -23,10 +23,10 @@ mod tests;
 use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	StorageDeposit as Deposit, metering::Eip150Peak, storage::ContractInfo,
 };
 use alloc::vec::Vec;
-use core::{fmt::Debug, marker::PhantomData, mem};
+use core::{marker::PhantomData, mem};
 use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedU128,
@@ -70,48 +70,6 @@ pub trait Ext<T: Config> {
 /// It uses [`frame_support::traits::fungible::Mutate`] in order to do accomplish the reserves.
 pub enum ReservingExt {}
 
-/// EIP-150 peak tracking for deposit: stores the peak deposit this meter must have
-/// so that every subcall receives enough deposit after the 63/64 split.
-pub(crate) enum Eip150DepositPeak<T: Config> {
-	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
-	TopCall(BalanceOf<T>),
-	/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
-	Subcall(BalanceOf<T>),
-}
-
-impl<T: Config> Default for Eip150DepositPeak<T> {
-	fn default() -> Self {
-		Self::TopCall(Zero::zero())
-	}
-}
-
-impl<T: Config> Debug for Eip150DepositPeak<T> {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self {
-			Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
-			Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
-		}
-	}
-}
-
-impl<T: Config> Eip150DepositPeak<T> {
-	/// Get the tracked peak deposit.
-	fn get(&self) -> BalanceOf<T> {
-		match self {
-			Self::TopCall(v) | Self::Subcall(v) => *v,
-		}
-	}
-
-	/// Update the peak if the new value is higher.
-	fn update(&mut self, new: BalanceOf<T>) {
-		match self {
-			Self::TopCall(v) | Self::Subcall(v) => {
-				*v = (*v).max(new);
-			},
-		}
-	}
-}
-
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
 #[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State> {
@@ -135,7 +93,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
 	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
-	pub(crate) eip_150_peak: Eip150DepositPeak<T>,
+	pub(crate) eip_150_peak: Eip150Peak<BalanceOf<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -299,7 +257,7 @@ where
 	/// Like [`Self::nested`] but marks the child as subject to the EIP-150 63/64 rule.
 	pub fn nested_with_eip_150(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		let mut meter = self.nested(limit);
-		meter.eip_150_peak = Eip150DepositPeak::Subcall(Zero::zero());
+		meter.eip_150_peak = Eip150Peak::Subcall(Zero::zero());
 		meter
 	}
 
@@ -414,10 +372,11 @@ where
 		let current_deposit_peak = consumed_deposit
 			.saturating_add(child_deposit_required)
 			.saturating_add(child_deposit_overhead);
-		self.eip_150_peak.update(current_deposit_peak);
+		self.eip_150_peak.update(current_deposit_peak, Ord::max);
 	}
 
 	/// Get the tracked EIP-150 deposit peak.
+	#[cfg(test)]
 	pub(crate) fn eip_150_peak(&self) -> BalanceOf<T> {
 		self.eip_150_peak.get()
 	}
@@ -431,8 +390,8 @@ where
 
 		let deposit_required = self.max_charged().charge_or_zero();
 		match self.eip_150_peak {
-			Eip150DepositPeak::TopCall(peak) => peak.saturating_sub(deposit_required),
-			Eip150DepositPeak::Subcall(peak) => {
+			Eip150Peak::TopCall(peak) => peak.saturating_sub(deposit_required),
+			Eip150Peak::Subcall(peak) => {
 				let min_needed = peak.max(deposit_required);
 				let children_overhead = min_needed.saturating_sub(deposit_required);
 				children_overhead

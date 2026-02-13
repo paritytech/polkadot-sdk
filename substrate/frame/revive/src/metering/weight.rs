@@ -126,39 +126,7 @@ pub struct ErasedToken {
 	pub token: Box<dyn Any>,
 }
 
-/// EIP-150 peak tracking: stores the peak weight this meter must have at the start
-/// so that every subcall receives enough weight after the 63/64 split.
-#[derive(Clone, Copy, Debug)]
-enum Eip150Peak {
-	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
-	TopCall(Weight),
-	/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
-	Subcall(Weight),
-}
-
-impl Default for Eip150Peak {
-	fn default() -> Self {
-		Self::TopCall(Weight::zero())
-	}
-}
-
-impl Eip150Peak {
-	/// Get the tracked peak weight.
-	fn get(&self) -> Weight {
-		match self {
-			Self::TopCall(w) | Self::Subcall(w) => *w,
-		}
-	}
-
-	/// Update the peak if the new value is higher.
-	fn update(&mut self, new: Weight) {
-		match self {
-			Self::TopCall(w) | Self::Subcall(w) => {
-				*w = w.max(new);
-			},
-		}
-	}
-}
+use super::Eip150Peak;
 
 #[derive(DefaultNoBound)]
 pub struct WeightMeter<T: Config> {
@@ -178,7 +146,7 @@ pub struct WeightMeter<T: Config> {
 	/// converting from ref_time to the execution engine unit.
 	engine_meter: EngineMeter<T>,
 	/// EIP-150 63/64 peak tracking for dry-run weight estimation.
-	eip_150_peak: Eip150Peak,
+	eip_150_peak: Eip150Peak<Weight>,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -218,7 +186,7 @@ impl<T: Config> WeightMeter<T> {
 		// Add the nested call's EIP-150 63/64 overhead on top.
 		let current_eip_150_peak =
 			current_weight_consumed_highest.saturating_add(nested.compute_eip_150_total_overhead());
-		self.eip_150_peak.update(current_eip_150_peak);
+		self.eip_150_peak.update(current_eip_150_peak, |a, b| a.max(b));
 
 		self.weight_consumed_highest =
 			current_weight_consumed_highest.max(self.weight_consumed_highest);

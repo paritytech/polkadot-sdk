@@ -35,6 +35,7 @@ pub use weight::{ChargedAmount, Token};
 use frame_support::{DebugNoBound, DefaultNoBound};
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
+use num_traits::Zero;
 use sp_runtime::{FixedPointNumber, Weight};
 use storage::{DepositOf, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
 use weight::WeightMeter;
@@ -65,6 +66,51 @@ mod private {
 	pub trait Sealed {}
 	impl Sealed for super::Root {}
 	impl Sealed for super::Nested {}
+}
+
+/// EIP-150 peak tracking: stores the peak value this meter must have
+/// so that every subcall receives enough resources after the 63/64 split.
+pub(crate) enum Eip150Peak<V> {
+	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
+	TopCall(V),
+	/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
+	Subcall(V),
+}
+
+impl<V: Copy + Zero> Default for Eip150Peak<V> {
+	fn default() -> Self {
+		Self::TopCall(V::zero())
+	}
+}
+
+impl<V: Debug> Debug for Eip150Peak<V> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
+			Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
+		}
+	}
+}
+
+impl<V: Copy> Eip150Peak<V> {
+	/// Get the tracked peak value.
+	pub(crate) fn get(&self) -> V {
+		match self {
+			Self::TopCall(v) | Self::Subcall(v) => *v,
+		}
+	}
+
+	/// Update the peak to the maximum of the current and new value.
+	///
+	/// Uses a caller-provided `max_fn` because `Weight` provides a component-wise
+	/// `max()` that does not come from `Ord`.
+	pub(crate) fn update(&mut self, new: V, max_fn: fn(V, V) -> V) {
+		match self {
+			Self::TopCall(v) | Self::Subcall(v) => {
+				*v = max_fn(*v, new);
+			},
+		}
+	}
 }
 
 /// The type of resource meter used at the root level for transactions as a whole.
