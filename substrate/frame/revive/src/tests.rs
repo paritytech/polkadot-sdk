@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod block_hash;
+mod eip7702;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;

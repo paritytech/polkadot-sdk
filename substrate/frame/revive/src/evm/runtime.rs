@@ -287,12 +287,9 @@ pub trait EthExtra {
 		match &tx {
 			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
 			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
-			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
-				// Supported transaction types, continue processing
-			},
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) |
 			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
-				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
-				return Err(InvalidTransaction::Call);
+				// Supported transaction types, continue processing
 			},
 			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
 				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
