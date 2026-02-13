@@ -173,7 +173,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerConnected(peer_id, ..),
 					) => {
-						gum::trace!(
+						gum::info!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that connected before subsystem initialization",
@@ -187,7 +187,7 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 					CollatorProtocolMessage::NetworkBridgeUpdate(
 						NetworkBridgeEvent::PeerMessage(peer_id, ..),
 					) => {
-						gum::trace!(
+						gum::info!(
 							target: LOG_TARGET,
 							?peer_id,
 							"Disconnecting peer that sent message before subsystem initialization",
