@@ -40,10 +40,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{borrow::Cow, vec::Vec};
-use sp_runtime::{
-	traits::{BadOrigin, Hash, Saturating},
-	Perbill,
-};
+use sp_runtime::traits::{BadOrigin, Hash, Saturating};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -51,8 +48,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Get,
 	traits::{
-		Consideration, Currency, Defensive, FetchResult, Footprint, PreimageProvider,
-		PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
+		Consideration, Defensive, FetchResult, Footprint, PreimageProvider, PreimageRecipient,
+		QueryPreimage, StorePreimage,
 	},
 	BoundedSlice, BoundedVec,
 };
@@ -68,20 +65,6 @@ pub use pallet::*;
 #[derive(
 	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
 )]
-pub enum OldRequestStatus<AccountId, Balance> {
-	/// The associated preimage has not yet been requested by the system. The given deposit (if
-	/// some) is being held until either it becomes requested or the user retracts the preimage.
-	Unrequested { deposit: (AccountId, Balance), len: u32 },
-	/// There are a non-zero number of outstanding requests for this hash by this chain. If there
-	/// is a preimage registered, then `len` is `Some` and it may be removed iff this counter
-	/// becomes zero.
-	Requested { deposit: Option<(AccountId, Balance)>, count: u32, len: Option<u32> },
-}
-
-/// A type to note whether a preimage is owned by a user or the system.
-#[derive(
-	Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug, DecodeWithMemTracking,
-)]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -92,24 +75,17 @@ pub enum RequestStatus<AccountId, Ticket> {
 	Requested { maybe_ticket: Option<(AccountId, Ticket)>, count: u32, maybe_len: Option<u32> },
 }
 
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub type TicketOf<T> = <T as Config>::Consideration;
 
 /// Maximum size of preimage we can store is 4mb.
 pub const MAX_SIZE: u32 = 4 * 1024 * 1024;
-/// Hard-limit on the number of hashes that can be passed to `ensure_updated`.
-///
-/// Exists only for benchmarking purposes.
-pub const MAX_HASH_UPGRADE_BULK_COUNT: u32 = 1024;
 
 #[frame_support::pallet]
-#[allow(deprecated)]
 pub mod pallet {
 	use super::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -119,10 +95,6 @@ pub mod pallet {
 
 		/// The Weight information for this pallet.
 		type WeightInfo: weights::WeightInfo;
-
-		/// Currency type for this pallet.
-		// TODO#1569: Remove.
-		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// An origin that can request a preimage be placed on-chain without a deposit or fee, or
 		/// manage existing preimages.
@@ -161,10 +133,6 @@ pub mod pallet {
 		Requested,
 		/// The preimage request cannot be removed since no outstanding requests exist.
 		NotRequested,
-		/// More than `MAX_HASH_UPGRADE_BULK_COUNT` hashes were requested to be upgraded at once.
-		TooMany,
-		/// Too few hashes were requested to be upgraded (i.e. zero).
-		TooFew,
 	}
 
 	/// A reason for this pallet placing a hold on funds.
@@ -173,12 +141,6 @@ pub mod pallet {
 		/// The funds are held as storage deposit for a preimage.
 		Preimage,
 	}
-
-	/// The request status of a given hash.
-	#[deprecated = "RequestStatusFor"]
-	#[pallet::storage]
-	pub type StatusFor<T: Config> =
-		StorageMap<_, Identity, T::Hash, OldRequestStatus<T::AccountId, BalanceOf<T>>>;
 
 	/// The request status of a given hash.
 	#[pallet::storage]
@@ -240,77 +202,10 @@ pub mod pallet {
 			T::ManagerOrigin::ensure_origin(origin)?;
 			Self::do_unrequest_preimage(&hash)
 		}
-
-		/// Ensure that the bulk of pre-images is upgraded.
-		///
-		/// The caller pays no fee if at least 90% of pre-images were successfully updated.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::ensure_updated(hashes.len() as u32))]
-		pub fn ensure_updated(
-			origin: OriginFor<T>,
-			hashes: Vec<T::Hash>,
-		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-			ensure!(hashes.len() > 0, Error::<T>::TooFew);
-			ensure!(hashes.len() <= MAX_HASH_UPGRADE_BULK_COUNT as usize, Error::<T>::TooMany);
-
-			let updated = hashes.iter().map(Self::do_ensure_updated).filter(|b| *b).count() as u32;
-			let ratio = Perbill::from_rational(updated, hashes.len() as u32);
-
-			let pays: Pays = (ratio < Perbill::from_percent(90)).into();
-			Ok(pays.into())
-		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	fn do_ensure_updated(h: &T::Hash) -> bool {
-		#[allow(deprecated)]
-		let r = match StatusFor::<T>::take(h) {
-			Some(r) => r,
-			None => return false,
-		};
-		let n = match r {
-			OldRequestStatus::Unrequested { deposit: (who, amount), len } => {
-				// unreserve deposit
-				T::Currency::unreserve(&who, amount);
-				// take consideration
-				let Ok(ticket) =
-					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
-						.defensive_proof("Unexpected inability to take deposit after unreserved")
-				else {
-					return true;
-				};
-				RequestStatus::Unrequested { ticket: (who, ticket), len }
-			},
-			OldRequestStatus::Requested { deposit: maybe_deposit, count, len: maybe_len } => {
-				let maybe_ticket = if let Some((who, deposit)) = maybe_deposit {
-					// unreserve deposit
-					T::Currency::unreserve(&who, deposit);
-					// take consideration
-					if let Some(len) = maybe_len {
-						let Ok(ticket) =
-							T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
-								.defensive_proof(
-									"Unexpected inability to take deposit after unreserved",
-								)
-						else {
-							return true;
-						};
-						Some((who, ticket))
-					} else {
-						None
-					}
-				} else {
-					None
-				};
-				RequestStatus::Requested { maybe_ticket, count, maybe_len }
-			},
-		};
-		RequestStatusFor::<T>::insert(h, n);
-		true
-	}
-
 	/// Ensure that the origin is either the `ManagerOrigin` or a signed origin.
 	fn ensure_signed_or_manager(
 		origin: T::RuntimeOrigin,
@@ -337,7 +232,6 @@ impl<T: Config> Pallet<T> {
 		let len = preimage.len() as u32;
 		ensure!(len <= MAX_SIZE, Error::<T>::TooBig);
 
-		Self::do_ensure_updated(&hash);
 		// We take a deposit only if there is a provided depositor and the preimage was not
 		// previously requested. This also allows the tx to pay no fee.
 		let status = match (RequestStatusFor::<T>::get(hash), maybe_depositor) {
@@ -377,7 +271,6 @@ impl<T: Config> Pallet<T> {
 	// If the preimage already exists before the request is made, the deposit for the preimage is
 	// returned to the user, and removed from their management.
 	fn do_request_preimage(hash: &T::Hash) {
-		Self::do_ensure_updated(&hash);
 		let (count, maybe_len, maybe_ticket) =
 			RequestStatusFor::<T>::get(hash).map_or((1, None, None), |x| match x {
 				RequestStatus::Requested { maybe_ticket, mut count, maybe_len } => {
@@ -405,7 +298,6 @@ impl<T: Config> Pallet<T> {
 		hash: &T::Hash,
 		maybe_check_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotNoted)? {
 			RequestStatus::Requested { maybe_ticket: Some((owner, ticket)), count, maybe_len } => {
 				ensure!(maybe_check_owner.map_or(true, |c| c == owner), Error::<T>::NotAuthorized);
@@ -434,7 +326,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Clear a preimage request.
 	fn do_unrequest_preimage(hash: &T::Hash) -> DispatchResult {
-		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash).ok_or(Error::<T>::NotRequested)? {
 			RequestStatus::Requested { mut count, maybe_len, maybe_ticket } if count > 1 => {
 				count.saturating_dec();
@@ -484,7 +375,6 @@ impl<T: Config> Pallet<T> {
 
 	fn len(hash: &T::Hash) -> Option<u32> {
 		use RequestStatus::*;
-		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash) {
 			Some(Requested { maybe_len: Some(len), .. }) | Some(Unrequested { len, .. }) => {
 				Some(len)
@@ -508,7 +398,6 @@ impl<T: Config> PreimageProvider<T::Hash> for Pallet<T> {
 	}
 
 	fn preimage_requested(hash: &T::Hash) -> bool {
-		Self::do_ensure_updated(hash);
 		matches!(RequestStatusFor::<T>::get(hash), Some(RequestStatus::Requested { .. }))
 	}
 
@@ -554,7 +443,6 @@ impl<T: Config> QueryPreimage for Pallet<T> {
 	}
 
 	fn is_requested(hash: &T::Hash) -> bool {
-		Self::do_ensure_updated(&hash);
 		matches!(RequestStatusFor::<T>::get(hash), Some(RequestStatus::Requested { .. }))
 	}
 
