@@ -1726,6 +1726,10 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let should_check_block_gap = !header_exists_in_db || !body_exists_in_db;
+			debug!(
+				target: "db",
+				"should_check_block_gap = {should_check_block_gap}",
+			);
 
 			if should_check_block_gap {
 				let update_gap =

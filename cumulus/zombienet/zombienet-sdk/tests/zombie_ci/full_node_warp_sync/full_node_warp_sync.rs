@@ -86,9 +86,9 @@ async fn assert_warp_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-// Asserting Gap sync requires at least sync=debug level
-async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
-	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(20), false);
+// Asserting Gap sync requires at least sync=trace level
+async fn assert_gap_sync(node: &NetworkNode, is_archive: bool) -> Result<(), anyhow::Error> {
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
 	let option_at_least_5_lines =
 		LogLineCountOptions::new(|n| n >= 5, Duration::from_secs(20), false);
 
@@ -115,6 +115,27 @@ async fn assert_gap_sync(node: &NetworkNode) -> Result<(), anyhow::Error> {
 		.await?;
 	if !result.success() {
 		return Err(anyhow!("Gap sync block imports are not started"));
+	}
+
+	// Verify body download behavior based on archive mode:
+	// - Archive nodes should download bodies (body: non-zero)
+	// - Non-archive nodes should skip bodies (body: 0 B)
+	let (body_pattern, body_error) = if is_archive {
+		(
+			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: [1-9]",
+			"archive node should download bodies",
+		)
+	} else {
+		(
+			r"(?<!\[Parachain\] )Gap sync cumulative stats:.*body: 0 B",
+			"non-archive node should not download bodies",
+		)
+	};
+	let result = node
+		.wait_log_line_count_with_timeout(body_pattern, false, option_at_least_5_lines.clone())
+		.await?;
+	if !result.success() {
+		return Err(anyhow!("Gap sync: {body_error}"));
 	}
 
 	let result = node
@@ -160,9 +181,10 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 
 	// Assert warp and gap syncs only for relaychain.
 	// "five" is not warp syncing the relaychain
-	for name in ["dave", "eve", "four"] {
+	// dave is non-archive (--blocks-pruning 256), eve and four use default (archive-canonical)
+	for (name, is_archive) in [("dave", false), ("eve", true), ("four", true)] {
 		assert_warp_sync(network.get_node(name)?).await?;
-		assert_gap_sync(network.get_node(name)?).await?;
+		assert_gap_sync(network.get_node(name)?, is_archive).await?;
 	}
 
 	// Check relaychain progress
@@ -204,9 +226,9 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for ferdie to be up");
 	network.get_node("ferdie")?.wait_until_is_up(60u64).await?;
 
-	// Assert warp and gap sync for ferdie
+	// Assert warp and gap sync for ferdie (uses default archive-canonical)
 	assert_warp_sync(network.get_node("ferdie")?).await?;
-	assert_gap_sync(network.get_node("ferdie")?).await?;
+	assert_gap_sync(network.get_node("ferdie")?, true).await?;
 
 	// Check progress for ferdie
 	log::info!("Checking full node ferdie  is syncing");
