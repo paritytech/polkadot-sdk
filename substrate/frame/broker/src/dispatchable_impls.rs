@@ -648,7 +648,6 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		ensure!(core < status.core_count, Error::<T>::Unavailable);
 
-		// Validate the assignment
 		ensure!(!assignment.is_empty(), Error::<T>::NothingToDo);
 
 		// Get existing workplan
