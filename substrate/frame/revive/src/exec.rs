@@ -1235,8 +1235,9 @@ where
 			// For DELEGATECALL, `from` is the contract making the delegatecall and
 			// `to` is the target contract whose code is being executed.
 			let (from, to) = match frame.delegate.as_ref() {
-				Some(delegate) =>
-					(T::AddressMapper::to_address(&frame.account_id), delegate.callee),
+				Some(delegate) => {
+					(T::AddressMapper::to_address(&frame.account_id), delegate.callee)
+				},
 				None => (
 					self.caller()
 						.account_id()
