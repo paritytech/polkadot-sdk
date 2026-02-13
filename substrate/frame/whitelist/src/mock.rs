@@ -47,7 +47,6 @@ impl pallet_balances::Config for Test {
 
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
 	type WeightInfo = ();

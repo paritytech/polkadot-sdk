@@ -19,15 +19,18 @@
 
 use alloc::vec;
 use frame_benchmarking::v2::*;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, traits::fungible::Mutate as FungibleMutate};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
 
 use crate::*;
 
-fn funded_account<T: Config>() -> T::AccountId {
+fn funded_account<T: Config + pallet_balances::Config>() -> T::AccountId {
 	let caller: T::AccountId = whitelisted_caller();
-	T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value() / 2u32.into());
+	let balance = <T as pallet_balances::Config>::Balance::max_value() / 2u32.into();
+	let _ = <pallet_balances::Pallet<T> as FungibleMutate<T::AccountId>>::set_balance(
+		&caller, balance,
+	);
 	caller
 }
 
@@ -42,23 +45,7 @@ fn sized_preimage_and_hash<T: Config>(size: u32) -> (Vec<u8>, T::Hash) {
 	(preimage, hash)
 }
 
-fn insert_old_unrequested<T: Config>(s: u32) -> <T as frame_system::Config>::Hash {
-	let acc = account("old", s, 0);
-	T::Currency::make_free_balance_be(&acc, BalanceOf::<T>::max_value() / 2u32.into());
-
-	// The preimage size does not matter here as it is not touched.
-	let preimage = s.to_le_bytes();
-	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
-
-	#[allow(deprecated)]
-	StatusFor::<T>::insert(
-		&hash,
-		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
-	);
-	hash
-}
-
-#[benchmarks]
+#[benchmarks(where T: pallet_balances::Config)]
 mod benchmarks {
 	use super::*;
 
@@ -245,17 +232,48 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn ensure_updated(n: Linear<1, MAX_HASH_UPGRADE_BULK_COUNT>) {
+	fn v2_migration_step() -> Result<(), BenchmarkError> {
+		use crate::migration::OldStatusFor;
+		use frame_support::{
+			migrations::SteppedMigration, traits::ReservableCurrency, weights::WeightMeter,
+		};
+
 		let caller = funded_account::<T>();
-		let hashes = (0..n).map(|i| insert_old_unrequested::<T>(i)).collect::<Vec<_>>();
+		let preimage = vec![0u8; 128];
+		let hash = <T as frame_system::Config>::Hashing::hash(&preimage);
 
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), hashes);
+		// Insert old-format StatusFor entry.
+		OldStatusFor::<T, pallet_balances::Pallet<T>>::insert(
+			&hash,
+			crate::migration::OldRequestStatus::Unrequested {
+				deposit: (caller.clone(), 123u32.into()),
+				len: 128,
+			},
+		);
 
-		assert_eq!(RequestStatusFor::<T>::iter_keys().count(), n as usize);
-		#[allow(deprecated)]
-		let c = StatusFor::<T>::iter_keys().count();
-		assert_eq!(c, 0);
+		// Reserve funds to simulate old storage state.
+		<pallet_balances::Pallet<T> as ReservableCurrency<T::AccountId>>::reserve(
+			&caller,
+			123u32.into(),
+		)
+		.map_err(|_| BenchmarkError::Stop("reserve failed"))?;
+
+		let mut meter = WeightMeter::with_limit(Weight::MAX);
+
+		#[block]
+		{
+			crate::migration::v2::LazyMigrationV1ToV2::<T, pallet_balances::Pallet<T>>::step(
+				None,
+				&mut meter,
+			)
+			.unwrap();
+		}
+
+		// Verify migration succeeded.
+		assert!(OldStatusFor::<T, pallet_balances::Pallet<T>>::get(&hash).is_none());
+		assert!(RequestStatusFor::<T>::get(&hash).is_some());
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite! {
