@@ -58,12 +58,12 @@ for PARA_ID in 2000 2001; do
 EOF
 
     # Generate chain spec using the preset and patch
-    "$CHAIN_SPEC_BUILDER" create \
+    "$CHAIN_SPEC_BUILDER" -c "${OUTPUT_DIR}/glutton-westend-local-${PARA_ID}-spec.json" \
+        create \
         --relay-chain "rococo-local" \
         --para-id "$PARA_ID" \
         -r "$RUNTIME_WASM" \
-        patch "$PATCH_FILE" \
-        > "${OUTPUT_DIR}/glutton-westend-local-${PARA_ID}-spec.json"
+        patch "$PATCH_FILE"
 
     echo "✅ Created: ${OUTPUT_DIR}/glutton-westend-local-${PARA_ID}-spec.json"
 
