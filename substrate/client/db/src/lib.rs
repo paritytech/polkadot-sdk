@@ -1666,7 +1666,7 @@ impl<Block: BlockT> Backend<Block> {
 
 			let header = &pending_block.header;
 			let is_best = pending_block.leaf_state.is_best();
-			debug!(
+			trace!(
 				target: "db",
 				"DB Commit {hash:?} ({number}), best={is_best}, state={}, header_in_db={header_exists_in_db} body_in_db={body_exists_in_db} incoming_body={incoming_has_body}, finalized={finalized}",
 				operation.commit_state,
