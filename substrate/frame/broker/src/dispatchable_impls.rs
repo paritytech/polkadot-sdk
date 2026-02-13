@@ -648,6 +648,8 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		ensure!(core < status.core_count, Error::<T>::Unavailable);
 
+		ensure!(timeslice > status.last_committed_timeslice, Error::<T>::TooEarly);
+
 		ensure!(!assignment.is_empty(), Error::<T>::NothingToDo);
 
 		// Get existing workplan
@@ -681,11 +683,7 @@ impl<T: Config> Pallet<T> {
 		Workplan::<T>::insert((timeslice, core), &combined_schedule);
 
 		// Deposit event
-		Self::deposit_event(Event::<T>::AssignmentAdded {
-			timeslice,
-			core,
-			assignment: assignment,
-		});
+		Self::deposit_event(Event::<T>::AssignmentAdded { timeslice, core, assignment });
 
 		Ok(())
 	}
