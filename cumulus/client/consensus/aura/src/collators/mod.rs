@@ -25,7 +25,9 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT};
+use cumulus_primitives_core::{
+	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -42,19 +44,6 @@ use sp_timestamp::Timestamp;
 pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
-
-// This is an arbitrary value which is guaranteed to exceed the required depth for 500ms blocks
-// built with a relay parent offset of 1. It must be larger than the unincluded segment capacity.
-//
-// The formula we use to compute the capacity of the unincluded segment in the parachain runtime
-// is:
-// UNINCLUDED_SEGMENT_CAPACITY = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1.
-//
-// Since we only search for parent blocks which have already been imported,
-// we can guarantee that all imported blocks respect the unincluded segment
-// rules specified by the parachain's runtime and thus will never be too deep. This is just an extra
-// sanity check.
-const PARENT_SEARCH_DEPTH: usize = 40;
 
 // Helper to pre-connect to the backing group we got assigned to and keep the connection
 // open until backing group changes or own slot ends.
@@ -82,7 +71,7 @@ impl BackingGroupConnectionHelper {
 		if Some(current_slot) <= self.our_slot {
 			// Current slot or next slot is ours.
 			// We already sent pre-connect message, no need to proceed further.
-			return
+			return;
 		}
 
 		let next_slot = current_slot + 1;
@@ -133,12 +122,12 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -148,7 +137,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -186,7 +176,7 @@ async fn scheduling_lookahead(
 	if parachain_host_runtime_api_version <
 		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
 	{
-		return None
+		return None;
 	}
 
 	match relay_client.scheduling_lookahead(relay_parent).await {
@@ -286,7 +276,6 @@ where
 			.await
 			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 			.saturating_sub(1) as usize,
-		max_depth: PARENT_SEARCH_DEPTH,
 		ignore_alternative_branches: true,
 	};
 
@@ -306,7 +295,7 @@ where
 				"Could not fetch potential parents to build upon"
 			);
 
-			return None
+			return None;
 		},
 		Ok(x) => x,
 	};
@@ -662,6 +651,31 @@ mod tests {
 	}
 }
 
+/// Fetches relay chain storage proof requests from the parachain runtime.
+///
+/// Queries the runtime API to determine which relay chain storage keys
+/// (both top-level and child trie keys) should be included in the relay chain state proof.
+///
+/// Falls back to an empty request if the runtime API call fails or is not implemented.
+fn get_relay_proof_request<Block, Client>(
+	client: &Client,
+	parent_hash: Block::Hash,
+) -> RelayProofRequest
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: KeyToIncludeInRelayProof<Block>,
+{
+	client.runtime_api().keys_to_prove(parent_hash).unwrap_or_else(|e| {
+		tracing::debug!(
+			target: crate::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay proof requests from runtime, using empty request"
+		);
+		Default::default()
+	})
+}
+
 /// Holds a relay parent and its descendants.
 pub struct RelayParentData {
 	/// The relay parent block header
@@ -699,7 +713,7 @@ impl RelayParentData {
 		let Self { relay_parent, mut descendants } = self;
 
 		if descendants.is_empty() {
-			return Default::default()
+			return Default::default();
 		}
 
 		let mut result = vec![relay_parent];

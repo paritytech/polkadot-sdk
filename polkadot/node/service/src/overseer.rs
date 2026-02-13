@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Error, IsParachainNode, Registry};
+use polkadot_collator_protocol::ReputationConfig;
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sp_core::traits::SpawnNamed;
@@ -147,6 +148,10 @@ pub struct ExtendedOverseerGenArgs {
 	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
+	/// Use experimental collator protocol
+	pub experimental_collator_protocol: bool,
+	/// Reputation DB config used by experimental collator protocol,
+	pub reputation_config: ReputationConfig,
 }
 
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
@@ -183,6 +188,8 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		fetch_chunks_threshold,
 		invulnerable_ah_collators,
 		collator_protocol_hold_off,
+		experimental_collator_protocol,
+		reputation_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
 	InitializedOverseerBuilder<
@@ -295,16 +302,28 @@ where
 		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
-				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
+				IsParachainNode::Collator(_) | IsParachainNode::FullNode => {
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
-					))),
-				IsParachainNode::No => ProtocolSide::Validator {
-					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
-					metrics: Metrics::register(registry)?,
-					invulnerables: invulnerable_ah_collators,
-					collator_protocol_hold_off,
+					)))
+				},
+				IsParachainNode::No => {
+					if experimental_collator_protocol {
+						ProtocolSide::ValidatorExperimental {
+							keystore: keystore.clone(),
+							metrics: Metrics::register(registry)?,
+							db: parachains_db.clone(),
+							reputation_config,
+						}
+					} else {
+						ProtocolSide::Validator {
+							keystore: keystore.clone(),
+							eviction_policy: Default::default(),
+							metrics: Metrics::register(registry)?,
+							invulnerables: invulnerable_ah_collators,
+							collator_protocol_hold_off,
+						}
+					}
 				},
 			};
 			CollatorProtocolSubsystem::new(side)
@@ -466,10 +485,11 @@ where
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
-				IsParachainNode::No =>
+				IsParachainNode::No => {
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build parachain node overseer for validator".to_owned(),
-					))),
+					)))
+				},
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,

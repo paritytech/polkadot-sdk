@@ -595,7 +595,6 @@ impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
 /// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
 /// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
 /// the correct call indices, which we only know at the runtime level.
-//
 // NOTE: to have the pallet fully XCM-agnostic, XCMSender should be moved out (to a new or existing
 // XCM helper crate or to runtimes crates directly)
 #[cfg(feature = "xcm-sender")]
@@ -799,7 +798,10 @@ where
 			{
 				Ok((_ticket, price)) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
-					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+					return Ok(current_messages
+						.into_iter()
+						.map(ToXcm::convert)
+						.collect::<Vec<_>>());
 				},
 				Err(SendError::ExceedsMaxMessageSize) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
@@ -1354,7 +1356,6 @@ pub mod pallet {
 		/// delivery + RC execution fee. This does not include the local transaction weight fee. If
 		/// the fee exceeds this limit, the operation fails with `FeesExceededMax`. Pass `None` for
 		/// unlimited (no cap).
-		//
 		// TODO: Once we allow setting and purging keys only on AssetHub, we can introduce a state
 		// (storage item) to track accounts that have called set_keys. We will also need to perform
 		// a migration to populate the state for all validators that have set keys via RC.

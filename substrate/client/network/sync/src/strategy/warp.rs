@@ -136,8 +136,9 @@ pub enum WarpSyncPhase<Block: BlockT> {
 impl<Block: BlockT> fmt::Display for WarpSyncPhase<Block> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::AwaitingPeers { required_peers } =>
-				write!(f, "Waiting for {required_peers} peers to be connected"),
+			Self::AwaitingPeers { required_peers } => {
+				write!(f, "Waiting for {required_peers} peers to be connected")
+			},
 			Self::DownloadingWarpProofs => write!(f, "Downloading finality proofs"),
 			Self::DownloadingTargetBlock => write!(f, "Downloading target block"),
 			Self::DownloadingState => write!(f, "Downloading state"),
@@ -257,12 +258,13 @@ where
 				actions: vec![SyncingAction::Finished],
 				result: None,
 				min_peers_to_start_warp_sync,
-			}
+			};
 		}
 
 		let phase = match warp_sync_config {
-			WarpSyncConfig::WithProvider(warp_sync_provider) =>
-				Phase::WaitingForPeers { warp_sync_provider },
+			WarpSyncConfig::WithProvider(warp_sync_provider) => {
+				Phase::WaitingForPeers { warp_sync_provider }
+			},
 			WarpSyncConfig::WithTarget(target_header) => Phase::TargetBlock(target_header),
 		};
 
@@ -326,12 +328,12 @@ where
 		let Phase::WaitingForPeers { warp_sync_provider } = &self.phase else { return };
 
 		if self.peers.len() < self.min_peers_to_start_warp_sync {
-			return
+			return;
 		}
 
 		let verifier = warp_sync_provider.create_verifier();
 		self.phase = Phase::WarpProof { verifier };
-		trace!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
+		debug!(target: LOG_TARGET, "Started warp sync with {} peers.", self.peers.len());
 	}
 
 	pub fn on_generic_response(
@@ -396,7 +398,7 @@ where
 			debug!(target: LOG_TARGET, "Unexpected warp proof response");
 			self.actions
 				.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::UNEXPECTED_RESPONSE)));
-			return
+			return;
 		};
 
 		let proof_to_incoming_block =
@@ -428,7 +430,7 @@ where
 				debug!(target: LOG_TARGET, "Verified partial proof");
 				self.total_proof_bytes += response.0.len() as u64;
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
+					origin: BlockOrigin::WarpSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
 			},
@@ -440,10 +442,31 @@ where
 					header.number(),
 				);
 				self.total_proof_bytes += response.0.len() as u64;
-				self.phase = Phase::TargetBlock(header);
+				self.phase = Phase::TargetBlock(header.clone());
+				let incoming_blocks: Vec<_> = proofs
+					.into_iter()
+					.map(proof_to_incoming_block)
+					.filter(|i| {
+						// We need target block with state and warp sync does not provide this.
+						// That's why we filter out target block here, otherwise oncoming state sync
+						// (which comes after warp sync) will abort because target block is already
+						// imported.
+						if header.number() != i.header.as_ref().unwrap().number() {
+							true
+						} else {
+							log::trace!(
+								target: LOG_TARGET,
+								"Filtered out target block: {} ({})",
+								header.hash(),
+								header.number()
+							);
+							false
+						}
+					})
+					.collect();
 				self.actions.push(SyncingAction::ImportBlocks {
-					origin: BlockOrigin::NetworkInitialSync,
-					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+					origin: BlockOrigin::WarpSync,
+					blocks: incoming_blocks,
 				});
 			},
 		}
@@ -473,7 +496,7 @@ where
 
 		let Phase::TargetBlock(header) = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected target block response from {peer_id}");
-			return Err(BadPeer(peer_id, rep::UNEXPECTED_RESPONSE))
+			return Err(BadPeer(peer_id, rep::UNEXPECTED_RESPONSE));
 		};
 
 		if blocks.is_empty() {
@@ -481,7 +504,7 @@ where
 				target: LOG_TARGET,
 				"Downloading target block failed: empty block response from {peer_id}",
 			);
-			return Err(BadPeer(peer_id, rep::NO_BLOCK))
+			return Err(BadPeer(peer_id, rep::NO_BLOCK));
 		}
 
 		if blocks.len() > 1 {
@@ -490,7 +513,7 @@ where
 				"Too many blocks ({}) in warp target block response from {peer_id}",
 				blocks.len(),
 			);
-			return Err(BadPeer(peer_id, rep::NOT_REQUESTED))
+			return Err(BadPeer(peer_id, rep::NOT_REQUESTED));
 		}
 
 		validate_blocks::<B>(&blocks, &peer_id, Some(request))?;
@@ -502,7 +525,7 @@ where
 				target: LOG_TARGET,
 				"Downloading target block failed: missing header in response from {peer_id}.",
 			);
-			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
+			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL));
 		};
 
 		if block_header != header {
@@ -510,7 +533,7 @@ where
 				target: LOG_TARGET,
 				"Downloading target block failed: different header in response from {peer_id}.",
 			);
-			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
+			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL));
 		}
 
 		if block.body.is_none() {
@@ -518,7 +541,7 @@ where
 				target: LOG_TARGET,
 				"Downloading target block failed: missing body in response from {peer_id}.",
 			);
-			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL))
+			return Err(BadPeer(peer_id, rep::VERIFICATION_FAIL));
 		}
 
 		self.result = Some(WarpSyncResult {
@@ -539,7 +562,7 @@ where
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
 		if targets.is_empty() {
-			return None
+			return None;
 		}
 		targets.sort();
 		let median = targets[targets.len() / 2];
@@ -552,7 +575,7 @@ where
 				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
-				return Some(*peer_id)
+				return Some(*peer_id);
 			}
 		}
 		None
@@ -571,7 +594,7 @@ where
 			.any(|peer| matches!(peer.state, PeerState::DownloadingProofs))
 		{
 			// Only one warp proof request at a time is possible.
-			return None
+			return None;
 		}
 
 		let peer_id = self.schedule_next_peer(PeerState::DownloadingProofs, None)?;
@@ -600,7 +623,7 @@ where
 			.any(|peer| matches!(peer.state, PeerState::DownloadingTargetBlock))
 		{
 			// Only one target block request at a time is possible.
-			return None
+			return None;
 		}
 
 		// Cut the borrowing tie.
@@ -1325,7 +1348,7 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
@@ -1348,28 +1371,50 @@ mod test {
 
 	#[test]
 	fn complete_warp_proof_advances_phase() {
+		// Initialize logging
+		sp_tracing::try_init_simple();
+
 		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let target_header = target_block.header().clone();
-		let justifications = Justifications::new(vec![(TEST_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
-		// Warp proof is complete.
+
+		// Building both blocks manually. Can't use BlockBuilderBuilder to build one block on top of
+		// another, if no genesis is set (required for warp sync to make sure finalized_state is not
+		// set)
+		let warp_synced_header = <<Block as BlockT>::Header as HeaderT>::new(
+			1,
+			Default::default(),
+			Default::default(),
+			client.chain_info().best_hash,
+			Default::default(),
+		);
+
+		// Build target_block on top of warp_synced_block
+		let target_header = <<Block as BlockT>::Header as HeaderT>::new(
+			2,
+			Default::default(),
+			Default::default(),
+			warp_synced_header.hash(),
+			Default::default(),
+		);
+		let warp_justifications = Justifications::new(vec![(TEST_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
+		let target_justifications =
+			Justifications::new(vec![(TEST_ENGINE_ID, vec![6, 7, 8, 9, 10])]);
+
+		// Warp proof is complete and contains both blocks.
 		let mut verifier = MockVerifier::<Block>::new();
 		let context = client.info().genesis_hash;
 		verifier.expect_next_proof_context().returning(move || context);
-		let header_for_verify = target_header.clone();
-		let just_for_verify = justifications.clone();
+		let warp_synced_header_for_verify = warp_synced_header.clone();
+		let warp_just_for_verify = warp_justifications.clone();
+		let target_header_for_verify = target_header.clone();
+		let target_just_for_verify = target_justifications.clone();
 		verifier.expect_verify().return_once(move |_proof| {
 			Ok(VerificationResult::Complete(
-				header_for_verify.clone(),
-				vec![(header_for_verify.clone(), just_for_verify.clone())],
+				target_header_for_verify.clone(),
+				vec![
+					(warp_synced_header_for_verify, warp_just_for_verify),
+					(target_header_for_verify, target_just_for_verify),
+				],
 			))
 		});
 		provider.expect_create_verifier().return_once(move || Box::new(verifier));
@@ -1405,17 +1450,18 @@ mod test {
 		else {
 			panic!("Expected `ImportBlocks` action.");
 		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(origin, BlockOrigin::WarpSync);
+		// Only warp_synced_block should be in the import list; target_block is filtered out
 		assert_eq!(blocks.len(), 1);
 		let import_block = blocks.pop().unwrap();
 		assert_eq!(
 			import_block,
 			IncomingBlock {
-				hash: target_header.hash(),
-				header: Some(target_header),
+				hash: warp_synced_header.hash(),
+				header: Some(warp_synced_header),
 				body: None,
 				indexed_body: None,
-				justifications: Some(justifications),
+				justifications: Some(warp_justifications),
 				origin: Some(request_peer_id),
 				allow_missing_state: true,
 				skip_execution: true,
@@ -1423,9 +1469,7 @@ mod test {
 				state: None,
 			}
 		);
-		assert!(
-			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
-		);
+		assert!(matches!(warp_sync.phase, Phase::TargetBlock(header) if header == target_header));
 	}
 
 	#[test]

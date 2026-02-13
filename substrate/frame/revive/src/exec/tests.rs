@@ -2895,3 +2895,69 @@ fn block_hash_returns_proper_values() {
 		);
 	});
 }
+
+#[test]
+fn delegatecall_tracer_reports_correct_addresses() {
+	// This test verifies that the callTracer correctly reports addresses for delegatecall.
+	// Before the fix, for a delegatecall, the tracer incorrectly reported:
+	//   from = original caller (ALICE), to = delegating contract (BOB)
+	// After the fix, it correctly reports:
+	//   from = delegating contract (BOB), to = delegate target (CHARLIE)
+	use crate::{
+		evm::{CallTracer, CallType},
+		tracing::trace,
+	};
+
+	let target_ch = MockLoader::insert(Call, |_, _| exec_success());
+
+	let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
+		ctx.ext.delegate_call(&Default::default(), CHARLIE_ADDR, Vec::new())?;
+		exec_success()
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, delegate_ch);
+		place_contract(&CHARLIE, target_ch);
+		set_balance(&ALICE, 100);
+
+		let origin = Origin::from_account_id(ALICE);
+		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
+
+		let mut tracer = CallTracer::new(Default::default());
+		let result = trace(&mut tracer, || {
+			MockStack::run_call(
+				origin,
+				BOB_ADDR,
+				&mut meter,
+				U256::zero(),
+				vec![],
+				&ExecConfig::new_substrate_tx(),
+			)
+		});
+		assert_ok!(result);
+
+		let call_trace = tracer.collect_trace().unwrap();
+
+		// Top-level call: ALICE calls BOB
+		assert_eq!(call_trace.from, ALICE_ADDR);
+		assert_eq!(call_trace.to, BOB_ADDR);
+		assert_eq!(call_trace.call_type, CallType::Call);
+
+		// Nested delegatecall trace: BOB delegate-calls CHARLIE
+		assert_eq!(call_trace.calls.len(), 1);
+		let delegate_trace = &call_trace.calls[0];
+		assert_eq!(delegate_trace.call_type, CallType::DelegateCall);
+
+		// This is the critical assertion for the fix:
+		// Pre-fix (WRONG): from = ALICE_ADDR, to = BOB_ADDR
+		// Post-fix (CORRECT): from = BOB_ADDR, to = CHARLIE_ADDR
+		assert_eq!(
+			delegate_trace.from, BOB_ADDR,
+			"delegatecall 'from' should be the contract making the delegatecall (BOB)"
+		);
+		assert_eq!(
+			delegate_trace.to, CHARLIE_ADDR,
+			"delegatecall 'to' should be the delegate target (CHARLIE)"
+		);
+	});
+}

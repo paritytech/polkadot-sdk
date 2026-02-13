@@ -119,8 +119,9 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } =>
-				LocalKeystore::open(path.clone(), password.clone())?,
+			KeystoreConfig::Path { path, password } => {
+				LocalKeystore::open(path.clone(), password.clone())?
+			},
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -1465,13 +1466,14 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {
 		match net_config.network_config.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::LightState { .. } => {
+				return Err("Fast sync doesn't work for archive nodes".into())
+			},
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
