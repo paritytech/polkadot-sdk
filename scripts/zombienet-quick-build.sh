@@ -19,6 +19,10 @@ echo "  - test-parachain (needed for cumulus tests)"
 echo ""
 
 # Build polkadot with only rococo runtime
+echo "⚠️  WARNING: Building with ROCOCO ONLY (some tests need westend!)"
+echo "    Tests using westend: 0004-coretime-smoke-test and others"
+echo "    For full test suite: cargo build --profile testnet --features fast-runtime"
+echo ""
 echo "📦 Building polkadot + workers (rococo-only, testnet profile)..."
 cargo build --profile testnet --no-default-features --features rococo-native,fast-runtime \
   --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker

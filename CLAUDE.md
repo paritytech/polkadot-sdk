@@ -146,20 +146,23 @@ The quick-build script builds:
 
 ### Manual Selective Builds
 
-Build polkadot with only the runtime you need:
+Build polkadot with only the runtime you need (for local development):
 ```bash
-# For rococo tests (most common - 25+ tests use this):
+# For rococo-only tests (most common - saves ~5 min):
 cargo build --profile testnet --no-default-features --features rococo-native,fast-runtime \
   --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
 
-# For westend tests (only ~5 tests use this):
+# For westend-only tests:
 cargo build --profile testnet --no-default-features --features westend-native,fast-runtime \
   --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
 
-# For both runtimes (default behavior):
+# For both runtimes (default - needed for full test suite):
 cargo build --profile testnet --features fast-runtime \
   --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
 ```
+
+**Note:** Some tests use westend (e.g., 0004-coretime-smoke-test), so selective builds
+are for local development iteration only. Run full build before running complete test suite.
 
 ### Skip WASM Rebuilds for Fast Iteration
 
