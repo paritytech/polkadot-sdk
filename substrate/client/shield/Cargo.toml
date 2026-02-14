@@ -1,0 +1,47 @@
+[package]
+name = "stc-shield"
+description = "MEV Shield client implementation"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+log.workspace = true
+async-trait.workspace = true
+anyhow.workspace = true
+codec.workspace = true
+futures.workspace = true
+hex.workspace = true
+
+# Crypto
+rand.workspace = true
+chacha20poly1305 = { workspace = true, features = ["std"] }
+ml-kem = { workspace = true, features = ["zeroize"] }
+
+# Substrate
+sc-service.workspace = true
+sc-client-api.workspace = true
+sp-runtime.workspace = true
+sp-consensus.workspace = true
+sp-inherents.workspace = true
+
+# Subtensor
+stp-shield.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "anyhow/std",
+    "chacha20poly1305/std",
+    "ml-kem/std",
+    "stp-shield/std",
+    "codec/std",
+    "futures/std",
+    "hex/std",
+    "log/std",
+    "rand/std",
+    "sp-runtime/std",
+    "sp-inherents/std",
+]
