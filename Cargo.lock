@@ -24645,6 +24645,7 @@ dependencies = [
  "async-trait",
  "chacha20poly1305",
  "futures",
+ "hex",
  "log",
  "ml-kem",
  "parity-scale-codec",
@@ -24665,6 +24666,7 @@ dependencies = [
  "scale-info",
  "sp-api 37.0.0",
  "sp-externalities 0.30.0",
+ "sp-inherents",
  "sp-runtime 42.0.0",
 ]
 
