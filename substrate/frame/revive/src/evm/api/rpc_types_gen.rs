@@ -1171,7 +1171,7 @@ pub struct BlockOverrides {
 
 	/// Gas limit
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub gas_limit: Option<u64>,
+	pub gas_limit: Option<U256>,
 
 	/// Fee recipient (also known as coinbase).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1179,7 +1179,7 @@ pub struct BlockOverrides {
 
 	/// Withdrawals made by validators.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub withdrawals: Option<Vec<ValidatorWithdrawal>>,
+	pub withdrawals: Option<Vec<Withdrawal>>,
 
 	/// Base fee per unit of gas (see EIP-1559).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1187,16 +1187,7 @@ pub struct BlockOverrides {
 
 	/// Base fee per unit of blob gas (see EIP-4844).
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub blob_base_fee: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
-#[serde(rename_all = "camelCase")]
-pub struct ValidatorWithdrawal {
-	pub index: u64,
-	pub validator_index: u64,
-	pub address: H160,
-	pub amount: u64,
+	pub blob_base_fee: Option<U256>,
 }
 
 #[derive(
@@ -1208,24 +1199,41 @@ pub struct StateOverrides(pub BTreeMap<H160, AddressStateOverride>);
 #[serde(rename_all = "camelCase")]
 pub struct AddressStateOverride {
 	/// Fake balance to set for the account before executing the call.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub balance: Option<U256>,
 
 	/// Fake nonce to set for the account before executing the call.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub nonce: Option<U256>,
 
 	/// Fake EVM bytecode to inject into the account before executing the call.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 
-	/// Fake key-value mapping to override all slots in the account storage before executing the
-	/// call.
-	pub state: Option<BTreeMap<H256, Bytes32>>,
-
-	/// Fake key-value mapping to override individual slots in the account storage before executing
-	/// the call.
-	pub state_diff: Option<BTreeMap<H256, Bytes32>>,
-
 	/// Moves precompile to given address.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub move_precompile_to_address: Option<H160>,
+
+	/// Storage overrides to apply.
+	#[serde(flatten, default, skip_serializing_if = "Option::is_none")]
+	pub storage: Option<StorageOverrides>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[serde(untagged)]
+pub enum StorageOverrides {
+	/// Overrides all of the storage slots of the address. If one of the storage slots are not
+	/// specified then they would be removed.
+	AllStorageSlots {
+		#[serde(rename = "state")]
+		overrides: BTreeMap<H256, Bytes32>,
+	},
+	/// Overrides only the specific storage slots specified in the overrides. All other slots are
+	/// kept with the same values they have.
+	SpecificStorageSlots {
+		#[serde(rename = "stateDiff")]
+		overrides: BTreeMap<H256, Bytes32>,
+	},
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
@@ -1295,7 +1303,7 @@ pub struct SimulationBlock<SimulationError> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
-#[serde(rename_all = "camelCase", tag = "status")]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "status")]
 pub enum SimulationCallResult<SimulationError> {
 	/// Simulation call result returned when the simulation of the call succeeds
 	#[serde(rename = "0x1")]
@@ -1482,6 +1490,1000 @@ mod tests {
 		"#;
 		let result: HashesOrTransactionInfos = serde_json::from_str(json).unwrap();
 		assert!(matches!(result, HashesOrTransactionInfos::TransactionInfos(_)));
+	}
+
+	#[test]
+	fn test_simulation_parameters_minimal_request() {
+		// Arrange
+		let json = r#"{
+			"blockStateCalls": [
+				{
+					"calls": []
+				}
+			]
+		}"#;
+
+		// Act
+		let params: SimulationParameters = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(params.block_state_calls.len(), 1);
+		assert!(!params.trace_transfers);
+		assert!(!params.validation);
+		assert!(!params.return_full_transactions);
+		assert!(params.block_state_calls[0].block_overrides.is_none());
+		assert!(params.block_state_calls[0].state_overrides.is_none());
+		assert!(params.block_state_calls[0].calls.is_empty());
+	}
+
+	#[test]
+	fn test_simulation_parameters_all_flags_true() {
+		// Arrange
+		let json = r#"{
+			"blockStateCalls": [{"calls": []}],
+			"traceTransfers": true,
+			"validation": true,
+			"returnFullTransactions": true
+		}"#;
+
+		// Act
+		let params: SimulationParameters = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert!(params.trace_transfers);
+		assert!(params.validation);
+		assert!(params.return_full_transactions);
+	}
+
+	#[test]
+	fn test_simulation_parameters_roundtrip() {
+		// Arrange
+		let json = r#"{
+			"blockStateCalls": [{"calls": []}],
+			"traceTransfers": true,
+			"validation": false,
+			"returnFullTransactions": true
+		}"#;
+
+		// Act
+		let params: SimulationParameters = serde_json::from_str(json).unwrap();
+		let serialized = serde_json::to_string(&params).unwrap();
+		let roundtrip: SimulationParameters = serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(params, roundtrip);
+	}
+
+	#[test]
+	fn test_simulation_parameters_camel_case_field_names() {
+		// Arrange
+		let params = SimulationParameters {
+			block_state_calls: vec![SimulationPayload {
+				block_overrides: None,
+				state_overrides: None,
+				calls: vec![],
+			}],
+			trace_transfers: true,
+			validation: true,
+			return_full_transactions: false,
+		};
+
+		// Act
+		let value = serde_json::to_value(&params).unwrap();
+
+		// Assert
+		assert!(value.get("blockStateCalls").is_some());
+		assert!(value.get("traceTransfers").is_some());
+		assert!(value.get("validation").is_some());
+		assert!(value.get("returnFullTransactions").is_some());
+		assert!(value.get("block_state_calls").is_none());
+		assert!(value.get("trace_transfers").is_none());
+		assert!(value.get("return_full_transactions").is_none());
+	}
+
+	#[test]
+	fn test_simulation_parameters_multi_block() {
+		// Arrange
+		let json = r#"{
+			"blockStateCalls": [
+				{
+					"stateOverrides": {
+						"0xc000000000000000000000000000000000000000": {
+							"balance": "0x4a817c800"
+						}
+					},
+					"calls": [
+						{
+							"from": "0xc000000000000000000000000000000000000000",
+							"to": "0xc000000000000000000000000000000000000001",
+							"maxFeePerGas": "0xf",
+							"value": "0x1"
+						}
+					]
+				},
+				{
+					"calls": [
+						{
+							"from": "0xc000000000000000000000000000000000000000",
+							"to": "0xc000000000000000000000000000000000000002",
+							"maxFeePerGas": "0xf",
+							"value": "0x1"
+						}
+					]
+				}
+			]
+		}"#;
+
+		// Act
+		let params: SimulationParameters = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(params.block_state_calls.len(), 2);
+		assert!(params.block_state_calls[0].state_overrides.is_some());
+		assert!(params.block_state_calls[1].state_overrides.is_none());
+		assert_eq!(params.block_state_calls[0].calls.len(), 1);
+		assert_eq!(params.block_state_calls[1].calls.len(), 1);
+	}
+
+	#[test]
+	fn test_simulation_payload_optional_fields_omitted_on_serialize() {
+		// Arrange
+		let payload =
+			SimulationPayload { block_overrides: None, state_overrides: None, calls: vec![] };
+
+		// Act
+		let value = serde_json::to_value(&payload).unwrap();
+
+		// Assert
+		assert!(value.get("blockOverrides").is_none());
+		assert!(value.get("stateOverrides").is_none());
+		assert!(value.get("calls").is_some());
+	}
+
+	#[test]
+	fn test_simulation_payload_with_all_fields() {
+		// Arrange
+		let json = r#"{
+			"blockOverrides": {
+				"number": "0xa"
+			},
+			"stateOverrides": {
+				"0xc000000000000000000000000000000000000000": {
+					"balance": "0x1"
+				}
+			},
+			"calls": [
+				{
+					"from": "0xc000000000000000000000000000000000000000",
+					"to": "0xc000000000000000000000000000000000000001",
+					"value": "0x1"
+				}
+			]
+		}"#;
+
+		// Act
+		let payload: SimulationPayload = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert!(payload.block_overrides.is_some());
+		assert_eq!(payload.block_overrides.as_ref().unwrap().number, Some(U256::from(10)));
+		assert!(payload.state_overrides.is_some());
+		assert_eq!(payload.calls.len(), 1);
+	}
+
+	#[test]
+	fn test_block_overrides_empty() {
+		// Arrange
+		let json = r#"{}"#;
+
+		// Act
+		let overrides: BlockOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(overrides, BlockOverrides::default());
+	}
+
+	#[test]
+	fn test_block_overrides_all_fields() {
+		// Arrange
+		let json = r#"{
+			"number": "0xa",
+			"prevRandao": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			"time": "0x64",
+			"gasLimit": "0x1c9c380",
+			"feeRecipient": "0x1234567890abcdef1234567890abcdef12345678",
+			"baseFeePerGas": "0x9",
+			"blobBaseFee": "0x1",
+			"withdrawals": [
+				{
+					"index": "0x0",
+					"validatorIndex": "0x1",
+					"address": "0x0000000000000000000000000000000000000000",
+					"amount": "0x1"
+				}
+			]
+		}"#;
+
+		// Act
+		let overrides: BlockOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(overrides.number, Some(U256::from(10)));
+		assert!(overrides.prev_randao.is_some());
+		assert_eq!(overrides.time, Some(U256::from(100)));
+		assert_eq!(overrides.gas_limit, Some(U256::from(30_000_000)));
+		assert!(overrides.fee_recipient.is_some());
+		assert_eq!(overrides.base_fee_per_gas, Some(U256::from(9)));
+		assert_eq!(overrides.blob_base_fee, Some(U256::from(1)));
+		assert_eq!(overrides.withdrawals.as_ref().unwrap().len(), 1);
+	}
+
+	#[test]
+	fn test_block_overrides_omits_none_on_serialize() {
+		// Arrange
+		let overrides = BlockOverrides { number: Some(U256::from(10)), ..Default::default() };
+
+		// Act
+		let value = serde_json::to_value(&overrides).unwrap();
+
+		// Assert
+		assert!(value.get("number").is_some());
+		assert!(value.get("prevRandao").is_none());
+		assert!(value.get("time").is_none());
+		assert!(value.get("gasLimit").is_none());
+		assert!(value.get("feeRecipient").is_none());
+		assert!(value.get("baseFeePerGas").is_none());
+		assert!(value.get("blobBaseFee").is_none());
+		assert!(value.get("withdrawals").is_none());
+	}
+
+	#[test]
+	fn test_block_overrides_roundtrip() {
+		// Arrange
+		let overrides = BlockOverrides {
+			number: Some(U256::from(10)),
+			prev_randao: Some(U256::from(42)),
+			time: Some(U256::from(100)),
+			gas_limit: Some(U256::from(30_000_000)),
+			fee_recipient: Some(H160::from_low_u64_be(1)),
+			base_fee_per_gas: Some(U256::from(9)),
+			blob_base_fee: Some(U256::from(1)),
+			withdrawals: Some(vec![Withdrawal {
+				index: U256::from(0),
+				validator_index: U256::from(1),
+				address: Address::zero(),
+				amount: U256::from(1),
+			}]),
+		};
+
+		// Act
+		let serialized = serde_json::to_string(&overrides).unwrap();
+		let roundtrip: BlockOverrides = serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(overrides, roundtrip);
+	}
+
+	#[test]
+	fn test_state_overrides_empty_map() {
+		// Arrange
+		let json = r#"{}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert!(overrides.0.is_empty());
+	}
+
+	#[test]
+	fn test_state_overrides_balance_only() {
+		// Arrange
+		let json = r#"{
+			"0xc000000000000000000000000000000000000000": {
+				"balance": "0x4a817c800"
+			}
+		}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(overrides.0.len(), 1);
+		let addr: H160 = "0xc000000000000000000000000000000000000000".parse().unwrap();
+		let account = overrides.0.get(&addr).unwrap();
+		assert_eq!(account.balance, Some(U256::from(20_000_000_000u64)));
+	}
+
+	#[test]
+	fn test_state_overrides_all_account_fields() {
+		// Arrange
+		let json = r#"{
+			"0xc000000000000000000000000000000000000000": {
+				"balance": "0x1",
+				"nonce": "0xa",
+				"code": "0x6080",
+				"state": {
+					"0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000001"
+				},
+				"movePrecompileToAddress": "0x0000000000000000000000000000000000000123"
+			}
+		}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		let addr: H160 = "0xc000000000000000000000000000000000000000".parse().unwrap();
+		let account = overrides.0.get(&addr).unwrap();
+		assert_eq!(account.balance, Some(U256::from(1)));
+		assert_eq!(account.nonce, Some(U256::from(10)));
+		assert!(account.code.is_some());
+		assert!(matches!(
+			account.storage.as_ref(),
+			Some(StorageOverrides::AllStorageSlots { overrides })
+			if overrides.len() == 1
+		));
+		assert!(account.move_precompile_to_address.is_some());
+	}
+
+	#[test]
+	fn test_state_overrides_state_diff() {
+		// Arrange
+		let json = r#"{
+			"0xc000000000000000000000000000000000000000": {
+				"stateDiff": {
+					"0x0000000000000000000000000000000000000000000000000000000000000001": "0x00000000000000000000000000000000000000000000000000000000000000ff"
+				}
+			}
+		}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		let addr: H160 = "0xc000000000000000000000000000000000000000".parse().unwrap();
+		let account = overrides.0.get(&addr).unwrap();
+		let Some(StorageOverrides::SpecificStorageSlots { overrides }) = account.storage.as_ref()
+		else {
+			panic!("Storage overrides were not a state diff")
+		};
+		assert_eq!(overrides.len(), 1);
+	}
+
+	#[test]
+	fn test_state_overrides_multiple_accounts() {
+		// Arrange
+		let json = r#"{
+			"0xc000000000000000000000000000000000000000": {
+				"balance": "0x1"
+			},
+			"0xc000000000000000000000000000000000000001": {
+				"balance": "0x2"
+			}
+		}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(overrides.0.len(), 2);
+	}
+
+	#[test]
+	fn test_state_overrides_roundtrip() {
+		// Arrange
+		let json = r#"{
+			"0xc000000000000000000000000000000000000000": {
+				"balance": "0x4a817c800",
+				"nonce": "0x1",
+				"code": "0x6080"
+			}
+		}"#;
+
+		// Act
+		let overrides: StateOverrides = serde_json::from_str(json).unwrap();
+		let serialized = serde_json::to_string(&overrides).unwrap();
+		let roundtrip: StateOverrides = serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(overrides, roundtrip);
+	}
+
+	#[test]
+	fn test_simulation_call_result_success() {
+		// Arrange
+		let json = r#"{
+			"status": "0x1",
+			"returnData": "0x",
+			"gasUsed": "0x5208",
+			"logs": []
+		}"#;
+
+		// Act
+		let result: SimulationCallResult<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		match &result {
+			SimulationCallResult::Success { return_data, gas_used, logs } => {
+				assert!(return_data.0.is_empty());
+				assert_eq!(*gas_used, U256::from(21000));
+				assert!(logs.is_empty());
+			},
+			_ => panic!("Expected Success variant"),
+		}
+	}
+
+	#[test]
+	fn test_simulation_call_result_success_with_logs() {
+		// Arrange
+		let json = r#"{
+			"status": "0x1",
+			"returnData": "0x",
+			"gasUsed": "0x5208",
+			"logs": [
+				{
+					"address": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+					"topics": [
+						"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+					],
+					"data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+					"blockNumber": "0xa",
+					"transactionHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+					"transactionIndex": "0x0",
+					"blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+					"logIndex": "0x0",
+					"removed": false
+				}
+			]
+		}"#;
+
+		// Act
+		let result: SimulationCallResult<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		match &result {
+			SimulationCallResult::Success { logs, .. } => {
+				assert_eq!(logs.len(), 1);
+				let expected_addr = H160::from_slice(&[0xee; 20]);
+				assert_eq!(logs[0].address, expected_addr);
+				assert_eq!(logs[0].topics.len(), 1);
+			},
+			_ => panic!("Expected Success variant"),
+		}
+	}
+
+	#[test]
+	fn test_simulation_call_result_failed() {
+		// Arrange
+		let json = r#"{
+			"status": "0x0",
+			"returnData": "0x",
+			"gasUsed": "0x5236",
+			"error": {
+				"message": "execution reverted",
+				"code": -32000,
+				"data": "0x"
+			}
+		}"#;
+
+		// Act
+		let result: SimulationCallResult<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		match &result {
+			SimulationCallResult::Failed { return_data, gas_used, error } => {
+				assert!(return_data.0.is_empty());
+				assert_eq!(*gas_used, U256::from(0x5236));
+				assert_eq!(error.get("message").unwrap().as_str().unwrap(), "execution reverted");
+				assert_eq!(error.get("code").unwrap().as_i64().unwrap(), -32000);
+			},
+			_ => panic!("Expected Failed variant"),
+		}
+	}
+
+	#[test]
+	fn test_simulation_call_result_success_serialization() {
+		// Arrange
+		let result: SimulationCallResult<serde_json::Value> = SimulationCallResult::Success {
+			return_data: Bytes(vec![]),
+			gas_used: U256::from(21000),
+			logs: vec![],
+		};
+
+		// Act
+		let value = serde_json::to_value(&result).unwrap();
+
+		// Assert
+		assert_eq!(value.get("status").unwrap().as_str().unwrap(), "0x1");
+		assert!(value.get("returnData").is_some());
+		assert!(value.get("gasUsed").is_some());
+		assert!(value.get("logs").is_some());
+		assert!(value.get("error").is_none());
+	}
+
+	#[test]
+	fn test_simulation_call_result_failed_serialization() {
+		// Arrange
+		let error = serde_json::json!({
+			"message": "execution reverted",
+			"code": -32000
+		});
+		let result: SimulationCallResult<serde_json::Value> = SimulationCallResult::Failed {
+			return_data: Bytes(vec![]),
+			gas_used: U256::from(0x5236),
+			error,
+		};
+
+		// Act
+		let value = serde_json::to_value(&result).unwrap();
+
+		// Assert
+		assert_eq!(value.get("status").unwrap().as_str().unwrap(), "0x0");
+		assert!(value.get("error").is_some());
+		assert!(value.get("logs").is_none());
+	}
+
+	#[test]
+	fn test_simulation_call_result_roundtrip_success() {
+		// Arrange
+		let result: SimulationCallResult<serde_json::Value> = SimulationCallResult::Success {
+			return_data: Bytes(vec![0xab, 0xcd]),
+			gas_used: U256::from(42000),
+			logs: vec![],
+		};
+
+		// Act
+		let serialized = serde_json::to_string(&result).unwrap();
+		let roundtrip: SimulationCallResult<serde_json::Value> =
+			serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(result, roundtrip);
+	}
+
+	#[test]
+	fn test_simulation_call_result_roundtrip_failed() {
+		// Arrange
+		let error = serde_json::json!({
+			"message": "out of gas",
+			"code": -32015
+		});
+		let result: SimulationCallResult<serde_json::Value> = SimulationCallResult::Failed {
+			return_data: Bytes(vec![]),
+			gas_used: U256::from(30_000_000),
+			error,
+		};
+
+		// Act
+		let serialized = serde_json::to_string(&result).unwrap();
+		let roundtrip: SimulationCallResult<serde_json::Value> =
+			serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(result, roundtrip);
+	}
+
+	#[test]
+	fn test_full_simulation_request_deserialization() {
+		// Arrange
+		let json = r#"{
+			"blockStateCalls": [
+				{
+					"blockOverrides": {
+						"number": "0xa",
+						"feeRecipient": "0x1234567890abcdef1234567890abcdef12345678",
+						"baseFeePerGas": "0x9"
+					},
+					"stateOverrides": {
+						"0xc000000000000000000000000000000000000000": {
+							"balance": "0x4a817c800"
+						}
+					},
+					"calls": [
+						{
+							"from": "0xc000000000000000000000000000000000000000",
+							"to": "0xc000000000000000000000000000000000000001",
+							"maxFeePerGas": "0xf",
+							"value": "0x1"
+						}
+					]
+				}
+			],
+			"traceTransfers": true,
+			"validation": false
+		}"#;
+
+		// Act
+		let params: SimulationParameters = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert!(params.trace_transfers);
+		assert!(!params.validation);
+		assert!(!params.return_full_transactions);
+
+		let block = &params.block_state_calls[0];
+		let bo = block.block_overrides.as_ref().unwrap();
+		assert_eq!(bo.number, Some(U256::from(10)));
+		assert_eq!(bo.base_fee_per_gas, Some(U256::from(9)));
+		assert!(bo.fee_recipient.is_some());
+
+		let so = block.state_overrides.as_ref().unwrap();
+		assert_eq!(so.0.len(), 1);
+
+		let call = &block.calls[0];
+		assert!(call.from.is_some());
+		assert!(call.to.is_some());
+		assert_eq!(call.value, Some(U256::from(1)));
+		assert_eq!(call.max_fee_per_gas, Some(U256::from(15)));
+	}
+
+	#[test]
+	fn test_full_simulation_response_deserialization() {
+		// Arrange
+		let json = r#"[{
+			"baseFeePerGas": "0x9",
+			"blobGasUsed": "0x0",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x0",
+			"extraData": "0x",
+			"gasLimit": "0x1c9c380",
+			"gasUsed": "0x5208",
+			"hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			"miner": "0x0000000000000000000000000000000000000000",
+			"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"nonce": "0x0000000000000000",
+			"number": "0xa",
+			"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x0",
+			"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"timestamp": "0x64",
+			"transactions": [],
+			"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"uncles": [],
+			"withdrawals": [],
+			"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"calls": [
+				{
+					"status": "0x1",
+					"returnData": "0x",
+					"gasUsed": "0x5208",
+					"logs": []
+				}
+			]
+		}]"#;
+		// Act
+		let response: SimulationResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(response.0.len(), 1);
+		let block = &response.0[0];
+		assert_eq!(block.number, U256::from(10));
+		assert_eq!(block.timestamp, U256::from(100));
+		assert_eq!(block.base_fee_per_gas, U256::from(9));
+		assert_eq!(block.gas_limit, U256::from(30_000_000));
+		assert_eq!(block.gas_used, U256::from(21000));
+		assert_eq!(block.calls.len(), 1);
+		assert!(matches!(block.calls[0], SimulationCallResult::Success { .. }));
+	}
+
+	#[test]
+	fn test_simulation_response_with_failed_call() {
+		// Arrange
+		let json = r#"[{
+			"baseFeePerGas": "0x9",
+			"blobGasUsed": "0x0",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x0",
+			"extraData": "0x",
+			"gasLimit": "0x1c9c380",
+			"gasUsed": "0x5236",
+			"hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			"miner": "0x0000000000000000000000000000000000000000",
+			"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"nonce": "0x0000000000000000",
+			"number": "0xa",
+			"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x0",
+			"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"timestamp": "0x64",
+			"transactions": [],
+			"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"uncles": [],
+			"withdrawals": [],
+			"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"calls": [
+				{
+					"status": "0x0",
+					"returnData": "0x",
+					"gasUsed": "0x5236",
+					"error": {
+						"message": "execution reverted",
+						"code": -32000
+					}
+				}
+			]
+		}]"#;
+		// Act
+		let response: SimulationResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		let block = &response.0[0];
+		match &block.calls[0] {
+			SimulationCallResult::Failed { error, .. } => {
+				assert_eq!(error.get("message").unwrap().as_str().unwrap(), "execution reverted");
+				assert_eq!(error.get("code").unwrap().as_i64().unwrap(), -32000);
+			},
+			_ => panic!("Expected Failed variant"),
+		}
+	}
+
+	#[test]
+	fn test_simulation_response_with_optional_block_fields() {
+		// Arrange
+		let json = r#"[{
+			"baseFeePerGas": "0x9",
+			"blobGasUsed": "0x0",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x0",
+			"extraData": "0x",
+			"gasLimit": "0x1c9c380",
+			"gasUsed": "0x0",
+			"hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			"miner": "0x0000000000000000000000000000000000000000",
+			"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"nonce": "0x0000000000000000",
+			"number": "0xa",
+			"parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000001",
+			"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x0",
+			"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"timestamp": "0x64",
+			"totalDifficulty": "0x0",
+			"transactions": [],
+			"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"uncles": [],
+			"withdrawals": [],
+			"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"calls": []
+		}]"#;
+		// Act
+		let response: SimulationResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		let block = &response.0[0];
+		assert!(block.parent_beacon_block_root.is_some());
+		assert_eq!(block.parent_beacon_block_root.unwrap(), H256::from_low_u64_be(1));
+		assert!(block.requests_hash.is_some());
+		assert!(block.total_difficulty.is_some());
+		assert_eq!(block.total_difficulty.unwrap(), U256::from(0));
+	}
+
+	#[test]
+	fn test_simulation_response_optional_fields_omitted() {
+		// Arrange
+		let json = r#"[{
+			"baseFeePerGas": "0x9",
+			"blobGasUsed": "0x0",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x0",
+			"extraData": "0x",
+			"gasLimit": "0x1c9c380",
+			"gasUsed": "0x0",
+			"hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			"miner": "0x0000000000000000000000000000000000000000",
+			"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"nonce": "0x0000000000000000",
+			"number": "0xa",
+			"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x0",
+			"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"timestamp": "0x64",
+			"transactions": [],
+			"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"uncles": [],
+			"withdrawals": [],
+			"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+			"calls": []
+		}]"#;
+		// Act
+		let response: SimulationResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		let block = &response.0[0];
+		assert!(block.parent_beacon_block_root.is_none());
+		assert!(block.requests_hash.is_none());
+		assert!(block.total_difficulty.is_none());
+		let value = serde_json::to_value(&response).unwrap();
+		let block_value = &value[0];
+		assert!(block_value.get("parentBeaconBlockRoot").is_none());
+		assert!(block_value.get("requestsHash").is_none());
+		assert!(block_value.get("totalDifficulty").is_none());
+	}
+
+	#[test]
+	fn test_simulation_response_multi_block_multi_call() {
+		// Arrange
+		let json = r#"[
+			{
+				"baseFeePerGas": "0x9",
+				"blobGasUsed": "0x0",
+				"difficulty": "0x0",
+				"excessBlobGas": "0x0",
+				"extraData": "0x",
+				"gasLimit": "0x1c9c380",
+				"gasUsed": "0xa410",
+				"hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"miner": "0x0000000000000000000000000000000000000000",
+				"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"nonce": "0x0000000000000000",
+				"number": "0xa",
+				"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+				"size": "0x0",
+				"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"timestamp": "0x64",
+				"transactions": [],
+				"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"uncles": [],
+				"withdrawals": [],
+				"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"calls": [
+					{
+						"status": "0x1",
+						"returnData": "0x",
+						"gasUsed": "0x5208",
+						"logs": []
+					},
+					{
+						"status": "0x1",
+						"returnData": "0x",
+						"gasUsed": "0x5208",
+						"logs": []
+					}
+				]
+			},
+			{
+				"baseFeePerGas": "0x8",
+				"blobGasUsed": "0x0",
+				"difficulty": "0x0",
+				"excessBlobGas": "0x0",
+				"extraData": "0x",
+				"gasLimit": "0x1c9c380",
+				"gasUsed": "0x5208",
+				"hash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+				"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+				"miner": "0x0000000000000000000000000000000000000000",
+				"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"nonce": "0x0000000000000000",
+				"number": "0xb",
+				"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"receiptsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+				"size": "0x0",
+				"stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"timestamp": "0x65",
+				"transactions": [],
+				"transactionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"uncles": [],
+				"withdrawals": [],
+				"withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+				"calls": [
+					{
+						"status": "0x0",
+						"returnData": "0x",
+						"gasUsed": "0x5208",
+						"error": {
+							"message": "insufficient funds",
+							"code": -32000
+						}
+					}
+				]
+			}
+		]"#;
+		// Act
+		let response: SimulationResponse<serde_json::Value> = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(response.0.len(), 2);
+		assert_eq!(response.0[0].number, U256::from(10));
+		assert_eq!(response.0[0].calls.len(), 2);
+		assert!(matches!(response.0[0].calls[0], SimulationCallResult::Success { .. }));
+		assert!(matches!(response.0[0].calls[1], SimulationCallResult::Success { .. }));
+		assert_eq!(response.0[1].number, U256::from(11));
+		assert_eq!(response.0[1].calls.len(), 1);
+		assert!(matches!(response.0[1].calls[0], SimulationCallResult::Failed { .. }));
+	}
+
+	#[test]
+	fn test_simulation_response_roundtrip() {
+		// Arrange
+		let block: SimulationBlock<serde_json::Value> = SimulationBlock {
+			base_fee_per_gas: U256::from(9),
+			blob_gas_used: U256::zero(),
+			difficulty: U256::zero(),
+			excess_blob_gas: U256::zero(),
+			extra_data: Bytes(vec![]),
+			gas_limit: U256::from(30_000_000),
+			gas_used: U256::from(21000),
+			hash: H256::zero(),
+			logs_bloom: Bytes256([0u8; 256]),
+			miner: Address::zero(),
+			mix_hash: H256::zero(),
+			nonce: Bytes8([0u8; 8]),
+			number: U256::from(10),
+			parent_beacon_block_root: None,
+			parent_hash: H256::zero(),
+			receipts_root: H256::zero(),
+			requests_hash: None,
+			sha_3_uncles: H256::zero(),
+			size: U256::zero(),
+			state_root: H256::zero(),
+			timestamp: U256::from(100),
+			total_difficulty: None,
+			transactions: HashesOrTransactionInfos::Hashes(vec![]),
+			transactions_root: H256::zero(),
+			uncles: vec![],
+			withdrawals: vec![],
+			withdrawals_root: H256::zero(),
+			calls: vec![SimulationCallResult::Success {
+				return_data: Bytes(vec![]),
+				gas_used: U256::from(21000),
+				logs: vec![],
+			}],
+		};
+		let response = SimulationResponse(vec![block]);
+
+		// Act
+		let serialized = serde_json::to_string(&response).unwrap();
+		let roundtrip: SimulationResponse<serde_json::Value> =
+			serde_json::from_str(&serialized).unwrap();
+
+		// Assert
+		assert_eq!(response, roundtrip);
+	}
+
+	#[test]
+	fn test_address_state_override_camel_case_fields() {
+		// Arrange
+		let json = r#"{
+			"balance": "0x1",
+			"nonce": "0x2",
+			"code": "0x60",
+			"stateDiff": {
+				"0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000001"
+			},
+			"movePrecompileToAddress": "0x0000000000000000000000000000000000000001"
+		}"#;
+		// Act
+		let override_account: AddressStateOverride = serde_json::from_str(json).unwrap();
+
+		// Assert
+		assert_eq!(override_account.balance, Some(U256::from(1)));
+		assert_eq!(override_account.nonce, Some(U256::from(2)));
+		assert!(override_account.code.is_some());
+		let Some(StorageOverrides::SpecificStorageSlots { overrides }) =
+			override_account.storage.as_ref()
+		else {
+			panic!("Storage overrides were not a state diff")
+		};
+		assert_eq!(overrides.len(), 1);
+		assert!(override_account.move_precompile_to_address.is_some());
 	}
 
 	#[test]
