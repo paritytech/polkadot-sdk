@@ -1348,6 +1348,8 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// VoterList could not be updated.
+		VoterListUpdateFailed,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1679,7 +1681,7 @@ pub mod pallet {
 			// If unbonding all active stake, chill the stash first to avoid `InsufficientBond`
 			// errors. This matches the behavior of pallet-staking.
 			let chill_weight = if value >= ledger.active {
-				Self::chill_stash(&stash);
+				Self::chill_stash(&stash)?;
 				T::WeightInfo::chill()
 			} else {
 				Weight::zero()
@@ -1831,8 +1833,8 @@ pub mod pallet {
 				}
 			}
 
-			Self::do_remove_nominator(stash);
-			Self::do_add_validator(stash, prefs.clone());
+			Self::do_remove_nominator(stash)?;
+			Self::do_add_validator(stash, prefs.clone())?;
 			Self::deposit_event(Event::<T>::ValidatorPrefsSet { stash: ledger.stash, prefs });
 
 			Ok(())
@@ -1907,8 +1909,8 @@ pub mod pallet {
 				suppressed: false,
 			};
 
-			Self::do_remove_validator(stash);
-			Self::do_add_nominator(stash, nominations);
+			Self::do_remove_validator(stash)?;
+			Self::do_add_nominator(stash, nominations)?;
 			Ok(())
 		}
 
@@ -1929,7 +1931,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller))?;
 
-			Self::chill_stash(&ledger.stash);
+			Self::chill_stash(&ledger.stash)?;
 			Ok(())
 		}
 
@@ -2430,7 +2432,7 @@ pub mod pallet {
 			// Otherwise, if caller is the same as the controller, this is just like `chill`.
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
-				Self::chill_stash(&stash);
+				Self::chill_stash(&stash)?;
 				return Ok(());
 			}
 
@@ -2461,7 +2463,7 @@ pub mod pallet {
 				ensure!(ledger.active < min_active_bond, Error::<T>::CannotChillOther);
 			}
 
-			Self::chill_stash(&stash);
+			Self::chill_stash(&stash)?;
 			Ok(())
 		}
 

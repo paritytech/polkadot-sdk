@@ -475,12 +475,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Chill a stash account.
-	pub(crate) fn chill_stash(stash: &T::AccountId) {
-		let chilled_as_validator = Self::do_remove_validator(stash);
-		let chilled_as_nominator = Self::do_remove_nominator(stash);
+	pub(crate) fn chill_stash(stash: &T::AccountId) -> Result<(), Error<T>> {
+		let chilled_as_validator = Self::do_remove_validator(stash)?;
+		let chilled_as_nominator = Self::do_remove_nominator(stash)?;
 		if chilled_as_validator || chilled_as_nominator {
 			Self::deposit_event(Event::<T>::Chilled { stash: stash.clone() });
 		}
+		Ok(())
 	}
 
 	/// Actually make a payment to a staker. This uses the currency's reward function
@@ -537,8 +538,8 @@ impl<T: Config> Pallet<T> {
 		// setting of the stash in `Payee`.
 		StakingLedger::<T>::kill(&stash)?;
 
-		Self::do_remove_validator(&stash);
-		Self::do_remove_nominator(&stash);
+		Self::do_remove_validator(&stash)?;
+		Self::do_remove_nominator(&stash)?;
 
 		// Clean up validator history tracking.
 		LastValidatorEra::<T>::remove(&stash);
@@ -751,14 +752,19 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
+	pub fn do_add_nominator(
+		who: &T::AccountId,
+		nominations: Nominations<T>,
+	) -> Result<(), Error<T>> {
 		if !Nominators::<T>::contains_key(who) {
 			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who)).inspect_err(|err| {
-				crate::log!(warn, "error adding nominator to voter list: {:?}", err)
-			});
+			T::VoterList::on_insert(who.clone(), Self::weight_of(who)).map_err(|err| {
+				crate::log!(debug, "error adding nominator to voter list: {:?}", err);
+				Error::<T>::VoterListUpdateFailed
+			})?;
 		}
 		Nominators::<T>::insert(who, nominations);
+		Ok(())
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -769,18 +775,18 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access to
 	/// `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-		let outcome = if Nominators::<T>::contains_key(who) {
-			Nominators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).inspect_err(|err| {
-				crate::log!(warn, "error removing nominator from voter list: {:?}", err)
-			});
-			true
-		} else {
-			false
-		};
+	pub fn do_remove_nominator(who: &T::AccountId) -> Result<bool, Error<T>> {
+		if !Nominators::<T>::contains_key(who) {
+			return Ok(false);
+		}
 
-		outcome
+		T::VoterList::on_remove(who).map_err(|err| {
+			crate::log!(debug, "error removing nominator from voter list: {:?}", err);
+			Error::<T>::VoterListUpdateFailed
+		})?;
+		Nominators::<T>::remove(who);
+
+		Ok(true)
 	}
 
 	/// This function will add a validator to the `Validators` storage map.
@@ -790,14 +796,16 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to add a validator to the system. Any access to
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
+	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) -> Result<(), Error<T>> {
 		if !Validators::<T>::contains_key(who) {
 			// maybe update sorted list.
-			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who)).inspect_err(|err| {
-				crate::log!(warn, "error adding validator to voter list: {:?}", err)
-			});
+			T::VoterList::on_insert(who.clone(), Self::weight_of(who)).map_err(|err| {
+				crate::log!(debug, "error adding validator to voter list: {:?}", err);
+				Error::<T>::VoterListUpdateFailed
+			})?;
 		}
 		Validators::<T>::insert(who, prefs);
+		Ok(())
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -807,18 +815,18 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to remove a validator from the system. Any access to
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_remove_validator(who: &T::AccountId) -> bool {
-		let outcome = if Validators::<T>::contains_key(who) {
-			Validators::<T>::remove(who);
-			let _ = T::VoterList::on_remove(who).inspect_err(|err| {
-				crate::log!(warn, "error removing validator from voter list: {:?}", err)
-			});
-			true
-		} else {
-			false
-		};
+	pub fn do_remove_validator(who: &T::AccountId) -> Result<bool, Error<T>> {
+		if !Validators::<T>::contains_key(who) {
+			return Ok(false);
+		}
 
-		outcome
+		T::VoterList::on_remove(who).map_err(|err| {
+			crate::log!(debug, "error removing validator from voter list: {:?}", err);
+			Error::<T>::VoterListUpdateFailed
+		})?;
+		Validators::<T>::remove(who);
+
+		Ok(true)
 	}
 
 	/// Register some amount of weight directly with the system pallet.
@@ -1053,7 +1061,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		<Bonded<T>>::insert(voter.clone(), voter.clone());
 		<Ledger<T>>::insert(voter.clone(), StakingLedger::<T>::new(voter.clone(), stake));
 
-		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false });
+		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false }).unwrap_or_default();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1064,7 +1072,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Self::do_add_validator(
 			&target,
 			ValidatorPrefs { commission: Perbill::zero(), blocked: false },
-		);
+		).unwrap_or_default();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1096,7 +1104,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			Self::do_add_validator(
 				&v,
 				ValidatorPrefs { commission: Perbill::zero(), blocked: false },
-			);
+			).unwrap_or_default();
 		});
 
 		voters.into_iter().for_each(|(v, s, t)| {
@@ -1108,7 +1116,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			Self::do_add_nominator(
 				&v,
 				Nominations { targets: t, submitted_in: 0, suppressed: false },
-			);
+			).unwrap_or_default();
 		});
 	}
 
