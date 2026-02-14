@@ -327,8 +327,9 @@ impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCal
 	> {
 		log::trace!(target: LOG_TARGET, "validate");
 		let v = match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call)?,
+			RuntimeCall::SubstrateTest(ref substrate_test_call) => {
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?
+			},
 			_ => Default::default(),
 		};
 		Ok((v, (), origin))
@@ -360,8 +361,12 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())

@@ -133,10 +133,11 @@ impl LoadedModule {
 					match export.name() {
 						"call" => call_found = true,
 						"deploy" => deploy_found = true,
-						_ =>
+						_ => {
 							return Err(
 								"unknown function export: expecting only deploy and call functions",
-							),
+							)
+						},
 					}
 					// Check the signature.
 					// Both "call" and "deploy" have the () -> () function type.
@@ -264,7 +265,7 @@ where
 		// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
 		let contract_module = match *determinism {
-			Determinism::Relaxed =>
+			Determinism::Relaxed => {
 				if let Ok(module) = LoadedModule::new::<T>(
 					code,
 					Determinism::Enforced,
@@ -282,7 +283,8 @@ where
 						LoadingMode::Checked,
 						CompilationMode::Eager,
 					)?
-				},
+				}
+			},
 			Determinism::Enforced => LoadedModule::new::<T>(
 				code,
 				Determinism::Enforced,

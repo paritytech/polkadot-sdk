@@ -1763,10 +1763,12 @@ fn get_core_indices_on_startup(
 ) -> CoreBitfield {
 	match &assignment {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed"),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"),
+		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
+			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed")
+		},
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
+		},
 	}
 }
 
@@ -1779,8 +1781,9 @@ fn get_assignment_core_indices(
 	block_entry: &BlockEntry,
 ) -> Option<CoreBitfield> {
 	match &assignment {
-		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-			Some(core_bitfield.clone()),
+		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+			Some(core_bitfield.clone())
+		},
 		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => block_entry
 			.candidates()
 			.iter()
@@ -1788,8 +1791,9 @@ fn get_assignment_core_indices(
 			.map(|(core_index, _candidate_hash)| {
 				CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
 			}),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"))
+		},
 	}
 }
 
@@ -1868,7 +1872,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			match candidate_entry.approval_entry(&block_hash) {
 				Some(approval_entry) => {
 					match approval_entry.local_statements() {
-						(None, None) =>
+						(None, None) => {
 							if approval_entry
 								.our_assignment()
 								.map(|assignment| !assignment.triggered())
@@ -1880,7 +1884,8 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									candidate_hash: *candidate_hash,
 									tick: state.clock.tick_now() + RESTART_WAKEUP_DELAY,
 								})
-							},
+							}
+						},
 						(None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
 							let claimed_core_indices =
@@ -2700,13 +2705,14 @@ where
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(
 					assignment.block_hash,
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let session_info = match get_session_info_by_index(
@@ -2718,13 +2724,14 @@ where
 	.await
 	{
 		Some(s) => s,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownSessionIndex(
 					block_entry.session(),
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let n_cores = session_info.n_cores as usize;
@@ -2755,25 +2762,27 @@ where
 		let (claimed_core_index, assigned_candidate_hash) =
 			match block_entry.candidate(candidate_index) {
 				Some((c, h)) => (*c, *h),
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidateIndex(
 							candidate_index as _,
 						)),
 						Vec::new(),
-					)), // no candidate at core.
+					))
+				}, // no candidate at core.
 			};
 
 		let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 			Some(c) => c,
-			None =>
+			None => {
 				return Ok((
 					AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 						candidate_index as _,
 						assigned_candidate_hash,
 					)),
 					Vec::new(),
-				)), // no candidate at core.
+				))
+			}, // no candidate at core.
 		};
 
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
@@ -2810,26 +2819,28 @@ where
 		{
 			let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 				Some(c) => c,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 							candidate_index as _,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
 				Some(a) => a,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
 							assignment.block_hash,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let is_duplicate_for_candidate = approval_entry.is_assigned(assignment.validator);

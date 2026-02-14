@@ -414,10 +414,12 @@ pub mod v2 {
 		fn from(cert: super::v1::AssignmentCert) -> Self {
 			Self {
 				kind: match cert.kind {
-					super::v1::AssignmentCertKind::RelayVRFDelay { core_index } =>
-						AssignmentCertKindV2::RelayVRFDelay { core_index },
-					super::v1::AssignmentCertKind::RelayVRFModulo { sample } =>
-						AssignmentCertKindV2::RelayVRFModulo { sample },
+					super::v1::AssignmentCertKind::RelayVRFDelay { core_index } => {
+						AssignmentCertKindV2::RelayVRFDelay { core_index }
+					},
+					super::v1::AssignmentCertKind::RelayVRFModulo { sample } => {
+						AssignmentCertKindV2::RelayVRFModulo { sample }
+					},
 				},
 				vrf: cert.vrf,
 			}
@@ -436,10 +438,12 @@ pub mod v2 {
 		fn try_from(cert: AssignmentCertV2) -> Result<Self, AssignmentConversionError> {
 			Ok(Self {
 				kind: match cert.kind {
-					AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-						super::v1::AssignmentCertKind::RelayVRFDelay { core_index },
-					AssignmentCertKindV2::RelayVRFModulo { sample } =>
-						super::v1::AssignmentCertKind::RelayVRFModulo { sample },
+					AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+						super::v1::AssignmentCertKind::RelayVRFDelay { core_index }
+					},
+					AssignmentCertKindV2::RelayVRFModulo { sample } => {
+						super::v1::AssignmentCertKind::RelayVRFModulo { sample }
+					},
 					// Not supported
 					_ => return Err(AssignmentConversionError::CertificateNotSupported),
 				},

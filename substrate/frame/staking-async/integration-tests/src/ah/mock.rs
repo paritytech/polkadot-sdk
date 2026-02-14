@@ -882,10 +882,12 @@ pub(crate) enum AssertSessionType {
 
 pub(crate) fn end_session_with(activate: bool, assert_starting_session: AssertSessionType) {
 	match assert_starting_session {
-		AssertSessionType::ElectionWithImmediateExport =>
-			end_session_and_assert_election(activate, true),
-		AssertSessionType::ElectionWithBufferedExport =>
-			end_session_and_assert_election(activate, false),
+		AssertSessionType::ElectionWithImmediateExport => {
+			end_session_and_assert_election(activate, true)
+		},
+		AssertSessionType::ElectionWithBufferedExport => {
+			end_session_and_assert_election(activate, false)
+		},
 		AssertSessionType::IdleOnlyExport => end_session_and_assert_idle(activate, true),
 		AssertSessionType::IdleNoExport => end_session_and_assert_idle(activate, false),
 	}
