@@ -757,7 +757,7 @@ impl NomtReadRecorder {
 		// UNWRAP: the recorder is moved here, it is not expected to be used anymore
 		// within other state backends.
 		let witness = Arc::into_inner(self.witness).unwrap().into_inner().unwrap();
-		let reads = Arc::into_inner(self.reads)
+		let reads: Vec<_> = Arc::into_inner(self.reads)
 			.unwrap()
 			.into_inner()
 			.into_iter()

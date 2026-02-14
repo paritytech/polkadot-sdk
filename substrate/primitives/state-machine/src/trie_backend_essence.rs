@@ -795,6 +795,14 @@ impl<H: Hasher> TrieBackendStorage<H> for Arc<dyn Storage<H>> {
 	}
 }
 
+pub struct DummyTrieBackend {}
+
+impl<H: Hasher> TrieBackendStorage<H> for DummyTrieBackend {
+	fn get(&self, _key: &H::Out, _prefix: Prefix) -> Result<Option<DBValue>> {
+		unreachable!()
+	}
+}
+
 impl<H, KF> TrieBackendStorage<H> for sp_trie::GenericMemoryDB<H, KF>
 where
 	H: Hasher,

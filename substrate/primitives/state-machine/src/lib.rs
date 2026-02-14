@@ -144,7 +144,7 @@ pub use crate::{
 	},
 	stats::{StateMachineStats, UsageInfo, UsageUnit},
 	trie_backend::{TrieBackend, TrieBackendBuilder},
-	trie_backend_essence::{Storage, TrieBackendStorage},
+	trie_backend_essence::{DummyTrieBackend, Storage, TrieBackendStorage},
 };
 
 #[cfg(not(substrate_runtime))]
@@ -185,8 +185,8 @@ pub enum StorageProof {
 
 #[derive(Debug, Clone, codec::Encode, codec::Decode)]
 pub struct NomtCompactProof {
-	proof: NomtMultiProof,
-	values: Vec<Vec<u8>>,
+	pub proof: NomtMultiProof,
+	pub values: Vec<Vec<u8>>,
 }
 
 /// Storage proof in compact form.

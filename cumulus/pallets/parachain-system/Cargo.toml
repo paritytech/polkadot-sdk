@@ -50,6 +50,9 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
 
+# Nomt
+nomt-core = { workspace = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { workspace = true }

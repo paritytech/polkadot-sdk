@@ -18,7 +18,7 @@
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use crate::RelayChainBlockNumber;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
@@ -27,6 +27,9 @@ use cumulus_primitives_core::{
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
+};
+use nomt_core::proof::{
+	MultiProof as NomtMultiProof, VerifiedMultiProof as NomtVerifiedMultiProof,
 };
 use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, UpwardMessages, ValidationCode, ValidationResult,
@@ -37,7 +40,7 @@ use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
-use sp_state_machine::OverlayedChanges;
+use sp_state_machine::{NomtCompactProof, OverlayedChanges};
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
@@ -193,7 +196,8 @@ where
 	match proof {
 		sp_state_machine::CompactProof::Trie(proof) =>
 			trie_backend_validate_block::<B, E, PSC>(proof, blocks, &mut validation_data),
-		sp_state_machine::CompactProof::Nomt(proof) => todo!(),
+		sp_state_machine::CompactProof::Nomt(proof) =>
+			nomt_backend_validate_block::<B, E, PSC>(proof, blocks, &mut validation_data),
 	}
 
 	if !validation_data.upward_message_signals.is_empty() {
@@ -405,6 +409,207 @@ fn trie_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 			);
 		}
 	}
+}
+
+#[derive(Debug)]
+struct NomtValidationBackend {
+	reads: BTreeMap<Vec<u8>, Vec<u8>>,
+	proof: NomtVerifiedMultiProof,
+}
+
+impl NomtValidationBackend {
+	fn new(compact_proof: sp_state_machine::NomtCompactProof, root: [u8; 32]) -> Self {
+		let NomtCompactProof { proof, mut values } = compact_proof;
+		values.reverse();
+
+		let verified_multi_proof =
+			nomt_core::proof::verify_multi_proof::<nomt_core::hasher::Blake3Hasher>(&proof, root)
+				.unwrap();
+
+		let mut reads = BTreeMap::<Vec<u8>, Vec<u8>>::new();
+
+		for path_proof_terminal in verified_multi_proof.iter_terminals() {
+			match path_proof_terminal {
+				nomt_core::proof::PathProofTerminal::Leaf(nomt_core::trie::LeafData {
+					key_path,
+					..
+				}) => {
+					// UNWRAP: Exactly one value for each LeafData is expected.
+					// NOTE: this will need to become something like an error, malformed PoV.
+					reads.insert(key_path.clone(), values.pop().unwrap());
+				},
+				nomt_core::proof::PathProofTerminal::CollisionLeaf(_, _) => todo!(),
+				nomt_core::proof::PathProofTerminal::Terminator(TriePosition) => (),
+			}
+		}
+
+		NomtValidationBackend { reads, proof: verified_multi_proof }
+	}
+}
+
+struct NomtRawIter {}
+
+impl<H> sp_state_machine::StorageIterator<H> for NomtRawIter
+where
+	H: sp_core::Hasher,
+	H::Out: codec::Codec + Ord,
+{
+	type Backend = NomtValidationBackend;
+	type Error = sp_state_machine::DefaultError;
+
+	fn next_key(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<core::result::Result<sp_state_machine::StorageKey, sp_state_machine::DefaultError>>
+	{
+		todo!()
+	}
+
+	fn next_pair(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<
+		core::result::Result<
+			(sp_state_machine::StorageKey, sp_state_machine::StorageValue),
+			sp_state_machine::DefaultError,
+		>,
+	> {
+		todo!()
+	}
+
+	fn was_complete(&self) -> bool {
+		todo!()
+	}
+}
+
+impl<H> sp_state_machine::backend::Backend<H> for NomtValidationBackend
+where
+	H: sp_core::Hasher,
+	H::Out: codec::Codec + Ord,
+{
+	type Error = sp_state_machine::DefaultError;
+	type TrieBackendStorage = sp_state_machine::DummyTrieBackend;
+	type RawIter = NomtRawIter;
+
+	fn storage(&self, key: &[u8]) -> Result<Option<sp_state_machine::StorageValue>, Self::Error> {
+		todo!()
+	}
+
+	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error> {
+		todo!()
+	}
+
+	fn child_storage(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Self::Error> {
+		todo!()
+	}
+
+	fn child_storage_hash(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<H::Out>, Self::Error> {
+		todo!()
+	}
+
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<sp_trie::MerkleValue<H::Out>>, Self::Error> {
+		todo!()
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<sp_trie::MerkleValue<H::Out>>, Self::Error> {
+		todo!()
+	}
+
+	fn exists_storage(&self, key: &[u8]) -> Result<bool, Self::Error> {
+		todo!()
+	}
+
+	fn exists_child_storage(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<bool, Self::Error> {
+		todo!()
+	}
+
+	fn next_storage_key(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
+		todo!()
+	}
+
+	fn next_child_storage_key(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Self::Error> {
+		todo!()
+	}
+
+	fn storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (H::Out, sp_state_machine::BackendTransaction<H>) {
+		todo!()
+	}
+
+	fn child_storage_root<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> Option<(H::Out, bool, sp_state_machine::BackendTransaction<H>)> {
+		todo!()
+	}
+
+	fn raw_iter(&self, args: sp_state_machine::IterArgs) -> Result<Self::RawIter, Self::Error> {
+		todo!()
+	}
+
+	fn register_overlay_stats(&self, stats: &sp_state_machine::StateMachineStats) {
+		todo!()
+	}
+
+	fn usage_info(&self) -> sp_state_machine::UsageInfo {
+		todo!()
+	}
+}
+
+fn nomt_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
+	compact_proof: sp_state_machine::NomtCompactProof,
+	blocks: Vec<B::LazyBlock>,
+	ValidateBlockData {
+		ref parent_header,
+		ref parachain_head,
+		ref relay_parent_number,
+		ref relay_parent_storage_root,
+		ref mut processed_downward_messages,
+		ref mut upward_messages,
+		ref mut upward_message_signals,
+		ref mut horizontal_messages,
+		ref mut hrmp_watermark,
+		ref mut head_data,
+		ref mut new_validation_code,
+	}: &mut ValidateBlockData<B>,
+) where
+	B::Extrinsic: ExtrinsicCall,
+	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
+{
+	// Create nomt validation backend.
+	// TODO: this root could be.
+	let state_root: &[u8] = parent_header.state_root().as_ref();
+	let nomt_backend = NomtValidationBackend::new(compact_proof, state_root.try_into().unwrap());
+
+	todo!()
 }
 
 /// Validates the given [`PersistedValidationData`] against the data from the relay chain.
