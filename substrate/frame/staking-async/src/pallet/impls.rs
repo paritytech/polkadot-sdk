@@ -1061,7 +1061,8 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		<Bonded<T>>::insert(voter.clone(), voter.clone());
 		<Ledger<T>>::insert(voter.clone(), StakingLedger::<T>::new(voter.clone(), stake));
 
-		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false }).unwrap_or_default();
+		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false })
+			.unwrap_or_default();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1072,7 +1073,8 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		Self::do_add_validator(
 			&target,
 			ValidatorPrefs { commission: Perbill::zero(), blocked: false },
-		).unwrap_or_default();
+		)
+		.unwrap_or_default();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1104,7 +1106,8 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			Self::do_add_validator(
 				&v,
 				ValidatorPrefs { commission: Perbill::zero(), blocked: false },
-			).unwrap_or_default();
+			)
+			.unwrap_or_default();
 		});
 
 		voters.into_iter().for_each(|(v, s, t)| {
@@ -1116,7 +1119,8 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			Self::do_add_nominator(
 				&v,
 				Nominations { targets: t, submitted_in: 0, suppressed: false },
-			).unwrap_or_default();
+			)
+			.unwrap_or_default();
 		});
 	}
 
