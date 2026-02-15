@@ -56,7 +56,7 @@ use crate::{
 		AddressStateOverride, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, Log,
 		PrestateTracer, SimulationBlock, SimulationCallResult, SimulationPayload,
 		SimulationResponse, StateOverrides, StorageOverrides, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	simulation::*,
@@ -2344,7 +2344,7 @@ impl<T: Config> Pallet<T> {
 		block_state_calls: Vec<SimulationPayload>,
 		_trace_transfers: bool,
 		validation: bool,
-		_return_full_transactions: bool,
+		return_full_transactions: bool,
 	) -> Result<SimulationResponse<SimulationError>, SimulationError>
 	where
 		MomentOf<T>: TryFrom<U256>,
@@ -2352,10 +2352,22 @@ impl<T: Config> Pallet<T> {
 		CallOf<T>: SetWeightLimit,
 		<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T>>,
 	{
+		log::debug!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: blocks={}, validation={validation}, return_full_transactions={return_full_transactions}",
+			block_state_calls.len(),
+		);
 		let simulated_blocks =
 			Self::handle_eth_simulate_v1_block_state_calls_format(block_state_calls)?;
 		let mut simulated_block_results = Vec::with_capacity(0x100);
 		for (block_overrides, state_overrides, calls) in simulated_blocks {
+			log::trace!(
+				target: LOG_TARGET,
+				"eth_simulate_v1: processing block number={}, timestamp={}, calls={}",
+				block_overrides.block_number,
+				block_overrides.block_timestamp,
+				calls.len(),
+			);
 			let mut ethereum_block_builder =
 				EthereumBlockBuilder::from_ir(EthereumBlockBuilderIR::<T>::default());
 			let simulation_executor_mock_handler = SimulationExecutorMockHandler::default();
@@ -2369,7 +2381,7 @@ impl<T: Config> Pallet<T> {
 				ethereum_block_builder.with_mock_handler(simulation_block_builder_mock_handler);
 			Self::handle_eth_simulate_v1_state_overrides(state_overrides)?;
 
-			let mut call_results = Vec::with_capacity(calls.len());
+			let mut call_outcomes = Vec::with_capacity(calls.len());
 			for (call_index, call) in calls.into_iter().enumerate() {
 				Self::handle_eth_simulate_v1_call_validation(&call, validation)?;
 				let outcome = Self::handle_eth_simulate_v1_call_execution(
@@ -2387,7 +2399,7 @@ impl<T: Config> Pallet<T> {
 					outcome.encoded_logs.clone(),
 					outcome.logs_bloom,
 				);
-				call_results.push(outcome.result);
+				call_outcomes.push(outcome);
 			}
 
 			let (block, _) = ethereum_block_builder.build_block(
@@ -2401,9 +2413,13 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| SimulationError::ConversionError)?;
 			let block_hash = block.hash;
 			BlockHash::<T>::insert(block_number, block_hash);
+			log::trace!(
+				target: LOG_TARGET,
+				"eth_simulate_v1: built block number={block_number:?}, hash={block_hash:?}",
+			);
 
-			for call_result in call_results.iter_mut() {
-				let SimulationCallResult::Success { ref mut logs, .. } = call_result else {
+			for call_outcome in call_outcomes.iter_mut() {
+				let SimulationCallResult::Success { ref mut logs, .. } = call_outcome.result else {
 					continue;
 				};
 				for log in logs.iter_mut() {
@@ -2435,15 +2451,42 @@ impl<T: Config> Pallet<T> {
 				state_root: block.state_root,
 				timestamp: block.timestamp,
 				total_difficulty: block.total_difficulty,
-				transactions: block.transactions,
+				transactions: if return_full_transactions {
+					crate::evm::HashesOrTransactionInfos::TransactionInfos(
+						call_outcomes
+							.iter()
+							.enumerate()
+							.map(|(index, outcome)| {
+								let signed_transaction =
+									TransactionSigned::decode(&outcome.encoded_payload)
+										.expect("Can't fail");
+								crate::evm::TransactionInfo {
+									block_hash,
+									block_number: block.number,
+									from: outcome.from,
+									hash: outcome.transaction_hash,
+									transaction_index: index.into(),
+									transaction_signed: signed_transaction,
+								}
+							})
+							.collect(),
+					)
+				} else {
+					block.transactions
+				},
 				transactions_root: block.transactions_root,
 				uncles: block.uncles,
 				withdrawals: block.withdrawals,
 				withdrawals_root: block.withdrawals_root,
-				calls: call_results,
+				calls: call_outcomes.iter().map(|outcome| outcome.result.clone()).collect(),
 			});
 		}
 
+		log::debug!(
+			target: LOG_TARGET,
+			"eth_simulate_v1 finished: simulated_blocks={}",
+			simulated_block_results.len(),
+		);
 		Ok(SimulationResponse(simulated_block_results))
 	}
 
@@ -2476,6 +2519,18 @@ impl<T: Config> Pallet<T> {
 		MomentOf<T>: TryFrom<U256>,
 	{
 		let mut simulation_block_builder_mock_handler = SimulationBlockBuilderMockHandler::new();
+		log::trace!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: applying block overrides: \
+			number={}, timestamp={}, gas_limit={:?}, \
+			prev_randao={:?}, fee_recipient={:?}, base_fee_per_gas={:?}",
+			block_overrides.block_number,
+			block_overrides.block_timestamp,
+			block_overrides.gas_limit,
+			block_overrides.prev_randao,
+			block_overrides.fee_recipient,
+			block_overrides.base_fee_per_gas,
+		);
 
 		// Setting the block number override.
 		let block_number_override = BlockNumberFor::<T>::try_from(block_overrides.block_number)
@@ -2501,8 +2556,10 @@ impl<T: Config> Pallet<T> {
 			&frame_support::storage::storage_prefix(b"Timestamp", b"Now"),
 			&block_timestamp_override,
 		);
+		// The mock timestamp feeds into the Ethereum block builder which expects seconds,
+		// so use the original seconds value (not the milliseconds value stored in Substrate).
 		simulation_block_builder_mock_handler = simulation_block_builder_mock_handler
-			.with_mock_timestamp(block_timestamp_override.into());
+			.with_mock_timestamp(block_overrides.block_timestamp);
 
 		// Setting the prevrandao
 		if let Some(prev_randao) = block_overrides.prev_randao {
@@ -2556,6 +2613,11 @@ impl<T: Config> Pallet<T> {
 	where
 		T::Nonce: TryFrom<U256>,
 	{
+		log::trace!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: applying state overrides for {} account(s)",
+			state_overrides.0.len(),
+		);
 		for (address, overrides) in state_overrides.0 {
 			let account_id = T::AddressMapper::to_account_id(&address);
 			Self::handle_eth_simulate_v1_single_state_override(address, account_id, overrides)?;
@@ -2572,6 +2634,16 @@ impl<T: Config> Pallet<T> {
 	where
 		T::Nonce: TryFrom<U256>,
 	{
+		log::trace!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: state override for {address:?}: \
+			balance={:?}, nonce={:?}, code={}, storage={}",
+			overrides.balance,
+			overrides.nonce,
+			overrides.code.is_some(),
+			overrides.storage.is_some(),
+		);
+
 		// Handling the balance override.
 		if let Some(balance) = overrides.balance {
 			Self::set_evm_balance(&address, balance)?;
@@ -2681,6 +2753,7 @@ impl<T: Config> Pallet<T> {
 		if call.gas_price.is_some() &&
 			(call.max_fee_per_gas.is_some() || call.max_priority_fee_per_gas.is_some())
 		{
+			log::debug!(target: LOG_TARGET, "eth_simulate_v1: validation failed: ConflictingFeeFields");
 			return Err(SimulationError::ConflictingFeeFields);
 		}
 
@@ -2688,6 +2761,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(tx_chain_id) = call.chain_id {
 			let node_chain_id: U256 = T::ChainId::get().into();
 			if tx_chain_id != node_chain_id {
+				log::debug!(
+					target: LOG_TARGET,
+					"eth_simulate_v1: validation failed: ChainIdMismatch have={tx_chain_id}, want={node_chain_id}",
+				);
 				return Err(SimulationError::ChainIdMismatch {
 					have: tx_chain_id,
 					want: node_chain_id,
@@ -2706,6 +2783,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(tx_nonce) = call.nonce {
 			let state_nonce: U256 = System::<T>::account_nonce(&origin).into();
 			if tx_nonce > state_nonce {
+				log::debug!(
+					target: LOG_TARGET,
+					"eth_simulate_v1: validation failed: NonceTooHigh for {sender:?} tx={tx_nonce}, state={state_nonce}",
+				);
 				return Err(SimulationError::NonceTooHigh {
 					address: sender,
 					tx: tx_nonce,
@@ -2713,6 +2794,10 @@ impl<T: Config> Pallet<T> {
 				});
 			}
 			if tx_nonce < state_nonce {
+				log::debug!(
+					target: LOG_TARGET,
+					"eth_simulate_v1: validation failed: NonceTooLow for {sender:?} tx={tx_nonce}, state={state_nonce}",
+				);
 				return Err(SimulationError::NonceTooLow {
 					address: sender,
 					tx: tx_nonce,
@@ -2726,6 +2811,10 @@ impl<T: Config> Pallet<T> {
 		// Fee cap validation: max_fee_per_gas must be >= base fee.
 		if let Some(max_fee) = call.max_fee_per_gas {
 			if max_fee < base_fee {
+				log::debug!(
+					target: LOG_TARGET,
+					"eth_simulate_v1: validation failed: FeeCapTooLow max_fee={max_fee}, base_fee={base_fee}",
+				);
 				return Err(SimulationError::FeeCapTooLow { max_fee_per_gas: max_fee, base_fee });
 			}
 		}
@@ -2734,6 +2823,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(tip) = call.max_priority_fee_per_gas {
 			if let Some(max_fee) = call.max_fee_per_gas {
 				if tip > max_fee {
+					log::debug!(
+						target: LOG_TARGET,
+						"eth_simulate_v1: validation failed: TipAboveFeeCap tip={tip}, max_fee={max_fee}",
+					);
 					return Err(SimulationError::TipAboveFeeCap {
 						max_priority_fee_per_gas: tip,
 						max_fee_per_gas: max_fee,
@@ -2756,7 +2849,15 @@ impl<T: Config> Pallet<T> {
 		CallOf<T>: SetWeightLimit,
 		<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T>>,
 	{
-		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
+		let from = tx.from.unwrap_or_default();
+		log::debug!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: executing call {index}: from={from:?}, to={:?}, value={:?}",
+			tx.to,
+			tx.value,
+		);
+
+		let origin = T::AddressMapper::to_account_id(&from);
 		let signed_origin = OriginFor::<T>::signed(origin.clone());
 		Self::prepare_dry_run(&origin);
 
@@ -2812,6 +2913,7 @@ impl<T: Config> Pallet<T> {
 						return SimulationCallOutcome {
 							encoded_payload,
 							transaction_hash,
+							from,
 							effective_gas_price,
 							max_storage_deposit: Default::default(),
 							encoded_logs: Default::default(),
@@ -2849,6 +2951,7 @@ impl<T: Config> Pallet<T> {
 					Ok(_) => SimulationCallOutcome {
 						encoded_payload,
 						transaction_hash,
+						from,
 						effective_gas_price,
 						max_storage_deposit: Default::default(),
 						encoded_logs: Default::default(),
@@ -2862,6 +2965,7 @@ impl<T: Config> Pallet<T> {
 					Err(err) => SimulationCallOutcome {
 						encoded_payload,
 						transaction_hash,
+						from,
 						effective_gas_price,
 						max_storage_deposit: Default::default(),
 						encoded_logs: Default::default(),
@@ -2888,6 +2992,7 @@ impl<T: Config> Pallet<T> {
 						true => SimulationCallOutcome {
 							encoded_payload,
 							transaction_hash,
+							from,
 							effective_gas_price,
 							max_storage_deposit: call_result
 								.max_storage_deposit
@@ -2904,6 +3009,7 @@ impl<T: Config> Pallet<T> {
 						false => SimulationCallOutcome {
 							encoded_payload,
 							transaction_hash,
+							from,
 							effective_gas_price,
 							max_storage_deposit: call_result
 								.max_storage_deposit
@@ -2921,6 +3027,7 @@ impl<T: Config> Pallet<T> {
 					Err(err) => SimulationCallOutcome {
 						encoded_payload,
 						transaction_hash,
+						from,
 						effective_gas_price,
 						max_storage_deposit: call_result
 							.max_storage_deposit
@@ -2956,6 +3063,7 @@ impl<T: Config> Pallet<T> {
 						true => SimulationCallOutcome {
 							encoded_payload,
 							transaction_hash,
+							from,
 							effective_gas_price,
 							max_storage_deposit: instantiation_result
 								.max_storage_deposit
@@ -2972,6 +3080,7 @@ impl<T: Config> Pallet<T> {
 						false => SimulationCallOutcome {
 							encoded_payload,
 							transaction_hash,
+							from,
 							effective_gas_price,
 							max_storage_deposit: instantiation_result
 								.max_storage_deposit
@@ -2989,6 +3098,7 @@ impl<T: Config> Pallet<T> {
 					Err(err) => SimulationCallOutcome {
 						encoded_payload,
 						transaction_hash,
+						from,
 						effective_gas_price,
 						max_storage_deposit: instantiation_result
 							.max_storage_deposit
@@ -3062,6 +3172,13 @@ impl<T: Config> Pallet<T> {
 		if let SimulationCallResult::Success { ref mut logs, .. } = outcome.result {
 			*logs = events.collect()
 		}
+
+		log::debug!(
+			target: LOG_TARGET,
+			"eth_simulate_v1: call {index} finished: success={}, gas_used={eth_gas}, tx_hash={:?}",
+			outcome.is_success(),
+			outcome.transaction_hash,
+		);
 
 		Ok(outcome)
 	}

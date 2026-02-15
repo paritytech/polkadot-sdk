@@ -525,6 +525,7 @@ pub struct SimulationCallOutcome<SimulationError> {
 	pub effective_gas_price: U256,
 	pub encoded_logs: Vec<u8>,
 	pub logs_bloom: LogsBloom,
+	pub from: H160,
 	pub result: SimulationCallResult<SimulationError>,
 }
 

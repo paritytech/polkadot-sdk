@@ -305,20 +305,20 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 	}
 
 	run_tests!(
-		// test_fibonacci_large_value_runs_out_of_gas,
-		// test_transfer,
-		// test_deploy_and_call,
-		// test_runtime_api_dry_run_addr_works,
-		// test_invalid_transaction,
-		// test_evm_blocks_should_match,
-		// test_evm_blocks_hydrated_should_match,
-		// test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
-		// test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
-		// test_block_hash_for_tag_with_block_number_works,
-		// test_block_hash_for_tag_with_block_tags_works,
-		// test_multiple_transactions_in_block,
-		// test_mixed_evm_substrate_transactions,
-		// test_runtime_pallets_address_upload_code,
+		test_fibonacci_large_value_runs_out_of_gas,
+		test_transfer,
+		test_deploy_and_call,
+		test_runtime_api_dry_run_addr_works,
+		test_invalid_transaction,
+		test_evm_blocks_should_match,
+		test_evm_blocks_hydrated_should_match,
+		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
+		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
+		test_block_hash_for_tag_with_block_number_works,
+		test_block_hash_for_tag_with_block_tags_works,
+		test_multiple_transactions_in_block,
+		test_mixed_evm_substrate_transactions,
+		test_runtime_pallets_address_upload_code,
 		test_simulate_v1_simple,
 		test_simulate_v1_simple_multi_block,
 		test_simulate_v1_insufficient_funds,
@@ -1271,11 +1271,19 @@ async fn test_simulate_v1_state_override_balance() -> anyhow::Result<()> {
 ///
 /// Reference: Geth TestSimulateV1 "storage-contract" / "evm-error" test cases.
 async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc0; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
 
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
@@ -1283,7 +1291,7 @@ async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(vec![0x60, 0x42, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3].into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -1296,6 +1304,7 @@ async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 			calls: vec![GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
+				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 				..Default::default()
 			}],
 		}],
@@ -1314,6 +1323,7 @@ async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 	assert!(matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }));
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
 		assert!(!return_data.0.is_empty(), "Contract should return data");
+		assert_eq!(return_data.0[31], 42, "echo(42) should return 42");
 	}
 
 	Ok(())
@@ -1378,11 +1388,19 @@ async fn test_simulate_v1_state_override_nonce() -> anyhow::Result<()> {
 ///
 /// Reference: Geth TestSimulateV1 "simple" test case (balance + code on same account).
 async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc1; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
 
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
@@ -1390,7 +1408,7 @@ async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()
 		AddressStateOverride {
 			balance: Some(U256::from(1_000_000_000_000_000u128)),
 			nonce: None,
-			code: Some(vec![0x60, 0x42, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3].into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -1403,7 +1421,7 @@ async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()
 			calls: vec![GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
-				value: Some(U256::from(100)),
+				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 				..Default::default()
 			}],
 		}],
@@ -1853,47 +1871,6 @@ async fn test_simulate_v1_nonce_management() -> anyhow::Result<()> {
 	Ok(())
 }
 
-// EVM bytecode constants for simulation tests.
-
-/// Returns 0x42 as a 32-byte word: PUSH1 0x42, PUSH1 0x00, MSTORE, PUSH1 0x20, PUSH1 0x00, RETURN
-const EVM_RETURN_42: &[u8] = &[0x60, 0x42, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3];
-
-/// Returns 0x99 as a 32-byte word.
-const EVM_RETURN_99: &[u8] = &[0x60, 0x99, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3];
-
-/// Always reverts: PUSH1 0x00, PUSH1 0x00, REVERT
-const EVM_ALWAYS_REVERT: &[u8] = &[0x60, 0x00, 0x60, 0x00, 0xfd];
-
-/// Simple storage contract:
-/// If calldatasize >= 32: SSTORE(0, calldataload(0)) then return
-/// If calldatasize == 0: SLOAD(0) and return 32 bytes
-///
-/// Bytecode:
-///   CALLDATASIZE       ; 36
-///   PUSH1 0x20         ; 60 20
-///   LT                 ; 10
-///   PUSH1 <load>       ; 60 XX  (jump to SLOAD branch if calldatasize < 32)
-///   JUMPI              ; 57
-///   ;; SSTORE branch: store calldataload(0) at slot 0
-///   PUSH1 0x00         ; 60 00
-///   CALLDATALOAD       ; 35
-///   PUSH1 0x00         ; 60 00
-///   SSTORE             ; 55
-///   STOP               ; 00
-///   ;; SLOAD branch (offset 14 = 0x0e)
-///   JUMPDEST           ; 5b
-///   PUSH1 0x00         ; 60 00
-///   SLOAD              ; 54
-///   PUSH1 0x00         ; 60 00
-///   MSTORE             ; 52
-///   PUSH1 0x20         ; 60 20
-///   PUSH1 0x00         ; 60 00
-///   RETURN             ; f3
-const EVM_STORAGE_CONTRACT: &[u8] = &[
-	0x36, 0x60, 0x20, 0x10, 0x60, 0x0e, 0x57, 0x60, 0x00, 0x35, 0x60, 0x00, 0x55, 0x00, 0x5b, 0x60,
-	0x00, 0x54, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3,
-];
-
 /// Per-block state overrides are applied independently: block 1 overrides do not carry to block 0.
 ///
 /// Reference: Geth TestSimulateV1 "simple-multi-block" test case (per-block state override scope).
@@ -2027,24 +2004,34 @@ async fn test_simulate_v1_contract_deploy() -> anyhow::Result<()> {
 
 /// Deploy code via override in block 0, then call it in block 1 — code persists across blocks.
 async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc2; 20]);
 
-	// Block 0: override code on contract_addr with EVM_RETURN_42
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Block 0: override code on contract_addr with Callee runtime bytecode
 	let mut block0_overrides = BTreeMap::new();
 	block0_overrides.insert(
 		contract_addr,
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_RETURN_42.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
 	);
+
+	let echo_calldata: Vec<u8> = Callee::echoCall { _data: 42 }.abi_encode();
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![
@@ -2055,6 +2042,7 @@ async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
 				calls: vec![GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					input: echo_calldata.clone().into(),
 					..Default::default()
 				}],
 			},
@@ -2065,6 +2053,7 @@ async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
 				calls: vec![GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					input: echo_calldata.into(),
 					..Default::default()
 				}],
 			},
@@ -2087,26 +2076,34 @@ async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
 			"Block {i} call should succeed"
 		);
 	}
-	// Both blocks should return 0x42
+	// Both blocks should return echo(42) = 42
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
 		assert!(!return_data.0.is_empty(), "Block 0 should return data");
-		assert_eq!(return_data.0[31], 0x42, "Block 0 should return 0x42");
+		assert_eq!(return_data.0[31], 42, "Block 0 should return 42");
 	}
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[0] {
 		assert!(!return_data.0.is_empty(), "Block 1 should return data (code persists)");
-		assert_eq!(return_data.0[31], 0x42, "Block 1 should return 0x42");
+		assert_eq!(return_data.0[31], 42, "Block 1 should return 42");
 	}
 
 	Ok(())
 }
 
-/// Call a contract whose code always REVERTs.
+/// Call a contract function that always REVERTs.
 async fn test_simulate_v1_contract_revert() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc3; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
 
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
@@ -2114,7 +2111,7 @@ async fn test_simulate_v1_contract_revert() -> anyhow::Result<()> {
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_ALWAYS_REVERT.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -2127,6 +2124,7 @@ async fn test_simulate_v1_contract_revert() -> anyhow::Result<()> {
 			calls: vec![GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
+				input: Callee::revertCall {}.abi_encode().into(),
 				..Default::default()
 			}],
 		}],
@@ -2149,44 +2147,50 @@ async fn test_simulate_v1_contract_revert() -> anyhow::Result<()> {
 
 /// First call writes to storage, second call reads it back within the same block.
 async fn test_simulate_v1_storage_persistence_across_calls() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc4; 20]);
 
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
 		contract_addr,
 		AddressStateOverride {
-			balance: None,
+			// Contract needs balance for storage deposit when executing SSTORE
+			balance: Some(U256::from(10_000_000_000_000_000u128)),
 			nonce: None,
-			code: Some(EVM_STORAGE_CONTRACT.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
 	);
-
-	// Calldata for SSTORE: 32 bytes representing the value 0x42
-	let mut store_data = [0u8; 32];
-	store_data[31] = 0x42;
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![SimulationPayload {
 			block_overrides: None,
 			state_overrides: Some(StateOverrides(state_overrides_map)),
 			calls: vec![
-				// Call 1: SSTORE — write 0x42 to slot 0
+				// Call 1: store(42) — write 42 to the `stored` state variable
 				GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
-					input: store_data.to_vec().into(),
+					input: Callee::storeCall { _data: 42 }.abi_encode().into(),
 					..Default::default()
 				},
-				// Call 2: SLOAD — read slot 0 (empty calldata triggers load branch)
+				// Call 2: stored() — read back the stored value
 				GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					input: Callee::storedCall {}.abi_encode().into(),
 					..Default::default()
 				},
 			],
@@ -2205,27 +2209,35 @@ async fn test_simulate_v1_storage_persistence_across_calls() -> anyhow::Result<(
 	assert_eq!(response.0[0].calls.len(), 2);
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
-		"SSTORE call should succeed"
+		"store(42) call should succeed"
 	);
 	assert!(
 		matches!(&response.0[0].calls[1], SimulationCallResult::Success { .. }),
-		"SLOAD call should succeed"
+		"stored() call should succeed"
 	);
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[1] {
-		assert_eq!(return_data.0.len(), 32, "SLOAD should return 32 bytes");
-		assert_eq!(return_data.0[31], 0x42, "SLOAD should return stored value 0x42");
+		assert_eq!(return_data.0.len(), 32, "stored() should return 32 bytes");
+		assert_eq!(return_data.0[31], 42, "stored() should return stored value 42");
 	}
 
 	Ok(())
 }
 
-/// Send ETH value along with a contract call.
+/// Send ETH value along with a contract call to a payable function.
 async fn test_simulate_v1_call_with_value_to_contract() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::CallSelfWithDust;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xc5; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"CallSelfWithDust",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
 
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
@@ -2233,7 +2245,7 @@ async fn test_simulate_v1_call_with_value_to_contract() -> anyhow::Result<()> {
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_RETURN_42.to_vec().into()),
+			code: Some(contract_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -2246,6 +2258,7 @@ async fn test_simulate_v1_call_with_value_to_contract() -> anyhow::Result<()> {
 			calls: vec![GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
+				input: CallSelfWithDust::fCall {}.abi_encode().into(),
 				value: Some(U256::from(1000)),
 				..Default::default()
 			}],
@@ -2264,7 +2277,7 @@ async fn test_simulate_v1_call_with_value_to_contract() -> anyhow::Result<()> {
 	assert_eq!(response.0[0].calls.len(), 1);
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
-		"Contract call with value should succeed"
+		"Contract call with value to payable function should succeed"
 	);
 
 	Ok(())
@@ -2590,19 +2603,27 @@ async fn test_simulate_v1_timestamp_equal_allowed() -> anyhow::Result<()> {
 
 /// Override specific storage slots via StateDiff on a contract.
 async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xd5; 20]);
 
-	// Use the storage contract that reads slot 0 when called with no data
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Override storage slot 0 (Callee's `stored` variable) with value 42
 	let slot_0 = H256::zero();
-	let mut value_42 = [0u8; 32];
-	value_42[31] = 0x42;
+	let mut value_bytes = [0u8; 32];
+	value_bytes[31] = 42;
 
 	let mut storage_diff = BTreeMap::new();
-	storage_diff.insert(slot_0, Bytes32(value_42));
+	storage_diff.insert(slot_0, Bytes32(value_bytes));
 
 	let mut state_overrides_map = BTreeMap::new();
 	state_overrides_map.insert(
@@ -2610,7 +2631,7 @@ async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_STORAGE_CONTRACT.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: Some(StorageOverrides::SpecificStorageSlots { overrides: storage_diff }),
 			move_precompile_to_address: None,
 		},
@@ -2621,10 +2642,11 @@ async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<
 			block_overrides: None,
 			state_overrides: Some(StateOverrides(state_overrides_map)),
 			calls: vec![
-				// Call with no data triggers SLOAD(0) + return
+				// Call stored() getter to read the overridden storage slot
 				GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					input: Callee::storedCall {}.abi_encode().into(),
 					..Default::default()
 				},
 			],
@@ -2643,11 +2665,11 @@ async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<
 	assert_eq!(response.0[0].calls.len(), 1);
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
-		"SLOAD call should succeed"
+		"stored() call should succeed"
 	);
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
 		assert_eq!(return_data.0.len(), 32, "Should return 32 bytes");
-		assert_eq!(return_data.0[31], 0x42, "Should return overridden storage value 0x42");
+		assert_eq!(return_data.0[31], 42, "Should return overridden storage value 42");
 	}
 
 	Ok(())
@@ -2830,33 +2852,45 @@ async fn test_simulate_v1_state_override_nonce_reset() -> anyhow::Result<()> {
 
 /// Override code with different bytecodes in block 0 and block 1 — code is replaced per block.
 async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = Account::default();
 	let contract_addr = H160::from([0xd3; 20]);
 
-	// Block 0: override code to return 0x42
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+	let (counter_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Counter",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Block 0: override code with Callee runtime bytecode
 	let mut block0_overrides = BTreeMap::new();
 	block0_overrides.insert(
 		contract_addr,
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_RETURN_42.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
 	);
 
-	// Block 1: override code to return 0x99
+	// Block 1: override code with Counter runtime bytecode (different contract)
 	let mut block1_overrides = BTreeMap::new();
 	block1_overrides.insert(
 		contract_addr,
 		AddressStateOverride {
 			balance: None,
 			nonce: None,
-			code: Some(EVM_RETURN_99.to_vec().into()),
+			code: Some(counter_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -2870,6 +2904,7 @@ async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Resu
 				calls: vec![GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 					..Default::default()
 				}],
 			},
@@ -2879,6 +2914,9 @@ async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Resu
 				calls: vec![GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
+					// Counter::number() selector — reads storage slot 0 (returns 0 since no
+					// constructor ran)
+					input: pallet_revive_fixtures::Counter::numberCall {}.abi_encode().into(),
 					..Default::default()
 				}],
 			},
@@ -2894,15 +2932,19 @@ async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Resu
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
-	// Block 0 should return 0x42
+	// Block 0: Callee echo(42) should return 42
 	assert!(matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }));
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
-		assert_eq!(return_data.0[31], 0x42, "Block 0 should return 0x42");
+		assert_eq!(return_data.0[31], 42, "Block 0 Callee echo(42) should return 42");
 	}
-	// Block 1 should return 0x99 (code replaced)
+	// Block 1: Counter number() should return 0 (code was replaced, storage is fresh)
 	assert!(matches!(&response.0[1].calls[0], SimulationCallResult::Success { .. }));
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[0] {
-		assert_eq!(return_data.0[31], 0x99, "Block 1 should return 0x99 (code replaced)");
+		assert_eq!(return_data.0.len(), 32, "Block 1 Counter number() should return 32 bytes");
+		assert!(
+			return_data.0.iter().all(|&b| b == 0),
+			"Block 1 Counter number() should return 0 (fresh storage, no constructor)"
+		);
 	}
 
 	Ok(())
@@ -2910,11 +2952,19 @@ async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Resu
 
 /// Override ALL state fields (balance, nonce, code) on the same account simultaneously.
 async fn test_simulate_v1_state_override_balance_nonce_code_combined() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let caller = H160::from([0xf3; 20]);
 	let contract_addr = H160::from([0xd4; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
 
 	let mut state_overrides_map = BTreeMap::new();
 	// Override caller with balance + nonce
@@ -2928,13 +2978,13 @@ async fn test_simulate_v1_state_override_balance_nonce_code_combined() -> anyhow
 			move_precompile_to_address: None,
 		},
 	);
-	// Override contract with code
+	// Override contract with code + balance
 	state_overrides_map.insert(
 		contract_addr,
 		AddressStateOverride {
 			balance: Some(U256::from(1_000_000_000u128)),
 			nonce: None,
-			code: Some(EVM_RETURN_42.to_vec().into()),
+			code: Some(callee_code.into()),
 			storage: None,
 			move_precompile_to_address: None,
 		},
@@ -2950,9 +3000,9 @@ async fn test_simulate_v1_state_override_balance_nonce_code_combined() -> anyhow
 			calls: vec![GenericTransaction {
 				from: Some(caller),
 				to: Some(contract_addr),
+				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 				nonce: Some(U256::from(42)),
 				max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
-				value: Some(U256::from(100)),
 				..Default::default()
 			}],
 		}],
