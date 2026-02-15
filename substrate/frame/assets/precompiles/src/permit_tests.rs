@@ -541,8 +541,8 @@ fn valid_permit_signature() -> (u8, [u8; 32], [u8; 32]) {
 		121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
 	];
 	let s: [u8; 32] = [
-		21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
-		147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
+		21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5, 147,
+		40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
 	];
 	(v, r, s)
 }
@@ -690,11 +690,7 @@ fn use_permit_rejects_multiple_replay_attempts() {
 				&r,
 				&s,
 			);
-			assert!(
-				replay_result.is_err(),
-				"replay attempt {} should fail",
-				attempt
-			);
+			assert!(replay_result.is_err(), "replay attempt {} should fail", attempt);
 		}
 
 		// Nonce should still be 1 (no failed attempts should increment)
