@@ -21,12 +21,12 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
+use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use pallet_assets::{weights::WeightInfo, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
@@ -188,7 +188,8 @@ where
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
 			IERC20Calls::nonces(call) => Self::nonces(contract_addr, call, env),
-			IERC20Calls::DOMAIN_SEPARATOR(_) => Self::domain_separator(asset_id, contract_addr, env),
+			IERC20Calls::DOMAIN_SEPARATOR(_) =>
+				Self::domain_separator(asset_id, contract_addr, env),
 		}
 	}
 }

@@ -115,8 +115,7 @@ fn domain_separator_is_computed() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
 		let name = test_token_name();
-		let separator =
-			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, name);
+		let separator = permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, name);
 		// Should be a non-zero hash
 		assert_ne!(separator, H256::zero());
 	});
@@ -310,8 +309,8 @@ fn ecrecover_with_valid_signature() {
 
 		// Should recover the correct address
 		let expected_address = H160([
-			0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce,
-			0x6a, 0xB8, 0x82, 0x72, 0x79, 0xcf, 0xfF, 0xb9, 0x22, 0x66,
+			0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce, 0x6a, 0xB8, 0x82, 0x72,
+			0x79, 0xcf, 0xfF, 0xb9, 0x22, 0x66,
 		]);
 		assert_eq!(result.unwrap(), expected_address);
 	});

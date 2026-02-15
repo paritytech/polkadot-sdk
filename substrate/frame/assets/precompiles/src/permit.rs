@@ -342,8 +342,15 @@ pub mod pallet {
 			}
 
 			let nonce = Self::nonce(verifying_contract, owner);
-			let digest =
-				Self::permit_digest(verifying_contract, name, owner, spender, value, &nonce, deadline);
+			let digest = Self::permit_digest(
+				verifying_contract,
+				name,
+				owner,
+				spender,
+				value,
+				&nonce,
+				deadline,
+			);
 
 			let recovered = Self::ecrecover(&digest, v, r, s)?;
 
@@ -379,7 +386,17 @@ pub mod pallet {
 			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
 		{
 			// Verify the permit first
-			Self::verify_permit(verifying_contract, name, owner, spender, value, deadline, v, r, s)?;
+			Self::verify_permit(
+				verifying_contract,
+				name,
+				owner,
+				spender,
+				value,
+				deadline,
+				v,
+				r,
+				s,
+			)?;
 
 			// Consume the permit by incrementing the nonce
 			// This prevents the same permit from being used again
