@@ -18,19 +18,19 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome,
-	transient_storage::TransientStorage, BalanceOf, Config, Time, H160, U256,
+	BalanceOf, Config, H160, Time, U256, evm::DryRunConfig, mock::MockHandler,
+	storage::WriteOutcome, transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cell::RefCell;
-use frame_support::{traits::tokens::Balance, weights::Weight, DefaultNoBound};
+use frame_support::{DefaultNoBound, traits::tokens::Balance, weights::Weight};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
-	traits::{One, Saturating, Zero},
 	DispatchError,
+	traits::{One, Saturating, Zero},
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -172,11 +172,7 @@ impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 
 	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
 	pub fn into_rounded_balance(self) -> Balance {
-		if self.dust == 0 {
-			self.value
-		} else {
-			self.value.saturating_add(Balance::one())
-		}
+		if self.dust == 0 { self.value } else { self.value.saturating_add(Balance::one()) }
 	}
 }
 

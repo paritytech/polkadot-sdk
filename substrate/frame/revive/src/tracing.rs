@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use crate::{Code, DispatchError, Key, Weight, evm::Bytes, primitives::ExecReturnValue};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
