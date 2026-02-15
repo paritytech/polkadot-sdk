@@ -24,9 +24,9 @@ use futures::TryFutureExt;
 use pallet_revive::{
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
-		Trace, H160, U256,
+		SimulationPayload, SimulationResponse, Trace, H160, U256,
 	},
-	DryRunConfig, EthTransactInfo,
+	DryRunConfig, EthTransactInfo, SimulationError,
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
@@ -236,5 +236,30 @@ impl RuntimeApi {
 		})?;
 		let receipt_data = receipt_data.into_iter().map(|item| item.0).collect();
 		Ok(receipt_data)
+	}
+
+	/// Simulate multiple blocks of transactions with state and block overrides.
+	pub async fn eth_simulate_v1(
+		&self,
+		block_state_calls: Vec<SimulationPayload>,
+		trace_transfers: bool,
+		validation: bool,
+		return_full_transactions: bool,
+	) -> Result<SimulationResponse<SimulationError>, ClientError> {
+		let payload = subxt_client::apis()
+			.revive_api()
+			.eth_simulate_v1(
+				block_state_calls.into_iter().map(Into::into).collect(),
+				trace_transfers,
+				validation,
+				return_full_transactions,
+			)
+			.unvalidated();
+
+		let result = self.0.call(payload).await?;
+		match result {
+			Ok(response) => Ok(response.0.map_error(|e| e.0)),
+			Err(err) => Err(ClientError::SimulationError(err.0)),
+		}
 	}
 }

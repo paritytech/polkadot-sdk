@@ -485,6 +485,32 @@ impl EthRpcServer for EthRpcServerImpl {
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
+
+	async fn simulate_v1(
+		&self,
+		payload: SimulationParameters,
+		block: Option<BlockNumberOrTagOrHash>,
+	) -> RpcResult<SimulationResponse<ErrorObjectOwned>> {
+		let block = block.unwrap_or_default();
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let response = runtime_api
+			.eth_simulate_v1(
+				payload.block_state_calls,
+				payload.trace_transfers,
+				payload.validation,
+				payload.return_full_transactions,
+			)
+			.await?;
+		Ok(response.map_error(simulation_error_to_error_object))
+	}
+}
+
+fn simulation_error_to_error_object(
+	err: pallet_revive::SimulationError,
+) -> ErrorObjectOwned {
+	use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
+	ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, format!("{err:?}"), None)
 }
 
 impl EthRpcServerImpl {

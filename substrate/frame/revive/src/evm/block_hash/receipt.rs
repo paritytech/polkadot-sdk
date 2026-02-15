@@ -137,7 +137,18 @@ impl AccumulateReceipt {
 ///
 /// This structure avoids conversions between substrate to alloy types
 /// to optimally compute the bloom.
-#[derive(Clone, Copy)]
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	codec::Encode,
+	codec::Decode,
+	scale_info::TypeInfo,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+)]
 pub struct LogsBloom {
 	/// The bloom bytes used to store logs.
 	pub bloom: [u8; BLOOM_SIZE_BYTES],

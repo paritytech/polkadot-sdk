@@ -31,6 +31,7 @@ mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
+mod simulation;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -48,11 +49,17 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
-		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
-		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR},
+		block_storage,
+		fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
+		AddressStateOverride, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, Log,
+		PrestateTracer, SimulationBlock, SimulationCallResult, SimulationPayload,
+		SimulationResponse, StateOverrides, StorageOverrides, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
+	simulation::*,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
@@ -68,6 +75,7 @@ use frame_support::{
 	},
 	ensure,
 	pallet_prelude::DispatchClass,
+	storage::with_transaction,
 	traits::{
 		fungible::{Balanced, Inspect, Mutate, MutateHold},
 		tokens::Balance,
@@ -2331,6 +2339,733 @@ impl<T: Config> Pallet<T> {
 		Ok(module)
 	}
 
+	/// Simulates [`GenericTransaction`]s with the given set of overrides.
+	pub fn eth_simulate_v1(
+		block_state_calls: Vec<SimulationPayload>,
+		_trace_transfers: bool,
+		validation: bool,
+		_return_full_transactions: bool,
+	) -> Result<SimulationResponse<SimulationError>, SimulationError>
+	where
+		MomentOf<T>: TryFrom<U256>,
+		T::Nonce: TryFrom<U256> + Into<U256>,
+		CallOf<T>: SetWeightLimit,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T>>,
+	{
+		let simulated_blocks =
+			Self::handle_eth_simulate_v1_block_state_calls_format(block_state_calls)?;
+		let mut simulated_block_results = Vec::with_capacity(0x100);
+		for (block_overrides, state_overrides, calls) in simulated_blocks {
+			let mut ethereum_block_builder =
+				EthereumBlockBuilder::from_ir(EthereumBlockBuilderIR::<T>::default());
+			let simulation_executor_mock_handler = SimulationExecutorMockHandler::default();
+
+			let (simulation_block_builder_mock_handler, simulation_executor_mock_handler) =
+				Self::handle_eth_simulate_v1_block_overrides(
+					&block_overrides,
+					simulation_executor_mock_handler,
+				)?;
+			ethereum_block_builder =
+				ethereum_block_builder.with_mock_handler(simulation_block_builder_mock_handler);
+			Self::handle_eth_simulate_v1_state_overrides(state_overrides)?;
+
+			let mut call_results = Vec::with_capacity(calls.len());
+			for (call_index, call) in calls.into_iter().enumerate() {
+				Self::handle_eth_simulate_v1_call_validation(&call, validation)?;
+				let outcome = Self::handle_eth_simulate_v1_call_execution(
+					call_index,
+					call,
+					simulation_executor_mock_handler.clone(),
+				)?;
+				ethereum_block_builder.process_transaction(
+					outcome.encoded_payload.clone(),
+					outcome.is_success(),
+					ReceiptGasInfo {
+						gas_used: *outcome.gas_used(),
+						effective_gas_price: outcome.effective_gas_price,
+					},
+					outcome.encoded_logs.clone(),
+					outcome.logs_bloom,
+				);
+				call_results.push(outcome.result);
+			}
+
+			let (block, _) = ethereum_block_builder.build_block(
+				block_overrides
+					.block_number
+					.try_into()
+					.map_err(|_| SimulationError::ConversionError)?,
+			);
+
+			let block_number = BlockNumberFor::<T>::try_from(block_overrides.block_number)
+				.map_err(|_| SimulationError::ConversionError)?;
+			let block_hash = block.hash;
+			BlockHash::<T>::insert(block_number, block_hash);
+
+			for call_result in call_results.iter_mut() {
+				let SimulationCallResult::Success { ref mut logs, .. } = call_result else {
+					continue;
+				};
+				for log in logs.iter_mut() {
+					log.block_hash = block_hash;
+					log.block_number = block.number;
+				}
+			}
+
+			simulated_block_results.push(SimulationBlock::<SimulationError> {
+				base_fee_per_gas: block.base_fee_per_gas,
+				blob_gas_used: block.blob_gas_used,
+				difficulty: block.difficulty,
+				excess_blob_gas: block.excess_blob_gas,
+				extra_data: block.extra_data,
+				gas_limit: block.gas_limit,
+				gas_used: block.gas_used,
+				hash: block.hash,
+				logs_bloom: block.logs_bloom,
+				miner: block.miner,
+				mix_hash: block.mix_hash,
+				nonce: block.nonce,
+				number: block.number,
+				parent_beacon_block_root: block.parent_beacon_block_root,
+				parent_hash: block.parent_hash,
+				receipts_root: block.receipts_root,
+				requests_hash: block.requests_hash,
+				sha_3_uncles: block.sha_3_uncles,
+				size: block.size,
+				state_root: block.state_root,
+				timestamp: block.timestamp,
+				total_difficulty: block.total_difficulty,
+				transactions: block.transactions,
+				transactions_root: block.transactions_root,
+				uncles: block.uncles,
+				withdrawals: block.withdrawals,
+				withdrawals_root: block.withdrawals_root,
+				calls: call_results,
+			});
+		}
+
+		Ok(SimulationResponse(simulated_block_results))
+	}
+
+	/// Converts the simulation payloads into a format which accounts for the block gaps and which
+	/// validates the provided simulation block payloads.
+	pub fn handle_eth_simulate_v1_block_state_calls_format(
+		block_state_calls: Vec<SimulationPayload>,
+	) -> Result<
+		impl Iterator<
+			Item = (ResolvedSimulationBlockOverrides, StateOverrides, Vec<GenericTransaction>),
+		>,
+		SimulationError,
+	> {
+		let mut simulated_blocks = SimulationBlocks::<0x100>::new(
+			frame_system::Pallet::<T>::block_number().into(),
+			T::Time::now().into(),
+		);
+		for block_state_call in block_state_calls {
+			simulated_blocks.insert_simulation_payload(block_state_call)?;
+		}
+		Ok(simulated_blocks.into_inner())
+	}
+
+	/// Handles the block overrides for the `eth_simulate_v1` method
+	pub fn handle_eth_simulate_v1_block_overrides(
+		block_overrides: &ResolvedSimulationBlockOverrides,
+		mut simulation_executor_mock_handler: SimulationExecutorMockHandler,
+	) -> Result<(SimulationBlockBuilderMockHandler, SimulationExecutorMockHandler), SimulationError>
+	where
+		MomentOf<T>: TryFrom<U256>,
+	{
+		let mut simulation_block_builder_mock_handler = SimulationBlockBuilderMockHandler::new();
+
+		// Setting the block number override.
+		let block_number_override = BlockNumberFor::<T>::try_from(block_overrides.block_number)
+			.map_err(|_| SimulationError::ConversionError)?;
+		frame_support::storage::unhashed::put(
+			&frame_support::storage::storage_prefix(b"System", b"Number"),
+			&block_number_override,
+		);
+		simulation_executor_mock_handler =
+			simulation_executor_mock_handler.with_block_number(block_overrides.block_number);
+		simulation_block_builder_mock_handler = simulation_block_builder_mock_handler
+			.with_mock_block_number(block_overrides.block_number);
+
+		// Setting the block timestamp override.
+		let block_timestamp_override = block_overrides
+			.block_timestamp
+			.checked_mul(U256::from(1000))
+			.ok_or(SimulationError::OverflowError)
+			.and_then(|value| {
+				MomentOf::<T>::try_from(value).map_err(|_| SimulationError::ConversionError)
+			})?;
+		frame_support::storage::unhashed::put(
+			&frame_support::storage::storage_prefix(b"Timestamp", b"Now"),
+			&block_timestamp_override,
+		);
+		simulation_block_builder_mock_handler = simulation_block_builder_mock_handler
+			.with_mock_timestamp(block_timestamp_override.into());
+
+		// Setting the prevrandao
+		if let Some(prev_randao) = block_overrides.prev_randao {
+			simulation_block_builder_mock_handler =
+				simulation_block_builder_mock_handler.with_mock_difficulty(prev_randao);
+			simulation_executor_mock_handler = simulation_executor_mock_handler
+				.with_block_difficulty(
+					u64::try_from(prev_randao).map_err(|_| SimulationError::ConversionError)?,
+				);
+		}
+
+		// Setting the gas limit
+		if let Some(gas_limit) = block_overrides.gas_limit {
+			simulation_block_builder_mock_handler =
+				simulation_block_builder_mock_handler.with_mock_gas_limit(gas_limit);
+			simulation_executor_mock_handler = simulation_executor_mock_handler
+				.with_block_gas_limit(
+					u64::try_from(gas_limit).map_err(|_| SimulationError::ConversionError)?,
+				);
+		}
+
+		// Setting the validator withdrawals
+		if let Some(ref withdrawals) = block_overrides.withdrawals {
+			simulation_block_builder_mock_handler =
+				simulation_block_builder_mock_handler.with_mock_withdrawals(withdrawals.clone());
+		}
+
+		// Setting the coinbase
+		if let Some(coinbase) = block_overrides.fee_recipient {
+			simulation_block_builder_mock_handler =
+				simulation_block_builder_mock_handler.with_mock_coinbase(coinbase);
+			simulation_executor_mock_handler =
+				simulation_executor_mock_handler.with_block_coinbase(coinbase);
+		}
+
+		// Setting the base fee per gas
+		if let Some(base_fee_per_gas) = block_overrides.base_fee_per_gas {
+			simulation_block_builder_mock_handler =
+				simulation_block_builder_mock_handler.with_mock_base_fee_per_gas(base_fee_per_gas);
+			simulation_executor_mock_handler =
+				simulation_executor_mock_handler.with_block_base_fee_per_gas(base_fee_per_gas);
+		}
+
+		Ok((simulation_block_builder_mock_handler, simulation_executor_mock_handler))
+	}
+
+	/// Handles the state overrides for the `eth_simulate_v1` method
+	pub fn handle_eth_simulate_v1_state_overrides(
+		state_overrides: StateOverrides,
+	) -> Result<(), SimulationError>
+	where
+		T::Nonce: TryFrom<U256>,
+	{
+		for (address, overrides) in state_overrides.0 {
+			let account_id = T::AddressMapper::to_account_id(&address);
+			Self::handle_eth_simulate_v1_single_state_override(address, account_id, overrides)?;
+		}
+		Ok(())
+	}
+
+	/// Handles the state overrides for the `eth_simulate` method for a single address.
+	pub fn handle_eth_simulate_v1_single_state_override(
+		address: H160,
+		account_id: T::AccountId,
+		overrides: AddressStateOverride,
+	) -> Result<(), SimulationError>
+	where
+		T::Nonce: TryFrom<U256>,
+	{
+		// Handling the balance override.
+		if let Some(balance) = overrides.balance {
+			Self::set_evm_balance(&address, balance)?;
+		}
+
+		// Handling the nonce override.
+		if let Some(ref nonce) = overrides.nonce {
+			let nonce = (*nonce).try_into().map_err(|_| SimulationError::OverflowError)?;
+			frame_system::Account::<T>::mutate(&account_id, |account| {
+				account.nonce = nonce;
+			});
+		}
+
+		// Handling the code override.
+		if let Some(code) = overrides.code {
+			let code = code.0;
+
+			let module = match code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				false if !T::AllowEVMBytecode::get() => return Err(<Error<T>>::CodeRejected.into()),
+				false => ContractBlob::<T>::from_evm_runtime_code(code, account_id.clone())?,
+				true => ContractBlob::<T>::from_pvm_code(code, account_id.clone())?,
+			};
+
+			let code_hash = *module.code_hash();
+
+			if !<CodeInfoOf<T>>::contains_key(code_hash) {
+				<PristineCode<T>>::insert(code_hash, module.code());
+				<CodeInfoOf<T>>::insert(code_hash, module.code_info().clone());
+			}
+
+			<AccountInfoOf<T>>::try_mutate(&address, |account| -> Result<(), DispatchError> {
+				match account {
+					Some(AccountInfo {
+						account_type: AccountType::Contract(ref mut contract),
+						..
+					}) => {
+						contract.code_hash = code_hash;
+					},
+					_ => {
+						let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
+						let contract = ContractInfo::<T>::new(&address, nonce, code_hash)?;
+						*account = Some(AccountInfo {
+							account_type: contract.into(),
+							dust: account.as_ref().map(|a| a.dust).unwrap_or(0),
+						});
+					},
+				}
+				Ok(())
+			})?;
+		}
+
+		// Handling storage overrides.
+		if let Some(storage_overrides) = overrides.storage {
+			let contract =
+				AccountInfo::<T>::load_contract(&address).ok_or(Error::<T>::ContractNotFound)?;
+
+			if let StorageOverrides::AllStorageSlots { .. } = &storage_overrides {
+				let _ = frame_support::storage::child::clear_storage(
+					&contract.child_trie_info(),
+					None,
+					None,
+				);
+			}
+
+			let slots = match storage_overrides {
+				StorageOverrides::AllStorageSlots { overrides } => overrides,
+				StorageOverrides::SpecificStorageSlots { overrides } => overrides,
+			};
+
+			for (key, value) in slots {
+				contract.write(&Key::from_fixed(key.0), Some(value.0.to_vec()), None, false)?;
+			}
+		}
+
+		// TODO: Handle the `move_precompile_to_address` field
+
+		Ok(())
+	}
+
+	/// Handles all of the validations needed for the simulation call.
+	///
+	/// Performs two categories of checks mirroring the Geth reference implementation:
+	///
+	/// **Always (regardless of `extra_validation`)**:
+	/// - Rejects mixed fee styles (`gas_price` combined with EIP-1559 fields).
+	/// - Validates `chain_id` matches the node's chain ID if provided.
+	///
+	/// **Only when `extra_validation` is `true`** (mirroring Geth's `preCheck` and `buyGas`):
+	/// - Nonce must match the sender's current state nonce exactly.
+	/// - `max_fee_per_gas` must be >= the current base fee.
+	/// - `max_priority_fee_per_gas` must be <= `max_fee_per_gas`.
+	/// - Sender balance must cover `gas_limit * max_fee_per_gas + value`.
+	///
+	/// Reference: Geth `internal/ethapi/transaction_args.go` `CallDefaults`,
+	/// `internal/ethapi/simulate.go` `sanitizeCall`,
+	/// `core/state_transition.go` `preCheck` and `buyGas`.
+	pub fn handle_eth_simulate_v1_call_validation(
+		call: &GenericTransaction,
+		extra_validation: bool,
+	) -> Result<(), SimulationError>
+	where
+		T::Nonce: Into<U256>,
+	{
+		// --- Always-run checks (from sanitizeCall / CallDefaults) ---
+
+		// Reject mixed fee styles: gasPrice + (maxFeePerGas or maxPriorityFeePerGas).
+		if call.gas_price.is_some() &&
+			(call.max_fee_per_gas.is_some() || call.max_priority_fee_per_gas.is_some())
+		{
+			return Err(SimulationError::ConflictingFeeFields);
+		}
+
+		// Chain ID validation: if provided, must match our chain ID.
+		if let Some(tx_chain_id) = call.chain_id {
+			let node_chain_id: U256 = T::ChainId::get().into();
+			if tx_chain_id != node_chain_id {
+				return Err(SimulationError::ChainIdMismatch {
+					have: tx_chain_id,
+					want: node_chain_id,
+				});
+			}
+		}
+
+		if !extra_validation {
+			return Ok(());
+		}
+
+		let sender = call.from.unwrap_or_default();
+		let origin = T::AddressMapper::to_account_id(&sender);
+
+		// Nonce validation: if a nonce is provided, it must match the state nonce exactly.
+		if let Some(tx_nonce) = call.nonce {
+			let state_nonce: U256 = System::<T>::account_nonce(&origin).into();
+			if tx_nonce > state_nonce {
+				return Err(SimulationError::NonceTooHigh {
+					address: sender,
+					tx: tx_nonce,
+					state: state_nonce,
+				});
+			}
+			if tx_nonce < state_nonce {
+				return Err(SimulationError::NonceTooLow {
+					address: sender,
+					tx: tx_nonce,
+					state: state_nonce,
+				});
+			}
+		}
+
+		let base_fee = Self::evm_base_fee();
+
+		// Fee cap validation: max_fee_per_gas must be >= base fee.
+		if let Some(max_fee) = call.max_fee_per_gas {
+			if max_fee < base_fee {
+				return Err(SimulationError::FeeCapTooLow { max_fee_per_gas: max_fee, base_fee });
+			}
+		}
+
+		// Tip validation: max_priority_fee_per_gas must be <= max_fee_per_gas.
+		if let Some(tip) = call.max_priority_fee_per_gas {
+			if let Some(max_fee) = call.max_fee_per_gas {
+				if tip > max_fee {
+					return Err(SimulationError::TipAboveFeeCap {
+						max_priority_fee_per_gas: tip,
+						max_fee_per_gas: max_fee,
+					});
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Handles the execution of [`GenericTransaction`] calls for the `eth_simulate` method.
+	pub fn handle_eth_simulate_v1_call_execution(
+		index: usize,
+		mut tx: GenericTransaction,
+		simulation_mock_handler: SimulationExecutorMockHandler,
+	) -> Result<SimulationCallOutcome<SimulationError>, SimulationError>
+	where
+		T::Nonce: Into<U256>,
+		CallOf<T>: SetWeightLimit,
+		<T as frame_system::Config>::RuntimeEvent: TryInto<Event<T>>,
+	{
+		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
+		let signed_origin = OriginFor::<T>::signed(origin.clone());
+		Self::prepare_dry_run(&origin);
+
+		let base_fee = Self::evm_base_fee();
+		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
+
+		tx.nonce.get_or_insert_with(|| System::<T>::account_nonce(&origin).into());
+		tx.chain_id.get_or_insert_with(|| T::ChainId::get().into());
+		tx.gas_price = Some(effective_gas_price);
+		tx.max_priority_fee_per_gas = Some(0.into());
+		tx.max_fee_per_gas.get_or_insert(effective_gas_price);
+		tx.gas.get_or_insert_with(|| Self::evm_block_gas_limit());
+		tx.r#type.get_or_insert_with(|| TYPE_EIP1559.into());
+
+		let value = tx.value.unwrap_or_default();
+		let input = tx.input.clone().to_vec();
+		let to = tx.to;
+
+		let signed_transaction = tx
+			.clone()
+			.try_into_unsigned()
+			.map_err(|_| SimulationError::InvalidTransaction)?
+			.with_signature([0x0; 65]);
+		let encoded_payload = signed_transaction.signed_payload();
+		let transaction_hash = H256(keccak_256(&encoded_payload));
+
+		let mut call_info = tx
+			.into_call::<T>(CreateCallMode::DryRun)
+			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
+
+		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
+		let base_weight = base_info.total_weight();
+		let exec_config =
+			ExecConfig::<T>::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
+				.with_dry_run(DryRunConfig::new(None))
+				.with_mock_handler(simulation_mock_handler);
+
+		T::FeeInfo::deposit_txfee(T::Currency::issue(
+			call_info.tx_fee.saturating_add(call_info.storage_deposit),
+		));
+
+		let transaction_limits = TransactionLimits::<T>::EthereumGas {
+			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
+			weight_limit: Self::evm_max_extrinsic_weight(),
+			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+		};
+
+		let do_exec = || match to {
+			Some(destination) if destination == RUNTIME_PALLETS_ADDR => {
+				let dispatch_call = match <CallOf<T>>::decode(&mut &input[..]) {
+					Ok(call) => call,
+					Err(err) => {
+						return SimulationCallOutcome {
+							encoded_payload,
+							transaction_hash,
+							effective_gas_price,
+							max_storage_deposit: Default::default(),
+							encoded_logs: Default::default(),
+							logs_bloom: Default::default(),
+							result: SimulationCallResult::Failed {
+								return_data: Default::default(),
+								gas_used: Default::default(),
+								error: EthTransactError::Message(format!(
+									"Failed to decode pallet-call: {err:?}"
+								))
+								.into(),
+							},
+						}
+					},
+				};
+
+				let declared_weight = dispatch_call.get_dispatch_info().total_weight();
+				let dispatch_result =
+					dispatch_call.dispatch(RawOrigin::Signed(origin.clone()).into());
+
+				let actual_weight = match &dispatch_result {
+					Ok(info) => info.actual_weight,
+					Err(err) => err.post_info.actual_weight,
+				}
+				.unwrap_or(declared_weight);
+
+				let eth_tx_info = EthTxInfo::<T>::new(call_info.encoded_len, base_weight);
+				let gas_used: U256 = eth_tx_info
+					.gas_consumption(&actual_weight, &StorageDeposit::Charge(Default::default()))
+					.to_ethereum_gas()
+					.unwrap_or_default()
+					.into();
+
+				match dispatch_result {
+					Ok(_) => SimulationCallOutcome {
+						encoded_payload,
+						transaction_hash,
+						effective_gas_price,
+						max_storage_deposit: Default::default(),
+						encoded_logs: Default::default(),
+						logs_bloom: Default::default(),
+						result: SimulationCallResult::Success {
+							return_data: Default::default(),
+							gas_used,
+							logs: Default::default(),
+						},
+					},
+					Err(err) => SimulationCallOutcome {
+						encoded_payload,
+						transaction_hash,
+						effective_gas_price,
+						max_storage_deposit: Default::default(),
+						encoded_logs: Default::default(),
+						logs_bloom: Default::default(),
+						result: SimulationCallResult::Failed {
+							return_data: Default::default(),
+							gas_used,
+							error: SimulationError::DispatchError(err.error),
+						},
+					},
+				}
+			},
+			Some(destination) => {
+				let call_result = Self::bare_call(
+					signed_origin,
+					destination,
+					value,
+					transaction_limits,
+					input,
+					&exec_config,
+				);
+				match call_result.result {
+					Ok(result) => match result.did_revert() {
+						true => SimulationCallOutcome {
+							encoded_payload,
+							transaction_hash,
+							effective_gas_price,
+							max_storage_deposit: call_result
+								.max_storage_deposit
+								.charge_or_zero()
+								.into(),
+							encoded_logs: Default::default(),
+							logs_bloom: Default::default(),
+							result: SimulationCallResult::Failed {
+								return_data: result.data.into(),
+								gas_used: call_result.gas_consumed.into(),
+								error: SimulationError::CallReverted,
+							},
+						},
+						false => SimulationCallOutcome {
+							encoded_payload,
+							transaction_hash,
+							effective_gas_price,
+							max_storage_deposit: call_result
+								.max_storage_deposit
+								.charge_or_zero()
+								.into(),
+							encoded_logs: Default::default(),
+							logs_bloom: Default::default(),
+							result: SimulationCallResult::Success {
+								return_data: result.data.into(),
+								gas_used: call_result.gas_consumed.into(),
+								logs: Default::default(),
+							},
+						},
+					},
+					Err(err) => SimulationCallOutcome {
+						encoded_payload,
+						transaction_hash,
+						effective_gas_price,
+						max_storage_deposit: call_result
+							.max_storage_deposit
+							.charge_or_zero()
+							.into(),
+						encoded_logs: Default::default(),
+						logs_bloom: Default::default(),
+						result: SimulationCallResult::Failed {
+							return_data: Default::default(),
+							gas_used: call_result.gas_consumed.into(),
+							error: SimulationError::from(err),
+						},
+					},
+				}
+			},
+			None => {
+				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
+				} else {
+					(input, vec![])
+				};
+				let instantiation_result = crate::Pallet::<T>::bare_instantiate(
+					signed_origin,
+					value,
+					transaction_limits,
+					Code::Upload(code.clone()),
+					data.clone(),
+					None,
+					&exec_config,
+				);
+				match instantiation_result.result {
+					Ok(return_value) => match return_value.result.did_revert() {
+						true => SimulationCallOutcome {
+							encoded_payload,
+							transaction_hash,
+							effective_gas_price,
+							max_storage_deposit: instantiation_result
+								.max_storage_deposit
+								.charge_or_zero()
+								.into(),
+							encoded_logs: Default::default(),
+							logs_bloom: Default::default(),
+							result: SimulationCallResult::Failed {
+								return_data: return_value.result.data.into(),
+								gas_used: instantiation_result.gas_consumed.into(),
+								error: SimulationError::CallReverted,
+							},
+						},
+						false => SimulationCallOutcome {
+							encoded_payload,
+							transaction_hash,
+							effective_gas_price,
+							max_storage_deposit: instantiation_result
+								.max_storage_deposit
+								.charge_or_zero()
+								.into(),
+							encoded_logs: Default::default(),
+							logs_bloom: Default::default(),
+							result: SimulationCallResult::Success {
+								return_data: return_value.result.data.into(),
+								gas_used: instantiation_result.gas_consumed.into(),
+								logs: Default::default(),
+							},
+						},
+					},
+					Err(err) => SimulationCallOutcome {
+						encoded_payload,
+						transaction_hash,
+						effective_gas_price,
+						max_storage_deposit: instantiation_result
+							.max_storage_deposit
+							.charge_or_zero()
+							.into(),
+						encoded_logs: Default::default(),
+						logs_bloom: Default::default(),
+						result: SimulationCallResult::Failed {
+							return_data: Default::default(),
+							gas_used: instantiation_result.gas_consumed.into(),
+							error: SimulationError::from(err),
+						},
+					},
+				}
+			},
+		};
+
+		let event_count_before = frame_system::Pallet::<T>::event_count() as usize;
+		let (mut outcome, receipt_details) = block_storage::with_receipt_context(|| {
+			let outcome = with_transaction(
+				|| -> crate::sp_runtime::TransactionOutcome<Result<_, DispatchError>> {
+					let outcome = do_exec();
+					if outcome.is_success() {
+						crate::sp_runtime::TransactionOutcome::Commit(Ok(outcome))
+					} else {
+						crate::sp_runtime::TransactionOutcome::Rollback(Ok(outcome))
+					}
+				},
+			)
+			.expect("Can't fail");
+			let details = block_storage::get_receipt_details();
+			(outcome, details)
+		});
+		let (encoded_logs, logs_bloom) = receipt_details.unwrap_or_default();
+		outcome.encoded_logs = encoded_logs;
+		outcome.logs_bloom = logs_bloom;
+		let events = frame_system::Pallet::<T>::read_events_no_consensus()
+			.skip(event_count_before)
+			.filter_map(|record| match record.event.try_into().ok()? {
+				Event::ContractEmitted { contract, data, topics } => Some((contract, data, topics)),
+				_ => None,
+			})
+			.enumerate()
+			.map(|(log_index, (contract, data, topics))| Log {
+				address: contract,
+				block_hash: Default::default(),
+				block_number: Default::default(),
+				data: Some(data.into()),
+				log_index: U256::from(log_index as u64),
+				removed: false,
+				topics,
+				transaction_hash: outcome.transaction_hash,
+				transaction_index: U256::from(index as u64),
+			});
+
+		let transaction_fee = T::FeeInfo::tx_fee(call_info.encoded_len, &call_info.call);
+		let total_cost = transaction_fee
+			.saturating_add(outcome.max_storage_deposit.try_into().unwrap_or_default());
+		let total_cost_wei = Pallet::<T>::convert_native_to_evm(total_cost);
+		let (mut eth_gas, rest) = total_cost_wei.div_mod(base_fee);
+		if !rest.is_zero() {
+			eth_gas = eth_gas.saturating_add(1_u32.into());
+		}
+		match outcome.result {
+			SimulationCallResult::Success { ref mut gas_used, .. } |
+			SimulationCallResult::Failed { ref mut gas_used, .. } => {
+				*gas_used = eth_gas;
+			},
+		}
+
+		if let SimulationCallResult::Success { ref mut logs, .. } = outcome.result {
+			*logs = events.collect()
+		}
+
+		Ok(outcome)
+	}
+
 	/// Run the supplied function `f` if no other instance of this pallet is on the stack.
 	fn run_guarded<R, F: FnOnce() -> Result<R, ExecError>>(f: F) -> Result<R, ExecError> {
 		executing_contract::using_once(&mut false, || {
@@ -2693,6 +3428,16 @@ sp_api::decl_runtime_apis! {
 
 		/// Construct the new balance and dust components of this EVM balance.
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
+
+		/// Simulate multiple blocks of transactions with state and block overrides.
+		///
+		/// See [`crate::Pallet::eth_simulate_v1`].
+		fn eth_simulate_v1(
+			block_state_calls: Vec<SimulationPayload>,
+			trace_transfers: bool,
+			validation: bool,
+			return_full_transactions: bool,
+		) -> Result<SimulationResponse<SimulationError>, SimulationError>;
 	}
 }
 
@@ -2980,6 +3725,20 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
 					$crate::Pallet::<Self>::new_balance_with_dust(balance)
+				}
+
+				fn eth_simulate_v1(
+					block_state_calls: Vec<$crate::evm::SimulationPayload>,
+					trace_transfers: bool,
+					validation: bool,
+					return_full_transactions: bool,
+				) -> Result<$crate::evm::SimulationResponse<$crate::SimulationError>, $crate::SimulationError> {
+					$crate::Pallet::<Self>::eth_simulate_v1(
+						block_state_calls,
+						trace_transfers,
+						validation,
+						return_full_transactions,
+					)
 				}
 			}
 		}

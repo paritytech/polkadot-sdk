@@ -130,6 +130,9 @@ pub enum ClientError {
 	/// Receipt data length mismatch.
 	#[error("Receipt data length mismatch")]
 	ReceiptDataLengthMismatch,
+	/// Simulation error.
+	#[error("Simulation error: {0:?}")]
+	SimulationError(pallet_revive::SimulationError),
 }
 const LOG_TARGET: &str = "eth-rpc::client";
 

@@ -75,6 +75,18 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
 		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	),
+	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types_gen::SimulationPayload",
+		with = "::subxt::utils::Static<::pallet_revive::evm::SimulationPayload>"
+	),
+	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types_gen::SimulationResponse<E>",
+		with = "::subxt::utils::Static<::pallet_revive::evm::SimulationResponse<E>>"
+	),
+	substitute_type(
+		path = "pallet_revive::primitives::SimulationError",
+		with = "::subxt::utils::Static<::pallet_revive::SimulationError>"
+	),
 	derive_for_all_types = "codec::Encode, codec::Decode"
 )]
 mod src_chain {}

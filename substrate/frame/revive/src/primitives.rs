@@ -18,9 +18,7 @@
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
 use crate::{
-	evm::{
-		DryRunConfig, GenericTransaction, SimulationPayload, StateOverrides, ValidatorWithdrawal,
-	},
+	evm::{block_hash::LogsBloom, DryRunConfig, SimulationCallResult},
 	mock::MockHandler,
 	storage::WriteOutcome,
 	transient_storage::TransientStorage,
@@ -32,10 +30,10 @@ use core::cell::RefCell;
 use frame_support::{traits::tokens::Balance, weights::Weight, DefaultNoBound};
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, Get};
+use sp_core::{Get, H256};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
-	BoundedBTreeMap, DispatchError,
+	DispatchError,
 };
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
@@ -452,6 +450,12 @@ impl<T: Config> ExecConfig<T> {
 		self
 	}
 
+	/// Sets the mock handler to use in the execution.
+	pub fn with_mock_handler(mut self, mock_handler: impl MockHandler<T> + 'static) -> Self {
+		self.mock_handler = Some(Box::new(mock_handler));
+		self
+	}
+
 	/// Almost clone for testing (does not clone mock_handler)
 	#[cfg(test)]
 	pub fn clone(&self) -> Self {
@@ -475,19 +479,35 @@ pub enum CodeRemoved {
 	Yes,
 }
 
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
+#[derive(Eq, Clone, Encode, Decode, Debug, TypeInfo, PartialEq)]
 pub enum SimulationError {
 	DispatchError(DispatchError),
+	EthTransactError(EthTransactError),
 	ConversionError,
 	BlockCapacityExceeded,
 	OverflowError,
+	InvalidTransaction,
+	CallReverted,
 	BlockNumberOverrideMustBeMonotonicallyIncreasing,
 	BlockTimestampOverrideMustBeEqualOrMonotonicallyIncreasing,
+	ConflictingFeeFields,
+	ChainIdMismatch { have: U256, want: U256 },
+	NonceTooHigh { address: H160, tx: U256, state: U256 },
+	NonceTooLow { address: H160, tx: U256, state: U256 },
+	FeeCapTooLow { max_fee_per_gas: U256, base_fee: U256 },
+	TipAboveFeeCap { max_priority_fee_per_gas: U256, max_fee_per_gas: U256 },
+	InsufficientFunds { address: H160, have: U256, want: U256 },
 }
 
 impl From<DispatchError> for SimulationError {
 	fn from(value: DispatchError) -> Self {
 		Self::DispatchError(value)
+	}
+}
+
+impl From<EthTransactError> for SimulationError {
+	fn from(value: EthTransactError) -> Self {
+		Self::EthTransactError(value)
 	}
 }
 
@@ -497,197 +517,26 @@ impl<T: Config> From<crate::Error<T>> for SimulationError {
 	}
 }
 
-/// A resolved model for the block overrides for the simulation runtime function.
-///
-/// This model contains the resolved block number and the timestamp which are required in the
-/// simulation method to be monotonically increasing. In the case of blocks, they're required to be
-/// without gaps and in the case of timestamps they're required to be monotonically increasing but
-/// with no restriction on gaps.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedSimulationBlockOverrides {
-	/// Block number
-	pub block_number: U256,
-
-	/// Block timestamp
-	pub block_timestamp: U256,
-
-	/// The previous value of randomness beacon
-	pub prev_randao: Option<U256>,
-
-	/// Gas limit
-	pub gas_limit: Option<u64>,
-
-	/// Fee recipient (also known as coinbase).
-	pub fee_recipient: Option<H160>,
-
-	/// Withdrawals made by validators.
-	pub withdrawals: Option<Vec<ValidatorWithdrawal>>,
-
-	/// Base fee per unit of gas (see EIP-1559).
-	pub base_fee_per_gas: Option<U256>,
-
-	/// Base fee per unit of blob gas (see EIP-4844).
-	pub blob_base_fee: Option<u64>,
+#[derive(Eq, Clone, Encode, Decode, Debug, TypeInfo, PartialEq)]
+pub struct SimulationCallOutcome<SimulationError> {
+	pub encoded_payload: Vec<u8>,
+	pub transaction_hash: H256,
+	pub max_storage_deposit: U256,
+	pub effective_gas_price: U256,
+	pub encoded_logs: Vec<u8>,
+	pub logs_bloom: LogsBloom,
+	pub result: SimulationCallResult<SimulationError>,
 }
 
-impl ResolvedSimulationBlockOverrides {
-	pub fn new(block_number: U256, block_timestamp: U256) -> Self {
-		Self {
-			block_number,
-			block_timestamp,
-			prev_randao: Default::default(),
-			gas_limit: Default::default(),
-			fee_recipient: Default::default(),
-			withdrawals: Default::default(),
-			base_fee_per_gas: Default::default(),
-			blob_base_fee: Default::default(),
-		}
-	}
-}
-
-/// The set of blocks to use in the simulation.
-///
-/// This struct is used to collect the simulation blocks into a coherent structure that's easier to
-/// simulate and also easier to validate.
-///
-/// The Geth spec requires a number of things from the blocks:
-///
-/// 1. The block number of the first block in the simulation must be strictly larger than the block
-///    number that was passed to the method.
-/// 2. That the block numbers must be monotonically increasing.
-/// 3. That there must exist filler empty blocks in the place of gaps in the blocks.
-/// 4. That there can only exist a maximum of 256 blocks in the simulation blocks.
-///
-/// For the timestamps, the only requirement is that they're equal or monotonically increasing. This
-/// struct enforces all of these requirements by allowing the user to add the blocks one by one and
-/// doing the above checks when each block is added.
-pub struct SimulationBlocks<const BOUND: u32 = 0x100> {
-	/// The block number of the last finalized block in the chain.
-	block_number_of_last_finalized_block: U256,
-	/// The block timestamp of the last finalized block in the chain.
-	block_timestamp_of_last_finalized_block: U256,
-	/// The map which contains all of the blocks and their associated calls. This is a mapping of
-	/// block number to the overrides and the calls that need to be performed in that block with
-	/// that set of overrides.
-	simulation_blocks: BoundedBTreeMap<
-		U256,
-		(ResolvedSimulationBlockOverrides, StateOverrides, Vec<GenericTransaction>),
-		ConstU32<BOUND>,
-	>,
-}
-
-impl<const BOUND: u32> SimulationBlocks<BOUND> {
-	/// Creates a new [`SimulationBlocks`] with the given upper bound.
-	pub fn new(
-		block_number_of_last_finalized_block: U256,
-		block_timestamp_of_last_finalized_block: U256,
-	) -> Self {
-		Self {
-			simulation_blocks: Default::default(),
-			block_number_of_last_finalized_block,
-			block_timestamp_of_last_finalized_block,
-		}
+impl<SimulationError> SimulationCallOutcome<SimulationError> {
+	pub fn is_success(&self) -> bool {
+		matches!(self.result, SimulationCallResult::Success { .. })
 	}
 
-	/// Given a [`SimulationPayload`] this method performs the validations described on
-	/// [`SimulationBlocks`], unpacks the information, and stores it internally.
-	pub fn insert_simulation_payload(
-		&mut self,
-		SimulationPayload { block_overrides, state_overrides, calls }: SimulationPayload,
-	) -> Result<(), SimulationError> {
-		let (last_block_number, ..) = self.last_block_number_and_timestamp();
-		let block_overrides = block_overrides.unwrap_or_default();
-		let state_overrides = state_overrides.unwrap_or_default();
-
-		let block_number_override = block_overrides
-			.number
-			.or_else(|| last_block_number.checked_add(U256::one()))
-			.ok_or(SimulationError::OverflowError)?;
-		if block_number_override <= last_block_number {
-			return Err(SimulationError::BlockNumberOverrideMustBeMonotonicallyIncreasing);
-		}
-
-		let gap_blocks_to_add = block_number_override
-			.checked_sub(U256::one())
-			.and_then(|value| value.checked_sub(last_block_number))
-			.ok_or(SimulationError::OverflowError)?;
-		self.insert_gap_blocks_by_quantity(gap_blocks_to_add)?;
-
-		let (_, last_block_timestamp) = self.last_block_number_and_timestamp();
-		let block_timestamp_override = block_overrides
-			.time
-			.or_else(|| last_block_timestamp.checked_add(U256::one()))
-			.ok_or(SimulationError::OverflowError)?;
-		if block_timestamp_override < last_block_timestamp {
-			return Err(
-				SimulationError::BlockTimestampOverrideMustBeEqualOrMonotonicallyIncreasing,
-			);
-		}
-
-		let resolved_block_override = ResolvedSimulationBlockOverrides {
-			block_number: block_number_override,
-			block_timestamp: block_timestamp_override,
-			prev_randao: block_overrides.prev_randao,
-			gas_limit: block_overrides.gas_limit,
-			fee_recipient: block_overrides.fee_recipient,
-			withdrawals: block_overrides.withdrawals,
-			base_fee_per_gas: block_overrides.base_fee_per_gas,
-			blob_base_fee: block_overrides.blob_base_fee,
-		};
-		self.simulation_blocks
-			.try_insert(block_number_override, (resolved_block_override, state_overrides, calls))
-			.map_err(|_| SimulationError::BlockCapacityExceeded)?;
-
-		Ok(())
-	}
-
-	pub fn into_inner(
-		self,
-	) -> impl Iterator<Item = (ResolvedSimulationBlockOverrides, StateOverrides, Vec<GenericTransaction>)>
-	{
-		self.simulation_blocks.into_inner().into_values()
-	}
-
-	/// Inserts a specific quantity of gap blocks into the simulation blocks.
-	fn insert_gap_blocks_by_quantity(&mut self, quantity: U256) -> Result<(), SimulationError> {
-		// Converting the quantity to a u32 is safe here since the bounds are a u32.
-		let quantity = u32::try_from(quantity).unwrap_or(u32::MAX);
-		for _ in 0..quantity {
-			self.insert_gap_block()?
-		}
-		Ok(())
-	}
-
-	/// Inserts a single gap block with an incremented block number and timestamp
-	fn insert_gap_block(&mut self) -> Result<(), SimulationError> {
-		let (last_block_number, last_block_timestamp) = self.last_block_number_and_timestamp();
-		let gap_block_number = last_block_number
-			.checked_add(U256::one())
-			.ok_or(SimulationError::OverflowError)?;
-		let gap_timestamp = last_block_timestamp
-			.checked_add(U256::one())
-			.ok_or(SimulationError::OverflowError)?;
-
-		let resolved_block_override =
-			ResolvedSimulationBlockOverrides::new(gap_block_number, gap_timestamp);
-		self.simulation_blocks
-			.try_insert(
-				gap_block_number,
-				(resolved_block_override, Default::default(), Default::default()),
-			)
-			.map_err(|_| SimulationError::BlockCapacityExceeded)?;
-		Ok(())
-	}
-
-	/// Returns the block number and timestamp of the last block. Defaults to the last finalized
-	/// block if no other entries are found.
-	fn last_block_number_and_timestamp(&self) -> (U256, U256) {
-		match self.simulation_blocks.last_key_value() {
-			Some((_, (last_block, ..))) => (last_block.block_number, last_block.block_timestamp),
-			None => (
-				self.block_number_of_last_finalized_block,
-				self.block_timestamp_of_last_finalized_block,
-			),
+	pub fn gas_used(&self) -> &U256 {
+		match self.result {
+			SimulationCallResult::Success { ref gas_used, .. } |
+			SimulationCallResult::Failed { ref gas_used, .. } => gas_used,
 		}
 	}
 }

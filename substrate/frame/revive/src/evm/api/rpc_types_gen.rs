@@ -1210,13 +1210,13 @@ pub struct AddressStateOverride {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 
-	/// Moves precompile to given address.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub move_precompile_to_address: Option<H160>,
-
 	/// Storage overrides to apply.
 	#[serde(flatten, default, skip_serializing_if = "Option::is_none")]
 	pub storage: Option<StorageOverrides>,
+
+	/// Moves precompile to given address.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub move_precompile_to_address: Option<H160>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
@@ -1325,6 +1325,71 @@ pub enum SimulationCallResult<SimulationError> {
 		/// Error code, data and message
 		error: SimulationError,
 	},
+}
+
+impl<E> SimulationCallResult<E> {
+	/// Map the error type of this result.
+	pub fn map_error<F>(self, f: impl FnOnce(E) -> F) -> SimulationCallResult<F> {
+		match self {
+			Self::Success { return_data, gas_used, logs } => {
+				SimulationCallResult::Success { return_data, gas_used, logs }
+			},
+			Self::Failed { return_data, gas_used, error } => {
+				SimulationCallResult::Failed { return_data, gas_used, error: f(error) }
+			},
+		}
+	}
+
+	pub fn is_success(&self) -> bool {
+		matches!(self, Self::Success { .. })
+	}
+
+	pub fn is_failure(&self) -> bool {
+		!self.is_success()
+	}
+}
+
+impl<E> SimulationBlock<E> {
+	/// Map the error type of all call results in this block.
+	pub fn map_error<F>(self, f: impl Fn(E) -> F) -> SimulationBlock<F> {
+		SimulationBlock {
+			base_fee_per_gas: self.base_fee_per_gas,
+			blob_gas_used: self.blob_gas_used,
+			difficulty: self.difficulty,
+			excess_blob_gas: self.excess_blob_gas,
+			extra_data: self.extra_data,
+			gas_limit: self.gas_limit,
+			gas_used: self.gas_used,
+			hash: self.hash,
+			logs_bloom: self.logs_bloom,
+			miner: self.miner,
+			mix_hash: self.mix_hash,
+			nonce: self.nonce,
+			number: self.number,
+			parent_beacon_block_root: self.parent_beacon_block_root,
+			parent_hash: self.parent_hash,
+			receipts_root: self.receipts_root,
+			requests_hash: self.requests_hash,
+			sha_3_uncles: self.sha_3_uncles,
+			size: self.size,
+			state_root: self.state_root,
+			timestamp: self.timestamp,
+			total_difficulty: self.total_difficulty,
+			transactions: self.transactions,
+			transactions_root: self.transactions_root,
+			uncles: self.uncles,
+			withdrawals: self.withdrawals,
+			withdrawals_root: self.withdrawals_root,
+			calls: self.calls.into_iter().map(|c| c.map_error(&f)).collect(),
+		}
+	}
+}
+
+impl<E> SimulationResponse<E> {
+	/// Map the error type of all call results in this response.
+	pub fn map_error<F>(self, f: impl Fn(E) -> F) -> SimulationResponse<F> {
+		SimulationResponse(self.0.into_iter().map(|b| b.map_error(&f)).collect())
+	}
 }
 
 #[cfg(test)]

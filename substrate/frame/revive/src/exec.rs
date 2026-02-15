@@ -436,12 +436,18 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
 
+	/// Returns the current block base fee per gas.
+	fn block_base_fee_per_gas(&self) -> U256;
+
 	/// Returns the block hash at the given `block_number` or `None` if
 	/// `block_number` isn't within the range of the previous 256 blocks.
 	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the author of the current block.
 	fn block_author(&self) -> H160;
+
+	/// Returns the difficulty of the current block.
+	fn block_difficulty(&self) -> u64;
 
 	/// Returns the block gas limit.
 	fn gas_limit(&self) -> u64;
@@ -2359,7 +2365,21 @@ where
 	}
 
 	fn block_number(&self) -> U256 {
-		self.block_number.into()
+		self.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_block_number())
+			.copied()
+			.unwrap_or(self.block_number.into())
+	}
+
+	fn block_base_fee_per_gas(&self) -> U256 {
+		self.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_block_base_fee_per_gas())
+			.copied()
+			.unwrap_or(crate::Pallet::<Self::T>::evm_base_fee())
 	}
 
 	fn block_hash(&self, block_number: U256) -> Option<H256> {
@@ -2367,11 +2387,30 @@ where
 	}
 
 	fn block_author(&self) -> H160 {
-		Contracts::<Self::T>::block_author()
+		self.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_block_coinbase())
+			.copied()
+			.unwrap_or(Contracts::<Self::T>::block_author())
+	}
+
+	fn block_difficulty(&self) -> u64 {
+		self.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_block_difficulty())
+			.copied()
+			.unwrap_or(crate::vm::evm::DIFFICULTY)
 	}
 
 	fn gas_limit(&self) -> u64 {
-		<Contracts<T>>::evm_block_gas_limit().saturated_into()
+		self.exec_config
+			.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler.mock_block_gas_limit())
+			.copied()
+			.unwrap_or(<Contracts<T>>::evm_block_gas_limit().saturated_into())
 	}
 
 	fn chain_id(&self) -> u64 {

@@ -23,12 +23,13 @@ use crate::{
 			receipt::BLOOM_SIZE_BYTES, AccumulateReceipt, BuilderPhase, IncrementalHashBuilder,
 			IncrementalHashBuilderIR, LogsBloom,
 		},
-		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
+		Block, HashesOrTransactionInfos, Withdrawal, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844,
+		TYPE_EIP7702,
 	},
 	Config, Pallet, ReceiptGasInfo,
 };
 
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use codec::{Decode, Encode};
 use frame_support::traits::Time;
@@ -53,6 +54,7 @@ pub struct EthereumBlockBuilder<T> {
 	block_gas_limit: U256,
 	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
+	mock_handler: Option<Box<dyn EthereumBlockBuilderMockHandler<T>>>,
 	_phantom: core::marker::PhantomData<T>,
 }
 
@@ -87,8 +89,18 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
+			mock_handler: None,
 			_phantom: core::marker::PhantomData,
 		}
+	}
+
+	/// Sets the mock handler to use for the block builder.
+	pub fn with_mock_handler(
+		mut self,
+		mock_handler: impl EthereumBlockBuilderMockHandler<T> + 'static,
+	) -> Self {
+		self.mock_handler = Some(Box::new(mock_handler));
+		self
 	}
 
 	/// Store the first transaction and receipt in pallet storage.
@@ -206,26 +218,70 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
 
 		let difficulty = U256::from(crate::vm::evm::DIFFICULTY);
+
+		// Handling mocked values.
+		let block_number = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_block_number().copied(),
+			|| block_number,
+		);
+		let timestamp = self
+			.mocked_value_or(|mock_handler| mock_handler.mock_timestamp().copied(), || timestamp);
+		let gas_used = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_gas_used().copied(),
+			|| self.gas_used,
+		);
+		let tx_hashes = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_tx_hashes().map(|value| value.to_vec()),
+			|| tx_hashes,
+		);
+		let gas_info = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_gas_info().map(|value| value.to_vec()),
+			|| gas_info,
+		);
+		let base_fee_per_gas = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_base_fee_per_gas().copied(),
+			|| base_fee_per_gas,
+		);
+		let gas_limit = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_gas_limit().copied(),
+			|| block_gas_limit,
+		);
+		let logs_bloom = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_logs_bloom().copied(),
+			|| self.logs_bloom.bloom,
+		);
+		let difficulty = self
+			.mocked_value_or(|mock_handler| mock_handler.mock_difficulty().copied(), || difficulty);
+		let coinbase = self
+			.mocked_value_or(|mock_handler| mock_handler.mock_coinbase().copied(), || block_author);
+		let withdrawals = self.mocked_value_or(
+			|mock_handler| mock_handler.mock_withdrawals().map(|value| value.to_vec()),
+			Default::default,
+		);
+
 		let mix_hash = H256(difficulty.to_big_endian());
 
 		let mut block = Block {
 			number: block_number,
 			parent_hash,
 			timestamp,
-			miner: block_author,
+			miner: coinbase,
 
 			state_root: transactions_root,
 			transactions_root,
 			receipts_root,
 
-			gas_limit: block_gas_limit,
+			gas_limit,
 			base_fee_per_gas,
-			gas_used: self.gas_used,
+			gas_used,
 
-			logs_bloom: self.logs_bloom.bloom.into(),
+			logs_bloom: logs_bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
+			difficulty,
 			mix_hash,
+
+			withdrawals,
 
 			..Default::default()
 		};
@@ -234,6 +290,24 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 		block.hash = block_hash;
 
 		(block, gas_info)
+	}
+
+	/// Handles the mocking of values.
+	///
+	/// This is the main method responsible for the handling of the mocked values. If a mock handler
+	/// is present then it attempts to call the appropriate method on it which is an operation that
+	/// returns an [`Option<V>`]. If it's [`None`] then it means that either the mock handler is not
+	/// set or that the value is not mocked. In that case, the other value returned by the [`or`]
+	/// function is returned.
+	fn mocked_value_or<V>(
+		&self,
+		mock_handler_getter: impl FnOnce(&dyn EthereumBlockBuilderMockHandler<T>) -> Option<V>,
+		or: impl FnOnce() -> V,
+	) -> V {
+		self.mock_handler
+			.as_ref()
+			.and_then(|mock_handler| mock_handler_getter(&**mock_handler))
+			.unwrap_or_else(or)
 	}
 
 	/// Extracts the transaction type from the RLP encoded transaction.
@@ -291,6 +365,68 @@ impl<T: Config> Default for EthereumBlockBuilderIR<T> {
 			block_gas_limit: Pallet::<T>::evm_block_gas_limit(),
 			_phantom: core::marker::PhantomData,
 		}
+	}
+}
+
+/// A trait used for mock handlers for the ethereum block builder. This is useful in tests and in
+/// simulations.
+///
+/// In this Mock handler if some function returns [`None`] then it means that the value isn't mocked
+/// and that the ethereum block builder should use the original value.
+pub trait EthereumBlockBuilderMockHandler<T: Config> {
+	/// Mocks the block_number.
+	fn mock_block_number(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the timestamp.
+	fn mock_timestamp(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the gas used.
+	fn mock_gas_used(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the transaction hashes.
+	fn mock_tx_hashes(&self) -> Option<&[H256]> {
+		None
+	}
+
+	/// Mocks the gas info.
+	fn mock_gas_info(&self) -> Option<&[ReceiptGasInfo]> {
+		None
+	}
+
+	/// Mocks the base fee per gas.
+	fn mock_base_fee_per_gas(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the gas limit.
+	fn mock_gas_limit(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the logs bloom.
+	fn mock_logs_bloom(&self) -> Option<&[u8; BLOOM_SIZE_BYTES]> {
+		None
+	}
+
+	/// Mocks the block difficulty.
+	fn mock_difficulty(&self) -> Option<&U256> {
+		None
+	}
+
+	/// Mocks the coinbase.
+	fn mock_coinbase(&self) -> Option<&H160> {
+		None
+	}
+
+	/// Mocks the validator withdraws
+	fn mock_withdrawals(&self) -> Option<&[Withdrawal]> {
+		None
 	}
 }
 

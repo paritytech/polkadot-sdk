@@ -141,8 +141,7 @@ pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 }
 
 /// Capture the receipt events emitted from the current ethereum
-#[cfg(feature = "runtime-benchmarks")]
-pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+pub fn with_receipt_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
 }
 
