@@ -22963,6 +22963,7 @@ dependencies = [
  "blake2 0.10.6",
  "bounded-collections 0.3.2",
  "bs58",
+ "byte-slice-cast",
  "criterion",
  "dyn-clone",
  "ed25519-zebra",

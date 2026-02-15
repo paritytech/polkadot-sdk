@@ -633,8 +633,8 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
-	/// even if the value is longer than `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2, register_only)]
 	fn read(
 		&mut self,
@@ -938,8 +938,8 @@ pub trait DefaultChildStorage {
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	///
-	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into `value_out`,
-	/// even if the value is longer than `value_out`.
+	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
+	/// `value_out`, even if the value is longer than `value_out`.
 	#[version(2, register_only)]
 	fn read(
 		&mut self,
@@ -1606,29 +1606,23 @@ pub trait Crypto {
 			.ed25519_public_keys(id)
 	}
 
-	/// Returns the number of `ed25519` public keys for the given key type in the keystore.
-	fn ed25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ed25519_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `ed25519` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn ed25519_public_key(
+	/// Stores all `ed25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn ed25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut ed25519::Public, 32>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.ed25519_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [ed25519::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ed25519_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
 	}
 
 	/// Generate an `ed22519` key for the given key type using an optional `seed` and
@@ -1856,29 +1850,23 @@ pub trait Crypto {
 			.sr25519_public_keys(id)
 	}
 
-	/// Returns the number of `sr25519` public keys for the given key type in the keystore.
-	fn sr25519_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.sr25519_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `sr25519` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn sr25519_public_key(
+	/// Stores all `sr25519` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn sr25519_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut sr25519::Public, 32>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.sr25519_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [sr25519::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sr25519_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
 	}
 
 	/// Generate an `sr22519` key for the given key type using an optional seed and
@@ -1984,29 +1972,23 @@ pub trait Crypto {
 			.ecdsa_public_keys(id)
 	}
 
-	/// Returns the number of `ecdsa` public keys for the given key type in the keystore.
-	fn ecdsa_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `ecdsa` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn ecdsa_public_key(
+	/// Stores all `ecdsa` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[version(2, register_only)]
+	fn ecdsa_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut ecdsa::Public, 33>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.ecdsa_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [ecdsa::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_public_keys(id);
+		if out.len() >= keys.len() {
+			out.copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
 	}
 
 	/// Generate an `ecdsa` key for the given key type using an optional `seed` and
