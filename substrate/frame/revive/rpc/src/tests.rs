@@ -19,12 +19,12 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
+	EthRpcClient,
 	cli::{self, CliCommand},
 	example::TransactionBuilder,
 	subxt_client::{
-		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
+		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
 	},
-	EthRpcClient,
 };
 use anyhow::anyhow;
 use clap::Parser;
@@ -32,16 +32,16 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, H256, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
+		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
 use std::{sync::Arc, thread};
 use subxt::{
+	OnlineClient,
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
-	OnlineClient,
 };
 
 const LOG_TARGET: &str = "eth-rpc-tests";
@@ -422,7 +422,11 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}."
+	);
 
 	// Balance transfer to contract
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;

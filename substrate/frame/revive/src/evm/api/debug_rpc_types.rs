@@ -15,15 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, Weight};
+use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
+	Deserialize, Serialize,
 	de::{Deserializer, Error, MapAccess, Visitor},
 	ser::{SerializeMap, Serializer},
-	Deserialize, Serialize,
 };
 use sp_core::{H160, H256, U256};
 

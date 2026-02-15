@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
+	client::{SubstrateBlock, SubstrateBlockNumber},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
-use sqlx::{query, QueryBuilder, Row, Sqlite, SqlitePool};
+use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, query};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,

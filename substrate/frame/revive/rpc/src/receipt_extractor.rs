@@ -15,25 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{runtime_api::RuntimeApi, SubstrateBlock, SubstrateBlockNumber},
+	ClientError, H160, LOG_TARGET,
+	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
 	subxt_client::{
+		SrcChainConfig,
 		revive::{
 			calls::types::EthTransact,
 			events::{ContractEmitted, EthExtrinsicRevert},
 		},
-		SrcChainConfig,
 	},
-	ClientError, H160, LOG_TARGET,
 };
 
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, H256, U256},
+	evm::{GenericTransaction, H256, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, U256},
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
-use subxt::{blocks::ExtrinsicDetails, OnlineClient};
+use subxt::{OnlineClient, blocks::ExtrinsicDetails};
 
 type FetchReceiptDataFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,

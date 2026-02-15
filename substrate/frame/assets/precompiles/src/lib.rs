@@ -333,7 +333,7 @@ where
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_name())?;
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 
 		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
 			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
@@ -349,7 +349,7 @@ where
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_symbol())?;
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 
 		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
 			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
@@ -365,7 +365,7 @@ where
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_decimals())?;
+		env.charge(<Runtime as Config<Instance>>::WeightInfo::get_metadata())?;
 
 		let metadata = pallet_assets::Pallet::<Runtime, Instance>::get_metadata(asset_id)
 			.ok_or(Error::Revert(Revert { reason: "Metadata not found".into() }))?;
