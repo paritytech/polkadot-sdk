@@ -131,7 +131,7 @@ jobs:
           cache-on-failure: true
 
       - name: Install parity-publish
-        run: cargo install parity-publish@0.10.9 --locked -q
+        run: cargo install parity-publish@0.10.6 --locked -q
 
       - name: Run parity-publish plan
         run: |
