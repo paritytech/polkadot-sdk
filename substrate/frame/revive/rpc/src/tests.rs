@@ -3554,17 +3554,6 @@ async fn test_simulate_v1_block_capacity_exceeded() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// The well-known keccak256 hash of "Transfer(address,address,uint256)" used as topic[0]
-/// in ERC-20 Transfer events and the synthetic trace_transfers logs (per ERC-7528).
-const TRANSFER_EVENT_TOPIC: [u8; 32] = [
-	0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
-	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
-];
-
-/// The emitter address for synthetic ERC-20 Transfer logs (per ERC-7528):
-/// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
-const TRACE_TRANSFERS_EMITTER: H160 = H160([0xee; 20]);
-
 /// Helper: extract logs from a successful simulation call result.
 fn extract_logs<E: core::fmt::Debug>(call: &SimulationCallResult<E>) -> &Vec<Log> {
 	match call {
@@ -3578,9 +3567,13 @@ fn extract_logs<E: core::fmt::Debug>(call: &SimulationCallResult<E>) -> &Vec<Log
 /// Helper: assert that a log is a valid synthetic ERC-20 Transfer log per ERC-7528.
 /// Checks emitter address, topic count, event signature, from, to, and value data.
 fn assert_transfer_log(log: &Log, from: H160, to: H160, value: U256) {
-	assert_eq!(log.address, TRACE_TRANSFERS_EMITTER, "Emitter should be ERC-7528 native token");
+	let emitter = H160([0xee; 20]);
+	let transfer_topic =
+		H256::from(sp_io::hashing::keccak_256(b"Transfer(address,address,uint256)"));
+
+	assert_eq!(log.address, emitter, "Emitter should be ERC-7528 native token");
 	assert_eq!(log.topics.len(), 3, "Transfer log should have 3 topics");
-	assert_eq!(log.topics[0], H256::from(TRANSFER_EVENT_TOPIC), "topic[0] should be Transfer sig");
+	assert_eq!(log.topics[0], transfer_topic, "topic[0] should be Transfer sig");
 	assert_eq!(log.topics[1], H256::from(from), "topic[1] should be from address");
 	assert_eq!(log.topics[2], H256::from(to), "topic[2] should be to address");
 	assert_eq!(
