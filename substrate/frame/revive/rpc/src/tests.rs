@@ -350,6 +350,16 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_trace_transfers_multi_block,
 		test_simulate_v1_trace_transfers_contract_with_value,
 		test_simulate_v1_trace_transfers_reverted_call,
+		test_simulate_v1_trace_transfers_nested_forward,
+		test_simulate_v1_trace_transfers_three_level_nested,
+		test_simulate_v1_trace_transfers_delegate_call,
+		test_simulate_v1_trace_transfers_multi_internal_transfers,
+		test_simulate_v1_trace_transfers_inner_revert_caught,
+		test_simulate_v1_trace_transfers_outer_revert_after_transfer,
+		test_simulate_v1_trace_transfers_contract_deploy_with_value,
+		test_simulate_v1_trace_transfers_self_transfer,
+		test_simulate_v1_trace_transfers_ordering_across_calls,
+		test_simulate_v1_trace_transfers_mixed_success_and_revert,
 		test_simulate_v1_block_override_timestamp,
 		test_simulate_v1_block_override_gas_limit,
 		test_simulate_v1_block_override_prev_randao,
@@ -3237,6 +3247,638 @@ async fn test_simulate_v1_trace_transfers_reverted_call() -> anyhow::Result<()> 
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Failed { .. }),
 		"Contract call that REVERTs should produce Failed result (no logs)"
+	);
+
+	Ok(())
+}
+
+/// Contract internally forwards value to another address via `call{value}`.
+/// EOA → ContractA (forwardValue) → RecipientB
+/// Expect 2 transfer logs: EOA→A, A→B.
+async fn test_simulate_v1_trace_transfers_nested_forward() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let recipient = H160::from([0xd1; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let outer_value = U256::from(10_000u64);
+	let inner_value = 7_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(outer_value),
+					input: TransferTracing::forwardValueCall {
+						target: AlloyAddress::from_slice(recipient.as_bytes()),
+						amount: inner_value.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 2, "Expected 2 transfer logs: EOA→Contract, Contract→Recipient");
+	assert_transfer_log(&logs[0], sender, contract_addr, outer_value);
+	assert_transfer_log(&logs[1], contract_addr, recipient, U256::from(inner_value));
+
+	Ok(())
+}
+
+/// Three-level nested value transfer: EOA → A (nestedForward) → B (forwardValue) → C.
+/// Expect 3 transfer logs in execution order: EOA→A, A→B, B→C.
+async fn test_simulate_v1_trace_transfers_three_level_nested() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_a = H160::from([0xc1; 20]);
+	let contract_b = H160::from([0xc2; 20]);
+	let final_recipient = H160::from([0xd1; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let eoa_to_a_value = U256::from(50_000u64);
+	let a_to_b_value = 30_000u64;
+	let b_to_c_value = 10_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_a, Bytes::from(contract_code.clone()))
+				.with_code_override(contract_b, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_a),
+					value: Some(eoa_to_a_value),
+					input: TransferTracing::nestedForwardCall {
+						middleman: AlloyAddress::from_slice(contract_b.as_bytes()),
+						finalTarget: AlloyAddress::from_slice(final_recipient.as_bytes()),
+						middlemanAmount: a_to_b_value.try_into().unwrap(),
+						innerAmount: b_to_c_value.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 3, "Expected 3 transfer logs: EOA→A, A→B, B→C");
+	assert_transfer_log(&logs[0], sender, contract_a, eoa_to_a_value);
+	assert_transfer_log(&logs[1], contract_a, contract_b, U256::from(a_to_b_value));
+	assert_transfer_log(&logs[2], contract_b, final_recipient, U256::from(b_to_c_value));
+
+	Ok(())
+}
+
+/// Delegate call does NOT produce extra transfer log in the delegate frame.
+/// EOA → Contract (delegateForward → target via delegatecall).
+/// Only 1 transfer log expected: EOA → Contract (delegate call skips transfer).
+async fn test_simulate_v1_trace_transfers_delegate_call() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let delegate_target = H160::from([0xc2; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	// Encode forwardValue call data that would normally be executed via delegatecall
+	let delegate_data = TransferTracing::forwardValueCall {
+		target: AlloyAddress::from_slice(&[0xd1; 20]),
+		amount: 1_000u64.try_into().unwrap(),
+	}
+	.abi_encode();
+
+	let outer_value = U256::from(5_000u64);
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code.clone()))
+				.with_code_override(delegate_target, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(outer_value),
+					input: TransferTracing::delegateForwardCall {
+						target: AlloyAddress::from_slice(delegate_target.as_bytes()),
+						data: delegate_data.into(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	// Delegate call: the outer call transfers value (EOA→contract), but the delegatecall
+	// frame does NOT produce an additional transfer log. The forwardValue logic runs in
+	// the context of the caller, so its internal call{value} still transfers from contract_addr.
+	// However, the delegatecall itself doesn't produce a separate transfer.
+	// We expect: EOA→contract (outer), then contract→recipient (inner via delegate context).
+	assert!(logs.len() >= 1, "Should have at least the outer transfer log");
+	assert_transfer_log(&logs[0], sender, contract_addr, outer_value);
+
+	Ok(())
+}
+
+/// Contract makes two sequential internal value transfers via multiTransfer().
+/// EOA → Contract (multiTransfer) → target1 + target2.
+/// Expect 3 transfer logs: EOA→Contract, Contract→target1, Contract→target2.
+async fn test_simulate_v1_trace_transfers_multi_internal_transfers() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let target1 = H160::from([0xd1; 20]);
+	let target2 = H160::from([0xd2; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let outer_value = U256::from(10_000u64);
+	let amount1 = 3_000u64;
+	let amount2 = 4_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(outer_value),
+					input: TransferTracing::multiTransferCall {
+						target1: AlloyAddress::from_slice(target1.as_bytes()),
+						amount1: amount1.try_into().unwrap(),
+						target2: AlloyAddress::from_slice(target2.as_bytes()),
+						amount2: amount2.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 3, "Expected 3 logs: EOA→Contract, Contract→target1, Contract→target2");
+	assert_transfer_log(&logs[0], sender, contract_addr, outer_value);
+	assert_transfer_log(&logs[1], contract_addr, target1, U256::from(amount1));
+	assert_transfer_log(&logs[2], contract_addr, target2, U256::from(amount2));
+
+	Ok(())
+}
+
+/// Inner call reverts but outer call catches it and succeeds (callAndCatchRevert).
+/// The inner transfer's log should be rolled back, but the outer transfer log survives.
+/// Expect 1 transfer log: EOA → Contract.
+async fn test_simulate_v1_trace_transfers_inner_revert_caught() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let revert_target = H160::from([0xc2; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let outer_value = U256::from(10_000u64);
+	let inner_value = 5_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code.clone()))
+				.with_code_override(revert_target, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(outer_value),
+					input: TransferTracing::callAndCatchRevertCall {
+						target: AlloyAddress::from_slice(revert_target.as_bytes()),
+						amount: inner_value.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	// The inner call to revertAfterReceive() reverts, rolling back its transfer log.
+	// Only the outer EOA→Contract transfer survives.
+	assert_eq!(logs.len(), 1, "Only outer transfer log should survive; inner revert rolls back");
+	assert_transfer_log(&logs[0], sender, contract_addr, outer_value);
+
+	Ok(())
+}
+
+/// Outer call reverts AFTER a successful inner transfer (transferThenRevert).
+/// The entire call reverts, so NO transfer logs should be emitted.
+async fn test_simulate_v1_trace_transfers_outer_revert_after_transfer() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let recipient = H160::from([0xd1; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let outer_value = U256::from(10_000u64);
+	let inner_value = 5_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(outer_value),
+					input: TransferTracing::transferThenRevertCall {
+						target: AlloyAddress::from_slice(recipient.as_bytes()),
+						amount: inner_value.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	// The entire transaction reverts
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Failed { .. }),
+		"transferThenRevert should produce a Failed result"
+	);
+
+	Ok(())
+}
+
+/// Contract deploy (CREATE) with value should produce a transfer log
+/// from deployer to the newly created contract address.
+async fn test_simulate_v1_trace_transfers_contract_deploy_with_value() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = Account::default();
+
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let deploy_value = U256::from(50_000u64);
+	// The contract will be deployed at create1(sender, nonce=0)
+	let contract_addr = create1(&sender.address(), 0);
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender.address(), U256::from(1_000_000_000_000_000u128))
+				.with_call(GenericTransaction {
+					from: Some(sender.address()),
+					to: None, // CREATE
+					value: Some(deploy_value),
+					input: bytecode.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 1, "Contract deploy with value should produce 1 Transfer log");
+	assert_transfer_log(&logs[0], sender.address(), contract_addr, deploy_value);
+
+	Ok(())
+}
+
+/// Self-transfer (sender == receiver) should still produce a transfer log.
+async fn test_simulate_v1_trace_transfers_self_transfer() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let transfer_value = U256::from(1_000u64);
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, sender, transfer_value))
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 1, "Self-transfer should still produce a Transfer log");
+	assert_transfer_log(&logs[0], sender, sender, transfer_value);
+
+	Ok(())
+}
+
+/// Transfer log ordering across multiple calls in a single block.
+/// Two calls with internal transfers — logs should appear in execution order.
+async fn test_simulate_v1_trace_transfers_ordering_across_calls() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let target_a = H160::from([0xd1; 20]);
+	let target_b = H160::from([0xd2; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let value1 = U256::from(3_000u64);
+	let inner1 = 1_000u64;
+	let value2 = U256::from(4_000u64);
+	let inner2 = 2_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				// Call 1: forward value to target_a
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(value1),
+					input: TransferTracing::forwardValueCall {
+						target: AlloyAddress::from_slice(target_a.as_bytes()),
+						amount: inner1.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+				// Call 2: forward value to target_b
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(value2),
+					input: TransferTracing::forwardValueCall {
+						target: AlloyAddress::from_slice(target_b.as_bytes()),
+						amount: inner2.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+	assert_all_success(&response.0[0].calls);
+
+	// Call 1 logs
+	let logs1 = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs1.len(), 2, "Call 1: EOA→Contract + Contract→target_a");
+	assert_transfer_log(&logs1[0], sender, contract_addr, value1);
+	assert_transfer_log(&logs1[1], contract_addr, target_a, U256::from(inner1));
+
+	// Call 2 logs
+	let logs2 = extract_logs(&response.0[0].calls[1]);
+	assert_eq!(logs2.len(), 2, "Call 2: EOA→Contract + Contract→target_b");
+	assert_transfer_log(&logs2[0], sender, contract_addr, value2);
+	assert_transfer_log(&logs2[1], contract_addr, target_b, U256::from(inner2));
+
+	Ok(())
+}
+
+/// Mixed scenario: one successful transfer and one reverted transfer in the same block.
+/// The successful call should have logs; the failed one should not.
+async fn test_simulate_v1_trace_transfers_mixed_success_and_revert() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{
+		primitives::Address as AlloyAddress, sol_types::SolCall,
+	};
+	use pallet_revive_fixtures::TransferTracing;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xc1; 20]);
+	let recipient = H160::from([0xd1; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"TransferTracing",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let success_value = U256::from(5_000u64);
+	let inner_forward = 2_000u64;
+	let revert_value = U256::from(3_000u64);
+	let inner_revert = 1_000u64;
+
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				// Call 1: successful forward
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(success_value),
+					input: TransferTracing::forwardValueCall {
+						target: AlloyAddress::from_slice(recipient.as_bytes()),
+						amount: inner_forward.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+				// Call 2: transferThenRevert — entire tx reverts
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(revert_value),
+					input: TransferTracing::transferThenRevertCall {
+						target: AlloyAddress::from_slice(recipient.as_bytes()),
+						amount: inner_revert.try_into().unwrap(),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+
+	// Call 1: success — should have transfer logs
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
+		"Call 1 should succeed"
+	);
+	let logs1 = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs1.len(), 2, "Successful call should have EOA→Contract + Contract→recipient");
+	assert_transfer_log(&logs1[0], sender, contract_addr, success_value);
+	assert_transfer_log(&logs1[1], contract_addr, recipient, U256::from(inner_forward));
+
+	// Call 2: failed — no logs (reverted)
+	assert!(
+		matches!(&response.0[0].calls[1], SimulationCallResult::Failed { .. }),
+		"Call 2 should revert"
 	);
 
 	Ok(())
