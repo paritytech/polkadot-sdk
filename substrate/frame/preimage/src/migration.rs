@@ -427,6 +427,7 @@ pub mod v2 {
 					}));
 				} else {
 					// No more entries — migration complete.
+					StorageVersion::new(2).put::<Pallet<T>>();
 					log::info!("Preimage migration v1 to v2 complete");
 					return Ok(None);
 				}
@@ -629,14 +630,22 @@ mod test {
 				_ => panic!("Expected Requested status"),
 			}
 
-			// Verify old reserves were released (alice had 100, reserved 15 total).
-			assert_eq!(<Balances as ReservableCurrency<u64>>::reserved_balance(&alice), 0);
 			// Verify new holds were created.
+			// Note: In pallet-balances, holds are tracked in the same `reserved` field,
+			// so `reserved_balance` includes both legacy reserves and holds.
 			let hold_amount = <Balances as InspectHold<u64>>::balance_on_hold(
 				&PreimageHoldReason::get(),
 				&alice,
 			);
 			assert!(hold_amount > 0, "Should have holds after migration");
+			// Old reserves (15) should have been released and replaced by holds (16).
+			// The reserved balance equals the hold amount since no legacy reserves remain.
+			assert_eq!(
+				<Balances as ReservableCurrency<u64>>::reserved_balance(&alice),
+				hold_amount,
+			);
+			// Verify storage version was bumped.
+			assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
 		});
 	}
 
@@ -653,6 +662,8 @@ mod test {
 			let mut meter = WeightMeter::new();
 			let result = v2::LazyMigrationV1ToV2::<T, Balances>::step(None, &mut meter).unwrap();
 			assert!(result.is_none(), "Migration should complete immediately with empty storage");
+			// Verify storage version was bumped.
+			assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
 		});
 	}
 
