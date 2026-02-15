@@ -386,6 +386,12 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_validation_not_applied_without_flag,
 		test_simulate_v1_filler_blocks_chain_linkage,
 		test_simulate_v1_block_capacity_exceeded,
+		test_simulate_v1_state_override_code_resolc,
+		test_simulate_v1_state_override_code_on_eoa,
+		test_simulate_v1_state_override_code_on_existing_contract,
+		test_simulate_v1_gas_used_nonzero,
+		test_simulate_v1_first_block_parent_anchored_to_chain,
+		test_simulate_v1_return_full_transactions,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -1479,21 +1485,50 @@ async fn test_simulate_v1_block_overrides_fee_recipient() -> anyhow::Result<()> 
 }
 
 /// Sequential calls from the same sender within a block automatically get incrementing nonces,
-/// and nonces carry over across blocks.
+/// and nonces carry over across blocks. Verified using validation mode with explicit nonces:
+/// if internal nonce tracking didn't match the explicit nonces, validation would fail.
 async fn test_simulate_v1_nonce_management() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
-	let alith = Account::default();
-	let recipient = H160::from([0xee; 20]);
+	let sender = H160::from([0xee; 20]);
+	let recipient = H160::from([0xef; 20]);
 
+	// Use validation mode with explicit sequential nonces starting from 0.
+	// Block 0: nonce 0, nonce 1. Block 1: nonce 2 (carried over from block 0).
 	let payload = SimulationParameters::new()
+		.with_validation(true)
 		.with_new_simulation_payload(|b| {
-			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
-				.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_nonce_override(sender, U256::zero())
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::zero()),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::one()),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
 		})
 		.with_new_simulation_payload(|b| {
-			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::from(2)),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
 		});
 
 	// Act
@@ -2593,6 +2628,11 @@ async fn test_simulate_v1_state_changes_persist_but_overrides_dont() -> anyhow::
 	let recipient = H160::from([0xf5; 20]);
 	let transfer_amount = U256::from(3000u128);
 
+	// Block 0: override sender balance to 10,000 and transfer 3,000 to recipient.
+	// After block 0: sender ~7,000, recipient ~3,000.
+	// Block 1 (no override): recipient returns 1,000 (proves state persistence),
+	// AND sender tries to transfer 9,000 which would only succeed if the 10,000
+	// override re-applied (it shouldn't — sender only has ~7,000).
 	let payload = SimulationParameters::new()
 		.with_new_simulation_payload(|b| {
 			b.with_balance_override(sender, U256::from(10_000u128))
@@ -2600,6 +2640,7 @@ async fn test_simulate_v1_state_changes_persist_but_overrides_dont() -> anyhow::
 		})
 		.with_new_simulation_payload(|b| {
 			b.with_call(transfer(recipient, sender, U256::from(1000)))
+				.with_call(transfer(sender, recipient, U256::from(9_000u128)))
 		});
 
 	// Act
@@ -2615,7 +2656,12 @@ async fn test_simulate_v1_state_changes_persist_but_overrides_dont() -> anyhow::
 	);
 	assert!(
 		matches!(&response.0[1].calls[0], SimulationCallResult::Success { .. }),
-		"Block 1: recipient should have funds from block 0 transfer"
+		"Block 1: recipient should have funds from block 0 transfer (state persists)"
+	);
+	assert!(
+		response.0[1].calls[1].is_failure(),
+		"Block 1: sender should NOT have 10,000 again (override doesn't re-apply), \
+		 so transferring 9,000 should fail"
 	);
 
 	Ok(())
@@ -2732,17 +2778,19 @@ async fn test_simulate_v1_validation_insufficient_funds() -> anyhow::Result<()> 
 	let sender = H160::from([0xb9; 20]);
 	let recipient = H160::from([0xba; 20]);
 
+	// Use a max_fee_per_gas that satisfies the fee cap check but a balance that's way
+	// too low to cover gas_limit * max_fee_per_gas + value.
 	let payload = SimulationParameters::new()
 		.with_validation(true)
 		.with_new_simulation_payload(|b| {
-			b.with_block_base_fee_per_gas_override(U256::from(1_000_000u64))
+			b.with_block_base_fee_per_gas_override(U256::one())
 				.with_balance_override(sender, U256::from(100u128))
 				.with_call(GenericTransaction {
 					from: Some(sender),
 					to: Some(recipient),
 					value: Some(U256::from(1_000_000_000_000u128)),
 					gas: Some(U256::from(21000u64)),
-					max_fee_per_gas: Some(U256::from(1_000_000u64)),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
 					..Default::default()
 				})
 		});
@@ -2753,15 +2801,7 @@ async fn test_simulate_v1_validation_insufficient_funds() -> anyhow::Result<()> 
 		.await;
 
 	// Assert
-	match result {
-		Err(_) => {},
-		Ok(response) => {
-			assert!(
-				response.0[0].calls[0].is_failure(),
-				"Insufficient funds should produce failure"
-			);
-		},
-	}
+	assert!(result.is_err(), "Insufficient funds should fail as a validation error");
 
 	Ok(())
 }
@@ -3379,9 +3419,11 @@ async fn test_simulate_v1_trace_transfers_three_level_nested() -> anyhow::Result
 	Ok(())
 }
 
-/// Delegate call does NOT produce extra transfer log in the delegate frame.
-/// EOA → Contract (delegateForward → target via delegatecall).
-/// Only 1 transfer log expected: EOA → Contract (delegate call skips transfer).
+/// Delegate call: the delegatecall frame itself does NOT produce a transfer log, but
+/// the delegated code (`forwardValue`) runs in the caller's context and issues a regular
+/// `call{value}` which DOES produce a transfer.
+/// EOA → Contract (outer value), then Contract → Recipient (inner call from delegate context).
+/// Expect 2 transfer logs.
 async fn test_simulate_v1_trace_transfers_delegate_call() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::{
 		primitives::Address as AlloyAddress, sol_types::SolCall,
@@ -3394,6 +3436,7 @@ async fn test_simulate_v1_trace_transfers_delegate_call() -> anyhow::Result<()> 
 	let sender = H160::from([0xb1; 20]);
 	let contract_addr = H160::from([0xc1; 20]);
 	let delegate_target = H160::from([0xc2; 20]);
+	let recipient = H160::from([0xd1; 20]);
 
 	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
 		"TransferTracing",
@@ -3401,9 +3444,10 @@ async fn test_simulate_v1_trace_transfers_delegate_call() -> anyhow::Result<()> 
 	)?;
 
 	// Encode forwardValue call data that would normally be executed via delegatecall
+	let inner_value = 1_000u64;
 	let delegate_data = TransferTracing::forwardValueCall {
-		target: AlloyAddress::from_slice(&[0xd1; 20]),
-		amount: 1_000u64.try_into().unwrap(),
+		target: AlloyAddress::from_slice(recipient.as_bytes()),
+		amount: inner_value.try_into().unwrap(),
 	}
 	.abi_encode();
 
@@ -3440,13 +3484,12 @@ async fn test_simulate_v1_trace_transfers_delegate_call() -> anyhow::Result<()> 
 	assert_all_success(&response.0[0].calls);
 
 	let logs = extract_logs(&response.0[0].calls[0]);
-	// Delegate call: the outer call transfers value (EOA→contract), but the delegatecall
-	// frame does NOT produce an additional transfer log. The forwardValue logic runs in
-	// the context of the caller, so its internal call{value} still transfers from contract_addr.
-	// However, the delegatecall itself doesn't produce a separate transfer.
-	// We expect: EOA→contract (outer), then contract→recipient (inner via delegate context).
-	assert!(logs.len() >= 1, "Should have at least the outer transfer log");
+	// The outer call transfers value EOA→contract.
+	// The delegated forwardValue runs in contract_addr's context and does
+	// call{value: 1000} to recipient, producing a second transfer log.
+	assert_eq!(logs.len(), 2, "Expected 2 logs: EOA→Contract (outer) + Contract→Recipient (inner via delegate)");
 	assert_transfer_log(&logs[0], sender, contract_addr, outer_value);
+	assert_transfer_log(&logs[1], contract_addr, recipient, U256::from(inner_value));
 
 	Ok(())
 }
@@ -3649,8 +3692,11 @@ async fn test_simulate_v1_trace_transfers_contract_deploy_with_value() -> anyhow
 
 	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let deploy_value = U256::from(50_000u64);
-	// The contract will be deployed at create1(sender, nonce=0)
-	let contract_addr = create1(&sender.address(), 0);
+	// The contract will be deployed at create1(sender, current_nonce)
+	let nonce = client
+		.get_transaction_count(sender.address(), BlockTag::Latest.into())
+		.await?;
+	let contract_addr = create1(&sender.address(), nonce.try_into().unwrap());
 
 	let payload = SimulationParameters::new()
 		.with_trace_transfers(true)
@@ -3880,6 +3926,283 @@ async fn test_simulate_v1_trace_transfers_mixed_success_and_revert() -> anyhow::
 		matches!(&response.0[0].calls[1], SimulationCallResult::Failed { .. }),
 		"Call 2 should revert"
 	);
+
+	Ok(())
+}
+
+/// Code override with PolkaVM (Resolc) bytecode on an unused address.
+/// The Resolc bytecode is detected via the BLOB_MAGIC prefix and handled as PVM code.
+async fn test_simulate_v1_state_override_code_resolc() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xe1; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Callee::echoCall { _data: 99 }.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
+		"Resolc code override on unused address should succeed"
+	);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
+		assert!(!return_data.0.is_empty(), "Contract should return data");
+		assert_eq!(return_data.0[31], 99, "echo(99) should return 99");
+	}
+
+	Ok(())
+}
+
+/// Code override on an address that is already used as an EOA (has on-chain balance/nonce).
+/// Uses a dev account (Ethan) which receives balance in earlier tests, then overrides its
+/// code to make it behave as a contract.
+async fn test_simulate_v1_state_override_code_on_eoa() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let eoa = Account::from(subxt_signer::eth::dev::ethan());
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	// Verify the EOA actually has an on-chain balance (precondition)
+	let eoa_balance = client.get_balance(eoa.address(), BlockTag::Latest.into()).await?;
+	assert!(eoa_balance > U256::zero(), "EOA should have on-chain balance from earlier tests");
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(eoa.address(), Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(eoa.address()),
+				input: Callee::echoCall { _data: 77 }.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
+		"Code override on EOA should promote it to a contract and succeed"
+	);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
+		assert!(!return_data.0.is_empty(), "Contract should return data");
+		assert_eq!(return_data.0[31], 77, "echo(77) should return 77");
+	}
+
+	Ok(())
+}
+
+/// Code override on an address that already has a deployed contract on-chain.
+/// Deploys a real contract (dummy), then simulates with different code (Callee) on that address.
+/// The override should replace the contract's code for the simulation.
+async fn test_simulate_v1_state_override_code_on_existing_contract() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy a real contract (dummy) on-chain
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let nonce = client
+		.get_transaction_count(account.address(), BlockTag::Latest.into())
+		.await?;
+	let contract_addr = create1(&account.address(), nonce.try_into().unwrap());
+
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(5_000_000_000_000u128))
+		.input(bytecode)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	// Verify the contract exists on-chain
+	let code = client.get_code(contract_addr, BlockTag::Latest.into()).await?;
+	assert!(!code.0.is_empty(), "Contract should have code on-chain");
+
+	// Now simulate with different code at the same address
+	let block_number = client.block_number().await?;
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::Resolc,
+	)?;
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(account.address()),
+				to: Some(contract_addr),
+				input: Callee::echoCall { _data: 55 }.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
+		"Code override on existing contract should replace its code and succeed"
+	);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
+		assert!(!return_data.0.is_empty(), "Overridden contract should return data");
+		assert_eq!(return_data.0[31], 55, "echo(55) should return 55 (Callee, not dummy)");
+	}
+
+	Ok(())
+}
+
+/// Verify that gas_used is reported as non-zero for both successful and failed calls.
+async fn test_simulate_v1_gas_used_nonzero() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xf6; 20]);
+	let recipient = H160::from([0xf7; 20]);
+	let unfunded = H160::from([0xf8; 20]);
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+			// Successful transfer
+			.with_call(transfer(sender, recipient, U256::from(1000)))
+			// Failed transfer (unfunded sender)
+			.with_call(transfer(unfunded, recipient, U256::from(1_000_000_000_000u128)))
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+
+	if let SimulationCallResult::Success { gas_used, .. } = &response.0[0].calls[0] {
+		assert!(*gas_used > U256::zero(), "Successful call should report non-zero gas_used");
+	} else {
+		panic!("First call should succeed");
+	}
+
+	if let SimulationCallResult::Failed { gas_used, .. } = &response.0[0].calls[1] {
+		assert!(*gas_used > U256::zero(), "Failed call should report non-zero gas_used");
+	} else {
+		panic!("Second call should fail (unfunded sender)");
+	}
+
+	Ok(())
+}
+
+/// First simulated block's parent_hash should match the real on-chain block hash.
+async fn test_simulate_v1_first_block_parent_anchored_to_chain() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let alith = Account::default();
+
+	let real_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow!("Current block should exist"))?;
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(
+		response.0[0].parent_hash, real_block.hash,
+		"First simulated block's parent_hash should be the real on-chain block hash"
+	);
+
+	Ok(())
+}
+
+/// With return_full_transactions=true, the response's transactions field contains
+/// full TransactionInfo objects rather than just hashes.
+async fn test_simulate_v1_return_full_transactions() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xf9; 20]);
+	let recipient = H160::from([0xfa; 20]);
+
+	let payload = SimulationParameters::new()
+		.with_return_full_transactions(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, recipient, U256::from(1000)))
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert_all_success(&response.0[0].calls);
+
+	assert!(
+		matches!(
+			response.0[0].transactions,
+			HashesOrTransactionInfos::TransactionInfos(_)
+		),
+		"return_full_transactions=true should produce TransactionInfos, not Hashes"
+	);
+	if let HashesOrTransactionInfos::TransactionInfos(infos) = &response.0[0].transactions {
+		assert_eq!(infos.len(), 1, "Should have 1 transaction info");
+	}
 
 	Ok(())
 }
