@@ -25,8 +25,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-mod migration;
+pub mod migration;
 
 extern crate alloc;
 
@@ -55,6 +54,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	const LOG_TARGET: &str = "runtime::indices";
+
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	/// A reason for holding funds.
 	/// Creates a hold reason for this pallet that is aggregated by `construct_runtime`.
@@ -97,6 +99,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::call]
