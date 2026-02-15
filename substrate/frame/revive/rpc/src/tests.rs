@@ -32,10 +32,10 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, AddressStateOverride, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
-		BlockOverrides, BlockTag, Bytes, Bytes32, GenericTransaction, HashesOrTransactionInfos,
-		Log, SimulationCallResult, SimulationParameters, SimulationPayload, StateOverrides,
-		StorageOverrides, TransactionInfo, TransactionUnsigned, H160, H256, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, Bytes, Bytes32,
+		GenericTransaction, HashesOrTransactionInfos, Log, SimulationCallResult,
+		SimulationParameters, StorageOverrides, TransactionInfo, TransactionUnsigned, H160, H256,
+		U256,
 	},
 };
 use std::{collections::BTreeMap, sync::Arc, thread};
@@ -357,6 +357,10 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_timestamp_ordering_failure,
 		test_simulate_v1_timestamp_equal_allowed,
 		test_simulate_v1_state_override_storage_state_diff,
+		test_simulate_v1_state_override_storage_all_slots,
+		test_simulate_v1_state_override_storage_all_slots_clears_unspecified,
+		test_simulate_v1_state_override_storage_state_diff_preserves_other_slots,
+		test_simulate_v1_state_override_storage_persists_across_blocks,
 		test_simulate_v1_state_override_multiple_accounts,
 		test_simulate_v1_state_override_balance_zero,
 		test_simulate_v1_state_override_nonce_reset,
@@ -919,8 +923,6 @@ async fn test_fibonacci_large_value_runs_out_of_gas() -> anyhow::Result<()> {
 
 /// State build-up over calls within a single block: first transfer uses state-overridden balance,
 /// second transfer uses balance received from the first call.
-///
-/// Reference: Geth TestSimulateV1 "simple" test case.
 async fn test_simulate_v1_simple() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -929,65 +931,32 @@ async fn test_simulate_v1_simple() -> anyhow::Result<()> {
 	let receiver1 = H160::from([0xa2; 20]);
 	let receiver2 = H160::from([0xa3; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![
-				GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver1),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				},
-				GenericTransaction {
-					from: Some(receiver1),
-					to: Some(receiver2),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				},
-				GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver2),
-					..Default::default()
-				},
-			],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+			.with_call(transfer(sender, receiver1, U256::from(1000)))
+			.with_call(transfer(receiver1, receiver2, U256::from(1000)))
+			.with_call(GenericTransaction {
+				from: Some(sender),
+				to: Some(receiver2),
+				..Default::default()
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 3);
-	for (i, call) in response.0[0].calls.iter().enumerate() {
-		assert!(matches!(call, SimulationCallResult::Success { .. }), "Call {i} should succeed");
-	}
+	assert_all_success(&response.0[0].calls);
 
 	Ok(())
 }
 
 /// State build-up across multiple blocks: second block's state override zeroes out a balance,
 /// while another account uses balance it received in the first block.
-///
-/// Reference: Geth TestSimulateV1 "simple-multi-block" test case.
 async fn test_simulate_v1_simple_multi_block() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -997,81 +966,28 @@ async fn test_simulate_v1_simple_multi_block() -> anyhow::Result<()> {
 	let receiver2 = H160::from([0xa3; 20]);
 	let receiver3 = H160::from([0xa4; 20]);
 
-	let mut block0_overrides = BTreeMap::new();
-	block0_overrides.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let mut block1_overrides = BTreeMap::new();
-	block1_overrides.insert(
-		receiver3,
-		AddressStateOverride {
-			balance: Some(U256::zero()),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block0_overrides)),
-				calls: vec![
-					GenericTransaction {
-						from: Some(sender),
-						to: Some(receiver1),
-						value: Some(U256::from(1000)),
-						..Default::default()
-					},
-					GenericTransaction {
-						from: Some(sender),
-						to: Some(receiver3),
-						value: Some(U256::from(1000)),
-						..Default::default()
-					},
-				],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block1_overrides)),
-				calls: vec![GenericTransaction {
-					from: Some(receiver1),
-					to: Some(receiver2),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, receiver1, U256::from(1000)))
+				.with_call(transfer(sender, receiver3, U256::from(1000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(receiver3, U256::zero())
+				.with_call(transfer(receiver1, receiver2, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
 	assert_eq!(response.0[0].calls.len(), 2);
 	assert_eq!(response.0[1].calls.len(), 1);
 	for block in &response.0 {
-		for (i, call) in block.calls.iter().enumerate() {
-			assert!(
-				matches!(call, SimulationCallResult::Success { .. }),
-				"Call {i} should succeed"
-			);
-		}
+		assert_all_success(&block.calls);
 	}
 	assert_eq!(
 		response.0[1].number,
@@ -1083,8 +999,6 @@ async fn test_simulate_v1_simple_multi_block() -> anyhow::Result<()> {
 }
 
 /// Transfer from an unfunded account should result in an error.
-///
-/// Reference: Geth TestSimulateV1 "insufficient-funds" test case.
 async fn test_simulate_v1_insufficient_funds() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1092,25 +1006,14 @@ async fn test_simulate_v1_insufficient_funds() -> anyhow::Result<()> {
 	let empty_account = H160::from([0xcc; 20]);
 	let recipient = H160::from([0xdd; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(empty_account),
-				to: Some(recipient),
-				value: Some(U256::from(1_000_000_000_000_000_000u128)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(transfer(empty_account, recipient, U256::from(1_000_000_000_000_000_000u128)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await?;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert!(result.0.first().unwrap().calls.first().unwrap().is_failure());
@@ -1119,50 +1022,28 @@ async fn test_simulate_v1_insufficient_funds() -> anyhow::Result<()> {
 }
 
 /// Block overrides for number and fee recipient are applied to simulated blocks.
-///
-/// Reference: Geth TestSimulateV1 "block-overrides" test case.
 async fn test_simulate_v1_block_overrides() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
 	let fee_recipient = H160::from([0x0c; 20]);
+	let recipient = H160::from([0xdd; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					number: Some(block_number + U256::one()),
-					fee_recipient: Some(fee_recipient),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_block_number_override(block_number + U256::one())
+				.with_block_fee_recipient_override(fee_recipient)
+				.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
@@ -1174,49 +1055,35 @@ async fn test_simulate_v1_block_overrides() -> anyhow::Result<()> {
 }
 
 /// Block numbers must be in ascending order; passing a lower number after a higher one fails.
-///
-/// Reference: Geth TestSimulateV1 "block-number-order" test case.
 async fn test_simulate_v1_block_number_order() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
+	let recipient = H160::from([0xdd; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					number: Some(block_number + U256::from(3)),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_block_number_override(block_number + U256::from(3))
+				.with_call(GenericTransaction {
 					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
+					to: Some(recipient),
 					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					number: Some(block_number + U256::from(2)),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
+				})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_block_number_override(block_number + U256::from(2))
+				.with_call(GenericTransaction {
 					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
+					to: Some(recipient),
 					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Block numbers out of order should fail");
@@ -1225,8 +1092,6 @@ async fn test_simulate_v1_block_number_order() -> anyhow::Result<()> {
 }
 
 /// A state override giving balance to an unfunded account allows it to send a transfer.
-///
-/// Reference: Geth TestSimulateV1 "simple" test case (state override balance component).
 async fn test_simulate_v1_state_override_balance() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1234,37 +1099,15 @@ async fn test_simulate_v1_state_override_balance() -> anyhow::Result<()> {
 	let random_sender = H160::from([0xaa; 20]);
 	let recipient = H160::from([0xbb; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		random_sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(random_sender),
-				to: Some(recipient),
-				value: Some(U256::from(1_000_000_000_000u128)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(random_sender, U256::from(10_000_000_000_000_000_000u128))
+			.with_call(transfer(random_sender, recipient, U256::from(1_000_000_000_000u128)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1275,8 +1118,6 @@ async fn test_simulate_v1_state_override_balance() -> anyhow::Result<()> {
 }
 
 /// A state override deploying code to an address allows calling it as a contract.
-///
-/// Reference: Geth TestSimulateV1 "storage-contract" / "evm-error" test cases.
 async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
 	use pallet_revive_fixtures::Callee;
@@ -1292,37 +1133,20 @@ async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
 				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1337,8 +1161,6 @@ async fn test_simulate_v1_state_override_code() -> anyhow::Result<()> {
 }
 
 /// A state override setting a nonce is applied before execution.
-///
-/// Reference: Geth TestSimulateV1 "validation-checks-from-contract" test case (nonce override).
 async fn test_simulate_v1_state_override_nonce() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1346,38 +1168,24 @@ async fn test_simulate_v1_state_override_nonce() -> anyhow::Result<()> {
 	let sender = H160::from([0xb1; 20]);
 	let recipient = H160::from([0xb2; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000_000u128)),
-			nonce: Some(U256::from(5)),
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				nonce: Some(U256::from(5)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(10_000_000_000_000_000_000u128))
+				.with_nonce_override(sender, U256::from(5))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::from(5)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1392,8 +1200,6 @@ async fn test_simulate_v1_state_override_nonce() -> anyhow::Result<()> {
 
 /// A state override combining balance and code on the same account allows contract interaction
 /// with funded calls.
-///
-/// Reference: Geth TestSimulateV1 "simple" test case (balance + code on same account).
 async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
 	use pallet_revive_fixtures::Callee;
@@ -1409,37 +1215,21 @@ async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(contract_addr, U256::from(1_000_000_000_000_000u128))
+			.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
 				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1450,34 +1240,28 @@ async fn test_simulate_v1_state_override_balance_and_code() -> anyhow::Result<()
 }
 
 /// In validation mode, a nonce that is too high causes a simulation error.
-///
-/// Reference: Geth TestSimulateV1 "validation-checks" test case.
 async fn test_simulate_v1_validation_nonce_too_high() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_call(GenericTransaction {
 				from: Some(alith.address()),
 				to: Some(H160::from([0xdd; 20])),
 				value: Some(U256::from(1000)),
 				nonce: Some(U256::from(999_999)),
 				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+			})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Simulation with wrong nonce in validation mode should fail");
@@ -1487,8 +1271,6 @@ async fn test_simulate_v1_validation_nonce_too_high() -> anyhow::Result<()> {
 
 /// In validation mode with proper balance, nonce, gas pricing, and base fee override,
 /// the simulation succeeds.
-///
-/// Reference: Geth TestSimulateV1 "validation-checks-success" test case.
 async fn test_simulate_v1_validation_success() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1496,41 +1278,24 @@ async fn test_simulate_v1_validation_success() -> anyhow::Result<()> {
 	let sender = H160::from([0xd1; 20]);
 	let recipient = H160::from([0xd2; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::one()),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				max_fee_per_gas: Some(U256::from(50000000000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					max_fee_per_gas: Some(U256::from(50000000000u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1544,8 +1309,6 @@ async fn test_simulate_v1_validation_success() -> anyhow::Result<()> {
 }
 
 /// Simulated blocks maintain proper cryptographic parent-child hash linkage.
-///
-/// Reference: Geth TestSimulateV1ChainLinkage test.
 async fn test_simulate_v1_chain_linkage() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1553,47 +1316,21 @@ async fn test_simulate_v1_chain_linkage() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let recipient = H160::from([0xee; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(recipient),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(recipient),
-					value: Some(U256::from(2000)),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(recipient),
-					value: Some(U256::from(3000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(2000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(3000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 3);
@@ -1607,8 +1344,6 @@ async fn test_simulate_v1_chain_linkage() -> anyhow::Result<()> {
 }
 
 /// Multiple senders across multiple blocks are handled correctly.
-///
-/// Reference: Geth TestSimulateV1TxSender test.
 async fn test_simulate_v1_tx_sender() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1618,67 +1353,32 @@ async fn test_simulate_v1_tx_sender() -> anyhow::Result<()> {
 	let sender3 = Account::from(subxt_signer::eth::dev::ethan());
 	let recipient = H160::from([0xbb; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![
-					GenericTransaction {
-						from: Some(sender1.address()),
-						to: Some(recipient),
-						value: Some(U256::from(1000)),
-						..Default::default()
-					},
-					GenericTransaction {
-						from: Some(sender2.address()),
-						to: Some(recipient),
-						value: Some(U256::from(2000)),
-						..Default::default()
-					},
-					GenericTransaction {
-						from: Some(sender3.address()),
-						to: Some(recipient),
-						value: Some(U256::from(3000)),
-						..Default::default()
-					},
-				],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(sender2.address()),
-					to: Some(recipient),
-					value: Some(U256::from(4000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(sender1.address(), recipient, U256::from(1000)))
+				.with_call(transfer(sender2.address(), recipient, U256::from(2000)))
+				.with_call(transfer(sender3.address(), recipient, U256::from(3000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(sender2.address(), recipient, U256::from(4000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
 	assert_eq!(response.0[0].calls.len(), 3);
 	assert_eq!(response.0[1].calls.len(), 1);
-	for (i, call) in response.0[0].calls.iter().enumerate() {
-		assert!(matches!(call, SimulationCallResult::Success { .. }), "Block 0 call {i}");
-	}
+	assert_all_success(&response.0[0].calls);
 	assert!(matches!(&response.0[1].calls[0], SimulationCallResult::Success { .. }));
 
 	Ok(())
 }
 
 /// Block override for base_fee_per_gas is applied to the simulated block.
-///
-/// Reference: Geth TestSimulateV1 "basefee-non-validation" test case.
 async fn test_simulate_v1_block_overrides_base_fee() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1686,28 +1386,15 @@ async fn test_simulate_v1_block_overrides_base_fee() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let base_fee_override = U256::from(42);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(base_fee_override),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_base_fee_per_gas_override(base_fee_override)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1717,8 +1404,6 @@ async fn test_simulate_v1_block_overrides_base_fee() -> anyhow::Result<()> {
 }
 
 /// When block number overrides create a gap, filler blocks are generated to fill it.
-///
-/// Reference: Geth TestSimulateV1 "blockhash-opcode" test case.
 async fn test_simulate_v1_filler_blocks() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1727,28 +1412,15 @@ async fn test_simulate_v1_filler_blocks() -> anyhow::Result<()> {
 	let gap = U256::from(5);
 	let override_number = block_number + gap;
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				number: Some(override_number),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_number_override(override_number)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	let total_blocks = gap.as_usize();
@@ -1772,8 +1444,6 @@ async fn test_simulate_v1_filler_blocks() -> anyhow::Result<()> {
 }
 
 /// Block override for fee_recipient (miner/coinbase) is applied to the simulated block.
-///
-/// Reference: Geth TestSimulateV1 "block-overrides" test case (FeeRecipient component).
 async fn test_simulate_v1_block_overrides_fee_recipient() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1781,28 +1451,15 @@ async fn test_simulate_v1_block_overrides_fee_recipient() -> anyhow::Result<()> 
 	let alith = Account::default();
 	let fee_recipient = H160::from([0xff; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				fee_recipient: Some(fee_recipient),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_fee_recipient_override(fee_recipient)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -1813,8 +1470,6 @@ async fn test_simulate_v1_block_overrides_fee_recipient() -> anyhow::Result<()> 
 
 /// Sequential calls from the same sender within a block automatically get incrementing nonces,
 /// and nonces carry over across blocks.
-///
-/// Reference: Geth TestSimulateV1 nonce management behavior.
 async fn test_simulate_v1_nonce_management() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1822,65 +1477,32 @@ async fn test_simulate_v1_nonce_management() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let recipient = H160::from([0xee; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![
-					GenericTransaction {
-						from: Some(alith.address()),
-						to: Some(recipient),
-						value: Some(U256::from(1000)),
-						..Default::default()
-					},
-					GenericTransaction {
-						from: Some(alith.address()),
-						to: Some(recipient),
-						value: Some(U256::from(1000)),
-						..Default::default()
-					},
-				],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(recipient),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+				.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
 	assert_eq!(response.0[0].calls.len(), 2);
 	assert_eq!(response.0[1].calls.len(), 1);
-	for (block_idx, block) in response.0.iter().enumerate() {
-		for (call_idx, call) in block.calls.iter().enumerate() {
-			assert!(
-				matches!(call, SimulationCallResult::Success { .. }),
-				"Block {block_idx} call {call_idx} should succeed"
-			);
-		}
+	for block in &response.0 {
+		assert_all_success(&block.calls);
 	}
 
 	Ok(())
 }
 
 /// Per-block state overrides are applied independently: block 1 overrides do not carry to block 0.
-///
-/// Reference: Geth TestSimulateV1 "simple-multi-block" test case (per-block state override scope).
 async fn test_simulate_v1_per_block_state_overrides() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -1889,81 +1511,28 @@ async fn test_simulate_v1_per_block_state_overrides() -> anyhow::Result<()> {
 	let recipient = H160::from([0xe2; 20]);
 	let zeroed = H160::from([0xe3; 20]);
 
-	let mut block0_overrides = BTreeMap::new();
-	block0_overrides.insert(
-		funded,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let mut block1_overrides = BTreeMap::new();
-	block1_overrides.insert(
-		zeroed,
-		AddressStateOverride {
-			balance: Some(U256::zero()),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block0_overrides)),
-				calls: vec![
-					GenericTransaction {
-						from: Some(funded),
-						to: Some(recipient),
-						value: Some(U256::from(5000)),
-						..Default::default()
-					},
-					GenericTransaction {
-						from: Some(funded),
-						to: Some(zeroed),
-						value: Some(U256::from(5000)),
-						..Default::default()
-					},
-				],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block1_overrides)),
-				calls: vec![GenericTransaction {
-					from: Some(recipient),
-					to: Some(funded),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(funded, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(funded, recipient, U256::from(5000)))
+				.with_call(transfer(funded, zeroed, U256::from(5000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(zeroed, U256::zero())
+				.with_call(transfer(recipient, funded, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
 	assert_eq!(response.0[0].calls.len(), 2);
 	assert_eq!(response.0[1].calls.len(), 1);
 	for block in &response.0 {
-		for (i, call) in block.calls.iter().enumerate() {
-			assert!(
-				matches!(call, SimulationCallResult::Success { .. }),
-				"Call {i} should succeed"
-			);
-		}
+		assert_all_success(&block.calls);
 	}
 
 	Ok(())
@@ -1977,26 +1546,20 @@ async fn test_simulate_v1_contract_deploy() -> anyhow::Result<()> {
 	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let sender = Account::default();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(sender.address()),
-				to: None,
-				input: bytecode.into(),
-				value: Some(U256::from(5_000_000_000_000u128)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(GenericTransaction {
+			from: Some(sender.address()),
+			to: None,
+			input: bytecode.into(),
+			value: Some(U256::from(5_000_000_000_000u128)),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2025,54 +1588,31 @@ async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	// Block 0: override code on contract_addr with Callee runtime bytecode
-	let mut block0_overrides = BTreeMap::new();
-	block0_overrides.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
 	let echo_calldata: Vec<u8> = Callee::echoCall { _data: 42 }.abi_encode();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			// Block 0: call the contract (code set via override)
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block0_overrides)),
-				calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_code_override(contract_addr, Bytes::from(callee_code))
+				.with_call(GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
 					input: echo_calldata.clone().into(),
 					..Default::default()
-				}],
-			},
-			// Block 1: call the same contract — code persists from block 0 override
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(caller.address()),
-					to: Some(contract_addr),
-					input: echo_calldata.into(),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+				})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: echo_calldata.into(),
+				..Default::default()
+			})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
@@ -2083,7 +1623,6 @@ async fn test_simulate_v1_contract_deploy_then_call() -> anyhow::Result<()> {
 			"Block {i} call should succeed"
 		);
 	}
-	// Both blocks should return echo(42) = 42
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
 		assert!(!return_data.0.is_empty(), "Block 0 should return data");
 		assert_eq!(return_data.0[31], 42, "Block 0 should return 42");
@@ -2112,37 +1651,20 @@ async fn test_simulate_v1_contract_revert() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
 				input: Callee::revertCall {}.abi_encode().into(),
 				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2168,60 +1690,32 @@ async fn test_simulate_v1_storage_persistence_across_calls() -> anyhow::Result<(
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			// Contract needs balance for storage deposit when executing SSTORE
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![
-				// Call 1: store(42) — write 42 to the `stored` state variable
-				GenericTransaction {
-					from: Some(caller.address()),
-					to: Some(contract_addr),
-					input: Callee::storeCall { _data: 42 }.abi_encode().into(),
-					..Default::default()
-				},
-				// Call 2: stored() — read back the stored value
-				GenericTransaction {
-					from: Some(caller.address()),
-					to: Some(contract_addr),
-					input: Callee::storedCall {}.abi_encode().into(),
-					..Default::default()
-				},
-			],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(contract_addr, U256::from(10_000_000_000_000_000u128))
+			.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Callee::storeCall { _data: 42 }.abi_encode().into(),
+				..Default::default()
+			})
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Callee::storedCall {}.abi_encode().into(),
+				..Default::default()
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 2);
-	assert!(
-		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
-		"store(42) call should succeed"
-	);
-	assert!(
-		matches!(&response.0[0].calls[1], SimulationCallResult::Success { .. }),
-		"stored() call should succeed"
-	);
+	assert_all_success(&response.0[0].calls);
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[1] {
 		assert_eq!(return_data.0.len(), 32, "stored() should return 32 bytes");
 		assert_eq!(return_data.0[31], 42, "stored() should return stored value 42");
@@ -2246,38 +1740,21 @@ async fn test_simulate_v1_call_with_value_to_contract() -> anyhow::Result<()> {
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(contract_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(contract_code))
+			.with_call(GenericTransaction {
 				from: Some(caller.address()),
 				to: Some(contract_addr),
 				input: CallSelfWithDust::fCall {}.abi_encode().into(),
 				value: Some(U256::from(1000)),
 				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2298,24 +1775,18 @@ async fn test_simulate_v1_call_to_empty_address() -> anyhow::Result<()> {
 	let caller = Account::default();
 	let empty_addr = H160::from([0xde; 20]);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(caller.address()),
-				to: Some(empty_addr),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(GenericTransaction {
+			from: Some(caller.address()),
+			to: Some(empty_addr),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2334,36 +1805,21 @@ async fn test_simulate_v1_block_override_timestamp() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	// Fetch the current block's timestamp and add an offset to ensure the override is
-	// in the future. Substrate timestamps are in milliseconds.
 	let current_block = client
 		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
 		.await?
 		.ok_or_else(|| anyhow!("Current block should exist"))?;
 	let timestamp_override = current_block.timestamp + U256::from(10_000u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				time: Some(timestamp_override),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_time_override(timestamp_override)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2383,28 +1839,15 @@ async fn test_simulate_v1_block_override_gas_limit() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let gas_limit_override = U256::from(30_000_000u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				gas_limit: Some(gas_limit_override),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_gas_limit_override(gas_limit_override)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2424,28 +1867,15 @@ async fn test_simulate_v1_block_override_prev_randao() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let prev_randao = U256::from(12345u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				prev_randao: Some(prev_randao),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_prev_randao_override(prev_randao)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2465,7 +1895,6 @@ async fn test_simulate_v1_block_override_all_fields() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let fee_recipient = H160::from([0xab; 20]);
 	let override_number = block_number + U256::one();
-	// Use the current block's timestamp + offset to ensure the override is in the future.
 	let current_block = client
 		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
 		.await?
@@ -2475,33 +1904,20 @@ async fn test_simulate_v1_block_override_all_fields() -> anyhow::Result<()> {
 	let override_base_fee = U256::from(999u64);
 	let override_prev_randao = U256::from(777u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				number: Some(override_number),
-				time: Some(override_time),
-				gas_limit: Some(override_gas_limit),
-				base_fee_per_gas: Some(override_base_fee),
-				prev_randao: Some(override_prev_randao),
-				fee_recipient: Some(fee_recipient),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_number_override(override_number)
+			.with_block_time_override(override_time)
+			.with_block_gas_limit_override(override_gas_limit)
+			.with_block_base_fee_per_gas_override(override_base_fee)
+			.with_block_prev_randao_override(override_prev_randao)
+			.with_block_fee_recipient_override(fee_recipient)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2522,7 +1938,7 @@ async fn test_simulate_v1_timestamp_ordering_failure() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	// Use the current block's timestamp to compute valid future timestamps.
+	let recipient = H160::from([0xdd; 20]);
 	let current_block = client
 		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
 		.await?
@@ -2530,41 +1946,26 @@ async fn test_simulate_v1_timestamp_ordering_failure() -> anyhow::Result<()> {
 	let large_timestamp = current_block.timestamp + U256::from(20_000u64);
 	let small_timestamp = current_block.timestamp + U256::from(10_000u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					time: Some(large_timestamp),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					time: Some(small_timestamp),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_block_time_override(large_timestamp).with_call(GenericTransaction {
+				from: Some(alith.address()),
+				to: Some(recipient),
+				..Default::default()
+			})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_block_time_override(small_timestamp).with_call(GenericTransaction {
+				from: Some(alith.address()),
+				to: Some(recipient),
+				..Default::default()
+			})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Timestamps going backwards should fail");
@@ -2578,50 +1979,27 @@ async fn test_simulate_v1_timestamp_equal_allowed() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	// Use the current block's timestamp + offset so the value is in the future.
+	let recipient = H160::from([0xdd; 20]);
 	let current_block = client
 		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
 		.await?
 		.ok_or_else(|| anyhow!("Current block should exist"))?;
 	let same_time = current_block.timestamp + U256::from(10_000u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					time: Some(same_time),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: Some(BlockOverrides {
-					time: Some(same_time),
-					..Default::default()
-				}),
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(alith.address()),
-					to: Some(H160::from([0xdd; 20])),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_block_time_override(same_time)
+				.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_block_time_override(same_time)
+				.with_call(transfer(alith.address(), recipient, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2, "Both blocks should be produced");
@@ -2647,48 +2025,27 @@ async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	// Override storage slot 0 (Callee's `stored` variable) with value 42
-	let slot_0 = H256::zero();
-	let mut value_bytes = [0u8; 32];
-	value_bytes[31] = 42;
-
 	let mut storage_diff = BTreeMap::new();
-	storage_diff.insert(slot_0, Bytes32(value_bytes));
+	storage_diff.insert(H256::zero(), Bytes32(left_padded_bytes([42])));
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: Some(StorageOverrides::SpecificStorageSlots { overrides: storage_diff }),
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![
-				// Call stored() getter to read the overridden storage slot
-				GenericTransaction {
-					from: Some(caller.address()),
-					to: Some(contract_addr),
-					input: Callee::storedCall {}.abi_encode().into(),
-					..Default::default()
-				},
-			],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_storage_override(
+				contract_addr,
+				StorageOverrides::SpecificStorageSlots { overrides: storage_diff },
+			)
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Callee::storedCall {}.abi_encode().into(),
+				..Default::default()
+			})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2705,6 +2062,305 @@ async fn test_simulate_v1_state_override_storage_state_diff() -> anyhow::Result<
 	Ok(())
 }
 
+/// AllStorageSlots override replaces the entire storage trie: both specified slots are readable.
+async fn test_simulate_v1_state_override_storage_all_slots() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Storage;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xd6; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Storage",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut storage = BTreeMap::new();
+	storage.insert(H256::zero(), Bytes32(left_padded_bytes([42])));
+	storage.insert(H256::from(left_padded_bytes([1u8])), Bytes32(left_padded_bytes([99])));
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(code))
+			.with_storage_override(
+				contract_addr,
+				StorageOverrides::AllStorageSlots { overrides: storage },
+			)
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::firstCall {}.abi_encode().into(),
+				..Default::default()
+			})
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::secondCall {}.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
+		assert_eq!(return_data.0[31], 42, "first() should return 42");
+	} else {
+		panic!("first() call should succeed");
+	}
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[1] {
+		assert_eq!(return_data.0[31], 99, "second() should return 99");
+	} else {
+		panic!("second() call should succeed");
+	}
+
+	Ok(())
+}
+
+/// AllStorageSlots clears slots that are NOT specified in the override map.
+/// Block 0 writes both slots via `setBoth(10, 20)`. Block 1 uses AllStorageSlots
+/// with only slot 0 = 42 — slot 1 must be zeroed.
+async fn test_simulate_v1_state_override_storage_all_slots_clears_unspecified() -> anyhow::Result<()>
+{
+	use pallet_revive::precompiles::alloy::{primitives::U256 as AlloyU256, sol_types::SolCall};
+	use pallet_revive_fixtures::Storage;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xd7; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Storage",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut all_storage = BTreeMap::new();
+	all_storage.insert(H256::zero(), Bytes32(left_padded_bytes([42])));
+
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(contract_addr, U256::from(10_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(code))
+				.with_call(GenericTransaction {
+					from: Some(caller.address()),
+					to: Some(contract_addr),
+					input: Storage::setBothCall {
+						_first: AlloyU256::from(10u64),
+						_second: AlloyU256::from(20u64),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_storage_override(
+				contract_addr,
+				StorageOverrides::AllStorageSlots { overrides: all_storage },
+			)
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::firstCall {}.abi_encode().into(),
+				..Default::default()
+			})
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::secondCall {}.abi_encode().into(),
+				..Default::default()
+			})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 2);
+	assert_eq!(response.0[1].calls.len(), 2);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[0] {
+		assert_eq!(return_data.0[31], 42, "first() should return overridden value 42");
+	} else {
+		panic!("first() call should succeed");
+	}
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[1] {
+		assert!(
+			return_data.0.iter().all(|&b| b == 0),
+			"second() should return 0 (slot cleared by AllStorageSlots)"
+		);
+	} else {
+		panic!("second() call should succeed");
+	}
+
+	Ok(())
+}
+
+/// SpecificStorageSlots (StateDiff) preserves storage slots NOT in the override map.
+/// Block 0 writes both slots via `setBoth(10, 20)`. Block 1 uses SpecificStorageSlots
+/// with only slot 0 = 42 — slot 1 must still be 20.
+async fn test_simulate_v1_state_override_storage_state_diff_preserves_other_slots(
+) -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::{primitives::U256 as AlloyU256, sol_types::SolCall};
+	use pallet_revive_fixtures::Storage;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xd8; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Storage",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut storage_diff = BTreeMap::new();
+	storage_diff.insert(H256::zero(), Bytes32(left_padded_bytes([42])));
+
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(contract_addr, U256::from(10_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(code))
+				.with_call(GenericTransaction {
+					from: Some(caller.address()),
+					to: Some(contract_addr),
+					input: Storage::setBothCall {
+						_first: AlloyU256::from(10u64),
+						_second: AlloyU256::from(20u64),
+					}
+					.abi_encode()
+					.into(),
+					..Default::default()
+				})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_storage_override(
+				contract_addr,
+				StorageOverrides::SpecificStorageSlots { overrides: storage_diff },
+			)
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::firstCall {}.abi_encode().into(),
+				..Default::default()
+			})
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Storage::secondCall {}.abi_encode().into(),
+				..Default::default()
+			})
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 2);
+	assert_eq!(response.0[1].calls.len(), 2);
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[0] {
+		assert_eq!(return_data.0[31], 42, "first() should return overridden value 42");
+	} else {
+		panic!("first() call should succeed");
+	}
+	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[1] {
+		assert_eq!(return_data.0[31], 20, "second() should return preserved value 20");
+	} else {
+		panic!("second() call should succeed");
+	}
+
+	Ok(())
+}
+
+/// Storage set via AllStorageSlots override persists to subsequent blocks without re-overriding.
+async fn test_simulate_v1_state_override_storage_persists_across_blocks() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Storage;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xd9; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Storage",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut storage = BTreeMap::new();
+	storage.insert(H256::zero(), Bytes32(left_padded_bytes([42])));
+	storage.insert(H256::from(left_padded_bytes([1u8])), Bytes32(left_padded_bytes([99])));
+
+	let read_calls = |addr: H160| {
+		vec![
+			GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(addr),
+				input: Storage::firstCall {}.abi_encode().into(),
+				..Default::default()
+			},
+			GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(addr),
+				input: Storage::secondCall {}.abi_encode().into(),
+				..Default::default()
+			},
+		]
+	};
+
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			read_calls(contract_addr).into_iter().fold(
+				b.with_code_override(contract_addr, Bytes::from(code))
+					.with_storage_override(
+						contract_addr,
+						StorageOverrides::AllStorageSlots { overrides: storage },
+					),
+				|b, call| b.with_call(call),
+			)
+		})
+		.with_new_simulation_payload(|b| {
+			read_calls(contract_addr).into_iter().fold(b, |b, call| b.with_call(call))
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 2);
+	for (blk_idx, blk) in response.0.iter().enumerate() {
+		assert_eq!(blk.calls.len(), 2);
+		if let SimulationCallResult::Success { return_data, .. } = &blk.calls[0] {
+			assert_eq!(return_data.0[31], 42, "Block {blk_idx}: first() should return 42");
+		} else {
+			panic!("Block {blk_idx}: first() call should succeed");
+		}
+		if let SimulationCallResult::Success { return_data, .. } = &blk.calls[1] {
+			assert_eq!(return_data.0[31], 99, "Block {blk_idx}: second() should return 99");
+		} else {
+			panic!("Block {blk_idx}: second() call should succeed");
+		}
+	}
+
+	Ok(())
+}
+
 /// Override 3 accounts simultaneously in one block — all transfers succeed.
 async fn test_simulate_v1_state_override_multiple_accounts() -> anyhow::Result<()> {
 	// Arrange
@@ -2714,64 +2370,26 @@ async fn test_simulate_v1_state_override_multiple_accounts() -> anyhow::Result<(
 	let account_b = H160::from([0x1b; 20]);
 	let account_c = H160::from([0x1c; 20]);
 	let recipient = H160::from([0x1d; 20]);
+	let bal = 10_000_000_000_000_000u128;
 
-	let mut state_overrides_map = BTreeMap::new();
-	for account in [account_a, account_b, account_c] {
-		state_overrides_map.insert(
-			account,
-			AddressStateOverride {
-				balance: Some(U256::from(10_000_000_000_000_000u128)),
-				nonce: None,
-				code: None,
-				storage: None,
-				move_precompile_to_address: None,
-			},
-		);
-	}
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![
-				GenericTransaction {
-					from: Some(account_a),
-					to: Some(recipient),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				},
-				GenericTransaction {
-					from: Some(account_b),
-					to: Some(recipient),
-					value: Some(U256::from(2000)),
-					..Default::default()
-				},
-				GenericTransaction {
-					from: Some(account_c),
-					to: Some(recipient),
-					value: Some(U256::from(3000)),
-					..Default::default()
-				},
-			],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(account_a, U256::from(bal))
+			.with_balance_override(account_b, U256::from(bal))
+			.with_balance_override(account_c, U256::from(bal))
+			.with_call(transfer(account_a, recipient, U256::from(1000)))
+			.with_call(transfer(account_b, recipient, U256::from(2000)))
+			.with_call(transfer(account_c, recipient, U256::from(3000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 3);
-	for (i, call) in response.0[0].calls.iter().enumerate() {
-		assert!(
-			matches!(call, SimulationCallResult::Success { .. }),
-			"Transfer from account {i} should succeed"
-		);
-	}
+	assert_all_success(&response.0[0].calls);
 
 	Ok(())
 }
@@ -2784,37 +2402,15 @@ async fn test_simulate_v1_state_override_balance_zero() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let recipient = H160::from([0xbb; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		alith.address(),
-		AddressStateOverride {
-			balance: Some(U256::zero()),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(recipient),
-				value: Some(U256::from(1_000_000_000_000u128)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(alith.address(), U256::zero())
+			.with_call(transfer(alith.address(), recipient, U256::from(1_000_000_000_000u128)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2832,42 +2428,26 @@ async fn test_simulate_v1_state_override_nonce_reset() -> anyhow::Result<()> {
 	let sender = H160::from([0xf1; 20]);
 	let recipient = H160::from([0xf2; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: Some(U256::zero()),
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::one()),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				nonce: Some(U256::zero()),
-				max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_nonce_override(sender, U256::zero())
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::zero()),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -2900,74 +2480,37 @@ async fn test_simulate_v1_state_override_code_replace_existing() -> anyhow::Resu
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	// Block 0: override code with Callee runtime bytecode
-	let mut block0_overrides = BTreeMap::new();
-	block0_overrides.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	// Block 1: override code with Counter runtime bytecode (different contract)
-	let mut block1_overrides = BTreeMap::new();
-	block1_overrides.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(counter_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block0_overrides)),
-				calls: vec![GenericTransaction {
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_code_override(contract_addr, Bytes::from(callee_code))
+				.with_call(GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
 					input: Callee::echoCall { _data: 42 }.abi_encode().into(),
 					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block1_overrides)),
-				calls: vec![GenericTransaction {
+				})
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_code_override(contract_addr, Bytes::from(counter_code))
+				.with_call(GenericTransaction {
 					from: Some(caller.address()),
 					to: Some(contract_addr),
-					// Counter::number() selector — reads storage slot 0 (returns 0 since no
-					// constructor ran)
 					input: pallet_revive_fixtures::Counter::numberCall {}.abi_encode().into(),
 					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
-	// Block 0: Callee echo(42) should return 42
 	assert!(matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }));
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[0].calls[0] {
 		assert_eq!(return_data.0[31], 42, "Block 0 Callee echo(42) should return 42");
 	}
-	// Block 1: Counter number() should return 0 (code was replaced, storage is fresh)
 	assert!(matches!(&response.0[1].calls[0], SimulationCallResult::Success { .. }));
 	if let SimulationCallResult::Success { return_data, .. } = &response.0[1].calls[0] {
 		assert_eq!(return_data.0.len(), 32, "Block 1 Counter number() should return 32 bytes");
@@ -2996,54 +2539,28 @@ async fn test_simulate_v1_state_override_balance_nonce_code_combined() -> anyhow
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	// Override caller with balance + nonce
-	state_overrides_map.insert(
-		caller,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: Some(U256::from(42)),
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-	// Override contract with code + balance
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000u128)),
-			nonce: None,
-			code: Some(callee_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::one()),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(caller),
-				to: Some(contract_addr),
-				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
-				nonce: Some(U256::from(42)),
-				max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(caller, U256::from(10_000_000_000_000_000u128))
+				.with_nonce_override(caller, U256::from(42))
+				.with_balance_override(contract_addr, U256::from(1_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(callee_code))
+				.with_call(GenericTransaction {
+					from: Some(caller),
+					to: Some(contract_addr),
+					input: Callee::echoCall { _data: 42 }.abi_encode().into(),
+					nonce: Some(U256::from(42)),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -3064,64 +2581,28 @@ async fn test_simulate_v1_state_changes_persist_but_overrides_dont() -> anyhow::
 	let block_number = client.block_number().await?;
 	let sender = H160::from([0xf4; 20]);
 	let recipient = H160::from([0xf5; 20]);
-
-	let balance = U256::from(10_000u128);
 	let transfer_amount = U256::from(3000u128);
 
-	// Block 0: override sender balance, transfer some to recipient
-	let mut block0_overrides = BTreeMap::new();
-	block0_overrides.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(balance),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(StateOverrides(block0_overrides)),
-				calls: vec![GenericTransaction {
-					from: Some(sender),
-					to: Some(recipient),
-					value: Some(transfer_amount),
-					..Default::default()
-				}],
-			},
-			// Block 1: no state overrides. Recipient uses funds received in block 0.
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(recipient),
-					to: Some(sender),
-					value: Some(U256::from(1000)),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(10_000u128))
+				.with_call(transfer(sender, recipient, transfer_amount))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_call(transfer(recipient, sender, U256::from(1000)))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
-	// Block 0 transfer should succeed (sender has overridden balance)
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
 		"Block 0 transfer should succeed"
 	);
-	// Block 1: recipient received funds in block 0, so it should be able to send back
 	assert!(
 		matches!(&response.0[1].calls[0], SimulationCallResult::Success { .. }),
 		"Block 1: recipient should have funds from block 0 transfer"
@@ -3131,6 +2612,7 @@ async fn test_simulate_v1_state_changes_persist_but_overrides_dont() -> anyhow::
 }
 
 /// In validation mode, nonce lower than account's state nonce fails.
+/// In validation mode, a transaction nonce below the account nonce fails.
 async fn test_simulate_v1_validation_nonce_too_low() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -3138,42 +2620,26 @@ async fn test_simulate_v1_validation_nonce_too_low() -> anyhow::Result<()> {
 	let sender = H160::from([0xb3; 20]);
 	let recipient = H160::from([0xb4; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: Some(U256::from(5)),
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::one()),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				nonce: Some(U256::from(3)),
-				max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_nonce_override(sender, U256::from(5))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					nonce: Some(U256::from(3)),
+					max_fee_per_gas: Some(U256::from(50_000_000_000u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Nonce too low should fail in validation mode");
@@ -3189,41 +2655,24 @@ async fn test_simulate_v1_validation_fee_cap_too_low() -> anyhow::Result<()> {
 	let sender = H160::from([0xb5; 20]);
 	let recipient = H160::from([0xb6; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::from(100u64)),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				max_fee_per_gas: Some(U256::from(1u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::from(100u64))
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					max_fee_per_gas: Some(U256::from(1u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Fee cap too low should fail in validation mode");
@@ -3239,42 +2688,25 @@ async fn test_simulate_v1_validation_tip_above_fee_cap() -> anyhow::Result<()> {
 	let sender = H160::from([0xb7; 20]);
 	let recipient = H160::from([0xb8; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(10_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::one()),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1000)),
-				max_fee_per_gas: Some(U256::from(10u64)),
-				max_priority_fee_per_gas: Some(U256::from(20u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::one())
+				.with_balance_override(sender, U256::from(10_000_000_000_000_000u128))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1000)),
+					max_fee_per_gas: Some(U256::from(10u64)),
+					max_priority_fee_per_gas: Some(U256::from(20u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Tip above fee cap should fail in validation mode");
@@ -3290,48 +2722,29 @@ async fn test_simulate_v1_validation_insufficient_funds() -> anyhow::Result<()> 
 	let sender = H160::from([0xb9; 20]);
 	let recipient = H160::from([0xba; 20]);
 
-	// Give just 100 wei — not enough for gas + value
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(100u64)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				base_fee_per_gas: Some(U256::from(1_000_000u64)),
-				..Default::default()
-			}),
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(recipient),
-				value: Some(U256::from(1_000_000_000_000u128)),
-				gas: Some(U256::from(21000u64)),
-				max_fee_per_gas: Some(U256::from(1_000_000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: true,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_validation(true)
+		.with_new_simulation_payload(|b| {
+			b.with_block_base_fee_per_gas_override(U256::from(1_000_000u64))
+				.with_balance_override(sender, U256::from(100u128))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(recipient),
+					value: Some(U256::from(1_000_000_000_000u128)),
+					gas: Some(U256::from(21000u64)),
+					max_fee_per_gas: Some(U256::from(1_000_000u64)),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
-	// Assert — the call should either return an error or a failed result
-	// (depending on whether InsufficientFunds is caught at validation or execution)
+	// Assert
 	match result {
-		Err(_) => {}, // Validation error
+		Err(_) => {},
 		Ok(response) => {
 			assert!(
 				response.0[0].calls[0].is_failure(),
@@ -3350,27 +2763,21 @@ async fn test_simulate_v1_conflicting_fee_fields() -> anyhow::Result<()> {
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				gas_price: Some(U256::from(10u64)),
-				max_fee_per_gas: Some(U256::from(10u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(GenericTransaction {
+			from: Some(alith.address()),
+			to: Some(H160::from([0xdd; 20])),
+			value: Some(U256::from(1000)),
+			gas_price: Some(U256::from(10u64)),
+			max_fee_per_gas: Some(U256::from(10u64)),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Conflicting fee fields should always fail");
@@ -3385,26 +2792,20 @@ async fn test_simulate_v1_chain_id_mismatch() -> anyhow::Result<()> {
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				chain_id: Some(U256::from(999_999u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(GenericTransaction {
+			from: Some(alith.address()),
+			to: Some(H160::from([0xdd; 20])),
+			value: Some(U256::from(1000)),
+			chain_id: Some(U256::from(999_999u64)),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "Chain ID mismatch should always fail");
@@ -3419,32 +2820,24 @@ async fn test_simulate_v1_validation_not_applied_without_flag() -> anyhow::Resul
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				nonce: Some(U256::from(999_999u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(GenericTransaction {
+			from: Some(alith.address()),
+			to: Some(H160::from([0xdd; 20])),
+			value: Some(U256::from(1000)),
+			nonce: Some(U256::from(999_999u64)),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
-	// Assert — should succeed (or at least not produce a nonce validation error)
+	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 1);
-	// The call may succeed or fail for execution reasons, but NOT for nonce validation
-	// If it succeeded, great. If it failed, it shouldn't be a NonceTooHigh error.
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
 		"Without validation flag, wrong nonce should not cause failure"
@@ -3459,38 +2852,23 @@ async fn test_simulate_v1_filler_blocks_chain_linkage() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	// Create a gap of 3 filler blocks + 1 user block = 4 total
 	let gap = U256::from(4);
 	let override_number = block_number + gap;
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				number: Some(override_number),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				value: Some(U256::from(1000)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_number_override(override_number)
+			.with_call(transfer(alith.address(), H160::from([0xdd; 20]), U256::from(1000)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	let total_blocks = gap.as_usize();
 	assert_eq!(response.0.len(), total_blocks, "Expected {total_blocks} blocks (fillers + user)");
 
-	// Verify parent-child linkage for all consecutive pairs
 	for i in 1..response.0.len() {
 		assert_eq!(
 			response.0[i].parent_hash,
@@ -3500,12 +2878,10 @@ async fn test_simulate_v1_filler_blocks_chain_linkage() -> anyhow::Result<()> {
 		);
 	}
 
-	// Verify all hashes are non-zero
 	for (i, blk) in response.0.iter().enumerate() {
 		assert_ne!(blk.hash, H256::zero(), "Block {i} hash should be non-zero");
 	}
 
-	// Filler blocks should have no calls, user block should have 1
 	for filler in &response.0[..total_blocks - 1] {
 		assert!(filler.calls.is_empty(), "Filler blocks should have no calls");
 	}
@@ -3521,37 +2897,54 @@ async fn test_simulate_v1_block_capacity_exceeded() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-
-	// The capacity is 256 (0x100). Override the block number to create a gap
-	// requiring more than 256 blocks total.
 	let override_number = block_number + U256::from(257u64);
 
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: Some(BlockOverrides {
-				number: Some(override_number),
-				..Default::default()
-			}),
-			state_overrides: None,
-			calls: vec![GenericTransaction {
-				from: Some(alith.address()),
-				to: Some(H160::from([0xdd; 20])),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_block_number_override(override_number).with_call(GenericTransaction {
+			from: Some(alith.address()),
+			to: Some(H160::from([0xdd; 20])),
+			..Default::default()
+		})
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let result = client.simulate_v1(payload, block).await;
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
 
 	// Assert
 	assert!(result.is_err(), "More than 256 blocks should cause BlockCapacityExceeded");
 
 	Ok(())
+}
+
+/// Left-pad a `[u8; N]` into a `[u8; M]` (where `N <= M`), zero-filling the leading bytes.
+fn left_padded_bytes<const N: usize, const M: usize>(input: [u8; N]) -> [u8; M] {
+	assert!(N <= M, "input array must not be larger than output");
+	let mut output = [0u8; M];
+	output[M - N..].copy_from_slice(&input);
+	output
+}
+
+
+/// Build a simple ETH-transfer `GenericTransaction`.
+fn transfer(from: H160, to: H160, value: U256) -> GenericTransaction {
+	GenericTransaction {
+		from: Some(from),
+		to: Some(to),
+		value: Some(value),
+		..Default::default()
+	}
+}
+
+/// Assert that every call in the slice is `SimulationCallResult::Success`.
+fn assert_all_success<E: core::fmt::Debug>(calls: &[SimulationCallResult<E>]) {
+	for (i, call) in calls.iter().enumerate() {
+		assert!(
+			matches!(call, SimulationCallResult::Success { .. }),
+			"Call {i} should succeed"
+		);
+	}
 }
 
 /// Helper: extract logs from a successful simulation call result.
@@ -3585,8 +2978,6 @@ fn assert_transfer_log(log: &Log, from: H160, to: H160, value: U256) {
 
 /// Simple ETH value transfer with trace_transfers enabled produces a synthetic
 /// ERC-20 Transfer log with the correct emitter, topics, and data.
-///
-/// Reference: ERC-7528 / eth_simulateV1 traceTransfers specification.
 async fn test_simulate_v1_trace_transfers_simple() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
@@ -3595,37 +2986,17 @@ async fn test_simulate_v1_trace_transfers_simple() -> anyhow::Result<()> {
 	let receiver = H160::from([0xb2; 20]);
 	let transfer_value = U256::from(1_000_000u64);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(receiver),
-				value: Some(transfer_value),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, receiver, transfer_value))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -3645,37 +3016,15 @@ async fn test_simulate_v1_trace_transfers_disabled() -> anyhow::Result<()> {
 	let sender = H160::from([0xb1; 20]);
 	let receiver = H160::from([0xb2; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(receiver),
-				value: Some(U256::from(1_000_000u64)),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: false,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+			.with_call(transfer(sender, receiver, U256::from(1_000_000u64)))
+	});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -3698,56 +3047,27 @@ async fn test_simulate_v1_trace_transfers_multiple_transfers() -> anyhow::Result
 	let value1 = U256::from(1_000u64);
 	let value2 = U256::from(2_000u64);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![
-				GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver1),
-					value: Some(value1),
-					..Default::default()
-				},
-				GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver2),
-					value: Some(value2),
-					..Default::default()
-				},
-			],
-		}],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, receiver1, value1))
+				.with_call(transfer(sender, receiver2, value2))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 2);
 
-	// First call: sender -> receiver1, value1
 	let logs1 = extract_logs(&response.0[0].calls[0]);
 	assert_eq!(logs1.len(), 1, "First transfer should produce 1 log");
 	assert_transfer_log(&logs1[0], sender, receiver1, value1);
 
-	// Second call: sender -> receiver2, value2
 	let logs2 = extract_logs(&response.0[0].calls[1]);
 	assert_eq!(logs2.len(), 1, "Second transfer should produce 1 log");
 	assert_transfer_log(&logs2[0], sender, receiver2, value2);
@@ -3764,37 +3084,17 @@ async fn test_simulate_v1_trace_transfers_zero_value_no_log() -> anyhow::Result<
 	let sender = H160::from([0xb1; 20]);
 	let receiver = H160::from([0xb2; 20]);
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(receiver),
-				value: Some(U256::zero()),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, receiver, U256::zero()))
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -3817,62 +3117,26 @@ async fn test_simulate_v1_trace_transfers_multi_block() -> anyhow::Result<()> {
 	let value1 = U256::from(500u64);
 	let value2 = U256::from(700u64);
 
-	let state_overrides = |addr: H160| {
-		let mut map = BTreeMap::new();
-		map.insert(
-			addr,
-			AddressStateOverride {
-				balance: Some(U256::from(1_000_000_000_000_000u128)),
-				nonce: None,
-				code: None,
-				storage: None,
-				move_precompile_to_address: None,
-			},
-		);
-		StateOverrides(map)
-	};
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: Some(state_overrides(sender)),
-				calls: vec![GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver1),
-					value: Some(value1),
-					..Default::default()
-				}],
-			},
-			SimulationPayload {
-				block_overrides: None,
-				state_overrides: None,
-				calls: vec![GenericTransaction {
-					from: Some(sender),
-					to: Some(receiver2),
-					value: Some(value2),
-					..Default::default()
-				}],
-			},
-		],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_call(transfer(sender, receiver1, value1))
+		})
+		.with_new_simulation_payload(|b| b.with_call(transfer(sender, receiver2, value2)));
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 2);
 
-	// Block 0: sender -> receiver1
 	let logs0 = extract_logs(&response.0[0].calls[0]);
 	assert_eq!(logs0.len(), 1, "Block 0 should have 1 Transfer log");
 	assert_transfer_log(&logs0[0], sender, receiver1, value1);
 
-	// Block 1: sender -> receiver2
 	let logs1 = extract_logs(&response.0[1].calls[0]);
 	assert_eq!(logs1.len(), 1, "Block 1 should have 1 Transfer log");
 	assert_transfer_log(&logs1[0], sender, receiver2, value2);
@@ -3898,48 +3162,24 @@ async fn test_simulate_v1_trace_transfers_contract_with_value() -> anyhow::Resul
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(contract_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(contract_addr),
-				value: Some(transfer_value),
-				input: CallSelfWithDust::fCall {}.abi_encode().into(),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(transfer_value),
+					input: CallSelfWithDust::fCall {}.abi_encode().into(),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
@@ -3950,18 +3190,13 @@ async fn test_simulate_v1_trace_transfers_contract_with_value() -> anyhow::Resul
 	);
 
 	let logs = extract_logs(&response.0[0].calls[0]);
-	// The value transfer from sender to contract should produce exactly 1 synthetic
-	// Transfer log. CallSelfWithDust::f() is just `external payable {}` — no internal
-	// transfers, so there should be no additional synthetic logs.
 	assert_eq!(logs.len(), 1, "Contract call with value should produce exactly 1 Transfer log");
 	assert_transfer_log(&logs[0], sender, contract_addr, transfer_value);
 
 	Ok(())
 }
 
-/// Per Geth spec: "if the transaction sends ETH but the execution reverts, no log gets issued."
-/// A contract call with value that REVERTs should produce a Failed result with no logs.
-/// The SimulationCallResult::Failed variant has no logs field by design, matching this spec.
+/// Per Geth spec, a reverted contract call with value produces no synthetic Transfer logs.
 async fn test_simulate_v1_trace_transfers_reverted_call() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
 	use pallet_revive_fixtures::Callee;
@@ -3977,55 +3212,28 @@ async fn test_simulate_v1_trace_transfers_reverted_call() -> anyhow::Result<()> 
 		pallet_revive_fixtures::FixtureType::SolcRuntime,
 	)?;
 
-	let mut state_overrides_map = BTreeMap::new();
-	state_overrides_map.insert(
-		sender,
-		AddressStateOverride {
-			balance: Some(U256::from(1_000_000_000_000_000u128)),
-			nonce: None,
-			code: None,
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-	state_overrides_map.insert(
-		contract_addr,
-		AddressStateOverride {
-			balance: None,
-			nonce: None,
-			code: Some(contract_code.into()),
-			storage: None,
-			move_precompile_to_address: None,
-		},
-	);
-
-	let payload = SimulationParameters {
-		block_state_calls: vec![SimulationPayload {
-			block_overrides: None,
-			state_overrides: Some(StateOverrides(state_overrides_map)),
-			calls: vec![GenericTransaction {
-				from: Some(sender),
-				to: Some(contract_addr),
-				value: Some(U256::from(5_000u64)),
-				input: Callee::revertCall {}.abi_encode().into(),
-				..Default::default()
-			}],
-		}],
-		trace_transfers: true,
-		validation: false,
-		return_full_transactions: false,
-	};
+	let payload = SimulationParameters::new()
+		.with_trace_transfers(true)
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(1_000_000_000_000_000u128))
+				.with_code_override(contract_addr, Bytes::from(contract_code))
+				.with_call(GenericTransaction {
+					from: Some(sender),
+					to: Some(contract_addr),
+					value: Some(U256::from(5_000u64)),
+					input: Callee::revertCall {}.abi_encode().into(),
+					..Default::default()
+				})
+		});
 
 	// Act
-	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
-	let response = client.simulate_v1(payload, block).await?;
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
 
 	// Assert
 	assert_eq!(response.0.len(), 1);
 	assert_eq!(response.0[0].calls.len(), 1);
-	// The call should have failed (contract reverted). SimulationCallResult::Failed
-	// has no `logs` field, so no synthetic Transfer logs are returned — matching
-	// the Geth spec that reverted calls discard all logs.
 	assert!(
 		matches!(&response.0[0].calls[0], SimulationCallResult::Failed { .. }),
 		"Contract call that REVERTs should produce Failed result (no logs)"

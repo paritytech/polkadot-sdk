@@ -1110,7 +1110,9 @@ pub struct FeeHistoryResult {
 	pub reward: Vec<Vec<U256>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationParameters {
 	/// Definition of blocks that can contain calls and overrides.
@@ -1137,7 +1139,39 @@ pub struct SimulationParameters {
 	pub return_full_transactions: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
+impl SimulationParameters {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn with_new_simulation_payload(
+		mut self,
+		callback: impl FnOnce(SimulationPayload) -> SimulationPayload,
+	) -> Self {
+		let payload = callback(SimulationPayload::new());
+		self.block_state_calls.push(payload);
+		self
+	}
+
+	pub fn with_trace_transfers(mut self, trace_transfers: bool) -> Self {
+		self.trace_transfers = trace_transfers;
+		self
+	}
+
+	pub fn with_validation(mut self, validation: bool) -> Self {
+		self.validation = validation;
+		self
+	}
+
+	pub fn with_return_full_transactions(mut self, return_full_transactions: bool) -> Self {
+		self.return_full_transactions = return_full_transactions;
+		self
+	}
+}
+
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationPayload {
 	/// Overrides fields such as block number or time in a simulated block.
@@ -1150,6 +1184,110 @@ pub struct SimulationPayload {
 
 	/// An array of transaction call objects.
 	pub calls: Vec<GenericTransaction>,
+}
+
+impl SimulationPayload {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn with_block_number_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().number = value.into();
+		self
+	}
+
+	pub fn with_block_prev_randao_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().prev_randao = value.into();
+		self
+	}
+
+	pub fn with_block_time_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().time = value.into();
+		self
+	}
+
+	pub fn with_block_gas_limit_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().gas_limit = value.into();
+		self
+	}
+
+	pub fn with_block_fee_recipient_override(mut self, value: impl Into<Option<H160>>) -> Self {
+		self.block_overrides.get_or_insert_default().fee_recipient = value.into();
+		self
+	}
+
+	pub fn with_block_withdrawals_override(
+		mut self,
+		value: impl Into<Option<Vec<Withdrawal>>>,
+	) -> Self {
+		self.block_overrides.get_or_insert_default().withdrawals = value.into();
+		self
+	}
+
+	pub fn with_block_base_fee_per_gas_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().base_fee_per_gas = value.into();
+		self
+	}
+
+	pub fn with_block_blob_base_fee_override(mut self, value: impl Into<Option<U256>>) -> Self {
+		self.block_overrides.get_or_insert_default().blob_base_fee = value.into();
+		self
+	}
+
+	pub fn with_balance_override(mut self, address: H160, value: impl Into<Option<U256>>) -> Self {
+		self.state_overrides
+			.get_or_insert_default()
+			.0
+			.entry(address)
+			.or_default()
+			.balance = value.into();
+		self
+	}
+
+	pub fn with_nonce_override(mut self, address: H160, value: impl Into<Option<U256>>) -> Self {
+		self.state_overrides.get_or_insert_default().0.entry(address).or_default().nonce =
+			value.into();
+		self
+	}
+
+	pub fn with_code_override(mut self, address: H160, value: impl Into<Option<Bytes>>) -> Self {
+		self.state_overrides.get_or_insert_default().0.entry(address).or_default().code =
+			value.into();
+		self
+	}
+
+	pub fn with_storage_override(
+		mut self,
+		address: H160,
+		value: impl Into<Option<StorageOverrides>>,
+	) -> Self {
+		self.state_overrides
+			.get_or_insert_default()
+			.0
+			.entry(address)
+			.or_default()
+			.storage = value.into();
+		self
+	}
+
+	pub fn with_move_precompile_to_address_override(
+		mut self,
+		address: H160,
+		value: impl Into<Option<H160>>,
+	) -> Self {
+		self.state_overrides
+			.get_or_insert_default()
+			.0
+			.entry(address)
+			.or_default()
+			.move_precompile_to_address = value.into();
+		self
+	}
+
+	pub fn with_call(mut self, call: GenericTransaction) -> Self {
+		self.calls.push(call);
+		self
+	}
 }
 
 #[derive(
@@ -1195,7 +1333,9 @@ pub struct BlockOverrides {
 )]
 pub struct StateOverrides(pub BTreeMap<H160, AddressStateOverride>);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq, Encode, Decode, TypeInfo,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressStateOverride {
 	/// Fake balance to set for the account before executing the call.
