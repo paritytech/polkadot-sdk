@@ -281,11 +281,8 @@ where
 		if !reserve_to_migrate.is_zero() {
 			OldCurrency::unreserve(&account, reserve_to_migrate);
 
-			let reducible_balance = T::Fungible::reducible_balance(
-				&account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
+			let reducible_balance =
+				T::Fungible::reducible_balance(&account, Preservation::Preserve, Fortitude::Polite);
 
 			let hold_amount = min(reserve_to_migrate, reducible_balance);
 
@@ -294,8 +291,7 @@ where
 			// This is to avoid trying to hold more than the account can actually hold while
 			// preserving Existential Deposit This case can happen if the account had no
 			// Existential Deposit before the migration but had an Index Deposit
-			match T::Fungible::hold(&HoldReason::DepositForIndex.into(), &account, hold_amount)
-			{
+			match T::Fungible::hold(&HoldReason::DepositForIndex.into(), &account, hold_amount) {
 				Ok(_) => {
 					// Success: migrate to new storage with hold
 					Accounts::<T>::insert(index, (account, hold_amount, frozen));

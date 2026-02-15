@@ -51,8 +51,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 
 		#[extrinsic_call]
@@ -68,15 +67,13 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -95,8 +92,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -115,15 +111,13 @@ mod benchmarks {
 		let original: T::AccountId = account("original", 0, SEED);
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&original,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&recipient,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
@@ -142,8 +136,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				T::Deposit::get(),
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + T::Deposit::get(),
 		);
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
@@ -232,8 +225,7 @@ mod benchmarks {
 		// Give the account some balance (enough for deposit + existential deposit)
 		<T::Fungible as FungibleMutate<T::AccountId>>::set_balance(
 			&caller,
-			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() +
-				deposit + deposit,
+			<T::Fungible as FungibleInspect<T::AccountId>>::minimum_balance() + deposit + deposit,
 		);
 
 		// Reserve funds using the old Currency system
@@ -244,10 +236,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = MigrateCurrencyToFungibles::<T, T::Fungible>::step(
-				None,
-				&mut WeightMeter::new(),
-			);
+			let _ =
+				MigrateCurrencyToFungibles::<T, T::Fungible>::step(None, &mut WeightMeter::new());
 		}
 
 		// Verify the account was migrated to the new storage
