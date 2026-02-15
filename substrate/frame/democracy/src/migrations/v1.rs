@@ -92,10 +92,6 @@ pub mod v1 {
 							// Create VersionedCall from legacy hash
 							let bounded_call = Bounded::from_legacy_hash(status.proposal);
 
-							// // Get current transaction version for the VersionedCall
-							// let current_version =
-							// 	<frame_system::Pallet<T>>::runtime_version().transaction_version;
-
 							ReferendumInfo::Ongoing(ReferendumStatus {
 								end: status.end,
 								proposal: bounded_call,
@@ -104,8 +100,9 @@ pub mod v1 {
 								tally: status.tally,
 							})
 						},
-						ReferendumInfo::Finished { approved, end } =>
-							ReferendumInfo::Finished { approved, end },
+						ReferendumInfo::Finished { approved, end } => {
+							ReferendumInfo::Finished { approved, end }
+						},
 					})
 				},
 			);
