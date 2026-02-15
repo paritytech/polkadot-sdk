@@ -65,3 +65,9 @@ crates:
   bump: major
 - name: pallet-whitelist
   bump: major
+- name: kitchensink-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
