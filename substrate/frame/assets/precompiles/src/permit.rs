@@ -118,6 +118,8 @@ pub mod pallet {
 		NonceOverflow,
 		/// The owner address is invalid (e.g., zero address).
 		InvalidOwner,
+		/// The spender address is invalid (e.g., zero address).
+		InvalidSpender,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -150,6 +152,7 @@ pub mod pallet {
 				b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
 			);
 
+			// TODO: pass the token name here or keep it hardcoded?
 			let name_hash = keccak_256(b"Asset Permit");
 			let version_hash = keccak_256(b"1");
 			let chain_id = T::ChainId::get();
@@ -308,8 +311,12 @@ pub mod pallet {
 		where
 			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
 		{
+		// EIP-2612: owner and spender cannot be the zero address
 			if owner.is_zero() {
 				return Err(Error::<T>::InvalidOwner);
+			}
+			if spender.is_zero() {
+				return Err(Error::<T>::InvalidSpender);
 			}
 
 			// Validate deadline against current timestamp

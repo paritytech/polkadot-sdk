@@ -406,11 +406,6 @@ where
 		let owner_h160: H160 = call.owner.into_array().into();
 		let spender_h160: H160 = call.spender.into_array().into();
 
-		// EIP-2612: spender cannot be the zero address
-		if spender_h160.is_zero() {
-			return Err(Error::Revert(Revert { reason: "Spender cannot be zero address".into() }));
-		}
-
 		// Convert U256 values to byte arrays
 		let value_bytes: [u8; 32] = call.value.to_be_bytes();
 		let deadline_bytes: [u8; 32] = call.deadline.to_be_bytes();
