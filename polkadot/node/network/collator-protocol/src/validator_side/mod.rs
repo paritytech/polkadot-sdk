@@ -336,8 +336,9 @@ impl PeerData {
 	fn is_inactive(&self, policy: &crate::CollatorEvictionPolicy) -> bool {
 		match self.state {
 			PeerState::Connected(connected_at) => connected_at.elapsed() >= policy.undeclared,
-			PeerState::Collating(ref state) =>
-				state.last_active.elapsed() >= policy.inactive_collator,
+			PeerState::Collating(ref state) => {
+				state.last_active.elapsed() >= policy.inactive_collator
+			},
 		}
 	}
 }
@@ -751,14 +752,16 @@ pub async fn notify_collation_seconded(
 ) {
 	let statement = statement.into();
 	let wire_message = match version {
-		CollationVersion::V1 =>
+		CollationVersion::V1 => {
 			CollationProtocols::V1(protocol_v1::CollationProtocol::CollatorProtocol(
 				protocol_v1::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-			)),
-		CollationVersion::V2 =>
+			))
+		},
+		CollationVersion::V2 => {
 			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				protocol_v2::CollatorProtocolMessage::CollationSeconded(relay_parent, statement),
-			)),
+			))
+		},
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -1862,7 +1865,9 @@ async fn process_msg<Context>(
 				Entry::Occupied(entry)
 					if entry.get().pending_collation.commitments_hash ==
 						Some(candidate_receipt.commitments_hash) =>
-					entry.remove().collator_id,
+				{
+					entry.remove().collator_id
+				},
 				Entry::Occupied(_) => {
 					gum::error!(
 						target: LOG_TARGET,

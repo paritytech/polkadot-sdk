@@ -16,14 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	subxt_client::{
-		self,
-		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
-		SrcChainConfig,
-	},
 	ClientError, H160,
+	subxt_client::{
+		self, SrcChainConfig,
+		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+	},
 };
-use subxt::{storage::Storage, OnlineClient};
+use subxt::{OnlineClient, storage::Storage};
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]

@@ -53,7 +53,9 @@ impl ClaimState {
 		match self {
 			ClaimState::Pending(Some(candidate)) | ClaimState::Seconded(candidate)
 				if !known_candidates.contains(candidate) =>
-				ClaimState::Free,
+			{
+				ClaimState::Free
+			},
 			_ => self.clone(),
 		}
 	}

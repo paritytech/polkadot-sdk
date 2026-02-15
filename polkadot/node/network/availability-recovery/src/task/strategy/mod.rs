@@ -382,13 +382,15 @@ impl State {
 				requesting_chunks.push(Box::pin(async move {
 					let _timer = timer;
 					let res = match res.await {
-						Ok((bytes, protocol)) =>
+						Ok((bytes, protocol)) => {
 							if v2_protocol_name == protocol {
 								match req_res::v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
-									Ok(req_res::v2::ChunkFetchingResponse::Chunk(chunk)) =>
-										Ok((Some(chunk.into()), protocol)),
-									Ok(req_res::v2::ChunkFetchingResponse::NoSuchChunk) =>
-										Ok((None, protocol)),
+									Ok(req_res::v2::ChunkFetchingResponse::Chunk(chunk)) => {
+										Ok((Some(chunk.into()), protocol))
+									},
+									Ok(req_res::v2::ChunkFetchingResponse::NoSuchChunk) => {
+										Ok((None, protocol))
+									},
 									Err(e) => Err(RequestError::InvalidResponse(e)),
 								}
 							} else if v1_protocol_name == protocol {
@@ -413,13 +415,15 @@ impl State {
 										Some(chunk.recombine_into_chunk(&raw_request_v1)),
 										protocol,
 									)),
-									Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) =>
-										Ok((None, protocol)),
+									Ok(req_res::v1::ChunkFetchingResponse::NoSuchChunk) => {
+										Ok((None, protocol))
+									},
 									Err(e) => Err(RequestError::InvalidResponse(e)),
 								}
 							} else {
 								Err(RequestError::NetworkError(RequestFailure::UnknownProtocol))
-							},
+							}
+						},
 
 						Err(e) => Err(e),
 					};
@@ -484,15 +488,17 @@ impl State {
 			match request_result {
 				Ok((maybe_chunk, protocol)) => {
 					match protocol {
-						name if name == params.req_v1_protocol_name =>
-							params.metrics.on_chunk_response_v1(),
-						name if name == params.req_v2_protocol_name =>
-							params.metrics.on_chunk_response_v2(),
+						name if name == params.req_v1_protocol_name => {
+							params.metrics.on_chunk_response_v1()
+						},
+						name if name == params.req_v2_protocol_name => {
+							params.metrics.on_chunk_response_v2()
+						},
 						_ => {},
 					}
 
 					match maybe_chunk {
-						Some(chunk) =>
+						Some(chunk) => {
 							if is_chunk_valid(params, &chunk) {
 								metrics.on_chunk_request_succeeded(strategy_type);
 								gum::trace!(
@@ -513,7 +519,8 @@ impl State {
 								// don't try requesting this again.
 								self.record_error_fatal(authority_id.clone(), validator_index);
 								is_error = true;
-							},
+							}
+						},
 						None => {
 							metrics.on_chunk_request_no_such_chunk(strategy_type);
 							gum::trace!(

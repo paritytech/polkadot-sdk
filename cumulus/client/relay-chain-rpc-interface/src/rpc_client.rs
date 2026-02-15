@@ -276,6 +276,17 @@ impl RelayChainRpcClient {
 		self.request("state_getReadProof", params).await
 	}
 
+	/// Get child trie read proof for `child_keys`
+	pub async fn state_get_child_read_proof(
+		&self,
+		child_storage_key: sp_core::storage::PrefixedStorageKey,
+		child_keys: Vec<StorageKey>,
+		at: Option<RelayHash>,
+	) -> Result<ReadProof<RelayHash>, RelayChainError> {
+		let params = rpc_params![child_storage_key, child_keys, at];
+		self.request("state_getChildReadProof", params).await
+	}
+
 	/// Retrieve storage item at `storage_key`
 	pub async fn state_get_storage(
 		&self,

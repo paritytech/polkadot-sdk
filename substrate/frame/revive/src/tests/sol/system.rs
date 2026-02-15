@@ -18,16 +18,16 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	evm::fees::InfoT,
-	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, WEIGHT_LIMIT},
-	tests::{builder, Contracts, ExtBuilder, Test},
 	Code, Config, ExecConfig, TransactionLimits, TransactionMeter, U256,
+	evm::fees::InfoT,
+	test_utils::{ALICE, ALICE_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
+	tests::{Contracts, ExtBuilder, Test, builder},
 };
 
 use alloy_core::sol_types::{Revert, SolCall, SolConstructor, SolError};
 use frame_support::traits::fungible::{Balanced, Mutate};
 use pallet_revive_fixtures::{
-	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
+	Callee, FixtureType, System as SystemFixture, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use revm::primitives::Bytes;

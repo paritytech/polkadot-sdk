@@ -103,13 +103,16 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
 		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
 	};
 
 	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
-			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params),
-		sc_network::config::NetworkBackendType::Litep2p =>
-			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
+		sc_network::config::NetworkBackendType::Libp2p => {
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
+		},
 	}
 }
 
