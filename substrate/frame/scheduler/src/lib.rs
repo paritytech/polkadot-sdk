@@ -1544,8 +1544,9 @@ impl<T: Config> Pallet<T> {
 		let dispatch_origin = origin.into();
 		let (maybe_actual_call_weight, result) = match call.dispatch(dispatch_origin) {
 			Ok(post_info) => (post_info.actual_weight, Ok(())),
-			Err(error_and_info) =>
-				(error_and_info.post_info.actual_weight, Err(error_and_info.error)),
+			Err(error_and_info) => {
+				(error_and_info.post_info.actual_weight, Err(error_and_info.error))
+			},
 		};
 		let call_weight = maybe_actual_call_weight.unwrap_or(call_weight);
 		let _ = weight.try_consume(base_weight);

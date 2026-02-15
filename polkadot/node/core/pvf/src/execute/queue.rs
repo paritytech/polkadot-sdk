@@ -525,13 +525,15 @@ async fn handle_job_finish(
 		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
-			(None, Err(ValidationError::Internal(err)), None, None, None),
+		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) => {
+			(None, Err(ValidationError::Internal(err)), None, None, None)
+		},
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
 		Err(WorkerInterfaceError::HardTimeout) |
-		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) =>
-			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None),
+		Err(WorkerInterfaceError::WorkerError(WorkerError::JobTimedOut)) => {
+			(None, Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)), None, None, None)
+		},
 		// "Maybe invalid" errors (will retry).
 		Err(WorkerInterfaceError::CommunicationErr(_err)) => (
 			None,

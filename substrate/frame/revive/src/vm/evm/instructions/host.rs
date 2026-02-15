@@ -15,18 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	limits,
+	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, U256, limits,
 	metering::Token,
 	storage::WriteOutcome,
 	vec::Vec,
 	vm::{
-		evm::{
-			instructions::utility::IntoAddress, interpreter::Halt, util::as_usize_or_halt,
-			Interpreter,
-		},
 		Ext,
+		evm::{
+			Interpreter, instructions::utility::IntoAddress, interpreter::Halt,
+			util::as_usize_or_halt,
+		},
 	},
-	DispatchError, Error, Key, RuntimeCosts, LOG_TARGET, U256,
 };
 use core::ops::ControlFlow;
 

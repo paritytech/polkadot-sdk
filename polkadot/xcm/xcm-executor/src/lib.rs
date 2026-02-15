@@ -890,10 +890,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						});
 					}
 				},
-				Err(ref mut error) =>
+				Err(ref mut error) => {
 					if let Ok(x) = Config::Weigher::instr_weight(&mut instr) {
 						error.weight.saturating_accrue(x)
-					},
+					}
+				},
 			}
 		}
 		result

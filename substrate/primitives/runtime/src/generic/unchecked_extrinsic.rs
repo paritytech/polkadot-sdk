@@ -200,8 +200,9 @@ where
 		match self {
 			Self::Bare(_) => write!(f, "Bare"),
 			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
-			Self::General(ext_version, tx_ext) =>
-				write!(f, "General({:?}, {:?})", ext_version, tx_ext),
+			Self::General(ext_version, tx_ext) => {
+				write!(f, "General({:?}, {:?})", ext_version, tx_ext)
+			},
 		}
 	}
 }
@@ -505,8 +506,9 @@ where
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => {
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function }
+			},
 		})
 	}
 
@@ -527,8 +529,9 @@ where
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => {
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function }
+			},
 		})
 	}
 }

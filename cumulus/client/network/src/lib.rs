@@ -389,11 +389,12 @@ where
 
 			let block_announce_data = match BlockAnnounceData::decode_all(&mut data.as_slice()) {
 				Ok(r) => r,
-				Err(err) =>
+				Err(err) => {
 					return Err(Box::new(BlockAnnounceError(format!(
 						"Can not decode the `BlockAnnounceData`: {:?}",
 						err
-					))) as Box<_>),
+					))) as Box<_>)
+				},
 			};
 
 			if let Err(e) = block_announce_data.validate(header_encoded) {

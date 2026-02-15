@@ -41,8 +41,9 @@ impl From<LockError> for XcmError {
 			NotApplicable => XcmError::AssetNotFound,
 			BadOrigin => XcmError::BadOrigin,
 			WouldClobber | NotLocked | NotEnoughLocked | Unimplemented | NotTrusted |
-			BadOwner | UnknownAsset | AssetNotOwned | NoResources | UnexpectedState | InUse =>
-				XcmError::LockError,
+			BadOwner | UnknownAsset | AssetNotOwned | NoResources | UnexpectedState | InUse => {
+				XcmError::LockError
+			},
 		}
 	}
 }

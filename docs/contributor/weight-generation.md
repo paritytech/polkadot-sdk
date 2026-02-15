@@ -5,7 +5,7 @@ Weights generation is using self-hosted runner which is provided by Parity CI, t
 GitHub runners on `ubuntu-latest` or `ubuntu-20.04`.
 Self-hosted runner for benchmarks (`parity-weights`) is configured to meet requirements of reference
 hardware for running validators
-https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware
+https://docs.polkadot.com/infrastructure/running-a-validator/requirements/#minimum-hardware-requirements
 
 In a PR run the actions through comment:
 

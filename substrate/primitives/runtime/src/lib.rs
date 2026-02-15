@@ -676,8 +676,9 @@ impl DispatchError {
 	/// Return the same error but without the attached message.
 	pub fn stripped(self) -> Self {
 		match self {
-			DispatchError::Module(ModuleError { index, error, message: Some(_) }) =>
-				DispatchError::Module(ModuleError { index, error, message: None }),
+			DispatchError::Module(ModuleError { index, error, message: Some(_) }) => {
+				DispatchError::Module(ModuleError { index, error, message: None })
+			},
 			m => m,
 		}
 	}
@@ -753,8 +754,9 @@ impl From<TokenError> for &'static str {
 			TokenError::UnknownAsset => "The asset in question is unknown",
 			TokenError::Frozen => "Funds exist but are frozen",
 			TokenError::Unsupported => "Operation is not supported by the asset",
-			TokenError::CannotCreateHold =>
-				"Account cannot be created for recording amount on hold",
+			TokenError::CannotCreateHold => {
+				"Account cannot be created for recording amount on hold"
+			},
 			TokenError::NotExpendable => "Account that is desired to remain would die",
 			TokenError::Blocked => "Account cannot receive the assets",
 		}
