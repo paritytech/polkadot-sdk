@@ -128,6 +128,7 @@ std = [
 	"w3f-bls?/std",
 	"zeroize/alloc",
 	"zeroize/std",
+	"byte-slice-cast/std"
 ]
 
 # Serde support without relying on std features.
