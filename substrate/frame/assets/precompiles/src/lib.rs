@@ -21,6 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
+use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
@@ -187,7 +188,7 @@ where
 			// ERC20Permit functions (EIP-2612)
 			IERC20Calls::permit(call) => Self::permit(asset_id, contract_addr, call, env),
 			IERC20Calls::nonces(call) => Self::nonces(contract_addr, call, env),
-			IERC20Calls::DOMAIN_SEPARATOR(_) => Self::domain_separator(contract_addr, env),
+			IERC20Calls::DOMAIN_SEPARATOR(_) => Self::domain_separator(asset_id, contract_addr, env),
 		}
 	}
 }
@@ -406,6 +407,9 @@ where
 		let owner_h160: H160 = call.owner.into_array().into();
 		let spender_h160: H160 = call.spender.into_array().into();
 
+		// Fetch token name for EIP-712 domain separator (per EIP-2612 spec)
+		let token_name = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id.clone());
+
 		// Convert U256 values to byte arrays
 		let value_bytes: [u8; 32] = call.value.to_be_bytes();
 		let deadline_bytes: [u8; 32] = call.deadline.to_be_bytes();
@@ -417,6 +421,7 @@ where
 				// Use the permit - this validates deadline, signature, and increments nonce
 				permit::Pallet::<Runtime>::use_permit(
 					&verifying_contract,
+					&token_name,
 					&owner_h160,
 					&spender_h160,
 					&value_bytes,
@@ -435,6 +440,7 @@ where
 						permit::pallet::Error::InvalidVValue => "Invalid signature v value",
 						permit::pallet::Error::NonceOverflow => "Nonce overflow",
 						permit::pallet::Error::InvalidOwner => "Invalid owner address",
+						permit::pallet::Error::InvalidSpender => "Invalid spender address",
 					};
 					Error::Revert(Revert { reason: msg.into() })
 				})?;
@@ -499,12 +505,17 @@ where
 
 	/// Get the EIP-712 domain separator for this contract.
 	fn domain_separator(
+		asset_id: <Runtime as Config<Instance>>::AssetId,
 		verifying_contract: H160,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		env.charge(<Runtime as permit::Config>::WeightInfo::domain_separator())?;
 
-		let separator = permit::Pallet::<Runtime>::compute_domain_separator(&verifying_contract);
+		// Fetch token name for EIP-712 domain separator (per EIP-2612 spec)
+		let token_name = pallet_assets::Pallet::<Runtime, Instance>::name(asset_id);
+
+		let separator =
+			permit::Pallet::<Runtime>::compute_domain_separator(&verifying_contract, &token_name);
 		let separator_alloy: alloy::primitives::FixedBytes<32> = separator.0.into();
 
 		Ok(IERC20::DOMAIN_SEPARATORCall::abi_encode_returns(&separator_alloy))

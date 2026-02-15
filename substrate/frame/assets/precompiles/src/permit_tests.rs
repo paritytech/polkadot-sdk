@@ -25,6 +25,11 @@ fn test_verifying_contract() -> H160 {
 	H160::from_low_u64_be(0x1234)
 }
 
+/// Helper to create a test token name for EIP-712 domain separator.
+fn test_token_name() -> &'static [u8] {
+	b"Test Token"
+}
+
 /// Helper to create a future deadline (far in the future).
 /// EIP-2612 specifies deadlines in UNIX seconds.
 fn future_deadline() -> [u8; 32] {
@@ -109,7 +114,9 @@ fn nonces_are_independent_per_owner() {
 fn domain_separator_is_computed() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
-		let separator = permit::Pallet::<Test>::compute_domain_separator(&verifying_contract);
+		let name = test_token_name();
+		let separator =
+			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, name);
 		// Should be a non-zero hash
 		assert_ne!(separator, H256::zero());
 	});
@@ -119,8 +126,11 @@ fn domain_separator_is_computed() {
 fn domain_separator_is_deterministic() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
-		let separator1 = permit::Pallet::<Test>::compute_domain_separator(&verifying_contract);
-		let separator2 = permit::Pallet::<Test>::compute_domain_separator(&verifying_contract);
+		let name = test_token_name();
+		let separator1 =
+			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, name);
+		let separator2 =
+			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, name);
 		// Should return the same value for same inputs
 		assert_eq!(separator1, separator2);
 	});
@@ -131,11 +141,27 @@ fn domain_separators_differ_per_verifying_contract() {
 	new_test_ext().execute_with(|| {
 		let contract_1 = H160::from_low_u64_be(0x1111);
 		let contract_2 = H160::from_low_u64_be(0x2222);
+		let name = test_token_name();
 
-		let separator1 = permit::Pallet::<Test>::compute_domain_separator(&contract_1);
-		let separator2 = permit::Pallet::<Test>::compute_domain_separator(&contract_2);
+		let separator1 = permit::Pallet::<Test>::compute_domain_separator(&contract_1, name);
+		let separator2 = permit::Pallet::<Test>::compute_domain_separator(&contract_2, name);
 
 		// Domain separators should be different for different verifying contracts
+		assert_ne!(separator1, separator2);
+	});
+}
+
+#[test]
+fn domain_separators_differ_per_token_name() {
+	new_test_ext().execute_with(|| {
+		let verifying_contract = test_verifying_contract();
+
+		let separator1 =
+			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, b"Token A");
+		let separator2 =
+			permit::Pallet::<Test>::compute_domain_separator(&verifying_contract, b"Token B");
+
+		// Domain separators should be different for different token names
 		assert_ne!(separator1, separator2);
 	});
 }
@@ -148,6 +174,7 @@ fn domain_separators_differ_per_verifying_contract() {
 fn permit_digest_is_deterministic() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -156,6 +183,7 @@ fn permit_digest_is_deterministic() {
 
 		let digest1 = permit::Pallet::<Test>::permit_digest(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -164,6 +192,7 @@ fn permit_digest_is_deterministic() {
 		);
 		let digest2 = permit::Pallet::<Test>::permit_digest(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -179,6 +208,7 @@ fn permit_digest_is_deterministic() {
 fn permit_digest_changes_with_nonce() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -186,6 +216,7 @@ fn permit_digest_changes_with_nonce() {
 
 		let digest1 = permit::Pallet::<Test>::permit_digest(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -194,6 +225,7 @@ fn permit_digest_changes_with_nonce() {
 		);
 		let digest2 = permit::Pallet::<Test>::permit_digest(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -210,6 +242,7 @@ fn permit_digest_changes_with_verifying_contract() {
 	new_test_ext().execute_with(|| {
 		let contract_1 = H160::from_low_u64_be(0x1111);
 		let contract_2 = H160::from_low_u64_be(0x2222);
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -218,6 +251,7 @@ fn permit_digest_changes_with_verifying_contract() {
 
 		let digest1 = permit::Pallet::<Test>::permit_digest(
 			&contract_1,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -226,6 +260,7 @@ fn permit_digest_changes_with_verifying_contract() {
 		);
 		let digest2 = permit::Pallet::<Test>::permit_digest(
 			&contract_2,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -259,34 +294,26 @@ fn ecrecover_with_valid_signature() {
 		let message_hash = sp_io::hashing::keccak_256(b"test message");
 
 		// Signature components from ethers.js signing
-		// Note: These are placeholder values - in production tests, generate real signatures
 		let r: [u8; 32] = [
-			0x9e, 0x9b, 0x5e, 0x0b, 0x89, 0x7f, 0x40, 0x5b, 0x7c, 0x3a, 0x8c, 0x6a, 0x5b, 0x3c,
-			0x4d, 0x5e, 0x6f, 0x7a, 0x8b, 0x9c, 0x0a, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, 0x6a, 0x7b,
-			0x8c, 0x9d, 0x0e, 0x1f,
+			0xbf, 0x50, 0xb8, 0x99, 0x85, 0xbd, 0x02, 0x4b, 0xd4, 0xf2, 0x5e, 0xa2, 0x1e, 0x72,
+			0xe0, 0x56, 0xd4, 0x46, 0xdd, 0xe9, 0x8a, 0xac, 0x81, 0xf3, 0x10, 0x3c, 0x9e, 0x46,
+			0x9e, 0x23, 0x1a, 0xad,
 		];
 		let s: [u8; 32] = [
-			0x1c, 0x2d, 0x3e, 0x4f, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0, 0xc1, 0xd2, 0xe3,
-			0xf4, 0x05, 0x16, 0x27, 0x38, 0x49, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0, 0xc1,
-			0xd2, 0xe3, 0xf4, 0x05,
+			0x51, 0x91, 0x01, 0xf0, 0x2d, 0xaa, 0xbb, 0xd4, 0xaf, 0x51, 0xdf, 0x7f, 0xa2, 0x12,
+			0xc1, 0x33, 0x88, 0xa9, 0x26, 0x10, 0x84, 0x2b, 0xda, 0xe8, 0x07, 0x26, 0x60, 0x99,
+			0x36, 0x7c, 0xc6, 0x86,
 		];
 		let v = 27u8;
 
-		// The function should not panic with these inputs
-		// Note: With synthetic values, recovery may succeed but return a different address
 		let result = permit::Pallet::<Test>::ecrecover(&message_hash, v, &r, &s);
 
-		// We just verify the function handles the input without panicking
-		// For proper verification, use real test vectors
-		match result {
-			Ok(address) => {
-				// Address should be non-zero for valid signatures
-				assert_ne!(address, H160::zero());
-			},
-			Err(_) => {
-				// Invalid signature is also acceptable for synthetic test data
-			},
-		}
+		// Should recover the correct address
+		let expected_address = H160([
+			0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce,
+			0x6a, 0xB8, 0x82, 0x72, 0x79, 0xcf, 0xfF, 0xb9, 0x22, 0x66,
+		]);
+		assert_eq!(result.unwrap(), expected_address);
 	});
 }
 
@@ -366,6 +393,7 @@ fn ecrecover_accepts_s_at_boundary() {
 fn verify_permit_fails_with_expired_deadline() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -376,6 +404,7 @@ fn verify_permit_fails_with_expired_deadline() {
 
 		let result = permit::Pallet::<Test>::verify_permit(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -397,6 +426,7 @@ fn verify_permit_fails_with_expired_deadline() {
 fn use_permit_increments_nonce() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -414,6 +444,7 @@ fn use_permit_increments_nonce() {
 		// (which doesn't modify state)
 		let verify_result = permit::Pallet::<Test>::verify_permit(
 			&verifying_contract,
+			name,
 			&owner,
 			&spender,
 			&value,
@@ -436,6 +467,7 @@ fn use_permit_increments_nonce() {
 fn verify_permit_does_not_increment_nonce() {
 	new_test_ext().execute_with(|| {
 		let verifying_contract = test_verifying_contract();
+		let name = test_token_name();
 		let owner = H160::from_low_u64_be(1);
 		let spender = H160::from_low_u64_be(2);
 		let value = [0u8; 32];
@@ -450,6 +482,7 @@ fn verify_permit_does_not_increment_nonce() {
 		for _ in 0..3 {
 			let _ = permit::Pallet::<Test>::verify_permit(
 				&verifying_contract,
+				name,
 				&owner,
 				&spender,
 				&value,

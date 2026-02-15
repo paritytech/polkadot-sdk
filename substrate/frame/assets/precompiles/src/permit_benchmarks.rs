@@ -36,6 +36,9 @@ fn test_owner() -> H160 {
 	H160::from_slice(&TEST_OWNER)
 }
 
+/// Test token name for EIP-712 domain separator.
+const TEST_TOKEN_NAME: &[u8] = b"Asset Permit";
+
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -57,11 +60,12 @@ mod benchmarks {
 	#[benchmark]
 	fn domain_separator() {
 		let verifying_contract = test_verifying_contract();
+		let name = TEST_TOKEN_NAME;
 
 		let result;
 		#[block]
 		{
-			result = Pallet::<T>::compute_domain_separator(&verifying_contract);
+			result = Pallet::<T>::compute_domain_separator(&verifying_contract, name);
 		}
 		assert_ne!(result, sp_core::H256::zero());
 	}
@@ -73,13 +77,19 @@ mod benchmarks {
 		//
 		// Parameters:
 		// - Chain ID: 31337
+		// - Token Name: "Test Token" (must match TEST_TOKEN_NAME)
 		// - Owner: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 		// - Verifying Contract: 0x0000000000000000000000000000000012345678
 		// - Spender: 0x0000000000000000000000000000000098765432
 		// - Value: 1000
 		// - Nonce: 0
 		// - Deadline: 18446744073709551615 (u64::MAX)
+		//
+		// NOTE: If you change TEST_TOKEN_NAME or other parameters, you must regenerate
+		// this signature using the Hardhat account #0 private key:
+		// 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 		let verifying_contract = test_verifying_contract();
+		let name = TEST_TOKEN_NAME;
 		let owner = test_owner();
 		let spender = H160::from_low_u64_be(0x9876_5432);
 		let value: [u8; 32] = U256::from(1000).to_big_endian();
@@ -99,6 +109,7 @@ mod benchmarks {
 		{
 			Pallet::<T>::use_permit(
 				&verifying_contract,
+				name,
 				&owner,
 				&spender,
 				&value,

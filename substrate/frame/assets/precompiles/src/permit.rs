@@ -141,19 +141,21 @@ pub mod pallet {
 		///
 		/// DOMAIN_SEPARATOR = keccak256(abi.encode(
 		///   keccak256("EIP712Domain(string name,string version,uint256 chainId,address
-		/// verifyingContract)"),   keccak256("Asset Permit"),
+		/// verifyingContract)"),
+		///   keccak256(name),
 		///   keccak256("1"),
 		///   chainId,
 		///   verifyingContract
 		/// ))
-		pub fn compute_domain_separator(verifying_contract: &H160) -> H256 {
+		///
+		/// The `name` parameter should be the token name per EIP-2612 specification.
+		pub fn compute_domain_separator(verifying_contract: &H160, name: &[u8]) -> H256 {
 			// EIP712Domain typehash
 			let domain_typehash = keccak_256(
 				b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
 			);
 
-			// TODO: pass the token name here or keep it hardcoded?
-			let name_hash = keccak_256(b"Asset Permit");
+			let name_hash = keccak_256(name);
 			let version_hash = keccak_256(b"1");
 			let chain_id = T::ChainId::get();
 
@@ -210,15 +212,18 @@ pub mod pallet {
 		/// Compute the final EIP-712 digest to be signed.
 		///
 		/// digest = keccak256("\x19\x01" || domainSeparator || structHash)
+		///
+		/// The `name` parameter should be the token name per EIP-2612 specification.
 		pub fn permit_digest(
 			verifying_contract: &H160,
+			name: &[u8],
 			owner: &H160,
 			spender: &H160,
 			value: &[u8; 32],
 			nonce: &U256,
 			deadline: &[u8; 32],
 		) -> [u8; 32] {
-			let domain_separator = Self::compute_domain_separator(verifying_contract);
+			let domain_separator = Self::compute_domain_separator(verifying_contract, name);
 			let struct_hash = Self::permit_struct_hash(owner, spender, value, nonce, deadline);
 
 			let mut data = Vec::with_capacity(DIGEST_PREFIX_LEN);
@@ -297,9 +302,12 @@ pub mod pallet {
 		/// This function is provided for cases where you need to verify a permit
 		/// in a read-only context or need to separate verification from consumption.
 		///
+		/// The `name` parameter should be the token name per EIP-2612 specification.
+		///
 		/// Made pub(crate) for testing
 		pub(crate) fn verify_permit(
 			verifying_contract: &H160,
+			name: &[u8],
 			owner: &H160,
 			spender: &H160,
 			value: &[u8; 32],
@@ -311,7 +319,7 @@ pub mod pallet {
 		where
 			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
 		{
-		// EIP-2612: owner and spender cannot be the zero address
+			// EIP-2612: owner and spender cannot be the zero address
 			if owner.is_zero() {
 				return Err(Error::<T>::InvalidOwner);
 			}
@@ -322,7 +330,7 @@ pub mod pallet {
 			// Validate deadline against current timestamp
 			// EIP-2612 specifies deadlines in UNIX seconds, but pallet_timestamp
 			// typically returns milliseconds. Convert to seconds for compatibility.
-			// TODO: how to enforce corect time units here?
+			// TODO: how to enforce correct time units here?
 			let now_ms: u128 = <pallet_timestamp::Pallet<T>>::get().unique_saturated_into();
 			// Floor division: don't reject permits early due to ms -> s conversion
 			let now_seconds = now_ms / 1000;
@@ -335,7 +343,7 @@ pub mod pallet {
 
 			let nonce = Self::nonce(verifying_contract, owner);
 			let digest =
-				Self::permit_digest(verifying_contract, owner, spender, value, &nonce, deadline);
+				Self::permit_digest(verifying_contract, name, owner, spender, value, &nonce, deadline);
 
 			let recovered = Self::ecrecover(&digest, v, r, s)?;
 
@@ -353,9 +361,12 @@ pub mod pallet {
 		/// 2. Verifies the signature matches the owner
 		/// 3. Increments the nonce to prevent replay attacks
 		///
+		/// The `name` parameter should be the token name per EIP-2612 specification.
+		///
 		/// After this function returns `Ok(())`, the permit cannot be used again.
 		pub fn use_permit(
 			verifying_contract: &H160,
+			name: &[u8],
 			owner: &H160,
 			spender: &H160,
 			value: &[u8; 32],
@@ -368,7 +379,7 @@ pub mod pallet {
 			<T as pallet_timestamp::Config>::Moment: UniqueSaturatedInto<u128>,
 		{
 			// Verify the permit first
-			Self::verify_permit(verifying_contract, owner, spender, value, deadline, v, r, s)?;
+			Self::verify_permit(verifying_contract, name, owner, spender, value, deadline, v, r, s)?;
 
 			// Consume the permit by incrementing the nonce
 			// This prevents the same permit from being used again
