@@ -2735,7 +2735,6 @@ impl<T: Config> Pallet<T> {
 	/// - Nonce must match the sender's current state nonce exactly.
 	/// - `max_fee_per_gas` must be >= the current base fee.
 	/// - `max_priority_fee_per_gas` must be <= `max_fee_per_gas`.
-	/// - Sender balance must cover `gas_limit * max_fee_per_gas + value`.
 	///
 	/// Reference: Geth `internal/ethapi/transaction_args.go` `CallDefaults`,
 	/// `internal/ethapi/simulate.go` `sanitizeCall`,
