@@ -2333,7 +2333,13 @@ async fn test_simulate_v1_block_override_timestamp() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	let timestamp_override = U256::from(10_000_000_000u64);
+	// Fetch the current block's timestamp and add an offset to ensure the override is
+	// in the future. Substrate timestamps are in milliseconds.
+	let current_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow!("Current block should exist"))?;
+	let timestamp_override = current_block.timestamp + U256::from(10_000u64);
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![SimulationPayload {
@@ -2458,7 +2464,12 @@ async fn test_simulate_v1_block_override_all_fields() -> anyhow::Result<()> {
 	let alith = Account::default();
 	let fee_recipient = H160::from([0xab; 20]);
 	let override_number = block_number + U256::one();
-	let override_time = U256::from(1_000_000u64);
+	// Use the current block's timestamp + offset to ensure the override is in the future.
+	let current_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow!("Current block should exist"))?;
+	let override_time = current_block.timestamp + U256::from(20_000u64);
 	let override_gas_limit = U256::from(50_000_000u64);
 	let override_base_fee = U256::from(999u64);
 	let override_prev_randao = U256::from(777u64);
@@ -2510,12 +2521,19 @@ async fn test_simulate_v1_timestamp_ordering_failure() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
+	// Use the current block's timestamp to compute valid future timestamps.
+	let current_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow!("Current block should exist"))?;
+	let large_timestamp = current_block.timestamp + U256::from(20_000u64);
+	let small_timestamp = current_block.timestamp + U256::from(10_000u64);
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![
 			SimulationPayload {
 				block_overrides: Some(BlockOverrides {
-					time: Some(U256::from(999_999u64)),
+					time: Some(large_timestamp),
 					..Default::default()
 				}),
 				state_overrides: None,
@@ -2527,7 +2545,7 @@ async fn test_simulate_v1_timestamp_ordering_failure() -> anyhow::Result<()> {
 			},
 			SimulationPayload {
 				block_overrides: Some(BlockOverrides {
-					time: Some(U256::from(100u64)),
+					time: Some(small_timestamp),
 					..Default::default()
 				}),
 				state_overrides: None,
@@ -2559,7 +2577,12 @@ async fn test_simulate_v1_timestamp_equal_allowed() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	let same_time = U256::from(999_999u64);
+	// Use the current block's timestamp + offset so the value is in the future.
+	let current_block = client
+		.get_block_by_number(BlockNumberOrTag::U256(block_number), false)
+		.await?
+		.ok_or_else(|| anyhow!("Current block should exist"))?;
+	let same_time = current_block.timestamp + U256::from(10_000u64);
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![

@@ -2503,7 +2503,8 @@ impl<T: Config> Pallet<T> {
 	> {
 		let mut simulated_blocks = SimulationBlocks::<0x100>::new(
 			frame_system::Pallet::<T>::block_number().into(),
-			T::Time::now().into(),
+			// Eth uses timestamps in seconds, Substrate uses milliseconds.
+			(T::Time::now() / 1000u32.into()).into(),
 		);
 		for block_state_call in block_state_calls {
 			simulated_blocks.insert_simulation_payload(block_state_call)?;
