@@ -1,0 +1,18 @@
+title: Enforce statement allowances
+doc:
+- audience: Node Dev
+  description: |-
+    Okay, for now I'm just pretending that I understand what I'm doing.
+
+    This one is based on #10787 and aims to enforce statement allowances during storage maintenance.
+
+    At some point it closes #10569.
+crates:
+- name: sc-statement-store
+  bump: minor
+- name: pallet-statement
+  bump: minor
+- name: sp-storage
+  bump: minor
+- name: sp-statement-store
+  bump: minor
