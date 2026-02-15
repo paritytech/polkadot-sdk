@@ -1,0 +1,10 @@
+rules:
+  - repo: polka-codes/prompts
+    path: review/preamble.md
+    branch: master
+  - repo: polka-codes/prompts
+    path: review/rust.md
+    branch: master
+  - repo: polka-codes/prompts
+    path: review/polkadot-sdk.md
+    branch: master

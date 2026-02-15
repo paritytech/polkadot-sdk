@@ -285,7 +285,7 @@ use sp_runtime::{
 		TrailingZeroInput, Zero,
 	},
 	ArithmeticError::Overflow,
-	Percent, RuntimeDebug,
+	Debug, Percent,
 };
 
 pub use weights::WeightInfo;
@@ -303,14 +303,14 @@ pub type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 >>::NegativeImbalance;
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Vote {
 	pub approve: bool,
 	pub weight: u32,
 }
 
 /// A judgement by the suspension judgement origin on a suspended candidate.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Judgement {
 	/// The suspension judgement origin takes no direct judgment
 	/// and places the candidate back into the bid pool.
@@ -322,9 +322,7 @@ pub enum Judgement {
 }
 
 /// Details of a payout given as a per-block linear "trickle".
-#[derive(
-	Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct Payout<Balance, BlockNumber> {
 	/// Total value of the payout.
 	pub value: Balance,
@@ -337,7 +335,7 @@ pub struct Payout<Balance, BlockNumber> {
 }
 
 /// Status of a vouching member.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum VouchingStatus {
 	/// Member is currently vouching for a user.
 	Vouching,
@@ -349,7 +347,7 @@ pub enum VouchingStatus {
 pub type StrikeCount = u32;
 
 /// A bid for entry into society.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Bid<AccountId, Balance> {
 	/// The bidder/candidate trying to enter society
 	pub who: AccountId,
@@ -369,9 +367,7 @@ pub type Rank = u32;
 pub type VoteCount = u32;
 
 /// Tally of votes.
-#[derive(
-	Default, Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Default, Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Tally {
 	/// The approval votes.
 	pub approvals: VoteCount,
@@ -398,7 +394,7 @@ impl Tally {
 }
 
 /// A bid for entry into society.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct Candidacy<AccountId, Balance> {
 	/// The index of the round where the candidacy began.
 	pub round: RoundIndex,
@@ -413,7 +409,7 @@ pub struct Candidacy<AccountId, Balance> {
 }
 
 /// A vote by a member on a candidate application.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum BidKind<AccountId, Balance> {
 	/// The given deposit was paid for this bid.
 	Deposit(Balance),
@@ -432,7 +428,7 @@ pub type PayoutsFor<T, I> =
 	BoundedVec<(BlockNumberFor<T, I>, BalanceOf<T, I>), <T as Config<I>>::MaxPayouts>;
 
 /// Information concerning a member.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
 	pub rank: Rank,
 	pub strikes: StrikeCount,
@@ -441,7 +437,7 @@ pub struct MemberRecord {
 }
 
 /// Information concerning a member.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, Default, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, Default, MaxEncodedLen)]
 pub struct PayoutRecord<Balance, PayoutsVec> {
 	pub paid: Balance,
 	pub payouts: PayoutsVec,
@@ -453,7 +449,7 @@ pub type PayoutRecordFor<T, I> = PayoutRecord<
 >;
 
 /// Record for an individual new member who was elevated from a candidate recently.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct IntakeRecord<AccountId, Balance> {
 	pub who: AccountId,
 	pub bid: Balance,
@@ -471,7 +467,7 @@ pub type IntakeRecordFor<T, I> =
 	Clone,
 	PartialEq,
 	Eq,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -1066,7 +1062,7 @@ pub mod pallet {
 					T::Currency::transfer(&Self::payouts(), &who, *amount, AllowDeath)?;
 					record.payouts.remove(0);
 					Payouts::<T, I>::insert(&who, record);
-					return Ok(())
+					return Ok(());
 				}
 			}
 			Err(Error::<T, I>::NoPayout)?
@@ -1597,7 +1593,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		candidacy: &mut Candidacy<T::AccountId, BalanceOf<T, I>>,
 	) -> bool {
 		if RoundCount::<T, I>::get() != candidacy.round || candidacy.skeptic_struck {
-			return false
+			return false;
 		}
 		// We expect the skeptic to have voted.
 		let skeptic = match Skeptic::<T, I>::get() {
@@ -1682,7 +1678,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// We assume there's at least one member or this logic won't work.
 		let member_count = MemberCount::<T, I>::get();
 		if member_count < 1 {
-			return
+			return;
 		}
 		let maybe_head = NextHead::<T, I>::take();
 		if let Some(head) = maybe_head {
@@ -1992,7 +1988,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn pick_member(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count == 0 {
-			return None
+			return None;
 		}
 		let random_index = rng.next_u32() % member_count;
 		MemberByIndex::<T, I>::get(random_index)
@@ -2008,7 +2004,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 1 {
-			return None
+			return None;
 		}
 		let random_index = rng.next_u32() % (member_count - 1);
 		let pick = MemberByIndex::<T, I>::get(random_index);
@@ -2026,7 +2022,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
-			return None
+			return None;
 		}
 		// Founder is always at index 0, so we should never pick that one.
 		// Head will typically but not always be the highest index. We assume it is for now and
@@ -2088,7 +2084,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// is not a member or if `value` is zero.
 	fn bump_payout(who: &T::AccountId, when: BlockNumberFor<T, I>, value: BalanceOf<T, I>) {
 		if value.is_zero() {
-			return
+			return;
 		}
 		if let Some(MemberRecord { rank: 0, .. }) = Members::<T, I>::get(who) {
 			Payouts::<T, I>::mutate(who, |record| {
@@ -2118,7 +2114,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// whole slash is accounted for.
 				record.payouts[0].1.saturating_reduce(rest);
 				rest = Zero::zero();
-				break
+				break;
 			}
 		}
 		Payouts::<T, I>::insert(who, record);

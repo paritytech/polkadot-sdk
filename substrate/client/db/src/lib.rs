@@ -598,10 +598,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		)? {
 			Some(justifications) => match Decode::decode(&mut &justifications[..]) {
 				Ok(justifications) => Ok(Some(justifications)),
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding justifications: {err}"
-					))),
+					)))
+				},
 			},
 			None => Ok(None),
 		}
@@ -614,8 +615,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 			// Plain body
 			match Decode::decode(&mut &body[..]) {
 				Ok(body) => return Ok(Some(body)),
-				Err(err) =>
-					return Err(sp_blockchain::Error::Backend(format!("Error decoding body: {err}"))),
+				Err(err) => {
+					return Err(sp_blockchain::Error::Backend(format!(
+						"Error decoding body: {err}"
+					)))
+				},
 			}
 		}
 
@@ -644,10 +648,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 										)?;
 										body.push(ex);
 									},
-									None =>
+									None => {
 										return Err(sp_blockchain::Error::Backend(format!(
 											"Missing indexed transaction {hash:?}"
-										))),
+										)))
+									},
 								};
 							},
 							DbExtrinsic::Full(ex) => {
@@ -657,10 +662,11 @@ impl<Block: BlockT> BlockchainDb<Block> {
 					}
 					return Ok(Some(body));
 				},
-				Err(err) =>
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(None)
@@ -775,17 +781,19 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					if let DbExtrinsic::Indexed { hash, .. } = ex {
 						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
 							Some(t) => transactions.push(t),
-							None =>
+							None => {
 								return Err(sp_blockchain::Error::Backend(format!(
 									"Missing indexed transaction {hash:?}",
-								))),
+								)))
+							},
 						}
 					}
 				}
 				Ok(Some(transactions))
 			},
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}"))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
 		}
 	}
 }
@@ -839,6 +847,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	set_head: Option<Block::Hash>,
 	commit_state: bool,
 	create_gap: bool,
+	reset_storage: bool,
 	index_ops: Vec<IndexOperation>,
 }
 
@@ -849,8 +858,9 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			count += 1;
 			let key = crate::offchain::concatenate_prefix_and_key(&prefix, &key);
 			match value_operation {
-				OffchainOverlayedChange::SetValue(val) =>
-					transaction.set_from_vec(columns::OFFCHAIN, &key, val),
+				OffchainOverlayedChange::SetValue(val) => {
+					transaction.set_from_vec(columns::OFFCHAIN, &key, val)
+				},
 				OffchainOverlayedChange::Remove => transaction.remove(columns::OFFCHAIN, &key),
 			}
 		}
@@ -934,6 +944,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	) -> ClientResult<Block::Hash> {
 		let root = self.apply_new_state(storage, state_version)?;
 		self.commit_state = true;
+		self.reset_storage = true;
 		Ok(root)
 	}
 
@@ -1514,8 +1525,13 @@ impl<Block: BlockT> Backend<Block> {
 				.highest_leaf()
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
-			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
-			let existing_body = pending_block.body.is_some();
+			let header_exists_in_db =
+				number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing
+			// header.
+			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
+			// Incoming block has body - used for fast sync gap handling.
+			let incoming_has_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1650,9 +1666,9 @@ impl<Block: BlockT> Backend<Block> {
 
 			let header = &pending_block.header;
 			let is_best = pending_block.leaf_state.is_best();
-			debug!(
+			trace!(
 				target: "db",
-				"DB Commit {hash:?} ({number}), best={is_best}, state={}, existing={existing_header}, finalized={finalized}",
+				"DB Commit {hash:?} ({number}), best={is_best}, state={}, header_in_db={header_exists_in_db} body_in_db={body_exists_in_db} incoming_body={incoming_has_body}, finalized={finalized}",
 				operation.commit_state,
 			);
 
@@ -1679,7 +1695,7 @@ impl<Block: BlockT> Backend<Block> {
 				self.force_delayed_canonicalize(&mut transaction)?
 			}
 
-			if !existing_header {
+			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
 				if number > last_finalized_num || last_finalized_num.is_zero() {
 					let mut leaves = self.blockchain.leaves.write();
@@ -1709,10 +1725,14 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			let should_check_block_gap = !existing_header || !existing_body;
+			let should_check_block_gap = !header_exists_in_db || !body_exists_in_db;
+			debug!(
+				target: "db",
+				"should_check_block_gap = {should_check_block_gap}",
+			);
 
 			if should_check_block_gap {
-				let insert_new_gap =
+				let update_gap =
 					|transaction: &mut Transaction<DbHash>,
 					 new_gap: BlockGap<NumberFor<Block>>,
 					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
@@ -1723,13 +1743,26 @@ impl<Block: BlockT> Backend<Block> {
 							&BLOCK_GAP_CURRENT_VERSION.encode(),
 						);
 						block_gap.replace(new_gap);
+						debug!(target: "db", "Update block gap. {block_gap:?}");
+					};
+
+				let remove_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+						*block_gap = None;
+						debug!(target: "db", "Removed block gap.");
 					};
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
-						BlockGapType::MissingHeaderAndBody =>
+						BlockGapType::MissingHeaderAndBody => {
+							// Handle blocks at gap start or immediately following (possibly
+							// indicating blocks already imported during warp sync where
+							// start was not updated).
 							if number == gap.start {
-								gap.start += One::one();
+								gap.start = number + One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
 									columns::KEY_LOOKUP,
@@ -1737,19 +1770,16 @@ impl<Block: BlockT> Backend<Block> {
 									hash,
 								)?;
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
-							},
+							}
+						},
 						BlockGapType::MissingBody => {
 							// Gap increased when syncing the header chain during fast sync.
-							if number == gap.end + One::one() && !existing_body {
+							if number == gap.end + One::one() && !incoming_has_body {
 								gap.end += One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
@@ -1757,20 +1787,15 @@ impl<Block: BlockT> Backend<Block> {
 									number,
 									hash,
 								)?;
-								insert_new_gap(&mut transaction, gap, &mut block_gap);
-								debug!(target: "db", "Update block gap. {block_gap:?}");
+								update_gap(&mut transaction, gap, &mut block_gap);
 								block_gap_updated = true;
 							// Gap decreased when downloading the full blocks.
-							} else if number == gap.start && existing_body {
+							} else if number == gap.start && incoming_has_body {
 								gap.start += One::one();
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							}
@@ -1785,19 +1810,19 @@ impl<Block: BlockT> Backend<Block> {
 							end: number - One::one(),
 							gap_type: BlockGapType::MissingHeaderAndBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
 					} else if number == best_num + One::one() &&
 						self.blockchain.header(parent_hash)?.is_some() &&
-						!existing_body
+						!incoming_has_body
 					{
 						let gap = BlockGap {
 							start: number,
 							end: number,
 							gap_type: BlockGapType::MissingBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
 					}
@@ -1840,6 +1865,14 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		self.storage.db.commit(transaction)?;
+
+		// `reset_storage == true` means the entire state got replaced.
+		// In this case we optimize the `STATE` column to improve read performance.
+		if operation.reset_storage {
+			if let Err(e) = self.storage.db.optimize_db_col(columns::STATE) {
+				warn!(target: "db", "Failed to optimize database after state import: {e:?}");
+			}
+		}
 
 		// Apply all in-memory state changes.
 		// Code beyond this point can't fail.
@@ -1993,16 +2026,18 @@ impl<Block: BlockT> Backend<Block> {
 				id,
 			)?;
 			match Vec::<DbExtrinsic<Block>>::decode(&mut &index[..]) {
-				Ok(index) =>
+				Ok(index) => {
 					for ex in index {
 						if let DbExtrinsic::Indexed { hash, .. } = ex {
 							transaction.release(columns::TRANSACTION, hash);
 						}
-					},
-				Err(err) =>
+					}
+				},
+				Err(err) => {
 					return Err(sp_blockchain::Error::Backend(format!(
 						"Error decoding body list: {err}",
-					))),
+					)))
+				},
 			}
 		}
 		Ok(())
@@ -2152,6 +2187,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			set_head: None,
 			commit_state: false,
 			create_gap: true,
+			reset_storage: false,
 			index_ops: Default::default(),
 		})
 	}
@@ -3967,9 +4003,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn prune_blocks_on_finalize_and_reorg() {
-		//	0 - 1b
-		//	\ - 1a - 2a - 3a
-		//	     \ - 2b
+		// 	0 - 1b
+		// 	\ - 1a - 2a - 3a
+		// 	     \ - 2b
 
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(10), 10);
 

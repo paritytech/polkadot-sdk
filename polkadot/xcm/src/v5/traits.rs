@@ -230,8 +230,9 @@ impl TryFrom<OldError> for Error {
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {
-			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument =>
-				Error::Unroutable,
+			SendError::NotApplicable | SendError::Unroutable | SendError::MissingArgument => {
+				Error::Unroutable
+			},
 			SendError::Transport(s) => Error::Transport(s),
 			SendError::DestinationUnsupported => Error::DestinationUnsupported,
 			SendError::ExceedsMaxMessageSize => Error::ExceedsMaxMessageSize,

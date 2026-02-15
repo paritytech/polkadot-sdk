@@ -92,10 +92,6 @@ pub use cumulus_client_consensus_aura;
 #[cfg(feature = "cumulus-client-consensus-common")]
 pub use cumulus_client_consensus_common;
 
-/// A Substrate `Proposer` for building parachain blocks.
-#[cfg(feature = "cumulus-client-consensus-proposer")]
-pub use cumulus_client_consensus_proposer;
-
 /// The relay-chain provided consensus algorithm.
 #[cfg(feature = "cumulus-client-consensus-relay-chain")]
 pub use cumulus_client_consensus_relay_chain;
@@ -447,6 +443,10 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// FRAME pallet for Dynamic Allocation Pool (DAP).
+#[cfg(feature = "pallet-dap")]
+pub use pallet_dap;
+
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
 pub use pallet_delegated_staking;
@@ -707,10 +707,6 @@ pub use pallet_staking_async_ah_client;
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
 
-/// Reward function for FRAME staking pallet.
-#[cfg(feature = "pallet-staking-async-reward-fn")]
-pub use pallet_staking_async_reward_fn;
-
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-staking-async-runtime-api")]
 pub use pallet_staking_async_runtime_api;
@@ -814,6 +810,10 @@ pub use pallet_xcm_precompiles;
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
 pub use parachains_common;
+
+/// Common types for parachains.
+#[cfg(feature = "parachains-common-types")]
+pub use parachains_common_types;
 
 /// Utils for Runtimes testing.
 #[cfg(feature = "parachains-runtimes-test-utils")]
@@ -941,16 +941,6 @@ pub use polkadot_node_core_pvf_checker;
 /// and the PVF workers.
 #[cfg(feature = "polkadot-node-core-pvf-common")]
 pub use polkadot_node_core_pvf_common;
-
-/// Polkadot crate that contains the logic for executing PVFs. Used by the
-/// polkadot-execute-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-execute-worker")]
-pub use polkadot_node_core_pvf_execute_worker;
-
-/// Polkadot crate that contains the logic for preparing PVFs. Used by the
-/// polkadot-prepare-worker binary.
-#[cfg(feature = "polkadot-node-core-pvf-prepare-worker")]
-pub use polkadot_node_core_pvf_prepare_worker;
 
 /// Wrapper around the parachain-related runtime APIs.
 #[cfg(feature = "polkadot-node-core-runtime-api")]

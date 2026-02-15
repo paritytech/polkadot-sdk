@@ -40,8 +40,8 @@ use sp_runtime::{
 	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
-use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 pub trait NodeBlock:
@@ -72,8 +72,8 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ TaggedTransactionQueue<Block>
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
-	+ ValidateStatement<Block>
 	+ GetParachainInfo<Block>
+	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
 	+ Sized
 {
@@ -88,8 +88,8 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ OffchainWorkerApi<Block>
 		+ RelayParentOffsetApi<Block>
 		+ CollectCollationInfo<Block>
-		+ ValidateStatement<Block>
 		+ GetParachainInfo<Block>
+		+ TransactionStorageApi<Block>
 {
 }
 
@@ -126,6 +126,9 @@ pub struct NodeExtraArgs {
 
 	/// If true then the statement store will be enabled.
 	pub enable_statement_store: bool,
+
+	/// Number of concurrent workers for statement validation from the network.
+	pub statement_network_workers: usize,
 
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,

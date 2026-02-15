@@ -57,7 +57,7 @@ use frame_support::{
 	pallet_prelude::TransactionSource,
 	traits::{Defensive, EstimateCallFee, Get, Imbalance, SuppressedDrop},
 	weights::{Weight, WeightToFee},
-	RuntimeDebugNoBound,
+	DebugNoBound,
 };
 pub use pallet::*;
 pub use payment::*;
@@ -67,7 +67,7 @@ use sp_runtime::{
 		Saturating, TransactionExtension, Zero,
 	},
 	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
-	FixedPointNumber, FixedU128, Perbill, Perquintill, RuntimeDebug,
+	Debug, FixedPointNumber, FixedU128, Perbill, Perquintill,
 };
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
@@ -79,6 +79,8 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::Config as BenchmarkConfig;
 
 mod payment;
 mod types;
@@ -299,7 +301,7 @@ where
 }
 
 /// Storage releases of the pallet.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Releases {
 	/// Original version of the pallet.
 	V1Ancient,
@@ -491,7 +493,7 @@ pub mod pallet {
 			if addition == Weight::zero() {
 				// this is most likely because in a test setup we set everything to ()
 				// or to `ConstFeeMultiplier`.
-				return
+				return;
 			}
 
 			// This is the minimum value of the multiplier. Make sure that if we collapse to this
@@ -729,7 +731,7 @@ impl<T: Config> Pallet<T> {
 		<TxPaymentCredit<T>>::mutate(|credit| {
 			let credit = SuppressedDrop::as_mut(credit.as_mut()?);
 			if amount > credit.peek() {
-				return None
+				return None;
 			}
 			Some(credit.extract(amount))
 		})
@@ -941,7 +943,7 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 }
 
 /// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Charge {
 		tip: BalanceOf<T>,
@@ -1058,7 +1060,7 @@ where
 			Pre::Charge { tip, who, liquidity_info } => (tip, who, liquidity_info),
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(refund)
+				return Ok(refund);
 			},
 		};
 		let actual_fee_with_tip =

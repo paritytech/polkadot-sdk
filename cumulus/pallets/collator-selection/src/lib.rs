@@ -118,7 +118,7 @@ pub mod pallet {
 	use pallet_session::SessionManager;
 	use sp_runtime::{
 		traits::{AccountIdConversion, CheckedSub, Convert, Saturating, Zero},
-		RuntimeDebug,
+		Debug,
 	};
 	use sp_staking::SessionIndex;
 
@@ -198,9 +198,7 @@ pub mod pallet {
 	}
 
 	/// Basic information about a collation candidate.
-	#[derive(
-		PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub struct CandidateInfo<AccountId, Balance> {
 		/// Account identifier.
 		pub who: AccountId,
@@ -413,7 +411,7 @@ pub mod pallet {
 							Self::deposit_event(Event::InvalidInvulnerableSkipped {
 								account_id: account_id.clone(),
 							});
-							continue
+							continue;
 						}
 						// else condition passes; key is registered
 					},
@@ -422,7 +420,7 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidInvulnerableSkipped {
 							account_id: account_id.clone(),
 						});
-						continue
+						continue;
 					},
 				}
 
@@ -701,7 +699,7 @@ pub mod pallet {
 						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					} else {
-						return Err(Error::<T>::IdenticalDeposit.into())
+						return Err(Error::<T>::IdenticalDeposit.into());
 					}
 
 					// Update the deposit and insert the candidate in the correct spot in the list.

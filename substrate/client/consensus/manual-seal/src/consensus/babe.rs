@@ -30,10 +30,10 @@ use sc_consensus_epochs::{
 	descendent_query, EpochHeader, SharedEpochChanges, ViableEpochDescriptor,
 };
 use sp_keystore::KeystorePtr;
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 use sc_consensus::{BlockImportParams, ForkChoiceStrategy, Verifier};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProvideRuntimeApi, StorageProof};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_babe::{
 	digests::{NextEpochDescriptor, PreDigest, SecondaryPlainPreDigest},
@@ -51,7 +51,7 @@ use sp_timestamp::TimestampInherentData;
 
 /// Provides BABE-compatible predigests and BlockImportParams.
 /// Intended for use with BABE runtimes.
-pub struct BabeConsensusDataProvider<B: BlockT, C, P> {
+pub struct BabeConsensusDataProvider<B: BlockT, C> {
 	/// shared reference to keystore
 	keystore: KeystorePtr,
 
@@ -69,7 +69,6 @@ pub struct BabeConsensusDataProvider<B: BlockT, C, P> {
 
 	/// Authorities to be used for this babe chain.
 	authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
-	_phantom: PhantomData<P>,
 }
 
 /// Verifier to be used for babe chains
@@ -131,7 +130,7 @@ where
 	}
 }
 
-impl<B, C, P> BabeConsensusDataProvider<B, C, P>
+impl<B, C> BabeConsensusDataProvider<B, C>
 where
 	B: BlockT,
 	C: AuxStore
@@ -148,19 +147,12 @@ where
 		authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
 	) -> Result<Self, Error> {
 		if authorities.is_empty() {
-			return Err(Error::StringError("Cannot supply empty authority set!".into()))
+			return Err(Error::StringError("Cannot supply empty authority set!".into()));
 		}
 
 		let config = sc_consensus_babe::configuration(&*client)?;
 
-		Ok(Self {
-			config,
-			client,
-			keystore,
-			epoch_changes,
-			authorities,
-			_phantom: Default::default(),
-		})
+		Ok(Self { config, client, keystore, epoch_changes, authorities })
 	}
 
 	fn epoch(&self, parent: &B::Header, slot: Slot) -> Result<Epoch, Error> {
@@ -186,7 +178,7 @@ where
 	}
 }
 
-impl<B, C, P> ConsensusDataProvider<B> for BabeConsensusDataProvider<B, C, P>
+impl<B, C> ConsensusDataProvider<B> for BabeConsensusDataProvider<B, C>
 where
 	B: BlockT,
 	C: AuxStore
@@ -195,10 +187,7 @@ where
 		+ UsageProvider<B>
 		+ ProvideRuntimeApi<B>,
 	C::Api: BabeApi<B>,
-	P: Send + Sync,
 {
-	type Proof = P;
-
 	fn create_digest(&self, parent: &B::Header, inherents: &InherentData) -> Result<Digest, Error> {
 		let slot = inherents
 			.babe_inherent_data()?
@@ -265,7 +254,7 @@ where
 		parent: &B::Header,
 		params: &mut BlockImportParams<B>,
 		inherents: &InherentData,
-		_proof: Self::Proof,
+		_proof: StorageProof,
 	) -> Result<(), Error> {
 		let slot = inherents
 			.babe_inherent_data()?
@@ -297,14 +286,15 @@ where
 
 			// manually hard code epoch descriptor
 			epoch_descriptor = match epoch_descriptor {
-				ViableEpochDescriptor::Signaled(identifier, _header) =>
+				ViableEpochDescriptor::Signaled(identifier, _header) => {
 					ViableEpochDescriptor::Signaled(
 						identifier,
 						EpochHeader {
 							start_slot: slot,
 							end_slot: (*slot * self.config.epoch_length).into(),
 						},
-					),
+					)
+				},
 				_ => unreachable!(
 					"we're not in the authorities, so this isn't the genesis epoch; qed"
 				),

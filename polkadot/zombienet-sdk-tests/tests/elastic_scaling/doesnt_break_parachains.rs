@@ -6,15 +6,12 @@
 
 use anyhow::anyhow;
 use codec::Decode;
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
-};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -50,8 +47,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			// Use rococo-parachain default, which has 6 second slot time. Also, don't use
-			// slot-based collator.
+			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
 			p.with_id(2000)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
@@ -71,21 +67,13 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-2000")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&create_assign_core_call(&[(0, 2000)]), &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("1 more core assigned to the parachain");
+	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
 	// Lowering to 12 to make sure CI passes.
-	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)].into_iter().collect()).await?;
+	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)]).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed

@@ -27,7 +27,7 @@ pub use sp_core::storage::TrackedStorageKey;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, Member},
-	DispatchError, RuntimeDebug,
+	Debug, DispatchError,
 };
 
 /// An instance of a pallet in the storage.
@@ -162,7 +162,7 @@ impl WhitelistedStorageKeys for Tuple {
 
 /// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
 /// size in bytes matter.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Footprint {
 	/// The number of blobs.
 	pub count: u64,

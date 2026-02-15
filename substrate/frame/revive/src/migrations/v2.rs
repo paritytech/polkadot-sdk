@@ -23,7 +23,7 @@
 
 extern crate alloc;
 use super::PALLET_MIGRATIONS_ID;
-use crate::{vm::BytecodeType, weights::WeightInfo, Config, Pallet, H256, LOG_TARGET};
+use crate::{Config, H256, LOG_TARGET, Pallet, vm::BytecodeType, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -43,9 +43,9 @@ use frame_support::{sp_runtime::TryRuntimeError, traits::fungible::InspectHold};
 /// Module containing the old storage items.
 mod old {
 	use super::Config;
-	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
+	use crate::{AccountIdOf, BalanceOf, H256, pallet::Pallet};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, Identity};
+	use frame_support::{Identity, storage_alias};
 
 	#[derive(Clone, Encode, Decode)]
 	pub struct CodeInfo<T: Config> {
@@ -65,9 +65,9 @@ mod old {
 
 mod new {
 	use super::{BytecodeType, Config};
-	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
+	use crate::{AccountIdOf, BalanceOf, H256, pallet::Pallet};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, DebugNoBound, Identity};
+	use frame_support::{DebugNoBound, Identity, storage_alias};
 
 	#[derive(PartialEq, Eq, DebugNoBound, Encode, Decode)]
 	pub struct CodeInfo<T: Config> {
@@ -154,7 +154,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				cursor = Some(last_key)
 			} else {
 				cursor = None;
-				break
+				break;
 			}
 		}
 		Ok(cursor)
@@ -171,7 +171,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
-		use sp_runtime::{traits::Zero, Saturating};
+		use sp_runtime::{Saturating, traits::Zero};
 
 		// Check the state of the storage after the migration.
 		let prev_map = BTreeMap::<H256, old::CodeInfo<T>>::decode(&mut &prev[..])
@@ -184,10 +184,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			"Migration failed: the number of items in the storage after the migration is not the same as before"
 		);
 
-		let deposit_sum: crate::BalanceOf<T> = Zero::zero();
+		let mut deposit_sum: crate::BalanceOf<T> = Zero::zero();
 
 		for (code_hash, old_code_info) in prev_map {
-			deposit_sum.saturating_add(old_code_info.deposit);
+			deposit_sum = deposit_sum.saturating_add(old_code_info.deposit);
 			Self::assert_migrated_code_info(code_hash, &old_code_info);
 		}
 
@@ -234,11 +234,13 @@ impl<T: Config> Migration<T> {
 		let migrated =
 			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
 
-		assert!(<T as Config>::Currency::balance_on_hold(
-			&crate::HoldReason::CodeUploadDepositReserve.into(),
-			&old_code_info.owner
-		)
-		.is_zero());
+		assert!(
+			<T as Config>::Currency::balance_on_hold(
+				&crate::HoldReason::CodeUploadDepositReserve.into(),
+				&old_code_info.owner
+			)
+			.is_zero()
+		);
 
 		assert_eq!(
 			migrated,
@@ -258,8 +260,8 @@ impl<T: Config> Migration<T> {
 #[test]
 fn migrate_to_v2() {
 	use crate::{
-		tests::{ExtBuilder, Test},
 		AccountIdOf,
+		tests::{ExtBuilder, Test},
 	};
 	use alloc::collections::BTreeMap;
 

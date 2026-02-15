@@ -62,14 +62,8 @@ fn para_to_para_assethub_hop_assertions(mut t: ParaToParaThroughAHTest) {
 }
 
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
-	let fee: Asset = t
-		.args
-		.assets
-		.inner()
-		.iter()
-		.find(|a| a.id == t.args.fee_asset_id)
-		.cloned()
-		.unwrap();
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -87,14 +81,8 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 }
 
 fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	let fee: Asset = t
-		.args
-		.assets
-		.inner()
-		.iter()
-		.find(|a| a.id == t.args.fee_asset_id)
-		.cloned()
-		.unwrap();
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -112,14 +100,8 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 }
 
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
-	let fee: Asset = t
-		.args
-		.assets
-		.inner()
-		.iter()
-		.find(|a| a.id == t.args.fee_asset_id)
-		.cloned()
-		.unwrap();
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
@@ -146,14 +128,8 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 }
 
 fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> DispatchResult {
-	let fee: Asset = t
-		.args
-		.assets
-		.inner()
-		.iter()
-		.find(|a| a.id == t.args.fee_asset_id)
-		.cloned()
-		.unwrap();
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -171,14 +147,8 @@ fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> Dispatc
 }
 
 fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> DispatchResult {
-	let fee: Asset = t
-		.args
-		.assets
-		.inner()
-		.iter()
-		.find(|a| a.id == t.args.fee_asset_id)
-		.cloned()
-		.unwrap();
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let custom_xcm_on_dest = Xcm::<()>(vec![DepositAsset {
 		assets: Wild(AllCounted(t.args.assets.len() as u32)),
 		beneficiary: t.args.beneficiary,
@@ -250,6 +220,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
+	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
 	let test_args = TestContext {
@@ -261,7 +232,7 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 			native_amount_to_send,
 			assets.into(),
 			None,
-			fee_asset_id,
+			fee_asset_item,
 		),
 	};
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -405,6 +376,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 		(roc_at_westend_parachains.clone(), foreign_amount_to_send).into(),
 	];
 	let fee_asset_id = AssetId(Parent.into());
+	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
 	let test_args = TestContext {
@@ -416,7 +388,7 @@ fn transfer_foreign_assets_from_para_to_asset_hub() {
 			native_amount_to_send,
 			assets.into(),
 			None,
-			fee_asset_id,
+			fee_asset_item,
 		),
 	};
 	let mut test = ParaToSystemParaTest::new(test_args);
@@ -572,6 +544,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 		(roc_at_westend_parachains.clone(), roc_to_send).into(),
 	];
 	let fee_asset_id: AssetId = wnd_location.clone().into();
+	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
 
 	// Init Test
 	let test_args = TestContext {
@@ -583,7 +556,7 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 			wnd_to_send,
 			assets.into(),
 			None,
-			fee_asset_id,
+			fee_asset_item,
 		),
 	};
 	let mut test = ParaToParaThroughAHTest::new(test_args);
@@ -790,14 +763,8 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 		);
 	}
 	fn transfer_assets_dispatchable(t: RelayToParaThroughAHTest) -> DispatchResult {
-		let fee: Asset = t
-			.args
-			.assets
-			.inner()
-			.iter()
-			.find(|a| a.id == t.args.fee_asset_id)
-			.cloned()
-			.unwrap();
+		let fee_idx = t.args.fee_asset_item as usize;
+		let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 		let asset_hub_location = Westend::child_location_of(AssetHubWestend::para_id());
 		let context = WestendUniversalLocation::get();
 
@@ -887,7 +854,6 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	let receiver = WestendReceiver::get();
 
 	// Init Test
-	let fee_asset_id: AssetId = Parent.into();
 	let test_args = TestContext {
 		sender: sender.clone(),
 		receiver: receiver.clone(),
@@ -897,7 +863,7 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 			amount_to_send,
 			(Parent, amount_to_send).into(),
 			None,
-			fee_asset_id,
+			0,
 		),
 	};
 	let mut test = PenpalToRelayThroughAHTest::new(test_args);
@@ -928,14 +894,8 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	});
 
 	fn transfer_assets_dispatchable(t: PenpalToRelayThroughAHTest) -> DispatchResult {
-		let fee: Asset = t
-			.args
-			.assets
-			.inner()
-			.iter()
-			.find(|a| a.id == t.args.fee_asset_id)
-			.cloned()
-			.unwrap();
+		let fee_idx = t.args.fee_asset_item as usize;
+		let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 		let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 		let context = PenpalUniversalLocation::get();
 
@@ -1012,8 +972,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 	fn execute_xcm_penpal_to_asset_hub(t: ParaToSystemParaTest) -> DispatchResult {
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
-		let fee_asset_index = assets.iter().position(|a| a.id == t.args.fee_asset_id).unwrap();
-		let mut fees = assets.remove(fee_asset_index);
+		let mut fees = assets.remove(t.args.fee_asset_item as usize);
 		// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get exact fees.
 		// For now just use half the fees locally, half on dest
 		if let Fungible(fees_amount) = fees.fun {
@@ -1051,8 +1010,7 @@ fn bidirectional_transfer_multiple_assets_between_penpal_and_asset_hub() {
 	fn execute_xcm_asset_hub_to_penpal(t: SystemParaToParaTest) -> DispatchResult {
 		let all_assets = t.args.assets.clone().into_inner();
 		let mut assets = all_assets.clone();
-		let fee_asset_index = assets.iter().position(|a| a.id == t.args.fee_asset_id).unwrap();
-		let mut fees = assets.remove(fee_asset_index);
+		let mut fees = assets.remove(t.args.fee_asset_item as usize);
 		// TODO(https://github.com/paritytech/polkadot-sdk/issues/6197): dry-run to get exact fees.
 		// For now just use half the fees locally, half on dest
 		if let Fungible(fees_amount) = fees.fun {

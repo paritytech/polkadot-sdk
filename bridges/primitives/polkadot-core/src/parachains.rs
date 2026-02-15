@@ -26,8 +26,8 @@ use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
-use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
+use Debug;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,7 @@ use serde::{Deserialize, Serialize};
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct ParaId(pub u32);
@@ -75,7 +75,7 @@ impl From<u32> for ParaId {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 )]
@@ -96,7 +96,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,

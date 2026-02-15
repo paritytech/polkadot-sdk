@@ -1,0 +1,12 @@
+title: '[pallet-revive] small improvements'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Small safety and completeness improvements for pallet-revive:
+
+    - Add selfdestruct call tracing: Emit terminate trace after successful SELFDESTRUCT
+    - Add debug assertions for unsafe bytecode operations: in relative_jump, absolute_jump, and read_slice
+    - Remove transmute in i256 sign detection: Replace unsafe { core::mem::transmute } with explicit conditional logic for determining Sign::Zero vs Sign::Plus
+crates:
+- name: pallet-revive
+  bump: patch

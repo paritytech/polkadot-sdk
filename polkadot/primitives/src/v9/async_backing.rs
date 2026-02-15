@@ -21,13 +21,13 @@ use super::*;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
+use Debug;
 
 use crate::CandidateDescriptorV2;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Copy,
 	Clone,
 	PartialEq,
@@ -54,7 +54,7 @@ pub struct AsyncBackingParams {
 }
 
 /// Constraints on inbound HRMP channels.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct InboundHrmpLimitations<N = BlockNumber> {
 	/// An exhaustive set of all valid watermarks, sorted ascending.
 	///
@@ -64,7 +64,7 @@ pub struct InboundHrmpLimitations<N = BlockNumber> {
 }
 
 /// Constraints on outbound HRMP channels.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct OutboundHrmpChannelLimitations {
 	/// The maximum bytes that can be written to the channel.
 	pub bytes_remaining: u32,
@@ -75,7 +75,7 @@ pub struct OutboundHrmpChannelLimitations {
 /// Constraints on the actions that can be taken by a new parachain
 /// block. These limitations are implicitly associated with some particular
 /// parachain, which should be apparent from usage.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct Constraints<N = BlockNumber> {
 	/// The minimum relay-parent number accepted under these constraints.
 	pub min_relay_parent_number: N,
@@ -116,7 +116,7 @@ impl<N> Constraints<N> {
 }
 
 /// A candidate pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
@@ -132,7 +132,7 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 
 /// The per-parachain state of the backing system, including
 /// state-machine constraints and candidates pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct BackingState<H = Hash, N = BlockNumber> {
 	/// The state-machine constraints of the parachain.
 	pub constraints: crate::async_backing::Constraints<N>,

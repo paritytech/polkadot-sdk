@@ -21,18 +21,18 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo,
+	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
-	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
-	},
 	EthTransactError,
+	evm::{
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, decode_revert_reason,
+	},
 };
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
@@ -40,16 +40,16 @@ use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
+	Config, OnlineClient,
 	backend::{
-		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
+		legacy::{LegacyRpcMethods, rpc_methods::SystemHealth},
 		rpc::{
-			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 		},
 	},
 	config::{HashFor, Header},
 	ext::subxt_rpcs::rpc_params,
-	Config, OnlineClient,
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -142,8 +142,9 @@ impl From<ClientError> for ErrorObjectOwned {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
 			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
+			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -153,10 +154,12 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::TransactError(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }
@@ -209,11 +212,15 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
 ) -> Result<(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<SrcChainConfig>), ClientError>
 {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
+		.max_request_size(max_request_size)
+		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
 	let rpc_client = RpcClient::new(rpc_client);
@@ -259,6 +266,11 @@ impl Client {
 	/// Creates a block notifier instance.
 	pub fn create_block_notifier(&mut self) {
 		self.block_notifier = Some(tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0);
+	}
+
+	/// Sets a block notifier
+	pub fn set_block_notifier(&mut self, notifier: Option<tokio::sync::broadcast::Sender<H256>>) {
+		self.block_notifier = notifier;
 	}
 
 	/// Subscribe to past blocks executing the callback for each block in `range`.
@@ -455,19 +467,30 @@ impl Client {
 	pub async fn submit(
 		&self,
 		call: subxt::tx::DefaultPayload<EthTransact>,
-	) -> Result<H256, ClientError> {
+	) -> Result<(), ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
 		let hash: H256 = self
 			.rpc_client
 			.request("author_submitExtrinsic", rpc_params![to_hex(ext.encoded())])
 			.await?;
 		log::debug!(target: LOG_TARGET, "Submitted transaction with substrate hash: {hash:?}");
-		Ok(hash)
+		Ok(())
 	}
 
 	/// Get an EVM transaction receipt by hash.
 	pub async fn receipt(&self, tx_hash: &H256) -> Option<ReceiptInfo> {
 		self.receipt_provider.receipt_by_hash(tx_hash).await
+	}
+
+	/// Get The post dispatch weight associated with this Ethereum transaction hash.
+	pub async fn post_dispatch_weight(&self, tx_hash: &H256) -> Option<Weight> {
+		use crate::subxt_client::system::events::ExtrinsicSuccess;
+		let ReceiptInfo { block_hash, transaction_index, .. } = self.receipt(tx_hash).await?;
+		let block_hash = self.resolve_substrate_hash(&block_hash).await?;
+		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
+		let ext = block.extrinsics().await.ok()?.iter().nth(transaction_index.as_u32() as _)?;
+		let event = ext.events().await.ok()?.find_first::<ExtrinsicSuccess>().ok()??;
+		Some(event.dispatch_info.weight.0)
 	}
 
 	pub async fn sync_state(

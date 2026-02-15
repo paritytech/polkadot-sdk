@@ -24,9 +24,9 @@
 //! P256 elliptic curve.
 
 use crate::{
+	Config, U256,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config, U256,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, num::NonZero};
@@ -51,7 +51,7 @@ impl<T: Config> PrimitivePrecompile for P256Verify<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		env.gas_meter_mut().charge(RuntimeCosts::P256Verify)?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::P256Verify)?;
 
 		if revm::precompile::secp256r1::verify_impl(&input).is_some() {
 			Ok(U256::one().to_big_endian().to_vec())

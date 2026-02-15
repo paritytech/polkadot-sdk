@@ -67,7 +67,7 @@ pub use network_bridge_event::NetworkBridgeEvent;
 
 /// A request to the candidate backing subsystem to check whether
 /// we can second this candidate.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
 	pub candidate_para_id: ParaId,
@@ -311,7 +311,7 @@ pub enum DisputeCoordinatorMessage {
 		/// - we discarded the votes because
 		/// 		- they were ancient or otherwise invalid (result: `InvalidImport`)
 		/// 		- or we were not able to recover availability for an unknown candidate (result:
-		///		`InvalidImport`)
+		/// 		`InvalidImport`)
 		/// 		- or were known already (in that case the result will still be `ValidImport`)
 		/// - or we recorded them because (`ValidImport`)
 		/// 		- we cast our own vote already on that dispute
@@ -1053,10 +1053,12 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalVotingMessage {
 
 	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
 		match msg {
-			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) =>
-				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx)),
-			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) =>
-				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx)),
+			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) => {
+				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) => {
+				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx))
+			},
 			_ => Err(()),
 		}
 	}
@@ -1067,18 +1069,24 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
 
 	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
 		match msg {
-			ApprovalVotingParallelMessage::NewBlocks(blocks) =>
-				Ok(ApprovalDistributionMessage::NewBlocks(blocks)),
-			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) =>
-				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores)),
-			ApprovalVotingParallelMessage::DistributeApproval(vote) =>
-				Ok(ApprovalDistributionMessage::DistributeApproval(vote)),
-			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) =>
-				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg)),
-			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) =>
-				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx)),
-			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) =>
-				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag)),
+			ApprovalVotingParallelMessage::NewBlocks(blocks) => {
+				Ok(ApprovalDistributionMessage::NewBlocks(blocks))
+			},
+			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) => {
+				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores))
+			},
+			ApprovalVotingParallelMessage::DistributeApproval(vote) => {
+				Ok(ApprovalDistributionMessage::DistributeApproval(vote))
+			},
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) => {
+				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx))
+			},
+			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) => {
+				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag))
+			},
 			_ => Err(()),
 		}
 	}
@@ -1087,18 +1095,24 @@ impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
 impl From<ApprovalDistributionMessage> for ApprovalVotingParallelMessage {
 	fn from(msg: ApprovalDistributionMessage) -> Self {
 		match msg {
-			ApprovalDistributionMessage::NewBlocks(blocks) =>
-				ApprovalVotingParallelMessage::NewBlocks(blocks),
-			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) =>
-				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield),
-			ApprovalDistributionMessage::DistributeApproval(vote) =>
-				ApprovalVotingParallelMessage::DistributeApproval(vote),
-			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) =>
-				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg),
-			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) =>
-				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx),
-			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =>
-				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
+			ApprovalDistributionMessage::NewBlocks(blocks) => {
+				ApprovalVotingParallelMessage::NewBlocks(blocks)
+			},
+			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) => {
+				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield)
+			},
+			ApprovalDistributionMessage::DistributeApproval(vote) => {
+				ApprovalVotingParallelMessage::DistributeApproval(vote)
+			},
+			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => {
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg)
+			},
+			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx)
+			},
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
+				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag)
+			},
 		}
 	}
 }
@@ -1296,28 +1310,33 @@ impl HypotheticalCandidate {
 	/// Get parent head data hash of the hypothetical candidate.
 	pub fn parent_head_data_hash(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				persisted_validation_data.parent_head.hash(),
-			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } =>
-				parent_head_data_hash,
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				persisted_validation_data.parent_head.hash()
+			},
+			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } => {
+				parent_head_data_hash
+			},
 		}
 	}
 
 	/// Get candidate's relay parent.
 	pub fn relay_parent(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor.relay_parent(),
-			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } =>
-				candidate_relay_parent,
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				receipt.descriptor.relay_parent()
+			},
+			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } => {
+				candidate_relay_parent
+			},
 		}
 	}
 
 	/// Get the output head data hash, if the candidate is complete.
 	pub fn output_head_data_hash(&self) -> Option<Hash> {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(receipt.descriptor.para_head()),
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.para_head())
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
@@ -1333,8 +1352,9 @@ impl HypotheticalCandidate {
 	/// Get the persisted validation data, if the candidate is complete.
 	pub fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				Some(persisted_validation_data),
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				Some(persisted_validation_data)
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
@@ -1342,8 +1362,9 @@ impl HypotheticalCandidate {
 	/// Get the validation code hash, if the candidate is complete.
 	pub fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				Some(receipt.descriptor.validation_code_hash()),
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.validation_code_hash())
+			},
 			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}

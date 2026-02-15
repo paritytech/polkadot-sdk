@@ -188,7 +188,7 @@ fn start_consensus(
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error> {
-	let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool,
@@ -293,6 +293,7 @@ pub async fn start_parachain_node(
 			transaction_pool: transaction_pool.clone(),
 			para_id,
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
 			sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura

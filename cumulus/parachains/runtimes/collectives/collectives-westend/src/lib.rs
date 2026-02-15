@@ -94,7 +94,6 @@ use parachains_common::{
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::RuntimeDebug;
 use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
 };
@@ -102,6 +101,7 @@ use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
 };
+use Debug;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -130,7 +130,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_021_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -151,8 +151,12 @@ pub type RootOrAllianceTwoThirdsMajority = EitherOfDiverse<
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -298,7 +302,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -947,8 +951,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -1147,7 +1151,15 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use xcm_config::WndLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
@@ -1189,7 +1201,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
 					let native_location = WndLocation::get();

@@ -22,12 +22,11 @@
 // https://github.com/paritytech/polkadot-sdk/pull/7220#issuecomment-2808830472
 
 use crate::zombienet::{BlockSubscriptionType, NetworkSpawner, ScenarioBuilderSharedParams};
-use cumulus_zombienet_sdk_helpers::create_assign_core_call;
+use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use txtesttool::{execution_log::ExecutionLog, scenario::ScenarioBuilder};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -97,18 +96,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_node = spawner.network().get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
-	let assign_cores_call = create_assign_core_call(&[(0, 2200), (1, 2200)]);
 	// Assign two extra cores to each parachain.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(&assign_cores_call, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	tracing::info!("2 more cores assigned to the parachain");
+	assign_cores(&relay_client, 2200, vec![0, 1]).await?;
 
 	// Wait for the parachain collator to start block production.
 	spawner.wait_for_block("dave", BlockSubscriptionType::Best).await.unwrap();
@@ -123,7 +113,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 			.with_block_monitoring(shared_params.does_block_monitoring)
 			.with_chain_type(shared_params.chain_type)
 			.with_base_dir_path(spawner.base_dir_path().unwrap().to_string())
-			.with_timeout_in_secs(21600) //6 hours
+			.with_timeout_in_secs(21600) // 6 hours
 			.with_legacy_backend(true)
 	}
 	.with_rpc_uri(ws)

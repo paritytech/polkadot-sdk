@@ -27,7 +27,7 @@ use frame_support::{
 };
 use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
-use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
+use sp_runtime::{FixedI64, PerThing};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -101,15 +101,7 @@ impl<T: Ord, S: Get<u32>> InsertSorted<T> for BoundedVec<T, S> {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct DecidingStatus<BlockNumber> {
 	/// When this referendum began being "decided". If confirming, then the
@@ -121,15 +113,7 @@ pub struct DecidingStatus<BlockNumber> {
 }
 
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct Deposit<AccountId, Balance> {
 	pub who: AccountId,
@@ -282,15 +266,7 @@ where
 
 /// Info regarding an ongoing referendum.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -329,15 +305,7 @@ pub struct ReferendumStatus<
 
 /// Info regarding a referendum, present or past.
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -394,8 +362,9 @@ impl<
 			Ongoing(x) if x.decision_deposit.is_none() => Ok(None),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing(_) => Err(()),
-			Approved(_, _, d) | Rejected(_, _, d) | TimedOut(_, _, d) | Cancelled(_, _, d) =>
-				Ok(d.take()),
+			Approved(_, _, d) | Rejected(_, _, d) | TimedOut(_, _, d) | Cancelled(_, _, d) => {
+				Ok(d.take())
+			},
 			Killed(_) => Ok(None),
 		}
 	}
@@ -417,7 +386,7 @@ impl<
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
+#[cfg_attr(not(feature = "std"), derive(Debug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
 	/// remaining at `floor` until the end of the period.
@@ -567,10 +536,12 @@ impl Curve {
 	/// Determine the `y` value for the given `x` value.
 	pub fn threshold(&self, x: Perbill) -> Perbill {
 		match self {
-			Self::LinearDecreasing { length, floor, ceil } =>
-				*ceil - (x.min(*length).saturating_div(*length, Down) * (*ceil - *floor)),
-			Self::SteppedDecreasing { begin, end, step, period } =>
-				(*begin - (step.int_mul(x.int_div(*period))).min(*begin)).max(*end),
+			Self::LinearDecreasing { length, floor, ceil } => {
+				*ceil - (x.min(*length).saturating_div(*length, Down) * (*ceil - *floor))
+			},
+			Self::SteppedDecreasing { begin, end, step, period } => {
+				(*begin - (step.int_mul(x.int_div(*period))).min(*begin)).max(*end)
+			},
 			Self::Reciprocal { factor, x_offset, y_offset } => factor
 				.checked_rounding_div(FixedI64::from(x) + *x_offset, Low)
 				.map(|yp| (yp + *y_offset).into_clamped_perthing())
@@ -609,20 +580,22 @@ impl Curve {
 	/// ```
 	pub fn delay(&self, y: Perbill) -> Perbill {
 		match self {
-			Self::LinearDecreasing { length, floor, ceil } =>
+			Self::LinearDecreasing { length, floor, ceil } => {
 				if y < *floor {
 					Perbill::one()
 				} else if y > *ceil {
 					Perbill::zero()
 				} else {
 					(*ceil - y).saturating_div(*ceil - *floor, Up).saturating_mul(*length)
-				},
-			Self::SteppedDecreasing { begin, end, step, period } =>
+				}
+			},
+			Self::SteppedDecreasing { begin, end, step, period } => {
 				if y < *end {
 					Perbill::one()
 				} else {
 					period.int_mul((*begin - y.min(*begin) + step.less_epsilon()).int_div(*step))
-				},
+				}
+			},
 			Self::Reciprocal { factor, x_offset, y_offset } => {
 				let y = FixedI64::from(y);
 				let maybe_term = factor.checked_rounding_div(y - *y_offset, High);

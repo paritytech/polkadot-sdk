@@ -38,7 +38,7 @@ const DEFAULT_EXTENSION_VERSION: ExtensionVersion = 0;
 
 /// The kind of extrinsic this is, including any fields required of that kind. This is basically
 /// the full extrinsic except the `Call`.
-#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum ExtrinsicFormat<AccountId, Extension> {
 	/// Extrinsic is bare; it must pass either the bare forms of `TransactionExtension` or
 	/// `ValidateUnsigned`, both deprecated, or alternatively a `ProvideInherent`.
@@ -56,7 +56,7 @@ pub enum ExtrinsicFormat<AccountId, Extension> {
 ///
 /// This is typically passed into [`traits::Applyable::apply`], which should execute
 /// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
-#[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct CheckedExtrinsic<AccountId, Call, Extension> {
 	/// Who this purports to be from and the number of extrinsics have come before
 	/// from the same signer, if anyone (note this is not a signature).
@@ -147,8 +147,9 @@ impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) =>
-				ext.weight(&self.function),
+			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) => {
+				ext.weight(&self.function)
+			},
 		}
 	}
 }

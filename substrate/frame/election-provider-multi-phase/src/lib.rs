@@ -189,7 +189,7 @@
 //! Note that there could be an overlap between these sub-errors. For example, A
 //! `SnapshotUnavailable` can happen in both miner and feasibility check phase.
 //!
-//!	## Multi-page election support
+//! ## Multi-page election support
 //!
 //! The [`frame_election_provider_support::ElectionDataProvider`] and
 //! [`frame_election_provider_support::ElectionProvider`] traits used by this pallet can support a
@@ -269,7 +269,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
 	},
-	DispatchError, ModuleError, PerThing, Perbill, RuntimeDebug, SaturatedConversion,
+	Debug, DispatchError, ModuleError, PerThing, Perbill, SaturatedConversion,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -427,16 +427,7 @@ impl Default for ElectionCompute {
 /// Such a solution should never become effective in anyway before being checked by the
 /// `Pallet::feasibility_check`.
 #[derive(
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	PartialOrd,
-	Ord,
-	TypeInfo,
+	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, Debug, PartialOrd, Ord, TypeInfo,
 )]
 pub struct RawSolution<S> {
 	/// the solution itself.
@@ -456,14 +447,7 @@ impl<C: Default> Default for RawSolution<C> {
 
 /// A checked solution, ready to be enacted.
 #[derive(
-	PartialEqNoBound,
-	EqNoBound,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	DefaultNoBound,
-	scale_info::TypeInfo,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, Debug, DefaultNoBound, scale_info::TypeInfo,
 )]
 #[scale_info(skip_type_params(AccountId, MaxWinners, MaxBackersPerWinner))]
 pub struct ReadySolution<AccountId, MaxWinners, MaxBackersPerWinner>
@@ -489,7 +473,7 @@ where
 /// [`ElectionDataProvider`] and are kept around until the round is finished.
 ///
 /// These are stored together because they are often accessed together.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct RoundSnapshot<AccountId, VoterType> {
 	/// All of the voters.
@@ -1745,7 +1729,7 @@ impl<T: Config> Pallet<T> {
 			if submission.is_none() {
 				return Err(
 					"All signed submissions indices must be part of the submissions map".into()
-				)
+				);
 			}
 
 			if i == 0 {
@@ -1753,8 +1737,8 @@ impl<T: Config> Pallet<T> {
 			} else {
 				if last_score.strict_better(indice.0) {
 					return Err(
-						"Signed submission indices vector must be ordered by election score".into()
-					)
+						"Signed submission indices vector must be ordered by election score".into(),
+					);
 				}
 				last_score = indice.0;
 			}
@@ -1762,21 +1746,22 @@ impl<T: Config> Pallet<T> {
 
 		if SignedSubmissionsMap::<T>::iter().nth(indices.len()).is_some() {
 			return Err(
-				"Signed submissions map length should be the same as the indices vec length".into()
-			)
+				"Signed submissions map length should be the same as the indices vec length".into(),
+			);
 		}
 
 		match SignedSubmissionNextIndex::<T>::get() {
 			0 => Ok(()),
-			next =>
+			next => {
 				if SignedSubmissionsMap::<T>::get(next).is_some() {
 					return Err(
 						"The next submissions index should not be in the submissions maps already"
 							.into(),
-					)
+					);
 				} else {
 					Ok(())
-				},
+				}
+			},
 		}
 	}
 
@@ -1785,12 +1770,13 @@ impl<T: Config> Pallet<T> {
 	fn try_state_phase_off() -> Result<(), TryRuntimeError> {
 		match CurrentPhase::<T>::get().is_off() {
 			false => Ok(()),
-			true =>
+			true => {
 				if Snapshot::<T>::get().is_some() {
 					Err("Snapshot must be none when in Phase::Off".into())
 				} else {
 					Ok(())
-				},
+				}
+			},
 		}
 	}
 }
@@ -1841,13 +1827,14 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		Ok(())
 	}
 
-	fn status() -> Result<bool, ()> {
+	fn status() -> Result<Option<Weight>, ()> {
 		let has_queued = QueuedSolution::<T>::exists();
 		let phase = CurrentPhase::<T>::get();
 		match (phase, has_queued) {
-			(Phase::Unsigned(_), true) => Ok(true),
+			// This pallet is not advanced enough to report any weight, ergo `Default::default()`.
+			(Phase::Unsigned(_), true) => Ok(Some(Default::default())),
 			(Phase::Off, _) => Err(()),
-			_ => Ok(false),
+			_ => Ok(None),
 		}
 	}
 

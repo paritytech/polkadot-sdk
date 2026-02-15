@@ -162,7 +162,7 @@ macro_rules! create_apis_vec {
 /// In particular: bug fixes should result in an increment of `spec_version` and possibly
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Default, Debug, TypeInfo)]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
@@ -376,43 +376,48 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 			{
 				let spec_name = match seq.next_element()? {
 					Some(spec_name) => spec_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							0usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_name = match seq.next_element()? {
 					Some(impl_name) => impl_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							1usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let authoring_version = match seq.next_element()? {
 					Some(authoring_version) => authoring_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							2usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let spec_version = match seq.next_element()? {
 					Some(spec_version) => spec_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							3usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_version = match seq.next_element()? {
 					Some(impl_version) => impl_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							4usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let apis = match {
 					struct DeserializeWith<'de> {
@@ -436,27 +441,30 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 					seq.next_element::<DeserializeWith<'de>>()?.map(|wrap| wrap.value)
 				} {
 					Some(apis) => apis,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							5usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let transaction_version = match seq.next_element()? {
 					Some(transaction_version) => transaction_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							6usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let system_version = match seq.next_element()? {
 					Some(system_version) => system_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							7usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				Ok(RuntimeVersion {
 					spec_name,
@@ -528,7 +536,9 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 						},
 						Field::Apis => {
 							if apis.is_some() {
-								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"apis",
+								));
 							}
 							apis = Some({
 								struct DeserializeWith<'de> {
@@ -558,7 +568,7 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 							}
 							transaction_version = Some(map.next_value()?);
 						},
-						Field::SystemVersion =>
+						Field::SystemVersion => {
 							if let Some(system_version) = system_version {
 								let new_value = map.next_value::<u8>()?;
 								if system_version != new_value {
@@ -572,7 +582,8 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 								}
 							} else {
 								system_version = Some(map.next_value()?);
-							},
+							}
+						},
 						_ => {
 							map.next_value::<serde::de::IgnoredAny>()?;
 						},

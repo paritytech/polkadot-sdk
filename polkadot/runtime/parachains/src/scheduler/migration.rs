@@ -27,7 +27,7 @@ use frame_support::{
 ///
 /// `Assignment` used to be a concrete type with the same layout V0Assignment, identical on all
 /// assignment providers. This can be removed once storage has been migrated.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Clone)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Clone)]
 struct V0Assignment {
 	pub para_id: ParaId,
 }
@@ -76,7 +76,7 @@ mod v0 {
 	pub(super) type ParathreadClaimIndex<T: Config> = StorageValue<Pallet<T>, (), ValueQuery>;
 
 	/// The assignment type.
-	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 	#[cfg_attr(feature = "std", derive(PartialEq))]
 	pub enum AssignmentKind {
 		/// A parachain.
@@ -86,7 +86,7 @@ mod v0 {
 	}
 
 	/// How a free core is scheduled to be assigned.
-	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, TypeInfo, Debug)]
 	#[cfg_attr(feature = "std", derive(PartialEq))]
 	pub struct CoreAssignment {
 		/// The core that is assigned.
@@ -125,7 +125,7 @@ mod v1 {
 	pub(super) type AvailabilityCores<T: Config> =
 		StorageValue<Pallet<T>, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
 
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
 	pub(super) enum CoreOccupied<N> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
@@ -133,7 +133,7 @@ mod v1 {
 		Paras(ParasEntry<N>),
 	}
 
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
 	pub(super) struct ParasEntry<N> {
 		/// The underlying `Assignment`
 		pub(super) assignment: V0Assignment,
@@ -190,11 +190,12 @@ mod v1 {
 			for (core_index, core) in availability_cores.into_iter().enumerate() {
 				let new_core = if let Some(core) = core {
 					match core {
-						v0::CoreOccupied::Parachain =>
+						v0::CoreOccupied::Parachain => {
 							v1::CoreOccupied::Paras(v1::ParasEntry::new(
 								V0Assignment { para_id: parachains[core_index] },
 								now,
-							)),
+							))
+						},
 						v0::CoreOccupied::Parathread(entry) => v1::CoreOccupied::Paras(
 							v1::ParasEntry::new(V0Assignment { para_id: entry.claim.0 }, now),
 						),
@@ -272,13 +273,13 @@ pub(crate) mod v2 {
 	use super::*;
 	use crate::scheduler;
 
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
 	pub(crate) enum CoreOccupied<N> {
 		Free,
 		Paras(ParasEntry<N>),
 	}
 
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug, PartialEq)]
 	pub(crate) struct ParasEntry<N> {
 		pub assignment: Assignment,
 		pub availability_timeouts: u32,

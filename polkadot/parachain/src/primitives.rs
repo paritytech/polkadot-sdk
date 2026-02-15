@@ -23,7 +23,7 @@ use bounded_collections::{BoundedVec, ConstU32};
 use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
-use sp_core::{bytes, RuntimeDebug, TypeId};
+use sp_core::{bytes, TypeId};
 use sp_runtime::traits::Hash as _;
 use sp_weights::Weight;
 
@@ -154,7 +154,7 @@ impl core::fmt::LowerHex for ValidationCodeHash {
 /// Parachain block data.
 ///
 /// Contains everything required to validate para-block, may contain block and witness data.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -277,9 +277,7 @@ impl core::ops::Sub<u32> for Id {
 	}
 }
 
-#[derive(
-	Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo,
-)]
+#[derive(Clone, Copy, Default, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo)]
 pub struct Sibling(pub Id);
 
 impl From<Id> for Sibling {
@@ -330,16 +328,7 @@ impl IsSystem for Sibling {
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
 #[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	RuntimeDebug,
-	TypeInfo,
+	Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct HrmpChannelId {
@@ -381,17 +370,7 @@ impl DmpMessageHandler for () {
 
 /// The aggregate XCMP message format.
 #[derive(
-	Copy,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	TypeInfo,
-	RuntimeDebug,
-	MaxEncodedLen,
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub enum XcmpMessageFormat {
 	/// Encoded `VersionedXcm` messages, all concatenated.

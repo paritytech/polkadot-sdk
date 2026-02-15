@@ -1,0 +1,37 @@
+title: Implement persistent reputation database for collator protocol (#7751)
+doc:
+- audience: Node Dev
+  description: |-
+    Implements persistent storage for the experimental collator protocol's reputation database.
+
+    Changes:
+
+      - Adds `PersistentDb` wrapper that persists the in-memory reputation DB to disk
+      - Periodic persistence every 10 minutes
+      - Adds `--collator-reputation-persist-interval` CLI to specify the persistence interval in seconds.
+      - Immediate persistence on slashes and parachain deregistration
+      - Loads existing state on startup with lookback for missed blocks
+
+    Implementation:
+
+      `PersistentDb` wraps the existing `Db` and adds persistence on top:
+
+        - All reputation logic (scoring, decay, LRU) stays in `Db`
+        - Persistence layer handles disk I/O and serialization
+        - Per-para data stored in parachains_db
+
+    Tests:
+
+      - `basic_persistence.rs`: Validates persistence across restarts and startup lookback
+      - `pruning.rs`: Validates automatic cleanup on parachain deregistration
+crates:
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: polkadot
+  bump: major
+- name: polkadot-cli
+  bump: major
+- name: cumulus-relay-chain-inprocess-interface
+  bump: major

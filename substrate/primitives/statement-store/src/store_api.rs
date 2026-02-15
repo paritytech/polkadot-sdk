@@ -16,50 +16,176 @@
 // limitations under the License.
 
 pub use crate::runtime_api::StatementSource;
-use crate::{Hash, Statement, Topic};
+use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
+use sp_core::{bounded_vec::BoundedVec, ConstU32};
+use std::collections::HashSet;
 
 /// Statement store error.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, Eq, PartialEq, thiserror::Error)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Error {
 	/// Database error.
 	#[error("Database error: {0:?}")]
 	Db(String),
-	/// Error decoding statement structure.
-	#[error("Error decoding statement: {0:?}")]
+	/// Decoding error
+	#[error("Decoding error: {0:?}")]
 	Decode(String),
-	/// Error making runtime call.
-	#[error("Error calling into the runtime")]
-	Runtime,
+	/// Error reading from storage.
+	#[error("Storage error: {0:?}")]
+	Storage(String),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-/// Network propagation priority.
-pub enum NetworkPriority {
-	/// High priority. Statement should be broadcast to all peers.
-	High,
-	/// Low priority.
-	Low,
+/// Filter for subscribing to statements with different topics.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum TopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_TOPICS`] topics can be provided.
+	MatchAll(BoundedVec<Topic, ConstU32<{ MAX_TOPICS as u32 }>>),
+	/// Matches statements including any of the given topics.
+	/// Bytes are expected to be a 32-byte topic. Up to [`MAX_ANY_TOPICS`] topics can be provided.
+	MatchAny(BoundedVec<Topic, ConstU32<{ MAX_ANY_TOPICS as u32 }>>),
+}
+
+/// Topic filter for statement subscriptions, optimized for matching.
+#[derive(Clone, Debug)]
+pub enum OptimizedTopicFilter {
+	/// Matches all topics.
+	Any,
+	/// Matches only statements including all of the given topics.
+	/// Up to `4` topics can be provided.
+	MatchAll(HashSet<Topic>),
+	/// Matches statements including any of the given topics.
+	/// Up to `128` topics can be provided.
+	MatchAny(HashSet<Topic>),
+}
+
+impl OptimizedTopicFilter {
+	/// Check if the statement matches the filter.
+	pub fn matches(&self, statement: &Statement) -> bool {
+		match self {
+			OptimizedTopicFilter::Any => true,
+			OptimizedTopicFilter::MatchAll(topics) => {
+				statement.topics().iter().filter(|topic| topics.contains(*topic)).count() ==
+					topics.len()
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
+				statement.topics().iter().any(|topic| topics.contains(topic))
+			},
+		}
+	}
+}
+
+// Convert TopicFilter to CheckedTopicFilter.
+impl From<TopicFilter> for OptimizedTopicFilter {
+	fn from(filter: TopicFilter) -> Self {
+		match filter {
+			TopicFilter::Any => OptimizedTopicFilter::Any,
+			TopicFilter::MatchAll(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					parsed_topics.insert(topic);
+				}
+				OptimizedTopicFilter::MatchAll(parsed_topics)
+			},
+			TopicFilter::MatchAny(topics) => {
+				let mut parsed_topics = HashSet::with_capacity(topics.len());
+				for topic in topics {
+					parsed_topics.insert(topic);
+				}
+				OptimizedTopicFilter::MatchAny(parsed_topics)
+			},
+		}
+	}
+}
+
+/// Reason why a statement was rejected from the store.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+pub enum RejectionReason {
+	/// Statement data exceeds the maximum allowed size for the account.
+	DataTooLarge {
+		/// The size of the submitted statement data.
+		submitted_size: usize,
+		/// Still available data size for the account.
+		available_size: usize,
+	},
+	/// Attempting to replace a channel message with lower or equal expiry.
+	ChannelPriorityTooLow {
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing channel message.
+		min_expiry: u64,
+	},
+	/// Account reached its statement limit and submitted expiry is too low to evict existing.
+	AccountFull {
+		/// The expiry of the submitted statement.
+		submitted_expiry: u64,
+		/// The minimum expiry of the existing statement.
+		min_expiry: u64,
+	},
+	/// The global statement store is full and cannot accept new statements.
+	StoreFull,
+	/// Account has no allowance set.
+	NoAllowance,
+}
+
+/// Reason why a statement failed validation.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "reason", rename_all = "camelCase"))]
+pub enum InvalidReason {
+	/// Statement has no proof.
+	NoProof,
+	/// Proof validation failed.
+	BadProof,
+	/// Statement exceeds max allowed statement size.
+	EncodingTooLarge {
+		/// The size of the submitted statement encoding.
+		submitted_size: usize,
+		/// The maximum allowed size.
+		max_size: usize,
+	},
+	/// Statement has already expired. The expiry field is in the past.
+	AlreadyExpired,
 }
 
 /// Statement submission outcome
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "status", rename_all = "camelCase"))]
 pub enum SubmitResult {
-	/// Accepted as new with given score
-	New(NetworkPriority),
-	/// Known statement
+	/// Statement was accepted as new.
+	New,
+	/// Statement was already known.
 	Known,
-	/// Known statement that's already expired.
+	/// Statement was already known but has expired.
 	KnownExpired,
-	/// Priority is too low or the size is too big.
-	Ignored,
+	/// Statement was rejected because the store is full or priority is too low.
+	Rejected(RejectionReason),
 	/// Statement failed validation.
-	Bad(&'static str),
+	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
 }
 
 /// Result type for `Error`
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Decision returned by the filter used in [`StatementStore::statements_by_hashes`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterDecision {
+	/// Skip this statement, continue to next.
+	Skip,
+	/// Take this statement, continue to next.
+	Take,
+	/// Stop iteration, return collected statements.
+	Abort,
+}
 
 /// Statement store API.
 pub trait StatementStore: Send + Sync {
@@ -79,6 +205,23 @@ pub trait StatementStore: Send + Sync {
 	///
 	/// Fast index check without accessing the DB.
 	fn has_statement(&self, hash: &Hash) -> bool;
+
+	/// Return all statement hashes.
+	fn statement_hashes(&self) -> Vec<Hash>;
+
+	/// Fetch statements by their hashes with a filter callback.
+	///
+	/// The callback receives (hash, encoded_bytes, decoded_statement) and returns:
+	/// - `Skip`: ignore this statement, continue to next
+	/// - `Take`: include this statement in the result, continue to next
+	/// - `Abort`: stop iteration, return collected statements so far
+	///
+	/// Returns (statements, number_of_hashes_processed).
+	fn statements_by_hashes(
+		&self,
+		hashes: &[Hash],
+		filter: &mut dyn FnMut(&Hash, &[u8], &Statement) -> FilterDecision,
+	) -> Result<(Vec<(Hash, Statement)>, usize)>;
 
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.

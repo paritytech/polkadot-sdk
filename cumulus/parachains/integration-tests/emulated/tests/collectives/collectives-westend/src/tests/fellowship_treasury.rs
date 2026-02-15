@@ -79,7 +79,7 @@ fn fellowship_treasury_spend() {
 					id: native_asset.clone().into(),
 					fun: treasury_balance.into()
 				}))),
-				fee_asset_id: bx!(native_asset.into()),
+				fee_asset_item: 0,
 			})),
 		});
 

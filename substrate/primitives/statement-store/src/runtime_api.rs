@@ -21,7 +21,6 @@ use crate::{Hash, Statement, Topic};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
@@ -29,34 +28,15 @@ use sp_runtime_interface::{
 	},
 	runtime_interface,
 };
+use Debug;
 
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
-/// Information concerning a valid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ValidStatement {
-	/// Max statement count for this account, as calculated by the runtime.
-	pub max_count: u32,
-	/// Max total data size for this account, as calculated by the runtime.
-	pub max_size: u32,
-}
-
-/// An reason for an invalid statement.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
-pub enum InvalidStatement {
-	/// Failed proof validation.
-	BadProof,
-	/// Missing proof.
-	NoProof,
-	/// Validity could not be checked because of internal error.
-	InternalError,
-}
-
 /// The source of the statement.
 ///
 /// Depending on the source we might apply different validation schemes.
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub enum StatementSource {
 	/// Statement is coming from the on-chain worker.
 	Chain,
@@ -74,17 +54,6 @@ impl StatementSource {
 			StatementSource::Chain | StatementSource::Local => true,
 			StatementSource::Network => false,
 		}
-	}
-}
-
-sp_api::decl_runtime_apis! {
-	/// Runtime API trait for statement validation.
-	pub trait ValidateStatement {
-		/// Validate the statement.
-		fn validate_statement(
-			source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement>;
 	}
 }
 
@@ -153,13 +122,13 @@ pub trait StatementStore {
 	) -> ReturnAs<SubmitResult, u8> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			match store.submit(statement, StatementSource::Chain) {
-				crate::SubmitResult::New(_) => SubmitResult::OkNew,
+				crate::SubmitResult::New => SubmitResult::OkNew,
 				crate::SubmitResult::Known => SubmitResult::OkKnown,
-				crate::SubmitResult::Ignored => SubmitResult::Full,
+				crate::SubmitResult::Rejected(_) => SubmitResult::Full,
 				// This should not happen for `StatementSource::Chain`. An existing statement will
 				// be overwritten.
 				crate::SubmitResult::KnownExpired => SubmitResult::Bad,
-				crate::SubmitResult::Bad(_) => SubmitResult::Bad,
+				crate::SubmitResult::Invalid(_) => SubmitResult::Bad,
 				crate::SubmitResult::InternalError(_) => SubmitResult::Bad,
 			}
 		} else {

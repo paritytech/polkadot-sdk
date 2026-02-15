@@ -243,3 +243,10 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Assets::do_try_state().expect("All invariants must hold after a test");
+	})
+}

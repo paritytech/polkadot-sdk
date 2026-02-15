@@ -27,11 +27,11 @@ use bp_runtime::{
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+	sp_runtime::{MultiAddress, MultiSigner, StateVersion},
 };
 
 /// BridgeHubRococo parachain.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct BridgeHubRococo;
 
 impl Chain for BridgeHubRococo {

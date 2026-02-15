@@ -58,7 +58,7 @@ use frame_support::{
 	pallet_prelude::{Pays, Zero},
 	traits::{ContainsPair, OriginTrait},
 	weights::WeightToFee,
-	Parameter, RuntimeDebugNoBound,
+	DebugNoBound, Parameter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -71,8 +71,9 @@ use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
+	Debug,
 	DispatchError::BadOrigin,
-	DispatchResult, RuntimeDebug, SaturatedConversion, Saturating, Weight,
+	DispatchResult, SaturatedConversion, Saturating, Weight,
 };
 
 /// The allowance for an entity, defining its usage limit and recovery rate.
@@ -103,7 +104,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The usage of an entity.
-	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 	pub struct Usage<Balance, BlockNumber> {
 		/// The amount of usage consumed at block `at_block`.
 		pub used: Balance,
@@ -193,11 +194,11 @@ pub mod pallet {
 			// `None` origin is better to reject in general, due to being used for inherents and
 			// validate unsigned.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let Some(mut usage) = Usages::<T>::take(&entity) else {
-				return Err(Error::<T>::NoUsage.into())
+				return Err(Error::<T>::NoUsage.into());
 			};
 
 			let now = frame_system::Pallet::<T>::block_number();
@@ -228,9 +229,7 @@ fn extrinsic_fee<T: Config>(weight: Weight, length: usize) -> BalanceOf<T> {
 /// The extension can be enabled or disabled with the inner boolean. When enabled, the restriction
 /// process executes. When disabled, only the `RestrictedOrigins` check is executed.
 /// You can always enable it, the only advantage of disabling it is have better pre-dispatch weight.
-#[derive(
-	Encode, Decode, Clone, Eq, PartialEq, TypeInfo, RuntimeDebugNoBound, DecodeWithMemTracking,
-)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound, DecodeWithMemTracking)]
 #[scale_info(skip_type_params(T))]
 pub struct RestrictOrigin<T>(bool, core::marker::PhantomData<T>);
 
@@ -242,7 +241,7 @@ impl<T> RestrictOrigin<T> {
 }
 
 /// The info passed between the validate and prepare steps for the `RestrictOrigins` extension.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Charge { fee: BalanceOf<T>, entity: T::RestrictedEntity },
 	NoCharge,
@@ -269,7 +268,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 
 	fn weight(&self, _call: &T::RuntimeCall) -> frame_support::weights::Weight {
 		if !self.0 {
-			return Weight::zero()
+			return Weight::zero();
 		}
 
 		<T as Config>::WeightInfo::restrict_origin_tx_ext()
@@ -294,7 +293,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		if !self.0 {
 			// Extension is disabled, but the restriction must happen, the extension should have
 			// been enabled.
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -349,7 +348,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Pre::Charge { fee, entity } =>
+			Pre::Charge { fee, entity } => {
 				if post_info.pays_fee == Pays::No {
 					Usages::<T>::mutate_exists(entity, |maybe_usage| {
 						if let Some(usage) = maybe_usage {
@@ -363,7 +362,8 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 					Ok(Weight::zero())
 				} else {
 					Ok(Weight::zero())
-				},
+				}
+			},
 			Pre::NoCharge { refund } => Ok(refund),
 		}
 	}

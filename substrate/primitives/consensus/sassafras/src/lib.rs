@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{ConsensusEngineId, RuntimeDebug};
+use sp_runtime::ConsensusEngineId;
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
 
@@ -93,7 +93,7 @@ pub type Randomness = [u8; RANDOMNESS_LENGTH];
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 	Default,

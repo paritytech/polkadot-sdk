@@ -148,6 +148,7 @@ fn build_block_with_witness(
 	let cumulus_test_client::BlockBuilderAndSupportData {
 		mut block_builder,
 		persisted_validation_data,
+		..
 	} = client.init_block_builder_with_pre_digests(Some(validation_data), sproof_builder, pre_digests);
 
 	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
@@ -201,6 +202,7 @@ fn build_multiple_blocks_with_witness(
 		let cumulus_test_client::BlockBuilderAndSupportData {
 			mut block_builder,
 			persisted_validation_data: p_v_data,
+			proof_recorder,
 		} = client.init_block_builder_with_ignored_nodes(
 			parent_head.hash(),
 			Some(validation_data.clone()),
@@ -242,11 +244,11 @@ fn build_multiple_blocks_with_witness(
 		})
 		.unwrap();
 
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(
-			&built_block.proof.clone().unwrap(),
-		));
+		let new_proof = proof_recorder.drain_storage_proof();
+
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<BlakeTwo256>(&new_proof));
 		ignored_nodes.extend(IgnoredNodes::from_memory_db(built_block.storage_changes.transaction));
-		proof = StorageProof::merge([proof, built_block.proof.unwrap()]);
+		proof = StorageProof::merge([proof, new_proof]);
 
 		parent_head = built_block.block.header.clone();
 
@@ -773,5 +775,41 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("only one block per PoV is allowed"));
+	}
+}
+
+#[test]
+fn validate_block_rejects_huge_header_single_block() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+
+		let digest_data_exceeding_max_head_data_size =
+			vec![0u8; relay_chain::MAX_HEAD_DATA_SIZE as usize + 1];
+		let pre_digests =
+			vec![DigestItem::PreRuntime(*b"TEST", digest_data_exceeding_max_head_data_size)];
+
+		let TestBlockData { block, validation_data } = build_block_with_witness(
+			&client,
+			Vec::new(),
+			parent_head.clone(),
+			Default::default(),
+			pre_digests,
+		);
+
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		let output = Command::new(env::current_exe().unwrap())
+			.args(["validate_block_rejects_huge_header_single_block", "--", "--nocapture"])
+			.env("RUN_TEST", "1")
+			.output()
+			.expect("Runs the test");
+		assert!(output.status.success());
+
+		assert!(
+			dbg!(String::from_utf8(output.stderr).unwrap()).contains("exceeds MAX_HEAD_DATA_SIZE")
+		);
 	}
 }

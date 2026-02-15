@@ -1041,12 +1041,12 @@ mod on_idle {
 			BagsList::lock();
 
 			// Try to insert 6 new nodes while locked - 5 regular + 1 that will lose staking status
-			assert_eq!(BagsList::on_insert(5, 15), Err(ListError::Locked));
-			assert_eq!(BagsList::on_insert(6, 45), Err(ListError::Locked));
-			assert_eq!(BagsList::on_insert(7, 55), Err(ListError::Locked));
-			assert_eq!(BagsList::on_insert(8, 1500), Err(ListError::Locked));
-			assert_eq!(BagsList::on_insert(11, 100), Err(ListError::Locked));
-			assert_eq!(BagsList::on_insert(99, 500), Err(ListError::Locked)); // Will lose staking
+			assert_ok!(BagsList::on_insert(5, 15));
+			assert_ok!(BagsList::on_insert(6, 45));
+			assert_ok!(BagsList::on_insert(7, 55));
+			assert_ok!(BagsList::on_insert(8, 1500));
+			assert_ok!(BagsList::on_insert(11, 100));
+			assert_ok!(BagsList::on_insert(99, 500)); // Will lose staking
 
 			// Verify they're in PendingRebag
 			let pending: Vec<_> = PendingRebag::<Runtime>::iter_keys().collect();
@@ -1184,7 +1184,7 @@ mod on_idle {
 
 			// Try to insert while locked - should go to PendingRebag
 			StakingMock::set_score_of(&1, 1000);
-			assert_eq!(BagsList::on_insert(1, 1000), Err(ListError::Locked));
+			assert_ok!(BagsList::on_insert(1, 1000));
 			assert!(PendingRebag::<Runtime>::contains_key(&1));
 			assert!(!List::<Runtime>::contains(&1));
 

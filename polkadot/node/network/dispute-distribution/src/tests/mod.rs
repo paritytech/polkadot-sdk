@@ -101,7 +101,7 @@ fn send_honors_rate_limit() {
 		// First send should not be rate limited:
 		gum::trace!("Passed time: {:#?}", Instant::now().saturating_duration_since(before_request));
 		// This test would likely be flaky on CI:
-		//assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
+		// assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
 
 		let relay_parent = Hash::random();
 		let candidate = make_candidate_receipt(relay_parent);

@@ -61,7 +61,7 @@ use scale_info::TypeInfo;
 	Clone,
 	Eq,
 	PartialEq,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
@@ -103,15 +103,7 @@ pub trait SwapAction<AccountId, T: Config> {
 
 /// A swap action that only allows transferring balances.
 #[derive(
-	Clone,
-	RuntimeDebug,
-	Eq,
-	PartialEq,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	TypeInfo,
-	MaxEncodedLen,
+	Clone, Debug, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(C))]
 #[codec(mel_bound())]

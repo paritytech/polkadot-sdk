@@ -247,8 +247,9 @@ impl NetworkParams {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
 			(true, false) => true,
 			(false, true) => false,
-			(false, false) =>
-				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development),
+			(false, false) => {
+				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development)
+			},
 		};
 
 		NetworkConfiguration {
