@@ -28,9 +28,8 @@ use crate::*;
 fn funded_account<T: Config + pallet_balances::Config>() -> T::AccountId {
 	let caller: T::AccountId = whitelisted_caller();
 	let balance = <T as pallet_balances::Config>::Balance::max_value() / 2u32.into();
-	let _ = <pallet_balances::Pallet<T> as FungibleMutate<T::AccountId>>::set_balance(
-		&caller, balance,
-	);
+	let _ =
+		<pallet_balances::Pallet<T> as FungibleMutate<T::AccountId>>::set_balance(&caller, balance);
 	caller
 }
 
@@ -263,8 +262,7 @@ mod benchmarks {
 		#[block]
 		{
 			crate::migration::v2::LazyMigrationV1ToV2::<T, pallet_balances::Pallet<T>>::step(
-				None,
-				&mut meter,
+				None, &mut meter,
 			)
 			.unwrap();
 		}

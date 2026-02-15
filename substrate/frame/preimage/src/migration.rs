@@ -184,9 +184,7 @@ pub mod v1 {
 
 				let status = match status {
 					v0::OldRequestStatus::Unrequested(deposit) => match deposit {
-						Some(deposit) => {
-							super::OldRequestStatus::Unrequested { deposit, len }
-						},
+						Some(deposit) => super::OldRequestStatus::Unrequested { deposit, len },
 						// `None` depositor becomes system-requested.
 						None => super::OldRequestStatus::Requested {
 							deposit: None,
@@ -203,11 +201,7 @@ pub mod v1 {
 						continue;
 					},
 					v0::OldRequestStatus::Requested(count) => {
-						super::OldRequestStatus::Requested {
-							deposit: None,
-							count,
-							len: Some(len),
-						}
+						super::OldRequestStatus::Requested { deposit: None, count, len: Some(len) }
 					},
 				};
 				log::trace!(target: TARGET, "Moving preimage {:?} with len {}", hash, len);
@@ -283,9 +277,7 @@ pub mod v2 {
 	///
 	/// `OldCurrency` is the currency type that was previously configured as `type Currency` in the
 	/// pallet's `Config`. It is used to call `unreserve` on old deposits.
-	pub struct LazyMigrationV1ToV2<T, OldCurrency>(
-		core::marker::PhantomData<(T, OldCurrency)>,
-	);
+	pub struct LazyMigrationV1ToV2<T, OldCurrency>(core::marker::PhantomData<(T, OldCurrency)>);
 
 	impl<T, OldCurrency> SteppedMigration for LazyMigrationV1ToV2<T, OldCurrency>
 	where
@@ -341,10 +333,8 @@ pub mod v2 {
 							}
 
 							// Create new consideration ticket.
-							match T::Consideration::new(
-								who,
-								Footprint::from_parts(1, len as usize),
-							) {
+							match T::Consideration::new(who, Footprint::from_parts(1, len as usize))
+							{
 								Ok(ticket) => RequestStatus::Unrequested {
 									ticket: (who.clone(), ticket),
 									len,
@@ -361,13 +351,13 @@ pub mod v2 {
 										super::OldStatusFor::<T, OldCurrency>::hashed_key_for(
 											&hash,
 										);
-									cursor = Some(
-										BoundedVec::try_from(raw_key).unwrap_or_else(|mut v| {
+									cursor = Some(BoundedVec::try_from(raw_key).unwrap_or_else(
+										|mut v| {
 											v.truncate(256);
 											BoundedVec::try_from(v)
 												.expect("truncated to bound; qed")
-										}),
-									);
+										},
+									));
 									continue;
 								},
 							}
@@ -419,8 +409,7 @@ pub mod v2 {
 					RequestStatusFor::<T>::insert(&hash, new_status);
 					super::OldStatusFor::<T, OldCurrency>::remove(&hash);
 
-					let raw_key =
-						super::OldStatusFor::<T, OldCurrency>::hashed_key_for(&hash);
+					let raw_key = super::OldStatusFor::<T, OldCurrency>::hashed_key_for(&hash);
 					cursor = Some(BoundedVec::try_from(raw_key).unwrap_or_else(|mut v| {
 						v.truncate(256);
 						BoundedVec::try_from(v).expect("truncated to bound; qed")
@@ -450,10 +439,7 @@ pub mod v2 {
 				Decode::decode(&mut &state[..]).expect("pre_upgrade provides valid state; qed");
 			let remaining = super::OldStatusFor::<T, OldCurrency>::iter().count() as u64;
 			ensure!(remaining == 0, "Migration incomplete: StatusFor entries remaining");
-			log::info!(
-				"Post-upgrade: Successfully migrated {} StatusFor entries",
-				old_count
-			);
+			log::info!("Post-upgrade: Successfully migrated {} StatusFor entries", old_count);
 			Ok(())
 		}
 	}
@@ -476,10 +462,7 @@ mod test {
 			// Case 1: Unrequested without deposit
 			let (p, h) = preimage::<T>(128);
 			v0::PreimageFor::<T>::insert(h, p);
-			v0::StatusFor::<T, Balances>::insert(
-				h,
-				v0::OldRequestStatus::Unrequested(None),
-			);
+			v0::StatusFor::<T, Balances>::insert(h, v0::OldRequestStatus::Unrequested(None));
 			// Case 2: Unrequested with deposit
 			let (p, h) = preimage::<T>(1024);
 			v0::PreimageFor::<T>::insert(h, p);
@@ -540,9 +523,7 @@ mod test {
 	fn v1_to_v2_migration_works() {
 		new_test_ext().execute_with(|| {
 			use frame_support::{
-				migrations::SteppedMigration,
-				traits::fungible::InspectHold,
-				weights::WeightMeter,
+				migrations::SteppedMigration, traits::fungible::InspectHold, weights::WeightMeter,
 			};
 
 			// Set storage version to 1 (post v0→v1 migration).
@@ -566,11 +547,7 @@ mod test {
 			<Balances as ReservableCurrency<u64>>::reserve(&alice, 5).unwrap();
 			OldStatusFor::<T, Balances>::insert(
 				&hash2,
-				OldRequestStatus::Requested {
-					deposit: Some((alice, 5)),
-					count: 3,
-					len: Some(8),
-				},
+				OldRequestStatus::Requested { deposit: Some((alice, 5)), count: 3, len: Some(8) },
 			);
 
 			// Insert a Requested entry without deposit.
@@ -633,10 +610,8 @@ mod test {
 			// Verify new holds were created.
 			// Note: In pallet-balances, holds are tracked in the same `reserved` field,
 			// so `reserved_balance` includes both legacy reserves and holds.
-			let hold_amount = <Balances as InspectHold<u64>>::balance_on_hold(
-				&PreimageHoldReason::get(),
-				&alice,
-			);
+			let hold_amount =
+				<Balances as InspectHold<u64>>::balance_on_hold(&PreimageHoldReason::get(), &alice);
 			assert!(hold_amount > 0, "Should have holds after migration");
 			// Old reserves (15) should have been released and replaced by holds (16).
 			// The reserved balance equals the hold amount since no legacy reserves remain.

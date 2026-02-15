@@ -1,6 +1,6 @@
 title: Refactor the preimage pallet to use fungible traits
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: "## Overview\n\nThis PR migrates the preimage pallet from the deprecated\
     \ `Currency`/`ReservableCurrency` traits to the modern `fungible` traits (via\
     \ `Consideration`), as part of the umbrella tracking issue #226.\n\nThe preimage\
