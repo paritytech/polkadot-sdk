@@ -790,6 +790,84 @@ impl Store {
 		Ok(result)
 	}
 
+	// Collects expired and over-allowance statement hashes for a single account.
+	fn collect_evictions(
+		&self,
+		account: &AccountId,
+		account_rec: &StatementsForAccount,
+		current_time: u64,
+	) -> Vec<Hash> {
+		let mut to_evict = Vec::new();
+		let mut expired_count = 0usize;
+		let mut expired_size = 0usize;
+		for (key, (_, len)) in account_rec.by_priority.range(
+			PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
+				hash: Hash::default(),
+				expiry: Expiry(current_time << 32),
+			},
+		) {
+			to_evict.push(key.hash);
+			expired_count += 1;
+			expired_size += len;
+		}
+
+		// Enforce allowances for remaining (non-expired) statements
+		let allowance = match (self.read_allowance_fn)(account, None) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"No allowance found for account {:?}, treating as zero allowance",
+					HexDisplay::from(account)
+				);
+				StatementAllowance { max_count: 0, max_size: 0 }
+			},
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+				// Skip allowance enforcement for this account on error
+				return to_evict;
+			},
+		};
+
+		// Calculate remaining count and size after expiring statements
+		let mut remaining_count = account_rec.by_priority.len() - expired_count;
+		let mut remaining_size = account_rec.data_size - expired_size;
+
+		// Evict lowest priority statements that exceed allowance
+		if remaining_count > allowance.max_count as usize
+			|| remaining_size > allowance.max_size as usize
+		{
+			log::debug!(
+				target: LOG_TARGET,
+				"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
+				HexDisplay::from(account),
+				remaining_count,
+				allowance.max_count,
+				remaining_size,
+				allowance.max_size
+			);
+
+			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
+			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
+				if remaining_count <= allowance.max_count as usize
+					&& remaining_size <= allowance.max_size as usize
+				{
+					break;
+				}
+				to_evict.push(key.hash);
+				remaining_count -= 1;
+				remaining_size -= len;
+				log::debug!(
+					target: LOG_TARGET,
+					"Evicting statement {:?} due to allowance enforcement",
+					HexDisplay::from(&key.hash)
+				);
+			}
+		}
+
+		to_evict
+	}
+
 	// Checks for expired statements and enforces allowances, marking violating statements
 	// as expired in the index.
 	//
@@ -825,73 +903,7 @@ impl Store {
 			for account in index.accounts_to_check_for_expiry_stmts.iter().rev() {
 				num_accounts_checked += 1;
 				if let Some(account_rec) = index.accounts.get(account) {
-					let mut expired_count = 0usize;
-					let mut expired_size = 0usize;
-					for (key, (_, len)) in account_rec.by_priority.range(
-						PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
-							hash: Hash::default(),
-							expiry: Expiry(current_time << 32),
-						},
-					) {
-						to_evict.push(key.hash);
-						expired_count += 1;
-						expired_size += len;
-					}
-
-					// Enforce allowances for remaining (non-expired) statements
-					let allowance = match (self.read_allowance_fn)(account, None) {
-						Ok(Some(allowance)) => allowance,
-						Ok(None) => {
-							log::debug!(
-								target: LOG_TARGET,
-								"No allowance found for account {:?}, treating as zero allowance",
-								HexDisplay::from(account)
-							);
-							StatementAllowance { max_count: 0, max_size: 0 }
-						},
-						Err(e) => {
-							log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
-							// Skip allowance enforcement for this account on error
-							continue;
-						},
-					};
-
-					// Calculate remaining count and size after expiring statements
-					let mut remaining_count = account_rec.by_priority.len() - expired_count;
-					let mut remaining_size = account_rec.data_size - expired_size;
-
-					// Evict lowest priority statements that exceed allowance
-					if remaining_count > allowance.max_count as usize
-						|| remaining_size > allowance.max_size as usize
-					{
-						log::debug!(
-							target: LOG_TARGET,
-							"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
-							HexDisplay::from(account),
-							remaining_count,
-							allowance.max_count,
-							remaining_size,
-							allowance.max_size
-						);
-
-						// Skip expired statements (they're at the beginning due to BTreeMap
-						// ordering)
-						for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
-							if remaining_count <= allowance.max_count as usize
-								&& remaining_size <= allowance.max_size as usize
-							{
-								break;
-							}
-							to_evict.push(key.hash);
-							remaining_count -= 1;
-							remaining_size -= len;
-							log::debug!(
-								target: LOG_TARGET,
-								"Evicting statement {:?} due to allowance enforcement",
-								HexDisplay::from(&key.hash)
-							);
-						}
-					}
+					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
 				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION
