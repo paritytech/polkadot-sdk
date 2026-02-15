@@ -20,6 +20,10 @@ use crate::mock::{new_test_ext, Test};
 use pallet_revive::precompiles::H160;
 use sp_core::{H256, U256};
 
+// =============================================================================
+// Test Helpers and Constants
+// =============================================================================
+
 /// Helper to create a verifying contract address for tests.
 fn test_verifying_contract() -> H160 {
 	H160::from_low_u64_be(0x1234)
@@ -42,6 +46,60 @@ fn future_deadline() -> [u8; 32] {
 fn past_deadline() -> [u8; 32] {
 	// Unix timestamp for year 2020 in seconds
 	U256::from(1577836800u64).to_big_endian()
+}
+
+/// Hardhat account #0 address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+///
+/// This is a well-known test address derived from the private key:
+/// 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+///
+/// DO NOT use in production!
+const HARDHAT_ACCOUNT_0: H160 = H160([
+	0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce, 0x6a, 0xB8, 0x82, 0x72, 0x79, 0xcf,
+	0xfF, 0xb9, 0x22, 0x66,
+]);
+
+/// Parameters for a valid pre-computed permit signature.
+///
+/// Generated using Hardhat account #0 private key with these parameters:
+/// - Chain ID: 31337
+/// - Token Name: "Asset Permit"
+/// - Owner: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+/// - Verifying Contract: 0x0000000000000000000000000000000012345678
+/// - Spender: 0x0000000000000000000000000000000098765432
+/// - Value: 1000
+/// - Nonce: 0
+/// - Deadline: u64::MAX (18446744073709551615)
+struct ValidPermitParams {
+	verifying_contract: H160,
+	name: &'static [u8],
+	owner: H160,
+	spender: H160,
+	value: [u8; 32],
+	deadline: [u8; 32],
+	v: u8,
+	r: [u8; 32],
+	s: [u8; 32],
+}
+
+fn valid_permit_params() -> ValidPermitParams {
+	ValidPermitParams {
+		verifying_contract: H160::from_low_u64_be(0x1234_5678),
+		name: b"Asset Permit",
+		owner: HARDHAT_ACCOUNT_0,
+		spender: H160::from_low_u64_be(0x9876_5432),
+		value: U256::from(1000).to_big_endian(),
+		deadline: U256::from(u64::MAX).to_big_endian(),
+		v: 27u8,
+		r: [
+			175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
+			121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
+		],
+		s: [
+			21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5,
+			147, 40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
+		],
+	}
 }
 
 // =============================================================================
@@ -285,10 +343,6 @@ fn ecrecover_with_valid_signature() {
 		// const message = "test message";
 		// const messageHash = ethers.keccak256(ethers.toUtf8Bytes(message));
 		// const signature = wallet.signingKey.sign(messageHash);
-		//
-		// Signer address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Hardhat account #0)
-		//
-		// This is a well-known test private key - DO NOT use in production!
 
 		let message_hash = sp_io::hashing::keccak_256(b"test message");
 
@@ -307,12 +361,8 @@ fn ecrecover_with_valid_signature() {
 
 		let result = permit::Pallet::<Test>::ecrecover(&message_hash, v, &r, &s);
 
-		// Should recover the correct address
-		let expected_address = H160([
-			0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce, 0x6a, 0xB8, 0x82, 0x72,
-			0x79, 0xcf, 0xfF, 0xb9, 0x22, 0x66,
-		]);
-		assert_eq!(result.unwrap(), expected_address);
+		// Should recover the correct address (Hardhat account #0)
+		assert_eq!(result.unwrap(), HARDHAT_ACCOUNT_0);
 	});
 }
 
@@ -498,86 +548,31 @@ fn verify_permit_does_not_increment_nonce() {
 	});
 }
 
-/// Test owner address (Hardhat account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
-const TEST_OWNER: [u8; 20] = [
-	0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6, 0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79, 0xcf,
-	0xff, 0xb9, 0x22, 0x66,
-];
-
-/// Helper to get the Hardhat account #0 address
-fn hardhat_account_0() -> H160 {
-	H160::from_slice(&TEST_OWNER)
-}
-
-/// Token name matching the pre-computed signature parameters.
-/// This must match exactly what was used to generate the signature.
-fn permit_test_token_name() -> &'static [u8] {
-	b"Asset Permit"
-}
-
-/// Verifying contract address matching the pre-computed signature.
-fn permit_test_verifying_contract() -> H160 {
-	H160::from_low_u64_be(0x1234_5678)
-}
-
-/// Pre-computed valid permit signature components.
-///
-/// Generated using Hardhat account #0 private key:
-/// 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-///
-/// Parameters used:
-/// - Chain ID: 31337
-/// - Token Name: "Asset Permit"
-/// - Owner: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
-/// - Verifying Contract: 0x0000000000000000000000000000000012345678
-/// - Spender: 0x0000000000000000000000000000000098765432
-/// - Value: 1000
-/// - Nonce: 0
-/// - Deadline: u64::MAX (18446744073709551615)
-fn valid_permit_signature() -> (u8, [u8; 32], [u8; 32]) {
-	let v = 27u8;
-	let r: [u8; 32] = [
-		175, 252, 243, 1, 254, 212, 189, 22, 49, 158, 63, 188, 243, 21, 56, 240, 124, 215, 220,
-		121, 137, 153, 208, 70, 123, 109, 221, 94, 191, 131, 210, 111,
-	];
-	let s: [u8; 32] = [
-		21, 240, 201, 4, 59, 104, 154, 99, 230, 111, 29, 9, 150, 225, 57, 209, 15, 222, 27, 5, 147,
-		40, 44, 246, 24, 108, 82, 129, 121, 73, 44, 234,
-	];
-	(v, r, s)
-}
-
 #[test]
 fn use_permit_succeeds_with_valid_signature() {
 	new_test_ext().execute_with(|| {
-		let verifying_contract = permit_test_verifying_contract();
-		let name = permit_test_token_name();
-		let owner = hardhat_account_0();
-		let spender = H160::from_low_u64_be(0x9876_5432);
-		let value: [u8; 32] = U256::from(1000).to_big_endian();
-		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
-		let (v, r, s) = valid_permit_signature();
+		let p = valid_permit_params();
 
 		// Verify initial nonce is zero
-		let initial_nonce = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
+		let initial_nonce = permit::Pallet::<Test>::nonce(&p.verifying_contract, &p.owner);
 		assert_eq!(initial_nonce, U256::zero(), "initial nonce should be zero");
 
 		// First use_permit should succeed
 		let result = permit::Pallet::<Test>::use_permit(
-			&verifying_contract,
-			name,
-			&owner,
-			&spender,
-			&value,
-			&deadline,
-			v,
-			&r,
-			&s,
+			&p.verifying_contract,
+			p.name,
+			&p.owner,
+			&p.spender,
+			&p.value,
+			&p.deadline,
+			p.v,
+			&p.r,
+			&p.s,
 		);
 		assert!(result.is_ok(), "use_permit should succeed with valid signature");
 
 		// Nonce should now be 1
-		let nonce_after = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
+		let nonce_after = permit::Pallet::<Test>::nonce(&p.verifying_contract, &p.owner);
 		assert_eq!(nonce_after, U256::one(), "nonce should be incremented to 1 after use_permit");
 	});
 }
@@ -590,43 +585,37 @@ fn use_permit_succeeds_with_valid_signature() {
 #[test]
 fn use_permit_rejects_replay_of_consumed_permit() {
 	new_test_ext().execute_with(|| {
-		let verifying_contract = permit_test_verifying_contract();
-		let name = permit_test_token_name();
-		let owner = hardhat_account_0();
-		let spender = H160::from_low_u64_be(0x9876_5432);
-		let value: [u8; 32] = U256::from(1000).to_big_endian();
-		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
-		let (v, r, s) = valid_permit_signature();
+		let p = valid_permit_params();
 
 		// First use: should succeed
 		let first_result = permit::Pallet::<Test>::use_permit(
-			&verifying_contract,
-			name,
-			&owner,
-			&spender,
-			&value,
-			&deadline,
-			v,
-			&r,
-			&s,
+			&p.verifying_contract,
+			p.name,
+			&p.owner,
+			&p.spender,
+			&p.value,
+			&p.deadline,
+			p.v,
+			&p.r,
+			&p.s,
 		);
 		assert!(first_result.is_ok(), "first use_permit should succeed");
 
 		// Verify nonce was incremented
-		let nonce = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
+		let nonce = permit::Pallet::<Test>::nonce(&p.verifying_contract, &p.owner);
 		assert_eq!(nonce, U256::one(), "nonce should be 1 after first use");
 
 		// Replay attempt: should fail because nonce is now 1, but signature was for nonce 0
 		let replay_result = permit::Pallet::<Test>::use_permit(
-			&verifying_contract,
-			name,
-			&owner,
-			&spender,
-			&value,
-			&deadline,
-			v,
-			&r,
-			&s,
+			&p.verifying_contract,
+			p.name,
+			&p.owner,
+			&p.spender,
+			&p.value,
+			&p.deadline,
+			p.v,
+			&p.r,
+			&p.s,
 		);
 
 		// The replay should fail with SignerMismatch because the digest computed
@@ -641,7 +630,7 @@ fn use_permit_rejects_replay_of_consumed_permit() {
 		);
 
 		// Nonce should still be 1 (failed attempt should not increment)
-		let nonce_after_replay = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
+		let nonce_after_replay = permit::Pallet::<Test>::nonce(&p.verifying_contract, &p.owner);
 		assert_eq!(
 			nonce_after_replay,
 			U256::one(),
@@ -655,46 +644,40 @@ fn use_permit_rejects_replay_of_consumed_permit() {
 #[test]
 fn use_permit_rejects_multiple_replay_attempts() {
 	new_test_ext().execute_with(|| {
-		let verifying_contract = permit_test_verifying_contract();
-		let name = permit_test_token_name();
-		let owner = hardhat_account_0();
-		let spender = H160::from_low_u64_be(0x9876_5432);
-		let value: [u8; 32] = U256::from(1000).to_big_endian();
-		let deadline: [u8; 32] = U256::from(u64::MAX).to_big_endian();
-		let (v, r, s) = valid_permit_signature();
+		let p = valid_permit_params();
 
 		// First use: should succeed
 		let first_result = permit::Pallet::<Test>::use_permit(
-			&verifying_contract,
-			name,
-			&owner,
-			&spender,
-			&value,
-			&deadline,
-			v,
-			&r,
-			&s,
+			&p.verifying_contract,
+			p.name,
+			&p.owner,
+			&p.spender,
+			&p.value,
+			&p.deadline,
+			p.v,
+			&p.r,
+			&p.s,
 		);
 		assert!(first_result.is_ok(), "first use_permit should succeed");
 
 		// Multiple replay attempts: all should fail
 		for attempt in 1..=5 {
 			let replay_result = permit::Pallet::<Test>::use_permit(
-				&verifying_contract,
-				name,
-				&owner,
-				&spender,
-				&value,
-				&deadline,
-				v,
-				&r,
-				&s,
+				&p.verifying_contract,
+				p.name,
+				&p.owner,
+				&p.spender,
+				&p.value,
+				&p.deadline,
+				p.v,
+				&p.r,
+				&p.s,
 			);
 			assert!(replay_result.is_err(), "replay attempt {} should fail", attempt);
 		}
 
 		// Nonce should still be 1 (no failed attempts should increment)
-		let final_nonce = permit::Pallet::<Test>::nonce(&verifying_contract, &owner);
+		let final_nonce = permit::Pallet::<Test>::nonce(&p.verifying_contract, &p.owner);
 		assert_eq!(
 			final_nonce,
 			U256::one(),
