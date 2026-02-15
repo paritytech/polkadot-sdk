@@ -1,0 +1,54 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor indices pallet to use fungible traits instead of Currency
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The indices pallet now uses the modern `fungible` traits (`Inspect`, `Mutate`,
+      `InspectHold`, `MutateHold`) instead of the deprecated `Currency` / `ReservableCurrency`
+      traits. Deposits are now managed via hold/release with a `HoldReason::DepositForIndex`
+      reason instead of reserve/unreserve.
+
+      Breaking change: the `Config` trait replaces `type Currency` with `type NativeBalance`.
+      Runtimes must update their indices configuration accordingly:
+      ```rust
+      // Before
+      type Currency = Balances;
+      // After
+      type NativeBalance = Balances;
+      ```
+
+      A new `poke_deposit` extrinsic (call_index 5) is added, allowing index owners to
+      adjust their deposit if the configured deposit amount has changed.
+
+      A multi-block stepped migration (`MigrateCurrencyToFungibles`) is provided to convert
+      existing reserved deposits to holds. Runtimes with `pallet_migrations` should register
+      it in their `Migrations` tuple.
+
+migrations:
+  runtime:
+    - reference: pallet_indices::migration::v1::MigrateCurrencyToFungibles
+      description: |
+        Stepped multi-block migration that converts index deposits from Currency::reserve
+        to fungible::hold with HoldReason::DepositForIndex. Iterates through all Accounts
+        storage entries, unreserves the old deposit, and creates a new hold. Preserves index
+        relationships with zero deposits on hold failure to avoid breaking user access.
+
+crates:
+  - name: pallet-indices
+    bump: major
+    note: "Config trait replaces `type Currency` with `type NativeBalance` using fungible traits"
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: polkadot-test-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch
