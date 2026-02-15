@@ -403,6 +403,9 @@ pub struct ExecConfig<T: Config> {
 	/// This is only used for testing purposes and should be `None` in production
 	/// environments.
 	pub test_env_transient_storage: Option<RefCell<TransientStorage<T>>>,
+	/// Controls if events should be emitted for transfers or not. This is required for the
+	/// simulation method which allows the user to configure transfers to emit special events.
+	pub trace_transfers: bool,
 }
 
 impl<T: Config> ExecConfig<T> {
@@ -415,6 +418,7 @@ impl<T: Config> ExecConfig<T> {
 			is_dry_run: None,
 			mock_handler: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -426,6 +430,7 @@ impl<T: Config> ExecConfig<T> {
 			mock_handler: None,
 			is_dry_run: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -438,6 +443,7 @@ impl<T: Config> ExecConfig<T> {
 			mock_handler: None,
 			is_dry_run: None,
 			test_env_transient_storage: None,
+			trace_transfers: false,
 		}
 	}
 
@@ -456,6 +462,12 @@ impl<T: Config> ExecConfig<T> {
 		self
 	}
 
+	/// Sets the trace transfers boolean on the execution config.
+	pub fn with_trace_transfers(mut self, trace_transfers: bool) -> Self {
+		self.trace_transfers = trace_transfers;
+		self
+	}
+
 	/// Almost clone for testing (does not clone mock_handler)
 	#[cfg(test)]
 	pub fn clone(&self) -> Self {
@@ -466,6 +478,7 @@ impl<T: Config> ExecConfig<T> {
 			is_dry_run: self.is_dry_run.clone(),
 			mock_handler: None,
 			test_env_transient_storage: None,
+			trace_transfers: self.trace_transfers,
 		}
 	}
 }

@@ -2342,7 +2342,7 @@ impl<T: Config> Pallet<T> {
 	/// Simulates [`GenericTransaction`]s with the given set of overrides.
 	pub fn eth_simulate_v1(
 		block_state_calls: Vec<SimulationPayload>,
-		_trace_transfers: bool,
+		trace_transfers: bool,
 		validation: bool,
 		return_full_transactions: bool,
 	) -> Result<SimulationResponse<SimulationError>, SimulationError>
@@ -2388,6 +2388,7 @@ impl<T: Config> Pallet<T> {
 					call_index,
 					call,
 					simulation_executor_mock_handler.clone(),
+					trace_transfers,
 				)?;
 				ethereum_block_builder.process_transaction(
 					outcome.encoded_payload.clone(),
@@ -2842,6 +2843,7 @@ impl<T: Config> Pallet<T> {
 		index: usize,
 		mut tx: GenericTransaction,
 		simulation_mock_handler: SimulationExecutorMockHandler,
+		trace_transfers: bool,
 	) -> Result<SimulationCallOutcome<SimulationError>, SimulationError>
 	where
 		T::Nonce: Into<U256>,
@@ -2892,7 +2894,8 @@ impl<T: Config> Pallet<T> {
 		let exec_config =
 			ExecConfig::<T>::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
 				.with_dry_run(DryRunConfig::new(None))
-				.with_mock_handler(simulation_mock_handler);
+				.with_mock_handler(simulation_mock_handler)
+				.with_trace_transfers(trace_transfers);
 
 		T::FeeInfo::deposit_txfee(T::Currency::issue(
 			call_info.tx_fee.saturating_add(call_info.storage_deposit),

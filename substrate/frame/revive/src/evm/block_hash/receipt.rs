@@ -70,9 +70,11 @@ impl AccumulateReceipt {
 	/// Add the log into the accumulated receipt.
 	///
 	/// This accrues the log bloom and keeps track of the RLP encoding of the log.
-	pub fn add_log(&mut self, contract: &H160, data: &[u8], topics: &[H256]) {
+	pub fn add_log(&mut self, contract: &H160, data: &[u8], topics: &[H256], add_to_bloom: bool) {
 		// Accrue the log bloom.
-		self.bloom.accrue_log(contract, topics);
+		if add_to_bloom {
+			self.bloom.accrue_log(contract, topics);
+		}
 
 		// Determine the length of the log RLP encoding.
 		let mut topics_len: usize = 0;
@@ -252,8 +254,8 @@ mod test {
 	fn test_accumulate_receipt() {
 		let mut receipt = AccumulateReceipt::new();
 
-		receipt.add_log(&H160::repeat_byte(0x01), &[0x01, 0x02], &[H256::repeat_byte(0x02)]);
-		receipt.add_log(&H160::repeat_byte(0x03), &[0x03, 0x04], &[H256::repeat_byte(0x04)]);
+		receipt.add_log(&H160::repeat_byte(0x01), &[0x01, 0x02], &[H256::repeat_byte(0x02)], true);
+		receipt.add_log(&H160::repeat_byte(0x03), &[0x03, 0x04], &[H256::repeat_byte(0x04)], true);
 
 		let encoded = AccumulateReceipt::encoded_receipt(
 			receipt.encoding,

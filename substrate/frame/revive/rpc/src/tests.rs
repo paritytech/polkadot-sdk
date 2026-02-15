@@ -33,8 +33,8 @@ use pallet_revive::{
 	create1,
 	evm::{
 		Account, AddressStateOverride, Block, BlockNumberOrTag, BlockNumberOrTagOrHash,
-		BlockOverrides, BlockTag, Bytes32, GenericTransaction, HashesOrTransactionInfos,
-		SimulationCallResult, SimulationParameters, SimulationPayload, StateOverrides,
+		BlockOverrides, BlockTag, Bytes, Bytes32, GenericTransaction, HashesOrTransactionInfos,
+		Log, SimulationCallResult, SimulationParameters, SimulationPayload, StateOverrides,
 		StorageOverrides, TransactionInfo, TransactionUnsigned, H160, H256, U256,
 	},
 };
@@ -343,6 +343,12 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_storage_persistence_across_calls,
 		test_simulate_v1_call_with_value_to_contract,
 		test_simulate_v1_call_to_empty_address,
+		test_simulate_v1_trace_transfers_simple,
+		test_simulate_v1_trace_transfers_disabled,
+		test_simulate_v1_trace_transfers_multiple_transfers,
+		test_simulate_v1_trace_transfers_zero_value_no_log,
+		test_simulate_v1_trace_transfers_multi_block,
+		test_simulate_v1_trace_transfers_contract_with_value,
 		test_simulate_v1_block_override_timestamp,
 		test_simulate_v1_block_override_gas_limit,
 		test_simulate_v1_block_override_prev_randao,
@@ -2327,7 +2333,7 @@ async fn test_simulate_v1_block_override_timestamp() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let block_number = client.block_number().await?;
 	let alith = Account::default();
-	let timestamp_override = U256::from(999_999u64);
+	let timestamp_override = U256::from(10_000_000_000u64);
 
 	let payload = SimulationParameters {
 		block_state_calls: vec![SimulationPayload {
@@ -3520,6 +3526,438 @@ async fn test_simulate_v1_block_capacity_exceeded() -> anyhow::Result<()> {
 
 	// Assert
 	assert!(result.is_err(), "More than 256 blocks should cause BlockCapacityExceeded");
+
+	Ok(())
+}
+
+/// The well-known keccak256 hash of "Transfer(address,address,uint256)" used as topic[0]
+/// in ERC-20 Transfer events and the synthetic trace_transfers logs (per ERC-7528).
+const TRANSFER_EVENT_TOPIC: [u8; 32] = [
+	0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
+	0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
+];
+
+/// The emitter address for synthetic ERC-20 Transfer logs (per ERC-7528):
+/// 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+const TRACE_TRANSFERS_EMITTER: H160 = H160([0xee; 20]);
+
+/// Helper: extract logs from a successful simulation call result.
+fn extract_logs<E: core::fmt::Debug>(call: &SimulationCallResult<E>) -> &Vec<Log> {
+	match call {
+		SimulationCallResult::Success { logs, .. } => logs,
+		SimulationCallResult::Failed { error, .. } => {
+			panic!("Expected Success, got Failed: {error:?}")
+		},
+	}
+}
+
+/// Simple ETH value transfer with trace_transfers enabled produces a synthetic
+/// ERC-20 Transfer log with the correct emitter, topics, and data.
+///
+/// Reference: ERC-7528 / eth_simulateV1 traceTransfers specification.
+async fn test_simulate_v1_trace_transfers_simple() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let receiver = H160::from([0xb2; 20]);
+	let transfer_value = U256::from(1_000_000u64);
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![GenericTransaction {
+				from: Some(sender),
+				to: Some(receiver),
+				value: Some(transfer_value),
+				..Default::default()
+			}],
+		}],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs.len(), 1, "Expected exactly 1 synthetic Transfer log");
+
+	let log = &logs[0];
+	// Emitter is the ERC-7528 native token address
+	assert_eq!(log.address, TRACE_TRANSFERS_EMITTER);
+	// 3 topics: Transfer event signature, from, to
+	assert_eq!(log.topics.len(), 3);
+	assert_eq!(log.topics[0], H256::from(TRANSFER_EVENT_TOPIC));
+	assert_eq!(log.topics[1], H256::from(sender));
+	assert_eq!(log.topics[2], H256::from(receiver));
+	// Data is the value encoded as 32-byte big-endian
+	let expected_data = transfer_value.to_big_endian().to_vec();
+	assert_eq!(log.data, Some(Bytes(expected_data)));
+
+	Ok(())
+}
+
+/// Same value transfer but with trace_transfers=false produces no synthetic logs.
+async fn test_simulate_v1_trace_transfers_disabled() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let receiver = H160::from([0xb2; 20]);
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![GenericTransaction {
+				from: Some(sender),
+				to: Some(receiver),
+				value: Some(U256::from(1_000_000u64)),
+				..Default::default()
+			}],
+		}],
+		trace_transfers: false,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert!(logs.is_empty(), "No synthetic logs should be emitted when trace_transfers=false");
+
+	Ok(())
+}
+
+/// Multiple value transfers in one block produce one synthetic Transfer log each,
+/// in the correct order with correct from/to/value.
+async fn test_simulate_v1_trace_transfers_multiple_transfers() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let receiver1 = H160::from([0xb2; 20]);
+	let receiver2 = H160::from([0xb3; 20]);
+	let value1 = U256::from(1_000u64);
+	let value2 = U256::from(2_000u64);
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![
+				GenericTransaction {
+					from: Some(sender),
+					to: Some(receiver1),
+					value: Some(value1),
+					..Default::default()
+				},
+				GenericTransaction {
+					from: Some(sender),
+					to: Some(receiver2),
+					value: Some(value2),
+					..Default::default()
+				},
+			],
+		}],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+
+	// First call: sender -> receiver1, value1
+	let logs1 = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs1.len(), 1, "First transfer should produce 1 log");
+	assert_eq!(logs1[0].address, TRACE_TRANSFERS_EMITTER);
+	assert_eq!(logs1[0].topics[1], H256::from(sender));
+	assert_eq!(logs1[0].topics[2], H256::from(receiver1));
+	assert_eq!(logs1[0].data, Some(Bytes(value1.to_big_endian().to_vec())));
+
+	// Second call: sender -> receiver2, value2
+	let logs2 = extract_logs(&response.0[0].calls[1]);
+	assert_eq!(logs2.len(), 1, "Second transfer should produce 1 log");
+	assert_eq!(logs2[0].address, TRACE_TRANSFERS_EMITTER);
+	assert_eq!(logs2[0].topics[1], H256::from(sender));
+	assert_eq!(logs2[0].topics[2], H256::from(receiver2));
+	assert_eq!(logs2[0].data, Some(Bytes(value2.to_big_endian().to_vec())));
+
+	Ok(())
+}
+
+/// Zero-value transfer with trace_transfers=true produces no synthetic log,
+/// because the transfer function returns early when value is zero.
+async fn test_simulate_v1_trace_transfers_zero_value_no_log() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let receiver = H160::from([0xb2; 20]);
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![GenericTransaction {
+				from: Some(sender),
+				to: Some(receiver),
+				value: Some(U256::zero()),
+				..Default::default()
+			}],
+		}],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	let logs = extract_logs(&response.0[0].calls[0]);
+	assert!(logs.is_empty(), "Zero-value transfer should not produce a synthetic log");
+
+	Ok(())
+}
+
+/// Transfer logs are produced per-block: transfers in block 0 and block 1
+/// each produce their own logs in their respective blocks.
+async fn test_simulate_v1_trace_transfers_multi_block() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let receiver1 = H160::from([0xb2; 20]);
+	let receiver2 = H160::from([0xb3; 20]);
+	let value1 = U256::from(500u64);
+	let value2 = U256::from(700u64);
+
+	let state_overrides = |addr: H160| {
+		let mut map = BTreeMap::new();
+		map.insert(
+			addr,
+			AddressStateOverride {
+				balance: Some(U256::from(1_000_000_000_000_000u128)),
+				nonce: None,
+				code: None,
+				storage: None,
+				move_precompile_to_address: None,
+			},
+		);
+		StateOverrides(map)
+	};
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![
+			SimulationPayload {
+				block_overrides: None,
+				state_overrides: Some(state_overrides(sender)),
+				calls: vec![GenericTransaction {
+					from: Some(sender),
+					to: Some(receiver1),
+					value: Some(value1),
+					..Default::default()
+				}],
+			},
+			SimulationPayload {
+				block_overrides: None,
+				state_overrides: None,
+				calls: vec![GenericTransaction {
+					from: Some(sender),
+					to: Some(receiver2),
+					value: Some(value2),
+					..Default::default()
+				}],
+			},
+		],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 2);
+
+	// Block 0: sender -> receiver1
+	let logs0 = extract_logs(&response.0[0].calls[0]);
+	assert_eq!(logs0.len(), 1, "Block 0 should have 1 Transfer log");
+	assert_eq!(logs0[0].topics[1], H256::from(sender));
+	assert_eq!(logs0[0].topics[2], H256::from(receiver1));
+	assert_eq!(logs0[0].data, Some(Bytes(value1.to_big_endian().to_vec())));
+
+	// Block 1: sender -> receiver2
+	let logs1 = extract_logs(&response.0[1].calls[0]);
+	assert_eq!(logs1.len(), 1, "Block 1 should have 1 Transfer log");
+	assert_eq!(logs1[0].topics[1], H256::from(sender));
+	assert_eq!(logs1[0].topics[2], H256::from(receiver2));
+	assert_eq!(logs1[0].data, Some(Bytes(value2.to_big_endian().to_vec())));
+
+	Ok(())
+}
+
+/// Contract call with value transfer also produces a synthetic Transfer log
+/// when trace_transfers is enabled.
+async fn test_simulate_v1_trace_transfers_contract_with_value() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::CallSelfWithDust;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xcc; 20]);
+	let transfer_value = U256::from(5_000u64);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"CallSelfWithDust",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+	state_overrides_map.insert(
+		contract_addr,
+		AddressStateOverride {
+			balance: None,
+			nonce: None,
+			code: Some(contract_code.into()),
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![GenericTransaction {
+				from: Some(sender),
+				to: Some(contract_addr),
+				value: Some(transfer_value),
+				input: CallSelfWithDust::fCall {}.abi_encode().into(),
+				..Default::default()
+			}],
+		}],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Success { .. }),
+		"Contract call with value should succeed"
+	);
+
+	let logs = extract_logs(&response.0[0].calls[0]);
+	// At least 1 log should be the synthetic Transfer log for the value transfer
+	let transfer_logs: Vec<_> = logs
+		.iter()
+		.filter(|l| {
+			l.address == TRACE_TRANSFERS_EMITTER &&
+				!l.topics.is_empty() &&
+				l.topics[0] == H256::from(TRANSFER_EVENT_TOPIC)
+		})
+		.collect();
+	assert!(
+		!transfer_logs.is_empty(),
+		"Contract call with value should produce at least 1 synthetic Transfer log"
+	);
+
+	// Verify the Transfer log has the correct from/to/value
+	let tlog = transfer_logs[0];
+	assert_eq!(tlog.topics[1], H256::from(sender));
+	assert_eq!(tlog.topics[2], H256::from(contract_addr));
+	assert_eq!(tlog.data, Some(Bytes(transfer_value.to_big_endian().to_vec())));
 
 	Ok(())
 }

@@ -122,9 +122,9 @@ impl EthereumCallResult {
 /// Capture the Ethereum log for the current transaction.
 ///
 /// This method does nothing if called from outside of the ethereum context.
-pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
+pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256], add_to_bloom: bool) {
 	receipt::with(|receipt| {
-		receipt.add_log(contract, data, topics);
+		receipt.add_log(contract, data, topics, add_to_bloom);
 	});
 }
 

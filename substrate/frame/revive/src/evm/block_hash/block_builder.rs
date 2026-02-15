@@ -608,7 +608,7 @@ mod test {
 					for (address, data, topics) in &logs {
 						let current_size = data.len() + topics.len() * 32 + 20;
 						log_size += current_size;
-						accumulate_receipt.add_log(address, data, topics);
+						accumulate_receipt.add_log(address, data, topics, true);
 					}
 
 					incremental_block.process_transaction(
