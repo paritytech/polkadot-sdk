@@ -1,84 +1,67 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
-title: Refactor preimage pallet to remove deprecated Currency trait
-
+title: Refactor the preimage pallet to use fungible traits
 doc:
-  - audience: Runtime Dev
-    description: |
-      The preimage pallet no longer requires `type Currency: ReservableCurrency` in its
-      `Config` trait. The pallet was already using `Consideration` (fungible holds) for
-      active deposit operations; `type Currency` was only retained for lazy migration of
-      legacy `StatusFor` storage entries.
-
-      This PR replaces the inline lazy migration (`do_ensure_updated` / `ensure_updated`
-      extrinsic) with a proper multi-block `SteppedMigration`
-      (`pallet_preimage::migration::v2::LazyMigrationV1ToV2<Runtime, OldCurrency>`),
-      then removes all Currency-related code.
-
-      **Breaking change:** Remove `type Currency` from `pallet_preimage::Config`.
-      Runtimes must remove the line from their configuration:
-      ```rust
-      // Before
-      type Currency = Balances;
-      // After: line removed entirely
-      ```
-
-      The `ensure_updated` extrinsic (call index 4) and associated error variants
-      `TooMany` / `TooFew` have also been removed.
-
-      Runtimes with `pallet_migrations` should register the stepped migration in their
-      `Migrations` tuple to convert any remaining legacy `StatusFor` entries:
-      ```rust
-      type Migrations = (
-          // ...existing migrations...
-          pallet_preimage::migration::v2::LazyMigrationV1ToV2<Runtime, Balances>,
-      );
-      ```
-
-      Storage version bumped from 1 to 2.
-
-migrations:
-  runtime:
-    - reference: pallet_preimage::migration::v2::LazyMigrationV1ToV2
-      description: |
-        Multi-block stepped migration that converts preimage deposits from the deprecated
-        Currency::reserve to Consideration-based holds. For each entry in the legacy
-        `StatusFor` storage map, it unreserves the old deposit and creates a new
-        Consideration ticket (which uses fungible holds internally), then writes the
-        entry to `RequestStatusFor` and removes the old `StatusFor` entry.
-  db: []
-
+- audience: Todo
+  description: "## Overview\n\nThis PR migrates the preimage pallet from the deprecated\
+    \ `Currency`/`ReservableCurrency` traits to the modern `fungible` traits (via\
+    \ `Consideration`), as part of the umbrella tracking issue #226.\n\nThe preimage\
+    \ pallet was already ~80% migrated: it used `Consideration` + `HoldReason` for\
+    \ all **new** deposit operations. However, `type Currency: ReservableCurrency`\
+    \ was still in the Config trait (marked `// TODO#1569: Remove.`) solely to support\
+    \ a lazy migration (`do_ensure_updated`) that converted old `StatusFor` entries\
+    \ on every access.\n\nThis PR replaces that lazy migration with a proper `SteppedMigration`\
+    \ and removes all `Currency`-related code.\n\n## Changes\n\n- **Removed from Config\
+    \ trait**: `type Currency: ReservableCurrency<Self::AccountId>`\n- **Removed `StatusFor`\
+    \ storage item**: the old-format storage map (v0/v1 era)\n- **Removed `OldRequestStatus`\
+    \ enum** from lib.rs (moved to migration module)\n- **Removed `ensure_updated`\
+    \ extrinsic** (call_index 4): was a user-callable dispatchable for triggering\
+    \ lazy migration\n- **Removed `do_ensure_updated` function** and all 7 inline\
+    \ calls to it throughout the pallet\n- **Removed error variants** `TooMany` and\
+    \ `TooFew` (only used by `ensure_updated`)\n- **Removed** `BalanceOf<T>` type\
+    \ alias and `MAX_HASH_UPGRADE_BULK_COUNT` constant\n- **Bumped storage version**\
+    \ from 1 to 2\n\n## Migration: `LazyMigrationV1ToV2`\n\nThe migration (`pallet_preimage::migration::v2::LazyMigrationV1ToV2<T,\
+    \ OldCurrency>`) uses multi-block stepped execution via the `SteppedMigration`\
+    \ trait:\n\n- **Multi-block**: Processes `StatusFor` entries one at a time with\
+    \ weight-limited batching, resuming across blocks via cursor\n- **Two-phase per\
+    \ entry**: (1) `OldCurrency::unreserve` the old reserved balance, (2) `T::Consideration::new`\
+    \ to create a new hold ticket with `HoldReason::Preimage`\n- **Graceful handling**:\
+    \ Supports entries in all states \u2014 `Unrequested` with deposits, `Requested`\
+    \ with/without deposits\n- **try-runtime support**: `pre_upgrade` counts old entries;\
+    \ `post_upgrade` verifies they were all migrated to `RequestStatusFor`\n\nThe\
+    \ existing v1 migration was also refactored to accept an `OldCurrency` generic\
+    \ parameter (same pattern as the multisig PR #11064), decoupling it from `Config::Currency`.\n\
+    \n## Benchmarking\n\n- Replaced `Currency` trait usage with `pallet_balances`\
+    \ via `fungible::Mutate::set_balance()` (pallet-balances added as optional dep,\
+    \ enabled only by `runtime-benchmarks` feature)\n- Removed `ensure_updated` benchmark\n\
+    - Added `v2_migration_step` benchmark covering: old entry setup with `ReservableCurrency::reserve`,\
+    \ iterator read, unreserve, consideration creation, and cursor generation\n\n\
+    ## Integration\n\nRuntimes must remove `type Currency = Balances;` from their\
+    \ `impl pallet_preimage::Config`:\n\n```diff\nimpl pallet_preimage::Config for\
+    \ Runtime {\n-   type Currency = Balances;\n    type ManagerOrigin = EnsureRoot<AccountId>;\n\
+    \    type Consideration = HoldConsideration<...>;\n    // ...\n}\n```\n\nRuntimes\
+    \ using `pallet_migrations` (multi-block migrations) should register the new migration:\n\
+    \n```rust\ntype Migrations = (\n    // ... existing migrations ...\n    pallet_preimage::migration::v2::LazyMigrationV1ToV2<Runtime,\
+    \ Balances>,\n);\n```\n\n## Resources\n\nThis is part of the umbrella task #226.\n\
+    \n## TODO\n\n- [ ] Run `try-runtime-cli` against Westend / Westend AH to validate\
+    \ migration on live state\n- [ ] Generate proper weights via `/cmd bench`\n- [\
+    \ ] Generate prdoc via `/cmd prdoc`\n- [x] Add labels (at minimum `T1-FRAME`)"
 crates:
-  - name: pallet-preimage
-    bump: major
-    note: "Config trait removes `type Currency`. Extrinsic `ensure_updated` removed."
-  - name: westend-runtime
-    bump: patch
-  - name: rococo-runtime
-    bump: patch
-  - name: asset-hub-westend-runtime
-    bump: patch
-  - name: collectives-westend-runtime
-    bump: patch
-  - name: kitchensink-runtime
-    bump: patch
-  - name: pallet-referenda
-    bump: patch
-    note: Test mock updated to remove `type Currency` from preimage config.
-  - name: pallet-scheduler
-    bump: patch
-    note: Test mock updated to remove `type Currency` from preimage config.
-  - name: pallet-whitelist
-    bump: patch
-    note: Test mock updated to remove `type Currency` from preimage config.
-  - name: pallet-democracy
-    bump: patch
-    note: Test mock updated to remove `type Currency` from preimage config.
-  - name: pallet-multi-asset-bounties
-    bump: patch
-    note: Test mock updated to remove `type Currency` from preimage config.
-  - name: pallet-staking-async-rc-runtime
-    bump: patch
-  - name: pallet-staking-async-parachain-runtime
-    bump: patch
+- name: pallet-preimage
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-democracy
+  bump: major
+- name: pallet-multi-asset-bounties
+  bump: major
+- name: pallet-referenda
+  bump: major
+- name: pallet-scheduler
+  bump: major
+- name: pallet-whitelist
+  bump: major
