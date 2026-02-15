@@ -528,8 +528,8 @@ impl Index {
 			}
 			// Check if we can evict enough lower priority statements to satisfy constraints
 			for (entry, (_, len)) in account_rec.by_priority.iter() {
-				if (account_rec.data_size - would_free_size + statement_len <= max_size)
-					&& account_rec.by_priority.len() + 1 - evicted.len() <= max_count
+				if (account_rec.data_size - would_free_size + statement_len <= max_size) &&
+					account_rec.by_priority.len() + 1 - evicted.len() <= max_count
 				{
 					// Satisfied
 					break;
@@ -556,8 +556,8 @@ impl Index {
 			}
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size)
-			&& self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
+		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
+			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -834,8 +834,8 @@ impl Store {
 		let mut remaining_size = account_rec.data_size - expired_size;
 
 		// Evict lowest priority statements that exceed allowance
-		if remaining_count > allowance.max_count as usize
-			|| remaining_size > allowance.max_size as usize
+		if remaining_count > allowance.max_count as usize ||
+			remaining_size > allowance.max_size as usize
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -849,8 +849,8 @@ impl Store {
 
 			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
 			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
-				if remaining_count <= allowance.max_count as usize
-					&& remaining_size <= allowance.max_size as usize
+				if remaining_count <= allowance.max_count as usize &&
+					remaining_size <= allowance.max_size as usize
 				{
 					break;
 				}
@@ -906,9 +906,9 @@ impl Store {
 					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
-				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION
-					|| num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION
-					|| start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
+				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
+					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
+					start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
 				{
 					break;
 				}
