@@ -233,7 +233,7 @@ where
 					// 1. Deposit was successfully migrated to hold, OR
 					// 2. Deposit was set to zero (preserved with zero deposit)
 					if !old_deposit.is_zero() {
-						let held = T::NativeBalance::balance_on_hold(
+						let held = T::Fungible::balance_on_hold(
 							&HoldReason::DepositForIndex.into(),
 							&old_account,
 						);
@@ -281,7 +281,7 @@ where
 		if !reserve_to_migrate.is_zero() {
 			OldCurrency::unreserve(&account, reserve_to_migrate);
 
-			let reducible_balance = T::NativeBalance::reducible_balance(
+			let reducible_balance = T::Fungible::reducible_balance(
 				&account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -294,7 +294,7 @@ where
 			// This is to avoid trying to hold more than the account can actually hold while
 			// preserving Existential Deposit This case can happen if the account had no
 			// Existential Deposit before the migration but had an Index Deposit
-			match T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &account, hold_amount)
+			match T::Fungible::hold(&HoldReason::DepositForIndex.into(), &account, hold_amount)
 			{
 				Ok(_) => {
 					// Success: migrate to new storage with hold

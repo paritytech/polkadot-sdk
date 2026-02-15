@@ -53,7 +53,7 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
 	type AccountIndex = u64;
-	type NativeBalance = Balances;
+	type Fungible = Balances;
 	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();

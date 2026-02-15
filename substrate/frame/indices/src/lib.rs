@@ -39,7 +39,7 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::NativeBalance as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 pub use pallet::*;
@@ -81,7 +81,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// The currency trait.
-		type NativeBalance: Inspect<Self::AccountId>
+		type Fungible: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ InspectHold<Self::AccountId, Reason: From<HoldReason>>
 			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
@@ -124,7 +124,7 @@ pub mod pallet {
 			Accounts::<T>::try_mutate(index, |maybe_value| {
 				ensure!(maybe_value.is_none(), Error::<T>::InUse);
 				*maybe_value = Some((who.clone(), T::Deposit::get(), false));
-				T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &who, T::Deposit::get())
+				T::Fungible::hold(&HoldReason::DepositForIndex.into(), &who, T::Deposit::get())
 			})?;
 			Self::deposit_event(Event::IndexAssigned { who, index });
 			Ok(())
@@ -159,7 +159,7 @@ pub mod pallet {
 				ensure!(account == who, Error::<T>::NotOwner);
 
 				// We transfer the hold from the current owner to the new owner
-				let actual_amount = T::NativeBalance::transfer_on_hold(
+				let actual_amount = T::Fungible::transfer_on_hold(
 					&HoldReason::DepositForIndex.into(),
 					&who,
 					&new,
@@ -197,7 +197,7 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::NativeBalance::release(
+				T::Fungible::release(
 					&HoldReason::DepositForIndex.into(),
 					&who,
 					amount,
@@ -236,7 +236,7 @@ pub mod pallet {
 			Accounts::<T>::mutate(index, |maybe_value| {
 				if let Some((account, amount, _)) = maybe_value.take() {
 					// Release hold from current owner if any
-					if let Err(e) = T::NativeBalance::release(
+					if let Err(e) = T::Fungible::release(
 						&HoldReason::DepositForIndex.into(),
 						&account,
 						amount,
@@ -280,7 +280,7 @@ pub mod pallet {
 				ensure!(account == who, Error::<T>::NotOwner);
 
 				// Burn the held amount (consume it permanently)
-				T::NativeBalance::burn_held(
+				T::Fungible::burn_held(
 					&HoldReason::DepositForIndex.into(),
 					&who,
 					amount,
@@ -327,11 +327,11 @@ pub mod pallet {
 				} else if new_amount > old_amount {
 					// Need to hold more
 					let extra = new_amount.saturating_sub(old_amount);
-					T::NativeBalance::hold(&HoldReason::DepositForIndex.into(), &who, extra)?;
+					T::Fungible::hold(&HoldReason::DepositForIndex.into(), &who, extra)?;
 				} else if new_amount < old_amount {
 					// Need to release some
 					let excess = old_amount.saturating_sub(new_amount);
-					T::NativeBalance::release(
+					T::Fungible::release(
 						&HoldReason::DepositForIndex.into(),
 						&who,
 						excess,

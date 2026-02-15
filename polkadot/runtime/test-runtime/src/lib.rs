@@ -248,7 +248,7 @@ parameter_types! {
 
 impl pallet_indices::Config for Runtime {
 	type AccountIndex = AccountIndex;
-	type NativeBalance = Balances;
+	type Fungible = Balances;
 	type Deposit = IndexDeposit;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
