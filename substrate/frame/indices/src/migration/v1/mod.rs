@@ -208,7 +208,7 @@ where
 	fn do_post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
 
-		println!("Post-upgrade check started");
+		log::info!("Post-upgrade check started");
 
 		let prev_map: BTreeMap<T::AccountIndex, (T::AccountId, BalanceOf<T>, bool)> =
 			Decode::decode(&mut &state[..]).expect("Failed to decode the previous storage state");
@@ -257,7 +257,7 @@ where
 			}
 		}
 
-		println!("Post-upgrade check completed");
+		log::info!("Post-upgrade check completed");
 
 		Ok(())
 	}
