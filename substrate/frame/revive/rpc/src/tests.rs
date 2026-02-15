@@ -349,6 +349,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_trace_transfers_zero_value_no_log,
 		test_simulate_v1_trace_transfers_multi_block,
 		test_simulate_v1_trace_transfers_contract_with_value,
+		test_simulate_v1_trace_transfers_reverted_call,
 		test_simulate_v1_block_override_timestamp,
 		test_simulate_v1_block_override_gas_limit,
 		test_simulate_v1_block_override_prev_randao,
@@ -3574,6 +3575,21 @@ fn extract_logs<E: core::fmt::Debug>(call: &SimulationCallResult<E>) -> &Vec<Log
 	}
 }
 
+/// Helper: assert that a log is a valid synthetic ERC-20 Transfer log per ERC-7528.
+/// Checks emitter address, topic count, event signature, from, to, and value data.
+fn assert_transfer_log(log: &Log, from: H160, to: H160, value: U256) {
+	assert_eq!(log.address, TRACE_TRANSFERS_EMITTER, "Emitter should be ERC-7528 native token");
+	assert_eq!(log.topics.len(), 3, "Transfer log should have 3 topics");
+	assert_eq!(log.topics[0], H256::from(TRANSFER_EVENT_TOPIC), "topic[0] should be Transfer sig");
+	assert_eq!(log.topics[1], H256::from(from), "topic[1] should be from address");
+	assert_eq!(log.topics[2], H256::from(to), "topic[2] should be to address");
+	assert_eq!(
+		log.data,
+		Some(Bytes(value.to_big_endian().to_vec())),
+		"data should be ABI-encoded value"
+	);
+}
+
 /// Simple ETH value transfer with trace_transfers enabled produces a synthetic
 /// ERC-20 Transfer log with the correct emitter, topics, and data.
 ///
@@ -3623,18 +3639,7 @@ async fn test_simulate_v1_trace_transfers_simple() -> anyhow::Result<()> {
 	assert_eq!(response.0[0].calls.len(), 1);
 	let logs = extract_logs(&response.0[0].calls[0]);
 	assert_eq!(logs.len(), 1, "Expected exactly 1 synthetic Transfer log");
-
-	let log = &logs[0];
-	// Emitter is the ERC-7528 native token address
-	assert_eq!(log.address, TRACE_TRANSFERS_EMITTER);
-	// 3 topics: Transfer event signature, from, to
-	assert_eq!(log.topics.len(), 3);
-	assert_eq!(log.topics[0], H256::from(TRANSFER_EVENT_TOPIC));
-	assert_eq!(log.topics[1], H256::from(sender));
-	assert_eq!(log.topics[2], H256::from(receiver));
-	// Data is the value encoded as 32-byte big-endian
-	let expected_data = transfer_value.to_big_endian().to_vec();
-	assert_eq!(log.data, Some(Bytes(expected_data)));
+	assert_transfer_log(&logs[0], sender, receiver, transfer_value);
 
 	Ok(())
 }
@@ -3747,18 +3752,12 @@ async fn test_simulate_v1_trace_transfers_multiple_transfers() -> anyhow::Result
 	// First call: sender -> receiver1, value1
 	let logs1 = extract_logs(&response.0[0].calls[0]);
 	assert_eq!(logs1.len(), 1, "First transfer should produce 1 log");
-	assert_eq!(logs1[0].address, TRACE_TRANSFERS_EMITTER);
-	assert_eq!(logs1[0].topics[1], H256::from(sender));
-	assert_eq!(logs1[0].topics[2], H256::from(receiver1));
-	assert_eq!(logs1[0].data, Some(Bytes(value1.to_big_endian().to_vec())));
+	assert_transfer_log(&logs1[0], sender, receiver1, value1);
 
 	// Second call: sender -> receiver2, value2
 	let logs2 = extract_logs(&response.0[0].calls[1]);
 	assert_eq!(logs2.len(), 1, "Second transfer should produce 1 log");
-	assert_eq!(logs2[0].address, TRACE_TRANSFERS_EMITTER);
-	assert_eq!(logs2[0].topics[1], H256::from(sender));
-	assert_eq!(logs2[0].topics[2], H256::from(receiver2));
-	assert_eq!(logs2[0].data, Some(Bytes(value2.to_big_endian().to_vec())));
+	assert_transfer_log(&logs2[0], sender, receiver2, value2);
 
 	Ok(())
 }
@@ -3878,16 +3877,12 @@ async fn test_simulate_v1_trace_transfers_multi_block() -> anyhow::Result<()> {
 	// Block 0: sender -> receiver1
 	let logs0 = extract_logs(&response.0[0].calls[0]);
 	assert_eq!(logs0.len(), 1, "Block 0 should have 1 Transfer log");
-	assert_eq!(logs0[0].topics[1], H256::from(sender));
-	assert_eq!(logs0[0].topics[2], H256::from(receiver1));
-	assert_eq!(logs0[0].data, Some(Bytes(value1.to_big_endian().to_vec())));
+	assert_transfer_log(&logs0[0], sender, receiver1, value1);
 
 	// Block 1: sender -> receiver2
 	let logs1 = extract_logs(&response.0[1].calls[0]);
 	assert_eq!(logs1.len(), 1, "Block 1 should have 1 Transfer log");
-	assert_eq!(logs1[0].topics[1], H256::from(sender));
-	assert_eq!(logs1[0].topics[2], H256::from(receiver2));
-	assert_eq!(logs1[0].data, Some(Bytes(value2.to_big_endian().to_vec())));
+	assert_transfer_log(&logs1[0], sender, receiver2, value2);
 
 	Ok(())
 }
@@ -3962,25 +3957,86 @@ async fn test_simulate_v1_trace_transfers_contract_with_value() -> anyhow::Resul
 	);
 
 	let logs = extract_logs(&response.0[0].calls[0]);
-	// At least 1 log should be the synthetic Transfer log for the value transfer
-	let transfer_logs: Vec<_> = logs
-		.iter()
-		.filter(|l| {
-			l.address == TRACE_TRANSFERS_EMITTER &&
-				!l.topics.is_empty() &&
-				l.topics[0] == H256::from(TRANSFER_EVENT_TOPIC)
-		})
-		.collect();
-	assert!(
-		!transfer_logs.is_empty(),
-		"Contract call with value should produce at least 1 synthetic Transfer log"
+	// The value transfer from sender to contract should produce exactly 1 synthetic
+	// Transfer log. CallSelfWithDust::f() is just `external payable {}` — no internal
+	// transfers, so there should be no additional synthetic logs.
+	assert_eq!(logs.len(), 1, "Contract call with value should produce exactly 1 Transfer log");
+	assert_transfer_log(&logs[0], sender, contract_addr, transfer_value);
+
+	Ok(())
+}
+
+/// Per Geth spec: "if the transaction sends ETH but the execution reverts, no log gets issued."
+/// A contract call with value that REVERTs should produce a Failed result with no logs.
+/// The SimulationCallResult::Failed variant has no logs field by design, matching this spec.
+async fn test_simulate_v1_trace_transfers_reverted_call() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xb1; 20]);
+	let contract_addr = H160::from([0xcc; 20]);
+
+	let (contract_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let mut state_overrides_map = BTreeMap::new();
+	state_overrides_map.insert(
+		sender,
+		AddressStateOverride {
+			balance: Some(U256::from(1_000_000_000_000_000u128)),
+			nonce: None,
+			code: None,
+			storage: None,
+			move_precompile_to_address: None,
+		},
+	);
+	state_overrides_map.insert(
+		contract_addr,
+		AddressStateOverride {
+			balance: None,
+			nonce: None,
+			code: Some(contract_code.into()),
+			storage: None,
+			move_precompile_to_address: None,
+		},
 	);
 
-	// Verify the Transfer log has the correct from/to/value
-	let tlog = transfer_logs[0];
-	assert_eq!(tlog.topics[1], H256::from(sender));
-	assert_eq!(tlog.topics[2], H256::from(contract_addr));
-	assert_eq!(tlog.data, Some(Bytes(transfer_value.to_big_endian().to_vec())));
+	let payload = SimulationParameters {
+		block_state_calls: vec![SimulationPayload {
+			block_overrides: None,
+			state_overrides: Some(StateOverrides(state_overrides_map)),
+			calls: vec![GenericTransaction {
+				from: Some(sender),
+				to: Some(contract_addr),
+				value: Some(U256::from(5_000u64)),
+				input: Callee::revertCall {}.abi_encode().into(),
+				..Default::default()
+			}],
+		}],
+		trace_transfers: true,
+		validation: false,
+		return_full_transactions: false,
+	};
+
+	// Act
+	let block = Some(BlockNumberOrTagOrHash::BlockNumber(block_number));
+	let response = client.simulate_v1(payload, block).await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	// The call should have failed (contract reverted). SimulationCallResult::Failed
+	// has no `logs` field, so no synthetic Transfer logs are returned — matching
+	// the Geth spec that reverted calls discard all logs.
+	assert!(
+		matches!(&response.0[0].calls[0], SimulationCallResult::Failed { .. }),
+		"Contract call that REVERTs should produce Failed result (no logs)"
+	);
 
 	Ok(())
 }
