@@ -262,13 +262,12 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 
 	/// Some if the string is a properly encoded SS58Check address.
 	#[cfg(feature = "serde")]
-	fn from_ss58check(s: &str) -> Result<Self, PublicError> {
-		Self::from_ss58check_with_version(s).and_then(|(r, v)| match v {
-			v if !v.is_custom() => Ok(r),
-			v if v == default_ss58_version() => Ok(r),
-			v => Err(PublicError::UnknownSs58AddressFormat(v)),
+		fn from_ss58check(s: &str) -> Result<Self, PublicError> {
+			Self::from_ss58check_with_version(s).and_then(|(r, v)| {
+			if Self::format_is_allowed(v) { Ok(r) } else { Err(PublicError::UnknownSs58AddressFormat(v)) }
 		})
 	}
+
 
 	/// Some if the string is a properly encoded SS58Check address.
 	#[cfg(feature = "serde")]
@@ -317,11 +316,9 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 	/// Some if the string is a properly encoded SS58Check address, optionally with
 	/// a derivation path following.
 	#[cfg(feature = "std")]
-	fn from_string(s: &str) -> Result<Self, PublicError> {
-		Self::from_string_with_version(s).and_then(|(r, v)| match v {
-			v if !v.is_custom() => Ok(r),
-			v if v == default_ss58_version() => Ok(r),
-			v => Err(PublicError::UnknownSs58AddressFormat(v)),
+		fn from_string(s: &str) -> Result<Self, PublicError> {
+			Self::from_string_with_version(s).and_then(|(r, v)| {
+			if Self::format_is_allowed(v) { Ok(r) } else { Err(PublicError::UnknownSs58AddressFormat(v)) }
 		})
 	}
 
