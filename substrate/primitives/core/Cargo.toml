@@ -91,6 +91,7 @@ std = [
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
+	"byte-slice-cast/std",
 	"codec/std",
 	"ed25519-zebra/std",
 	"full_crypto",
@@ -128,7 +129,6 @@ std = [
 	"w3f-bls?/std",
 	"zeroize/alloc",
 	"zeroize/std",
-	"byte-slice-cast/std"
 ]
 
 # Serde support without relying on std features.
