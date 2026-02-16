@@ -392,6 +392,11 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_simulate_v1_gas_used_nonzero,
 		test_simulate_v1_first_block_parent_anchored_to_chain,
 		test_simulate_v1_return_full_transactions,
+		test_simulate_v1_revert_data_captured,
+		test_simulate_v1_gas_limit_too_low,
+		test_simulate_v1_empty_payload_no_calls,
+		test_simulate_v1_per_block_overrides_independent,
+		test_simulate_v1_all_calls_fail_block_valid,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -4203,6 +4208,221 @@ async fn test_simulate_v1_return_full_transactions() -> anyhow::Result<()> {
 	if let HashesOrTransactionInfos::TransactionInfos(infos) = &response.0[0].transactions {
 		assert_eq!(infos.len(), 1, "Should have 1 transaction info");
 	}
+
+	Ok(())
+}
+
+/// Verify that Failed results capture meaningful revert data from the contract.
+/// Callee.revert() uses `require(false, "This is a revert")`, so return_data
+/// should contain the ABI-encoded Error(string) with that message.
+async fn test_simulate_v1_revert_data_captured() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xe1; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				input: Callee::revertCall {}.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 1);
+	if let SimulationCallResult::Failed { return_data, .. } = &response.0[0].calls[0] {
+		assert!(
+			!return_data.0.is_empty(),
+			"Revert should include return data with the reason"
+		);
+		// Error(string) selector is 0x08c379a0
+		assert_eq!(
+			&return_data.0[..4],
+			&[0x08, 0xc3, 0x79, 0xa0],
+			"Return data should start with Error(string) selector"
+		);
+	} else {
+		panic!("Callee::revert() should produce a Failed result");
+	}
+
+	Ok(())
+}
+
+/// When a call's explicit gas limit is far too low (below intrinsic gas), the simulation
+/// should reject the transaction with an error rather than executing it.
+async fn test_simulate_v1_gas_limit_too_low() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Callee;
+
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let caller = Account::default();
+	let contract_addr = H160::from([0xe2; 20]);
+
+	let (callee_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_code_override(contract_addr, Bytes::from(callee_code))
+			.with_call(GenericTransaction {
+				from: Some(caller.address()),
+				to: Some(contract_addr),
+				gas: Some(U256::from(1u64)), // below intrinsic gas minimum
+				input: Callee::echoCall { _data: 42 }.abi_encode().into(),
+				..Default::default()
+			})
+	});
+
+	// Act
+	let result = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await;
+
+	// Assert – gas below intrinsic minimum causes simulation-level rejection
+	assert!(
+		result.is_err(),
+		"Gas below intrinsic minimum should cause simulation error"
+	);
+
+	Ok(())
+}
+
+/// A simulation payload with state overrides but zero calls should produce a valid block.
+async fn test_simulate_v1_empty_payload_no_calls() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let some_account = H160::from([0xe3; 20]);
+
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_balance_override(some_account, U256::from(999_999u128))
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1, "Should produce exactly 1 block");
+	assert!(
+		response.0[0].calls.is_empty(),
+		"Block with no calls should have empty calls vec"
+	);
+	assert!(response.0[0].hash != H256::zero(), "Block hash should be non-zero");
+	assert!(response.0[0].number > U256::zero(), "Block number should be positive");
+
+	Ok(())
+}
+
+/// Per-block overrides are independent: a fresh balance override in block 1 replaces
+/// whatever residual balance the account had from block 0's execution.
+async fn test_simulate_v1_per_block_overrides_independent() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let sender = H160::from([0xe4; 20]);
+	let recipient = H160::from([0xe5; 20]);
+
+	// Block 0: sender has 5,000, transfers 4,000 (succeeds, ~1,000 left)
+	// Block 1: sender gets NEW override of 2,000, transfers 1,500 (succeeds, ~500 left),
+	//          then tries to transfer 3,000 (should fail)
+	let payload = SimulationParameters::new()
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(5_000u128))
+				.with_call(transfer(sender, recipient, U256::from(4_000u128)))
+		})
+		.with_new_simulation_payload(|b| {
+			b.with_balance_override(sender, U256::from(2_000u128))
+				.with_call(transfer(sender, recipient, U256::from(1_500u128)))
+				.with_call(transfer(sender, recipient, U256::from(3_000u128)))
+		});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 2, "Should produce 2 blocks");
+
+	// Block 0: transfer of 4,000 from 5,000 balance should succeed
+	assert_eq!(response.0[0].calls.len(), 1);
+	assert!(
+		response.0[0].calls[0].is_success(),
+		"Block 0: 4,000 from 5,000 should succeed"
+	);
+
+	// Block 1: first transfer of 1,500 from fresh 2,000 should succeed
+	assert_eq!(response.0[1].calls.len(), 2);
+	assert!(
+		response.0[1].calls[0].is_success(),
+		"Block 1: 1,500 from fresh 2,000 override should succeed"
+	);
+	// Block 1: second transfer of 3,000 from remaining ~500 should fail
+	assert!(
+		response.0[1].calls[1].is_failure(),
+		"Block 1: 3,000 from ~500 remaining should fail (override was 2,000, not residual)"
+	);
+
+	Ok(())
+}
+
+/// When all calls in a block fail, the block metadata (hash, number) should still be valid.
+async fn test_simulate_v1_all_calls_fail_block_valid() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let block_number = client.block_number().await?;
+	let broke = H160::from([0xe6; 20]);
+	let recipient = H160::from([0xe7; 20]);
+
+	// Two calls from an account with zero balance — both should fail
+	let payload = SimulationParameters::new().with_new_simulation_payload(|b| {
+		b.with_call(transfer(broke, recipient, U256::from(1_000_000u128)))
+			.with_call(transfer(broke, recipient, U256::from(2_000_000u128)))
+	});
+
+	// Act
+	let response = client
+		.simulate_v1(payload, Some(BlockNumberOrTagOrHash::BlockNumber(block_number)))
+		.await?;
+
+	// Assert
+	assert_eq!(response.0.len(), 1);
+	assert_eq!(response.0[0].calls.len(), 2);
+	assert!(response.0[0].calls[0].is_failure(), "Call 0 should fail (broke sender)");
+	assert!(response.0[0].calls[1].is_failure(), "Call 1 should fail (broke sender)");
+
+	// Block metadata should still be valid
+	assert!(
+		response.0[0].hash != H256::zero(),
+		"Block hash should be non-zero even with all-fail"
+	);
+	assert!(
+		response.0[0].number > U256::zero(),
+		"Block number should be positive even with all-fail"
+	);
 
 	Ok(())
 }
