@@ -11530,6 +11530,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-auctions"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-io",
+ "sp-pusd",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-aura"
 version = "27.0.0"
 dependencies = [
@@ -14138,6 +14156,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-vaults"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-pusd",
+ "sp-runtime",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [
@@ -16403,6 +16439,7 @@ dependencies = [
  "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-atomic-swap",
+ "pallet-auctions",
  "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -16509,6 +16546,7 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-vaults",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-whitelist",
@@ -16658,6 +16696,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-offchain",
  "sp-panic-handler",
+ "sp-pusd",
  "sp-rpc",
  "sp-runtime",
  "sp-runtime-interface 24.0.0",
@@ -23334,6 +23373,16 @@ version = "13.0.0"
 dependencies = [
  "backtrace",
  "regex",
+]
+
+[[package]]
+name = "sp-pusd"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
 ]
 
 [[package]]

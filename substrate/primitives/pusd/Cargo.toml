@@ -1,0 +1,29 @@
+[package]
+name = "sp-pusd"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Shared primitives for pUSD related-pallets"
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+frame-support = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-runtime = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"sp-runtime/try-runtime",
+]

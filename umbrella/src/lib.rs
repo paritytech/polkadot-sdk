@@ -344,6 +344,10 @@ pub use pallet_assets_precompiles;
 #[cfg(feature = "pallet-atomic-swap")]
 pub use pallet_atomic_swap;
 
+/// FRAME auctions pallet for Dutch auctions.
+#[cfg(feature = "pallet-auctions")]
+pub use pallet_auctions;
+
 /// FRAME AURA consensus pallet.
 #[cfg(feature = "pallet-aura")]
 pub use pallet_aura;
@@ -774,6 +778,10 @@ pub use pallet_uniques;
 /// FRAME utilities pallet.
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
+
+/// FRAME vaults pallet.
+#[cfg(feature = "pallet-vaults")]
+pub use pallet_vaults;
 
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
@@ -1387,6 +1395,10 @@ pub use sp_offchain;
 /// Custom panic hook with bug report link.
 #[cfg(feature = "sp-panic-handler")]
 pub use sp_panic_handler;
+
+/// pUSD primitives and traits.
+#[cfg(feature = "sp-pusd")]
+pub use sp_pusd;
 
 /// Substrate RPC primitives and utilities.
 #[cfg(feature = "sp-rpc")]
