@@ -950,4 +950,3 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 	Ok(())
 }
-
