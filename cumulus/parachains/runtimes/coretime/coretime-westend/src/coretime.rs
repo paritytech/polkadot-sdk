@@ -319,16 +319,15 @@ impl pallet_broker::Config for Runtime {
 	type Currency = Balances;
 	type OnRevenue = BurnCoretimeRevenue;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
-	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
-	type MaxLeasedCores = ConstU32<10>;
-	type MaxReservedCores = ConstU32<10>;
+	type MaxLeasedCores = ConstU32<50>;
+	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
-	type MaxAutoRenewals = ConstU32<20>;
+	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }

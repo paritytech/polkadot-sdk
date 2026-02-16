@@ -633,25 +633,11 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 9_596_000 picoseconds.
 		Weight::from_parts(10_031_000, 0)
 	}
-	fn get_name() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_390_000 picoseconds.
-		Weight::from_parts(10_914_000, 0)
-	}
-	fn get_symbol() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `344`
-		//  Estimated: `0`
-		// Minimum execution time: 10_587_000 picoseconds.
-		Weight::from_parts(11_121_000, 0)
-	}
-	fn get_decimals() -> Weight {
+	fn get_metadata() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `344`
 		//  Estimated: `0`
 		// Minimum execution time: 10_591_000 picoseconds.
-		Weight::from_parts(11_015_000, 0)
+		Weight::from_parts(11_121_000, 0)
 	}
 }

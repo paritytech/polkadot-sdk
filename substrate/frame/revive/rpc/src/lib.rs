@@ -19,11 +19,11 @@
 
 use client::ClientError;
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::{RpcResult, async_trait},
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
-use sp_core::{keccak_256, H160, H256, U256};
+use sp_core::{H160, H256, U256, keccak_256};
 use thiserror::Error;
 use tokio::time::Duration;
 
