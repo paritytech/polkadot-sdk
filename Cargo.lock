@@ -20457,6 +20457,7 @@ dependencies = [
  "sp-consensus",
  "sp-runtime",
  "substrate-prometheus-endpoint",
+ "tokio",
 ]
 
 [[package]]
