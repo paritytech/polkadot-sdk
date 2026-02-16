@@ -14,12 +14,7 @@ workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-<<<<<<< HEAD
-=======
-
-# Local
 polkadot-jemalloc-shim = { workspace = true }
->>>>>>> 61578bdc (Introduce a "jemalloc-shim" crate (#10709))
 polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "westend-native"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

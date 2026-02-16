@@ -67,13 +67,8 @@ path = "src/bin/prepare-worker.rs"
 
 [dependencies]
 color-eyre = { workspace = true }
-<<<<<<< HEAD
-=======
-polkadot-jemalloc-shim = { workspace = true }
-
-# Crates in our workspace, defined as dependencies so we can pass them feature flags.
->>>>>>> 61578bdc (Introduce a "jemalloc-shim" crate (#10709))
 polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
+polkadot-jemalloc-shim = { workspace = true }
 polkadot-node-core-pvf.default-features = true
 polkadot-node-core-pvf.workspace = true
 polkadot-node-core-pvf-common.default-features = true
@@ -84,7 +79,6 @@ polkadot-node-core-pvf-prepare-worker.default-features = true
 polkadot-node-core-pvf-prepare-worker.workspace = true
 polkadot-overseer.default-features = true
 polkadot-overseer.workspace = true
-tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
