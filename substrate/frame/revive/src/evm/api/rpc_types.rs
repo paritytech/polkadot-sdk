@@ -390,7 +390,6 @@ impl GenericTransaction {
 				value: self.value.unwrap_or_default(),
 				to: self.to.unwrap_or_default(),
 				gas: self.gas.unwrap_or_default(),
-				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
@@ -456,7 +455,6 @@ fn from_unsigned_works_for_7702() {
 		value: U256::from(1),
 		to: H160::zero(),
 		gas: U256::from(1),
-		gas_price: U256::from(20),
 		max_fee_per_gas: U256::from(20),
 		max_priority_fee_per_gas: U256::from(1),
 		authorization_list: vec![AuthorizationListEntry {

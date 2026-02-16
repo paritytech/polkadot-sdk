@@ -20,13 +20,13 @@
 use core::iter;
 
 use crate::{
+	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
+	ExecReturnValue, Weight,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
-	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT},
-	tests::{builder, ExtBuilder, MockHandlerImpl, Test, MOCK_CODE},
-	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
-	ExecReturnValue, Weight,
+	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
+	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, Test, builder},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -37,7 +37,7 @@ use frame_support::{
 	traits::fungible::{Balanced, Mutate},
 };
 use itertools::Itertools;
-use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType, Host};
+use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
@@ -620,7 +620,7 @@ fn create_works() {
 		let magic_number = 42u64;
 
 		// Check if the created contract is working
-		let echo_result = builder::bare_call(callee_addr.0 .0.into())
+		let echo_result = builder::bare_call(callee_addr.0.0.into())
 			.data(Callee::echoCall { _data: magic_number }.abi_encode())
 			.build_and_unwrap_result();
 
@@ -658,7 +658,7 @@ fn create2_works() {
 		// Compute expected CREATE2 address
 		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
 
-		let callee_addr: H160 = callee_addr.0 .0.into();
+		let callee_addr: H160 = callee_addr.0.0.into();
 		assert_eq!(callee_addr, expected_addr, "CREATE2 address should be deterministic");
 		let magic_number = 42u64;
 
