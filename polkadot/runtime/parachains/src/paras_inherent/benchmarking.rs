@@ -32,9 +32,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn enter_empty() -> Result<(), BenchmarkError> {
-		// Ensure broker parachain is reachable for XCM delivery
-		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
-
 		let scenario = BenchBuilder::<T>::new().build();
 
 		let mut benchmark = scenario.data.clone();
@@ -59,9 +56,6 @@ mod benchmarks {
 	fn enter_variable_disputes(
 		v: Linear<400, { BenchBuilder::<T>::fallback_max_validators() }>,
 	) -> Result<(), BenchmarkError> {
-		// Ensure broker parachain is reachable for XCM delivery
-		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
-
 		let scenario = BenchBuilder::<T>::new().set_dispute_sessions(&[2]).build();
 
 		let mut benchmark = scenario.data.clone();
@@ -94,9 +88,6 @@ mod benchmarks {
 	// The weight of one bitfield.
 	#[benchmark]
 	fn enter_bitfields() -> Result<(), BenchmarkError> {
-		// Ensure broker parachain is reachable for XCM delivery
-		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
-
 		let cores_with_backed: BTreeMap<_, _> =
 			vec![(0, BenchBuilder::<T>::fallback_max_validators())].into_iter().collect();
 
@@ -142,9 +133,6 @@ mod benchmarks {
 			},
 		>,
 	) -> Result<(), BenchmarkError> {
-		// Ensure broker parachain is reachable for XCM delivery
-		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
-
 		configuration::Pallet::<T>::set_node_feature(
 			RawOrigin::Root.into(),
 			FeatureIndex::CandidateReceiptV2 as u8,
@@ -203,9 +191,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn enter_backed_candidate_code_upgrade() -> Result<(), BenchmarkError> {
-		// Ensure broker parachain is reachable for XCM delivery
-		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
-
 		configuration::Pallet::<T>::set_node_feature(
 			RawOrigin::Root.into(),
 			FeatureIndex::CandidateReceiptV2 as u8,
