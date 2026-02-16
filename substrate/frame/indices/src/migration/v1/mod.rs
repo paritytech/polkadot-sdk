@@ -176,7 +176,8 @@ where
 				cursor = Some(Some(index));
 				meter.consume(min_required);
 			} else {
-				// Migration complete
+				// Migration complete - update storage version
+				StorageVersion::new(Self::id().version_to as u16).put::<crate::pallet::Pallet<T>>();
 				return Ok(None);
 			}
 		}
