@@ -1,0 +1,50 @@
+title: Implement `eth_simulateV1`
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Implement the eth_simulateV1 JSON-RPC method for pallet-revive, enabling multi-block transaction simulation with state overrides, block overrides, transfer tracing, and optional EVM validation matching the Geth specification.
+
+    ## Integration
+
+    This PR adds a new runtime API method eth_simulate_v1 and exposes it through the eth-rpc server as eth_simulateV1. Downstream consumers of the pallet-revive runtime API will gain access to the new method. No existing APIs are modified in a breaking way.
+
+    New crate-level types are added to `rpc_types_gen.rs` (`SimulationParameters`, `SimulationPayload`, `SimulationBlock`, `SimulationCallResult`, `SimulationResponse`, `BlockOverrides`, `StateOverrides`, etc.) and to `primitives.rs` (`SimulationError`, `SimulationCallOutcome`).
+
+    ## Review Notes
+
+    ### Architecture
+
+    The implementation is split across several layers:
+
+    #### Simulation orchestration (`src/simulation.rs`):
+
+    - `SimulationBlocks<const BOUND: u32 = 0x100>` validates and resolves simulation payloads into an ordered block sequence. Enforces the Geth-spec constraint of max 256 blocks (including auto-generated filler blocks for gaps), monotonically increasing block numbers, and non-decreasing timestamps.
+    - Two mock handler types (`SimulationExecutorMockHandler` and `SimulationBlockBuilderMockHandler`) inject overridden block parameters into the execution engine and block builder respectively, via trait objects rather than modifying core execution paths.
+
+    #### Pallet entry point (`src/lib.rs`):
+
+    - `eth_simulate_v1()` runtime API method orchestrates the full pipeline: payload validation -> block/state override application -> optional transaction validation -> call execution -> Ethereum block construction -> response assembly.
+    - State overrides support balance, nonce, code, and storage injection (both full-replacement state and partial-diff stateDiff modes per Geth spec).
+    - Validation mode (when enabled) checks nonces, fee caps, priority fee vs fee cap, and balance sufficiency, mimicking EVM validation minus signature verification. Conflicting fee fields and chain ID mismatch are always checked regardless of the validation flag.
+
+    #### Transfer tracing (`src/exec.rs`):
+
+    - When traceTransfers=true, ETH value transfers emit synthetic ERC-20 `Transfer(address,address,uint256)` logs from the special ERC-7528 native-token address (0xeeee...ee). This is integrated at the execution layer so both direct transfers and internal contract-to-contract value movements are captured.
+
+    #### Block builder integration (`src/evm/block_hash/block_builder.rs`):
+
+    - `EthereumBlockBuilder` gains a `with_mock_handler()` method accepting a trait object that can override any block-level field (number, timestamp, gas, coinbase, difficulty, withdrawals, base fee, bloom, etc.) during `build_block()`.
+
+    #### RPC types (`src/evm/api/rpc_types_gen.rs`):
+
+    - Full type definitions for `SimulationParameters`, `SimulationPayload`, `BlockOverrides`, `StateOverrides`, `StorageOverrides`, `SimulationBlock`, `SimulationCallResult` (tagged Success/Failed enum), `SimulationResponse`, `HashesOrTransactionInfos`, etc.
+    - Builder pattern methods on `SimulationParameters` and `SimulationPayload` for ergonomic test construction.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
