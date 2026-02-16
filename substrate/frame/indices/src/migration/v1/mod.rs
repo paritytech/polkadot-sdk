@@ -119,7 +119,11 @@ pub mod v0 {
 	///
 	/// This storage maps AccountIndex -> (AccountId, ReservedBalance, IsFrozen)
 	/// where ReservedBalance represents the amount reserved via Currency::reserve()
-	pub type OldAccounts<T: Config> = StorageMap<
+	///
+	/// NOTE: This must be named `Accounts` (not `OldAccounts`) because `#[storage_alias]`
+	/// derives the on-chain storage key from the type name. The actual on-chain storage is
+	/// keyed under `Accounts`, so the alias name must match exactly.
+	pub type Accounts<T: Config> = StorageMap<
 		Pallet<T>,
 		Blake2_128Concat,
 		<T as Config>::AccountIndex,
@@ -165,9 +169,9 @@ where
 
 			// Get the iterator for the OLD accounts to migrate
 			let mut iter = if let Some(Some(last_key)) = cursor {
-				v0::OldAccounts::<T>::iter_from(v0::OldAccounts::<T>::hashed_key_for(last_key))
+				v0::Accounts::<T>::iter_from(v0::Accounts::<T>::hashed_key_for(last_key))
 			} else {
-				v0::OldAccounts::<T>::iter()
+				v0::Accounts::<T>::iter()
 			};
 
 			// If there is a next item in the iterator, perform the migration.
@@ -337,7 +341,7 @@ mod tests {
 				Balances::set_balance(&account, 1000); // Give them some free balance
 				Balances::reserve(&account, deposit).unwrap(); // Reserve the deposit amount
 
-				v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, false));
+				v0::Accounts::<Test>::insert(i as u64, (account, deposit, false));
 				println!("Inserted old account {} with deposit {} (reserved)", i, deposit);
 			}
 
@@ -350,7 +354,7 @@ mod tests {
 				// Give them some free balance but don't reserve anything (frozen accounts)
 				Balances::set_balance(&account, 1000);
 
-				v0::OldAccounts::<Test>::insert(i as u64, (account, deposit, true));
+				v0::Accounts::<Test>::insert(i as u64, (account, deposit, true));
 				println!("Inserted old frozen account {} with deposit {} (frozen)", i, deposit);
 			}
 

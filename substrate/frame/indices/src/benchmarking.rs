@@ -232,7 +232,7 @@ mod benchmarks {
 		<T::Fungible as ReservableCurrency<T::AccountId>>::reserve(&caller, deposit)?;
 
 		// Insert into the OLD storage (v0) to simulate pre-migration state
-		v0::OldAccounts::<T>::insert(account_index, (caller.clone(), deposit, false));
+		v0::Accounts::<T>::insert(account_index, (caller.clone(), deposit, false));
 
 		#[block]
 		{
