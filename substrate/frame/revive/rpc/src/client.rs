@@ -181,6 +181,11 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
+
+	/// Block subscription sender side.
+	block_subscription_tx: tokio::sync::broadcast::Sender<Block>,
+	/// Log subscription sender side.
+	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -258,6 +263,8 @@ impl Client {
 			block_notifier: automine
 				.then(|| tokio::sync::broadcast::channel::<H256>(NOTIFIER_CAPACITY).0),
 			subscription_lock: Arc::new(Mutex::new(())),
+			block_subscription_tx: tokio::sync::broadcast::channel(0x400).0,
+			log_subscription_tx: tokio::sync::broadcast::channel(0xFFFFF).0,
 		};
 
 		Ok(client)
@@ -387,6 +394,14 @@ impl Client {
 				},
 				_ => {},
 			}
+
+			// Broadcast the best blocks
+			if let SubscriptionType::BestBlocks = subscription_type &&
+				self.block_subscription_tx.receiver_count() > 0
+			{
+				let _ = self.block_subscription_tx.send(evm_block);
+			}
+
 			Ok(())
 		})
 		.await
@@ -413,6 +428,51 @@ impl Client {
 		.await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
+		Ok(())
+	}
+
+	/// Subscribes to new logs found in the blocks.
+	pub async fn subscribe_new_logs(&self) -> Result<(), ClientError> {
+		log::info!(target: LOG_TARGET, "🔌 Subscribing to new logs");
+		let mut block_rx = self.block_subscription_tx.subscribe();
+
+		loop {
+			match block_rx.recv().await {
+				Ok(block) => {
+					let block_hash = block.hash;
+					let filter = Filter { block_hash: Some(block_hash), ..Default::default() };
+					match self.receipt_provider.logs(Some(filter)).await {
+						Ok(logs) => {
+							for log in logs {
+								if self.log_subscription_tx.receiver_count() > 0 {
+									let _ = self.log_subscription_tx.send(log);
+								}
+							}
+						},
+						Err(err) => {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to fetch logs for block {block_hash:?}: {err:?}"
+							);
+						},
+					}
+				},
+				Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Log subscription lagged, skipped {count} blocks"
+					);
+				},
+				Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+					log::info!(
+						target: LOG_TARGET,
+						"Block subscription channel closed, stopping log subscription"
+					);
+					break;
+				},
+			}
+		}
+
 		Ok(())
 	}
 
@@ -807,6 +867,16 @@ impl Client {
 	/// Get the automine status from the node.
 	pub async fn get_automine(&self) -> bool {
 		get_automine(&self.rpc_client).await
+	}
+
+	/// Gets the block subscription rx side of the channel.
+	pub fn get_block_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Block> {
+		self.block_subscription_tx.subscribe()
+	}
+
+	/// Gets the log subscription rx side of the channel.
+	pub fn get_log_subscription_rx(&self) -> tokio::sync::broadcast::Receiver<Log> {
+		self.log_subscription_tx.subscribe()
 	}
 }
 

@@ -32,10 +32,13 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
+		Account, Block, BlockHeader, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
+		BoundedOneOrMany, Filter, FilterResults, H256, HashesOrTransactionInfos, Log,
+		SubscriptionItem, SubscriptionKind, SubscriptionOptions, TransactionInfo,
+		TransactionUnsigned, U256,
 	},
 };
+use sp_runtime::BoundedVec;
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -317,6 +320,10 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_subscribe_new_heads,
+		test_subscribe_logs,
+		test_subscribe_logs_with_address_filter,
+		test_subscribe_logs_with_topic_filter,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -834,6 +841,232 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 
+	Ok(())
+}
+
+/// Verify that subscribing to `newHeads` delivers a block header matching the
+/// corresponding block fetched via `eth_getBlockByNumber` after a transaction
+/// triggers a new block.
+async fn test_subscribe_new_heads() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let value = U256::from(1_000_000_000_000u128);
+
+	let mut sub = client
+		.eth_subscribe(SubscriptionKind::NewBlockHeaders, None)
+		.await?;
+
+	// Act
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(ethan.address())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(
+		tokio::time::Duration::from_secs(10),
+		sub.next(),
+	)
+	.await
+	.expect("Timed out waiting for newHeads notification")
+	.expect("Subscription stream ended unexpectedly")
+	.expect("Subscription returned an error");
+
+	let header = match notification {
+		SubscriptionItem::BlockHeader(header) => header,
+		other => panic!("Expected BlockHeader, got: {other:?}"),
+	};
+
+	let block = client
+		.get_block_by_number(BlockNumberOrTag::U256(header.number), false)
+		.await?
+		.expect("Block should exist");
+
+	// Assert
+	assert!(header.number > U256::zero(), "Block number should be > 0");
+	assert_ne!(header.hash, H256::zero(), "Block hash should not be zero");
+	assert_ne!(header.parent_hash, H256::zero(), "Parent hash should not be zero");
+
+	let expected_header = BlockHeader::from(block);
+	assert_eq!(header, expected_header, "Subscription header should match the block header from RPC");
+
+	drop(sub);
+
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` delivers a log matching the corresponding
+/// log fetched via `eth_getLogs` after a contract emits an event.
+async fn test_subscribe_logs() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, None).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	let call_receipt = tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	let filter = Filter { block_hash: Some(call_receipt.block_hash), ..Default::default() };
+	let rpc_logs = client.get_logs(Some(filter)).await?;
+	let rpc_logs: Vec<Log> = match rpc_logs {
+		FilterResults::Logs(logs) => logs,
+		other => panic!("Expected Logs from eth_getLogs, got: {other:?}"),
+	};
+
+	// Assert
+	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	assert_eq!(log.address, contract_address, "Log address should be the contract address");
+	assert!(!log.topics.is_empty(), "Log should have at least one topic");
+	assert_eq!(log.topics[0], event_signature, "First topic should be the event signature hash");
+	assert_eq!(
+		log.block_hash, call_receipt.block_hash,
+		"Log block hash should match receipt block hash"
+	);
+	assert_eq!(
+		log.transaction_hash, call_receipt.transaction_hash,
+		"Log tx hash should match receipt tx hash"
+	);
+	assert!(rpc_logs.contains(&log), "Subscription log should match eth_getLogs result");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` with an address filter only delivers logs
+/// emitted from the specified contract address.
+async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let options = SubscriptionOptions::LogsOptions {
+		address: Some(BoundedOneOrMany::One(contract_address)),
+		topics: None,
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(log.address, contract_address, "Log address should match the filter address");
+
+	drop(sub);
+	Ok(())
+}
+
+/// Verify that subscribing to `logs` with a topic filter delivers logs whose
+/// first topic matches the computed event signature hash.
+async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
+	let options = SubscriptionOptions::LogsOptions {
+		address: None,
+		topics: Some(
+			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
+				.expect("Single topic filter is within bounds"),
+		),
+	};
+	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
+
+	// Act
+	let value = U256::from(1_000_000_000_000u128);
+	let tx = TransactionBuilder::new(client.clone())
+		.value(value)
+		.to(contract_address)
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for logs notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
+
+	let log = match notification {
+		SubscriptionItem::Log(log) => log,
+		other => panic!("Expected Log, got: {other:?}"),
+	};
+
+	// Assert
+	assert_eq!(
+		log.topics[0], event_signature,
+		"First topic should match the computed event signature"
+	);
+	assert_eq!(log.address, contract_address, "Log should come from the deployed contract");
+
+	drop(sub);
 	Ok(())
 }
 

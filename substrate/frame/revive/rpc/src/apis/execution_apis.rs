@@ -186,4 +186,14 @@ pub trait EthRpc {
 		newest_block: BlockNumberOrTag,
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult>;
+
+	/// Creates a subscription to specific events, returning a subscription ID.
+	/// Notifications are sent for each event matching the subscription via
+	/// `eth_subscription`.
+	#[subscription(
+		name = "eth_subscribe" => "eth_subscription",
+		unsubscribe = "eth_unsubscribe",
+		item = SubscriptionItem
+	)]
+	async fn eth_subscribe(&self, kind: SubscriptionKind, options: Option<SubscriptionOptions>);
 }

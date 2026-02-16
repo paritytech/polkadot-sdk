@@ -244,6 +244,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			let mut futures: Vec<BoxFuture<'_, Result<(), _>>> = vec![
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks)),
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
+				Box::pin(client.subscribe_new_logs()),
 			];
 
 			if let Some(index_last_n_blocks) = index_last_n_blocks {
