@@ -84,7 +84,9 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID_1)
