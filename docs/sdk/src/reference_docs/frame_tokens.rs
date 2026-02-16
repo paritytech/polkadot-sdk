@@ -80,10 +80,11 @@
 //! could possibly specify that [`pallet_preimage`] does not specify a concrete pallet as a
 //! dependency, but instead accepts any dependency which implements the
 //! [`Consideration`](`frame_support::traits::Consideration`)
-//! trait, namely via its [`Config::Consideration`](`pallet_preimage::pallet::Config::Consideration`)
-//! associated type. This allows [`pallet_preimage`] to support any arbitrary pallet implementing
-//! this trait, without needing any knowledge of what those pallets may be or requiring changes to
-//! support new pallets which may be written in the future.
+//! trait, namely via its
+//! [`Config::Consideration`](`pallet_preimage::pallet::Config::Consideration`) associated type.
+//! This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait, without
+//! needing any knowledge of what those pallets may be or requiring changes to support new pallets
+//! which may be written in the future.
 //!
 //! Read more about coupling, and the benefits of loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).
