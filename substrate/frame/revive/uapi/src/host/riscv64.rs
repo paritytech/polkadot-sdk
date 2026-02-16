@@ -129,6 +129,16 @@ mod sys {
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 		pub fn consume_all_gas();
+
+		// Move syscalls
+		pub fn hex_dump();
+		pub fn debug_print(ptr_to_type: u32, address_ptr: u32);
+		pub fn exists(address_ptr: u32, ptr_to_tag: u32) -> u32;
+		pub fn move_to(ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32) -> u32;
+		pub fn move_from(address_ptr: u32, remove: u32, ptr_to_tag: u32, is_mut: u32) -> u32;
+		pub fn release(ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32) -> u32;
+		pub fn hash_sha2_256(ptr_to_buf: u32) -> u32;
+		pub fn hash_sha3_256(ptr_to_buf: u32) -> u32;
 	}
 }
 
@@ -502,5 +512,45 @@ impl HostFn for HostFnImpl {
 	fn terminate(beneficiary: &[u8; 20]) -> ! {
 		unsafe { sys::terminate(beneficiary.as_ptr()) }
 		panic!("terminate does not return");
+	}
+
+	// Move syscalls
+	fn debug_print(ptr_to_type: u32, address_ptr: u32) {
+		unsafe { sys::debug_print(ptr_to_type, address_ptr) };
+	}
+
+	fn exists(ptr_to_type: u32, address_ptr: u32, ptr_to_tag: u32) -> u32 {
+		let ret_code = unsafe { sys::exists(ptr_to_type, address_ptr, ptr_to_tag) };
+		ret_code
+	}
+
+	fn move_to(ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32) -> u32 {
+		let ret_code =
+			unsafe { sys::move_to(ptr_to_type, ptr_to_signer, ptr_to_struct, ptr_to_tag) };
+		ret_code
+	}
+
+	fn move_from(
+		ptr_to_type: u32,
+		address_ptr: u32,
+		remove: u32,
+		ptr_to_tag: u32,
+		is_mut: u32,
+	) -> u32 {
+		let ret_code =
+			unsafe { sys::move_from(ptr_to_type, address_ptr, remove, ptr_to_tag, is_mut) };
+		ret_code
+	}
+
+	fn release(ptr_to_type: u32, ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32) {
+		unsafe { sys::release(ptr_to_type, ptr_to_signer, ptr_to_struct, ptr_to_tag) };
+	}
+
+	fn hash_sha2_256(ptr_to_buf: u32) -> u32 {
+		unsafe { sys::hash_sha2_256(ptr_to_buf) }
+	}
+
+	fn hash_sha3_256(ptr_to_buf: u32) -> u32 {
+		unsafe { sys::hash_sha3_256(ptr_to_buf) }
 	}
 }

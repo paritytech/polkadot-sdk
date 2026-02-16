@@ -19,6 +19,8 @@
 
 pub mod env;
 
+use polkavm_move_native::allocator::MemAllocator;
+
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
@@ -325,12 +327,24 @@ enum StorageReadMode {
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
+	move_allocator: MemAllocator,
 	_phantom_data: PhantomData<M>,
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
+		Self {
+			ext,
+			input_data: Some(input_data),
+			move_allocator: MemAllocator::default(),
+			_phantom_data: Default::default(),
+		}
+	}
+
+	/// Initialize the Move allocator with the correct heap base and size from the module.
+	/// This should be called after the module is instantiated.
+	pub fn init_allocator(&mut self, heap_base: u32, heap_size: u32) {
+		self.move_allocator = MemAllocator::with_base(heap_base, heap_size);
 	}
 
 	/// Get a mutable reference to the inner `Ext`.

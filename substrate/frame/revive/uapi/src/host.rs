@@ -476,6 +476,15 @@ pub trait HostFn: private::Sealed {
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
 	fn terminate(beneficiary: &[u8; 20]) -> !;
+
+	// Move syscalls
+	fn debug_print(ptr_to_type: u32, address_ptr: u32);
+	fn exists(address_ptr: u32, ptr_to_tag: u32) -> u32;
+	fn move_to(ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32) -> u32;
+	fn move_from(address_ptr: u32, remove: u32, ptr_to_tag: u32, is_mut: u32) -> u32;
+	fn release(ptr_to_signer: u32, ptr_to_struct: u32, ptr_to_tag: u32);
+	fn hash_hash2_256(ptr_to_buf: u32) -> u32;
+	fn hash_hash3_256(ptr_to_buf: u32) -> u32;
 }
 
 mod private {
