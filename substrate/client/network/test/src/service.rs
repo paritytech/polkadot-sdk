@@ -212,6 +212,7 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			archive_blocks: false,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -392,10 +393,12 @@ async fn notifications_state_consistent() {
 			// forever while nothing at all happens on the network.
 			let continue_test = futures_timer::Delay::new(Duration::from_millis(20));
 			match future::select(future::select(next1, next2), continue_test).await {
-				future::Either::Left((future::Either::Left((Some(ev), _)), _)) =>
-					future::Either::Left(ev),
-				future::Either::Left((future::Either::Right((Some(ev), _)), _)) =>
-					future::Either::Right(ev),
+				future::Either::Left((future::Either::Left((Some(ev), _)), _)) => {
+					future::Either::Left(ev)
+				},
+				future::Either::Left((future::Either::Right((Some(ev), _)), _)) => {
+					future::Either::Right(ev)
+				},
 				future::Either::Right(_) => continue,
 				_ => break,
 			}

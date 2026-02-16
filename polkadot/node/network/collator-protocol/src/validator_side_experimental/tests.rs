@@ -329,12 +329,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -430,12 +431,13 @@ impl TestState {
 						.collect()))
 						.unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 
@@ -492,12 +494,13 @@ impl TestState {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
-				None =>
+				None => {
 					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
 						msg
 					} else {
 						break None;
-					},
+					}
+				},
 			};
 
 			match msg {
@@ -539,12 +542,13 @@ impl TestState {
 						.collect();
 					tx.send(Ok(candidates)).unwrap();
 				},
-				other =>
+				other => {
 					if had_buffered_msg {
 						panic!("Unexpected message: {:?}", other);
 					} else {
 						break Some(other);
-					},
+					}
+				},
 			};
 		};
 

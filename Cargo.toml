@@ -653,7 +653,9 @@ ark-ed-on-bls12-377 = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-377-ext = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch = { version = "0.5.0", default-features = false }
 ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.5.0", default-features = false }
+ark-ff = { version = "0.5.0", default-features = false }
 ark-scale = { version = "0.0.13", default-features = false }
+ark-std = { version = "0.5.0", default-features = false }
 ark-vrf = { version = "0.1.0", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
@@ -1442,7 +1444,7 @@ tracing = { version = "0.1.37", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
-tracing-subscriber = { version = "0.3.18" }
+tracing-subscriber = { version = "=0.3.19" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.42.1" }
 trie-db = { version = "0.31.0", default-features = false }

@@ -98,15 +98,17 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 				Request::NetworkAddReservedPeer(peer, sender) => {
 					let _ = match sc_network::config::parse_str_addr(&peer) {
 						Ok(_) => sender.send(Ok(())),
-						Err(s) =>
-							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string()))),
+						Err(s) => {
+							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string())))
+						},
 					};
 				},
 				Request::NetworkRemoveReservedPeer(peer, sender) => {
 					let _ = match peer.parse::<PeerId>() {
 						Ok(_) => sender.send(Ok(())),
-						Err(s) =>
-							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string()))),
+						Err(s) => {
+							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string())))
+						},
 					};
 				},
 				Request::NetworkReservedPeers(sender) => {

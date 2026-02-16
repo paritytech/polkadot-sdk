@@ -48,12 +48,13 @@ where
 			ExternType::Func(func_ty) => {
 				pending_func_imports.insert(name.to_owned(), (import_ty, func_ty));
 			},
-			_ =>
+			_ => {
 				return Err(WasmError::Other(format!(
 					"host doesn't provide any non function imports: {}:{}",
 					import_ty.module(),
 					name,
-				))),
+				)))
+			},
 		};
 	}
 

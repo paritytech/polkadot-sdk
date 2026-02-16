@@ -276,6 +276,17 @@ where
 		hash: Block::Hash,
 		initial_sync: bool,
 	) -> Result<PendingSetChanges<Block>, ConsensusError> {
+		// For warp synced block we can skip authority set change tracking for warp synced blocks,
+		// because authority sets will be reconstructed after sync completes from the finalized
+		// state.
+		if block.origin == BlockOrigin::WarpSync {
+			return Ok(PendingSetChanges {
+				just_in_case: None,
+				applied_changes: AppliedChanges::None,
+				do_pause: false,
+			});
+		}
+
 		// when we update the authorities, we need to hold the lock
 		// until the block is written to prevent a race if we need to restore
 		// the old authority set on error or panic.
@@ -683,7 +694,7 @@ where
 					);
 				}
 			},
-			None =>
+			None => {
 				if needs_justification {
 					debug!(
 						target: LOG_TARGET,
@@ -692,7 +703,8 @@ where
 					);
 
 					imported_aux.needs_justification = true;
-				},
+				}
+			},
 		}
 
 		Ok(ImportResult::Imported(imported_aux))
@@ -797,8 +809,9 @@ where
 		let justification = match justification {
 			Err(e) => {
 				return match e {
-					sp_blockchain::Error::OutdatedJustification =>
-						Err(ConsensusError::OutdatedJustification),
+					sp_blockchain::Error::OutdatedJustification => {
+						Err(ConsensusError::OutdatedJustification)
+					},
 					_ => Err(ConsensusError::ClientImport(e.to_string())),
 				};
 			},
@@ -830,7 +843,7 @@ where
 				// send the command to the voter
 				let _ = self.send_voter_commands.unbounded_send(command);
 			},
-			Err(CommandOrError::Error(e)) =>
+			Err(CommandOrError::Error(e)) => {
 				return Err(match e {
 					Error::Grandpa(error) => ConsensusError::ClientImport(error.to_string()),
 					Error::Network(error) => ConsensusError::ClientImport(error),
@@ -840,7 +853,8 @@ where
 					Error::Signing(error) => ConsensusError::ClientImport(error),
 					Error::Timer(error) => ConsensusError::ClientImport(error.to_string()),
 					Error::RuntimeApi(error) => ConsensusError::ClientImport(error.to_string()),
-				}),
+				})
+			},
 			Ok(_) => {
 				assert!(
 					!enacts_change,

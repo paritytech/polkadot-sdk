@@ -19,7 +19,7 @@ use pallet_revive::{
 	create1,
 	evm::{Account, BlockTag, ReceiptInfo, U256},
 };
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive_eth_rpc::{EthRpcClient, example::TransactionBuilder};
 use std::sync::Arc;
 
 #[tokio::main]

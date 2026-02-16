@@ -291,12 +291,13 @@ impl NotificationService for NotificationHandle {
 	async fn next_event(&mut self) -> Option<NotificationEvent> {
 		loop {
 			match self.rx.next().await? {
-				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } =>
+				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } => {
 					return Some(NotificationEvent::ValidateInboundSubstream {
 						peer: peer.into(),
 						handshake,
 						result_tx,
-					}),
+					})
+				},
 				InnerNotificationEvent::NotificationStreamOpened {
 					peer,
 					handshake,
@@ -322,11 +323,12 @@ impl NotificationService for NotificationHandle {
 					self.peers.remove(&peer);
 					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() });
 				},
-				InnerNotificationEvent::NotificationReceived { peer, notification } =>
+				InnerNotificationEvent::NotificationReceived { peer, notification } => {
 					return Some(NotificationEvent::NotificationReceived {
 						peer: peer.into(),
 						notification,
-					}),
+					})
+				},
 				InnerNotificationEvent::NotificationSinkReplaced { peer, sink } => {
 					match self.peers.get_mut(&peer) {
 						None => log::error!(
@@ -511,8 +513,9 @@ impl ProtocolHandle {
 		tokio::spawn(async move {
 			while let Some(event) = results.next().await {
 				match event {
-					Err(_) | Ok(ValidationResult::Reject) =>
-						return tx.send(ValidationResult::Reject),
+					Err(_) | Ok(ValidationResult::Reject) => {
+						return tx.send(ValidationResult::Reject)
+					},
 					Ok(ValidationResult::Accept) => {},
 				}
 			}

@@ -241,8 +241,9 @@ pub enum StatementWithPVD {
 impl std::fmt::Debug for StatementWithPVD {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			StatementWithPVD::Seconded(seconded, _) =>
-				write!(f, "Seconded: {:?}", seconded.descriptor),
+			StatementWithPVD::Seconded(seconded, _) => {
+				write!(f, "Seconded: {:?}", seconded.descriptor)
+			},
 			StatementWithPVD::Valid(hash) => write!(f, "Valid: {:?}", hash),
 		}
 	}

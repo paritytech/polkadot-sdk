@@ -218,19 +218,21 @@ impl SubscriptionsInfo {
 			OptimizedTopicFilter::Any => {
 				self.subscriptions_any.insert(subscription_info.seq_id, subscription_info);
 			},
-			OptimizedTopicFilter::MatchAll(topics) =>
+			OptimizedTopicFilter::MatchAll(topics) => {
 				for topic in topics {
 					self.subscriptions_match_all_by_topic.entry(*topic).or_default()
 						[topics.len() - 1]
 						.insert(subscription_info.seq_id, subscription_info.clone());
-				},
-			OptimizedTopicFilter::MatchAny(topics) =>
+				}
+			},
+			OptimizedTopicFilter::MatchAny(topics) => {
 				for topic in topics {
 					self.subscriptions_match_any_by_topic
 						.entry(*topic)
 						.or_default()
 						.insert(subscription_info.seq_id, subscription_info.clone());
-				},
+				}
+			},
 		};
 	}
 
