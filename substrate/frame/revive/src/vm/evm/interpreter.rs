@@ -17,13 +17,13 @@
 
 use super::ExtBytecode;
 use crate::{
+	Config, DispatchError, Error, Weight,
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
 	vm::{
-		evm::{memory::Memory, stack::Stack},
 		ExecResult, Ext,
+		evm::{memory::Memory, stack::Stack},
 	},
-	Config, DispatchError, Error, Weight,
 };
 use alloc::vec::Vec;
 use pallet_revive_uapi::ReturnFlags;
