@@ -932,5 +932,22 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 		.expect("Failed to decode return value");
 	assert_eq!(decoded, 2u64, "fib(3) should return 2");
 
+	// Verify that large Fibonacci values run out of gas
+	let call_data = Fibonacci::fibCall { n: 100u64 }.abi_encode();
+	let call_payload = subxt_client::apis().revive_api().call(
+		subxt::utils::AccountId32(origin),
+		contract_address,
+		0u128, // value
+		None,  // gas_limit
+		None,  // storage_deposit_limit
+		call_data,
+	);
+
+	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
+	let call_result = result.unwrap();
+	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
 	Ok(())
 }
+
