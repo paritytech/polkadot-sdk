@@ -83,20 +83,10 @@ impl DescribeLocation for DescribeTokenTerminal {
 
 			// Pallet
 			[PalletInstance(instance)] => Some((b"PalletInstance", *instance).encode()),
-<<<<<<< HEAD
 			[PalletInstance(instance), GeneralIndex(index)] =>
 				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode()),
-			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((b"PalletInstance", *instance, b"GeneralKey", *data).encode()),
-=======
-			[PalletInstance(instance), GeneralIndex(index)] => {
-				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode())
-			},
-			[PalletInstance(instance), GeneralKey { length, data }] => {
-				Some((b"PalletInstance", *instance, b"GeneralKey", *length, *data).encode())
-			},
->>>>>>> 51c34ff0 (Snowbridge: Describe the token location with the length field included to avoid collisions (#10771))
-
+			[PalletInstance(instance), GeneralKey { length, data }] =>
+				Some((b"PalletInstance", *instance, b"GeneralKey", *length, *data).encode()),
 			[PalletInstance(instance), AccountKey20 { key, .. }] =>
 				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode()),
 			[PalletInstance(instance), AccountId32 { id, .. }] =>
