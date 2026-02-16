@@ -22,27 +22,47 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-use crate::{validator_side_experimental::common::MIN_FETCH_TIMER_DELAY, LOG_TARGET};
+use crate::{
+	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
+	LOG_TARGET,
+};
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
 use futures_timer::Delay;
 use polkadot_node_network_protocol::{
-	self as net_protocol, v1 as protocol_v1, v2 as protocol_v2, CollationProtocols, PeerId,
+	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
+	CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
+	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
 	overseer, ActivatedLeaf, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
 };
+use polkadot_node_subsystem_util::database::Database;
 use sp_keystore::KeystorePtr;
-use std::{future, future::Future, pin::Pin, time::Duration};
+use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use peer_manager::{Db, PeerManager};
+#[cfg(test)]
+use peer_manager::Db;
+use peer_manager::PeerManager;
 
 use state::State;
 
 pub use crate::validator_side_metrics::Metrics;
+
+/// Default interval for persisting the reputation database to disk (in seconds).
+const DEFAULT_PERSIST_INTERVAL_SECS: u64 = 600;
+
+/// Configuration for the reputation db.
+#[derive(Debug, Clone, Copy)]
+pub struct ReputationConfig {
+	/// The data column in the store to use for reputation data.
+	pub col_reputation_data: u32,
+	/// How often to persist the reputation database to disk.
+	/// If None, defaults to DEFAULT_PERSIST_INTERVAL_SECS seconds.
+	pub persist_interval: Option<Duration>,
+}
 
 /// The main run loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -50,10 +70,19 @@ pub(crate) async fn run<Context>(
 	mut ctx: Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
+	db: Arc<dyn Database>,
+	reputation_config: ReputationConfig,
 ) -> FatalResult<()> {
-	gum::info!(LOG_TARGET, "Running experimental collator protocol");
-	if let Some(state) = initialize(&mut ctx, keystore, metrics).await? {
-		run_inner(ctx, state).await?;
+	let persist_interval = reputation_config
+		.persist_interval
+		.unwrap_or(Duration::from_secs(DEFAULT_PERSIST_INTERVAL_SECS));
+	gum::info!(
+		LOG_TARGET,
+		persist_interval_secs = persist_interval.as_secs(),
+		"Running experimental collator protocol"
+	);
+	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_config).await? {
+		run_inner(ctx, state, persist_interval).await?;
 	}
 
 	Ok(())
@@ -64,7 +93,9 @@ async fn initialize<Context>(
 	ctx: &mut Context,
 	keystore: KeystorePtr,
 	metrics: Metrics,
-) -> FatalResult<Option<State<Db>>> {
+	db: Arc<dyn Database>,
+	reputation_config: ReputationConfig,
+) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
 			Some(activated_leaf) => {
@@ -84,7 +115,30 @@ async fn initialize<Context>(
 
 		let scheduled_paras = collation_manager.assignments();
 
-		let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+		// Create PersistentDb with disk persistence
+		let (backend, task) = match PersistentDb::new(
+			db.clone(),
+			reputation_config,
+			MAX_STORED_SCORES_PER_PARA,
+		)
+		.await
+		{
+			Ok(result) => result,
+			Err(e) => {
+				gum::error!(
+					target: LOG_TARGET,
+					error = ?e,
+					"Failed to initialize persistent reputation DB"
+				);
+				return Err(FatalError::ReputationDbInit(e));
+			},
+		};
+
+		// Background task for async writes
+		ctx.spawn_blocking("collator-reputation-persistence-task", task)
+			.map_err(|e| FatalError::SpawnTask(e.to_string()))?;
+
+		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
 		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
 			.await
@@ -113,13 +167,45 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_, _)) => {},
 			FromOrchestra::Communication { msg } => {
-				// TODO: we should actually disconnect peers connected on collation protocol while
-				// we're still bootstrapping. OR buffer these messages until we've bootstrapped.
-				gum::warn!(
-					target: LOG_TARGET,
-					?msg,
-					"Received msg before first active leaves update. This is not expected - message will be dropped."
-				)
+				// Disconnect peers that connect before the subsystem is initialized.
+				// They will reconnect later when we're ready.
+				match msg {
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerConnected(peer_id, ..),
+					) => {
+						gum::info!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that connected before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					CollatorProtocolMessage::NetworkBridgeUpdate(
+						NetworkBridgeEvent::PeerMessage(peer_id, ..),
+					) => {
+						gum::info!(
+							target: LOG_TARGET,
+							?peer_id,
+							"Disconnecting peer that sent message before subsystem initialization",
+						);
+						ctx.send_message(NetworkBridgeTxMessage::DisconnectPeers(
+							vec![peer_id],
+							PeerSet::Collation,
+						))
+						.await;
+					},
+					msg => {
+						gum::trace!(
+							target: LOG_TARGET,
+							?msg,
+							"Received msg before first active leaves update, dropping.",
+						);
+					},
+				}
 			},
 		}
 	}
@@ -134,9 +220,21 @@ fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output
 	timer.fuse()
 }
 
+/// Create the persistence timer that fires after the given interval.
+fn create_persistence_timer(interval: Duration) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	let delay: Pin<Box<dyn Future<Output = ()> + Send>> = Box::pin(Delay::new(interval));
+	delay.fuse()
+}
+
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
-async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResult<()> {
+async fn run_inner<Context>(
+	mut ctx: Context,
+	mut state: State<PersistentDb>,
+	persist_interval: Duration,
+) -> FatalResult<()> {
 	let mut timer = create_timer(None);
+	let mut persistence_timer = create_persistence_timer(persist_interval);
+
 	loop {
 		select! {
 			// Calling `fuse()` here is useless, because the termination state of the resulting
@@ -154,7 +252,11 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 							msg,
 						).await;
 					}
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
+						// Persist to disk before shutdown
+						state.persist_reputations().await;
+						break
+					},
 					Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(hash, number))) => {
 						state.handle_finalized_block(ctx.sender(), hash, number).await?;
 					},
@@ -167,6 +269,12 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 			_ = &mut timer => {
 				// We don't need to do anything specific here.
 				// If the timer expires, we only need to trigger the advertisement fetching logic.
+			},
+			_ = &mut persistence_timer => {
+				// Periodic persistence - write reputation DB to disk
+				state.background_persist_reputations();
+				// Reset the timer for the next interval
+				persistence_timer = create_persistence_timer(persist_interval);
 			},
 		}
 
@@ -187,7 +295,7 @@ async fn run_inner<Context>(mut ctx: Context, mut state: State<Db>) -> FatalResu
 /// The main message receiver switch.
 async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	msg: CollatorProtocolMessage,
 ) {
 	use CollatorProtocolMessage::*;
@@ -241,7 +349,7 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 /// Bridge event switch.
 async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	bridge_message: NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>,
 ) -> Result<()> {
 	use NetworkBridgeEvent::*;
@@ -289,7 +397,7 @@ async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
 
 async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 	sender: &mut Sender,
-	state: &mut State<Db>,
+	state: &mut State<PersistentDb>,
 	origin: PeerId,
 	msg: CollationProtocols<
 		protocol_v1::CollatorProtocolMessage,
