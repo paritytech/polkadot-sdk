@@ -806,7 +806,7 @@ impl Store {
 	// Statements are considered expired when their priority (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
 	fn check_expiration(&self) {
-		let _timer = self.metrics.start_check_expiration_timer();
+		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 
 		let (needs_expiry, num_accounts_checked) = {
@@ -870,16 +870,18 @@ impl Store {
 			}
 		}
 
-		self.metrics.report(|metrics| {
-			metrics.statements_expired_total.inc_by(successfully_expired);
-		});
-
 		let mut index = self.index.write();
 		let new_len = index
 			.accounts_to_check_for_expiry_stmts
 			.len()
 			.saturating_sub(num_accounts_checked);
 		index.accounts_to_check_for_expiry_stmts.truncate(new_len);
+
+		drop(_start_check_expiration_timer);
+
+		self.metrics.report(|metrics| {
+			metrics.statements_expired_total.inc_by(successfully_expired);
+		});
 	}
 
 	/// Perform periodic store maintenance
@@ -1318,6 +1320,7 @@ impl StatementStore for Store {
 			}
 			self.subscription_manager.notify(statement);
 		} // Release index lock
+		drop(_histogram_submit_start_timer);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New

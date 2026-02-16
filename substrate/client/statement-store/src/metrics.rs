@@ -157,9 +157,7 @@ impl Metrics {
 						"substrate_sub_statement_store_submit_duration_seconds",
 						"Time to submit a statement (total operation including validation and DB write)",
 					)
-					.buckets(vec![
-						0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0,
-					]),
+					.buckets(vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]),
 				)?,
 				registry,
 			)?,
@@ -169,9 +167,7 @@ impl Metrics {
 						"substrate_sub_statement_store_check_expiration_duration_seconds",
 						"Time to check and process statement expiration",
 					)
-					.buckets(vec![
-						0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0,
-					]),
+					.buckets(vec![0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]),
 				)?,
 				registry,
 			)?,
