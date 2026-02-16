@@ -17,13 +17,13 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
+use super::{TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy, byte::*};
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error};
 
 /// Input of a `GenericTransaction`
 #[derive(
@@ -67,10 +67,13 @@ impl InputOrData {
 fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {
 	let value = InputOrData::deserialize(d)?;
 	match &value {
-        InputOrData { input: Some(input), data: Some(data) } if input != data =>
-            Err(serde::de::Error::custom("Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data")),
-        _ => Ok(value),
-    }
+		InputOrData { input: Some(input), data: Some(data) } if input != data => {
+			Err(serde::de::Error::custom(
+				"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass transaction call data",
+			))
+		},
+		_ => Ok(value),
+	}
 }
 
 /// Block object
@@ -796,11 +799,6 @@ pub struct Transaction7702Unsigned {
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
-	/// gas price
-	/// The effective gas price paid by the sender in wei. For transactions not yet included in a
-	/// block, this value should be set equal to the max fee per gas. This field is DEPRECATED,
-	/// please transition to using effectiveGasPrice in the receipt object going forward.
-	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
 	/// max fee per gas

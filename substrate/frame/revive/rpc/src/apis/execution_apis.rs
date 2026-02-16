@@ -59,7 +59,7 @@ pub trait EthRpc {
 	/// Returns the balance of the account of given address.
 	#[method(name = "eth_getBalance")]
 	async fn get_balance(&self, address: Address, block: BlockNumberOrTagOrHash)
-		-> RpcResult<U256>;
+	-> RpcResult<U256>;
 
 	/// Returns information about a block by hash.
 	#[method(name = "eth_getBlockByHash")]

@@ -363,7 +363,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 				target: LOG_TARGET,
 				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
 				you must generate valid session keys \
-				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				(https://docs.polkadot.com/infrastructure/running-a-validator/onboarding-and-offboarding/key-management/#set-session-keys)",
 				new_session_start,
 			);
 			metric_inc!(metrics, beefy_no_authority_found_in_store);

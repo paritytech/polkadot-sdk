@@ -239,6 +239,7 @@ where
 						&validation_data,
 						parent_hash,
 						claim.timestamp(),
+						Default::default(),
 						params.collator_peer_id,
 					)
 					.await
