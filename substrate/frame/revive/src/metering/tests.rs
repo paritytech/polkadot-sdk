@@ -1019,42 +1019,16 @@ fn substrate_nesting_works_with_eip_150() {
 	);
 }
 
-#[test]
-fn substrate_nesting_charges_works() {
-	use Charge::{D, W};
-
+fn run_nesting_charges_tests(
+	apply_eip_150: bool,
+	tests: Vec<(
+		(u64, u64, u64, u64, u64, i64, u64),
+		Vec<(Charge, Option<(u64, u64, u64, u64, u64)>)>,
+	)>,
+) {
 	let gas_scale = <Test as Config>::GasScale::get().into();
-	let tests = vec![
-		(
-			(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
-			vec![
-				(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
-				(D(100), Some((300, 150, 3042, 60, 2000008200))),
-			],
-		),
-		(
-			(5_000_000_000, 419_615_482, 2_000, 1000, 100, 100, 1000),
-			vec![
-				(W(100, 100), Some((566, 400, 0, 113, 839234398))),
-				(W(100, 0), Some((566, 300, 0, 113, 839234398))),
-				(D(100), Some((66, 50, 0, 13, 839234898))),
-				(W(50, 0), Some((0, 0, 0, 0, 839234964))),
-				(D(-300), Some((1500, 750, 0, 300, 839233464))),
-				(W(50, 0), Some((1400, 700, 0, 280, 839233564))),
-				(W(0, 1), None),
-			],
-		),
-		(
-			(5_000_000_000, 100_000_000, 2_000, 1000, 100, 100, 10000000),
-			vec![
-				(D(100), Some((9999500, 305541962, 26, 1999900, 801087925))),
-				(W(100, 0), Some((9999500, 305541862, 26, 1999900, 801087925))),
-				(W(0, 20), Some((2370105, 305541862, 6, 474021, 808717320))),
-			],
-		),
-	];
 
-	for (input, charges) in tests {
+	for (i, (input, charges)) in tests.into_iter().enumerate() {
 		let (
 			eth_gas_limit,
 			extra_ref_time,
@@ -1092,23 +1066,22 @@ fn substrate_nesting_charges_works() {
 					.charge_weight_token(TestToken(ref_time_charge, proof_size_charge))
 					.unwrap();
 
-				// should_apply_eip_150 = false: simulating first frame entry from transaction
 				let mut nested = transaction_meter
 					.new_nested(
 						&CallResources::Ethereum {
 							gas: gas_limit.div_ceil(gas_scale),
 							add_stipend: false,
 						},
-						false,
+						apply_eip_150,
 					)
 					.unwrap();
 
-				for (charge, remaining) in charges {
+				for (j, (charge, remaining)) in charges.into_iter().enumerate() {
 					let is_ok = match charge {
-						W(ref_time_charge, proof_size_charge) => nested
+						Charge::W(ref_time_charge, proof_size_charge) => nested
 							.charge_weight_token(TestToken(ref_time_charge, proof_size_charge))
 							.is_ok(),
-						D(deposit_charge) => nested
+						Charge::D(deposit_charge) => nested
 							.charge_deposit(
 								&(if deposit_charge >= 0 {
 									StorageDeposit::Charge(deposit_charge as u64)
@@ -1127,20 +1100,120 @@ fn substrate_nesting_charges_works() {
 						gas_consumed,
 					)) = remaining
 					{
-						assert!(is_ok);
-						assert_eq!(gas_left.div_ceil(gas_scale), nested.eth_gas_left().unwrap());
+						assert!(is_ok, "charge failed in test case {i}, step {j}");
+						assert_eq!(
+							gas_left.div_ceil(gas_scale),
+							nested.eth_gas_left().unwrap(),
+							"gas_left mismatch in test case {i}, step {j}"
+						);
 						assert_eq!(
 							Weight::from_parts(ref_time_left, proof_size_left),
-							nested.weight_left().unwrap()
+							nested.weight_left().unwrap(),
+							"weight_left mismatch in test case {i}, step {j}"
 						);
-						assert_eq!(deposit_left, nested.deposit_left().unwrap());
-						assert_eq!(gas_consumed.div_ceil(gas_scale), nested.total_consumed_gas());
+						assert_eq!(
+							deposit_left,
+							nested.deposit_left().unwrap(),
+							"deposit_left mismatch in test case {i}, step {j}"
+						);
+						assert_eq!(
+							gas_consumed.div_ceil(gas_scale),
+							nested.total_consumed_gas(),
+							"gas_consumed mismatch in test case {i}, step {j}"
+						);
 					} else {
-						assert!(!is_ok);
+						assert!(!is_ok, "expected failure in test case {i}, step {j}");
 					}
 				}
 			});
 	}
+}
+
+#[test]
+fn substrate_nesting_charges_works() {
+	use Charge::{D, W};
+
+	run_nesting_charges_tests(
+		false,
+		vec![
+			(
+				(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
+				vec![
+					(W(100, 100), Some((800u64, 400, 3042, 160, 2000007700u64))),
+					(D(100), Some((300, 150, 3042, 60, 2000008200))),
+				],
+			),
+			(
+				(5_000_000_000, 419_615_482, 2_000, 1000, 100, 100, 1000),
+				vec![
+					(W(100, 100), Some((566, 400, 0, 113, 839234398))),
+					(W(100, 0), Some((566, 300, 0, 113, 839234398))),
+					(D(100), Some((66, 50, 0, 13, 839234898))),
+					(W(50, 0), Some((0, 0, 0, 0, 839234964))),
+					(D(-300), Some((1500, 750, 0, 300, 839233464))),
+					(W(50, 0), Some((1400, 700, 0, 280, 839233564))),
+					(W(0, 1), None),
+				],
+			),
+			(
+				(5_000_000_000, 100_000_000, 2_000, 1000, 100, 100, 10000000),
+				vec![
+					(D(100), Some((9999500, 305541962, 26, 1999900, 801087925))),
+					(W(100, 0), Some((9999500, 305541862, 26, 1999900, 801087925))),
+					(W(0, 20), Some((2370105, 305541862, 6, 474021, 808717320))),
+				],
+			),
+		],
+	);
+}
+
+/// Tests where EIP-150 63/64 rule is the binding constraint for nested meter charges.
+///
+/// Uses gas_limit = 5B (>> remaining ~3B) so the gas_limit itself never binds —
+/// only the 63/64 reduction constrains resources.
+#[test]
+fn substrate_nesting_charges_works_with_eip_150() {
+	use Charge::{D, W};
+
+	run_nesting_charges_tests(
+		true,
+		vec![
+			// 0: 63/64 caps proof_size to 9949. After W(100, 100) it's 9849.
+			// W(0, 10000) FAILS because 9849 < 10000.
+			// (Without EIP-150, proof_size starts at 10107, so 10000 fits.)
+			(
+				(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64, 5_000_000_000u64),
+				vec![
+					(
+						W(100, 100),
+						Some((2953117420u64, 1476558708, 9849, 590623483, 2000007700u64)),
+					),
+					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
+					(W(0, 10000), None),
+				],
+			),
+			// 1: 63/64 caps deposit to ~590M.
+			// D(595M) FAILS because 590M < 595M.
+			// (Without EIP-150, deposit starts at ~600M, so 595M fits.)
+			(
+				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
+				vec![
+					(D(595000000), None),
+					(D(-595000000), Some((2953117620, 1476558808, 9949, 590623523, 2000007500))),
+				],
+			),
+			// 2: 63/64 caps gas to ~2.95B (vs ~3B without EIP-150).
+			// All charges succeed; values reflect the 63/64-reduced gas/weight/deposit.
+			(
+				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
+				vec![
+					(W(100, 100), Some((2953117420, 1476558708, 9849, 590623483, 2000007700))),
+					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
+					(W(100000000, 0), Some((2753116920, 1376558458, 9849, 550623383, 2200008200))),
+				],
+			),
+		],
+	);
 }
 
 #[test]
