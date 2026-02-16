@@ -16,16 +16,16 @@
 // limitations under the License.
 
 use crate::{
-	storage::AccountInfo,
-	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
-	tests::{builder, ExtBuilder, Test},
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
 	TransactionMeter, WeightToken,
+	storage::AccountInfo,
+	test_utils::{ALICE, ALICE_ADDR, builder::Contract},
+	tests::{ExtBuilder, Test, builder},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	compile_module_with_type, CatchConstructorTest, DepositPrecompile, FixtureType,
+	CatchConstructorTest, DepositPrecompile, FixtureType, compile_module_with_type,
 };
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;

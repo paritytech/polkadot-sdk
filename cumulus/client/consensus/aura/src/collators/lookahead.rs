@@ -36,7 +36,9 @@ use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use sp_consensus::Environment;
 
@@ -167,8 +169,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -219,8 +223,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -401,12 +407,16 @@ where
 
 				// Build and announce collations recursively until
 				// `can_build_upon` fails or building a collation fails.
+				let relay_proof_request =
+					super::get_relay_proof_request(&*params.para_client, parent_hash);
+
 				let (parachain_inherent_data, other_inherent_data) = match collator
 					.create_inherent_data(
 						relay_parent,
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						relay_proof_request,
 						params.collator_peer_id,
 					)
 					.await

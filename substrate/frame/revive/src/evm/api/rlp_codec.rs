@@ -27,23 +27,23 @@ impl TransactionUnsigned {
 		use TransactionUnsigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
-			Transaction7702Unsigned(ref tx) => {
+			Transaction7702Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction2930Unsigned(ref tx) => {
+			Transaction2930Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction1559Unsigned(ref tx) => {
+			Transaction1559Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			Transaction4844Unsigned(ref tx) => {
+			Transaction4844Unsigned(tx) => {
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
-			TransactionLegacyUnsigned(ref tx) => {
+			TransactionLegacyUnsigned(tx) => {
 				s.append(tx);
 			},
 		}
@@ -73,23 +73,23 @@ impl TransactionSigned {
 		use TransactionSigned::*;
 		let mut s = rlp::RlpStream::new();
 		match self {
-			Transaction7702Signed(ref tx) => {
+			Transaction7702Signed(tx) => {
 				s.append(&tx.transaction_7702_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction2930Signed(ref tx) => {
+			Transaction2930Signed(tx) => {
 				s.append(&tx.transaction_2930_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction1559Signed(ref tx) => {
+			Transaction1559Signed(tx) => {
 				s.append(&tx.transaction_1559_unsigned.r#type.value());
 				s.append(tx);
 			},
-			Transaction4844Signed(ref tx) => {
+			Transaction4844Signed(tx) => {
 				s.append(&tx.transaction_4844_unsigned.r#type.value());
 				s.append(tx);
 			},
-			TransactionLegacySigned(ref tx) => {
+			TransactionLegacySigned(tx) => {
 				s.append(tx);
 			},
 		}
@@ -167,11 +167,7 @@ impl Decodable for TransactionLegacyUnsigned {
 			gas: rlp.val_at(2)?,
 			to: {
 				let to = rlp.at(3)?;
-				if to.is_empty() {
-					None
-				} else {
-					Some(to.as_val()?)
-				}
+				if to.is_empty() { None } else { Some(to.as_val()?) }
 			},
 			value: rlp.val_at(4)?,
 			input: Bytes(rlp.val_at(5)?),
@@ -296,11 +292,7 @@ impl Decodable for Transaction1559Signed {
 					gas: rlp.val_at(4)?,
 					to: {
 						let to = rlp.at(5)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(6)?,
 					input: Bytes(rlp.val_at(7)?),
@@ -367,11 +359,7 @@ impl Decodable for Transaction2930Signed {
 					gas: rlp.val_at(3)?,
 					to: {
 						let to = rlp.at(4)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(5)?,
 					input: Bytes(rlp.val_at(6)?),
@@ -413,19 +401,18 @@ impl Decodable for Transaction7702Signed {
 					nonce: rlp.val_at(1)?,
 					max_priority_fee_per_gas: rlp.val_at(2)?,
 					max_fee_per_gas: rlp.val_at(3)?,
-					gas_price: rlp.val_at(4)?,
-					gas: rlp.val_at(5)?,
-					to: rlp.val_at(6)?,
-					value: rlp.val_at(7)?,
-					input: Bytes(rlp.val_at(8)?),
-					access_list: rlp.list_at(9)?,
-					authorization_list: rlp.list_at(10)?,
+					gas: rlp.val_at(4)?,
+					to: rlp.val_at(5)?,
+					value: rlp.val_at(6)?,
+					input: Bytes(rlp.val_at(7)?),
+					access_list: rlp.list_at(8)?,
+					authorization_list: rlp.list_at(9)?,
 					r#type: Default::default(),
 				}
 			},
-			y_parity: rlp.val_at(11)?,
-			r: rlp.val_at(12)?,
-			s: rlp.val_at(13)?,
+			y_parity: rlp.val_at(10)?,
+			r: rlp.val_at(11)?,
+			s: rlp.val_at(12)?,
 			v: None,
 		})
 	}
@@ -523,11 +510,7 @@ impl Decodable for TransactionLegacySigned {
 		let v: U256 = rlp.val_at(6)?;
 
 		let extract_chain_id = |v: U256| {
-			if v.ge(&35u32.into()) {
-				Some((v - 35) / 2)
-			} else {
-				None
-			}
+			if v.ge(&35u32.into()) { Some((v - 35) / 2) } else { None }
 		};
 
 		Ok(TransactionLegacySigned {
@@ -538,11 +521,7 @@ impl Decodable for TransactionLegacySigned {
 					gas: rlp.val_at(2)?,
 					to: {
 						let to = rlp.at(3)?;
-						if to.is_empty() {
-							None
-						} else {
-							Some(to.as_val()?)
-						}
+						if to.is_empty() { None } else { Some(to.as_val()?) }
 					},
 					value: rlp.val_at(4)?,
 					input: Bytes(rlp.val_at(5)?),
@@ -581,7 +560,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"v": "0x25"
 				}
-				"#
+				"#,
 			),
 			// type 1: EIP2930
 			(
@@ -606,7 +585,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
+				"#,
 			),
 			// type 2: EIP1559
 			(
@@ -634,7 +613,7 @@ mod test {
 					"yParity": "0x0"
 
 				}
-				"#
+				"#,
 			),
 			// type 3: EIP4844
 			(
@@ -663,7 +642,7 @@ mod test {
 					"yParity": "0x0"
 				}
 				"#,
-			)
+			),
 		];
 
 		for (tx, json) in txs {
@@ -673,6 +652,43 @@ mod test {
 			let expected_tx = serde_json::from_str(json).unwrap();
 			assert_eq!(tx, expected_tx);
 		}
+	}
+
+	#[test]
+	fn encode_decode_7702_tx_works() {
+		let tx = TransactionSigned::Transaction7702Signed(Transaction7702Signed {
+			transaction_7702_unsigned: Transaction7702Unsigned {
+				chain_id: U256::from(1),
+				nonce: U256::zero(),
+				max_priority_fee_per_gas: U256::zero(),
+				max_fee_per_gas: U256::from(1),
+				gas: U256::from(0x1e241),
+				to: "0x095e7baea6a6c7c4c2dfeb977efac326af552d87".parse().unwrap(),
+				value: U256::zero(),
+				input: Bytes(vec![]),
+				access_list: vec![AccessListEntry {
+					address: H160::from_low_u64_be(1),
+					storage_keys: vec![H256::zero()],
+				}],
+				authorization_list: vec![AuthorizationListEntry {
+					chain_id: U256::from(1),
+					address: H160::from_low_u64_be(42),
+					nonce: U256::zero(),
+					y_parity: U256::zero(),
+					r: U256::from(1),
+					s: U256::from(2),
+				}],
+				r#type: TypeEip7702 {},
+			},
+			y_parity: U256::zero(),
+			r: U256::from(1),
+			s: U256::from(2),
+			v: None,
+		});
+
+		let encoded = tx.signed_payload();
+		let decoded = TransactionSigned::decode(&encoded).unwrap();
+		assert_eq!(tx, decoded);
 	}
 
 	#[test]
@@ -705,7 +721,7 @@ mod test {
 			// EIP-1559
 			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 			// EIP4844
-      		"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
+			"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
 		];
 
 		for hex_tx in test_cases {

@@ -26,8 +26,9 @@ use cumulus_primitives_core::{
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle, PHeader, ParaId,
-	RelayChainInterface, RelayChainResult, SessionIndex, StorageValue, ValidatorId,
+	ChildInfo, CommittedCandidateReceipt, CoreIndex, OccupiedCoreAssumption, OverseerHandle,
+	PHeader, ParaId, RelayChainInterface, RelayChainResult, SessionIndex, StorageValue,
+	ValidatorId,
 };
 use cumulus_test_client::{
 	runtime::{Block, Hash, Header},
@@ -214,6 +215,15 @@ impl RelayChainInterface for Relaychain {
 		&self,
 		_: PHash,
 		_: &Vec<Vec<u8>>,
+	) -> RelayChainResult<sc_client_api::StorageProof> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn prove_child_read(
+		&self,
+		_: PHash,
+		_: &ChildInfo,
+		_: &[Vec<u8>],
 	) -> RelayChainResult<sc_client_api::StorageProof> {
 		unimplemented!("Not needed for test")
 	}
