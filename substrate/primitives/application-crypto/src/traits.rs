@@ -56,7 +56,9 @@ impl<T: core::hash::Hash> MaybeHash for T {}
 
 /// Application-specific key pair.
 pub trait AppPair:
-	AppCrypto + Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
+	AppCrypto
+	+ Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
+	+ Clone
 {
 	/// The wrapped type which is just a plain instance of `Pair`.
 	type Generic: IsWrappedBy<Self>

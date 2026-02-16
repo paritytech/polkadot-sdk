@@ -22,7 +22,7 @@ use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
-use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
+use sc_consensus_aura::{AuraVerifier, AuthoritiesTracker};
 use sc_consensus_slots::InherentDataProviderExt;
 use sc_telemetry::TelemetryHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -36,7 +36,7 @@ use sp_runtime::traits::Block as BlockT;
 use std::{fmt::Debug, sync::Arc};
 
 /// Parameters for [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, CIDP, S> {
+pub struct ImportQueueParams<'a, P: Pair, Block: BlockT, I, C, CIDP, S> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The client to interact with the chain.
@@ -49,6 +49,8 @@ pub struct ImportQueueParams<'a, I, C, CIDP, S> {
 	pub registry: Option<&'a Registry>,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, Block, C>>,
 }
 
 /// Start an import queue for the Aura consensus algorithm.
@@ -60,7 +62,8 @@ pub fn import_queue<P, Block, I, C, S, CIDP>(
 		spawner,
 		registry,
 		telemetry,
-	}: ImportQueueParams<'_, I, C, CIDP, S>,
+		authorities_tracker,
+	}: ImportQueueParams<'_, P, Block, I, C, CIDP, S>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -78,8 +81,9 @@ where
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
-		+ 'static,
-	P: Pair + 'static,
+		+ 'static
+		+ Clone,
+	P: Pair + 'static + Clone,
 	P::Public: Debug + Codec,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
@@ -95,32 +99,41 @@ where
 		registry,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
 		telemetry,
-		compatibility_mode: CompatibilityMode::None,
+		authorities_tracker,
 	})
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP> {
+pub struct BuildVerifierParams<C, CIDP, P: Pair, B: BlockT> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
 	/// The inherent data providers, to create the inherent data.
 	pub create_inherent_data_providers: CIDP,
 	/// The telemetry handle.
 	pub telemetry: Option<TelemetryHandle>,
+	/// Authorities tracker.
+	pub authorities_tracker: Arc<AuthoritiesTracker<P, B, C>>,
 }
 
 /// Build the [`AuraVerifier`].
 pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
-	BuildVerifierParams { client, create_inherent_data_providers, telemetry }: BuildVerifierParams<
+	BuildVerifierParams { client, create_inherent_data_providers, telemetry, authorities_tracker }: BuildVerifierParams<
 		C,
 		CIDP,
+		P,
+		B,
 	>,
-) -> AuraVerifier<C, P, CIDP, B> {
+) -> Result<AuraVerifier<C, P, CIDP, B>, String>
+where
+	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
+	P::Public: Codec + Debug,
+	C::Api: AuraApi<B, P::Public>,
+{
 	sc_consensus_aura::build_verifier(sc_consensus_aura::BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
 		telemetry,
 		check_for_equivocation: sc_consensus_aura::CheckForEquivocation::No,
-		compatibility_mode: CompatibilityMode::None,
+		authorities_tracker,
 	})
 }

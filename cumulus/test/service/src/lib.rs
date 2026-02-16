@@ -36,6 +36,7 @@ use cumulus_client_consensus_aura::{
 };
 use prometheus::Registry;
 use runtime::AccountId;
+use sc_consensus_aura::{AuraBlockImport, CompatibilityMode};
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
 use std::{
@@ -112,8 +113,16 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport =
-	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
+pub type ParachainBlockImport = TParachainBlockImport<
+	Block,
+	AuraBlockImport<
+		Client,
+		sp_consensus_aura::sr25519::AuthorityPair,
+		Block,
+		SlotBasedBlockImport<Block, Arc<Client>, Client>,
+	>,
+	Backend,
+>;
 
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
@@ -201,7 +210,9 @@ pub fn new_partial(
 
 	let (block_import, slot_based_handle) =
 		SlotBasedBlockImport::new(client.clone(), client.clone());
-	let block_import = ParachainBlockImport::new(block_import, backend.clone());
+	let (block_import, authorities_tracker) =
+		AuraBlockImport::new(block_import, client.clone(), &CompatibilityMode::None)?;
+	let block_import = TParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
 		sc_transaction_pool::Builder::new(
@@ -233,6 +244,7 @@ pub fn new_partial(
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,
 			telemetry: None,
+			authorities_tracker,
 		},
 	)?;
 

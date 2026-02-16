@@ -48,6 +48,9 @@ pub trait HeaderBackend<Block: BlockT>: Send + Sync {
 	) -> Result<Option<<<Block as BlockT>::Header as HeaderT>::Number>>;
 	/// Get block hash by number. Returns `None` if the header is not in the chain.
 	fn hash(&self, number: NumberFor<Block>) -> Result<Option<Block::Hash>>;
+	/// Returns hashes of all blocks that are leaves of the block tree.
+	/// in other words, that have no children, are chain heads.
+	fn leaves(&self) -> Result<Vec<Block::Hash>>;
 
 	/// Convert an arbitrary block ID into a block hash.
 	fn block_hash_from_id(&self, id: &BlockId<Block>) -> Result<Option<Block::Hash>> {
@@ -165,11 +168,6 @@ pub trait Backend<Block: BlockT>:
 	fn justifications(&self, hash: Block::Hash) -> Result<Option<Justifications>>;
 	/// Get last finalized block hash.
 	fn last_finalized(&self) -> Result<Block::Hash>;
-
-	/// Returns hashes of all blocks that are leaves of the block tree.
-	/// in other words, that have no children, are chain heads.
-	/// Results must be ordered best (longest, highest) chain first.
-	fn leaves(&self) -> Result<Vec<Block::Hash>>;
 
 	/// Return hashes of all blocks that are children of the block with `parent_hash`.
 	fn children(&self, parent_hash: Block::Hash) -> Result<Vec<Block::Hash>>;

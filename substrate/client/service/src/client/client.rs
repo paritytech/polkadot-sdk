@@ -1591,6 +1591,10 @@ where
 	fn hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Block::Hash>> {
 		self.backend.blockchain().hash(number)
 	}
+
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		self.backend.blockchain().leaves()
+	}
 }
 
 impl<B, E, Block, RA> BlockIdTo<Block> for Client<B, E, Block, RA>
@@ -1642,6 +1646,10 @@ where
 
 	fn hash(&self, number: NumberFor<Block>) -> sp_blockchain::Result<Option<Block::Hash>> {
 		(**self).hash(number)
+	}
+
+	fn leaves(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		(**self).leaves()
 	}
 }
 
