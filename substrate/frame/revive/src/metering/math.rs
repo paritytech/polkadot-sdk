@@ -84,6 +84,36 @@ pub(crate) mod eip_150 {
 		}
 	}
 
+	impl<V: Copy> Peak<V> {
+		/// Compute the total EIP-150 63/64 overhead stored in this peak.
+		///
+		/// - `required`: the meter's own resource consumption.
+		/// - `max_fn`: component-wise max (needed because `Weight` doesn't impl `Ord`).
+		/// - `overhead_fn`: computes `ceil(value / 63)` for the value type.
+		/// - `sat_add`/`sat_sub`: saturating arithmetic (needed because `Weight` doesn't
+		///    impl `Saturating`).
+		///
+		/// For top calls: returns `peak - required` (children's overhead only).
+		/// For subcalls: returns children's overhead + own `ceil(needed / 63)`.
+		pub(crate) fn compute_total_overhead(
+			&self,
+			required: V,
+			max_fn: fn(V, V) -> V,
+			overhead_fn: fn(V) -> V,
+			sat_add: fn(V, V) -> V,
+			sat_sub: fn(V, V) -> V,
+		) -> V {
+			match *self {
+				Self::TopCall(peak) => sat_sub(peak, required),
+				Self::Subcall(peak) => {
+					let needed_at_boundary = max_fn(peak, required);
+					let children_overhead = sat_sub(needed_at_boundary, required);
+					sat_add(children_overhead, overhead_fn(needed_at_boundary))
+				},
+			}
+		}
+	}
+
 	/// Apply EIP-150 rule to a balance: `value - ceil(value/64)`.
 	pub(crate) fn apply_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
 		value.saturating_sub(

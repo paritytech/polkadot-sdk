@@ -388,16 +388,13 @@ where
 	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
 		use super::math::eip_150;
 
-		let deposit_required = self.max_charged().charge_or_zero();
-		match self.eip_150_peak {
-			Eip150Peak::TopCall(peak) => peak.saturating_sub(deposit_required),
-			Eip150Peak::Subcall(peak) => {
-				let deposit_needed_at_boundary = peak.max(deposit_required);
-				let children_overhead = deposit_needed_at_boundary.saturating_sub(deposit_required);
-				children_overhead
-					.saturating_add(eip_150::overhead_balance::<T>(deposit_needed_at_boundary))
-			},
-		}
+		self.eip_150_peak.compute_total_overhead(
+			self.max_charged().charge_or_zero(),
+			Ord::max,
+			eip_150::overhead_balance::<T>,
+			|a, b| a.saturating_add(b),
+			|a, b| a.saturating_sub(b),
+		)
 	}
 
 	/// Get the deposit required including EIP-150 63/64 overhead.
