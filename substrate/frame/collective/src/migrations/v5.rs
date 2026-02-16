@@ -24,6 +24,7 @@ use frame_support::{
 pub mod v5 {
 	use super::*;
 	use crate::Pallet;
+	use codec::{Decode, Encode};
 	use frame_support::{pallet_prelude::*, storage_alias};
 	use sp_runtime::VersionedCall;
 
@@ -95,13 +96,19 @@ pub mod v5 {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let count = OldProposalOf::<T, I>::iter_keys().count();
-			Ok(count.encode())
+			// Encode the count as a u32
+			Ok((count as u32).encode())
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			use codec::Decode;
-			let old_count: usize = Decode::decode(&mut &state[..])?;
+
+			// Decode as u32 instead of usize
+			let old_count = u32::decode(&mut &state[..]).map_err(|e| {
+				sp_runtime::TryRuntimeError::Other(format!("Failed to decode old count: {:?}", e))
+			})? as usize;
+
 			let new_count = crate::ProposalOf::<T, I>::iter_keys().count();
 
 			assert_eq!(old_count, new_count, "All proposals should be migrated");

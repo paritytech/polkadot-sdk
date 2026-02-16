@@ -1475,10 +1475,11 @@ impl<T: Config> Pallet<T> {
 							}
 							let wake = now.saturating_add(period);
 							match Self::place_task(wake, task) {
-								Ok(new_address) =>
+								Ok(new_address) => {
 									if let Some(retry_config) = maybe_retry_config {
 										Retries::<T>::insert(new_address, retry_config);
-									},
+									}
+								},
 								Err((_, task)) => {
 									// TODO: Leave task in storage somewhere for it to be
 									// rescheduled manually.
