@@ -115,11 +115,37 @@ impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId>
 	}
 }
 
+/// Simple handler for an imbalance drop which increases the total issuance of the system by the
+/// imbalance amount. Used for leftover debt. Emits event.
+pub struct IncreaseIssuanceWithEvent<T, I>(PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static>
+	fungibles::HandleImbalanceDrop<<T as Config<I>>::AssetId, <T as Config<I>>::Balance>
+	for IncreaseIssuanceWithEvent<T, I>
+{
+	fn handle(asset_id: <T as Config<I>>::AssetId, amount: <T as Config<I>>::Balance) {
+		fungibles::IncreaseIssuance::<T::AccountId, Pallet<T, I>>::handle(asset_id.clone(), amount);
+		Pallet::<T, I>::deposit_event(Event::BurnedDebt { asset_id, amount });
+	}
+}
+
+/// Simple handler for an imbalance drop which decreases the total issuance of the system by the
+/// imbalance amount. Used for leftover credit. Emits event.
+pub struct DecreaseIssuanceWithEvent<T, I>(PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static>
+	fungibles::HandleImbalanceDrop<<T as Config<I>>::AssetId, <T as Config<I>>::Balance>
+	for DecreaseIssuanceWithEvent<T, I>
+{
+	fn handle(asset_id: <T as Config<I>>::AssetId, amount: <T as Config<I>>::Balance) {
+		fungibles::DecreaseIssuance::<T::AccountId, Pallet<T, I>>::handle(asset_id.clone(), amount);
+		Pallet::<T, I>::deposit_event(Event::BurnedCredit { asset_id, amount });
+	}
+}
+
 impl<T: Config<I>, I: 'static> fungibles::Balanced<<T as SystemConfig>::AccountId>
 	for Pallet<T, I>
 {
-	type OnDropCredit = fungibles::DecreaseIssuance<T::AccountId, Self>;
-	type OnDropDebt = fungibles::IncreaseIssuance<T::AccountId, Self>;
+	type OnDropCredit = DecreaseIssuanceWithEvent<T, I>;
+	type OnDropDebt = IncreaseIssuanceWithEvent<T, I>;
 
 	fn done_deposit(
 		asset_id: Self::AssetId,
@@ -135,6 +161,14 @@ impl<T: Config<I>, I: 'static> fungibles::Balanced<<T as SystemConfig>::AccountI
 		amount: Self::Balance,
 	) {
 		Self::deposit_event(Event::Withdrawn { asset_id, who: who.clone(), amount })
+	}
+
+	fn done_rescind(asset_id: Self::AssetId, amount: Self::Balance) {
+		Self::deposit_event(Event::IssuedDebt { asset_id, amount })
+	}
+
+	fn done_issue(asset_id: Self::AssetId, amount: Self::Balance) {
+		Self::deposit_event(Event::IssuedCredit { asset_id, amount })
 	}
 }
 

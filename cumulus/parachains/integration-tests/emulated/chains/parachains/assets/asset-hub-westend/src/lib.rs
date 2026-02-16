@@ -44,6 +44,7 @@ decl_test_parachains! {
 			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 			AdditionalInherentCode: (),
+			native_total_supply_tracker: true,
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
