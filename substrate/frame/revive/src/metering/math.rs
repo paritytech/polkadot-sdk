@@ -26,9 +26,45 @@ use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
 
-/// EIP-150: A subcall receives at most 63/64ths of the parent's remaining gas.
-pub(crate) const EIP_150_NUMERATOR: u64 = 63;
-pub(crate) const EIP_150_DENOMINATOR: u64 = 64;
+/// EIP-150 63/64 gas rule helpers.
+///
+/// A subcall receives at most 63/64ths of the parent's remaining gas.
+/// This module provides the apply and overhead functions for both
+/// `BalanceOf<T>` (deposit/gas) and `Weight` types.
+pub(crate) mod eip_150 {
+	use super::*;
+
+	pub(crate) const NUMERATOR: u64 = 63;
+	pub(crate) const DENOMINATOR: u64 = 64;
+
+	/// Apply EIP-150 rule to a balance: `value - ceil(value/64)`.
+	pub(crate) fn apply_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+		value.saturating_sub(
+			(value.saturating_add((DENOMINATOR as u32 - 1).into())) / (DENOMINATOR as u32).into(),
+		)
+	}
+
+	/// EIP-150 63/64 overhead for a deposit balance: `ceil(value / 63)`.
+	pub(crate) fn overhead_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
+		(value.saturating_add((NUMERATOR as u32 - 1).into())) / (NUMERATOR as u32).into()
+	}
+
+	/// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
+	pub(crate) fn apply_weight(weight: Weight) -> Weight {
+		Weight::from_parts(
+			weight.ref_time().saturating_sub(weight.ref_time().div_ceil(DENOMINATOR)),
+			weight.proof_size().saturating_sub(weight.proof_size().div_ceil(DENOMINATOR)),
+		)
+	}
+
+	/// EIP-150 63/64 overhead for Weight: `ceil(weight / 63)` for each component.
+	pub(crate) fn overhead_weight(weight: Weight) -> Weight {
+		Weight::from_parts(
+			weight.ref_time().div_ceil(NUMERATOR),
+			weight.proof_size().div_ceil(NUMERATOR),
+		)
+	}
+}
 
 fn determine_call_stipend<T: Config>() -> Weight {
 	let gas = EVMGas(CALL_STIPEND);
@@ -64,41 +100,6 @@ pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight 
 	Weight::from_parts(
 		ratio.saturating_mul_int(weight.ref_time()),
 		ratio.saturating_mul_int(weight.proof_size()),
-	)
-}
-
-/// Apply EIP-150 rule to a balance (deposit or ethereum gas).
-/// Returns `floor(value * 63/64)` = `value - ceil(value/64)`.
-pub(crate) fn apply_eip_150<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-	value.saturating_sub(
-		(value.saturating_add((EIP_150_DENOMINATOR as u32 - 1).into())) /
-			(EIP_150_DENOMINATOR as u32).into(),
-	)
-}
-
-/// Compute the EIP-150 63/64 overhead for a deposit balance: `ceil(value / 63)`.
-pub(crate) fn compute_eip_150_overhead_for_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-	(value.saturating_add((EIP_150_NUMERATOR as u32 - 1).into())) /
-		(EIP_150_NUMERATOR as u32).into()
-}
-
-/// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
-pub(crate) fn apply_eip_150_to_weight(weight: Weight) -> Weight {
-	Weight::from_parts(
-		weight
-			.ref_time()
-			.saturating_sub(weight.ref_time().div_ceil(EIP_150_DENOMINATOR)),
-		weight
-			.proof_size()
-			.saturating_sub(weight.proof_size().div_ceil(EIP_150_DENOMINATOR)),
-	)
-}
-
-/// Compute the EIP-150 63/64 overhead: `ceil(weight / 63)` for each component.
-pub(crate) fn compute_eip_150_weight_overhead(weight: Weight) -> Weight {
-	Weight::from_parts(
-		weight.ref_time().div_ceil(EIP_150_NUMERATOR),
-		weight.proof_size().div_ceil(EIP_150_NUMERATOR),
 	)
 }
 
@@ -169,7 +170,7 @@ pub mod substrate_execution {
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
 		let (capped_weight_left, capped_deposit_left) = if should_apply_eip_150 {
-			(apply_eip_150_to_weight(weight_left), apply_eip_150::<T>(deposit_left))
+			(eip_150::apply_weight(weight_left), eip_150::apply_balance::<T>(deposit_left))
 		} else {
 			(weight_left, deposit_left)
 		};
@@ -196,7 +197,7 @@ pub mod substrate_execution {
 							return Err(<Error<T>>::OutOfGas.into());
 						};
 						if should_apply_eip_150 {
-							apply_eip_150::<T>(remaining_gas)
+							eip_150::apply_balance::<T>(remaining_gas)
 						} else {
 							remaining_gas
 						}
@@ -410,7 +411,7 @@ pub mod ethereum_execution {
 		};
 
 		let (capped_remaining_gas, capped_weight_left) = if should_apply_eip_150 {
-			(remaining_gas.apply_eip_150(), apply_eip_150_to_weight(weight_left))
+			(remaining_gas.apply_eip_150(), eip_150::apply_weight(weight_left))
 		} else {
 			(remaining_gas, weight_left)
 		};

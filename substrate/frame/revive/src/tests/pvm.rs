@@ -31,7 +31,7 @@ use crate::{
 	limits,
 	metering::{
 		TransactionLimits,
-		math::{EIP_150_DENOMINATOR, EIP_150_NUMERATOR},
+		math::eip_150::{DENOMINATOR, NUMERATOR},
 	},
 	precompiles::alloy::sol_types::{
 		SolType,
@@ -2777,10 +2777,9 @@ fn deposit_limit_in_nested_instantiate() {
 		let storage_len = 50u32;
 		let storage_cost = 2 + 48 + storage_len as u64;
 		let callee_needs = callee_min_deposit + storage_len as u64;
-		let min_remaining =
-			((callee_needs * EIP_150_DENOMINATOR) + EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR;
+		let min_remaining = ((callee_needs * DENOMINATOR) + NUMERATOR - 1) / NUMERATOR;
 		let outer_deposit = min_remaining + storage_cost;
-		let reserve = (min_remaining + EIP_150_NUMERATOR) / EIP_150_DENOMINATOR;
+		let reserve = (min_remaining + NUMERATOR) / DENOMINATOR;
 		assert!(
 			reserve < storage_cost,
 			"reserve ({reserve}) must be < storage_cost ({storage_cost})"
@@ -2802,7 +2801,7 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
 		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as margin.
-		let eip_150_margin = ((callee_min_deposit + 1) + EIP_150_NUMERATOR - 1) / EIP_150_NUMERATOR;
+		let eip_150_margin = ((callee_min_deposit + 1) + NUMERATOR - 1) / NUMERATOR;
 		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
 		// - +1 for callee's 1-byte storage data
 		// - +2 for caller's two 1-byte storage items

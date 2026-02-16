@@ -198,19 +198,20 @@ impl<T: Config> WeightMeter<T> {
 	/// Returns the extra weight the parent needs beyond `weight_required()` to account for
 	/// all 63/64 losses at and below this level.
 	pub fn compute_eip_150_total_overhead(&self) -> Weight {
-		use super::math::compute_eip_150_weight_overhead;
+		use super::math::eip_150;
 
 		match self.eip_150_peak {
 			Eip150Peak::TopCall(peak) => peak.saturating_sub(self.weight_required()),
 			Eip150Peak::Subcall(peak) => {
-				// Minimum weight this meter needs at call start to cover both its own
-				// charges and all internal 63/64 splits from children.
-				// Note: peak can be zero when there are no children.
-				let min_weight_needed = peak.max(self.weight_required());
-				// Extra weight beyond weight_required for children's 63/64 splits.
-				let children_overhead = min_weight_needed.saturating_sub(self.weight_required());
-				// Add the 63/64 overhead the parent loses when forwarding to this meter.
-				children_overhead.saturating_add(compute_eip_150_weight_overhead(min_weight_needed))
+				// Weight this meter needs at entry: own consumption or the peak
+				// observed at subcall boundaries, whichever is larger.
+				let weight_needed_at_boundary = peak.max(self.weight_required());
+				// Extra beyond own consumption needed for subcall boundaries.
+				let children_overhead =
+					weight_needed_at_boundary.saturating_sub(self.weight_required());
+				// Plus the 1/64 the parent loses at this call boundary.
+				children_overhead
+					.saturating_add(eip_150::overhead_weight(weight_needed_at_boundary))
 			},
 		}
 	}

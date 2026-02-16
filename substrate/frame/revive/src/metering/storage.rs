@@ -386,16 +386,16 @@ where
 	/// For subcalls: children overhead + own 63/64 overhead.
 	/// For top calls: children overhead only.
 	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
-		use super::math::compute_eip_150_overhead_for_balance;
+		use super::math::eip_150;
 
 		let deposit_required = self.max_charged().charge_or_zero();
 		match self.eip_150_peak {
 			Eip150Peak::TopCall(peak) => peak.saturating_sub(deposit_required),
 			Eip150Peak::Subcall(peak) => {
-				let min_needed = peak.max(deposit_required);
-				let children_overhead = min_needed.saturating_sub(deposit_required);
+				let deposit_needed_at_boundary = peak.max(deposit_required);
+				let children_overhead = deposit_needed_at_boundary.saturating_sub(deposit_required);
 				children_overhead
-					.saturating_add(compute_eip_150_overhead_for_balance::<T>(min_needed))
+					.saturating_add(eip_150::overhead_balance::<T>(deposit_needed_at_boundary))
 			},
 		}
 	}

@@ -68,7 +68,12 @@ mod private {
 	impl Sealed for super::Nested {}
 }
 
-/// EIP-150 peak tracking: stores the peak value this meter must have
+/// The type of resource meter used at the root level for transactions as a whole.
+pub type TransactionMeter<T> = ResourceMeter<T, Root>;
+/// The type of resource meter used for an execution frame.
+pub type FrameMeter<T> = ResourceMeter<T, Nested>;
+
+/// EIP-150 peak tracking: stores the minimum starting value a meter needs
 /// so that every subcall receives enough resources after the 63/64 split.
 pub(crate) enum Eip150Peak<V> {
 	/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
@@ -112,11 +117,6 @@ impl<V: Copy> Eip150Peak<V> {
 		}
 	}
 }
-
-/// The type of resource meter used at the root level for transactions as a whole.
-pub type TransactionMeter<T> = ResourceMeter<T, Root>;
-/// The type of resource meter used for an execution frame.
-pub type FrameMeter<T> = ResourceMeter<T, Nested>;
 
 /// Resource meter tracking weight and storage deposit consumption.
 #[derive(DefaultNoBound)]

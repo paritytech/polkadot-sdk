@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::{Token, Weight, WeightMeter};
-use crate::{metering::math::EIP_150_NUMERATOR, tests::Test};
+use crate::{metering::math::eip_150::NUMERATOR, tests::Test};
 
 /// A simple utility macro that helps to match against a
 /// list of tokens.
@@ -184,7 +184,7 @@ fn eip_150_overhead_single_subcall() {
 	let parent_consumption = 1000u64;
 	let child_consumption = 6300u64;
 	// Child is a leaf subcall (no children), so its overhead is ceil(6300/63) = 100.
-	let child_overhead = child_consumption.div_ceil(EIP_150_NUMERATOR);
+	let child_overhead = child_consumption.div_ceil(NUMERATOR);
 	// Parent consumed + child's weight_required = 1000 + 6300 = 7300.
 	let parent_weight_required = parent_consumption + child_consumption;
 	// Peak = parent consumed + child weight_required + child overhead = 1000 + 6300 + 100 = 7400.

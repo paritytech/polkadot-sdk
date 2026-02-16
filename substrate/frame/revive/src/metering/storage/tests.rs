@@ -536,14 +536,14 @@ fn max_deposits_work_for_reverts() {
 
 #[test]
 fn eip_150_deposit_overhead_math_helper() {
-	use crate::metering::math::{apply_eip_150, compute_eip_150_overhead_for_balance};
+	use crate::metering::math::eip_150::{apply_balance, overhead_balance};
 
-	// Verify: apply_eip_150(consumed + overhead) == consumed
+	// Verify: apply_balance(consumed + overhead) == consumed
 	let values: Vec<u64> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
 	for consumed in values {
-		let overhead = compute_eip_150_overhead_for_balance::<Test>(consumed);
+		let overhead = overhead_balance::<Test>(consumed);
 		let required = consumed.saturating_add(overhead);
-		let available = apply_eip_150::<Test>(required);
+		let available = apply_balance::<Test>(required);
 		assert_eq!(available, consumed, "failed for consumed={consumed}");
 	}
 }
