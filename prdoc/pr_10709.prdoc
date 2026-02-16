@@ -1,0 +1,20 @@
+title: Introduce a "jemalloc-shim" crate
+doc:
+- audience: Node Operator
+  description: |-
+    This crate basically serves as a hack to properly enable `jemalloc` on Linux and disable it on all other OSes by default.
+crates:
+- name: polkadot
+  bump: patch
+- name: polkadot-jemalloc-shim
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
+- name: polkadot-node-core-pvf-execute-worker
+  bump: patch
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: patch
+- name: polkadot-omni-node
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch
