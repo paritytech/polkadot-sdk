@@ -216,6 +216,11 @@ fn eip_150_overhead_single_subcall() {
 		parent.compute_eip_150_total_overhead(),
 		Weight::from_parts(expected_peak - parent_weight_required, 0)
 	);
+	assert_eq!(
+		parent.weight_required_with_eip_150(),
+		parent.weight_required().saturating_add(parent.compute_eip_150_total_overhead()),
+		"weight_required_with_eip_150 must equal weight_required + overhead"
+	);
 }
 
 #[test]
@@ -252,4 +257,82 @@ fn eip_150_overhead_nested_two_levels() {
 	assert_eq!(top_call_meter.weight_required_with_eip_150(), Weight::from_parts(9534, 0));
 	// TopCall: overhead = peak - weight_required = 234
 	assert_eq!(top_call_meter.compute_eip_150_total_overhead(), Weight::from_parts(234, 0));
+}
+
+#[test]
+fn eip_150_overhead_two_sequential_children() {
+	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+	parent.charge(SimpleToken(500)).unwrap();
+
+	// First child: 3000 weight, overhead = ceil(3000/63) = 48
+	let mut child_a =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	child_a.charge(SimpleToken(3000)).unwrap();
+	parent.absorb_nested(child_a);
+	// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
+	assert_eq!(parent.weight_required(), Weight::from_parts(3500, 0));
+	assert_eq!(parent.eip_150_peak(), Weight::from_parts(3548, 0));
+	// TopCall: overhead = peak - weight_required = 48
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::from_parts(48, 0));
+
+	parent.charge(SimpleToken(700)).unwrap();
+	// consumed = 4200, which exceeds old peak (3548) → overhead drops to 0
+	assert_eq!(parent.weight_required(), Weight::from_parts(4200, 0));
+	assert_eq!(parent.eip_150_peak(), Weight::from_parts(3548, 0));
+	// TopCall: overhead = peak - weight_required = 0 (consumed past old peak)
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::zero());
+
+	// Second child
+	let mut child_b =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	child_b.charge(SimpleToken(1000)).unwrap();
+	// Subcall leaf: no children, overhead = ceil(1000/63) = 16
+	assert_eq!(child_b.weight_required(), Weight::from_parts(1000, 0));
+	assert_eq!(child_b.eip_150_peak(), Weight::zero());
+	assert_eq!(child_b.compute_eip_150_total_overhead(), Weight::from_parts(16, 0));
+
+	parent.absorb_nested(child_b);
+
+	// peak = max(3548, 4200 + 1000 + 16) = 5216
+	assert_eq!(parent.weight_required(), Weight::from_parts(5200, 0));
+	assert_eq!(parent.eip_150_peak(), Weight::from_parts(5216, 0));
+	assert_eq!(parent.weight_required_with_eip_150(), Weight::from_parts(5216, 0));
+	// TopCall: overhead = peak - weight_required = 16
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::from_parts(16, 0));
+}
+
+#[test]
+fn eip_150_overhead_zero_consumption_child() {
+	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
+	parent.charge(SimpleToken(5000)).unwrap();
+
+	// Child consumes zero weight
+	let child = WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(50_000, 25_000), None);
+	parent.absorb_nested(child);
+
+	// Zero-consumption child: overhead = ceil(0/63) = 0
+	// Peak should be max(0, 5000 + 0 + 0) = 5000
+	assert_eq!(parent.weight_required(), Weight::from_parts(5000, 0));
+	assert_eq!(parent.eip_150_peak(), Weight::from_parts(5000, 0));
+	// TopCall: overhead = peak - weight_required = 0
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::zero());
+}
+
+#[test]
+fn eip_150_overhead_child_heavier_than_parent() {
+	// Parent consumes very little (1), child consumes a lot (63_000)
+	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+	parent.charge(SimpleToken(1)).unwrap();
+
+	let mut child =
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	child.charge(SimpleToken(63_000)).unwrap();
+
+	parent.absorb_nested(child);
+
+	// child overhead = ceil(63000/63) = 1000
+	// peak = 1 + 63000 + 1000 = 64001
+	assert_eq!(parent.weight_required(), Weight::from_parts(63_001, 0));
+	assert_eq!(parent.eip_150_peak(), Weight::from_parts(64_001, 0));
+	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::from_parts(1000, 0));
 }

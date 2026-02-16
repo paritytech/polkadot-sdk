@@ -681,3 +681,72 @@ fn eip_150_deposit_required_includes_overhead() {
 	);
 	assert_eq!(deposit_required, max_charged + overhead);
 }
+
+#[test]
+fn eip_150_deposit_overhead_child_with_children_reverts() {
+	clear_ext();
+	let mut top = TestMeter::new(Some(1_000_000));
+	top.record_charge(&Deposit::Charge(500));
+
+	// level1 succeeds and has its own child (level2)
+	let mut level1 = top.nested_with_eip_150(Some(500_000));
+	level1.record_charge(&Deposit::Charge(2000));
+
+	let mut level2 = level1.nested_with_eip_150(Some(250_000));
+	level2.record_charge(&Deposit::Charge(6300));
+
+	// Absorb level2 into level1 (success path)
+	level1.absorb(level2, &ALICE, None);
+	// level1: peak = 2000 + 6300 + ceil(6300/63) = 8400, max_charged = 8300
+	// overhead = children(100) + own(ceil(8400/63)=134) = 234
+	assert_eq!(level1.eip_150_peak(), 8400);
+	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
+	assert_eq!(level1.compute_eip_150_total_overhead(), 234);
+
+	// Absorb level1 into top (only max_charged, simulating a revert)
+	top.absorb_only_max_charged(level1);
+
+	// top: peak = 500 + 8300 + 234 = 9034, max_charged = max(500, 500 + 8300) = 8800
+	assert_eq!(top.max_charged(), Deposit::Charge(8800));
+	assert_eq!(top.eip_150_peak(), 9034);
+	assert_eq!(top.deposit_required_with_eip_150(), 9034);
+	assert_eq!(top.compute_eip_150_total_overhead(), 234);
+}
+
+#[test]
+fn eip_150_deposit_overhead_zero_consumption_child() {
+	clear_ext();
+	let mut parent = TestMeter::new(Some(100_000));
+	parent.record_charge(&Deposit::Charge(5000));
+
+	// Child consumes zero deposit
+	let child = parent.nested_with_eip_150(Some(50_000));
+	parent.absorb_only_max_charged(child);
+
+	// Zero-consumption child: overhead = ceil(0/63) = 0
+	// peak = max(0, 5000 + 0 + 0) = 5000
+	assert_eq!(parent.max_charged(), Deposit::Charge(5000));
+	assert_eq!(parent.eip_150_peak(), 5000);
+	assert_eq!(parent.compute_eip_150_total_overhead(), 0);
+	assert_eq!(parent.deposit_required_with_eip_150(), 5000);
+}
+
+#[test]
+fn eip_150_deposit_overhead_child_heavier_than_parent() {
+	clear_ext();
+	// Parent consumes very little (1), child consumes a lot (63_000)
+	let mut parent = TestMeter::new(Some(1_000_000));
+	parent.record_charge(&Deposit::Charge(1));
+
+	let mut child = parent.nested_with_eip_150(Some(500_000));
+	child.record_charge(&Deposit::Charge(63_000));
+
+	parent.absorb_only_max_charged(child);
+
+	// child overhead = ceil(63000/63) = 1000
+	// peak = 1 + 63000 + 1000 = 64001
+	assert_eq!(parent.max_charged(), Deposit::Charge(63_001));
+	assert_eq!(parent.eip_150_peak(), 64_001);
+	assert_eq!(parent.deposit_required_with_eip_150(), 64_001);
+	assert_eq!(parent.compute_eip_150_total_overhead(), 1000);
+}
