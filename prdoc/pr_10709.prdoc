@@ -16,3 +16,5 @@ crates:
   bump: patch
 - name: polkadot-omni-node
   bump: patch
+- name: polkadot-parachain-bin
+  bump: patch
