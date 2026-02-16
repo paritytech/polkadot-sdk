@@ -42,9 +42,10 @@ use sc_client_api::{
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
 	ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage, UsageProvider,
+	DecodedCompactProof,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportedState, ImportResult, StateAction,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -66,7 +67,7 @@ use sp_core::{
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -616,9 +617,15 @@ where
 
 						Some((main_sc, child_sc))
 					},
-					sc_consensus::StorageChanges::Import(changes) => {
+					sc_consensus::StorageChanges::Import(ImportedState::Proof) => {
+						let state_root = *import_headers.post().state_root();
+						self.backend.check_have_complete_state(state_root)?;
+						operation.op.set_partial_state_completed();
+						None
+					},
+					sc_consensus::StorageChanges::Import(ImportedState::KeyValues { state: changes_state, .. }) => {
 						let mut storage = sp_storage::Storage::default();
-						for state in changes.state.0.into_iter() {
+						for state in changes_state.0.into_iter() {
 							if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
 								for (key, value) in state.key_values.into_iter() {
 									storage.top.insert(key, value);
@@ -1376,7 +1383,7 @@ where
 		root: Block::Hash,
 		proof: CompactProof,
 		start_key: &[Vec<u8>],
-	) -> sp_blockchain::Result<(KeyValueStates, usize)> {
+	) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)> {
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
 		// Compact encoding
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
@@ -1386,12 +1393,12 @@ where
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
-		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
+		let (key_values, completed) = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
 			&proving_backend,
 			start_key,
 		)?;
-
-		Ok(state)
+		let db = proving_backend.into_storage();
+		Ok((key_values, completed, db))
 	}
 }
 
@@ -1815,6 +1822,18 @@ where
 
 		Ok(ImportResult::imported(false))
 	}
+
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		// Can't use `lock_import_and_run`.
+		// It requires block to write state changes along with the block.
+		// But partial state implies block is not ready for import yet.
+		let _import_lock = self.backend.get_import_lock().write();
+		self.backend.import_partial_state(partial_state)
+		.map_err(|e| {
+			warn!("Partial state import error: {}", e);
+			ConsensusError::ClientImport(e.to_string())
+		})
+	}
 }
 
 #[async_trait::async_trait]
@@ -1841,6 +1860,10 @@ where
 		import_block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		(&self).import_block(import_block).await
+	}
+
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		(&self).import_partial_state(partial_state).await
 	}
 }
 

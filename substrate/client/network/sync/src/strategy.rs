@@ -41,7 +41,7 @@ use sc_network_types::PeerId;
 use sp_blockchain::Error as ClientError;
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, NumberFor},
+	traits::{Block as BlockT, NumberFor, PartialStateFor},
 	Justifications,
 };
 use std::any::Any;
@@ -172,6 +172,10 @@ pub enum SyncingAction<B: BlockT> {
 		number: NumberFor<B>,
 		justifications: Justifications,
 	},
+	/// Import partial state
+	ImportPartialState {
+		partial_state: PartialStateFor<B>,
+	},
 	/// Strategy finished. Nothing to do, this is handled by `PolkadotSyncingStrategy`.
 	Finished,
 }
@@ -198,6 +202,9 @@ where
 			Self::ImportBlocks { blocks, .. } => write!(f, "ImportBlocks({:?})", blocks),
 			Self::ImportJustifications { hash, number, .. } => {
 				write!(f, "ImportJustifications({:?}, {:?})", hash, number)
+			},
+			Self::ImportPartialState { .. } => {
+				write!(f, "ImportPartialState")
 			},
 			Self::Finished => write!(f, "Finished"),
 		}

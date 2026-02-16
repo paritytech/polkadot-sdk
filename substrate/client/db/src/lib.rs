@@ -34,6 +34,7 @@ pub mod bench;
 
 mod children;
 mod parity_db;
+mod partial_state;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
@@ -53,6 +54,7 @@ use std::{
 };
 
 use crate::{
+	partial_state::PartialStateTrackingFor,
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -81,7 +83,7 @@ use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
-		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, SaturatedConversion,
+		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor, SaturatedConversion,
 		Zero,
 	},
 	Justification, Justifications, StateVersion, Storage,
@@ -948,6 +950,11 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
+	fn set_partial_state_completed(&mut self) {
+		self.commit_state = true;
+		self.reset_storage = true;
+	}
+
 	fn set_genesis_state(
 		&mut self,
 		storage: Storage,
@@ -1013,6 +1020,7 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 struct StorageDb<Block: BlockT> {
 	pub db: Arc<dyn Database<DbHash>>,
 	pub state_db: StateDb<Block::Hash, Vec<u8>, StateMetaDb>,
+	partial_state_tracking: PartialStateTrackingFor<Block>,
 	prefix_keys: bool,
 }
 
@@ -1232,7 +1240,7 @@ impl<Block: BlockT> Backend<Block> {
 		let map_e = sp_blockchain::Error::from_state_db;
 
 		let (state_db_init_commit_set, state_db) = StateDb::open(
-			state_meta_db,
+			state_meta_db.clone(),
 			requested_state_pruning,
 			!db.supports_ref_counting(),
 			should_init,
@@ -1244,9 +1252,15 @@ impl<Block: BlockT> Backend<Block> {
 		let state_pruning_used = state_db.pruning_mode();
 		let is_archive_pruning = state_pruning_used.is_archive();
 		let blockchain = BlockchainDb::new(db.clone())?;
+		
+		let partial_state_tracking = PartialStateTrackingFor::<Block>::new(state_meta_db)?;
 
-		let storage_db =
-			StorageDb { db: db.clone(), state_db, prefix_keys: !db.supports_ref_counting() };
+		let storage_db = StorageDb {
+			db: db.clone(),
+			state_db,
+			partial_state_tracking,
+			prefix_keys: !db.supports_ref_counting(),
+		};
 
 		let offchain_storage = offchain::LocalStorage::new(db.clone());
 
@@ -1582,6 +1596,11 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let finalized = if operation.commit_state {
+				if operation.reset_storage {
+					let commit = self.storage.partial_state_tracking.remove_completed_partial_state(&hash);
+					apply_state_commit(&mut transaction, commit);
+				}
+
 				let mut changeset: sc_state_db::ChangeSet<Vec<u8>> =
 					sc_state_db::ChangeSet::default();
 				let mut ops: u64 = 0;
@@ -2618,6 +2637,14 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		}
 	}
 
+	fn check_have_complete_state(
+		&self,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()> {
+		let state = DbStateBuilder::new(self.storage.clone(), state_root).build();
+		sc_client_api::partial_state::check_have_complete_state(state)
+	}
+
 	fn have_state_at(&self, hash: Block::Hash, number: NumberFor<Block>) -> bool {
 		if self.is_archive {
 			match self.blockchain.header_metadata(hash) {
@@ -2657,6 +2684,15 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
 		)
+	}
+
+	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()> {
+		let mut transaction = Transaction::new();
+		let commit = self.storage.partial_state_tracking.import_partial_state(partial_state)
+			.map_err(|e| sp_blockchain::Error::Storage(format!("{e:?}")))?;
+		apply_state_commit(&mut transaction, commit);
+		self.storage.db.commit(transaction)?;
+		Ok(())
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
@@ -2719,6 +2755,10 @@ pub(crate) mod tests {
 		traits::{BlakeTwo256, Hash},
 		ConsensusEngineId, StateVersion,
 	};
+	use sp_trie::TrieDBMutBuilder;
+	use sp_trie::TrieMut;
+	use sp_trie::LayoutV0;
+	use sp_trie::partial_state::PartialState;
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
 	const CONS1_ENGINE_ID: ConsensusEngineId = *b"CON1";
@@ -5039,5 +5079,48 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn import_partial_state() {
+		let expected_key_values = vec![
+			(vec![0u8; 40], vec![0u8; 1]),
+			(vec![1u8; 40], vec![1u8; 1]),
+		];
+
+		let mut partial_state = MemoryDB::default();
+		let mut state_root: <Block as BlockT>::Hash = Default::default();
+		let mut trie = TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut partial_state, &mut state_root).build();
+		for (k, v) in &expected_key_values {
+			trie.insert(k, v).unwrap();
+		}
+		trie.commit();
+		drop(trie);
+
+		let header = Header {
+			number: 1,
+			parent_hash: Default::default(),
+			state_root,
+			digest: Default::default(),
+			extrinsics_root: Default::default(),
+		};
+		let backend = Backend::<Block>::new_test(10, 10);
+		backend.import_partial_state(PartialState {
+			block_hash: header.hash(),
+			block_number: header.number,
+			state_root: header.state_root,
+			nodes: partial_state,
+		}).unwrap();
+
+		let mut op = backend.begin_operation().unwrap();
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Normal).unwrap();
+		op.set_partial_state_completed();
+		backend.commit_operation(op).unwrap();
+
+		let key_values: Vec<_> = backend.state_at(header.hash(), TrieCacheContext::Untrusted).unwrap()
+			.pairs(Default::default()).unwrap()
+			.map(Result::unwrap)
+			.collect();
+		assert_eq!(key_values, expected_key_values);
 	}
 }

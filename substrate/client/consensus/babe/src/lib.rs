@@ -124,7 +124,7 @@ use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block as BlockT, Header, NumberFor, SaturatedConversion, Zero},
+	traits::{Block as BlockT, Header, NumberFor, PartialStateFor, SaturatedConversion, Zero},
 	DigestItem,
 };
 
@@ -1747,6 +1747,10 @@ where
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await.map_err(Into::into)
+	}
+
+	async fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> Result<(), Self::Error> {
+		self.inner.import_partial_state(partial_state).await.map_err(Into::into)
 	}
 }
 

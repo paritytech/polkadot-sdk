@@ -26,7 +26,7 @@ use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
 use sp_core::offchain::OffchainStorage;
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, NumberFor},
+	traits::{Block as BlockT, HashingFor, NumberFor, PartialStateFor},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
@@ -205,6 +205,13 @@ pub trait BlockImportOperation<Block: BlockT> {
 		storage: Storage,
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
+
+	/// Mark block state as present.
+	/// Used when complete state is available after series of `import_partial_state` calls.
+	/// `sc-client-db` expects blocks with state to be marked.
+	/// Otherwise it complains that state is not found.
+	/// Also removes list of partial state node keys from database (used for write deduplication).
+	fn set_partial_state_completed(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(
@@ -633,6 +640,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		trie_cache_context: TrieCacheContext,
 	) -> sp_blockchain::Result<Self::State>;
 
+	/// Checks that database has all state trie nodes for given state root.
+	fn check_have_complete_state(
+		&self,
+		state_root: Block::Hash,
+	) -> sp_blockchain::Result<()>;
+
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
 	/// inconsistent state. All blocks higher than the best block are also reverted and not counting
@@ -678,6 +691,14 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// Inject partial state into the database.
+	/// State sync receives subset of trie nodes and uses `import_partial_state` to write them to database.
+	/// After downloading all trie nodes it calls `set_partial_state_completed` to mark completely donwloaded state.
+	/// Block hash is passed to remember partial state belonging to that block,
+	/// to avoid inserting node second time (may break reference counting),
+	/// and to allow cleaning up incomplete partial state for that block.
+	fn import_partial_state(&self, partial_state: PartialStateFor<Block>) -> sp_blockchain::Result<()>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

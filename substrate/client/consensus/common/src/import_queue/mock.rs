@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use sp_runtime::traits::PartialStateFor;
+
 use super::*;
 
 mockall::mock! {
@@ -30,6 +32,7 @@ mockall::mock! {
 			number: NumberFor<B>,
 			justifications: Justifications,
 		);
+		fn import_partial_state(&mut self, partial_state: PartialStateFor<B>);
 	}
 }
 

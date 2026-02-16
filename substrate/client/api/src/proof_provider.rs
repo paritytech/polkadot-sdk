@@ -19,8 +19,13 @@
 //! Proof utilities
 use crate::{CompactProof, StorageProof};
 use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::HashingFor;
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
+
+/// Decoded compact proof.
+/// Used to return `MemoryDB` from `verify_range_proof`.
+pub type DecodedCompactProof<H> = sp_state_machine::MemoryDB<H>;
 
 /// Interface for providing block proving utilities.
 pub trait ProofProvider<Block: BlockT> {
@@ -89,5 +94,5 @@ pub trait ProofProvider<Block: BlockT> {
 		root: Block::Hash,
 		proof: CompactProof,
 		start_keys: &[Vec<u8>],
-	) -> sp_blockchain::Result<(KeyValueStates, usize)>;
+	) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)>;
 }
