@@ -574,162 +574,17 @@ fn substrate_metering_charges_works() {
 	}
 }
 
-#[test]
-fn substrate_nesting_works() {
-	use CallResources::{Ethereum, NoLimits, WeightDeposit};
+fn run_nesting_tests(
+	apply_eip_150: bool,
+	tests: Vec<(
+		((u64, u64, u64, u64, u64, i64), CallResources<Test>),
+		Option<(u64, u64, u64, u64, u64)>,
+	)>,
+) {
+	use CallResources::Ethereum;
 
 	let gas_scale = <Test as Config>::GasScale::get().into();
-	let tests = vec![
-		(
-			((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-			Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
-		),
-		(
-			((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
-			Some((422112782, 499874750, 1106, 84422556, 4577887218)),
-		),
-		(
-			((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000), NoLimits),
-			Some((708617665, 18999997750, 1857, 141723533, 4291382335)),
-		),
-		(
-			((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -70000000000), NoLimits),
-			Some((315708617665, 176499997750, 827611, 63141723533, 0)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				WeightDeposit {
-					weight: Weight::from_parts(10000000000, 100000),
-					deposit_limit: 1000000000,
-				},
-			),
-			Some((2999992500, 1499996250, 10107, 599998500, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				WeightDeposit {
-					weight: Weight::from_parts(1000000000, 100000),
-					deposit_limit: 1000000000,
-				},
-			),
-			Some((2999992500, 1000000000, 10107, 599998500, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				WeightDeposit {
-					weight: Weight::from_parts(10000000000, 10000),
-					deposit_limit: 1000000000,
-				},
-			),
-			Some((2999992500, 1499996250, 10000, 599998500, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				WeightDeposit {
-					weight: Weight::from_parts(10000000000, 100000),
-					deposit_limit: 100000000,
-				},
-			),
-			Some((2999992500, 1499996250, 10107, 100000000, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
-			),
-			Some((1580000, 40000, 200, 300000, 2000007500)),
-		),
-		(
-			(
-				(4_000_000_000, 100_000_000, 3_000, 1000, 1000, 100),
-				WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
-			),
-			Some((77793945, 40000, 200, 300000, 1525879906)),
-		),
-		(
-			(
-				(4_000_000_000, 100_000_000, 3_000, 1800000000, 1000, 100),
-				WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
-			),
-			Some((1580000, 40000, 200, 300000, 3800001000)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				Ethereum { gas: 2999992501, add_stipend: false },
-			),
-			Some((2999992500, 1499996250, 10107, 599998500, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
-				Ethereum { gas: 2999992490, add_stipend: false },
-			),
-			Some((2999992490, 1499996245, 10107, 599998498, 2000007500)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000),
-				Ethereum { gas: 10000, add_stipend: false },
-			),
-			Some((10000, 288823359, 0, 2000, 4577887218)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
-				Ethereum { gas: 708617660, add_stipend: false },
-			),
-			Some((708617660, 18999997747, 1857, 141723532, 4291382335)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
-				Ethereum { gas: 3157000000, add_stipend: false },
-			),
-			Some((708617665, 18999997750, 1857, 141723533, 4291382335)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
-				Ethereum { gas: 500, add_stipend: false },
-			),
-			Some((4, 1499769120, 0, 0, 4999999996)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
-				Ethereum { gas: 300, add_stipend: false },
-			),
-			Some((4, 1499769120, 0, 0, 4999999996)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
-				Ethereum { gas: 300, add_stipend: false },
-			),
-			Some((300, 150, 1232, 60, 2000461760)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
-				Ethereum { gas: 600, add_stipend: false },
-			),
-			Some((600, 300, 0, 120, 2000461760)),
-		),
-		(
-			(
-				(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
-				Ethereum { gas: 600, add_stipend: false },
-			),
-			Some((600, 21188, 0, 120, 2000503536)),
-		),
-	];
-
-	for (input, remaining) in tests {
+	for (i, (input, remaining)) in tests.into_iter().enumerate() {
 		let (
 			(
 				eth_gas_limit,
@@ -775,7 +630,7 @@ fn substrate_nesting_works() {
 					},
 					_ => call_resource,
 				};
-				let nested = transaction_meter.new_nested(&scaled_call_resource, false);
+				let nested = transaction_meter.new_nested(&scaled_call_resource, apply_eip_150);
 
 				if let Some((
 					gas_left,
@@ -786,18 +641,382 @@ fn substrate_nesting_works() {
 				)) = remaining
 				{
 					let nested = nested.unwrap();
-					assert_eq!(gas_left.div_ceil(gas_scale), nested.eth_gas_left().unwrap());
+					assert_eq!(
+						gas_left.div_ceil(gas_scale),
+						nested.eth_gas_left().unwrap(),
+						"gas_left mismatch in test case {i}"
+					);
 					assert_eq!(
 						Weight::from_parts(ref_time_left, proof_size_left),
-						nested.weight_left().unwrap()
+						nested.weight_left().unwrap(),
+						"weight_left mismatch in test case {i}"
 					);
-					assert_eq!(deposit_left, nested.deposit_left().unwrap());
-					assert_eq!(gas_consumed.div_ceil(gas_scale), nested.total_consumed_gas());
+					assert_eq!(
+						deposit_left,
+						nested.deposit_left().unwrap(),
+						"deposit_left mismatch in test case {i}"
+					);
+					assert_eq!(
+						gas_consumed.div_ceil(gas_scale),
+						nested.total_consumed_gas(),
+						"gas_consumed mismatch in test case {i}"
+					);
 				} else {
-					assert!(nested.is_err());
+					assert!(nested.is_err(), "expected error in test case {i}");
 				}
 			});
 	}
+}
+
+#[test]
+fn substrate_nesting_works() {
+	use CallResources::{Ethereum, NoLimits, WeightDeposit};
+
+	run_nesting_tests(
+		false,
+		vec![
+			(
+				((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
+				Some((2999992500u64, 1499996250, 10107, 599998500, 2000007500u64)),
+			),
+			(
+				((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
+				Some((422112782, 499874750, 1106, 84422556, 4577887218)),
+			),
+			(
+				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000), NoLimits),
+				Some((708617665, 18999997750, 1857, 141723533, 4291382335)),
+			),
+			(
+				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -70000000000), NoLimits),
+				Some((315708617665, 176499997750, 827611, 63141723533, 0)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 100000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2999992500, 1499996250, 10107, 599998500, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(1000000000, 100000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2999992500, 1000000000, 10107, 599998500, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 10000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2999992500, 1499996250, 10000, 599998500, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 100000),
+						deposit_limit: 100000000,
+					},
+				),
+				Some((2999992500, 1499996250, 10107, 100000000, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((1580000, 40000, 200, 300000, 2000007500)),
+			),
+			(
+				(
+					(4_000_000_000, 100_000_000, 3_000, 1000, 1000, 100),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((77793945, 40000, 200, 300000, 1525879906)),
+			),
+			(
+				(
+					(4_000_000_000, 100_000_000, 3_000, 1800000000, 1000, 100),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((1580000, 40000, 200, 300000, 3800001000)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					Ethereum { gas: 2999992501, add_stipend: false },
+				),
+				Some((2999992500, 1499996250, 10107, 599998500, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					Ethereum { gas: 2999992490, add_stipend: false },
+				),
+				Some((2999992490, 1499996245, 10107, 599998498, 2000007500)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000),
+					Ethereum { gas: 10000, add_stipend: false },
+				),
+				Some((10000, 288823359, 0, 2000, 4577887218)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
+					Ethereum { gas: 708617660, add_stipend: false },
+				),
+				Some((708617660, 18999997747, 1857, 141723532, 4291382335)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
+					Ethereum { gas: 3157000000, add_stipend: false },
+				),
+				Some((708617665, 18999997750, 1857, 141723533, 4291382335)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
+					Ethereum { gas: 500, add_stipend: false },
+				),
+				Some((4, 1499769120, 0, 0, 4999999996)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
+					Ethereum { gas: 300, add_stipend: false },
+				),
+				Some((4, 1499769120, 0, 0, 4999999996)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
+					Ethereum { gas: 300, add_stipend: false },
+				),
+				Some((300, 150, 1232, 60, 2000461760)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
+					Ethereum { gas: 600, add_stipend: false },
+				),
+				Some((600, 300, 0, 120, 2000461760)),
+			),
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
+					Ethereum { gas: 600, add_stipend: false },
+				),
+				Some((600, 21188, 0, 120, 2000503536)),
+			),
+		],
+	);
+}
+
+/// Same inputs as `substrate_nesting_works` but with EIP-150 63/64 rule applied.
+#[test]
+fn substrate_nesting_works_with_eip_150() {
+	use CallResources::{Ethereum, NoLimits, WeightDeposit};
+
+	run_nesting_tests(
+		true,
+		vec![
+			// 0: NoLimits, low consumption.
+			// 63/64 reduces all remaining resources uniformly.
+			(
+				((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
+				Some((2953117620u64, 1476558808, 9949, 590623523, 2000007500u64)),
+			),
+			// 1: NoLimits, high ref_time consumption.
+			// Less remaining after charges → smaller 63/64 reduction.
+			(
+				((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
+				Some((415517270, 492064207, 1088, 83103453, 4577887218)),
+			),
+			// 2: NoLimits, large deposit refund (negative deposit_charge).
+			// Refund increases available deposit; 63/64 applied to the larger amount.
+			(
+				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000), NoLimits),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+			),
+			// 3: NoLimits, very large deposit refund.
+			// Deposit left is massive; gas_consumed = 0 because refund exceeds charges.
+			(
+				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -70000000000), NoLimits),
+				Some((310775670520, 173742185285, 814679, 62155134102, 0)),
+			),
+			// 4: WeightDeposit, limits much larger than 63/64 capped values.
+			// 63/64 is binding (limits are not). Same as NoLimits case 0.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 100000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+			),
+			// 5: WeightDeposit, ref_time limit (1B) is below 63/64 capped ref_time.
+			// ref_time is clamped to 1B, other resources by 63/64.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(1000000000, 100000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2953117620, 1000000000, 9949, 590623523, 2000007500)),
+			),
+			// 6: WeightDeposit, proof_size limit (10000) caps proof_size.
+			// 63/64 of proof_size ≈ 9949, but limit is 10000, so 63/64 is binding.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 10000),
+						deposit_limit: 1000000000,
+					},
+				),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+			),
+			// 7: WeightDeposit, deposit limit (100M) is below 63/64 capped deposit.
+			// Deposit is clamped to 100M.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit {
+						weight: Weight::from_parts(10000000000, 100000),
+						deposit_limit: 100000000,
+					},
+				),
+				Some((2953117620, 1476558808, 9949, 100000000, 2000007500)),
+			),
+			// 8: WeightDeposit, all explicit limits much smaller than 63/64 capped.
+			// Explicit limits are binding, identical to non-EIP-150 case.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((1580000, 40000, 200, 300000, 2000007500)),
+			),
+			// 9: WeightDeposit, smaller tx gas, explicit limits binding.
+			(
+				(
+					(4_000_000_000, 100_000_000, 3_000, 1000, 1000, 100),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((77793945, 40000, 200, 300000, 1525879906)),
+			),
+			// 10: WeightDeposit, high ref_time consumption, explicit limits binding.
+			(
+				(
+					(4_000_000_000, 100_000_000, 3_000, 1800000000, 1000, 100),
+					WeightDeposit { weight: Weight::from_parts(40000, 200), deposit_limit: 300000 },
+				),
+				Some((1580000, 40000, 200, 300000, 3800001000)),
+			),
+			// 11: Ethereum gas, gas_limit (2999992501) > 63/64 of remaining.
+			// 63/64 is binding, gas_limit is not.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					Ethereum { gas: 2999992501, add_stipend: false },
+				),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+			),
+			// 12: Ethereum gas, gas_limit (2999992490) > 63/64 of remaining.
+			// 63/64 is binding; same result as case 11.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
+					Ethereum { gas: 2999992490, add_stipend: false },
+				),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+			),
+			// 13: Ethereum gas, very small gas_limit (10000) is binding over 63/64.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000),
+					Ethereum { gas: 10000, add_stipend: false },
+				),
+				Some((10000, 11842, 0, 2000, 4577887218)),
+			),
+			// 14: Ethereum gas, large refund, gas_limit (708617660) is binding.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
+					Ethereum { gas: 708617660, add_stipend: false },
+				),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+			),
+			// 15: Ethereum gas, large refund, gas_limit (3157000000) > 63/64.
+			// 63/64 is binding.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
+					Ethereum { gas: 3157000000, add_stipend: false },
+				),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+			),
+			// 16: Ethereum gas, tiny gas_limit (500), high proof_size consumption.
+			// Gas almost exhausted; weight/deposit collapse to near-zero.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
+					Ethereum { gas: 500, add_stipend: false },
+				),
+				Some((4, 1476335227, 0, 0, 4999999996)),
+			),
+			// 17: Ethereum gas, even smaller gas_limit (300).
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
+					Ethereum { gas: 300, add_stipend: false },
+				),
+				Some((4, 1476335227, 0, 0, 4999999996)),
+			),
+			// 18: Ethereum gas, small gas_limit (300), moderate proof_size.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
+					Ethereum { gas: 300, add_stipend: false },
+				),
+				Some((300, 149, 0, 60, 2000461760)),
+			),
+			// 19: Ethereum gas, gas_limit (600), proof_size near boundary.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
+					Ethereum { gas: 600, add_stipend: false },
+				),
+				Some((600, 299, 0, 120, 2000461760)),
+			),
+			// 20: Ethereum gas, gas_limit (600), proof_size just over boundary.
+			(
+				(
+					(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
+					Ethereum { gas: 600, add_stipend: false },
+				),
+				Some((600, 300, 0, 120, 2000503536)),
+			),
+		],
+	);
 }
 
 #[test]

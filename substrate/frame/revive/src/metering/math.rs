@@ -90,8 +90,8 @@ pub(crate) mod eip_150 {
 		/// - `required`: the meter's own resource consumption.
 		/// - `max_fn`: component-wise max (needed because `Weight` doesn't impl `Ord`).
 		/// - `overhead_fn`: computes `ceil(value / 63)` for the value type.
-		/// - `sat_add`/`sat_sub`: saturating arithmetic (needed because `Weight` doesn't
-		///    impl `Saturating`).
+		/// - `sat_add`/`sat_sub`: saturating arithmetic (needed because `Weight` doesn't impl
+		///   `Saturating`).
 		///
 		/// For top calls: returns `peak - required` (children's overhead only).
 		/// For subcalls: returns children's overhead + own `ceil(needed / 63)`.

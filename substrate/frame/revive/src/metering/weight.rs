@@ -18,10 +18,10 @@
 #[cfg(test)]
 mod tests;
 
+use super::math::eip_150::Peak as Eip150Peak;
 use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{DefaultNoBound, weights::Weight};
-use super::math::eip_150::Peak as Eip150Peak;
 use sp_runtime::DispatchError;
 
 #[cfg(test)]
