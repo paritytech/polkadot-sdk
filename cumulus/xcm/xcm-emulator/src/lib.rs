@@ -257,6 +257,9 @@ pub trait Chain: TestExt {
 	fn account_data_of(account: AccountIdOf<Self::Runtime>) -> AccountData<Balance>;
 
 	fn events() -> Vec<<Self as Chain>::RuntimeEvent>;
+
+	/// Whether the local Total Issuance can be treated as authoritative.
+	fn native_total_issuance_source_of_truth() -> bool;
 }
 
 pub trait RelayChain: Chain {
@@ -418,6 +421,10 @@ macro_rules! decl_test_relay_chains {
 						.iter()
 						.map(|record| record.event.clone())
 						.collect()
+				}
+
+				fn native_total_issuance_source_of_truth() -> bool {
+					false
 				}
 			}
 
@@ -626,6 +633,7 @@ macro_rules! decl_test_parachains {
 					MessageOrigin: $message_origin:path,
 					$( DigestProvider: $digest_provider:ty,)?
 					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
+					$( native_total_supply_tracker: $total_supply_tracker:expr,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -657,6 +665,10 @@ macro_rules! decl_test_parachains {
 						.iter()
 						.map(|record| record.event.clone())
 						.collect()
+				}
+
+				fn native_total_issuance_source_of_truth() -> bool {
+					$crate::decl_test_parachains!(@inner_total_supply_tracker $($total_supply_tracker)?)
 				}
 			}
 
@@ -818,6 +830,8 @@ macro_rules! decl_test_parachains {
 	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
 	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
 	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
+	( @inner_total_supply_tracker $total_supply_tracker:expr ) => { $total_supply_tracker };
+	( @inner_total_supply_tracker /* none */ ) => { false };
 }
 
 #[macro_export]
@@ -1443,6 +1457,7 @@ macro_rules! decl_test_sender_receiver_accounts_parameter_types {
 }
 
 pub struct DefaultParaMessageProcessor<T, M>(PhantomData<(T, M)>);
+
 // Process HRMP messages from sibling paraids
 impl<T, M> ProcessMessage for DefaultParaMessageProcessor<T, M>
 where
@@ -1475,6 +1490,7 @@ where
 		Ok(true)
 	}
 }
+
 impl<T, M> ServiceQueues for DefaultParaMessageProcessor<T, M>
 where
 	M: MaxEncodedLen,
@@ -1501,6 +1517,7 @@ pub type MessageOriginFor<T> =
 	<<<T as Chain>::Runtime as MessageQueueConfig>::MessageProcessor as ProcessMessage>::Origin;
 
 pub struct DefaultRelayMessageProcessor<T>(PhantomData<T>);
+
 // Process UMP messages on the relay
 impl<T> ProcessMessage for DefaultRelayMessageProcessor<T>
 where
@@ -1657,6 +1674,7 @@ where
 		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
 	}
 }
+
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
