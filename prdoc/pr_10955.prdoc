@@ -1,0 +1,19 @@
+title: 'Snowbridge: Remove unused proof fields'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When verifying Ethereum-to-Polkadot transfer messages, the key field in receipt_proof is not used. Remove it as a cleanup and update the tests accordingly.
+
+crates:
+- name: snowbridge-verification-primitives
+  bump: patch
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: none
+- name: snowbridge-pallet-inbound-queue-fixtures
+  bump: none
+- name: snowbridge-pallet-inbound-queue-v2-fixtures
+  bump: none
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch
