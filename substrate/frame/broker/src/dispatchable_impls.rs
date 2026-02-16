@@ -583,25 +583,28 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		// Insert or update the auto-renewal record
-		// We need to maintain sorted order by core index for efficient removal
+		// Insert or update the auto-renewal record using binary search
 		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
-			// Check if we already have an entry for this core
-			if let Some(pos) = renewals.iter().position(|r| r.core == actual_core) {
-				// Update existing entry
-				renewals[pos] =
-					AutoRenewalRecord { core: actual_core, task, next_renewal: workload_end };
-			} else {
-				// Find insertion position to maintain sorted order
-				let pos =
-					renewals.binary_search_by(|r| r.core.cmp(&actual_core)).unwrap_or_else(|e| e);
-
-				renewals
-					.try_insert(
-						pos,
-						AutoRenewalRecord { core: actual_core, task, next_renewal: workload_end },
-					)
-					.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			// Use binary search since renewals are sorted by core index
+			match renewals.binary_search_by(|r| r.core.cmp(&actual_core)) {
+				Ok(pos) => {
+					// Update existing entry
+					renewals[pos] =
+						AutoRenewalRecord { core: actual_core, task, next_renewal: workload_end };
+				},
+				Err(pos) => {
+					// Insert new entry at sorted position
+					renewals
+						.try_insert(
+							pos,
+							AutoRenewalRecord {
+								core: actual_core,
+								task,
+								next_renewal: workload_end,
+							},
+						)
+						.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+				},
 			}
 			Ok(())
 		})?;
@@ -618,6 +621,7 @@ impl<T: Config> Pallet<T> {
 
 			let renewal_record = renewals.get(pos).ok_or(Error::<T>::AutoRenewalNotEnabled)?;
 
+			// Verify the task matches
 			ensure!(
 				renewal_record.core == core && renewal_record.task == task,
 				Error::<T>::NoPermission
