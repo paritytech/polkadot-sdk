@@ -1168,7 +1168,6 @@ pub struct FeeHistoryResult {
 #[serde(rename_all = "camelCase")]
 pub enum SubscriptionKind {
 	NewBlockHeaders,
-	PendingTransactions,
 	Logs,
 }
 
@@ -1270,7 +1269,6 @@ impl LogsSubscriptionFilter {
 #[derive(Clone, Debug)]
 pub enum SubscriptionParameters {
 	NewBlockHeaders,
-	PendingTransactions,
 	Logs(LogsSubscriptionFilter),
 }
 
@@ -1288,7 +1286,6 @@ impl SubscriptionParameters {
 				Some(SubscriptionOptions::LogsOptions { address, topics }),
 			) => Some(Self::Logs(LogsSubscriptionFilter::new(address, topics))),
 			(SubscriptionKind::NewBlockHeaders, None) => Some(Self::NewBlockHeaders),
-			(SubscriptionKind::PendingTransactions, None) => Some(Self::PendingTransactions),
 			_ => None,
 		}
 	}

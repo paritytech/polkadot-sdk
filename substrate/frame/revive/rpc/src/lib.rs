@@ -517,9 +517,6 @@ impl EthRpcServer for EthRpcServerImpl {
 					value.map(|block| SubscriptionItem::BlockHeader(BlockHeader::from(block)))
 				}),
 			) as _,
-			SubscriptionParameters::PendingTransactions => {
-				todo!()
-			},
 			SubscriptionParameters::Logs(filter) => Box::pin(
 				BroadcastStream::new(self.client.get_log_subscription_rx())
 					.try_filter(move |log| futures::future::ready(filter.matches(log)))
