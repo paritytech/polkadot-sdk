@@ -20,7 +20,7 @@
 use crate::*;
 use alloc::vec::Vec;
 use frame_support::{derive_impl, parameter_types, weights::Weight};
-use sp_runtime::{traits::OpaqueKeys, BuildStorage, KeyTypeId, Perbill};
+use sp_runtime::{traits::OpaqueKeys, BuildStorage, DispatchError, KeyTypeId, Perbill};
 use sp_staking::offence::{OffenceSeverity, OnOffenceHandler};
 
 /// Mock session keys for testing.
@@ -75,10 +75,16 @@ impl SessionInterface for MockSessionInterface {
 	fn prune_up_to(_up_to: u32) {}
 	fn report_offence(_offender: Self::ValidatorId, _severity: OffenceSeverity) {}
 	fn set_keys(account: &Self::AccountId, keys: Self::Keys) -> DispatchResult {
+		if let Some(err) = SetKeysError::get() {
+			return Err(err);
+		}
 		SetKeysCalls::mutate(|calls| calls.push((*account, keys)));
 		Ok(())
 	}
 	fn purge_keys(account: &Self::AccountId) -> DispatchResult {
+		if let Some(err) = PurgeKeysError::get() {
+			return Err(err);
+		}
 		PurgeKeysCalls::mutate(|calls| calls.push(*account));
 		Ok(())
 	}
@@ -132,7 +138,9 @@ parameter_types! {
 	pub const PointsPerBlock: u32 = 1;
 	pub const MaxOffenceBatchSize: u32 = 100;
 	pub static SetKeysCalls: Vec<(u64, MockSessionKeys)> = vec![];
+	pub static SetKeysError: Option<DispatchError> = None;
 	pub static PurgeKeysCalls: Vec<u64> = vec![];
+	pub static PurgeKeysError: Option<DispatchError> = None;
 }
 
 impl Config for Test {
@@ -153,6 +161,8 @@ impl Config for Test {
 #[cfg(test)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	SetKeysCalls::take();
+	SetKeysError::take();
 	PurgeKeysCalls::take();
+	PurgeKeysError::take();
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }

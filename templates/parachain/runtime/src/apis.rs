@@ -332,4 +332,10 @@ impl_runtime_apis! {
 			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			Default::default()
+		}
+	}
 }

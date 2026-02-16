@@ -37,9 +37,7 @@
 //! pallet and unstake faster than having to wait an entire bonding duration.
 //!
 //! *Being exposed with validator* from the point of view of the staking system means earning
-//! rewards with the validator, and also being at the risk of slashing with the validator. This is
-//! equivalent to the "Active Nominator" role explained in
-//! [here](https://polkadot.com/blog/staking-update-february-2022/).
+//! rewards with the validator, and also being at the risk of slashing with the validator.
 //!
 //! Stakers who are certain about NOT being exposed can register themselves with
 //! [`Pallet::register_fast_unstake`]. This will chill, fully unbond the staker and place them

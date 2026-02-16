@@ -53,9 +53,6 @@
 //! optimal position in a bag, the [`Pallet::put_in_front_of`] or [`Pallet::put_in_front_of_other`]
 //! can be used.
 //!
-//! Additional reading, about how this pallet is used in the context of Polkadot's staking system:
-//! <https://polkadot.com/blog/staking-update-september-2021/#bags-list-in-depth>
-//!
 //! ## Examples
 //!
 //! See [`example`] for a diagram of `rebag` and `put_in_front_of` operations.

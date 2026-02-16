@@ -21,7 +21,7 @@ use futures::{stream, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
 	utils::LruHashSet,
-	NetworkPeers, ObservedRole,
+	NetworkPeers,
 };
 use sc_network_statement::{
 	config::{DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
@@ -226,7 +226,6 @@ fn build_handler(
 		peer_id,
 		Peer::new_for_testing(
 			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
-			ObservedRole::Full,
 			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 		),
