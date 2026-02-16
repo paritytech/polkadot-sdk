@@ -18,7 +18,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.10.4 --locked -q
+        run: cargo install parity-publish@0.10.6 --locked -q
 
       - name: parity-publish claim
         env:

@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo},
 	Config,
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext, ExtWithInfo},
 };
 use alloc::vec::Vec;
 use alloy_core::sol;

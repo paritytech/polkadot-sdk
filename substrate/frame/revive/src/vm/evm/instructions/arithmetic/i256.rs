@@ -139,11 +139,7 @@ pub fn i256_mod(mut first: U256, mut second: U256) -> U256 {
 	// Set sign bit to zero
 	u256_remove_sign(&mut r);
 
-	if first_sign == Sign::Minus {
-		two_compl(r)
-	} else {
-		r
-	}
+	if first_sign == Sign::Minus { two_compl(r) } else { r }
 }
 
 #[cfg(test)]

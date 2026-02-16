@@ -30,17 +30,17 @@ mod builtin;
 mod tests;
 
 pub use crate::{
+	AddressMapper, TransactionLimits,
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	metering::{Diff, Token},
 	vm::RuntimeCosts,
-	AddressMapper, TransactionLimits,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
 
 use crate::{
-	exec::ExecResult, precompiles::builtin::Builtin, primitives::ExecReturnValue, Config,
-	Error as CrateError,
+	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
+	primitives::ExecReturnValue,
 };
 use alloc::vec::Vec;
 use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
@@ -604,8 +604,8 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 	};
 	pub use sp_core::{H256, U256};
 
