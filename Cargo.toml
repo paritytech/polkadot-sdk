@@ -825,7 +825,7 @@ fork-tree = { path = "substrate/utils/fork-tree", default-features = false, vers
 forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame", version = "0.14.0" }
-frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "45.0.2" }
+frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "45.0.3" }
 frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false, version = "53.0.0" }
 frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "16.1.1" }
@@ -1069,8 +1069,8 @@ revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime", version = "0.3.0" }
 # TODO: remove the reward stuff as they are not needed here
 pallet-derivatives = { path = "polkadot/xcm/pallet-derivatives", default-features = false }
-pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false, version = "0.10.0" }
-pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false, version = "0.7.1" }
+pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false, version = "0.10.1" }
+pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false, version = "0.7.2" }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
 pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runtimes/preset-store", default-features = false, version = "0.1.0" }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false, version = "0.7.1" }
@@ -1130,7 +1130,7 @@ polkadot-core-primitives = { path = "polkadot/core-primitives", default-features
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false, version = "28.0.0" }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false, version = "23.0.0" }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false, version = "28.0.0" }
-polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim" }
+polkadot-jemalloc-shim = { path = "polkadot/jemalloc-shim", version = "0.1.1" }
 polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "28.0.0" }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false, version = "28.0.0" }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false, version = "28.0.0" }
@@ -1148,8 +1148,8 @@ polkadot-node-core-provisioner = { path = "polkadot/node/core/provisioner", defa
 polkadot-node-core-pvf = { path = "polkadot/node/core/pvf", default-features = false, version = "28.0.0" }
 polkadot-node-core-pvf-checker = { path = "polkadot/node/core/pvf-checker", default-features = false, version = "28.0.0" }
 polkadot-node-core-pvf-common = { path = "polkadot/node/core/pvf/common", default-features = false, version = "24.0.0" }
-polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false, version = "24.0.0" }
-polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false, version = "24.0.0" }
+polkadot-node-core-pvf-execute-worker = { path = "polkadot/node/core/pvf/execute-worker", default-features = false, version = "24.0.1" }
+polkadot-node-core-pvf-prepare-worker = { path = "polkadot/node/core/pvf/prepare-worker", default-features = false, version = "24.0.1" }
 polkadot-node-core-runtime-api = { path = "polkadot/node/core/runtime-api", default-features = false, version = "28.0.0" }
 polkadot-node-metrics = { path = "polkadot/node/metrics", default-features = false, version = "28.0.0" }
 polkadot-node-network-protocol = { path = "polkadot/node/network/protocol", default-features = false, version = "28.0.0" }
@@ -1168,7 +1168,7 @@ polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "29.
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "24.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "25.0.0" }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "24.0.0" }
-polkadot-sdk = { path = "umbrella", default-features = false, version = "2512.3.0" }
+polkadot-sdk = { path = "umbrella", default-features = false, version = "2512.3.1" }
 polkadot-sdk-docs = { path = "docs/sdk" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "31.0.0" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "28.0.0" }
@@ -1319,14 +1319,14 @@ snowbridge-merkle-tree = { path = "bridges/snowbridge/primitives/merkle-tree", d
 snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/outbound-queue", default-features = false, version = "0.7.0" }
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.18.0" }
 snowbridge-outbound-queue-v2-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false, version = "0.7.0" }
-snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.18.1" }
+snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.18.2" }
 snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.26.0" }
 snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.18.0" }
 snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.26.0" }
 snowbridge-pallet-inbound-queue-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2", default-features = false, version = "0.7.0" }
 snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false, version = "0.7.0" }
 snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.18.0" }
-snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2", default-features = false, version = "0.7.0" }
+snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2", default-features = false, version = "0.7.1" }
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.18.0" }
 snowbridge-pallet-system-frontend = { path = "bridges/snowbridge/pallets/system-frontend", default-features = false, version = "0.7.0" }
 snowbridge-pallet-system-v2 = { path = "bridges/snowbridge/pallets/system-v2", default-features = false, version = "0.7.0" }
@@ -1335,7 +1335,7 @@ snowbridge-runtime-test-common = { path = "bridges/snowbridge/runtime/test-commo
 snowbridge-system-runtime-api = { path = "bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.18.0" }
 snowbridge-system-v2-runtime-api = { path = "bridges/snowbridge/pallets/system-v2/runtime-api", default-features = false, version = "0.7.0" }
 snowbridge-test-utils = { path = "bridges/snowbridge/test-utils" }
-snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false, version = "0.7.0" }
+snowbridge-verification-primitives = { path = "bridges/snowbridge/primitives/verification", default-features = false, version = "0.7.1" }
 soketto = { version = "0.8.0" }
 solochain-template-runtime = { path = "templates/solochain/runtime", version = "0.1.0" }
 sp-api = { path = "substrate/primitives/api", default-features = false, version = "40.0.0" }
@@ -1391,7 +1391,7 @@ sp-timestamp = { path = "substrate/primitives/timestamp", default-features = fal
 sp-tracing = { path = "substrate/primitives/tracing", default-features = false, version = "19.0.0" }
 sp-transaction-pool = { path = "substrate/primitives/transaction-pool", default-features = false, version = "40.0.0" }
 sp-transaction-storage-proof = { path = "substrate/primitives/transaction-storage-proof", default-features = false, version = "40.0.0" }
-sp-trie = { path = "substrate/primitives/trie", default-features = false, version = "42.0.0" }
+sp-trie = { path = "substrate/primitives/trie", default-features = false, version = "42.0.1" }
 sp-version = { path = "substrate/primitives/version", default-features = false, version = "43.0.0" }
 sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", default-features = false, version = "15.0.0" }
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false, version = "24.0.0" }

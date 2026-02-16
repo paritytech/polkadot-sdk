@@ -6723,7 +6723,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "45.0.2"
+version = "45.0.3"
 dependencies = [
  "array-bytes 6.2.2",
  "frame-support",
@@ -6976,7 +6976,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -13667,7 +13667,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -13697,7 +13697,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-ah-client"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -15198,7 +15198,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "30.0.0"
+version = "30.0.1"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -15486,7 +15486,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-jemalloc-shim"
-version = "1.0.0"
+version = "0.1.1"
 dependencies = [
  "polkadot-cli",
  "polkadot-node-core-pvf",
@@ -15936,7 +15936,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-execute-worker"
-version = "24.0.0"
+version = "24.0.1"
 dependencies = [
  "cfg-if",
  "cpu-time",
@@ -15953,7 +15953,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-prepare-worker"
-version = "24.0.0"
+version = "24.0.1"
 dependencies = [
  "cfg-if",
  "criterion",
@@ -16154,7 +16154,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -16534,7 +16534,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2512.3.0"
+version = "2512.3.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -22483,7 +22483,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22625,7 +22625,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue-v2"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -22817,7 +22817,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-verification-primitives"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -23914,7 +23914,7 @@ dependencies = [
 
 [[package]]
 name = "sp-trie"
-version = "42.0.0"
+version = "42.0.1"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",

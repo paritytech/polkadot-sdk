@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "2512.3.0"
+version = "2512.3.1"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -1213,7 +1213,7 @@ version = "0.1.2"
 default-features = false
 optional = true
 path = "../substrate/frame/benchmarking"
-version = "45.0.2"
+version = "45.0.3"
 
 [dependencies.frame-benchmarking-pallet-pov]
 default-features = false
@@ -1873,13 +1873,13 @@ version = "45.0.0"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async"
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies.pallet-staking-async-ah-client]
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/ah-client"
-version = "0.7.1"
+version = "0.7.2"
 
 [dependencies.pallet-staking-async-rc-client]
 default-features = false
@@ -2353,7 +2353,7 @@ version = "40.0.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/trie"
-version = "42.0.0"
+version = "42.0.1"
 
 [dependencies.sp-version]
 default-features = false
@@ -2773,13 +2773,13 @@ version = "24.0.0"
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/execute-worker"
-version = "24.0.0"
+version = "24.0.1"
 
 [dependencies.polkadot-node-core-pvf-prepare-worker]
 default-features = false
 optional = true
 path = "../polkadot/node/core/pvf/prepare-worker"
-version = "24.0.0"
+version = "24.0.1"
 
 [dependencies.polkadot-node-core-runtime-api]
 default-features = false
