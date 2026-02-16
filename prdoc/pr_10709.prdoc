@@ -8,3 +8,11 @@ crates:
   bump: patch
 - name: polkadot-jemalloc-shim
   bump: patch
+- name: polkadot-sdk
+  bump: patch
+- name: polkadot-node-core-pvf-execute-worker
+  bump: patch
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: patch
+- name: polkadot-omni-node
+  bump: patch
