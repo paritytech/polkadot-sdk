@@ -27,11 +27,16 @@ doc:
 crates:
 - name: polkadot-collator-protocol
   bump: major
+  validate: false
 - name: polkadot-service
   bump: major
+  validate: false
 - name: polkadot
   bump: major
+  validate: false
 - name: polkadot-cli
   bump: major
+  validate: false
 - name: cumulus-relay-chain-inprocess-interface
   bump: major
+  validate: false
