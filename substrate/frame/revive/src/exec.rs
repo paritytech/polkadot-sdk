@@ -1663,9 +1663,7 @@ where
 			with_transaction(|| -> TransactionOutcome<DispatchResult> {
 				match meter
 					.charge_deposit(&StorageDeposit::Charge(ed))
-					.and_then(|_| {
-						<Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config)
-					})
+					.and_then(|_| <Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config))
 					.and_then(|_| {
 						transfer_with_dust::<T>(from, to, value_balance_with_dust, preservation)
 					}) {
@@ -1681,8 +1679,7 @@ where
 			let from = T::AddressMapper::to_address(from);
 			let to = T::AddressMapper::to_address(to);
 			let emitter = H160([0xee; 20]);
-			let transfer_topic =
-				H256(keccak_256("Transfer(address,address,uint256)".as_bytes()));
+			let transfer_topic = H256(keccak_256("Transfer(address,address,uint256)".as_bytes()));
 			let topics = alloc::vec![transfer_topic, H256::from(from), H256::from(to)];
 			let data = value.to_big_endian();
 

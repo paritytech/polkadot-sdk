@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	H160, ReceiptGasInfo, SimulationError, U256,
 	evm::{
-		block_hash::EthereumBlockBuilderMockHandler, GenericTransaction, SimulationPayload,
-		StateOverrides, Withdrawal,
+		GenericTransaction, SimulationPayload, StateOverrides, Withdrawal,
+		block_hash::EthereumBlockBuilderMockHandler,
 	},
 	mock::MockHandler,
-	ReceiptGasInfo, SimulationError, H160, U256,
 };
 use alloc::{fmt::Debug, vec::Vec};
 use alloy_core::primitives::BLOOM_SIZE_BYTES;
@@ -685,9 +685,9 @@ mod tests {
 		// Assert
 		let all: Vec<_> = blocks.into_inner().collect();
 		assert_eq!(all.len(), 3);
-		assert!(all[0].1 .0.is_empty());
+		assert!(all[0].1.0.is_empty());
 		assert!(all[0].2.is_empty());
-		assert!(all[1].1 .0.is_empty());
+		assert!(all[1].1.0.is_empty());
 		assert!(all[1].2.is_empty());
 	}
 
