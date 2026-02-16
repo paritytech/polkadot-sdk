@@ -22,9 +22,14 @@ use crate::traits::misc::{SameOrOther, TryDrop};
 use core::ops::Div;
 use sp_runtime::traits::Saturating;
 
+mod imbalance_accounting;
 mod on_unbalanced;
 mod signed_imbalance;
 mod split_two_ways;
+
+pub use imbalance_accounting::{
+	ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
+};
 pub use on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
 pub use signed_imbalance::SignedImbalance;
 pub use split_two_ways::SplitTwoWays;

@@ -84,8 +84,8 @@ fn register_rococo_asset_on_wah_from_rah() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				// Burned the fee
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+				// Withdrawn the fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 					who: *who == sa_of_rah_on_wah.clone(),
 					amount: *amount == fee_amount,
 				},
@@ -95,8 +95,8 @@ fn register_rococo_asset_on_wah_from_rah() {
 					creator: *creator == sa_of_rah_on_wah.clone(),
 					owner: *owner == sa_of_rah_on_wah,
 				},
-				// Unspent fee minted to origin
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				// Unspent fee deposited to origin
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == sa_of_rah_on_wah.clone(),
 				},
 			]
