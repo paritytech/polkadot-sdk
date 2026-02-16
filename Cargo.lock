@@ -25345,7 +25345,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "23.0.0"
+version = "23.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
