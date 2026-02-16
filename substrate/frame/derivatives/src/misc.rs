@@ -23,9 +23,10 @@ use frame_support::{
 	traits::{
 		tokens::asset_ops::{
 			common_strategies::{
-				AutoId, ConfigValue, ConfigValueMarker, DeriveAndReportId, Owner, WithConfig,
+				AutoId, CanCreate, ConfigValue, ConfigValueMarker, DeriveAndReportId, Owner,
+				WithConfig,
 			},
-			Create,
+			AssetDefinition, Create, Inspect,
 		},
 		Incrementable,
 	},
@@ -120,6 +121,17 @@ where
 		Ok(derivative)
 	}
 }
+impl<R, CreateOp: AssetDefinition> AssetDefinition for RegisterDerivative<R, CreateOp> {
+	type Id = CreateOp::Id;
+}
+impl<R, CreateOp, Condition> Inspect<CanCreate<Condition>> for RegisterDerivative<R, CreateOp>
+where
+	CreateOp: Inspect<CanCreate<Condition>>,
+{
+	fn inspect(id: &Self::Id, can_create: CanCreate<Condition>) -> Result<bool, DispatchError> {
+		CreateOp::inspect(id, can_create)
+	}
+}
 
 /// Iterator utilities for a derivatives registry.
 pub trait IterDerivativesRegistry<Original, Derivative> {
@@ -147,6 +159,18 @@ pub trait DerivativesExtra<Derivative, Extra> {
 pub struct ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>(
 	PhantomData<(Derivative, Extra, Registry, CreateOp)>,
 );
+impl<Derivative, Extra, Registry, CreateOp>
+	ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+where
+	Extra: Incrementable,
+	Registry: DerivativesExtra<Derivative, Extra>,
+{
+	fn get_derivative_extra(derivative: &Derivative) -> Result<Extra, DispatchError> {
+		Registry::get_derivative_extra(derivative)
+			.or(Extra::initial_value())
+			.ok_or(DispatchError::Other("ConcatIncrementalExtra: no derivative extra is found"))
+	}
+}
 impl<Derivative, Extra, ReportedId, Registry, CreateOp>
 	Create<DeriveAndReportId<Derivative, ReportedId>>
 	for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
@@ -189,9 +213,7 @@ where
 		let WithConfig { config, extra: id_assignment } = strategy;
 		let derivative = id_assignment.params;
 
-		let id = Registry::get_derivative_extra(&derivative)
-			.or(Extra::initial_value())
-			.ok_or(DispatchError::Other("ConcatIncrementalExtra: no derivative extra is found"))?;
+		let id = Self::get_derivative_extra(&derivative)?;
 		let next_id = id
 			.increment()
 			.ok_or(DispatchError::Other("ConcatIncrementalExtra: failed to increment the id"))?;
@@ -199,6 +221,25 @@ where
 		Registry::set_derivative_extra(&derivative, Some(next_id))?;
 
 		CreateOp::create(WithConfig::new(config, DeriveAndReportId::from((derivative, id))))
+	}
+}
+impl<Derivative, Extra, Registry, CreateOp> AssetDefinition
+	for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+{
+	type Id = Derivative;
+}
+impl<Derivative, Extra, Registry, CreateOp> Inspect<CanCreate>
+	for ConcatIncrementalExtra<Derivative, Extra, Registry, CreateOp>
+where
+	Derivative: Clone,
+	Extra: Incrementable,
+	Registry: DerivativesExtra<Derivative, Extra>,
+	CreateOp: AssetDefinition<Id = (Derivative, Extra)> + Inspect<CanCreate>,
+{
+	fn inspect(id: &Self::Id, can_create: CanCreate) -> Result<bool, DispatchError> {
+		let extra = Self::get_derivative_extra(id)?;
+
+		CreateOp::inspect(&(id.clone(), extra), can_create)
 	}
 }
 

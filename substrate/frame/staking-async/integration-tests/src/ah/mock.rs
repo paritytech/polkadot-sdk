@@ -34,7 +34,10 @@ use pallet_staking_async_rc_client::{
 use sp_staking::SessionIndex;
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
-use xcm_executor::traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeManager, FeeReason, TransactAsset},
+	AssetsInHolding,
+};
 pub const LOG_TARGET: &str = "ahm-test";
 
 construct_runtime! {
@@ -556,7 +559,7 @@ impl FeeManager for BurnFees {
 	fn is_waived(_origin: Option<&Location>, _reason: FeeReason) -> bool {
 		false
 	}
-	fn handle_fee(_fee: Assets, _context: Option<&XcmContext>, _reason: FeeReason) {
+	fn handle_fee(_fee: AssetsInHolding, _context: Option<&XcmContext>, _reason: FeeReason) {
 		// Fees are burned (withdrawn but not deposited anywhere)
 	}
 }
@@ -568,10 +571,12 @@ impl MockXcmExecutor {
 	/// Charge fees from the given origin location.
 	pub fn charge_fees(origin: Location, fees: Assets) -> XcmResult {
 		if !BurnFees::is_waived(Some(&origin), FeeReason::ChargeFees) {
+			let mut withdrawn = AssetsInHolding::new();
 			for asset in fees.inner() {
-				LocalAssetTransactor::withdraw_asset(asset, &origin, None)?;
+				withdrawn
+					.subsume_assets(LocalAssetTransactor::withdraw_asset(asset, &origin, None)?);
 			}
-			BurnFees::handle_fee(fees, None, FeeReason::ChargeFees);
+			BurnFees::handle_fee(withdrawn, None, FeeReason::ChargeFees);
 		}
 		Ok(())
 	}
