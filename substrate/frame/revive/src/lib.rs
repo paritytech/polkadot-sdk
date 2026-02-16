@@ -2487,7 +2487,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Converts the simulation payloads into a format which accounts for the block gaps and which
 	/// validates the provided simulation block payloads.
-	pub fn handle_eth_simulate_v1_block_state_calls_format(
+	fn handle_eth_simulate_v1_block_state_calls_format(
 		block_state_calls: Vec<SimulationPayload>,
 	) -> Result<
 		impl Iterator<
@@ -2507,7 +2507,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Handles the block overrides for the `eth_simulate_v1` method
-	pub fn handle_eth_simulate_v1_block_overrides(
+	fn handle_eth_simulate_v1_block_overrides(
 		block_overrides: &ResolvedSimulationBlockOverrides,
 		mut simulation_executor_mock_handler: SimulationExecutorMockHandler,
 	) -> Result<(SimulationBlockBuilderMockHandler, SimulationExecutorMockHandler), SimulationError>
@@ -2603,7 +2603,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Handles the state overrides for the `eth_simulate_v1` method
-	pub fn handle_eth_simulate_v1_state_overrides(
+	fn handle_eth_simulate_v1_state_overrides(
 		state_overrides: StateOverrides,
 	) -> Result<(), SimulationError>
 	where
@@ -2622,7 +2622,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Handles the state overrides for the `eth_simulate` method for a single address.
-	pub fn handle_eth_simulate_v1_single_state_override(
+	fn handle_eth_simulate_v1_single_state_override(
 		address: H160,
 		account_id: T::AccountId,
 		overrides: AddressStateOverride,
@@ -2732,7 +2732,7 @@ impl<T: Config> Pallet<T> {
 	/// Reference: Geth `internal/ethapi/transaction_args.go` `CallDefaults`,
 	/// `internal/ethapi/simulate.go` `sanitizeCall`,
 	/// `core/state_transition.go` `preCheck` and `buyGas`.
-	pub fn handle_eth_simulate_v1_call_validation(
+	fn handle_eth_simulate_v1_call_validation(
 		call: &GenericTransaction,
 		extra_validation: bool,
 	) -> Result<(), SimulationError>
@@ -2831,7 +2831,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Handles the execution of [`GenericTransaction`] calls for the `eth_simulate` method.
-	pub fn handle_eth_simulate_v1_call_execution(
+	fn handle_eth_simulate_v1_call_execution(
 		index: usize,
 		mut tx: GenericTransaction,
 		simulation_mock_handler: SimulationExecutorMockHandler,
