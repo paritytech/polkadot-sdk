@@ -6847,6 +6847,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "frame-benchmarking-cli",
+ "polkadot-jemalloc-shim",
  "sc-chain-spec",
  "sc-cli",
  "sp-genesis-builder",
