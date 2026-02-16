@@ -354,8 +354,8 @@ struct PeerRateLimiter {
 }
 
 impl PeerRateLimiter {
-	fn new(statements_per_second: NonZeroU32) -> Self {
-		let quota = Quota::per_second(statements_per_second);
+	fn new(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
+		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
 		Self { limiter: RateLimiter::direct(quota) }
 	}
 
@@ -461,8 +461,9 @@ impl Peer {
 	pub fn new_for_testing(
 		known_statements: LruHashSet<Hash>,
 		statements_per_second: NonZeroU32,
+		burst: NonZeroU32,
 	) -> Self {
-		Self { known_statements, rate_limiter: PeerRateLimiter::new(statements_per_second) }
+		Self { known_statements, rate_limiter: PeerRateLimiter::new(statements_per_second, burst) }
 	}
 }
 
@@ -637,7 +638,14 @@ where
 						known_statements: LruHashSet::new(
 							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
 						),
-						rate_limiter: PeerRateLimiter::new(self.statements_per_second),
+						rate_limiter: PeerRateLimiter::new(
+							self.statements_per_second,
+							NonZeroU32::new(
+								self.statements_per_second.get() *
+									config::STATEMENTS_BURST_COEFFICIENT,
+							)
+							.expect("burst capacity is nonzero"),
+						),
 					},
 				);
 				debug_assert!(_was_in.is_none());
@@ -1308,6 +1316,10 @@ mod tests {
 				rate_limiter: PeerRateLimiter::new(
 					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("burst capacity is nonzero"),
 				),
 			},
 		);
@@ -2031,7 +2043,49 @@ mod tests {
 		let peer_id = *handler.peers.keys().next().unwrap();
 
 		let mut statements = Vec::new();
-		for i in 0..60_000 {
+		for i in 0..260_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![
+				i as u8,
+				(i >> 8) as u8,
+				(i >> 16) as u8,
+				(i >> 24) as u8,
+			]);
+			statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, statements);
+
+		let reports = network.get_reports();
+		let expected_burst = DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT;
+		assert!(
+			reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
+			"Sending 260,000 statements should trigger flooding (burst limit: {}). Reports: {:?}",
+			expected_burst,
+			reports
+		);
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			disconnected.contains(&peer_id),
+			"Peer should be disconnected after exceeding rate limit. Disconnected: {:?}",
+			disconnected
+		);
+
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+	}
+
+	#[tokio::test]
+	async fn test_burst_of_250k_statements_allowed() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut statements = Vec::new();
+		for i in 0..250_000 {
 			let mut statement = Statement::new();
 			statement.set_plain_data(vec![
 				i as u8,
@@ -2046,21 +2100,16 @@ mod tests {
 
 		let reports = network.get_reports();
 		assert!(
-			reports
+			!reports
 				.iter()
 				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
-			"Sending 60,000 statements should trigger flooding (limit: {}/sec). Reports: {:?}",
-			DEFAULT_STATEMENTS_PER_SECOND,
+			"250k burst should be allowed (burst = rate × 5). Reports: {:?}",
 			reports
 		);
 
-		let disconnected = network.get_disconnected_peers();
 		assert!(
-			disconnected.contains(&peer_id),
-			"Peer should be disconnected after exceeding rate limit. Disconnected: {:?}",
-			disconnected
+			handler.peers.contains_key(&peer_id),
+			"Peer should still be connected after 250k burst"
 		);
-
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 }
