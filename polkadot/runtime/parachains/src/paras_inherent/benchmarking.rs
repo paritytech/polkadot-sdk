@@ -26,7 +26,7 @@ use polkadot_primitives::{node_features::FeatureIndex, GroupIndex};
 
 use crate::builder::BenchBuilder;
 
-#[benchmarks]
+#[benchmarks(where T: crate::coretime::Config)]
 mod benchmarks {
 	use super::*;
 
