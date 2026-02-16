@@ -506,9 +506,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 }
 
-fn simulation_error_to_error_object(
-	err: pallet_revive::SimulationError,
-) -> ErrorObjectOwned {
+fn simulation_error_to_error_object(err: pallet_revive::SimulationError) -> ErrorObjectOwned {
 	use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
 	ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, format!("{err:?}"), None)
 }
