@@ -110,6 +110,12 @@ impl BigUint {
 		self.digits.len()
 	}
 
+	/// Returns true if the number has no meaningful limbs (should generally not happen
+	/// due to constructor invariants, but provides a safe check).
+	pub fn is_empty(&self) -> bool {
+		self.digits.is_empty()
+	}
+
 	/// A naive getter for limb at `index`. Note that the order is lsb -> msb.
 	///
 	/// #### Panics
@@ -283,6 +289,38 @@ impl BigUint {
 			w.set(j + m, k);
 		}
 		w
+	}
+
+	/// Divides `self` by a single limb `other`, returning `None` if `other` is zero.
+	///
+	/// This is the checked version of [`div_unit`](Self::div_unit) that properly signals
+	/// division by zero instead of silently clamping to 1.
+	pub fn checked_div_unit(self, other: Single) -> Option<Self> {
+		if other == 0 {
+			return None;
+		}
+		Some(self.div_unit(other))
+	}
+
+	/// Raises `self` to the power of `exp`.
+	///
+	/// Returns `one` for `exp == 0`.
+	pub fn pow(self, exp: u32) -> Self {
+		if exp == 0 {
+			return Self::one();
+		}
+		// Exponentiation by squaring
+		let mut base = self;
+		let mut result = Self::one();
+		let mut e = exp;
+		while e > 1 {
+			if e % 2 == 1 {
+				result = result.mul(&base);
+			}
+			base = base.clone().mul(&base);
+			e /= 2;
+		}
+		result.mul(&base)
 	}
 
 	/// Divides `self` by a single limb `other`. This can be used in cases where the original
@@ -729,6 +767,162 @@ pub mod tests {
 
 		assert!(f.clone().div(&b, true).is_none());
 		assert!(c.clone().div(&b, true).is_some());
+	}
+
+	#[test]
+	fn is_empty_works() {
+		// Normal construction should never produce empty digits
+		assert!(!BigUint::zero().is_empty());
+		assert!(!BigUint::one().is_empty());
+		assert!(!BigUint::with_capacity(1).is_empty());
+		assert!(!BigUint::from_limbs(&[]).is_empty());
+
+		// Direct construction (bypassing invariants) could produce empty
+		let empty = BigUint { digits: vec![] };
+		assert!(empty.is_empty());
+	}
+
+	#[test]
+	fn checked_get_works() {
+		let a = BigUint::from_limbs(&[1, 2, 3]);
+		assert_eq!(a.checked_get(0), Some(3));
+		assert_eq!(a.checked_get(1), Some(2));
+		assert_eq!(a.checked_get(2), Some(1));
+		assert_eq!(a.checked_get(3), None);
+		assert_eq!(a.checked_get(usize::MAX), None);
+	}
+
+	#[test]
+	fn from_limbs_empty_returns_zero() {
+		let a = BigUint::from_limbs(&[]);
+		assert!(a.is_zero());
+		assert_eq!(a.len(), 1);
+	}
+
+	#[test]
+	fn with_capacity_minimum_one_limb() {
+		let a = BigUint::with_capacity(0);
+		assert_eq!(a.len(), 1);
+		assert!(a.is_zero());
+	}
+
+	#[test]
+	fn add_with_different_sizes() {
+		// Adding numbers of different limb sizes
+		let a = BigUint::from_limbs(&[1]);
+		let b = BigUint::from_limbs(&[1, 0]);
+		let result = a.add(&b);
+		// a = 1, b = 1*B + 0 = B
+		// result should be B + 1
+		assert_eq!(result.get(0), 1);
+		assert_eq!(result.get(1), 1);
+	}
+
+	#[test]
+	fn add_with_carry_propagation() {
+		let a = BigUint::from_limbs(&[Single::MAX]);
+		let b = BigUint::from_limbs(&[1]);
+		let result = a.add(&b);
+		// Single::MAX + 1 = B, so result should be [1, 0] (i.e., one carry)
+		assert_eq!(result.get(1), 1);
+		assert_eq!(result.get(0), 0);
+	}
+
+	#[test]
+	fn sub_equal_values_yields_zero() {
+		let a = BigUint::from_limbs(&[42, 100]);
+		let b = BigUint::from_limbs(&[42, 100]);
+		let result = a.sub(&b).unwrap();
+		assert!(result.is_zero());
+	}
+
+	#[test]
+	fn mul_by_zero_is_zero() {
+		let a = BigUint::from_limbs(&[12345]);
+		let zero = BigUint::zero();
+		let result = a.mul(&zero);
+		assert!(result.is_zero());
+	}
+
+	#[test]
+	fn mul_by_one_is_identity() {
+		let a = BigUint::from_limbs(&[42]);
+		let one = BigUint::one();
+		let mut result = a.clone().mul(&one);
+		result.lstrip();
+		assert_eq!(u64::try_from(result).unwrap(), 42);
+	}
+
+	#[test]
+	fn mul_commutativity() {
+		let a = BigUint::from(7u32);
+		let b = BigUint::from(13u32);
+		let ab = a.clone().mul(&b);
+		let ba = b.clone().mul(&a);
+		assert_eq!(ab, ba);
+	}
+
+	#[test]
+	fn pow_works() {
+		// x^0 = 1
+		assert_eq!(BigUint::from(5u32).pow(0), BigUint::one());
+
+		// x^1 = x
+		let mut result = BigUint::from(5u32).pow(1);
+		result.lstrip();
+		assert_eq!(u64::try_from(result).unwrap(), 5);
+
+		// 2^10 = 1024
+		let mut result = BigUint::from(2u32).pow(10);
+		result.lstrip();
+		assert_eq!(u64::try_from(result).unwrap(), 1024);
+
+		// 3^5 = 243
+		let mut result = BigUint::from(3u32).pow(5);
+		result.lstrip();
+		assert_eq!(u64::try_from(result).unwrap(), 243);
+
+		// 0^5 = 0
+		assert!(BigUint::from(0u32).pow(5).is_zero());
+
+		// 1^100 = 1
+		assert_eq!(BigUint::from(1u32).pow(100), BigUint::one());
+	}
+
+	#[test]
+	fn checked_div_unit_works() {
+		let a = BigUint::from_limbs(&[100]);
+		assert_eq!(a.clone().checked_div_unit(0), None);
+		assert_eq!(a.clone().checked_div_unit(2), Some(BigUint::from(50u32)));
+		assert_eq!(a.clone().checked_div_unit(1), Some(a));
+	}
+
+	#[test]
+	fn large_number_roundtrip_u128() {
+		let val: u128 = u128::MAX / 3;
+		let big = BigUint::from(val);
+		let back = u128::try_from(big).unwrap();
+		assert_eq!(val, back);
+	}
+
+	#[test]
+	fn ordering_with_leading_zeros() {
+		// Numbers with different amounts of leading zeros should still compare correctly
+		let a = BigUint::from_limbs(&[0, 0, 0, 5]);
+		let b = BigUint::from_limbs(&[5]);
+		assert_eq!(a, b);
+
+		let c = BigUint::from_limbs(&[0, 0, 1, 5]);
+		assert!(c > a);
+	}
+
+	#[test]
+	fn lstrip_single_zero_preserved() {
+		// Stripping a number that is all zeros should leave at least one zero
+		let mut a = BigUint::from_limbs(&[0, 0, 0, 0, 0]);
+		a.lstrip();
+		assert_eq!(a.len(), 1);
+		assert!(a.is_zero());
 	}
 
 	#[test]

@@ -177,6 +177,49 @@ impl Rational128 {
 		)
 	}
 
+	/// Simplify the fraction by dividing both numerator and denominator by their GCD.
+	///
+	/// This can help prevent overflow in subsequent arithmetic operations.
+	pub fn simplify(self) -> Self {
+		if self.0.is_zero() {
+			return Self(0, 1);
+		}
+		let g = helpers_128bit::gcd(self.0, self.1);
+		if g > 1 {
+			Self(self.0 / g, self.1 / g)
+		} else {
+			self
+		}
+	}
+
+	/// Returns the reciprocal (d/n) of this rational, or `None` if numerator is zero.
+	pub fn reciprocal(self) -> Option<Self> {
+		if self.0.is_zero() {
+			None
+		} else {
+			Some(Self(self.1, self.0))
+		}
+	}
+
+	/// Checked multiplication of two rationals: (a/b) * (c/d) = (a*c) / (b*d).
+	///
+	/// Cross-simplifies before multiplying to reduce overflow risk.
+	/// Returns `Err` if overflow still occurs.
+	pub fn checked_mul(self, other: Self) -> Result<Self, &'static str> {
+		// Cross-simplify: gcd(a,d) and gcd(c,b)
+		let g1 = helpers_128bit::gcd(self.0, other.1);
+		let g2 = helpers_128bit::gcd(other.0, self.1);
+
+		let a = self.0 / g1;
+		let d = other.1 / g1;
+		let c = other.0 / g2;
+		let b = self.1 / g2;
+
+		let n = a.checked_mul(c).ok_or("overflow while multiplying numerators")?;
+		let den = b.checked_mul(d).ok_or("overflow while multiplying denominators")?;
+		Ok(Self(n, den.max(1)))
+	}
+
 	/// A saturating add that assumes `self` and `other` have the same denominator.
 	pub fn lazy_saturating_add(self, other: Self) -> Self {
 		if other.is_zero() {
@@ -451,6 +494,86 @@ mod tests {
 			Err("overflow while subtracting numerators"),
 		);
 		assert_eq!(r(1, 10).checked_sub(r(2, 10)), Err("overflow while subtracting numerators"));
+	}
+
+	#[test]
+	fn simplify_works() {
+		assert_eq!(r(2, 4).simplify(), r(1, 2));
+		assert_eq!(r(6, 9).simplify(), r(2, 3));
+		assert_eq!(r(0, 100).simplify(), r(0, 1));
+		assert_eq!(r(7, 13).simplify(), r(7, 13));
+		assert_eq!(r(MAX128, MAX128).simplify(), r(1, 1));
+		assert_eq!(r(100, 100).simplify(), r(1, 1));
+	}
+
+	#[test]
+	fn reciprocal_works() {
+		assert_eq!(r(3, 7).reciprocal(), Some(r(7, 3)));
+		assert_eq!(r(1, 1).reciprocal(), Some(r(1, 1)));
+		assert_eq!(r(0, 5).reciprocal(), None);
+	}
+
+	#[test]
+	fn checked_mul_works() {
+		// simple cases
+		assert_eq!(r(2, 3).checked_mul(r(3, 4)).unwrap(), r(1, 2));
+		assert_eq!(r(1, 1).checked_mul(r(5, 7)).unwrap(), r(5, 7));
+		assert_eq!(r(0, 1).checked_mul(r(100, 200)).unwrap(), r(0, 1));
+
+		// cross-simplification prevents overflow
+		assert_eq!(r(MAX128, 1).checked_mul(r(1, MAX128)).unwrap(), r(1, 1));
+
+		// true overflow
+		assert!(r(MAX128, 1).checked_mul(r(MAX128, 1)).is_err());
+	}
+
+	#[test]
+	fn lazy_saturating_add_with_zero() {
+		let a = r(5, 10);
+		assert_eq!(a.lazy_saturating_add(r(0, 10)), a);
+	}
+
+	#[test]
+	fn lazy_saturating_sub_with_zero() {
+		let a = r(5, 10);
+		assert_eq!(a.lazy_saturating_sub(r(0, 10)), a);
+	}
+
+	#[test]
+	fn lazy_saturating_add_saturates() {
+		let a = r(MAX128, 1);
+		let b = r(1, 1);
+		assert_eq!(a.lazy_saturating_add(b), r(MAX128, 1));
+	}
+
+	#[test]
+	fn lazy_saturating_sub_saturates() {
+		let a = r(0, 1);
+		let b = r(1, 1);
+		assert_eq!(a.lazy_saturating_sub(b), r(0, 1));
+	}
+
+	#[test]
+	fn from_unchecked_zero_denominator() {
+		// from_unchecked allows zero denominator (useful for special sentinel values)
+		let a = Rational128::from_unchecked(5, 0);
+		assert_eq!(a.d(), 0);
+		// from() clamps to 1
+		let b = Rational128::from(5, 0);
+		assert_eq!(b.d(), 1);
+	}
+
+	#[test]
+	fn rational_infinite_basic() {
+		let a = RationalInfinite::from(BigUint::from(3u32), BigUint::from(4u32));
+		let b = RationalInfinite::from(BigUint::from(2u32), BigUint::from(4u32));
+		assert!(a > b);
+
+		let c = RationalInfinite::zero();
+		assert!(b > c);
+
+		let d = RationalInfinite::one();
+		assert!(d > a);
 	}
 
 	#[test]
