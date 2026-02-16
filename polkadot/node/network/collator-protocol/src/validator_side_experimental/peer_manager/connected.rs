@@ -570,16 +570,10 @@ mod tests {
 
 		let rep_query_fn = |peer_id, para_id| async move {
 			match (peer_id, para_id) {
-				(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-					Score::new(20).unwrap()
-				},
-				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-					Score::new(20).unwrap()
-				},
-				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
-					Score::new(5).unwrap()
-				},
+				(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
+				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => Score::new(20),
+				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => Score::new(20),
+				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => Score::new(5),
 
 				(_, _) => Score::default(),
 			}
@@ -715,17 +709,17 @@ mod tests {
 
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
-					(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
+					(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
 					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-						Score::new(20).unwrap()
+						Score::new(20)
 					},
 					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-						Score::new(20).unwrap()
+						Score::new(20)
 					},
 					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 => {
-						Score::new(15).unwrap()
+						Score::new(15)
 					},
-					(peer_id, _para_id) if peer_id == new_peer => Score::new(30).unwrap(),
+					(peer_id, _para_id) if peer_id == new_peer => Score::new(30),
 
 					(_, _) => Score::default(),
 				}
@@ -853,16 +847,14 @@ mod tests {
 
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
-					(peer_id, _para_id) if peer_id == first_peer => Score::new(10).unwrap(),
+					(peer_id, _para_id) if peer_id == first_peer => Score::new(10),
 					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
-						Score::new(5).unwrap()
+						Score::new(5)
 					},
 					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
-						Score::new(5).unwrap()
+						Score::new(5)
 					},
-					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
-						Score::new(8).unwrap()
-					},
+					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => Score::new(8),
 
 					(_, _) => Score::default(),
 				}
