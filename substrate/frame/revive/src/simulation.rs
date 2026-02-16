@@ -247,6 +247,7 @@ pub struct SimulationExecutorMockHandler {
 	block_base_fee_per_gas: Option<U256>,
 }
 
+#[allow(dead_code)]
 impl SimulationExecutorMockHandler {
 	/// Creates a new [`SimulationMockHandler`] with no overrides or mocks
 	pub fn new() -> Self {
@@ -325,6 +326,7 @@ pub struct SimulationBlockBuilderMockHandler {
 	mock_withdrawals: Option<Vec<Withdrawal>>,
 }
 
+#[allow(dead_code)]
 impl SimulationBlockBuilderMockHandler {
 	/// Creates a new [`SimulationBlockBuilderMockHandler`] with no mocked values.
 	pub fn new() -> Self {
