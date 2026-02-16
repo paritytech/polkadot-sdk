@@ -24,7 +24,10 @@ use sc_network::{
 	NetworkPeers,
 };
 use sc_network_statement::{
-	config::{DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
+	config::{
+		DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
+		STATEMENTS_BURST_COEFFICIENT,
+	},
 	Peer, StatementHandler,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -228,6 +231,8 @@ fn build_handler(
 			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
 			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
 		),
 	);
 

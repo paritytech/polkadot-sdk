@@ -368,7 +368,7 @@ impl PeerRateLimiter {
 		let Some(n) = NonZeroU32::new(count as u32) else {
 			return false;
 		};
-		self.limiter.check_n(n).is_err()
+		!matches!(self.limiter.check_n(n), Ok(Ok(())))
 	}
 }
 
@@ -2007,14 +2007,28 @@ mod tests {
 
 		let peer_id = *handler.peers.keys().next().unwrap();
 
-		let mut statements = Vec::new();
-		for i in 0..25_000 {
-			let mut statement = Statement::new();
-			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
-			statements.push(statement);
-		}
+		let start = std::time::Instant::now();
+		let duration = std::time::Duration::from_secs(5);
+		let mut counter = 0u32;
 
-		handler.on_statements(peer_id, statements);
+		while start.elapsed() < duration {
+			let mut statements = Vec::new();
+			for i in 0..5_000 {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					counter as u8,
+					(counter >> 8) as u8,
+					(counter >> 16) as u8,
+					i as u8,
+				]);
+				statements.push(statement);
+				counter = counter.wrapping_add(1);
+			}
+
+			handler.on_statements(peer_id, statements);
+
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
 
 		let reports = network.get_reports();
 		assert!(
@@ -2111,5 +2125,59 @@ mod tests {
 			handler.peers.contains_key(&peer_id),
 			"Peer should still be connected after 250k burst"
 		);
+	}
+
+	#[tokio::test]
+	async fn test_sustained_rate_above_limit_triggers_flooding() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut counter = 0u32;
+
+		let start = std::time::Instant::now();
+		let duration = std::time::Duration::from_secs(5);
+
+		let mut flooding_detected = false;
+		while start.elapsed() < duration {
+			let mut statements = Vec::new();
+			for i in 0..15_000 {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					counter as u8,
+					(counter >> 8) as u8,
+					(counter >> 16) as u8,
+					i as u8,
+				]);
+				statements.push(statement);
+				counter = counter.wrapping_add(1);
+			}
+
+			handler.on_statements(peer_id, statements);
+
+			// Check if flooding was detected
+			let reports = network.get_reports();
+			if reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
+			{
+				flooding_detected = true;
+				break;
+			}
+
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+
+		assert!(flooding_detected, "Sustained rate of 150k/sec should trigger flooding");
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			disconnected.contains(&peer_id),
+			"Peer should be disconnected after sustained high rate. Disconnected: {:?}",
+			disconnected
+		);
+
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 }
