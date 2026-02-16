@@ -153,7 +153,7 @@
 
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
   test-filter: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "test-parachain"
 
@@ -201,7 +201,7 @@
 # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
 - job-name: "zombienet-polkadot-functional-spam-statement-distribution-requests"
   test-filter: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
   cumulus-image: "colander"
 
@@ -240,7 +240,7 @@
 
 - job-name: "zombienet-polkadot-functional-validator-disabling"
   test-filter: "functional::validator_disabling::validator_disabling_test"
-  runner-type: "default"
+  runner-type: "large"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-dispute-old-finalized"

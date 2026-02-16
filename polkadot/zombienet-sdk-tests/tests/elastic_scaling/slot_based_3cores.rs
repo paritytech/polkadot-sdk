@@ -43,12 +43,13 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_default_resources(|resources| {
 					resources.with_request_cpu(4).with_request_memory("4G")
 				})
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..12)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..12).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			// Para 2100 uses the old elastic scaling mvp, which doesn't send the new UMP signal

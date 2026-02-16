@@ -306,7 +306,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 	}
 
 	run_tests!(
-		test_fibonacci_large_value_runs_out_of_gas,
+		test_fibonacci_call_via_runtime_api,
 		test_transfer,
 		test_deploy_and_call,
 		test_runtime_api_dry_run_addr_works,
@@ -858,9 +858,7 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = U256::from(1_000_000_000_000u128);
 
-	let mut sub = client
-		.eth_subscribe(SubscriptionKind::NewBlockHeaders, None)
-		.await?;
+	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
 
 	// Act
 	let tx = TransactionBuilder::new(client.clone())
@@ -870,14 +868,11 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 		.await?;
 	tx.wait_for_receipt().await?;
 
-	let notification = tokio::time::timeout(
-		tokio::time::Duration::from_secs(10),
-		sub.next(),
-	)
-	.await
-	.expect("Timed out waiting for newHeads notification")
-	.expect("Subscription stream ended unexpectedly")
-	.expect("Subscription returned an error");
+	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+		.await
+		.expect("Timed out waiting for newHeads notification")
+		.expect("Subscription stream ended unexpectedly")
+		.expect("Subscription returned an error");
 
 	let header = match notification {
 		SubscriptionItem::BlockHeader(header) => header,
@@ -895,7 +890,10 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 	assert_ne!(header.parent_hash, H256::zero(), "Parent hash should not be zero");
 
 	let expected_header = BlockHeader::from(block);
-	assert_eq!(header, expected_header, "Subscription header should match the block header from RPC");
+	assert_eq!(
+		header, expected_header,
+		"Subscription header should match the block header from RPC"
+	);
 
 	drop(sub);
 
@@ -1085,9 +1083,7 @@ async fn test_subscribe_new_heads_multiple_blocks() -> anyhow::Result<()> {
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = U256::from(1_000_000_000_000u128);
 
-	let mut sub = client
-		.eth_subscribe(SubscriptionKind::NewBlockHeaders, None)
-		.await?;
+	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
 
 	// Act
 	let tx1 = TransactionBuilder::new(client.clone())
@@ -1203,14 +1199,8 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	};
 
 	// Assert
-	assert_eq!(
-		log.address, contract_a,
-		"Log must come from contract A, not contract B"
-	);
-	assert_ne!(
-		log.address, contract_b,
-		"Log should NOT come from contract B"
-	);
+	assert_eq!(log.address, contract_a, "Log must come from contract A, not contract B");
+	assert_ne!(log.address, contract_b, "Log should NOT come from contract B");
 
 	drop(sub);
 	Ok(())
@@ -1293,10 +1283,7 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	received_addresses.sort();
 	let mut expected_addresses = vec![contract_a, contract_b];
 	expected_addresses.sort();
-	assert_eq!(
-		received_addresses, expected_addresses,
-		"Should receive one log from each contract"
-	);
+	assert_eq!(received_addresses, expected_addresses, "Should receive one log from each contract");
 
 	drop(sub);
 	Ok(())
@@ -1356,7 +1343,8 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 		"First log notification must come from the contract call, not the plain transfer"
 	);
 	assert_eq!(
-		log.transaction_hash, contract_tx.hash(),
+		log.transaction_hash,
+		contract_tx.hash(),
 		"Log transaction hash must match the contract call, not the plain transfer"
 	);
 
@@ -1384,31 +1372,120 @@ async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_fibonacci_large_value_runs_out_of_gas() -> anyhow::Result<()> {
+/// Test that deploys and calls the Fibonacci contract via Substrate APIs works
+async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	use pallet_revive::precompiles::alloy::sol_types::SolCall;
 	use pallet_revive_fixtures::Fibonacci;
 
-	let client = Arc::new(SharedResources::client().await);
 	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
 		"Fibonacci",
 		pallet_revive_fixtures::FixtureType::Solc,
 	)?;
 
-	let account = Account::default();
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(Some(contract_address), receipt.contract_address);
+	let node_client =
+		OnlineClient::<SrcChainConfig>::from_url(SharedResources::node_rpc_url()).await?;
+	let signer = subxt_signer::sr25519::dev::alice();
+	let origin: [u8; 32] = signer.public_key().0;
 
-	let result = TransactionBuilder::new(client.clone())
-		.to(contract_address)
-		.input(Fibonacci::fibCall { n: 100u64 }.abi_encode())
-		.eth_call()
+	// Deploy the Fibonacci contract via Substrate API
+	log::trace!(target: LOG_TARGET, "Deploying Fibonacci contract via Substrate API");
+	let dry_run_result = node_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(subxt_client::apis().revive_api().instantiate(
+			subxt::utils::AccountId32(origin),
+			0u128, // value
+			None,  // gas_limit
+			None,  // storage_deposit_limit
+			subxt_client::src_chain::runtime_types::pallet_revive::primitives::Code::Upload(
+				bytes.clone(),
+			),
+			vec![], // data (constructor args)
+			None,   // salt
+		))
 		.await;
 
-	let err = result.expect_err("fib(100) should run out of gas");
-	assert!(err.to_string().contains("OutOfGas"), "expected OutOfGas error, got: {err}");
+	assert!(dry_run_result.is_ok(), "Dry-run instantiate failed: {dry_run_result:?}");
+	let dry_run = dry_run_result.unwrap();
+	let instantiate_result = dry_run.result.expect("Dry-run should succeed");
+
+	log::trace!(
+		target: LOG_TARGET,
+		"Dry-run succeeded: address: {:?}, gas_consumed: {:?}, weight_required: {:?}",
+		instantiate_result.addr,
+		dry_run.gas_consumed,
+		dry_run.weight_required
+	);
+
+	// Now submit the actual instantiate extrinsic
+	let events = node_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&subxt_client::tx().revive().instantiate_with_code(
+				0u128,                   // value
+				dry_run.weight_required, // weight_limit from dry-run
+				u128::MAX,               // storage_deposit_limit
+				bytes,                   // code
+				vec![],                  // data
+				None,                    // salt
+			),
+			&subxt_signer::sr25519::dev::alice(),
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	// Extract the contract address from the Instantiated event
+	let instantiated_event = events
+		.find_first::<subxt_client::revive::events::Instantiated>()?
+		.expect("Instantiated event should be present");
+
+	let contract_address = instantiated_event.contract;
+	log::trace!(target: LOG_TARGET, "Contract deployed via Substrate at: {contract_address:?}");
+
+	// Verify that the dry-run predicted address matches the actual deployed address
+	assert_eq!(
+		instantiate_result.addr, contract_address,
+		"Dry-run predicted address should match actual deployed address"
+	);
+
+	// Call the deployed contract using runtime API
+	let call_data = Fibonacci::fibCall { n: 3u64 }.abi_encode();
+	let call_payload = subxt_client::apis().revive_api().call(
+		subxt::utils::AccountId32(origin),
+		contract_address,
+		0u128, // value
+		None,  // gas_limit
+		None,  // storage_deposit_limit
+		call_data,
+	);
+
+	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+
+	assert!(result.is_ok(), "Contract call failed: {result:?}");
+	let call_result = result.unwrap();
+	let exec_result = call_result.result.expect("fib(3) should succeed");
+
+	let decoded = Fibonacci::fibCall::abi_decode_returns(&exec_result.data)
+		.expect("Failed to decode return value");
+	assert_eq!(decoded, 2u64, "fib(3) should return 2");
+
+	// Verify that large Fibonacci values run out of gas
+	let call_data = Fibonacci::fibCall { n: 100u64 }.abi_encode();
+	let call_payload = subxt_client::apis().revive_api().call(
+		subxt::utils::AccountId32(origin),
+		contract_address,
+		0u128, // value
+		None,  // gas_limit
+		None,  // storage_deposit_limit
+		call_data,
+	);
+
+	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
+	let call_result = result.unwrap();
+	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
 
 	Ok(())
 }
