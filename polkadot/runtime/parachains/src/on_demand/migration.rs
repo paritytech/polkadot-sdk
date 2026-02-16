@@ -221,9 +221,7 @@ impl<T: Config> UncheckedMigrateToV2<T> {
 		// Note: pre_upgrade already ensures total_orders <= capacity, so exact match is expected
 		ensure!(
 			migrated_orders == expected_orders,
-			"Migrated order count mismatch: expected {} but got {}",
-			expected_orders,
-			migrated_orders
+			"Migrated order count mismatch",
 		);
 
 		log::info!(
