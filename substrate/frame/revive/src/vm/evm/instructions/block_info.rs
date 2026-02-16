@@ -19,7 +19,7 @@ use crate::{
 	Error, RuntimeCosts,
 	vm::{
 		Ext,
-		evm::{DIFFICULTY, EVMGas, Interpreter, interpreter::Halt},
+		evm::{EVMGas, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;

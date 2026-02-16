@@ -54,7 +54,9 @@ use crate::{
 		SimulationResponse, StateOverrides, StorageOverrides, TYPE_EIP1559, Trace, Tracer,
 		TracerType, TransactionSigned,
 		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR},
-		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		block_storage,
+		fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	simulation::*,
@@ -2670,10 +2672,7 @@ impl<T: Config> Pallet<T> {
 
 			<AccountInfoOf<T>>::try_mutate(&address, |account| -> Result<(), DispatchError> {
 				match account {
-					Some(AccountInfo {
-						account_type: AccountType::Contract(ref mut contract),
-						..
-					}) => {
+					Some(AccountInfo { account_type: AccountType::Contract(contract), .. }) => {
 						contract.code_hash = code_hash;
 					},
 					_ => {
@@ -2921,7 +2920,7 @@ impl<T: Config> Pallet<T> {
 								))
 								.into(),
 							},
-						}
+						};
 					},
 				};
 
