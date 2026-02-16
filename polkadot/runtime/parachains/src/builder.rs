@@ -149,7 +149,7 @@ pub(crate) struct Bench<T: paras_inherent::Config> {
 }
 
 #[allow(dead_code)]
-impl<T: paras_inherent::Config> BenchBuilder<T> {
+impl<T: paras_inherent::Config + crate::coretime::Config> BenchBuilder<T> {
 	/// Create a new `BenchBuilder` with some opinionated values that should work with the rest
 	/// of the functions in this implementation.
 	pub(crate) fn new() -> Self {
@@ -822,6 +822,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// running tests because it seems the storage is not cleared in between.
 		#[allow(deprecated)]
 		inclusion::PendingAvailability::<T>::remove_all(None);
+
+		#[cfg(feature = "runtime-benchmarks")]
+		crate::coretime::Pallet::<T>::ensure_broker_parachain_reachable();
 
 		// We don't allow a core to have both disputes and be marked fully available at this block.
 		let max_cores = self.max_cores() as usize;
