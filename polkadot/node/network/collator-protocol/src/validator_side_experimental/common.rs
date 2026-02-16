@@ -76,9 +76,10 @@ pub const INACTIVITY_DECAY: u16 = 0;
 /// The next two parameters determine the punishments for misbehaviours. `FAILED_FETCH_SLASH`
 /// indicates malicious behavior and the consequences are severe.
 
-/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident. In
-/// this case we clear the reputation of the collator.
-pub const FAILED_FETCH_SLASH: Score = Score::new(MAX_SCORE);
+/// Slashing value for a failed fetch which might or might not be a malicious act. We can't make
+/// this punishment too severe because it can affect legitimate collators experiencing temporary
+/// networking issues too hard.
+pub const FAILED_FETCH_SLASH: Score = Score::new(MAX_SCORE / 6);
 
 /// Slashing value for an invalid collation (half of the max).
 pub const INVALID_COLLATION_SLASH: Score = Score::new(MAX_SCORE / 2);
