@@ -23,7 +23,7 @@ mod tests;
 use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, metering::Eip150Peak, storage::ContractInfo,
+	StorageDeposit as Deposit, metering::math::eip_150::Peak as Eip150Peak, storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};

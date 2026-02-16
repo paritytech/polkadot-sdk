@@ -29,13 +29,60 @@ use sp_runtime::Saturating;
 /// EIP-150 63/64 gas rule helpers.
 ///
 /// A subcall receives at most 63/64ths of the parent's remaining gas.
-/// This module provides the apply and overhead functions for both
+/// This module provides the [`Peak`] type for tracking the minimum starting
+/// value a meter needs, as well as apply and overhead functions for both
 /// `BalanceOf<T>` (deposit/gas) and `Weight` types.
 pub(crate) mod eip_150 {
 	use super::*;
+	use core::fmt::Debug;
 
 	pub(crate) const NUMERATOR: u64 = 63;
 	pub(crate) const DENOMINATOR: u64 = 64;
+
+	/// EIP-150 peak tracking: stores the minimum starting value a meter needs
+	/// so that every subcall receives enough resources after the 63/64 split.
+	pub(crate) enum Peak<V> {
+		/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
+		TopCall(V),
+		/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
+		Subcall(V),
+	}
+
+	impl<V: Copy + Zero> Default for Peak<V> {
+		fn default() -> Self {
+			Self::TopCall(V::zero())
+		}
+	}
+
+	impl<V: Debug> Debug for Peak<V> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+			match self {
+				Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
+				Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
+			}
+		}
+	}
+
+	impl<V: Copy> Peak<V> {
+		/// Get the tracked peak value.
+		pub(crate) fn get(&self) -> V {
+			match self {
+				Self::TopCall(v) | Self::Subcall(v) => *v,
+			}
+		}
+
+		/// Update the peak to the maximum of the current and new value.
+		///
+		/// Uses a caller-provided `max_fn` because `Weight` provides a component-wise
+		/// `max()` that does not come from `Ord`.
+		pub(crate) fn update(&mut self, new: V, max_fn: fn(V, V) -> V) {
+			match self {
+				Self::TopCall(v) | Self::Subcall(v) => {
+					*v = max_fn(*v, new);
+				},
+			}
+		}
+	}
 
 	/// Apply EIP-150 rule to a balance: `value - ceil(value/64)`.
 	pub(crate) fn apply_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
