@@ -2379,6 +2379,7 @@ async fn test_collation_response_out_of_view() {
 async fn test_v2_descriptor_without_feature_enabled() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;

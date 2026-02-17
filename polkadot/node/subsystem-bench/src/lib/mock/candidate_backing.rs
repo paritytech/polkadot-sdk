@@ -153,7 +153,7 @@ impl MockCandidateBacking {
 					match msg {
 						CandidateBackingMessage::Statement {
 							scheduling_parent: relay_parent,
-							statement: statement,
+							statement,
 						} => {
 							let messages = self.handle_statement(
 								relay_parent,
