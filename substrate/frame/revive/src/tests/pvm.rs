@@ -1856,7 +1856,6 @@ fn gas_estimation_for_subcalls() {
 
 			// Call in order to determine the gas that is required for this call
 			let result_orig = builder::bare_call(addr_caller).data(input.clone()).build();
-
 			assert_ok!(&result_orig.result);
 			assert_eq!(result_orig.weight_required, result_orig.weight_consumed);
 
@@ -2773,25 +2772,25 @@ fn deposit_limit_in_nested_instantiate() {
 		// Fail in the caller with bytes.
 		//
 		// Callee succeeds but caller fails on its 2nd storage operation.
-		// EIP-150 keeps 1/64 as reserve. For caller to fail: storage_cost > reserve.
+		// EIP-150 retains 1/64. For caller to fail: caller_deposit > eip_150_retained.
 		let storage_len = 50u32;
-		let storage_cost = 2 + 48 + storage_len as u64;
-		let callee_needs = callee_min_deposit + storage_len as u64;
-		let min_remaining = (callee_needs * DENOMINATOR).div_ceil(NUMERATOR);
-		let outer_deposit = min_remaining + storage_cost;
-		let reserve = (min_remaining + NUMERATOR) / DENOMINATOR;
+		let caller_deposit = 2 + 48 + storage_len as u64;
+		let callee_deposit = callee_min_deposit + storage_len as u64;
+		let callee_eip_150_peak = (callee_deposit * DENOMINATOR).div_ceil(NUMERATOR);
+		let caller_total_deposit = callee_eip_150_peak + caller_deposit;
+		let eip_150_retained = (callee_eip_150_peak + NUMERATOR) / DENOMINATOR;
 		assert!(
-			reserve < storage_cost,
-			"reserve ({reserve}) must be < storage_cost ({storage_cost})"
+			eip_150_retained < caller_deposit,
+			"eip_150_retained ({eip_150_retained}) must be < caller_deposit ({caller_deposit})"
 		);
 
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: outer_deposit,
+				deposit_limit: caller_total_deposit,
 			})
-			.data((&code_hash_callee, storage_len, U256::from(callee_needs)).encode())
+			.data((&code_hash_callee, storage_len, U256::from(callee_deposit)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
 		// The charges made on the instantiation should be rolled back.
@@ -2800,17 +2799,17 @@ fn deposit_limit_in_nested_instantiate() {
 		// Set enough deposit limit for the child instantiate. This should succeed.
 		//
 		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
-		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as margin.
-		let eip_150_margin = (callee_min_deposit + 1).div_ceil(NUMERATOR);
+		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as overhead.
+		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR);
 		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
 		// - +1 for callee's 1-byte storage data
 		// - +2 for caller's two 1-byte storage items
-		let deposit_limit = caller_min_deposit + eip_150_margin + 3;
+		let caller_total_deposit = caller_min_deposit + eip_150_overhead + 3;
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: deposit_limit.into(),
+				deposit_limit: caller_total_deposit.into(),
 			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();

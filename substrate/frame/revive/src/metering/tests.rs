@@ -84,7 +84,7 @@ fn test_apply_eip_150_to_signed_gas() {
 
 #[test]
 fn test_apply_eip_150_to_weight() {
-	use super::math::eip_150::apply_weight;
+	use super::math::eip_150;
 
 	let test_cases: Vec<(Weight, Weight)> = vec![
 		(Weight::from_parts(6400, 6400), Weight::from_parts(6300, 6300)),
@@ -102,13 +102,13 @@ fn test_apply_eip_150_to_weight() {
 	];
 
 	for (input, expected) in test_cases {
-		assert_eq!(apply_weight(input), expected, "failed for input {input:?}");
+		assert_eq!(eip_150::apply_weight(input), expected, "failed for input {input:?}");
 	}
 }
 
 #[test]
 fn test_compute_eip_150_overhead() {
-	use super::math::eip_150::{apply_weight, overhead_weight};
+	use super::math::eip_150;
 
 	// Given consumed weight, verify: apply_eip_150(consumed + overhead) == consumed
 	let input_weights: Vec<Weight> = vec![
@@ -125,9 +125,9 @@ fn test_compute_eip_150_overhead() {
 	];
 
 	for consumed in input_weights {
-		let overhead = overhead_weight(consumed);
+		let overhead = eip_150::overhead_weight(consumed);
 		let required = consumed.saturating_add(overhead);
-		let available_to_nested = apply_weight(required);
+		let available_to_nested = eip_150::apply_weight(required);
 
 		assert_eq!(
 			available_to_nested, consumed,
@@ -165,7 +165,7 @@ fn test_compute_gas_ratio() {
 
 #[test]
 fn test_apply_eip_150_to_balance() {
-	use super::math::eip_150::apply_balance;
+	use super::math::eip_150;
 
 	ExtBuilder::default().build().execute_with(|| {
 		// (input, expected)
@@ -183,7 +183,7 @@ fn test_apply_eip_150_to_balance() {
 		];
 
 		for (input, expected) in test_cases {
-			assert_eq!(apply_balance::<Test>(input), expected, "failed for input {input}");
+			assert_eq!(eip_150::apply_balance::<Test>(input), expected, "failed for input {input}");
 		}
 	});
 }

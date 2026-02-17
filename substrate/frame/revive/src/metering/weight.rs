@@ -166,7 +166,7 @@ impl<T: Config> WeightMeter<T> {
 		}
 	}
 
-	/// Create a new weight meter for a subcall where the EIP-150 63/64 rule applies.
+	/// Like [`Self::new`] but marks the meter as subject to the EIP-150 63/64 rule.
 	pub fn new_with_eip_150(weight_limit: Weight, stipend: Option<Weight>) -> Self {
 		let mut meter = Self::new(weight_limit, stipend);
 		meter.eip_150_peak = Eip150Peak::Subcall(Weight::zero());
@@ -182,7 +182,7 @@ impl<T: Config> WeightMeter<T> {
 		let current_weight_consumed_highest =
 			self.weight_consumed.saturating_add(nested.weight_required());
 
-		// Add the nested call's EIP-150 63/64 overhead on top.
+		// Include the nested call's cumulative EIP-150 63/64 overhead.
 		let current_eip_150_peak =
 			current_weight_consumed_highest.saturating_add(nested.compute_eip_150_total_overhead());
 		self.eip_150_peak.update(current_eip_150_peak, |a, b| a.max(b));

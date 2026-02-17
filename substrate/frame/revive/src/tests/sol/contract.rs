@@ -767,7 +767,8 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			result: Ok(true),
 			is_store_call: true,
 		},
-		// With EIP-150 63/64 rule Caller retains 1/64 of 4160 which is exactly 65
+		// The deposit retained by the caller under the EIP-150 63/64 rule suffices for its
+		// own storage write.
 		Case {
 			deposit_limit: 4160,
 			gas_divisor: 1,

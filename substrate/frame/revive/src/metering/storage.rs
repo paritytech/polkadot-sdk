@@ -254,7 +254,7 @@ where
 		RawMeter { limit, ..Default::default() }
 	}
 
-	/// Like [`Self::nested`] but marks the child as subject to the EIP-150 63/64 rule.
+	/// Like [`Self::nested`] but marks the meter as subject to the EIP-150 63/64 rule.
 	pub fn nested_with_eip_150(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		let mut meter = self.nested(limit);
 		meter.eip_150_peak = Eip150Peak::Subcall(Zero::zero());
@@ -382,9 +382,6 @@ where
 	}
 
 	/// Compute the total EIP-150 deposit overhead for this meter.
-	///
-	/// For subcalls: children overhead + own 63/64 overhead.
-	/// For top calls: children overhead only.
 	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
 		use super::math::eip_150;
 
