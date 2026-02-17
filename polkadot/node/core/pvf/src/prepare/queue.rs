@@ -503,7 +503,7 @@ mod tests {
 
 	async fn run_until<R>(
 		task: &mut (impl Future<Output = ()> + Unpin),
-		mut fut: (impl Future<Output = R> + Unpin),
+		mut fut: impl Future<Output = R> + Unpin,
 	) -> R {
 		let start = std::time::Instant::now();
 		let fut = &mut fut;

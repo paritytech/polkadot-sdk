@@ -119,7 +119,7 @@ impl TestHost {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let validation_context = ValidationContext {
-			candidate_receipt: dummy_candidate_receipt(relay_parent),
+			candidate_receipt: dummy_candidate_receipt(relay_parent).into(),
 			pvd: Arc::new(pvd),
 			pov: Arc::new(pov),
 			executor_params: executor_params.clone(),

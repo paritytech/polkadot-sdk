@@ -1210,7 +1210,7 @@ pub(crate) mod tests {
 
 	async fn run_until<R>(
 		task: &mut (impl Future<Output = ()> + Unpin),
-		mut fut: (impl Future<Output = R> + Unpin),
+		mut fut: impl Future<Output = R> + Unpin,
 	) -> R {
 		use std::task::Poll;
 
@@ -1239,7 +1239,7 @@ pub(crate) mod tests {
 		pov: Arc<PoV>,
 	) -> ValidationContext {
 		ValidationContext {
-			candidate_receipt: dummy_candidate_receipt(H256::default()),
+			candidate_receipt: dummy_candidate_receipt(H256::default()).into(),
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),

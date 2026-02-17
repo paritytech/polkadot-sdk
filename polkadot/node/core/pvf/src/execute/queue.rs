@@ -924,7 +924,7 @@ mod tests {
 		let candidate_receipt = dummy_candidate_receipt(H256::default());
 
 		let validation_context = ValidationContext {
-			candidate_receipt,
+			candidate_receipt: candidate_receipt.into(),
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
@@ -1098,7 +1098,7 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_validation_context = ValidationContext {
-			candidate_receipt: dummy_candidate_receipt(relevant_relay_parent),
+			candidate_receipt: dummy_candidate_receipt(relevant_relay_parent).into(),
 			pvd: Arc::new(PersistedValidationData::default()),
 			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 			executor_params: ExecutorParams::default(),
@@ -1120,7 +1120,7 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_validation_context = ValidationContext {
-				candidate_receipt: dummy_candidate_receipt(old_relay_parent),
+				candidate_receipt: dummy_candidate_receipt(old_relay_parent).into(),
 				pvd: Arc::new(PersistedValidationData::default()),
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
