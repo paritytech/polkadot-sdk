@@ -46,7 +46,7 @@ force_decorator = "oracle"
 	name = "alice"
 	rpc_port = 9949
 	args = [
-		"-lruntime=info,runtime::price-oracle=debug",
+		"-lruntime=info,runtime::price-oracle=trace",
 	]
 	keystore_key_types = ["aura_sr", "orcl_sr"]
 

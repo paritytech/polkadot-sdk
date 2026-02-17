@@ -88,7 +88,7 @@
 //! - [ ] Westend integration
 //! 	- [ ] Add the ability to send the price updates to westend AH. Simple.
 //! - [ ] Add all the other transactions to manage and have a manager origin.
-//! - [ ] ZN atm is using the same session key as the stash keys. It should be altered to actually
+//! - [x] ZN atm is using the same session key as the stash keys. It should be altered to actually
 //!   generate new session keys that are not the same as `derive("Alice")` etc and put them in the
 //!   keystore and register them. Alternatively, we can write some scripts that at startup. Without
 //!   this, our setup is not realistic
@@ -98,8 +98,11 @@
 //!   If yes, it will be useful to prevent new OCW from running.
 //! - [ ] More integration tests in this crate (ocw running auto, using real tx-extensions/pool
 //!   validation etc)
-//! - [ ] Integration tests in integration-tests crate.
+//! - [ ] More tests in integration-tests crate.
 //! - [ ] handle validator disabling via a message from RC
+//! - [x] Sanity check: is there any issues with running a parachain with 600 collators? don't think
+//!   so!
+//! - [ ] Slashing for not providing price updates.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

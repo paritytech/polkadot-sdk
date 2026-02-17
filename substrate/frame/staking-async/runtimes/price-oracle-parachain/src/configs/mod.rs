@@ -393,6 +393,17 @@ impl frame_system::offchain::AppCrypto<<Signature as Verify>::Signer, Signature>
 	type GenericSignature = sp_core::sr25519::Signature;
 }
 
+/// Converts an [`OracleId`] to an [`AccountId`] by going through the same conversion chain
+/// as the OCW `Signer`: `OracleId` -> `sr25519::Public` -> `MultiSigner` -> `AccountId`.
+pub struct OracleIdToAccountId;
+impl Convert<OracleId, AccountId> for OracleIdToAccountId {
+	fn convert(id: OracleId) -> AccountId {
+		use sp_runtime::traits::IdentifyAccount;
+		let raw: sp_core::sr25519::Public = id.into();
+		sp_runtime::MultiSigner::Sr25519(raw).into_account()
+	}
+}
+
 parameter_types! {
 	// declared as storage to be adjustable via txs in future papi-tests.
 	pub storage PriceUpdateInterval: BlockNumber = 1;
@@ -400,6 +411,7 @@ parameter_types! {
 
 impl price_oracle::oracle::Config for Runtime {
 	type AuthorityId = OracleId;
+	type AuthorityIdToAccountId = OracleIdToAccountId;
 	type PriceUpdateInterval = PriceUpdateInterval;
 	type AssetId = u32;
 	type MaxAuthorities = ConstU32<8>;

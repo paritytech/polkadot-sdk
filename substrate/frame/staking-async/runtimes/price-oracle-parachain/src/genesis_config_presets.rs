@@ -131,6 +131,7 @@ fn local_testnet_genesis() -> Value {
 fn development_config_genesis() -> Value {
 	testnet_genesis(
 		// initial collators.
+		// NOTE: when used with ZN, all of this is erased and replaced.
 		vec![
 			(
 				Sr25519Keyring::Alice.to_account_id(),

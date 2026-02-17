@@ -168,7 +168,7 @@ pub mod pallet {
 		pallet_prelude::*,
 	};
 	use sp_runtime::{
-		traits::{BlockNumberProvider, Member},
+		traits::{BlockNumberProvider, Convert, Member},
 		FixedU128, Percent, RuntimeAppPublic, Saturating,
 	};
 
@@ -211,6 +211,8 @@ pub mod pallet {
 		/// Tally the votes for a given asset.
 		///
 		/// The vote argument is a vector of (account-id, vote-price-value, produced-in) tuples.
+		///
+		/// The return value is a tuple of (price, confidence).
 		fn tally(
 			asset_id: Self::AssetId,
 			votes: Vec<(Self::AccountId, FixedU128, Self::BlockNumber)>,
@@ -218,6 +220,9 @@ pub mod pallet {
 	}
 
 	/// Listener hook to be implemented by entities that wish to be informed of price updates.
+	///
+	/// In reality, this should be hooked up to a system on the runtime side that will forward the
+	/// price to AH or any other chain.
 	#[impl_trait_for_tuples::impl_for_tuples(8)]
 	pub trait OnPriceUpdate<AssetId, BlockNumber, Moment> {
 		fn on_price_update(asset_id: AssetId, new: PriceData<BlockNumber, Moment>);
@@ -233,6 +238,14 @@ pub mod pallet {
 			+ Parameter
 			+ Member
 			+ MaxEncodedLen;
+
+		/// Converts an [`Self::AuthorityId`] to the [`Self::AccountId`] that will be used when
+		/// the OCW submits signed transactions with this key.
+		///
+		/// This is needed because the session pallet provides us with `AuthorityId` keys, but
+		/// the signed transaction origin uses `AccountId`. The OCW's `Signer` internally
+		/// performs this same conversion via `IdentifyAccount::into_account()`.
+		type AuthorityIdToAccountId: Convert<Self::AuthorityId, Self::AccountId>;
 
 		/// Maximum number of authorities that we can accept.
 		///
@@ -1021,9 +1034,15 @@ pub mod pallet {
 			I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
 		{
 			let mut bounded = BoundedBTreeMap::<_, _, T::MaxAuthorities>::new();
-			validators.for_each(|(who, _keys)| {
+			validators.for_each(|(_stash, keys)| {
+				let derived = T::AuthorityIdToAccountId::convert(keys);
+				if frame_system::Pallet::<T>::providers(&derived) == 0 {
+					// we don't care if created or existed. Need to bump so that system's check
+					// nonce is not blocking txs from this account.
+					let _ = frame_system::Pallet::<T>::inc_providers(&derived);
+				}
 				let _ = bounded
-					.try_insert(who.clone(), One::one())
+					.try_insert(derived, One::one())
 					.defensive_proof("genesis authorities exceeded max authorities");
 			});
 			Authorities::<T>::put(bounded);
@@ -1035,9 +1054,14 @@ pub mod pallet {
 		{
 			if changed {
 				let mut bounded = BoundedBTreeMap::<_, _, T::MaxAuthorities>::new();
-				validators.for_each(|(who, _keys)| {
+				validators.for_each(|(_stash, keys)| {
+					let derived = T::AuthorityIdToAccountId::convert(keys);
+					if frame_system::Pallet::<T>::providers(&derived) == 0 {
+						// we don't care if created or existed.
+						let _ = frame_system::Pallet::<T>::inc_providers(&derived);
+					}
 					let _ = bounded
-						.try_insert(who.clone(), One::one())
+						.try_insert(derived, One::one())
 						.defensive_proof("new session authorities exceeded max authorities");
 				});
 				let count = bounded.len() as u32;

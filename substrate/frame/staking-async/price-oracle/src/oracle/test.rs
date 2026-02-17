@@ -774,8 +774,13 @@ mod on_session_change {
 			// when a new session with no change happens.
 			<PriceOracle as OneSessionHandler<AccountId>>::on_new_session(
 				false,
-				vec![(&5, TestAuthId), (&6, TestAuthId), (&7, TestAuthId), (&8, TestAuthId)]
-					.into_iter(),
+				vec![
+					(&5, TestAuthId(50)),
+					(&6, TestAuthId(60)),
+					(&7, TestAuthId(70)),
+					(&8, TestAuthId(80)),
+				]
+				.into_iter(),
 				Default::default(),
 			);
 
@@ -788,28 +793,34 @@ mod on_session_change {
 				vec![1, 2, 3, 4]
 			);
 
-			// when a new session with a change happens.
+			// when a new session with a change happens, the derived AccountId (from the
+			// AuthorityId) is stored — not the stash.
 			<PriceOracle as OneSessionHandler<AccountId>>::on_new_session(
 				true,
-				vec![(&5, TestAuthId), (&6, TestAuthId), (&7, TestAuthId), (&8, TestAuthId)]
-					.into_iter(),
+				vec![
+					(&5, TestAuthId(50)),
+					(&6, TestAuthId(60)),
+					(&7, TestAuthId(70)),
+					(&8, TestAuthId(80)),
+				]
+				.into_iter(),
 				Default::default(),
 			);
 
-			// then the authorities are updated.
+			// then the authorities are updated with the derived AccountIds.
 			assert_eq!(
 				oracle::Authorities::<T>::get()
 					.into_iter()
 					.map(|(who, _)| who)
 					.collect::<Vec<_>>(),
-				vec![5, 6, 7, 8]
+				vec![50, 60, 70, 80]
 			);
 		});
 	}
 
 	#[test]
 	#[should_panic(
-		expected = "Defensive failure has been triggered!: (9, 100%): \"new session authorities exceeded max authorities\""
+		expected = "Defensive failure has been triggered!: (90, 100%): \"new session authorities exceeded max authorities\""
 	)]
 	fn respects_max_authorities() {
 		ExtBuilder::default().build_and_execute(|| {
@@ -820,23 +831,23 @@ mod on_session_change {
 			<PriceOracle as OneSessionHandler<AccountId>>::on_new_session(
 				true,
 				vec![
-					(&5, TestAuthId),
-					(&6, TestAuthId),
-					(&7, TestAuthId),
-					(&8, TestAuthId),
-					(&9, TestAuthId),
+					(&5, TestAuthId(50)),
+					(&6, TestAuthId(60)),
+					(&7, TestAuthId(70)),
+					(&8, TestAuthId(80)),
+					(&9, TestAuthId(90)),
 				]
 				.into_iter(),
 				Default::default(),
 			);
 
-			// then the authorities are updated.
+			// then only 4 authorities are stored (the 5th was rejected).
 			assert_eq!(
 				oracle::Authorities::<T>::get()
 					.into_iter()
 					.map(|(who, _)| who)
 					.collect::<Vec<_>>(),
-				vec![5, 6, 7, 8]
+				vec![50, 60, 70, 80]
 			);
 		});
 	}

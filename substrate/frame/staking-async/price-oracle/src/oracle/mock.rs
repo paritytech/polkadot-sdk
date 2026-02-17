@@ -42,7 +42,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	impl_opaque_keys,
 	testing::{TestSignature, UintAuthorityId},
-	traits::IdentityLookup,
+	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Percent, RuntimeAppPublic,
 };
 use std::sync::Arc;
@@ -56,7 +56,8 @@ pub type BlockNumber = BlockNumberFor<Runtime>;
 pub type Moment = MomentOf<Runtime>;
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 
-// Simple u64-based AppCrypto for testing
+// Simple u64-based AppCrypto for testing. Wraps a u64 so that different authorities
+// can be distinguished (e.g. `TestAuthId(5)` maps to `AccountId = 5`).
 #[derive(
 	Debug,
 	Clone,
@@ -73,7 +74,7 @@ pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 	serde::Serialize,
 	serde::Deserialize,
 )]
-pub struct TestAuthId;
+pub struct TestAuthId(pub u64);
 
 impl RuntimeAppPublic for TestAuthId {
 	const ID: sp_core::crypto::KeyTypeId = sp_core::crypto::KeyTypeId(*b"test");
@@ -86,7 +87,7 @@ impl RuntimeAppPublic for TestAuthId {
 	}
 
 	fn generate_pair(_: Option<Vec<u8>>) -> Self {
-		TestAuthId
+		TestAuthId(0)
 	}
 
 	fn sign<M: AsRef<[u8]>>(&self, _msg: &M) -> Option<Self::Signature> {
@@ -106,7 +107,7 @@ impl RuntimeAppPublic for TestAuthId {
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
-		vec![]
+		self.0.to_le_bytes().to_vec()
 	}
 }
 
@@ -237,8 +238,16 @@ impl Time for TimeProvider {
 	}
 }
 
+pub struct TestAuthorityIdToAccountId;
+impl Convert<TestAuthId, AccountId> for TestAuthorityIdToAccountId {
+	fn convert(id: TestAuthId) -> AccountId {
+		id.0
+	}
+}
+
 impl pallet_price_oracle::Config for Runtime {
 	type AuthorityId = TestAuthId;
+	type AuthorityIdToAccountId = TestAuthorityIdToAccountId;
 	type PriceUpdateInterval = PriceUpdateInterval;
 	type AssetId = u32;
 	type HistoryDepth = HistoryDepth;
