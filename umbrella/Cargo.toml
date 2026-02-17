@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk"
-version = "2512.3.1"
+version = "2512.3.2"
 description = "Polkadot SDK umbrella crate."
 license = "Apache-2.0"
 
@@ -2401,7 +2401,7 @@ version = "25.0.0"
 default-features = false
 optional = true
 path = "../polkadot/xcm/xcm-executor"
-version = "24.0.0"
+version = "24.0.1"
 
 [dependencies.substrate-bip39]
 default-features = false

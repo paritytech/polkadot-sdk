@@ -1168,7 +1168,7 @@ polkadot-rpc = { path = "polkadot/rpc", default-features = false, version = "29.
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false, version = "24.0.0" }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false, version = "25.0.0" }
 polkadot-runtime-parachains = { path = "polkadot/runtime/parachains", default-features = false, version = "24.0.0" }
-polkadot-sdk = { path = "umbrella", default-features = false, version = "2512.3.1" }
+polkadot-sdk = { path = "umbrella", default-features = false, version = "2512.3.2" }
 polkadot-sdk-docs = { path = "docs/sdk" }
 polkadot-service = { path = "polkadot/node/service", default-features = false, version = "31.0.0" }
 polkadot-statement-distribution = { path = "polkadot/node/network/statement-distribution", default-features = false, version = "28.0.0" }
@@ -1490,7 +1490,7 @@ xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm"
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "25.0.0" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.26.0" }
-xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "24.0.0" }
+xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "24.0.1" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "11.0.2" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.12.0" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "25.0.0" }
