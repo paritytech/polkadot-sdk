@@ -107,7 +107,7 @@ mod benchmarks {
 			frame_system::RawOrigin::Signed(caller).into();
 		let call = Call::<T>::dispatch {
 			meta_tx: Box::new(meta_tx.clone()),
-			len: meta_tx.encoded_size() as u32,
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		};
 
 		#[block]

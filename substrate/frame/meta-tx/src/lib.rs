@@ -180,7 +180,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = meta_tx.call.get_dispatch_info();
 			let extension_weight = meta_tx.extension.weight(&meta_tx.call);
-			let bare_call_weight = T::WeightInfo::bare_dispatch(*len);
+			let bare_call_weight = T::WeightInfo::bare_dispatch(*meta_tx_encoded_len);
 			(
 				dispatch_info.call_weight
 					.saturating_add(extension_weight)
@@ -191,11 +191,11 @@ pub mod pallet {
 		pub fn dispatch(
 			_origin: OriginFor<T>,
 			meta_tx: Box<MetaTxFor<T>>,
-			len: u32, // The size of the encoded meta transaction in bytes.
+			meta_tx_encoded_len: u32, // The size of the encoded meta transaction in bytes.
 		) -> DispatchResultWithPostInfo {
 			let origin = SystemOrigin::None;
 			let meta_tx_size = meta_tx.encoded_size();
-			ensure!(meta_tx_size == len as usize, Error::<T>::InvalidLength);
+			ensure!(meta_tx_size == meta_tx_encoded_len as usize, Error::<T>::InvalidLength);
 			// `info` with worst-case call weight and extension weight.
 			let info = {
 				let mut info = meta_tx.call.get_dispatch_info();
