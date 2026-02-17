@@ -1504,3 +1504,97 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 		}
 	}
 }
+
+/// During major sync, peers that announce blocks on unknown forks should NOT be put into
+/// `AncestorSearch`. The scenario:
+///
+/// 1. We import some blocks, then peers connect that are far ahead.
+/// 2. The import queue fills up, so `add_peer_inner` skips ancestry search and adds new peers as
+///    `Available` with `common_number = best_queued_number`.
+/// 3. One of those peers announces a new best block on an unknown fork.
+/// 4. `continues_known_fork` is false, triggering ancestry search.
+/// 5. The peer loses its `allowed_requests` token and can no longer serve block downloads.
+///
+/// If this happens to enough peers, sync stalls.
+#[test]
+fn no_ancestry_search_during_major_sync() {
+	sp_tracing::try_init_simple();
+
+	let (blocks, fork_block) = {
+		let client = TestClientBuilder::new().build();
+		let blocks = (0..MAX_DOWNLOAD_AHEAD * 2)
+			.map(|_| build_block(&client, None, false))
+			.collect::<Vec<_>>();
+
+		let fork_block = build_block(&client, Some(blocks[blocks.len() - 2].hash()), true);
+		(blocks, fork_block)
+	};
+
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	// Import a few blocks so we're NOT at genesis (add_peer skips ancestry search at genesis).
+	for b in &blocks[..10] {
+		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
+	}
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let peer_id2 = PeerId::random();
+
+	let best_block = blocks.last().unwrap().clone();
+	let best_block_num = *best_block.header().number();
+
+	// peer1 is far ahead — triggers ancestry search since queue is empty.
+	sync.add_peer(peer_id1, best_block.hash(), best_block_num);
+	assert!(matches!(
+		sync.peers.get(&peer_id1).unwrap().state,
+		PeerSyncState::AncestorSearch { .. }
+	));
+
+	// Fill the import queue to trigger the "skip ancestry search" path in add_peer_inner.
+	for block in &blocks[..MAJOR_SYNC_BLOCKS as usize + 1] {
+		sync.queue_blocks.insert(block.hash());
+	}
+
+	// peer2 is added — should be `Available` because queue_blocks > MAJOR_SYNC_BLOCKS.
+	sync.add_peer(peer_id2, best_block.hash(), best_block_num);
+	assert_eq!(sync.peers.get(&peer_id2).unwrap().state, PeerSyncState::Available);
+
+	// peer2 announces a new best block whose parent is NOT peer.best_hash.
+	// Sanity: the fork block's parent is NOT best_block.hash()
+	assert_ne!(fork_block.header().parent_hash(), &best_block.hash());
+
+	let announce = BlockAnnounce {
+		header: fork_block.header().clone(),
+		state: Some(BlockState::Best),
+		data: Some(Vec::new()),
+	};
+
+	let _ = sync.on_validated_block_announce(true, peer_id2, &announce);
+
+	// peer2 should NOT be in AncestorSearch during major sync — it should stay Available.
+	assert!(
+		!matches!(sync.peers.get(&peer_id2).unwrap().state, PeerSyncState::AncestorSearch { .. }),
+		"Peer should not be in AncestorSearch during major sync — this would stall sync!",
+	);
+
+	// No ancestry search action should be queued for peer2.
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	for action in &actions {
+		if let SyncingAction::StartRequest { peer_id, .. } = action {
+			assert_ne!(*peer_id, peer_id2, "No request should be sent to peer2 during major sync",);
+		}
+	}
+}

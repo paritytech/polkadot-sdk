@@ -504,6 +504,7 @@ where
 		let ancient_parent = parent_status == BlockStatus::InChainPruned;
 
 		let known = self.is_known(&hash);
+		let is_major_syncing = self.is_major_syncing();
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
@@ -541,9 +542,10 @@ where
 				peer.update_common_number(number.saturating_sub(One::one()));
 			}
 
-			// If this announced block isn't following any known fork, we have do start an ancestor
-			// search to find out our real common block.
-			if !continues_known_fork {
+			// If this announced block isn't following any known fork, we have to start an ancestor
+			// search to find out our real common block. However, we skip this during major sync
+			// to avoid pulling peers out of the download pool.
+			if !continues_known_fork && !is_major_syncing {
 				let current = number.min(best_queued_number);
 				peer.common_number = peer.common_number.min(self.client.info().finalized_number);
 				peer.state = PeerSyncState::AncestorSearch {
