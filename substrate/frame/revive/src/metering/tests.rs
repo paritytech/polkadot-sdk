@@ -164,6 +164,36 @@ fn test_compute_gas_ratio() {
 }
 
 #[test]
+fn test_compute_signed_gas_ratio() {
+	use super::math::compute_signed_gas_ratio;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// (gas_limit, remaining_gas, expected_numerator, expected_denominator)
+		let ratio_cases: Vec<(SignedGas<Test>, SignedGas<Test>, u128, u128)> = vec![
+			// Both positive: delegates to compute_gas_ratio
+			(SignedGas::Positive(50), SignedGas::Positive(100), 1, 2),
+			(SignedGas::Positive(100), SignedGas::Positive(100), 1, 1),
+			(SignedGas::Positive(200), SignedGas::Positive(100), 1, 1),
+			(SignedGas::Positive(1), SignedGas::Positive(3), 1, 3),
+			(SignedGas::Positive(0), SignedGas::Positive(100), 0, 1),
+			(SignedGas::Positive(0), SignedGas::Positive(0), 1, 1),
+			// Negative gas_limit or remaining: fallback to 1.0
+			(SignedGas::Negative(50), SignedGas::Positive(100), 1, 1),
+			(SignedGas::Positive(50), SignedGas::Negative(100), 1, 1),
+			(SignedGas::Negative(50), SignedGas::Negative(100), 1, 1),
+		];
+
+		for (gas_limit, remaining, num, denom) in ratio_cases {
+			assert_eq!(
+				compute_signed_gas_ratio::<Test>(&gas_limit, &remaining),
+				FixedU128::from_rational(num, denom),
+				"failed for gas_limit={gas_limit:?}, remaining={remaining:?}"
+			);
+		}
+	});
+}
+
+#[test]
 fn test_apply_eip_150_to_balance() {
 	use super::math::eip_150;
 

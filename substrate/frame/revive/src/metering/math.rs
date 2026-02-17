@@ -172,6 +172,18 @@ pub(crate) fn compute_gas_ratio<T: Config>(
 	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
 }
 
+/// Compute the ratio of requested gas to available gas from `SignedGas` values.
+/// If either value is negative returns `1.0`
+pub(crate) fn compute_signed_gas_ratio<T: Config>(
+	gas_limit: &SignedGas<T>,
+	remaining_gas: &SignedGas<T>,
+) -> FixedU128 {
+	match (gas_limit.to_weight_fee(), remaining_gas.to_weight_fee()) {
+		(Some(num), Some(denom)) => compute_gas_ratio::<T>(num, denom),
+		_ => FixedU128::one(),
+	}
+}
+
 /// Scale weight by the given ratio.
 pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
 	Weight::from_parts(
@@ -526,10 +538,8 @@ pub mod ethereum_execution {
 					// Scale weight and deposit proportionally based on gas ratio.
 					// TODO: Only apply ratio scaling when should_apply_eip_150 is false?
 					let (nested_weight_limit, nested_deposit_limit) = if should_apply_eip_150 {
-						let ratio = compute_gas_ratio::<T>(
-							gas_limit.to_weight_fee().unwrap_or(0u32.into()),
-							capped_remaining_gas.to_weight_fee().unwrap_or(1u32.into()),
-						);
+						let ratio =
+							compute_signed_gas_ratio::<T>(&gas_limit, &capped_remaining_gas);
 
 						(
 							scale_weight_by_ratio(capped_weight_left, ratio),
