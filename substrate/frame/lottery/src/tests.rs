@@ -27,7 +27,14 @@ use sp_runtime::{traits::BadOrigin, TokenError};
 #[test]
 fn initial_state() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Balances::free_balance(Lottery::account_id()), 0);
+		assert_eq!(
+			Balances::reducible_balance(
+				&Lottery::account_id(),
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			0
+		);
 		assert!(crate::Lottery::<Test>::get().is_none());
 		assert_eq!(Participants::<Test>::get(&1), (0, Default::default()));
 		assert_eq!(TicketsCount::<Test>::get(), 0);
