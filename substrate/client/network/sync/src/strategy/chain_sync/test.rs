@@ -357,13 +357,16 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let info = client.info();
 
+	let protocol_name = ProtocolName::Static("");
+	let proxy_block_downloader = Arc::new(ProxyBlockDownloader::new(protocol_name.clone()));
+
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
 		5,
 		64,
-		ProtocolName::Static(""),
-		Arc::new(MockBlockDownloader::new()),
+		protocol_name,
+		proxy_block_downloader.clone(),
 		None,
 		std::iter::empty(),
 	)
@@ -439,26 +442,42 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	// Let peer2 announce that it finished syncing
 	send_block_announce(best_block.header().clone(), peer_id2, &mut sync);
 
-	let (peer1_req, peer2_req) =
-		sync.block_requests().into_iter().fold((None, None), |res, req| {
-			if req.0 == peer_id1 {
-				(Some(req.1), res.1)
-			} else if req.0 == peer_id2 {
-				(res.0, Some(req.1))
-			} else {
-				panic!("Unexpected req: {:?}", req)
-			}
-		});
+	// Populate actions with block requests from `block_requests()` (peer1) alongside the
+	// ancestry search already queued for peer2.
+	let block_requests = sync
+		.block_requests()
+		.into_iter()
+		.map(|(peer_id, request)| sync.create_block_request_action(peer_id, request))
+		.collect::<Vec<_>>();
+	sync.actions.extend(block_requests);
+
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 2);
+
+	let (mut peer1_req, mut peer2_req) = (None, None);
+	for action in actions {
+		match action {
+			SyncingAction::StartRequest { peer_id, request, .. } => {
+				block_on(request).unwrap().unwrap();
+				let req = proxy_block_downloader.next_request();
+				if peer_id == peer_id1 {
+					peer1_req = Some(req);
+				} else if peer_id == peer_id2 {
+					peer2_req = Some(req);
+				} else {
+					panic!("Unexpected peer: {peer_id}");
+				}
+			},
+			action => panic!("Unexpected action: {}", action.name()),
+		}
+	}
 
 	// We should now do an ancestor search to find the correct common block.
 	let peer2_req = peer2_req.unwrap();
-	assert_eq!(Some(1), peer2_req.max);
 	assert_eq!(FromBlock::Number(best_block_num as u64), peer2_req.from);
+	assert_eq!(Some(1), peer2_req.max);
 
 	let response = create_block_response(vec![blocks[(best_block_num - 1) as usize].clone()]);
-
-	// Clear old actions to not deal with them
-	let _ = sync.take_actions();
 
 	sync.on_block_data(&peer_id2, Some(peer2_req), response).unwrap();
 
@@ -540,11 +559,18 @@ fn can_sync_huge_fork() {
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
 
-	let mut request =
-		get_block_request(&mut sync, FromBlock::Number(info.best_number), 1, &peer_id1);
-
-	// Discard old actions we are not interested in
-	let _ = sync.take_actions();
+	// The announce triggers an ancestry search via actions
+	let mut actions = sync.take_actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 1);
+	let mut request = match actions.pop().unwrap() {
+		SyncingAction::StartRequest { request, .. } => {
+			block_on(request).unwrap().unwrap();
+			proxy_block_downloader.next_request()
+		},
+		action => panic!("Unexpected action: {}", action.name()),
+	};
+	assert_eq!(FromBlock::Number(info.best_number), request.from);
+	assert_eq!(Some(1), request.max);
 
 	// Do the ancestor search
 	loop {
@@ -688,11 +714,18 @@ fn syncs_fork_without_duplicate_requests() {
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
 
-	let mut request =
-		get_block_request(&mut sync, FromBlock::Number(info.best_number), 1, &peer_id1);
-
-	// Discard pending actions
-	let _ = sync.take_actions();
+	// The announce triggers an ancestry search via actions
+	let mut actions = sync.take_actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 1);
+	let mut request = match actions.pop().unwrap() {
+		SyncingAction::StartRequest { request, .. } => {
+			block_on(request).unwrap().unwrap();
+			proxy_block_downloader.next_request()
+		},
+		action => panic!("Unexpected action: {}", action.name()),
+	};
+	assert_eq!(FromBlock::Number(info.best_number), request.from);
+	assert_eq!(Some(1), request.max);
 
 	// Do the ancestor search
 	loop {

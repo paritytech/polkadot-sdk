@@ -1018,31 +1018,26 @@ async fn syncs_all_forks_from_single_peer() {
 	net.peer(0).push_blocks(10, false);
 	net.peer(1).push_blocks(10, false);
 
-	// poll until the two nodes connect, otherwise announcing the block will not work
 	net.run_until_connected().await;
 
-	// Peer 0 produces new blocks and announces.
-	let branch1 = net.peer(0).push_blocks_at(BlockId::Number(10), 2, true).pop().unwrap();
-
-	// Wait till peer 1 starts downloading
-	loop {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			Poll::Ready(())
-		})
-		.await;
-
-		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
-			break;
-		}
+	let mut branch1 = None;
+	for i in 0..2 {
+		let at = if i == 0 { BlockId::Number(10) } else { BlockId::Hash(branch1.unwrap()) };
+		branch1 = net.peer(0).push_blocks_at(at, 1, i == 0).pop();
+		net.run_until_idle().await;
 	}
+	let branch1 = branch1.unwrap();
 
-	// Peer 0 produces and announces another fork
-	let branch2 = net.peer(0).push_blocks_at(BlockId::Number(10), 2, false).pop().unwrap();
+	let mut branch2 = None;
+	for i in 0..2 {
+		let at = if i == 0 { BlockId::Number(10) } else { BlockId::Hash(branch2.unwrap()) };
+		branch2 = net.peer(0).push_blocks_at(at, 1, false).pop();
+		net.run_until_idle().await;
+	}
+	let branch2 = branch2.unwrap();
 
 	net.run_until_sync().await;
 
-	// Peer 1 should have both branches,
 	assert!(net.peer(1).client().header(branch1).unwrap().is_some());
 	assert!(net.peer(1).client().header(branch2).unwrap().is_some());
 }

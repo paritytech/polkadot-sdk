@@ -268,7 +268,14 @@ pub(crate) enum PeerSyncState<B: BlockT> {
 	/// Available for sync requests.
 	Available,
 	/// Searching for ancestors the Peer has in common with us.
-	AncestorSearch { start: NumberFor<B>, current: NumberFor<B>, state: AncestorSearchState<B> },
+	AncestorSearch {
+		/// The best queued number when starting the ancestor search.
+		start: NumberFor<B>,
+		/// The current block that is being downloaded.
+		current: NumberFor<B>,
+		/// The state of the search.
+		state: AncestorSearchState<B>,
+	},
 	/// Actively downloading new blocks, starting from the given Number.
 	DownloadingNew(NumberFor<B>),
 	/// Downloading a stale block with given Hash. Stale means that it is a
@@ -426,6 +433,12 @@ where
 			return None;
 		}
 
+		// The node is continuing a known fork if either the block itself is known, the parent is
+		// known or the block references the previously announced `best_hash`.
+		let continues_known_fork =
+			known || known_parent || announce.header.parent_hash() == &peer.best_hash;
+
+		let best_queued_number = self.best_queued_number;
 		let peer_info = is_best.then(|| {
 			// update their best block
 			peer.best_number = number;
@@ -438,11 +451,29 @@ where
 		// is either one further ahead or it's the one they just announced, if we know about it.
 		if is_best {
 			if known && self.best_queued_number >= number {
-				self.update_peer_common_number(&peer_id, number);
+				peer.update_common_number(number);
 			} else if announce.header.parent_hash() == &self.best_queued_hash ||
 				known_parent && self.best_queued_number >= number
 			{
-				self.update_peer_common_number(&peer_id, number.saturating_sub(One::one()));
+				peer.update_common_number(number.saturating_sub(One::one()));
+			}
+
+			// If this announced block isn't following any known fork, we have do start an ancestor
+			// search to find out our real common block.
+			if !continues_known_fork {
+				let current = number.min(best_queued_number);
+				peer.common_number = peer.common_number.min(self.client.info().finalized_number);
+				peer.state = PeerSyncState::AncestorSearch {
+					current,
+					start: best_queued_number,
+					state: AncestorSearchState::ExponentialBackoff(One::one()),
+				};
+
+				let request = ancestry_request::<B>(current);
+				let action = self.create_block_request_action(peer_id, request);
+				self.actions.push(action);
+
+				return peer_info;
 			}
 		}
 		self.allowed_requests.add(&peer_id);
