@@ -151,7 +151,7 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,
 	) -> Result<(), sp_inherents::Error> {
-		inherent_data.put_data(PARACHAIN_INHERENT_IDENTIFIER_V0, &self.as_v0())?;
+		inherent_data.put_data(PARACHAIN_INHERENT_IDENTIFIER_V0, &self)?;
 		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
 	}
 
