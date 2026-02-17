@@ -6,6 +6,7 @@ mod approved_peer_mixed_validators;
 mod async_backing_6_seconds_rate;
 mod coretime_partitioning;
 mod collators_reputation_persistence;
+mod migration;
 mod dispute_old_finalized;
 mod duplicate_collations;
 mod shared_core_idle_parachain;

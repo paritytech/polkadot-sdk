@@ -6,7 +6,9 @@ mod disabling;
 mod elastic_scaling;
 #[cfg(feature = "zombie-ci")]
 mod functional;
-#[cfg(feature = "zombie-ci")]
+#[cfg(all(feature = "zombie-ci", feature = "zombie-metadata"))]
 mod parachains;
 #[cfg(feature = "zombie-ci")]
 mod smoke;
+#[cfg(feature = "zombie-ci")]
+mod utils;
