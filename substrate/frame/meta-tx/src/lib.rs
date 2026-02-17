@@ -175,7 +175,7 @@ pub mod pallet {
 		///
 		/// - `_origin`: Can be any kind of origin.
 		/// - `meta_tx`: Meta Transaction with a target call to be dispatched.
-		/// - `len`: The size of the encoded meta transaction in bytes.
+		/// - `meta_tx_encoded_len`: The size of the encoded meta transaction in bytes.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = meta_tx.call.get_dispatch_info();
