@@ -147,12 +147,9 @@ pub mod ecdsa_bls377 {
 /// ECDSA and BLS12-381 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls381 {
-	use crate::{bls381, crypto::CryptoTypeId, ecdsa};
+	use crate::{bls381, crypto::CryptoTypeId, crypto::Pair as TraitPair, ecdsa, Hasher};
 	#[cfg(feature = "full_crypto")]
-	use crate::{
-		crypto::{Pair as PairT, UncheckedFrom},
-		Hasher,
-	};
+	use crate::crypto::{Pair as PairT, UncheckedFrom};
 
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecb8");
@@ -210,13 +207,13 @@ pub mod ecdsa_bls381 {
 		type Pair = Pair;
 	}
 
-	#[cfg(feature = "full_crypto")]
 	impl Pair {
 		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-381 component. This generates BLS12-381 Signature
 		/// according to IETF standard.
+		#[cfg(feature = "full_crypto")]
 		pub fn sign_with_hasher<H>(&self, message: &[u8]) -> Signature
 		where
 			H: Hasher,

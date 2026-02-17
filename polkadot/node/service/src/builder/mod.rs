@@ -55,7 +55,6 @@ use sc_service::{Configuration, RpcHandlers, TaskManager};
 use sc_sysinfo::Metric;
 use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, HashSet},
@@ -759,16 +758,7 @@ where
 				is_authority: role.is_authority(),
 			};
 
-			let gadget = sc_consensus_beefy::start_beefy_gadget::<
-				_,
-				_,
-				_,
-				_,
-				_,
-				_,
-				_,
-				ecdsa_crypto::AuthorityId,
-			>(beefy_params);
+			let gadget = sc_consensus_beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 
 			// BEEFY is part of consensus, if it fails we'll bring the node down with it to make
 			// sure it is noticed.

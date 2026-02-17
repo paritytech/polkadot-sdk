@@ -225,6 +225,9 @@ fast-runtime = [
 ]
 
 malus = ["full-node"]
+bls-beefy-experimental = [
+	"sp-consensus-beefy/bls-experimental",
+]
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",

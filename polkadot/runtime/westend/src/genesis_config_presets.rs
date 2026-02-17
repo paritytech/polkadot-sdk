@@ -28,7 +28,7 @@ use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
-use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
+use sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
@@ -258,9 +258,8 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			// 5GNHfmrtWLTawnGCmc39rjAEiW97vKvE7DGePYe4am5JtE4i
 			hex!["be59ed75a72f7b47221ce081ba4262cf2e1ea7867e30e0b3781822f942b97677"]
 				.unchecked_into(),
-			// 5DA6Z8RUF626stn94aTRBCeobDCYcFbU7Pdk4Tz1R9vA8B8F
-			hex!["0207e43990799e1d02b0507451e342a1240ff836ea769c57297589a5fd072ad8f4"]
-				.unchecked_into(),
+			// BeefyId generated from "]//0//beefy"
+			get_public_from_string_or_panic::<BeefyId>("//0//beefy"),
 		),
 		(
 			// 5DFpvDUdCgw54E3E357GR1PyJe3Ft9s7Qyp7wbELAoJH9RQa
@@ -282,9 +281,8 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			// 5GsBt9MhGwkg8Jfb1F9LAy2kcr88WNyNy4L5ezwbCr8NWKQU
 			hex!["d464908266c878acbf181bf8fda398b3aa3fd2d05508013e414aaece4cf0d702"]
 				.unchecked_into(),
-			// 5DtJVkz8AHevEnpszy3X4dUcPvACW6x1qBMQZtFxjexLr5bq
-			hex!["02fdf30222d2cb88f2376d558d3de9cb83f9fde3aa4b2dd40c93e3104e3488bcd2"]
-				.unchecked_into(),
+			// BeefyId generated from "//1//beefy"
+			get_public_from_string_or_panic::<BeefyId>("//1//beefy"),
 		),
 		(
 			// 5E2cob2jrXsBkTih56pizwSqENjE4siaVdXhaD6akLdDyVq7
@@ -306,9 +304,8 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			// 5CaNLkYEbFYXZodXhd3UjV6RNLjFGNLiYafc8X5NooMkZiAq
 			hex!["169faa81aebfe74533518bda28567f2e2664014c8905aa07ea003336afda5a58"]
 				.unchecked_into(),
-			// 5ERwhKiePayukzZStMuzGzRJGxGRFpwxYUXVarQpMSMrXzDS
-			hex!["03429d0d20f6ac5ca8b349f04d014f7b5b864acf382a744104d5d9a51108156c0f"]
-				.unchecked_into(),
+			// BeefyId generated from "//2//beefy"
+			get_public_from_string_or_panic::<BeefyId>("//2//beefy"),
 		),
 		(
 			// 5H6j9ovzYk9opckVjvM9SvVfaK37ASTtPTzWeRfqk1tgLJUN
@@ -330,9 +327,8 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			// 5DoGpsgSLcJsHa9B8V4PKjxegWAqDZttWfxicAd68prUX654
 			hex!["4cb3863271b70daa38612acd5dae4f5afcb7c165fa277629e5150d2214df322a"]
 				.unchecked_into(),
-			// 5G1KLjqFyMsPAodnjSRkwRFJztTTEzmZWxow2Q3ZSRCPdthM
-			hex!["03be5ec86d10a94db89c9b7a396d3c7742e3bec5f85159d4cf308cef505966ddf5"]
-				.unchecked_into(),
+			// BeefyId generated from "//3//beefy"
+			get_public_from_string_or_panic::<BeefyId>("//3//beefy"),
 		),
 	]);
 

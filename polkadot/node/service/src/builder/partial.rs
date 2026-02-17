@@ -30,7 +30,10 @@ use sc_telemetry::{Telemetry, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus::SelectChain;
 use sp_consensus_babe::inherents::BabeCreateInherentDataProviders;
-use sp_consensus_beefy::ecdsa_crypto;
+#[cfg(feature = "bls-beefy-experimental")]
+pub type BeefyAuthorityId = sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId;
+#[cfg(not(feature = "bls-beefy-experimental"))]
+pub type BeefyAuthorityId = sp_consensus_beefy::ecdsa_crypto::AuthorityId;
 use std::sync::Arc;
 
 type FullSelectChain = relay_chain_selection::SelectRelayChain<FullBackend>;
@@ -63,14 +66,14 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 				FullClient,
 				FullBeefyBlockImport<
 					FullGrandpaBlockImport<ChainSelection>,
-					ecdsa_crypto::AuthorityId,
+					BeefyAuthorityId,
 				>,
 				BabeCreateInherentDataProviders<Block>,
 				ChainSelection,
 			>,
 			sc_consensus_grandpa::LinkHalf<Block, FullClient, ChainSelection>,
 			sc_consensus_babe::BabeLink<Block>,
-			sc_consensus_beefy::BeefyVoterLinks<Block, ecdsa_crypto::AuthorityId>,
+			sc_consensus_beefy::BeefyVoterLinks<Block, BeefyAuthorityId>,
 		),
 		sc_consensus_grandpa::SharedVoterState,
 		sp_consensus_babe::SlotDuration,
@@ -253,7 +256,7 @@ where
 					subscription_executor: subscription_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
-				beefy: polkadot_rpc::BeefyDeps::<ecdsa_crypto::AuthorityId> {
+				beefy: polkadot_rpc::BeefyDeps::<BeefyAuthorityId> {
 					beefy_finality_proof_stream: beefy_rpc_links.from_voter_justif_stream.clone(),
 					beefy_best_block_stream: beefy_rpc_links.from_voter_best_beefy_stream.clone(),
 					subscription_executor,

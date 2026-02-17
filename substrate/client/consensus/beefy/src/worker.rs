@@ -791,6 +791,13 @@ where
 			},
 		};
 
+		info!(
+			target: LOG_TARGET,
+			"🥩 BEEFY signature size: {} bytes, authority_id size: {} bytes",
+			signature.encode().len(),
+			authority_id.as_ref().len()
+		);
+
 		trace!(
 			target: LOG_TARGET,
 			"🥩 Produced signature using {:?}, is_valid: {:?}",
