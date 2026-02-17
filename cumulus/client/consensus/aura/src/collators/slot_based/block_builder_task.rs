@@ -209,7 +209,7 @@ where
 
 			let best_hash = para_client.info().best_hash;
 			let relay_parent_offset =
-				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
+				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or(1);
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
