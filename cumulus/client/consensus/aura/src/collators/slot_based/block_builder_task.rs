@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -127,8 +127,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ RelayParentOffsetApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -202,7 +204,7 @@ where
 
 			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
-				continue
+				continue;
 			};
 
 			let best_hash = para_client.info().best_hash;
@@ -221,7 +223,7 @@ where
 			)
 			.await
 			else {
-				continue
+				continue;
 			};
 
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
@@ -239,7 +241,7 @@ where
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
-				continue
+				continue;
 			};
 
 			let parent_hash = parent.hash;
@@ -262,7 +264,7 @@ where
 						"Failed to determine core"
 					);
 
-					continue
+					continue;
 				},
 				Ok(Some(cores)) => {
 					tracing::debug!(
@@ -282,7 +284,7 @@ where
 						"No core scheduled"
 					);
 
-					continue
+					continue;
 				},
 			};
 
@@ -336,7 +338,7 @@ where
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -360,6 +362,9 @@ where
 				max_pov_size: *max_pov_size,
 			};
 
+			let relay_proof_request =
+				super::super::get_relay_proof_request(&*para_client, parent_hash);
+
 			let (parachain_inherent_data, other_inherent_data) = match collator
 				.create_inherent_data_with_rp_offset(
 					relay_parent,
@@ -367,13 +372,14 @@ where
 					parent_hash,
 					slot_claim.timestamp(),
 					Some(rp_data),
+					relay_proof_request,
 					collator_peer_id,
 				)
 				.await
 			{
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err);
-					break
+					break;
 				},
 				Ok(x) => x,
 			};
@@ -381,7 +387,7 @@ where
 			let validation_code_hash = match code_hash_provider.code_hash_at(parent_hash) {
 				None => {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				},
 				Some(v) => v,
 			};
@@ -460,7 +466,7 @@ where
 				max_pov_size: validation_data.max_pov_size,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-				return
+				return;
 			}
 		}
 	}
@@ -513,7 +519,7 @@ where
 		.map(|d| d.relay_parent_header.clone())
 	else {
 		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(())
+		return Err(());
 	};
 
 	if relay_parent_offset == 0 {
@@ -612,10 +618,11 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	} else {
 		match extract_relay_parent(para_parent.digest()) {
 			Some(last_relay_parent) => last_relay_parent != relay_parent.hash(),
-			None =>
+			None => {
 				rpsr_digest::extract_relay_parent_storage_root(para_parent.digest())
 					.ok_or(())?
-					.0 != *relay_parent.state_root(),
+					.0 != *relay_parent.state_root()
+			},
 		}
 	};
 

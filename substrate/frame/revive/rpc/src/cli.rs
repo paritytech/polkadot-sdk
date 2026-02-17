@@ -16,18 +16,19 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, PolkadotRpcServer,
-	PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider,
-	SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
+	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
+	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	client::{Client, SubscriptionType, SubstrateBlockNumber, connect},
 };
 use clap::Parser;
-use futures::{future::BoxFuture, pin_mut, FutureExt};
+use futures::{FutureExt, future::BoxFuture, pin_mut};
 use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
+	TaskManager,
 	config::{PrometheusConfig, RpcConfiguration},
-	start_rpc_servers, TaskManager,
+	start_rpc_servers,
 };
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -111,10 +112,12 @@ fn build_client(
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
 	database_url: &str,
+	max_request_size: u32,
+	max_response_size: u32,
 	abort_signal: Signals,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
+		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
 		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
@@ -213,6 +216,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		earliest_receipt_block,
 		&node_rpc_url,
 		&database_url,
+		rpc_config.max_request_size * 1024 * 1024,
+		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 	)?;
 
@@ -275,6 +280,7 @@ fn rpc_module(
 			vec![]
 		})
 		.with_allow_unprotected_txs(allow_unprotected_txs)
+		.with_use_pending_for_estimate_gas(is_dev)
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();

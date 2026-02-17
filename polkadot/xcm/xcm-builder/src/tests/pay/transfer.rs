@@ -44,9 +44,8 @@ type TestTransferOverXcm =
 	TransferOverXcm<AliasesIntoAccountId32<AnyNetwork, AccountId>, TestTransferOverXcmHelper>;
 
 type TestTransferOverXcmHelper = TransferOverXcmHelper<
-	TestMessageSender,
+	XcmConfig,
 	TestQueryHandler<TestConfig, BlockNumber>,
-	TestFeeManager,
 	Timeout,
 	AccountId,
 	AssetKind,

@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		match Ledger::<T>::get(controller) {
-			Some(ledger) =>
+			Some(ledger) => {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
@@ -140,7 +140,8 @@ impl<T: Config> Pallet<T> {
 					} else {
 						Ok(LedgerIntegrityState::Ok)
 					}
-				},
+				}
+			},
 			None => Ok(LedgerIntegrityState::CorruptedKilled),
 		}
 	}
@@ -234,8 +235,12 @@ impl<T: Config> Pallet<T> {
 			// above returns earliest era for which offences are NOT processed yet, so we subtract
 			// one from it which gives us the oldest era for which all offences are processed.
 			.saturating_sub(1)
-			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
-			// We do the same to processed offence era so they can be compared.
+			// Unlock chunks are keyed by the era they were initiated plus their unbond duration.
+			// We use full BondingDuration (validator duration) here because:
+			// - For validators: this is their actual unbond duration
+			// - For nominators: when slashable, they use full duration; when not slashable, their
+			//   chunks already have shorter unlock eras (set during unbond), so this calculation
+			//   still correctly allows their withdrawals.
 			.saturating_add(T::BondingDuration::get());
 
 		// If there are unprocessed offences older than the active era, withdrawals are only
@@ -370,7 +375,7 @@ impl<T: Config> Pallet<T> {
 
 		if Eras::<T>::is_rewards_claimed(era, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)));
 		}
 
 		Eras::<T>::set_rewards_as_claimed(era, &stash, page);
@@ -396,7 +401,7 @@ impl<T: Config> Pallet<T> {
 
 		// Nothing to do if they have no reward points.
 		if validator_reward_points.is_zero() {
-			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
 		}
 
 		// This is the fraction of the total reward that the validator and the
@@ -485,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
 		// noop if amount is zero
 		if amount.is_zero() {
-			return None
+			return None;
 		}
 		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
@@ -533,6 +538,9 @@ impl<T: Config> Pallet<T> {
 
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
+
+		// Clean up validator history tracking.
+		LastValidatorEra::<T>::remove(&stash);
 
 		Ok(())
 	}
@@ -618,7 +626,7 @@ impl<T: Config> Pallet<T> {
 			// if voter weight is zero, do not consider this voter for the snapshot.
 			if voter_weight.is_zero() {
 				log!(debug, "voter's active balance is 0. skip this voter.");
-				continue
+				continue;
 			}
 
 			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
@@ -633,7 +641,7 @@ impl<T: Config> Pallet<T> {
 						Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 							size: voters_size_tracker.size as u32,
 						});
-						break
+						break;
 					}
 
 					all_voters.push(voter);
@@ -659,7 +667,7 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 						size: voters_size_tracker.size as u32,
 					});
-					break
+					break;
 				}
 				all_voters.push(self_vote);
 				validators_taken.saturating_inc();
@@ -721,7 +729,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::SnapshotTargetsSizeExceeded {
 					size: targets_size_tracker.size as u32,
 				});
-				break
+				break;
 			}
 
 			if Validators::<T>::contains_key(&target) {
@@ -900,7 +908,7 @@ impl<T: Config> Pallet<T> {
 		// dec provider
 		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
 
-		return Ok(())
+		return Ok(());
 	}
 }
 
@@ -1007,7 +1015,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		let targets = Self::get_npos_targets(bounds);
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
-			return Err("Target snapshot too big")
+			return Err("Target snapshot too big");
 		}
 
 		debug_assert!(!bounds.slice_exhausted(&targets));
@@ -1333,6 +1341,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn active_era_start_session_index() -> SessionIndex {
 		Rotator::<T>::active_era_start_session_index()
 	}
+
+	fn is_validator(who: &Self::AccountId) -> bool {
+		Validators::<T>::contains_key(who)
+	}
 }
 
 impl<T: Config> ScoreProvider<T::AccountId> for Pallet<T> {
@@ -1553,12 +1565,39 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map_err(|e| e.into())
 	}
 
+	/// Returns the bonding duration for validators.
+	///
+	/// Validators always need to wait the full [`Config::BondingDuration`] before withdrawing
+	/// unbonded funds, as they may be subject to slashing for offences reported during this period.
 	fn bonding_duration() -> EraIndex {
 		T::BondingDuration::get()
 	}
 
+	/// Returns the bonding duration for pure nominators.
+	///
+	/// This returns the *potential* fast unbonding duration that pure nominators can use:
+	/// - When [`AreNominatorsSlashable`] is `true`, returns full [`Config::BondingDuration`]
+	/// - When [`AreNominatorsSlashable`] is `false`, returns
+	///   [`Config::NominatorFastUnbondDuration`]
+	///
+	/// **Important**: The actual unbonding duration for a specific account is determined in
+	/// `unbond()` based on validator history (see [`LastValidatorEra`]):
+	/// - Validators always use full [`Config::BondingDuration`]
+	/// - Nominators who were validators in recent eras (within [`Config::BondingDuration`]) use
+	///   full [`Config::BondingDuration`] to ensure they can be slashed for past offences
+	/// - Pure nominators use the value returned by this function
+	fn nominator_bonding_duration() -> EraIndex {
+		if AreNominatorsSlashable::<T>::get() {
+			T::BondingDuration::get()
+		} else {
+			T::NominatorFastUnbondDuration::get()
+		}
+	}
+
 	fn current_era() -> EraIndex {
-		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+		// Named current_era for legacy interface compatibility, but returns active_era.
+		// Active era should be used for all non-election staking logic.
+		Rotator::<T>::active_era()
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {
@@ -1652,7 +1691,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
 		if !StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
-			return Err(Error::<T>::NotStash.into())
+			return Err(Error::<T>::NotStash.into());
 		}
 
 		let is_validator = Validators::<T>::contains_key(&who);
@@ -1729,7 +1768,7 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		payee: &Self::AccountId,
 	) -> DispatchResult {
 		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(keyless_who.clone())) {
-			return Err(Error::<T>::AlreadyBonded.into())
+			return Err(Error::<T>::AlreadyBonded.into());
 		}
 
 		// check if payee not same as who.
@@ -1813,9 +1852,11 @@ impl<T: Config> Pallet<T> {
 				// if stash == controller, it means that the ledger has migrated to
 				// post-controller. If no migration happened, we expect that the (stash,
 				// controller) pair has only one associated ledger.
+				{
 					if stash != controller {
 						count_double += 1;
-					},
+					}
+				},
 				(None, None) => {
 					count_none += 1;
 				},
@@ -1861,16 +1902,20 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
-	/// the system (validator is both voter and target).
 	/// * Number of targets in `TargetList` matches the number of validators in the system.
 	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
-		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
-			"wrong external count"
+		// When the bags list is locked, nominators and validators may be temporarily
+		// missing from the voter set. If `PendingRebag` is enabled, it will later
+		// reconcile the mismatch.
+		crate::log!(
+			debug,
+			"VoterList count: {}, Nominators count: {}, Validators count: {}",
+			<T as Config>::VoterList::count(),
+			Nominators::<T>::count(),
+			Validators::<T>::count()
 		);
+
 		ensure!(
 			<T as Config>::TargetList::count() == Validators::<T>::count(),
 			"wrong external count"
@@ -1953,10 +1998,23 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
+	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` should be set to the active
+	/// era.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
+				// ensure `LastValidatorEra` is correctly set
+				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+					log!(
+						warn,
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",
+						validator,
+						era,
+						LastValidatorEra::<T>::get(&validator)
+					);
+				}
+
 				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
 					.map(|(_idx, page)| page)
 					.collect::<Vec<_>>();

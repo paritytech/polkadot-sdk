@@ -46,7 +46,7 @@ use xcm::{
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
-use xcm_executor::{traits::TransactAsset, AssetsInHolding};
+use xcm_executor::traits::TransactAsset;
 
 pub mod test_cases;
 
@@ -283,7 +283,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 
@@ -312,7 +312,7 @@ where
 		loop {
 			let block_number = frame_system::Pallet::<Runtime>::block_number();
 			if block_number >= n.into() {
-				break
+				break;
 			}
 			// Set the new block number and author
 			let header = frame_system::Pallet::<Runtime>::finalize();
@@ -403,7 +403,7 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 		from: Location,
 		to: Location,
 		(asset, amount): (Location, u128),
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<Asset, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
 			&Asset { id: AssetId(asset), fun: Fungible(amount) },
 			&from,
@@ -522,16 +522,20 @@ impl<
 		match governance_origin {
 			// we are simulating a case of receiving an XCM
 			// and Location::Here() is not a valid destionation for XcmRouter in the fist place
-			GovernanceOrigin::Location(location) if location == Location::here() =>
-				panic!("Location::here() not supported, use GovernanceOrigin::Origin instead"),
-			GovernanceOrigin::Location(location) =>
-				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
-			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
+			GovernanceOrigin::Location(location) if location == Location::here() => {
+				panic!("Location::here() not supported, use GovernanceOrigin::Origin instead")
+			},
+			GovernanceOrigin::Location(location) => {
+				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right)
+			},
+			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) => {
 				execute_xcm(call, location, Some(descend_origin))
 					.ensure_complete()
-					.map_err(Either::Right),
-			GovernanceOrigin::Origin(origin) =>
-				call.dispatch(origin).map(|_| ()).map_err(|e| Either::Left(e.error)),
+					.map_err(Either::Right)
+			},
+			GovernanceOrigin::Origin(origin) => {
+				call.dispatch(origin).map(|_| ()).map_err(|e| Either::Left(e.error))
+			},
 		}
 	}
 
@@ -639,8 +643,9 @@ impl<
 			.into_iter()
 			.filter_map(|e| unwrap_xcmp_queue_event(e.event.encode()))
 			.find_map(|e| match e {
-				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } =>
-					Some(message_hash),
+				cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { message_hash } => {
+					Some(message_hash)
+				},
 				_ => None,
 			})
 	}

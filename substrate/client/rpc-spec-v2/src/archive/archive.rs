@@ -96,7 +96,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 fn parse_hex_param(param: String) -> Result<Vec<u8>, ArchiveError> {
 	// Methods can accept empty parameters.
 	if param.is_empty() {
-		return Ok(Default::default())
+		return Ok(Default::default());
 	}
 
 	array_bytes::hex2bytes(&param).map_err(|_| ArchiveError::InvalidParam(param))
@@ -153,7 +153,7 @@ where
 
 		if finalized_num >= height {
 			let Ok(Some(hash)) = self.client.block_hash(height) else { return Ok(vec![]) };
-			return Ok(vec![hex_string(&hash.as_ref())])
+			return Ok(vec![hex_string(&hash.as_ref())]);
 		}
 
 		let blockchain = self.backend.blockchain();
@@ -166,7 +166,7 @@ where
 				let Ok(Some(header)) = self.client.header(hash) else { return None };
 
 				if header.number() < &height {
-					return None
+					return None;
 				}
 
 				Some(header)
@@ -179,7 +179,7 @@ where
 		while let Some(header) = headers.pop() {
 			if header.number() == &height {
 				result.push(hex_string(&header.hash().as_ref()));
-				continue
+				continue;
 			}
 
 			let parent_hash = *header.parent_hash();
@@ -254,7 +254,7 @@ where
 				Ok(items) => items,
 				Err(error) => {
 					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
-					return
+					return;
 				},
 			};
 
@@ -263,7 +263,7 @@ where
 				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
 				Err(error) => {
 					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
-					return
+					return;
 				},
 			};
 
@@ -302,7 +302,7 @@ where
 				let Ok(Some(current_header)) = client.header(hash) else {
 					let message = format!("Block header is not present: {hash}");
 					let _ = sink.send(&ArchiveStorageDiffEvent::err(message)).await;
-					return
+					return;
 				};
 				*current_header.parent_hash()
 			};

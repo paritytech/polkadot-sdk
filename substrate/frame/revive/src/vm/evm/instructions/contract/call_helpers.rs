@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	Pallet, RuntimeCosts,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext,
+		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
-	Pallet, RuntimeCosts,
 };
 use core::ops::{ControlFlow, Range};
 use revm::interpreter::interpreter_action::CallScheme;
@@ -50,7 +50,7 @@ pub fn resize_memory<'a, E: Ext>(
 		interpreter.memory.resize(offset, len)?;
 		ControlFlow::Continue(offset..offset + len)
 	} else {
-		//unrealistic value so we are sure it is not used
+		// unrealistic value so we are sure it is not used
 		ControlFlow::Continue(usize::MAX..usize::MAX)
 	}
 }

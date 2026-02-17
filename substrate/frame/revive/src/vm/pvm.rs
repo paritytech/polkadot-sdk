@@ -19,20 +19,20 @@
 
 pub mod env;
 
-#[cfg(doc)]
-pub use env::SyscallDoc;
-
 use crate::{
+	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	Code, Config, Error, Pallet, ReentrancyProtection, RuntimeCosts, LOG_TARGET, SENTINEL,
+	tracing::FrameTraceInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::{fmt, marker::PhantomData, mem};
+#[cfg(doc)]
+pub use env::SyscallDoc;
 use frame_support::{ensure, weights::Weight};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
@@ -216,11 +216,7 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
 	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) {
-			Self::CalleeReverted
-		} else {
-			Self::Success
-		}
+		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
 	}
 }
 
@@ -269,9 +265,7 @@ impl fmt::Display for TrapReason {
 /// We need this access as a macro because sometimes hiding the lifetimes behind
 /// a function won't work out.
 macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.frame_meter_mut().charge_weight_token($costs)
-	}};
+	($runtime:expr, $costs:expr) => {{ $runtime.ext.frame_meter_mut().charge_weight_token($costs) }};
 }
 
 /// The kind of call that should be performed.
@@ -640,8 +634,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
-			Some(precompile) if precompile.has_contract_info() =>
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(precompile) if precompile.has_contract_info() => {
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};
@@ -814,6 +809,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	}
 }
 
+impl<'a, E: Ext, M: ?Sized + Memory<E::T>> FrameTraceInfo for Runtime<'a, E, M> {
+	fn gas_left(&self) -> u64 {
+		let meter = self.ext.frame_meter();
+		meter.eth_gas_left().unwrap_or_default().try_into().unwrap_or_default()
+	}
+	fn weight_consumed(&self) -> Weight {
+		let meter = self.ext.frame_meter();
+		meter.weight_consumed()
+	}
+
+	fn last_frame_output(&self) -> crate::evm::Bytes {
+		crate::evm::Bytes(self.ext.last_frame_output().data.clone())
+	}
+}
+
 pub struct PreparedCall<'a, E: Ext> {
 	module: polkavm::Module,
 	instance: polkavm::RawInstance,
@@ -827,7 +837,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{
-				break exec_result
+				break exec_result;
 			}
 		};
 		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;

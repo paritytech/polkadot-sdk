@@ -364,7 +364,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -384,7 +384,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -797,15 +797,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {

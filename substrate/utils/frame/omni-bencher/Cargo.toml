@@ -15,10 +15,15 @@ workspace = true
 clap = { features = ["derive"], workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 frame-benchmarking-cli = { workspace = true }
+polkadot-jemalloc-shim = { workspace = true }
 sc-cli = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Jemalloc as global allocator prevents huge benchmark regression for storage-heavy extrinsics.
+polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

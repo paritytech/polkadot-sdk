@@ -177,7 +177,7 @@ fn adjust_authoring_duration(
 	// regardless of authoring duration.
 	if duration_until_deadline == Duration::ZERO {
 		if different_authors {
-			tracing::warn!(
+			tracing::debug!(
 				target: LOG_TARGET,
 				?duration_until_next_slot,
 				?next_slot,
@@ -354,7 +354,7 @@ where
 			Ok(d) => d,
 			Err(error) => {
 				tracing::error!(target: LOG_TARGET, %error, "Failed to fetch slot duration from runtime.");
-				return Err(())
+				return Err(());
 			},
 		};
 

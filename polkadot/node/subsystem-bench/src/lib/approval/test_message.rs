@@ -138,7 +138,7 @@ impl TestMessageInfo {
 		if self.is_approval() {
 			match &self.msg {
 				protocol_v3::ApprovalDistributionMessage::Assignments(_) => todo!(),
-				protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+				protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => {
 					for approval in approvals {
 						for candidate_index in approval.candidate_indices.iter_ones() {
 							state
@@ -149,7 +149,8 @@ impl TestMessageInfo {
 								.unwrap()
 								.store(true, std::sync::atomic::Ordering::SeqCst);
 						}
-					},
+					}
+				},
 			}
 		}
 	}
@@ -178,18 +179,20 @@ impl TestMessageInfo {
 	pub fn candidate_indices(&self) -> HashSet<usize> {
 		let mut unique_candidate_indices = HashSet::new();
 		match &self.msg {
-			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				for (_assignment, candidate_indices) in assignments {
 					for candidate_index in candidate_indices.iter_ones() {
 						unique_candidate_indices.insert(candidate_index);
 					}
-				},
-			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+				}
+			},
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => {
 				for approval in approvals {
 					for candidate_index in approval.candidate_indices.iter_ones() {
 						unique_candidate_indices.insert(candidate_index);
 					}
-				},
+				}
+			},
 		}
 		unique_candidate_indices
 	}
@@ -262,7 +265,7 @@ impl TestMessageInfo {
 		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
 	) -> bool {
 		match &self.msg {
-			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
+			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				assignments.iter().any(|(assignment, candidate_indices)| {
 					candidate_indices.iter_ones().any(|candidate_index| {
 						candidates_test_data
@@ -270,8 +273,9 @@ impl TestMessageInfo {
 							.map(|data| data.should_send_tranche(self.tranche))
 							.unwrap_or_default()
 					})
-				}),
-			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
+				})
+			},
+			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) => {
 				approvals.iter().any(|approval| {
 					approval.candidate_indices.iter_ones().any(|candidate_index| {
 						candidates_test_data
@@ -279,7 +283,8 @@ impl TestMessageInfo {
 							.map(|data| data.should_send_tranche(self.tranche))
 							.unwrap_or_default()
 					})
-				}),
+				})
+			},
 		}
 	}
 

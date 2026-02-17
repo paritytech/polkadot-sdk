@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use crate::{
+	Config,
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
 	vm::RuntimeCosts,
-	Config,
 };
 use alloc::{vec, vec::Vec};
 use core::{cmp::max, marker::PhantomData, num::NonZero};
@@ -93,7 +93,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 
 		// if mod_len is 0 output must be empty
 		if mod_len == 0 {
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		}
 
 		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
