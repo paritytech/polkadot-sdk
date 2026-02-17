@@ -10,10 +10,10 @@ crates:
 - name: snowbridge-pallet-ethereum-client
   bump: patch
 - name: snowbridge-pallet-ethereum-client-fixtures
-  bump: none
+  bump: patch
 - name: snowbridge-pallet-inbound-queue-fixtures
-  bump: none
+  bump: patch
 - name: snowbridge-pallet-inbound-queue-v2-fixtures
-  bump: none
+  bump: patch
 - name: snowbridge-pallet-outbound-queue-v2
   bump: patch
