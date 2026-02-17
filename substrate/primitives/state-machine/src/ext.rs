@@ -22,23 +22,23 @@ use crate::overlayed_changes::OverlayedExtensions;
 use crate::{
 	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
-use codec::{Encode, EncodeAppend};
+use codec::{Compact, CompactLen, Decode, Encode};
 use hash_db::Hasher;
 #[cfg(feature = "std")]
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
+#[cfg(feature = "std")]
+use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
-use crate::{log_error, trace, warn};
-use alloc::{boxed::Box, vec, vec::Vec};
+use crate::{trace, warn};
+use alloc::{boxed::Box, vec::Vec};
 use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
 };
-#[cfg(feature = "std")]
-use std::error;
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -54,38 +54,6 @@ fn guard() -> sp_panic_handler::AbortGuard {
 #[cfg(not(feature = "std"))]
 fn guard() -> () {
 	()
-}
-
-/// Errors that can occur when interacting with the externalities.
-#[cfg(feature = "std")]
-#[derive(Debug, Copy, Clone)]
-pub enum Error<B, E> {
-	/// Failure to load state data from the backend.
-	#[allow(unused)]
-	Backend(B),
-	/// Failure to execute a function.
-	#[allow(unused)]
-	Executor(E),
-}
-
-#[cfg(feature = "std")]
-impl<B: std::fmt::Display, E: std::fmt::Display> std::fmt::Display for Error<B, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Error::Backend(ref e) => write!(f, "Storage backend error: {}", e),
-			Error::Executor(ref e) => write!(f, "Sub-call execution error: {}", e),
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl<B: error::Error, E: error::Error> error::Error for Error<B, E> {
-	fn description(&self) -> &str {
-		match *self {
-			Error::Backend(..) => "backend error",
-			Error::Executor(..) => "executor error",
-		}
-	}
 }
 
 /// Wraps a read-only backend, call executor, and current overlayed changes.
@@ -139,7 +107,8 @@ where
 	H::Out: Ord + 'static,
 	B: 'a + Backend<H>,
 {
-	pub fn storage_pairs(&self) -> Vec<(StorageKey, StorageValue)> {
+	/// Return all storage pairs from the backend and overlay combined.
+	pub fn storage_pairs(&mut self) -> Vec<(StorageKey, StorageValue)> {
 		use std::collections::HashMap;
 
 		self.backend
@@ -147,7 +116,7 @@ where
 			.expect("never fails in tests; qed.")
 			.map(|key_value| key_value.expect("never fails in tests; qed."))
 			.map(|(k, v)| (k, Some(v)))
-			.chain(self.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())))
+			.chain(self.overlay.changes_mut().map(|(k, v)| (k.clone(), v.value().cloned())))
 			.collect::<HashMap<_, _>>()
 			.into_iter()
 			.filter_map(|(k, maybe_val)| maybe_val.map(|val| (k, val)))
@@ -165,7 +134,7 @@ where
 		self.overlay.set_offchain_storage(key, value)
 	}
 
-	fn storage(&self, key: &[u8]) -> Option<StorageValue> {
+	fn storage(&mut self, key: &[u8]) -> Option<StorageValue> {
 		let _guard = guard();
 		let result = self
 			.overlay
@@ -191,7 +160,7 @@ where
 		result
 	}
 
-	fn storage_hash(&self, key: &[u8]) -> Option<Vec<u8>> {
+	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
 		let result = self
 			.overlay
@@ -209,7 +178,7 @@ where
 		result.map(|r| r.encode())
 	}
 
-	fn child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
+	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
 		let _guard = guard();
 		let result = self
 			.overlay
@@ -231,7 +200,7 @@ where
 		result
 	}
 
-	fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
+	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
 		let result = self
 			.overlay
@@ -253,7 +222,7 @@ where
 		result.map(|r| r.encode())
 	}
 
-	fn exists_storage(&self, key: &[u8]) -> bool {
+	fn exists_storage(&mut self, key: &[u8]) -> bool {
 		let _guard = guard();
 		let result = match self.overlay.storage(key) {
 			Some(x) => x.is_some(),
@@ -271,7 +240,7 @@ where
 		result
 	}
 
-	fn exists_child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> bool {
+	fn exists_child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> bool {
 		let _guard = guard();
 
 		let result = match self.overlay.child_storage(child_info, key) {
@@ -293,7 +262,7 @@ where
 		result
 	}
 
-	fn next_storage_key(&self, key: &[u8]) -> Option<StorageKey> {
+	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
 		let mut next_backend_key =
 			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let mut overlay_changes = self.overlay.iter_after(key).peekable();
@@ -306,11 +275,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -331,7 +300,7 @@ where
 		}
 	}
 
-	fn next_child_storage_key(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
+	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
 		let mut next_backend_key = self
 			.backend
 			.next_child_storage_key(child_info, key)
@@ -347,11 +316,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -376,7 +345,7 @@ where
 		let _guard = guard();
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to directly set child storage key");
-			return
+			return;
 		}
 
 		// NOTE: be careful about touching the key names – used outside substrate!
@@ -454,7 +423,7 @@ where
 				target: "trie",
 				"Refuse to directly clear prefix that is part or contains of child storage key",
 			);
-			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
+			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 };
 		}
 
 		let overlay = self.overlay.clear_prefix(prefix);
@@ -501,10 +470,9 @@ where
 		let _guard = guard();
 
 		let backend = &mut self.backend;
-		let current_value = self.overlay.value_mut_or_insert_with(&key, || {
+		self.overlay.append_storage(key.clone(), value, || {
 			backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
 		});
-		StorageAppend::new(current_value).append(value);
 	}
 
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
@@ -579,15 +547,34 @@ where
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		self.overlay.start_transaction();
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.start_transaction(TransactionType::Runtime);
+		}
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		self.overlay.rollback_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.rollback_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		self.overlay.commit_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.commit_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn wipe(&mut self) {
@@ -673,7 +660,7 @@ where
 			Ok(iter) => iter,
 			Err(error) => {
 				log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-				return (None, 0, 0)
+				return (None, 0, 0);
 			},
 		};
 
@@ -685,13 +672,13 @@ where
 				Ok(key) => key,
 				Err(error) => {
 					log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-					break
+					break;
 				},
 			};
 
 			if maybe_limit.map_or(false, |limit| loop_count == limit) {
 				maybe_next_key = Some(key);
-				break
+				break;
 			}
 			let overlay = match child_info {
 				Some(child_info) => self.overlay.child_storage(child_info, &key),
@@ -714,6 +701,7 @@ where
 }
 
 /// Implement `Encode` by forwarding the stored raw vec.
+#[allow(dead_code)]
 struct EncodeOpaqueValue(Vec<u8>);
 
 impl Encode for EncodeOpaqueValue {
@@ -731,10 +719,27 @@ impl<'a> StorageAppend<'a> {
 		Self(storage)
 	}
 
+	/// Extract the length of the list like data structure.
+	pub fn extract_length(&self) -> Option<u32> {
+		Compact::<u32>::decode(&mut &self.0[..]).map(|c| c.0).ok()
+	}
+
+	/// Replace the length in the encoded data.
+	///
+	/// If `old_length` is `None`, the previous length will be assumed to be `0`.
+	pub fn replace_length(&mut self, old_length: Option<u32>, new_length: u32) {
+		let old_len_encoded_len = old_length.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
+		let new_len_encoded = Compact::<u32>(new_length).encode();
+		self.0.splice(0..old_len_encoded_len, new_len_encoded);
+	}
+
 	/// Append the given `value` to the storage item.
 	///
-	/// If appending fails, `[value]` is stored in the storage item.
-	pub fn append(&mut self, value: Vec<u8>) {
+	/// If appending fails, `[value]` is stored in the storage item and we return false.
+	#[cfg(any(test, feature = "fuzzing"))]
+	pub fn append(&mut self, value: Vec<u8>) -> bool {
+		use codec::EncodeAppend;
+		let mut result = true;
 		let value = vec![EncodeOpaqueValue(value)];
 
 		let item = core::mem::take(self.0);
@@ -742,13 +747,20 @@ impl<'a> StorageAppend<'a> {
 		*self.0 = match Vec::<EncodeOpaqueValue>::append_or_new(item, &value) {
 			Ok(item) => item,
 			Err(_) => {
-				log_error!(
+				result = false;
+				crate::log_error!(
 					target: "runtime",
 					"Failed to append value, resetting storage item to `[value]`.",
 				);
 				value.encode()
 			},
 		};
+		result
+	}
+
+	/// Append to current buffer, do not touch the prefixed length.
+	pub fn append_raw(&mut self, mut value: Vec<u8>) {
+		self.0.append(&mut value)
 	}
 }
 
@@ -849,7 +861,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![10]));
@@ -865,7 +877,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_storage(vec![50], Some(vec![50]));
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_storage_key(&[40]), Some(vec![50]));
@@ -895,7 +907,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![30]));
 
@@ -928,7 +940,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_child_storage_key(child_info, &[5]), Some(vec![10]));
@@ -944,7 +956,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_child_storage(child_info, vec![50], Some(vec![50]));
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_child_storage_key(child_info, &[40]), Some(vec![50]));
@@ -975,7 +987,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		assert_eq!(ext.child_storage(child_info, &[10]), Some(vec![10]));
 		assert_eq!(

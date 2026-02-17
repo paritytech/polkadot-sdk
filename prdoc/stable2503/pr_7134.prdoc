@@ -1,0 +1,11 @@
+title: 'xcm: convert properly assets in xcmpayment apis'
+doc:
+- audience: Runtime User
+  description: |-
+    Port #6459 changes to relays as well, which were probably forgotten in that PR.
+    Thanks!
+crates:
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch

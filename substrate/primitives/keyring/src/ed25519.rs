@@ -18,6 +18,8 @@
 //! Support code for the runtime. A set of test accounts.
 
 pub use sp_core::ed25519;
+
+use crate::ParseKeyringError;
 #[cfg(feature = "std")]
 use sp_core::ed25519::Signature;
 use sp_core::{
@@ -27,7 +29,7 @@ use sp_core::{
 use sp_runtime::AccountId32;
 
 extern crate alloc;
-use alloc::{format, string::String, vec::Vec};
+use alloc::{format, str::FromStr, string::String, vec::Vec};
 
 /// Set of test accounts.
 #[derive(
@@ -105,6 +107,14 @@ impl Keyring {
 	pub fn to_seed(self) -> String {
 		format!("//{}", self)
 	}
+
+	pub fn well_known() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(12)
+	}
+
+	pub fn invulnerable() -> impl Iterator<Item = Keyring> {
+		Self::iter().take(6)
+	}
 }
 
 impl From<Keyring> for &'static str {
@@ -134,6 +144,30 @@ impl From<Keyring> for sp_runtime::MultiSigner {
 	}
 }
 
+impl FromStr for Keyring {
+	type Err = ParseKeyringError;
+
+	fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+		match s {
+			"Alice" | "alice" => Ok(Keyring::Alice),
+			"Bob" | "bob" => Ok(Keyring::Bob),
+			"Charlie" | "charlie" => Ok(Keyring::Charlie),
+			"Dave" | "dave" => Ok(Keyring::Dave),
+			"Eve" | "eve" => Ok(Keyring::Eve),
+			"Ferdie" | "ferdie" => Ok(Keyring::Ferdie),
+			"Alice//stash" | "alice//stash" => Ok(Keyring::AliceStash),
+			"Bob//stash" | "bob//stash" => Ok(Keyring::BobStash),
+			"Charlie//stash" | "charlie//stash" => Ok(Keyring::CharlieStash),
+			"Dave//stash" | "dave//stash" => Ok(Keyring::DaveStash),
+			"Eve//stash" | "eve//stash" => Ok(Keyring::EveStash),
+			"Ferdie//stash" | "ferdie//stash" => Ok(Keyring::FerdieStash),
+			"One" | "one" => Ok(Keyring::One),
+			"Two" | "two" => Ok(Keyring::Two),
+			_ => Err(ParseKeyringError),
+		}
+	}
+}
+
 impl From<Keyring> for Public {
 	fn from(k: Keyring) -> Self {
 		Public::from_raw(k.into())
@@ -155,34 +189,48 @@ impl From<Keyring> for Pair {
 impl From<Keyring> for [u8; 32] {
 	fn from(k: Keyring) -> Self {
 		match k {
-			Keyring::Alice =>
-				hex2array!("88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee"),
-			Keyring::Bob =>
-				hex2array!("d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69"),
-			Keyring::Charlie =>
-				hex2array!("439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f"),
-			Keyring::Dave =>
-				hex2array!("5e639b43e0052c47447dac87d6fd2b6ec50bdd4d0f614e4299c665249bbd09d9"),
-			Keyring::Eve =>
-				hex2array!("1dfe3e22cc0d45c70779c1095f7489a8ef3cf52d62fbd8c2fa38c9f1723502b5"),
-			Keyring::Ferdie =>
-				hex2array!("568cb4a574c6d178feb39c27dfc8b3f789e5f5423e19c71633c748b9acf086b5"),
-			Keyring::AliceStash =>
-				hex2array!("451781cd0c5504504f69ceec484cc66e4c22a2b6a9d20fb1a426d91ad074a2a8"),
-			Keyring::BobStash =>
-				hex2array!("292684abbb28def63807c5f6e84e9e8689769eb37b1ab130d79dbfbf1b9a0d44"),
-			Keyring::CharlieStash =>
-				hex2array!("dd6a6118b6c11c9c9e5a4f34ed3d545e2c74190f90365c60c230fa82e9423bb9"),
-			Keyring::DaveStash =>
-				hex2array!("1d0432d75331ab299065bee79cdb1bdc2497c597a3087b4d955c67e3c000c1e2"),
-			Keyring::EveStash =>
-				hex2array!("c833bdd2e1a7a18acc1c11f8596e2e697bb9b42d6b6051e474091a1d43a294d7"),
-			Keyring::FerdieStash =>
-				hex2array!("199d749dbf4b8135cb1f3c8fd697a390fc0679881a8a110c1d06375b3b62cd09"),
-			Keyring::One =>
-				hex2array!("16f97016bbea8f7b45ae6757b49efc1080accc175d8f018f9ba719b60b0815e4"),
-			Keyring::Two =>
-				hex2array!("5079bcd20fd97d7d2f752c4607012600b401950260a91821f73e692071c82bf5"),
+			Keyring::Alice => {
+				hex2array!("88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee")
+			},
+			Keyring::Bob => {
+				hex2array!("d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69")
+			},
+			Keyring::Charlie => {
+				hex2array!("439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f")
+			},
+			Keyring::Dave => {
+				hex2array!("5e639b43e0052c47447dac87d6fd2b6ec50bdd4d0f614e4299c665249bbd09d9")
+			},
+			Keyring::Eve => {
+				hex2array!("1dfe3e22cc0d45c70779c1095f7489a8ef3cf52d62fbd8c2fa38c9f1723502b5")
+			},
+			Keyring::Ferdie => {
+				hex2array!("568cb4a574c6d178feb39c27dfc8b3f789e5f5423e19c71633c748b9acf086b5")
+			},
+			Keyring::AliceStash => {
+				hex2array!("451781cd0c5504504f69ceec484cc66e4c22a2b6a9d20fb1a426d91ad074a2a8")
+			},
+			Keyring::BobStash => {
+				hex2array!("292684abbb28def63807c5f6e84e9e8689769eb37b1ab130d79dbfbf1b9a0d44")
+			},
+			Keyring::CharlieStash => {
+				hex2array!("dd6a6118b6c11c9c9e5a4f34ed3d545e2c74190f90365c60c230fa82e9423bb9")
+			},
+			Keyring::DaveStash => {
+				hex2array!("1d0432d75331ab299065bee79cdb1bdc2497c597a3087b4d955c67e3c000c1e2")
+			},
+			Keyring::EveStash => {
+				hex2array!("c833bdd2e1a7a18acc1c11f8596e2e697bb9b42d6b6051e474091a1d43a294d7")
+			},
+			Keyring::FerdieStash => {
+				hex2array!("199d749dbf4b8135cb1f3c8fd697a390fc0679881a8a110c1d06375b3b62cd09")
+			},
+			Keyring::One => {
+				hex2array!("16f97016bbea8f7b45ae6757b49efc1080accc175d8f018f9ba719b60b0815e4")
+			},
+			Keyring::Two => {
+				hex2array!("5079bcd20fd97d7d2f752c4607012600b401950260a91821f73e692071c82bf5")
+			},
 		}
 	}
 }
@@ -220,5 +268,41 @@ mod tests {
 	#[test]
 	fn verify_static_public_keys() {
 		assert!(Keyring::iter().all(|k| { k.pair().public().as_ref() == <[u8; 32]>::from(k) }));
+	}
+
+	#[test]
+	fn verify_well_known() {
+		assert_eq!(
+			Keyring::well_known().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie,
+				Keyring::AliceStash,
+				Keyring::BobStash,
+				Keyring::CharlieStash,
+				Keyring::DaveStash,
+				Keyring::EveStash,
+				Keyring::FerdieStash
+			]
+		);
+	}
+
+	#[test]
+	fn verify_invulnerable() {
+		assert_eq!(
+			Keyring::invulnerable().collect::<Vec<Keyring>>(),
+			vec![
+				Keyring::Alice,
+				Keyring::Bob,
+				Keyring::Charlie,
+				Keyring::Dave,
+				Keyring::Eve,
+				Keyring::Ferdie
+			]
+		);
 	}
 }

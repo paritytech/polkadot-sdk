@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::{cmp::Ordering, vec::Vec};
+use alloc::vec::Vec;
+use core::cmp::Ordering;
 
 /// A helper trait to allow calling retain while getting access
 /// to the index of the item in the `vec`.
@@ -61,7 +62,7 @@ where
 			previous
 		} else {
 			// empty is always sorted
-			return true
+			return true;
 		};
 		while let Some(cursor) = iter.next() {
 			match cmp(&previous, &cursor) {

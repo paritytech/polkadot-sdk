@@ -25,14 +25,13 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
-use pallet_staking::FixedNominationsQuota;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{KeyTypeId, Pair, VrfSecret},
-	U256,
+	crypto::{Pair, VrfSecret},
+	ConstBool, U256,
 };
 use sp_io;
 use sp_runtime::{
@@ -40,7 +39,7 @@ use sp_runtime::{
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
 	traits::{Header as _, OpaqueKeys},
-	BuildStorage, Perbill,
+	BuildStorage, DispatchError, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
@@ -69,12 +68,21 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = TestXt<RuntimeCall, ()>;
+}
+
+impl<C> frame_system::offchain::CreateBare<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		TestXt::new_bare(call)
+	}
 }
 
 impl_opaque_keys! {
@@ -86,18 +94,22 @@ impl_opaque_keys! {
 impl pallet_session::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <MockSessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = MockSessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {
-	type FullIdentification = pallet_staking::Exposure<u64, u128>;
-	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+	type RuntimeEvent = RuntimeEvent;
+	type FullIdentification = ();
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 impl pallet_authorship::Config for Test {
@@ -112,20 +124,12 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+type Balance = u128;
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type Balance = u128;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -142,9 +146,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: EraIndex = 3;
-	pub const SlashDeferDuration: EraIndex = 0;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(16);
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
@@ -154,39 +156,27 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Solver = SequentialPhragmen<DummyValidatorId, Perbill>;
 	type DataProvider = Staking;
 	type WeightInfo = ();
-	type MaxWinners = ConstU32<100>;
+	type MaxWinnersPerPage = ConstU32<100>;
+	type MaxBackersPerWinner = ConstU32<100>;
+	type Sort = ConstBool<true>;
 	type Bounds = ElectionsBounds;
 }
 
+#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
 impl pallet_staking::Config for Test {
-	type RewardRemainder = ();
-	type CurrencyToVote = ();
-	type RuntimeEvent = RuntimeEvent;
+	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type Slash = ();
-	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
-	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxExposurePageSize = ConstU32<64>;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
-	type NominationsQuota = FixedNominationsQuota<16>;
-	type MaxUnlockingChunks = ConstU32<32>;
-	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type HistoryDepth = ConstU32<84>;
-	type EventListeners = ();
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type WeightInfo = ();
 }
 
 impl pallet_offences::Config for Test {
@@ -209,7 +199,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
 	type MaxNominators = ConstU32<100>;
-	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem =
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -240,7 +230,7 @@ pub fn go_to_block(n: u64, s: u64) {
 
 /// Slots will grow accordingly to blocks
 pub fn progress_to_block(n: u64) {
-	let mut slot = u64::from(Babe::current_slot()) + 1;
+	let mut slot = u64::from(CurrentSlot::<Test>::get()) + 1;
 	for i in System::block_number() + 1..=n {
 		go_to_block(i, slot);
 		slot += 1;
@@ -257,7 +247,7 @@ pub fn start_session(session_index: SessionIndex) {
 /// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(Staking::current_era(), Some(era_index));
+	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
 pub fn make_primary_pre_digest(
@@ -299,7 +289,8 @@ pub fn make_vrf_signature_and_randomness(
 	slot: Slot,
 	pair: &sp_consensus_babe::AuthorityPair,
 ) -> (VrfSignature, Randomness) {
-	let transcript = sp_consensus_babe::make_vrf_transcript(&Babe::randomness(), slot, 0);
+	let transcript =
+		sp_consensus_babe::make_vrf_transcript(&pallet_babe::Randomness::<Test>::get(), slot, 0);
 
 	let randomness =
 		pair.as_ref().make_bytes(sp_consensus_babe::RANDOMNESS_VRF_CONTEXT, &transcript);
@@ -317,7 +308,7 @@ pub fn new_test_ext_with_pairs(
 	authorities_len: usize,
 ) -> (Vec<AuthorityPair>, sp_io::TestExternalities) {
 	let pairs = (0..authorities_len)
-		.map(|i| AuthorityPair::from_seed(&U256::from(i).into()))
+		.map(|i| AuthorityPair::from_seed(&U256::from(i).to_little_endian()))
 		.collect::<Vec<_>>();
 
 	let public = pairs.iter().map(|p| p.public()).collect();
@@ -326,11 +317,12 @@ pub fn new_test_ext_with_pairs(
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -345,7 +337,7 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	// NOTE: this will initialize the babe authorities
 	// through OneSessionHandler::on_genesis_session
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
+	pallet_session::GenesisConfig::<Test> { keys: session_keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -380,16 +372,24 @@ pub fn generate_equivocation_proof(
 	let current_slot = CurrentSlot::<Test>::get();
 
 	let make_header = || {
-		let parent_hash = System::parent_hash();
-		let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
-		System::reset_events();
-		System::initialize(&current_block, &parent_hash, &pre_digest);
-		System::set_block_number(current_block);
-		Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
-		System::finalize()
+		// We don't want to change any state, so we build the headers in a transaction and revert it
+		// afterward.
+		frame_support::storage::with_transaction(|| {
+			let parent_hash = System::parent_hash();
+			let pre_digest = make_secondary_plain_pre_digest(offender_authority_index, slot);
+			System::reset_events();
+			System::set_block_number(System::block_number() - 1);
+			System::initialize(&current_block, &parent_hash, &pre_digest);
+			System::set_block_number(current_block);
+			Timestamp::set_timestamp(*current_slot * Babe::slot_duration());
+			let header = System::finalize();
+
+			sp_runtime::TransactionOutcome::Rollback(Ok::<_, DispatchError>(header))
+		})
+		.unwrap()
 	};
 
-	// sign the header prehash and sign it, adding it to the block as the seal
+	// Sign the header prehash and sign it, adding it to the block as the seal
 	// digest item
 	let seal_header = |header: &mut Header| {
 		let prehash = header.hash();
@@ -399,15 +399,12 @@ pub fn generate_equivocation_proof(
 		header.digest_mut().push(seal);
 	};
 
-	// generate two headers at the current block
+	// Generate two headers at the current block
 	let mut h1 = make_header();
 	let mut h2 = make_header();
 
 	seal_header(&mut h1);
 	seal_header(&mut h2);
-
-	// restore previous runtime state
-	go_to_block(current_block, *current_slot);
 
 	sp_consensus_babe::EquivocationProof {
 		slot,

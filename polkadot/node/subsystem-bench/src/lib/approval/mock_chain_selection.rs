@@ -16,7 +16,7 @@
 
 use crate::approval::{ApprovalTestState, PastSystemClock, LOG_TARGET, SLOT_DURATION_MILLIS};
 use futures::FutureExt;
-use polkadot_node_core_approval_voting::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
+use polkadot_node_primitives::approval::time::{slot_number_to_tick, Clock, TICK_DURATION_MILLIS};
 use polkadot_node_subsystem::{overseer, SpawnedSubsystem, SubsystemError};
 use polkadot_node_subsystem_types::messages::ChainSelectionMessage;
 
@@ -43,7 +43,7 @@ impl MockChainSelection {
 			let msg = ctx.recv().await.expect("Should not fail");
 			match msg {
 				orchestra::FromOrchestra::Signal(_) => {},
-				orchestra::FromOrchestra::Communication { msg } =>
+				orchestra::FromOrchestra::Communication { msg } => {
 					if let ChainSelectionMessage::Approved(hash) = msg {
 						let block_info = self.state.get_info_by_hash(hash);
 						let approved_number = block_info.block_number;
@@ -57,7 +57,8 @@ impl MockChainSelection {
 							slot_number_to_tick(SLOT_DURATION_MILLIS, block_info.slot);
 
 						gum::info!(target: LOG_TARGET, ?hash, "Chain selection approved  after {:} ms", approved_in_tick * TICK_DURATION_MILLIS);
-					},
+					}
+				},
 			}
 		}
 	}

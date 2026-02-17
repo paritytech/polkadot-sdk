@@ -1,0 +1,10 @@
+title: Add possibility of executing or mocking additional inherents in xcm-emulator
+doc:
+- audience: Runtime Dev
+  description: |-
+   This extends the `decl_test_parachains` macro to accept a `AdditionalInherentCode` type. This type needs to
+   implement the `AdditionalInherentCode` trait and will be called after `on_initialize` and before `on_finalize`.
+   It can be used to mock additional inherents. 
+crates:
+- name: xcm-emulator
+  bump: minor

@@ -1,0 +1,80 @@
+title: Switch to new `CandidateReceipt` primitives
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |
+    This change is just plumbing work and updates all crate interfaces to use the new primitives.
+    It doesn't alter any functionality and is required before implementing RFC103 on the 
+    node side. 
+crates:
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: cumulus-relay-chain-inprocess-interface
+  bump: major
+- name: polkadot-service
+  bump: patch
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot
+  bump: patch
+- name: cumulus-client-network
+  bump: major
+- name: cumulus-client-pov-recovery
+  bump: major
+- name: cumulus-relay-chain-interface
+  bump: major
+- name: cumulus-relay-chain-minimal-node
+  bump: major
+- name: cumulus-relay-chain-rpc-interface
+  bump: major
+- name: polkadot-node-collation-generation
+  bump: major
+- name: polkadot-node-core-approval-voting
+  bump: major
+- name: polkadot-node-core-av-store
+  bump: major
+- name: polkadot-node-core-backing
+  bump: major
+- name: polkadot-node-core-bitfield-signing
+  bump: major
+- name: polkadot-node-core-candidate-validation
+  bump: major
+- name: polkadot-node-core-dispute-coordinator
+  bump: major
+- name: polkadot-node-core-parachains-inherent
+  bump: major
+- name: polkadot-node-core-prospective-parachains
+  bump: major
+- name: polkadot-node-core-provisioner
+  bump: major
+- name: polkadot-node-core-runtime-api
+  bump: major
+- name: polkadot-availability-distribution
+  bump: major
+- name: polkadot-availability-recovery
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-dispute-distribution
+  bump: major
+- name: polkadot-node-network-protocol
+  bump: major
+- name: polkadot-statement-distribution
+  bump: major
+- name: polkadot-node-primitives
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: polkadot-statement-table
+  bump: major
+- name: polkadot-overseer
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: major

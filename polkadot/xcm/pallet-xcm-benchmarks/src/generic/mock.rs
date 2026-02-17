@@ -21,18 +21,17 @@ use codec::Decode;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{Contains, Everything, OriginTrait},
-	weights::Weight,
 };
-use sp_core::H256;
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
+use sp_runtime::traits::TrailingZeroInput;
 use xcm_builder::{
 	test_utils::{
-		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
-		TestSubscriptionService, TestUniversalAliases,
+		TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
+		TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, EnsureDecodableXcm,
+	FrameTransactionalProcessor,
 };
-use xcm_executor::traits::ConvertOrigin;
+use xcm_executor::{traits::ConvertOrigin, AssetsInHolding};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -45,43 +44,20 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-/// The benchmarks in this pallet should never need an asset transactor to begin with.
-pub struct NoAssetTransactor;
-impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
-	fn deposit_asset(_: &Asset, _: &Location, _: Option<&XcmContext>) -> Result<(), XcmError> {
+/// The benchmarks in this pallet should not withdraw or deposit assets.
+pub struct MockTransactor;
+impl xcm_executor::traits::TransactAsset for MockTransactor {
+	fn deposit_asset(
+		_: AssetsInHolding,
+		_: &Location,
+		_: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		unreachable!();
 	}
 
@@ -91,6 +67,10 @@ impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
 		_: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
 		unreachable!();
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
@@ -110,8 +90,9 @@ type Aliasers = AliasForeignAccountId32<OnlyParachains>;
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = DevNull;
-	type AssetTransactor = NoAssetTransactor;
+	type XcmSender = EnsureDecodableXcm<DevNull>;
+	type XcmEventEmitter = ();
+	type AssetTransactor = MockTransactor;
 	type OriginConverter = AlwaysSignedByDefault<RuntimeOrigin>;
 	type IsReserve = AllAssetLocationsPass;
 	type IsTeleporter = ();
@@ -123,7 +104,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = TestAssetTrap;
 	type AssetLocker = TestAssetLocker;
 	type AssetExchanger = TestAssetExchanger;
-	type AssetClaims = TestAssetTrap;
 	type SubscriptionService = TestSubscriptionService;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -138,6 +118,7 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
 }
 
 parameter_types! {
@@ -160,10 +141,9 @@ impl crate::Config for Test {
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> Assets {
-		crate::mock_worst_case_holding(
-			depositable_count,
-			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
+	fn worst_case_holding(depositable_count: u32) -> AssetsInHolding {
+		generate_holding_assets(
+			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get() - depositable_count,
 		)
 	}
 }
@@ -200,8 +180,8 @@ impl generic::Config for Test {
 		Ok((Default::default(), ticket, assets))
 	}
 
-	fn fee_asset() -> Result<Asset, BenchmarkError> {
-		Ok(Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
+	fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+		Ok((Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) }, WeightLimit::Unlimited))
 	}
 
 	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {

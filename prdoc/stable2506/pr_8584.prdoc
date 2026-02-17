@@ -1,0 +1,18 @@
+title: Remove all XCM dependencies from `pallet-revive`
+doc:
+- audience: Runtime Dev
+  description: This PR removes all XCM dependencies from `pallet-revive`, including
+    the `mock-network` crate which was primarily used to test the unstable `xcm_execute`
+    and `xcm_send` APIs. These APIs (along their respective tests) will be moved to
+    the XCM precompile in `pallet-xcm` to avoid cyclic dependencies.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major
+- name: polkadot-sdk
+  bump: major

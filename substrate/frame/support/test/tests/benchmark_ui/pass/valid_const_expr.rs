@@ -25,6 +25,7 @@ mod benches {
 
 	const MY_CONST: u32 = 100;
 
+	#[allow(dead_code)]
 	const fn my_fn() -> u32 {
 		200
 	}

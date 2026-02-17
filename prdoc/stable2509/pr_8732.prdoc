@@ -1,0 +1,53 @@
+title: Add comprehensive tracing to XCM-related modules
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on XCM-related modules to
+    significantly improve debugging capabilities for XCM execution flows. The implementation
+    provides structured logging throughout XCM components with consistent log targets,
+    making it easier to diagnose execution failures, fee calculation errors, and routing
+    issues with zero runtime impact.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-test-utils
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
+- name: pallet-xcm
+  bump: none
+- name: pallet-xcm-bridge-hub
+  bump: minor
+- name: pallet-xcm-bridge-hub-router
+  bump: minor
+- name: parachains-common
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: polkadot-runtime-common
+  bump: none
+- name: polkadot-runtime-parachains
+  bump: none
+- name: staging-xcm
+  bump: minor
+- name: staging-xcm-builder
+  bump: none
+- name: staging-xcm-executor
+  bump: none
+- name: xcm-runtime-apis
+  bump: patch
+- name: xcm-simulator-example
+  bump: minor

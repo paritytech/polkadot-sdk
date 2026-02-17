@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Helper for handling (i.e. answering) block requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
@@ -29,24 +30,26 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, stream::StreamExt};
-use libp2p::PeerId;
 use log::debug;
 use prost::Message;
+use schnellru::{ByLength, LruMap};
+
 use sc_client_api::BlockBackend;
 use sc_network::{
 	config::ProtocolId,
-	request_responses::{
-		IfDisconnected, IncomingRequest, OutgoingResponse, ProtocolConfig, RequestFailure,
-	},
+	request_responses::{IfDisconnected, IncomingRequest, OutgoingResponse, RequestFailure},
+	service::traits::RequestResponseConfig,
 	types::ProtocolName,
+	NetworkBackend, MAX_RESPONSE_SIZE,
 };
 use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
-use schnellru::{ByLength, LruMap};
+use sc_network_types::PeerId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header, One, Zero},
 };
+
 use std::{
 	cmp::min,
 	hash::{Hash, Hasher},
@@ -57,7 +60,6 @@ use std::{
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
-const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
 mod rep {
@@ -71,21 +73,26 @@ mod rep {
 		Rep::new(-(1 << 10), "same small block request multiple times");
 }
 
-/// Generates a [`ProtocolConfig`] for the block request protocol, refusing incoming requests.
-pub fn generate_protocol_config<Hash: AsRef<[u8]>>(
+/// Generates a `RequestResponseProtocolConfig` for the block request protocol,
+/// refusing incoming requests.
+pub fn generate_protocol_config<
+	Hash: AsRef<[u8]>,
+	B: BlockT,
+	N: NetworkBackend<B, <B as BlockT>::Hash>,
+>(
 	protocol_id: &ProtocolId,
 	genesis_hash: Hash,
 	fork_id: Option<&str>,
-) -> ProtocolConfig {
-	ProtocolConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: 1024 * 1024,
-		max_response_size: 16 * 1024 * 1024,
-		request_timeout: Duration::from_secs(20),
-		inbound_queue: None,
-	}
+	inbound_queue: async_channel::Sender<IncomingRequest>,
+) -> N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		1024 * 1024,
+		MAX_RESPONSE_SIZE,
+		Duration::from_secs(20),
+		Some(inbound_queue),
+	)
 }
 
 /// Generate the block protocol name from the genesis hash and fork id.
@@ -154,19 +161,19 @@ where
 	Client: HeaderBackend<B> + BlockBackend<B> + Send + Sync + 'static,
 {
 	/// Create a new [`BlockRequestHandler`].
-	pub fn new(
+	pub fn new<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		network: NetworkServiceHandle,
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		num_peer_hint: usize,
-	) -> BlockRelayParams<B> {
+	) -> BlockRelayParams<B, N> {
 		// Reserve enough request slots for one request per peer when we are at the maximum
 		// number of peers.
 		let capacity = std::cmp::max(num_peer_hint, 1);
 		let (tx, request_receiver) = async_channel::bounded(capacity);
 
-		let mut protocol_config = generate_protocol_config(
+		let protocol_config = generate_protocol_config::<_, B, N>(
 			protocol_id,
 			client
 				.block_hash(0u32.into())
@@ -174,15 +181,18 @@ where
 				.flatten()
 				.expect("Genesis block exists; qed"),
 			fork_id,
+			tx,
 		);
-		protocol_config.inbound_queue = Some(tx);
 
 		let capacity = ByLength::new(num_peer_hint.max(1) as u32 * 2);
 		let seen_requests = LruMap::new(capacity);
 
 		BlockRelayParams {
 			server: Box::new(Self { client, request_receiver, seen_requests }),
-			downloader: Arc::new(FullBlockDownloader::new(protocol_config.name.clone(), network)),
+			downloader: Arc::new(FullBlockDownloader::new(
+				protocol_config.protocol_name().clone(),
+				network,
+			)),
 			request_response_config: protocol_config,
 		}
 	}
@@ -349,7 +359,7 @@ where
 		let client_header_from_block_id =
 			|block_id: BlockId<B>| -> Result<Option<B::Header>, HandleRequestError> {
 				if let Some(hash) = self.client.block_hash_from_id(&block_id)? {
-					return self.client.header(hash).map_err(Into::into)
+					return self.client.header(hash).map_err(Into::into);
 				}
 				Ok(None)
 			};
@@ -389,11 +399,12 @@ where
 
 			let body = if get_body {
 				match self.client.block_body(hash)? {
-					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
+					Some(mut extrinsics) => {
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+					},
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
-						break
+						break;
 					},
 				}
 			} else {
@@ -430,13 +441,19 @@ where
 				indexed_body,
 			};
 
-			let new_total_size = total_size +
-				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
-				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
+			let new_total_size = total_size + block_data.encoded_len();
 
-			// Send at least one block, but make sure to not exceed the limit.
-			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
-				break
+			// Reserve 20 KiB for protocol overhead (length prefixes of `BlockData` + the final
+			// encoding in `BlockResponse`)
+			if new_total_size > (MAX_RESPONSE_SIZE as usize - 20 * 1024) {
+				if blocks.is_empty() {
+					log::error!(
+						target: LOG_TARGET,
+						"Single block response is bigger than the max allowed response size! This is a bug!"
+					);
+				}
+
+				break;
 			}
 
 			total_size = new_total_size;
@@ -444,14 +461,14 @@ where
 			blocks.push(block_data);
 
 			if blocks.len() >= max_blocks as usize {
-				break
+				break;
 			}
 
 			match direction {
 				Direction::Ascending => block_id = BlockId::Number(number + One::one()),
 				Direction::Descending => {
 					if number.is_zero() {
-						break
+						break;
 					}
 					block_id = BlockId::Hash(parent_hash)
 				},
@@ -492,6 +509,7 @@ enum HandleRequestError {
 }
 
 /// The full block downloader implementation of [`BlockDownloader].
+#[derive(Debug)]
 pub struct FullBlockDownloader {
 	protocol_name: ProtocolName,
 	network: NetworkServiceHandle,
@@ -566,6 +584,10 @@ impl FullBlockDownloader {
 
 #[async_trait::async_trait]
 impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
 	async fn download_blocks(
 		&self,
 		who: PeerId,

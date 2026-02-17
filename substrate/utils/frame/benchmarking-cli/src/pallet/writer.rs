@@ -28,7 +28,10 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::{
-	pallet::command::{ComponentRange, PovEstimationMode, PovModesMap},
+	pallet::{
+		command::{PovEstimationMode, PovModesMap},
+		types::{ComponentRange, ComponentRangeMap},
+	},
 	shared::UnderscoreHelper,
 	PalletCmd,
 };
@@ -132,7 +135,7 @@ fn io_error(s: &str) -> std::io::Error {
 fn map_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
-	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
+	component_ranges: &ComponentRangeMap,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	analysis_choice: &AnalysisChoice,
@@ -142,7 +145,7 @@ fn map_results(
 ) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
-		return Err(io_error("empty batches"))
+		return Err(io_error("empty batches"));
 	}
 
 	let mut all_benchmarks = HashMap::<_, Vec<BenchmarkData>>::new();
@@ -150,7 +153,7 @@ fn map_results(
 	for batch in batches {
 		// Skip if there are no results
 		if batch.time_results.is_empty() {
-			continue
+			continue;
 		}
 
 		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
@@ -188,7 +191,7 @@ fn get_benchmark_data(
 	batch: &BenchmarkBatchSplitResults,
 	storage_info: &[StorageInfo],
 	// Per extrinsic component ranges.
-	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
+	component_ranges: &ComponentRangeMap,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	analysis_choice: &AnalysisChoice,
@@ -207,6 +210,8 @@ fn get_benchmark_data(
 		AnalysisChoice::MedianSlopes => Analysis::median_slopes,
 		AnalysisChoice::Max => Analysis::max,
 	};
+	let pallet = String::from_utf8(batch.pallet.clone()).unwrap();
+	let benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
 	let extrinsic_time = analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
 		.expect("analysis function should return an extrinsic time for valid inputs");
@@ -282,10 +287,7 @@ fn get_benchmark_data(
 	// We add additional comments showing which storage items were touched.
 	// We find the worst case proof size, and use that as the final proof size result.
 	let mut storage_per_prefix = HashMap::<Vec<u8>, Vec<BenchmarkResult>>::new();
-	let pov_mode = pov_modes
-		.get(&(batch.pallet.clone(), batch.benchmark.clone()))
-		.cloned()
-		.unwrap_or_default();
+	let pov_mode = pov_modes.get(&(pallet.clone(), benchmark.clone())).cloned().unwrap_or_default();
 	let comments = process_storage_results(
 		&mut storage_per_prefix,
 		&batch.db_results,
@@ -322,7 +324,7 @@ fn get_benchmark_data(
 				if used_component.name == component.name {
 					used_component.slope = used_component.slope.max(component.slope);
 					found = true;
-					break
+					break;
 				}
 			}
 			if !found && !component.slope.is_zero() {
@@ -351,12 +353,12 @@ fn get_benchmark_data(
 		.collect::<Vec<_>>();
 
 	let component_ranges = component_ranges
-		.get(&(batch.pallet.clone(), batch.benchmark.clone()))
+		.get(&(pallet.clone(), benchmark.clone()))
 		.map(|c| c.clone())
 		.unwrap_or_default();
 
 	BenchmarkData {
-		name: String::from_utf8(batch.benchmark.clone()).unwrap(),
+		name: benchmark,
 		components,
 		base_weight: extrinsic_time.base,
 		base_reads: reads.base,
@@ -378,7 +380,7 @@ fn get_benchmark_data(
 pub(crate) fn write_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
-	component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
+	component_ranges: &HashMap<(String, String), Vec<ComponentRange>>,
 	pov_modes: PovModesMap,
 	default_pov_mode: PovEstimationMode,
 	path: &PathBuf,
@@ -465,7 +467,10 @@ pub(crate) fn write_results(
 				file_name = format!("{}_{}", file_name, instance.to_snake_case());
 			}
 			// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
-			file_path.push(file_name.replace("::", "_"));
+			file_name = file_name.replace("::", "_");
+			// Some old runtimes have a bug with the pallet and instance name containing a space
+			file_name = file_name.replace(" ", "");
+			file_path.push(file_name);
 			file_path.set_extension("rs");
 		}
 
@@ -482,7 +487,9 @@ pub(crate) fn write_results(
 			benchmarks: results.clone(),
 		};
 
-		let mut output_file = fs::File::create(&file_path)?;
+		let mut output_file = fs::File::create(&file_path).map_err(|e| {
+			format!("Could not write weight file to: {:?}. Error: {:?}", &file_path, e)
+		})?;
 		handlebars
 			.render_template_to_write(&template, &hbs_data, &mut output_file)
 			.map_err(|e| io_error(&e.to_string()))?;
@@ -503,7 +510,7 @@ pub(crate) fn write_results(
 		if cmd.unsafe_overwrite_results {
 			println!("{msg}");
 		} else {
-			return Err(msg.into())
+			return Err(msg.into());
 		}
 	}
 	Ok(())
@@ -561,7 +568,7 @@ pub(crate) fn process_storage_results(
 		for (key, reads, writes, whitelisted) in &result.keys {
 			// skip keys which are whitelisted
 			if *whitelisted {
-				continue
+				continue;
 			}
 
 			let prefix_length = key.len().min(32);
@@ -856,7 +863,7 @@ mod test {
 			benchmark: [benchmark.to_vec(), b"_benchmark".to_vec()].concat(),
 			time_results: results.clone(),
 			db_results: results,
-		}
+		};
 	}
 
 	fn test_storage_info() -> Vec<StorageInfo> {
@@ -871,10 +878,10 @@ mod test {
 
 	fn test_pov_mode() -> PovModesMap {
 		let mut map = PovModesMap::new();
-		map.entry((b"scheduler".to_vec(), b"first_benchmark".to_vec()))
+		map.entry(("scheduler".into(), "first_benchmark".into()))
 			.or_default()
 			.insert(("scheduler".into(), "mel".into()), PovEstimationMode::MaxEncodedLen);
-		map.entry((b"scheduler".to_vec(), b"first_benchmark".to_vec()))
+		map.entry(("scheduler".into(), "first_benchmark".into()))
 			.or_default()
 			.insert(("scheduler".into(), "measured".into()), PovEstimationMode::Measured);
 		map

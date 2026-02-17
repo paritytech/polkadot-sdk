@@ -18,13 +18,16 @@
 
 use crate::keyring::Keyring;
 use itertools::Itertools;
-use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
+use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
+use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
-use sc_network::PeerId;
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
-use std::collections::HashMap;
+use sp_core::Pair;
+use std::collections::{HashMap, HashSet};
 
 /// Peer networking latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -89,6 +92,15 @@ fn default_n_delay_tranches() -> usize {
 fn default_no_show_slots() -> usize {
 	3
 }
+fn default_minimum_backing_votes() -> u32 {
+	2
+}
+fn default_max_candidate_depth() -> u32 {
+	3
+}
+fn default_allowed_ancestry_len() -> u32 {
+	2
+}
 
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -137,6 +149,15 @@ pub struct TestConfiguration {
 	pub connectivity: usize,
 	/// Number of blocks to run the test for
 	pub num_blocks: usize,
+	/// Number of minimum backing votes
+	#[serde(default = "default_minimum_backing_votes")]
+	pub minimum_backing_votes: u32,
+	/// Async Backing max_candidate_depth
+	#[serde(default = "default_max_candidate_depth")]
+	pub max_candidate_depth: u32,
+	/// Async Backing allowed_ancestry_len
+	#[serde(default = "default_allowed_ancestry_len")]
+	pub allowed_ancestry_len: u32,
 }
 
 impl Default for TestConfiguration {
@@ -158,6 +179,9 @@ impl Default for TestConfiguration {
 			latency: default_peer_latency(),
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
+			minimum_backing_votes: default_minimum_backing_votes(),
+			max_candidate_depth: default_max_candidate_depth(),
+			allowed_ancestry_len: default_allowed_ancestry_len(),
 		}
 	}
 }
@@ -180,7 +204,7 @@ impl TestConfiguration {
 		let keyring = Keyring::default();
 
 		let key_seeds = (0..self.n_validators)
-			.map(|peer_index| format!("//Node{}", peer_index))
+			.map(|peer_index| format!("//Node{peer_index}"))
 			.collect_vec();
 
 		let keys = key_seeds
@@ -208,6 +232,11 @@ impl TestConfiguration {
 			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
 			.collect();
 
+		let validator_pairs = key_seeds
+			.iter()
+			.map(|seed| ValidatorPair::from_string_with_seed(seed, None).unwrap().0)
+			.collect();
+
 		TestAuthorities {
 			keyring,
 			validator_public,
@@ -217,6 +246,7 @@ impl TestConfiguration {
 			validator_assignment_id,
 			key_seeds,
 			peer_id_to_authority,
+			validator_pairs,
 		}
 	}
 }
@@ -246,6 +276,13 @@ pub struct TestAuthorities {
 	pub key_seeds: Vec<String>,
 	pub peer_ids: Vec<PeerId>,
 	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
+	pub validator_pairs: Vec<ValidatorPair>,
+}
+
+impl std::fmt::Debug for TestAuthorities {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "TestAuthorities")
+	}
 }
 
 /// Sample latency (in milliseconds) from a normal distribution with parameters
@@ -258,4 +295,23 @@ pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> usize {
 				.sample(&mut thread_rng())
 		})
 		.unwrap_or(0.0) as usize
+}
+
+#[async_trait::async_trait]
+impl AuthorityDiscovery for TestAuthorities {
+	/// Get the addresses for the given [`AuthorityDiscoveryId`] from the local address cache.
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		_authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
+		None
+	}
+
+	/// Get the [`AuthorityDiscoveryId`] for the given [`PeerId`] from the local address cache.
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		self.peer_id_to_authority.get(&peer_id).cloned().map(|id| HashSet::from([id]))
+	}
 }

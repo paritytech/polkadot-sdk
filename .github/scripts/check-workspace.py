@@ -63,7 +63,7 @@ def get_members(workspace_dir, exclude):
 def get_crates(workspace_dir, exclude_crates) -> dict:
 	crates = {}
 
-	for root, dirs, files in os.walk(workspace_dir):
+	for root, _dirs, files in os.walk(workspace_dir):
 		if "target" in root:
 			continue
 		for file in files:
@@ -125,7 +125,7 @@ def check_links(all_crates):
 	links = []
 	broken = []
 
-	for name, (path, manifest) in all_crates.items():
+	for name, (_path, manifest) in all_crates.items():
 		def check_deps(deps):
 			for dep in deps:
 				# Could be renamed:
@@ -135,8 +135,12 @@ def check_links(all_crates):
 				if dep_name in all_crates:
 					links.append((name, dep_name))
 
-					if not 'path' in deps[dep]:
-						broken.append((name, dep_name, "crate must be linked via `path`"))
+					if name == 'polkadot-sdk':
+						if not 'path' in deps[dep]:
+							broken.append((name, dep_name, "crate must use path"))
+							return
+					elif not 'workspace' in deps[dep] or not deps[dep]['workspace']:
+						broken.append((name, dep_name, "crate must use workspace inheritance"))
 						return
 
 		def check_crate(deps):
@@ -153,8 +157,6 @@ def check_links(all_crates):
 				check_crate(target)
 
 		check_crate(manifest)
-
-
 
 	links.sort()
 	broken.sort()

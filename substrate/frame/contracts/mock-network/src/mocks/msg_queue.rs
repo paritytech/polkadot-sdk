@@ -1,18 +1,18 @@
-// Copyright Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Substrate.
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain runtime mock.
 
@@ -25,7 +25,6 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
 #[frame_support::pallet]
@@ -35,6 +34,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
@@ -47,17 +47,15 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {
 		fn get() -> ParaId {
-			Self::parachain_id()
+			ParachainId::<T>::get()
 		}
 	}
 
@@ -89,6 +87,14 @@ pub mod pallet {
 			ParachainId::<T>::put(para_id);
 		}
 
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
+		}
+
 		fn handle_xcmp_message(
 			sender: ParaId,
 			_sent_at: RelayBlockNumber,
@@ -107,12 +113,15 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail(Some(hash), error))
+						},
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -169,7 +178,7 @@ pub mod pallet {
 								limit,
 								Weight::zero(),
 							);
-							<ReceivedDmp<T>>::append(x);
+							ReceivedDmp::<T>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
 					},

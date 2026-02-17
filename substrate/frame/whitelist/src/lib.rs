@@ -40,28 +40,26 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
-use frame_support::{
-	dispatch::{GetDispatchInfo, PostDispatchInfo},
-	ensure,
+use frame::{
+	prelude::*,
 	traits::{QueryPreimage, StorePreimage},
-	weights::Weight,
 };
 use scale_info::TypeInfo;
-use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -170,13 +168,13 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::UnavailablePreImage)?;
 
 			let call = <T as Config>::RuntimeCall::decode_all_with_depth_limit(
-				sp_api::MAX_EXTRINSIC_DEPTH,
+				frame::deps::frame_support::MAX_EXTRINSIC_DEPTH,
 				&mut &call[..],
 			)
 			.map_err(|_| Error::<T>::UndecodableCall)?;
 
 			ensure!(
-				call.get_dispatch_info().weight.all_lte(call_weight_witness),
+				call.get_dispatch_info().call_weight.all_lte(call_weight_witness),
 				Error::<T>::InvalidCallWeightWitness
 			);
 
@@ -189,7 +187,7 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight({
-			let call_weight = call.get_dispatch_info().weight;
+			let call_weight = call.get_dispatch_info().call_weight;
 			let call_len = call.encoded_size() as u32;
 
 			T::WeightInfo::dispatch_whitelisted_call_with_preimage(call_len)

@@ -13,6 +13,6 @@ If you think that your report might be eligible for the Bug Bounty Program, plea
 Please check up-to-date [Parity Bug Bounty Program rules](https://www.parity.io/bug-bounty) to find out the information
 about our Bug Bounty Program.
 
-**Warning**: This is an unified SECURITY.md file for Paritytech GitHub Organization. The presence of this file does not
+**Warning**: This is a unified SECURITY.md file for Paritytech GitHub Organization. The presence of this file does not
 mean that this repository is covered by the Bug Bounty program. Please always check the Bug Bounty Program scope for
 information.

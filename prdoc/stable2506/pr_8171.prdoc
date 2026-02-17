@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add vested transfer event emission
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Add event `VestingCreated` and emit on vested transfer.
+
+crates:
+  - name: pallet-staking
+    bump: none
+  - name: pallet-vesting
+    bump: major

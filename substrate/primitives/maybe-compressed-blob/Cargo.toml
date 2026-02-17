@@ -4,7 +4,7 @@ version = "11.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Handling of blobs, usually Wasm code, which may be compressed"
 documentation = "https://docs.rs/sp-maybe-compressed-blob"
@@ -15,4 +15,4 @@ workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-zstd = { version = "0.12.4", default-features = false }
+zstd = { workspace = true }

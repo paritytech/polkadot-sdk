@@ -1,0 +1,10 @@
+title: 'EPMB/unsigned: fixed multi-page winner computation'
+doc:
+- audience: Runtime User
+  description: |-
+    Change the calculation of `MaxWinnersPerPage` in `FullSupportsOfMiner` to `Pages * MaxWinnersPerPage` (instead of the overall maximum number of winners across pages)
+    to prevent the computed solution from having a low overall total of winners, which could result in a `WrongWinnerCount` error.
+
+crates:
+- name: pallet-election-provider-multi-block
+  bump: minor

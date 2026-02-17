@@ -89,4 +89,19 @@ impl Signals {
 
 		Ok(())
 	}
+
+	/// Execute the future task and returns it's value if it completes before the signal.
+	pub async fn try_until_signal<F, T>(self, func: F) -> Result<T, ()>
+	where
+		F: Future<Output = T> + future::FusedFuture,
+	{
+		let signals = self.future().fuse();
+
+		pin_mut!(func, signals);
+
+		select! {
+			s = signals => Err(s),
+			res = func => Ok(res),
+		}
+	}
 }

@@ -1,0 +1,16 @@
+title: "`SolochainDefaultConfig`: Use correct `AccountData`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `SolochainDefaultConfig` by default was setting `AccountData` to `AccountInfo`.
+      Thus, the actual account data was recursively nested the same type. By default
+      it should be set `()`, because this is the only reasonable `AccountData`. 
+
+      If you have used `SolochainDefaultConfig` before and did not overwrite, `AccountData`
+      you should now overwrite it to `AccountInfo` or you will need to write a migration to
+      change the data.
+
+crates:
+  - name: frame-system
+    bump: patch

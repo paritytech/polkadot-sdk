@@ -31,6 +31,7 @@ pub mod logger {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -106,6 +107,7 @@ impl Contains<RuntimeCall> for BlockEverything {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BaseCallFilter = BlockEverything;
 	type Block = Block;
 }
 

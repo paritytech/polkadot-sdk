@@ -22,6 +22,8 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
+use alloc::vec::Vec;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	ensure,
 	traits::{
@@ -31,13 +33,12 @@ use frame_support::{
 		},
 		Get,
 	},
-	DefaultNoBound, RuntimeDebugNoBound,
+	DebugNoBound, DefaultNoBound,
 };
 use sp_runtime::{
-	traits::{Hash as HashT, Saturating, Zero},
+	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, vec, vec::Vec};
 
 /// Deposit that uses the native fungible's balance type.
 pub type DepositOf<T> = Deposit<BalanceOf<T>>;
@@ -104,7 +105,7 @@ pub struct Root;
 
 /// State parameter that constitutes a meter that is in its nested state.
 /// Its value indicates whether the nested meter has its own limit.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub enum Nested {
 	#[default]
 	DerivedLimit,
@@ -115,7 +116,7 @@ impl State for Root {}
 impl State for Nested {}
 
 /// A type that allows the metering of consumed or freed storage of a single contract call stack.
-#[derive(DefaultNoBound, RuntimeDebugNoBound)]
+#[derive(DefaultNoBound, DebugNoBound)]
 pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// The limit of how much balance this meter is allowed to consume.
 	limit: BalanceOf<T>,
@@ -135,7 +136,7 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 }
 
 /// This type is used to describe a storage change when charging from the meter.
-#[derive(Default, RuntimeDebugNoBound)]
+#[derive(Default, DebugNoBound)]
 pub struct Diff {
 	/// How many bytes were added to storage.
 	pub bytes_added: u32,
@@ -170,7 +171,7 @@ impl Diff {
 		} else {
 			debug_assert_eq!(self.bytes_removed, 0);
 			debug_assert_eq!(self.items_removed, 0);
-			return bytes_deposit.saturating_add(&items_deposit)
+			return bytes_deposit.saturating_add(&items_deposit);
 		};
 
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
@@ -193,16 +194,20 @@ impl Diff {
 		info.storage_items =
 			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
 		match &bytes_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
+			},
 		}
 		match &items_deposit {
-			Deposit::Charge(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount),
-			Deposit::Refund(amount) =>
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount),
+			Deposit::Charge(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
+			},
+			Deposit::Refund(amount) => {
+				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
+			},
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
@@ -223,7 +228,7 @@ impl Diff {
 /// The state of a contract.
 ///
 /// In case of termination the beneficiary is indicated.
-#[derive(RuntimeDebugNoBound, Clone, PartialEq, Eq)]
+#[derive(DebugNoBound, Clone, PartialEq, Eq)]
 pub enum ContractState<T: Config> {
 	Alive,
 	Terminated { beneficiary: AccountIdOf<T> },
@@ -238,7 +243,7 @@ pub enum ContractState<T: Config> {
 /// The only exception is when a special (tougher) deposit limit is specified for a cross-contract
 /// call. In that case the limit is enforced once the call is returned, rolling it back if
 /// exhausted.
-#[derive(RuntimeDebugNoBound, Clone)]
+#[derive(DebugNoBound, Clone)]
 struct Charge<T: Config> {
 	contract: T::AccountId,
 	amount: DepositOf<T>,
@@ -246,7 +251,7 @@ struct Charge<T: Config> {
 }
 
 /// Records the storage changes of a storage meter.
-#[derive(RuntimeDebugNoBound)]
+#[derive(DebugNoBound)]
 enum Contribution<T: Config> {
 	/// The contract the meter belongs to is alive and accumulates changes using a [`Diff`].
 	Alive(Diff),
@@ -264,8 +269,9 @@ impl<T: Config> Contribution<T> {
 	fn update_contract(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		match self {
 			Self::Alive(diff) => diff.update_contract::<T>(info),
-			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) =>
-				deposit.clone(),
+			Self::Terminated { deposit, beneficiary: _ } | Self::Checked(deposit) => {
+				deposit.clone()
+			},
 		}
 	}
 }
@@ -345,8 +351,9 @@ where
 	/// Returns the state of the currently executed contract.
 	fn contract_state(&self) -> ContractState<T> {
 		match &self.own_contribution {
-			Contribution::Terminated { deposit: _, beneficiary } =>
-				ContractState::Terminated { beneficiary: beneficiary.clone() },
+			Contribution::Terminated { deposit: _, beneficiary } => {
+				ContractState::Terminated { beneficiary: beneficiary.clone() }
+			},
 			_ => ContractState::Alive,
 		}
 	}
@@ -376,7 +383,7 @@ where
 				let limit = E::check_limit(o, limit, min_leftover)?;
 				Ok(Self { limit, ..Default::default() })
 			},
-		}
+		};
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -435,22 +442,12 @@ where
 		contract: &T::AccountId,
 		contract_info: &mut ContractInfo<T>,
 		code_info: &CodeInfo<T>,
-	) -> Result<DepositOf<T>, DispatchError> {
+	) -> Result<(), DispatchError> {
 		debug_assert!(matches!(self.contract_state(), ContractState::Alive));
-		let ed = Pallet::<T>::min_balance();
-
-		let deposit = contract_info.update_base_deposit(&code_info);
-		if deposit > self.limit {
-			return Err(<Error<T>>::StorageDepositLimitExhausted.into())
-		}
-
-		let deposit = Deposit::Charge(deposit);
-
-		// We do not increase `own_contribution` because this will be charged later when the
-		// contract execution does conclude and hence would lead to a double charge.
-		self.total_deposit = Deposit::Charge(ed);
 
 		// We need to make sure that the contract's account exists.
+		let ed = Pallet::<T>::min_balance();
+		self.total_deposit = Deposit::Charge(ed);
 		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)?;
 
 		// A consumer is added at account creation and removed it on termination, otherwise the
@@ -458,9 +455,11 @@ where
 		// With the consumer, a correct runtime cannot remove the account.
 		System::<T>::inc_consumers(contract)?;
 
-		self.charge_deposit(contract.clone(), deposit.saturating_sub(&Deposit::Charge(ed)));
+		let deposit = contract_info.update_base_deposit(&code_info);
+		let deposit = Deposit::Charge(deposit);
 
-		Ok(deposit)
+		self.charge_deposit(contract.clone(), deposit);
+		Ok(())
 	}
 
 	/// Call to tell the meter that the currently executing contract was terminated.
@@ -497,7 +496,7 @@ where
 		}
 		if let Deposit::Charge(amount) = total_deposit {
 			if amount > self.limit {
-				return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 		Ok(())
@@ -559,14 +558,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(
-					vec![T::Hashing::hash_of(&origin), T::Hashing::hash_of(&contract)],
-					Event::StorageDepositTransferredAndHeld {
-						from: origin.clone(),
-						to: contract.clone(),
-						amount: *amount,
-					},
-				);
+				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndHeld {
+					from: origin.clone(),
+					to: contract.clone(),
+					amount: *amount,
+				});
 			},
 			Deposit::Refund(amount) => {
 				let transferred = T::Currency::transfer_on_hold(
@@ -579,14 +575,11 @@ impl<T: Config> Ext<T> for ReservingExt {
 					Fortitude::Polite,
 				)?;
 
-				Pallet::<T>::deposit_event(
-					vec![T::Hashing::hash_of(&contract), T::Hashing::hash_of(&origin)],
-					Event::StorageDepositTransferredAndReleased {
-						from: contract.clone(),
-						to: origin.clone(),
-						amount: transferred,
-					},
-				);
+				Pallet::<T>::deposit_event(Event::StorageDepositTransferredAndReleased {
+					from: contract.clone(),
+					to: origin.clone(),
+					amount: transferred,
+				});
 
 				if transferred < *amount {
 					// This should never happen, if it does it means that there is a bug in the
@@ -859,14 +852,14 @@ mod tests {
 		let test_cases = vec![
 			ChargingTestCase {
 				origin: Origin::<Test>::from_account_id(ALICE),
-				deposit: Deposit::Refund(107),
+				deposit: Deposit::Refund(108),
 				expected: TestExt {
 					limit_checks: vec![LimitCheck { origin: ALICE, limit: 1_000, min_leftover: 0 }],
 					charges: vec![
 						Charge {
 							origin: ALICE,
 							contract: CHARLIE,
-							amount: Deposit::Refund(119),
+							amount: Deposit::Refund(120),
 							state: ContractState::Terminated { beneficiary: CHARLIE },
 						},
 						Charge {
@@ -915,7 +908,6 @@ mod tests {
 
 			meter.absorb(nested0, &BOB, None);
 			assert_eq!(meter.try_into_deposit(&test_case.origin).unwrap(), test_case.deposit);
-
 			assert_eq!(TestExtTestValue::get(), test_case.expected)
 		}
 	}

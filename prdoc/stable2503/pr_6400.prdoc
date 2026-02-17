@@ -1,0 +1,41 @@
+title: Remove network starter that is no longer needed
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    This seems to be an old artifact of the long closed https://github.com/paritytech/substrate/issues/6827 that I noticed when working on related code earlier.
+
+    ## Integration
+
+    `NetworkStarter` was removed, simply remove its usage:
+    ```diff
+    -let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+    +let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+        build_network(BuildNetworkParams {
+    ...
+    -start_network.start_network();
+    ```
+
+    ## Review Notes
+
+    Changes are trivial, the only reason for this to not be accepted is if it is desired to not start network automatically for whatever reason, in which case the description of network starter needs to change.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [ ] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+        * External contributors: ask maintainers to put the right label on your PR.
+crates:
+- name: cumulus-relay-chain-minimal-node
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: sc-service
+  bump: major

@@ -1,18 +1,19 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
+// Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Polkadot is distributed in the hope that it will be useful,
+// Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Parachain specific networking
 //!
@@ -20,6 +21,7 @@
 //! that use the relay chain provided consensus. See [`RequireSecondedInBlockAnnounce`]
 //! and [`WaitToAnnounce`] for more information about this implementation.
 
+use sp_api::RuntimeApiInfo;
 use sp_consensus::block_validation::{
 	BlockAnnounceValidator as BlockAnnounceValidatorT, Validation,
 };
@@ -28,15 +30,16 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::{CollationSecondedSignal, Statement};
+use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_parachain_primitives::primitives::HeadData;
 use polkadot_primitives::{
-	CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId, OccupiedCoreAssumption,
-	SigningContext, UncheckedSigned,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, Hash as PHash, Id as ParaId,
+	OccupiedCoreAssumption, SigningContext, UncheckedSigned,
 };
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, future::FutureExt, Future};
-use std::{convert::TryFrom, fmt, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{fmt, marker::PhantomData, pin::Pin, sync::Arc};
 
 #[cfg(test)]
 mod tests;
@@ -77,7 +80,7 @@ impl Decode for BlockAnnounceData {
 		let relay_parent = match PHash::decode(input) {
 			Ok(p) => p,
 			// For being backwards compatible, we support missing relay-chain parent.
-			Err(_) => receipt.descriptor.relay_parent,
+			Err(_) => receipt.descriptor.relay_parent(),
 		};
 
 		Ok(Self { receipt, statement, relay_parent })
@@ -95,7 +98,7 @@ impl BlockAnnounceData {
 				h
 			} else {
 				tracing::debug!(target: LOG_TARGET, "`CompactStatement` isn't the candidate variant!",);
-				return Err(Validation::Failure { disconnect: true })
+				return Err(Validation::Failure { disconnect: true });
 			};
 
 		if *candidate_hash != self.receipt.hash() {
@@ -103,15 +106,15 @@ impl BlockAnnounceData {
 				target: LOG_TARGET,
 				"Receipt candidate hash doesn't match candidate hash in statement",
 			);
-			return Err(Validation::Failure { disconnect: true })
+			return Err(Validation::Failure { disconnect: true });
 		}
 
-		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head {
+		if HeadData(encoded_header).hash() != self.receipt.descriptor.para_head() {
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Receipt para head hash doesn't match the hash of the header in the block announcement",
 			);
-			return Err(Validation::Failure { disconnect: true })
+			return Err(Validation::Failure { disconnect: true });
 		}
 
 		Ok(())
@@ -150,7 +153,7 @@ impl BlockAnnounceData {
 					"Block announcement justification signer is a validator index out of bound",
 				);
 
-				return Ok(Validation::Failure { disconnect: true })
+				return Ok(Validation::Failure { disconnect: true });
 			},
 		};
 
@@ -161,7 +164,7 @@ impl BlockAnnounceData {
 				"Block announcement justification signature is invalid.",
 			);
 
-			return Ok(Validation::Failure { disconnect: true })
+			return Ok(Validation::Failure { disconnect: true });
 		}
 
 		Ok(Validation::Success { is_new_best: true })
@@ -175,7 +178,7 @@ impl TryFrom<&'_ CollationSecondedSignal> for BlockAnnounceData {
 		let receipt = if let Statement::Seconded(receipt) = signal.statement.payload() {
 			receipt.to_plain()
 		} else {
-			return Err(())
+			return Err(());
 		};
 
 		Ok(BlockAnnounceData {
@@ -266,18 +269,41 @@ where
 		Ok(para_head)
 	}
 
-	/// Get the backed block hash of the given parachain in the relay chain.
-	async fn backed_block_hash(
+	/// Get the backed block hashes of the given parachain in the relay chain.
+	async fn backed_block_hashes(
 		relay_chain_interface: &RCInterface,
 		hash: PHash,
 		para_id: ParaId,
-	) -> Result<Option<PHash>, BoxedError> {
-		let candidate_receipt = relay_chain_interface
-			.candidate_pending_availability(hash, para_id)
+	) -> Result<impl Iterator<Item = PHash>, BoxedError> {
+		let runtime_api_version = relay_chain_interface
+			.version(hash)
 			.await
 			.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
+		let parachain_host_runtime_api_version =
+			runtime_api_version
+				.api_version(
+					&<dyn polkadot_primitives::runtime_api::ParachainHost<
+						polkadot_primitives::Block,
+					>>::ID,
+				)
+				.unwrap_or_default();
 
-		Ok(candidate_receipt.map(|cr| cr.descriptor.para_head))
+		// If the relay chain runtime does not support the new runtime API, fallback to the
+		// deprecated one.
+		let candidate_receipts = if parachain_host_runtime_api_version <
+			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		{
+			#[allow(deprecated)]
+			relay_chain_interface
+				.candidate_pending_availability(hash, para_id)
+				.await
+				.map(|c| c.into_iter().collect::<Vec<_>>())
+		} else {
+			relay_chain_interface.candidates_pending_availability(hash, para_id).await
+		}
+		.map_err(|e| Box::new(BlockAnnounceError(format!("{:?}", e))) as Box<_>)?;
+
+		Ok(candidate_receipts.into_iter().map(|cr| cr.descriptor.para_head()))
 	}
 
 	/// Handle a block announcement with empty data (no statement) attached to it.
@@ -298,15 +324,20 @@ where
 		let best_head =
 			Self::included_block(&relay_chain_interface, relay_chain_best_hash, para_id).await?;
 		let known_best_number = best_head.number();
-		let backed_block = || async {
-			Self::backed_block_hash(&relay_chain_interface, relay_chain_best_hash, para_id).await
-		};
 
 		if best_head == header {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches best block.",);
 
-			Ok(Validation::Success { is_new_best: true })
-		} else if Some(HeadData(header.encode()).hash()) == backed_block().await? {
+			return Ok(Validation::Success { is_new_best: true });
+		}
+
+		let mut backed_blocks =
+			Self::backed_block_hashes(&relay_chain_interface, relay_chain_best_hash, para_id)
+				.await?;
+
+		let head_hash = HeadData(header.encode()).hash();
+
+		if backed_blocks.any(|block_hash| block_hash == head_hash) {
 			tracing::debug!(target: LOG_TARGET, "Announced block matches latest backed block.",);
 
 			Ok(Validation::Success { is_new_best: true })
@@ -349,27 +380,28 @@ where
 				.unwrap_or(false);
 
 			if relay_chain_is_syncing {
-				return Ok(Validation::Success { is_new_best: false })
+				return Ok(Validation::Success { is_new_best: false });
 			}
 
 			if data.is_empty() {
-				return block_announce_validator.handle_empty_block_announce_data(header).await
+				return block_announce_validator.handle_empty_block_announce_data(header).await;
 			}
 
 			let block_announce_data = match BlockAnnounceData::decode_all(&mut data.as_slice()) {
 				Ok(r) => r,
-				Err(err) =>
+				Err(err) => {
 					return Err(Box::new(BlockAnnounceError(format!(
 						"Can not decode the `BlockAnnounceData`: {:?}",
 						err
-					))) as Box<_>),
+					))) as Box<_>)
+				},
 			};
 
 			if let Err(e) = block_announce_data.validate(header_encoded) {
-				return Ok(e)
+				return Ok(e);
 			}
 
-			let relay_parent = block_announce_data.receipt.descriptor.relay_parent;
+			let relay_parent = block_announce_data.receipt.descriptor.relay_parent();
 
 			relay_chain_interface
 				.wait_for_block(relay_parent)
@@ -447,7 +479,7 @@ async fn wait_to_announce<Block: BlockT>(
 				block = ?block_hash,
 				"Wait to announce stopped, because sender was dropped.",
 			);
-			return
+			return;
 		},
 	};
 

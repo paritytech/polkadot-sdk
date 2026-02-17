@@ -20,13 +20,15 @@
 //! runtime to the core mixnet state. It is called every time a block is finalised.
 
 use super::peer_id::from_core_peer_id;
-use libp2p_identity::PeerId;
 use log::{debug, info};
 use mixnet::core::{
 	Mixnet, Mixnode as CoreMixnode, MixnodesErr as CoreMixnodesErr, RelSessionIndex,
 	SessionPhase as CoreSessionPhase, SessionStatus as CoreSessionStatus,
 };
-use multiaddr::{multiaddr, Multiaddr, Protocol};
+use sc_network_types::{
+	multiaddr::{multiaddr, Multiaddr, Protocol},
+	PeerId,
+};
 use sp_api::{ApiError, ApiRef};
 use sp_mixnet::{
 	runtime_api::MixnetApi,
@@ -68,7 +70,7 @@ fn parse_external_addresses(external_addresses: Vec<Vec<u8>>) -> Vec<Multiaddr> 
 						"Mixnode external address {:x?} is not valid UTF-8",
 						addr.into_bytes(),
 					);
-					return None
+					return None;
 				},
 			};
 			match addr.parse() {
@@ -184,7 +186,7 @@ where
 		Ok(session_status) => session_status,
 		Err(err) => {
 			debug!(target: LOG_TARGET, "Error getting session status from runtime: {err}");
-			return
+			return;
 		},
 	};
 	mixnet.set_session_status(to_core_session_status(session_status));
@@ -196,7 +198,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use multiaddr::multiaddr;
 
 	#[test]
 	fn fixup_empty_external_addresses() {

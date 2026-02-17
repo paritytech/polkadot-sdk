@@ -24,12 +24,12 @@ fn veto_external_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 
 		let h = set_balance_proposal(2).hash();
 		assert_ok!(Democracy::veto_external(RuntimeOrigin::signed(3), h));
 		// cancelled.
-		assert!(!<NextExternal<Test>>::exists());
+		assert!(!NextExternal::<Test>::exists());
 		// fails - same proposal can't be resubmitted.
 		assert_noop!(
 			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),),
@@ -46,7 +46,7 @@ fn veto_external_works() {
 		fast_forward_to(2);
 		// works; as we're out of the cooloff period.
 		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
-		assert!(<NextExternal<Test>>::exists());
+		assert!(NextExternal::<Test>::exists());
 
 		// 3 can't veto the same thing twice.
 		assert_noop!(
@@ -57,7 +57,7 @@ fn veto_external_works() {
 		// 4 vetoes.
 		assert_ok!(Democracy::veto_external(RuntimeOrigin::signed(4), h));
 		// cancelled again.
-		assert!(!<NextExternal<Test>>::exists());
+		assert!(!NextExternal::<Test>::exists());
 
 		fast_forward_to(3);
 		// same proposal fails as we're still in cooloff

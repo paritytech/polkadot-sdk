@@ -99,7 +99,7 @@ where
 {
 	// Skip if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let initial_total_issuance = T::total_issuance();
@@ -137,9 +137,10 @@ where
 
 	// Test: Burn an exact amount from the account
 	let amount_to_burn = T::Balance::from(5);
+	let preservation = Preservation::Expendable;
 	let precision = Precision::Exact;
 	let force = Fortitude::Polite;
-	T::burn_from(&account, amount_to_burn, precision, force).unwrap();
+	T::burn_from(&account, amount_to_burn, preservation, precision, force).unwrap();
 
 	// Verify: The balance and total issuance should be reduced by the burned amount
 	assert_eq!(T::balance(&account), initial_balance - amount_to_burn);
@@ -174,10 +175,11 @@ where
 	// Test: Burn a best effort amount from the account that is greater than the reducible
 	// balance
 	let amount_to_burn = reducible_balance + 5.into();
+	let preservation = Preservation::Expendable;
 	let precision = Precision::BestEffort;
 	assert!(amount_to_burn > reducible_balance);
 	assert!(amount_to_burn > T::balance(&account));
-	T::burn_from(&account, amount_to_burn, precision, force).unwrap();
+	T::burn_from(&account, amount_to_burn, preservation, precision, force).unwrap();
 
 	// Verify: The balance and total issuance should be reduced by the reducible_balance
 	assert_eq!(T::balance(&account), initial_balance - reducible_balance);
@@ -207,9 +209,10 @@ where
 	// Verify: Burn an amount greater than the account's balance with Exact precision returns
 	// Err
 	let amount_to_burn = initial_balance + 10.into();
+	let preservation = Preservation::Expendable;
 	let precision = Precision::Exact;
 	let force = Fortitude::Polite;
-	T::burn_from(&account, amount_to_burn, precision, force).unwrap_err();
+	T::burn_from(&account, amount_to_burn, preservation, precision, force).unwrap_err();
 
 	// Verify: The balance and total issuance should remain unchanged
 	assert_eq!(T::balance(&account), initial_balance);
@@ -290,7 +293,7 @@ where
 {
 	// Skip if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -453,7 +456,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account_0 = AccountId::from(10);
@@ -523,7 +526,7 @@ where
 {
 	// This test means nothing if there is no minimum balance
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let initial_total_issuance = T::total_issuance();
@@ -651,7 +654,7 @@ where
 {
 	// can_deposit always returns Success for amount 0
 	if T::minimum_balance() < 2.into() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -710,7 +713,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);
@@ -731,7 +734,7 @@ where
 	AccountId: AtLeast8BitUnsigned,
 {
 	if T::minimum_balance() == T::Balance::zero() {
-		return
+		return;
 	}
 
 	let account = AccountId::from(10);

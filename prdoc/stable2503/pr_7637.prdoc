@@ -1,0 +1,9 @@
+title: 'Expose extension weights from frame-system'
+
+doc:
+  - audience: Runtime Dev
+    description: This PR exposes the Extension weights from the `frame-system`
+
+crates:
+  - name: frame-system
+    bump: minor

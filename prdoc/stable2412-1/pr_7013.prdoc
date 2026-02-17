@@ -1,0 +1,7 @@
+title: 'pallet-bounties: Fix benchmarks for 0 ED'
+doc:
+- audience: Runtime Dev
+  description: 'Closes: https://github.com/paritytech/polkadot-sdk/issues/7009'
+crates:
+- name: pallet-bounties
+  bump: patch

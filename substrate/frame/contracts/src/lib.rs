@@ -87,6 +87,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
+extern crate alloc;
 mod address;
 mod benchmarking;
 mod exec;
@@ -96,11 +97,13 @@ pub use primitives::*;
 
 mod schedule;
 mod storage;
+mod transient_storage;
 mod wasm;
 
 pub mod chain_extension;
 pub mod debug;
 pub mod migration;
+pub mod test_utils;
 pub mod weights;
 
 #[cfg(test)]
@@ -111,20 +114,20 @@ use crate::{
 	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, WasmBlob},
+	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
-use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
+use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
 	ensure,
-	error::BadOrigin,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
-	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
+	weights::{Weight, WeightMeter},
+	BoundedVec, DebugNoBound, DefaultNoBound,
 };
 use frame_system::{
 	ensure_signed,
@@ -134,10 +137,9 @@ use frame_system::{
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
-	DispatchError, RuntimeDebug,
+	traits::{BadOrigin, Convert, Dispatchable, Saturating, StaticLookup, Zero},
+	DispatchError,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},
@@ -145,7 +147,7 @@ pub use crate::{
 	exec::Frame,
 	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
-	schedule::{HostFnWeights, InstructionWeights, Limits, Schedule},
+	schedule::{InstructionWeights, Limits, Schedule},
 	wasm::Determinism,
 };
 pub use weights::WeightInfo;
@@ -222,14 +224,14 @@ pub struct Environment<T: Config> {
 pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
-		Self(2)
+		Self(4)
 	}
 }
 
 #[test]
 fn api_version_is_up_to_date() {
 	assert_eq!(
-		109,
+		111,
 		crate::wasm::STABLE_API_COUNT,
 		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	);
@@ -244,13 +246,13 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The in-code storage version.
-	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
+	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(16);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
@@ -263,21 +265,30 @@ pub mod pallet {
 		/// be instantiated from existing codes that use this deprecated functionality. It will
 		/// be removed eventually. Hence for new `pallet-contracts` deployments it is okay
 		/// to supply a dummy implementation for this type (because it is never used).
+		#[pallet::no_default_bounds]
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
+		#[pallet::no_default]
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
+		#[pallet::no_default_bounds]
 		type RuntimeCall: Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ codec::Decode
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Filter that is applied to calls dispatched by contracts.
 		///
@@ -301,10 +312,12 @@ pub mod pallet {
 		///
 		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
 		/// calls, you must configure them separately within the XCM pallet itself.
+		#[pallet::no_default_bounds]
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
+		#[pallet::no_default_bounds]
 		type WeightPrice: Convert<Weight, BalanceOf<Self>>;
 
 		/// Describes the weights of the dispatchables of this module and is also used to
@@ -312,10 +325,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
+		#[pallet::no_default_bounds]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
 
 		/// Cost schedule and limits.
 		#[pallet::constant]
+		#[pallet::no_default]
 		type Schedule: Get<Schedule<Self>>;
 
 		/// The type of the call stack determines the maximum nesting depth of contract calls.
@@ -326,6 +341,7 @@ pub mod pallet {
 		///
 		/// This setting along with [`MaxCodeLen`](#associatedtype.MaxCodeLen) directly affects
 		/// memory usage of your runtime.
+		#[pallet::no_default]
 		type CallStack: Array<Item = Frame<Self>>;
 
 		/// The amount of balance a caller has to pay for each byte of storage.
@@ -334,10 +350,12 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerByte: Get<BalanceOf<Self>>;
 
 		/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DefaultDepositLimit: Get<BalanceOf<Self>>;
 
 		/// The amount of balance a caller has to pay for each storage item.
@@ -346,6 +364,7 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
@@ -356,6 +375,7 @@ pub mod pallet {
 		type CodeHashLockupDepositPercent: Get<Perbill>;
 
 		/// The address generator used to generate the addresses of contracts.
+		#[pallet::no_default_bounds]
 		type AddressGenerator: AddressGenerator<Self>;
 
 		/// The maximum length of a contract code in bytes.
@@ -369,6 +389,11 @@ pub mod pallet {
 		/// The maximum allowable length in bytes for storage keys.
 		#[pallet::constant]
 		type MaxStorageKeyLen: Get<u32>;
+
+		/// The maximum size of the transient storage in bytes.
+		/// This includes keys, values, and previous entries used for storage rollback.
+		#[pallet::constant]
+		type MaxTransientStorageSize: Get<u32>;
 
 		/// The maximum number of delegate_dependencies that a contract can lock with
 		/// [`chain_extension::Ext::lock_delegate_dependency`].
@@ -395,6 +420,7 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
 		/// code.
+		#[pallet::no_default_bounds]
 		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
@@ -407,10 +433,8 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
 		/// contract code.
+		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
-
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The sequence of migration steps that will be applied during a migration.
 		///
@@ -435,6 +459,7 @@ pub mod pallet {
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
 		/// "runtime::contracts" is set to trace.
+		#[pallet::no_default_bounds]
 		type Debug: Debugger<Self>;
 
 		/// Type that bundles together all the runtime configurable interface types.
@@ -442,16 +467,19 @@ pub mod pallet {
 		/// This is not a real config. We just mention the type here as constant so that
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type Environment: Get<Environment<Self>>;
 
 		/// The version of the HostFn APIs that are available in the runtime.
 		///
 		/// Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
+		#[pallet::no_default_bounds]
 		type Xcm: xcm_builder::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
@@ -459,19 +487,107 @@ pub mod pallet {
 		>;
 	}
 
+	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{
+			derive_impl,
+			traits::{ConstBool, ConstU32},
+		};
+		use frame_system::EnsureSigned;
+		use sp_core::parameter_types;
+
+		type AccountId = sp_runtime::AccountId32;
+		type Balance = u64;
+		const UNITS: Balance = 10_000_000_000;
+		const CENTS: Balance = UNITS / 100;
+
+		const fn deposit(items: u32, bytes: u32) -> Balance {
+			items as Balance * 1 * CENTS + (bytes as Balance) * 1 * CENTS
+		}
+
+		parameter_types! {
+			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerByte: Balance = deposit(0, 1);
+			pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const MaxDelegateDependencies: u32 = 32;
+		}
+
+		/// A type providing default configurations for this pallet in testing environment.
+		pub struct TestDefaultConfig;
+
+		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestDefaultConfig {
+			fn random(_subject: &[u8]) -> (Output, BlockNumber) {
+				unimplemented!("No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type.")
+			}
+		}
+
+		impl Time for TestDefaultConfig {
+			type Moment = u64;
+			fn now() -> Self::Moment {
+				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+			}
+		}
+
+		impl<T: From<u64>> Convert<Weight, T> for TestDefaultConfig {
+			fn convert(w: Weight) -> T {
+				w.ref_time().into()
+			}
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+
+			type AddressGenerator = DefaultAddressGenerator;
+			type CallFilter = ();
+			type ChainExtension = ();
+			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+			type DefaultDepositLimit = DefaultDepositLimit;
+			type DepositPerByte = DepositPerByte;
+			type DepositPerItem = DepositPerItem;
+			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type MaxDelegateDependencies = MaxDelegateDependencies;
+			type MaxStorageKeyLen = ConstU32<128>;
+			type MaxTransientStorageSize = ConstU32<{ 1 * 1024 * 1024 }>;
+			type Migrations = ();
+			type Time = Self;
+			type Randomness = Self;
+			type UnsafeUnstableInterface = ConstBool<true>;
+			type UploadOrigin = EnsureSigned<AccountId>;
+			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type WeightInfo = ();
+			type WeightPrice = Self;
+			type Debug = ();
+			type Environment = ();
+			type ApiVersion = ();
+			type Xcm = ();
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
+			let mut meter = WeightMeter::with_limit(limit);
 
 			loop {
-				let (result, weight) = Migration::<T>::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				match result {
-					// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return remaining_weight,
+				match Migration::<T>::migrate(&mut meter) {
+					// There is not enough weight to perform a migration.
+					// We can't do anything more, so we return the used weight.
+					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
 					// Migration is still in progress, we can start the next step.
 					InProgress { .. } => continue,
 					// Either no migration is in progress, or we are done with all migrations, we
@@ -480,8 +596,8 @@ pub mod pallet {
 				}
 			}
 
-			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -497,7 +613,11 @@ pub mod pallet {
 			// Max call depth is CallStack::size() + 1
 			let max_call_depth = u32::try_from(T::CallStack::size().saturating_add(1))
 				.expect("CallStack size is too big");
-
+			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
+			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
+			let max_transient_storage_size = T::MaxTransientStorageSize::get()
+				.checked_mul(2)
+				.expect("MaxTransientStorageSize is too large");
 			// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
@@ -507,7 +627,7 @@ pub mod pallet {
 			// Next, the pallet keeps the Wasm blob for each
 			// contract, hence we add up `MaxCodeLen` to the safety margin.
 			//
-			// Finally, the inefficiencies of the freeing-bump allocator
+			// The inefficiencies of the freeing-bump allocator
 			// being used in the client for the runtime memory allocations, could lead to possible
 			// memory allocations for contract code grow up to `x4` times in some extreme cases,
 			// which gives us total multiplier of `17*4` for `MaxCodeLen`.
@@ -516,17 +636,20 @@ pub mod pallet {
 			// memory should be available. Note that maximum allowed heap memory and stack size per
 			// each contract (stack frame) should also be counted.
 			//
+			// The pallet holds transient storage with a size up to `max_transient_storage_size`.
+			//
 			// Finally, we allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			//
 			// This gives us the following formula:
 			//
-			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth <
-			// max_runtime_mem/2`
+			// `(MaxCodeLen * 17 * 4 + MAX_STACK_SIZE + max_heap_size) * max_call_depth +
+			// max_transient_storage_size < max_runtime_mem/2`
 			//
 			// Hence the upper limit for the `MaxCodeLen` can be defined as follows:
 			let code_len_limit = max_runtime_mem
 				.saturating_div(2)
+				.saturating_sub(max_transient_storage_size)
 				.saturating_div(max_call_depth)
 				.saturating_sub(max_heap_size)
 				.saturating_sub(MAX_STACK_SIZE)
@@ -544,11 +667,70 @@ pub mod pallet {
 			// Debug buffer should at least be large enough to accommodate a simple error message
 			const MIN_DEBUG_BUF_SIZE: u32 = 256;
 			assert!(
-				T::MaxDebugBufferLen::get() > MIN_DEBUG_BUF_SIZE,
+				T::MaxDebugBufferLen::get() >= MIN_DEBUG_BUF_SIZE,
 				"Debug buffer should have minimum size of {} (current setting is {})",
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
-			)
+			);
+
+			// Validators are configured to be able to use more memory than block builders. This is
+			// because in addition to `max_runtime_mem` they need to hold additional data in
+			// memory: PoV in multiple copies (1x encoded + 2x decoded) and all storage which
+			// includes emitted events. The assumption is that storage/events size
+			// can be a maximum of half of the validator runtime memory - max_runtime_mem.
+			let max_block_ref_time = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block)
+				.ref_time();
+			let max_payload_size = T::Schedule::get().limits.payload_len;
+			let max_key_size =
+				Key::<T>::try_from_var(alloc::vec![0u8; T::MaxStorageKeyLen::get() as usize])
+					.expect("Key of maximal size shall be created")
+					.hash()
+					.len() as u32;
+
+			// We can use storage to store items using the available block ref_time with the
+			// `set_storage` host function.
+			let max_storage_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+					new_bytes: max_payload_size,
+					old_bytes: 0,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size.saturating_add(max_key_size) as u64))
+			.try_into()
+			.expect("Storage size too big");
+
+			let max_validator_runtime_mem: u32 = T::Schedule::get().limits.validator_runtime_memory;
+			let storage_size_limit = max_validator_runtime_mem.saturating_sub(max_runtime_mem) / 2;
+
+			assert!(
+				max_storage_size <= storage_size_limit,
+				"Maximal storage size {} exceeds the storage limit {}",
+				max_storage_size,
+				storage_size_limit
+			);
+
+			// We can use storage to store events using the available block ref_time with the
+			// `deposit_event` host function. The overhead of stored events, which is around 100B,
+			// is not taken into account to simplify calculations, as it does not change much.
+			let max_events_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+					num_topic: 0,
+					len: max_payload_size,
+				})
+				.ref_time()))
+			.saturating_mul(max_payload_size as u64))
+			.try_into()
+			.expect("Events size too big");
+
+			assert!(
+				max_events_size <= storage_size_limit,
+				"Maximal events size {} exceeds the events limit {}",
+				max_events_size,
+				storage_size_limit
+			);
 		}
 	}
 
@@ -721,18 +903,15 @@ pub mod pallet {
 				let contract = if let Some(contract) = contract {
 					contract
 				} else {
-					return Err(<Error<T>>::ContractNotFound.into())
+					return Err(<Error<T>>::ContractNotFound.into());
 				};
 				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
 				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
-				Self::deposit_event(
-					vec![T::Hashing::hash_of(&dest), code_hash, contract.code_hash],
-					Event::ContractCodeUpdated {
-						contract: dest.clone(),
-						new_code_hash: code_hash,
-						old_code_hash: contract.code_hash,
-					},
-				);
+				Self::deposit_event(Event::ContractCodeUpdated {
+					contract: dest.clone(),
+					new_code_hash: code_hash,
+					old_code_hash: contract.code_hash,
+				});
 				contract.code_hash = code_hash;
 				Ok(())
 			})
@@ -924,18 +1103,25 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let (result, weight) = Migration::<T>::migrate(weight_limit);
+			let mut meter = WeightMeter::with_limit(weight_limit);
+			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(T::WeightInfo::migrate()))
+					Err(err.with_weight(meter.consumed()))
 				},
 			}
 		}
@@ -1087,6 +1273,8 @@ pub mod pallet {
 		/// into `pallet-contracts`. This would make the whole pallet reentrant with regard to
 		/// contract code execution which is not supported.
 		ReentranceDenied,
+		/// A contract attempted to invoke a state modifying API while being in read-only mode.
+		StateChangeDenied,
 		/// Origin doesn't have enough balance to pay the required storage deposits.
 		StorageDepositNotEnoughFunds,
 		/// More storage was created than allowed by the storage deposit limit.
@@ -1121,6 +1309,8 @@ pub mod pallet {
 		DelegateDependencyAlreadyExists,
 		/// Can not add a delegate dependency to the code hash of the contract itself.
 		CannotAddSelfAsDelegateDependency,
+		/// Can not add more data to transient storage.
+		OutOfTransientStorage,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -1193,7 +1383,7 @@ pub mod pallet {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
@@ -1251,7 +1441,7 @@ struct InstantiateInput<T: Config> {
 
 /// Determines whether events should be collected during execution.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum CollectEvents {
 	/// Collect events.
@@ -1269,7 +1459,7 @@ pub enum CollectEvents {
 
 /// Determines whether debug messages will be collected.
 #[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
+	Copy, Clone, PartialEq, Eq, Debug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
 )]
 pub enum DebugInfo {
 	/// Collect debug messages.
@@ -1321,7 +1511,7 @@ trait Invokable<T: Config>: Sized {
 				gas_meter: GasMeter::new(gas_limit),
 				storage_deposit: Default::default(),
 				result: Err(ExecError { error: e.into(), origin: ErrorOrigin::Caller }),
-			}
+			};
 		}
 
 		executing_contract::using_once(&mut false, || {
@@ -1376,12 +1566,13 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 		let mut storage_meter =
 			match StorageMeter::new(&origin, common.storage_deposit_limit, common.value) {
 				Ok(meter) => meter,
-				Err(err) =>
+				Err(err) => {
 					return InternalOutput {
 						result: Err(err.into()),
 						gas_meter,
 						storage_deposit: Default::default(),
-					},
+					}
+				},
 			};
 		let schedule = T::Schedule::get();
 		let result = ExecStack::<T, WasmBlob<T>>::run_call(
@@ -1471,7 +1662,7 @@ macro_rules! ensure_no_migration_in_progress {
 				debug_message: Vec::new(),
 				result: Err(Error::<T>::MigrationInProgress.into()),
 				events: None,
-			}
+			};
 		}
 	};
 }
@@ -1586,7 +1777,7 @@ impl<T: Config> Pallet<T> {
 
 				let (module, deposit) = match result {
 					Ok(result) => result,
-					Err(error) =>
+					Err(error) => {
 						return ContractResult {
 							gas_consumed: Zero::zero(),
 							gas_required: Zero::zero(),
@@ -1594,7 +1785,8 @@ impl<T: Config> Pallet<T> {
 							debug_message: debug_message.unwrap_or(Default::default()).into(),
 							result: Err(error),
 							events: events(),
-						},
+						}
+					},
 				};
 
 				storage_deposit_limit =
@@ -1670,7 +1862,7 @@ impl<T: Config> Pallet<T> {
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: T::AccountId, key: Vec<u8>) -> GetStorageResult {
 		if Migration::<T>::in_progress() {
-			return Err(ContractAccessError::MigrationInProgress)
+			return Err(ContractAccessError::MigrationInProgress);
 		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
@@ -1712,8 +1904,13 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Deposit a pallet contracts event. Handles the conversion to the overarching event type.
-	fn deposit_event(topics: Vec<T::Hash>, event: Event<T>) {
+	/// Deposit a pallet contracts event.
+	fn deposit_event(event: Event<T>) {
+		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	/// Deposit a pallet contracts indexed event.
+	fn deposit_indexed_event(topics: Vec<T::Hash>, event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event_indexed(
 			&topics,
 			<T as Config>::RuntimeEvent::from(event).into(),

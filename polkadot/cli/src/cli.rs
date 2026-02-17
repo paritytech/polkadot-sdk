@@ -25,7 +25,15 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
@@ -49,11 +57,6 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// Try-runtime has migrated to a standalone CLI
-	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after January 2024.
-	TryRuntime,
 
 	/// Key management CLI utilities
 	#[command(subcommand)]
@@ -84,7 +87,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 
@@ -97,12 +100,6 @@ pub struct RunCmd {
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,
-
-	/// Add the destination address to the 'Jaeger' agent.
-	///
-	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
-	#[arg(long)]
-	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///
@@ -136,9 +133,50 @@ pub struct RunCmd {
 	#[arg(long, value_name = "PATH")]
 	pub workers_path: Option<PathBuf>,
 
+	/// Override the maximum number of pvf execute workers.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub execute_workers_max_num: Option<usize>,
+	/// Override the maximum number of pvf workers that can be spawned in the pvf prepare
+	/// pool for tasks with the priority below critical.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+
+	#[arg(long)]
+	pub prepare_workers_soft_max_num: Option<usize>,
+	/// Override the absolute number of pvf workers that can be spawned in the pvf prepare pool.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long)]
+	pub prepare_workers_hard_max_num: Option<usize>,
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+
+	/// How long finalized data should be kept in the availability store (in hours).
+	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live
+	/// networks.
+	#[arg(long)]
+	pub keep_finalized_for: Option<u32>,
+
+	/// Overrides `HOLD_OFF_DURATION` in collator_protocol/validator_side. The value is in
+	/// milliseconds.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long, hide = true)]
+	pub collator_protocol_hold_off: Option<u64>,
+
+	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
+	#[arg(long, hide = true, default_value = "false")]
+	pub experimental_collator_protocol: bool,
+
+	/// Collator reputation persistence interval in seconds.
+	/// If not specified, defaults to 600 seconds (10 minutes).
+	/// This should be used only with experimental_collator_protocol
+	/// and only on validators.
+	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
+	pub collator_reputation_persist_interval: Option<u64>,
 }
 
 #[allow(missing_docs)]

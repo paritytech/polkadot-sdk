@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Stabilize RPC `archive` methods to V1
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR renames the V2 `archive_unstable_*` RPC calls to be `archive_v1_*`, signalling 
+      that they have been stabilized.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: major

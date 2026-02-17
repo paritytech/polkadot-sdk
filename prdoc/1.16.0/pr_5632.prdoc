@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix `alloc` not found error in `format_runtime_string!`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes the macro hygiene in the `format_runtime_string!` macro to fix the `alloc` not found build error.
+
+crates:
+  - name: sp-runtime
+    bump: patch

@@ -16,6 +16,8 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use alloc::boxed::Box;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
 	Get, Imbalance, OnUnbalanced, OriginTrait,
@@ -23,7 +25,6 @@ use frame_support::traits::{
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,
@@ -66,7 +67,7 @@ where
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<
 			Item = fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>,
 		>,
@@ -164,8 +165,8 @@ where
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
 				None => {
-					log::warn!("Failed to convert root origin into account id");
-					return
+					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
+					return;
 				},
 			};
 		let treasury_account: AccountIdOf<T> = TreasuryAccount::get();
@@ -186,7 +187,7 @@ where
 		);
 
 		if let Err(err) = result {
-			log::warn!("Failed to teleport slashed assets: {:?}", err);
+			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
 	}
 }
@@ -202,7 +203,7 @@ mod tests {
 	use frame_system::{limits, EnsureRoot};
 	use pallet_collator_selection::IdentityCollator;
 	use polkadot_primitives::AccountId;
-	use sp_core::{ConstU64, H256};
+	use sp_core::H256;
 	use sp_runtime::{
 		traits::{BlakeTwo256, IdentityLookup},
 		BuildStorage, Perbill,
@@ -222,10 +223,10 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
-		pub const MaxReserves: u32 = 50;
 	}
 
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -240,7 +241,6 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = BlockHashCount;
 		type BlockLength = BlockLength;
 		type BlockWeights = ();
 		type DbWeight = ();
@@ -255,20 +255,9 @@ mod tests {
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = System;
-		type MaxLocks = ();
-		type WeightInfo = ();
-		type MaxReserves = MaxReserves;
-		type ReserveIdentifier = [u8; 8];
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type RuntimeFreezeReason = RuntimeFreezeReason;
-		type FreezeIdentifier = ();
-		type MaxFreezes = ConstU32<1>;
 	}
 
 	pub struct OneAuthor;

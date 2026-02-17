@@ -16,115 +16,40 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::types::ProtocolName;
-
-use prometheus_endpoint::{
-	self as prometheus, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
-	U64,
-};
-
-use std::sync::Arc;
-
-/// Notification metrics.
-#[derive(Debug, Clone)]
-pub struct Metrics {
-	// Total number of opened substreams.
-	pub notifications_streams_opened_total: CounterVec<U64>,
-
-	/// Total number of closed substreams.
-	pub notifications_streams_closed_total: CounterVec<U64>,
-
-	/// In/outbound notification sizes.
-	pub notifications_sizes: HistogramVec,
-}
-
-impl Metrics {
-	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
-		Ok(Self {
-			notifications_sizes: prometheus::register(
-				HistogramVec::new(
-					HistogramOpts {
-						common_opts: Opts::new(
-							"substrate_sub_libp2p_notifications_sizes",
-							"Sizes of the notifications send to and received from all nodes",
-						),
-						buckets: prometheus::exponential_buckets(64.0, 4.0, 8)
-							.expect("parameters are always valid values; qed"),
-					},
-					&["direction", "protocol"],
-				)?,
-				registry,
-			)?,
-			notifications_streams_closed_total: prometheus::register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sub_libp2p_notifications_streams_closed_total",
-						"Total number of notification substreams that have been closed",
-					),
-					&["protocol"],
-				)?,
-				registry,
-			)?,
-			notifications_streams_opened_total: prometheus::register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sub_libp2p_notifications_streams_opened_total",
-						"Total number of notification substreams that have been opened",
-					),
-					&["protocol"],
-				)?,
-				registry,
-			)?,
-		})
-	}
-}
-
-/// Register metrics.
-pub fn register(registry: &Registry) -> Result<Metrics, PrometheusError> {
-	Metrics::register(registry)
-}
+use crate::{service::metrics::NotificationMetrics, types::ProtocolName};
 
 /// Register opened substream to Prometheus.
-pub fn register_substream_opened(metrics: &Option<Metrics>, protocol: &ProtocolName) {
+pub fn register_substream_opened(metrics: &Option<NotificationMetrics>, protocol: &ProtocolName) {
 	if let Some(metrics) = metrics {
-		metrics.notifications_streams_opened_total.with_label_values(&[&protocol]).inc();
+		metrics.register_substream_opened(&protocol);
 	}
 }
 
 /// Register closed substream to Prometheus.
-pub fn register_substream_closed(metrics: &Option<Metrics>, protocol: &ProtocolName) {
+pub fn register_substream_closed(metrics: &Option<NotificationMetrics>, protocol: &ProtocolName) {
 	if let Some(metrics) = metrics {
-		metrics
-			.notifications_streams_closed_total
-			.with_label_values(&[&protocol[..]])
-			.inc();
+		metrics.register_substream_closed(&protocol);
 	}
 }
 
 /// Register sent notification to Prometheus.
 pub fn register_notification_sent(
-	metrics: &Option<Arc<Metrics>>,
+	metrics: &Option<std::sync::Arc<NotificationMetrics>>,
 	protocol: &ProtocolName,
 	size: usize,
 ) {
 	if let Some(metrics) = metrics {
-		metrics
-			.notifications_sizes
-			.with_label_values(&["out", protocol])
-			.observe(size as f64);
+		metrics.register_notification_sent(protocol, size);
 	}
 }
 
 /// Register received notification to Prometheus.
 pub fn register_notification_received(
-	metrics: &Option<Metrics>,
+	metrics: &Option<NotificationMetrics>,
 	protocol: &ProtocolName,
 	size: usize,
 ) {
 	if let Some(metrics) = metrics {
-		metrics
-			.notifications_sizes
-			.with_label_values(&["in", protocol])
-			.observe(size as f64);
+		metrics.register_notification_received(protocol, size);
 	}
 }

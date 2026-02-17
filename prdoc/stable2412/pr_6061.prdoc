@@ -1,0 +1,10 @@
+title: Remove check-migrations for rococo chain
+
+doc:
+  - audience: [Runtime User]
+    description: |
+      This PR adds the missing `cumulus_pallet_xcmp_queue` v5 migration to the coretime-westend runtime.
+
+crates: 
+- name: coretime-westend-runtime
+  bump: none

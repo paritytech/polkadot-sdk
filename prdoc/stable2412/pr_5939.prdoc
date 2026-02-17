@@ -1,0 +1,14 @@
+title: "[pallet-revive] Bump PolkaVM and add static code validation"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     Statically validate basic block sizes and instructions.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: minor
+  - name: pallet-revive-uapi
+    bump: patch

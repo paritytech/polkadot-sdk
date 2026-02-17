@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Use Relay Blocknumber in Pallet Broker
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Changing `sale_start`, `interlude_length` and `leading_length` in `pallet_broker` to use relay chain block numbers instead of parachain block numbers.
+      Relay chain block numbers are almost deterministic and more future proof.
+
+crates:
+  - name: pallet-broker
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major

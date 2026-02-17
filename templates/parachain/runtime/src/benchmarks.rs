@@ -23,7 +23,7 @@
 //
 // For more information, please refer to <http://unlicense.org>
 
-frame_benchmarking::define_benchmarks!(
+polkadot_sdk::frame_benchmarking::define_benchmarks!(
 	[frame_system, SystemBench::<Runtime>]
 	[pallet_balances, Balances]
 	[pallet_session, SessionBench::<Runtime>]
@@ -33,4 +33,5 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_collator_selection, CollatorSelection]
 	[cumulus_pallet_parachain_system, ParachainSystem]
 	[cumulus_pallet_xcmp_queue, XcmpQueue]
+	[cumulus_pallet_weight_reclaim, WeightReclaim]
 );

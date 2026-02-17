@@ -50,6 +50,7 @@ mod module1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeOrigin: From<Origin<Self, I>>;
@@ -112,7 +113,9 @@ mod module1 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {
 		Members(u32),
@@ -158,6 +161,7 @@ mod module2 {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		type Amount: Parameter + MaybeSerializeDeserialize + Default + MaxEncodedLen;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RuntimeOrigin: From<Origin<Self, I>>;
@@ -217,7 +221,9 @@ mod module2 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {
 		Members(u32),
@@ -293,7 +299,6 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -442,6 +447,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 				default: vec![0, 0, 0, 0],
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "Map",
@@ -453,6 +459,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 			StorageEntryMetadataIR {
 				name: "DoubleMap",
@@ -464,6 +471,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: [0u8; 8].to_vec(),
 				docs: vec![],
+				deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 			},
 		],
 	}

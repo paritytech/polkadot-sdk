@@ -48,7 +48,7 @@ pub(super) fn calculate_primary_threshold(
 	// configuration parameters, this is not sufficient to guarantee that `c.1` is non-zero
 	// (i.e. third party implementations are possible).
 	if c.1 == 0 || authority_index >= authorities.len() {
-		return 0
+		return 0;
 	}
 
 	let c = c.0 as f64 / c.1 as f64;
@@ -105,10 +105,11 @@ pub(super) fn secondary_slot_author(
 	randomness: Randomness,
 ) -> Option<&AuthorityId> {
 	if authorities.is_empty() {
-		return None
+		return None;
 	}
 
-	let rand = U256::from((randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
+	let rand =
+		U256::from_big_endian(&(randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
 
 	let authorities_len = U256::from(authorities.len());
 	let idx = rand % authorities_len;
@@ -132,7 +133,7 @@ fn claim_secondary_slot(
 	author_secondary_vrf: bool,
 ) -> Option<(PreDigest, AuthorityId)> {
 	if epoch.authorities.is_empty() {
-		return None
+		return None;
 	}
 
 	let mut epoch_index = epoch.epoch_index;
@@ -168,7 +169,7 @@ fn claim_secondary_slot(
 			};
 
 			if let Some(pre_digest) = pre_digest {
-				return Some((pre_digest, authority_id.clone()))
+				return Some((pre_digest, authority_id.clone()));
 			}
 		}
 	}
@@ -260,7 +261,7 @@ fn claim_primary_slot(
 					vrf_signature,
 				});
 
-				return Some((pre_digest, authority_id.clone()))
+				return Some((pre_digest, authority_id.clone()));
 			}
 		}
 	}
@@ -271,7 +272,9 @@ fn claim_primary_slot(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch};
+	use sp_consensus_babe::{
+		AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch, RANDOMNESS_LENGTH,
+	};
 	use sp_core::{crypto::Pair as _, sr25519::Pair};
 	use sp_keystore::testing::MemoryKeystore;
 
@@ -304,5 +307,19 @@ mod tests {
 
 		epoch.authorities.push((valid_public_key.into(), 10));
 		assert_eq!(claim_slot(10.into(), &epoch, &keystore).unwrap().1, valid_public_key.into());
+	}
+
+	#[test]
+	fn secondary_slot_author_selection_works() {
+		let authorities = (0..1000)
+			.map(|i| (AuthorityId::from(Pair::generate().0.public()), i))
+			.collect::<Vec<_>>();
+
+		let randomness = [3; RANDOMNESS_LENGTH];
+
+		assert_eq!(
+			*secondary_slot_author(100.into(), &authorities, randomness).unwrap(),
+			authorities[167].0
+		);
 	}
 }

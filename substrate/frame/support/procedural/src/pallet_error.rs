@@ -93,11 +93,12 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 		},
 		syn::Data::Union(syn::DataUnion { union_token, .. }) => {
 			let msg = "Cannot derive `PalletError` for union; please implement it directly";
-			return syn::Error::new(union_token.span, msg).into_compile_error().into()
+			return syn::Error::new(union_token.span, msg).into_compile_error().into();
 		},
 	};
 
 	quote::quote!(
+		#[allow(deprecated)]
 		const _: () = {
 			impl #impl_generics #frame_support::traits::PalletError
 				for #name #ty_generics #where_clause
@@ -133,7 +134,7 @@ fn generate_field_types(
 			})?;
 
 			if let Some(v) = res {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 	}
@@ -159,7 +160,7 @@ fn generate_variant_field_types(
 			});
 
 			if skip {
-				return Ok(None)
+				return Ok(None);
 			}
 		}
 	}

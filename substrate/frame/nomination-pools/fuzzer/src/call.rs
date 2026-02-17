@@ -173,7 +173,7 @@ impl RewardAgent {
 
 	fn join(&mut self) {
 		if self.pool_id.is_some() {
-			return
+			return;
 		}
 		let pool_id = LastPoolId::<T>::get();
 		let amount = 10 * ExistentialDeposit::get();
@@ -189,7 +189,7 @@ impl RewardAgent {
 		// calculated.
 		if !PoolMembers::<T>::contains_key(&self.who) {
 			log!(warn, "reward agent is not in the pool yet, cannot claim");
-			return
+			return;
 		}
 		let pre = Balances::free_balance(&42);
 		let origin = RuntimeOrigin::signed(42);
@@ -306,7 +306,7 @@ fn main() {
 					BondedPools::<T>::iter().for_each(|(id, _)| {
 						let amount = random_ed_multiple(&mut rng);
 						let _ =
-							Balances::deposit_creating(&Pools::create_reward_account(id), amount);
+							Balances::deposit_creating(&Pools::generate_reward_account(id), amount);
 						// if we just paid out the reward agent, let's calculate how much we expect
 						// our reward agent to have earned.
 						if reward_agent.pool_id.map_or(false, |mid| mid == id) {

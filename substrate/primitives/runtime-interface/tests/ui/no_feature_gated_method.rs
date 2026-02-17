@@ -15,6 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Due to https://github.com/dtolnay/trybuild/issues/302, the `substrate_runtime`
+// cfg is also unexpected. This is a `trybuild` bug, and this part of error is not
+// exposed to a real developer.
+
 use sp_runtime_interface::runtime_interface;
 
 #[runtime_interface]

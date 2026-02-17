@@ -1,0 +1,12 @@
+title: Make `WeightBounds` return `XcmError` to surface failures
+doc:
+- audience: Runtime Dev
+  description: |-
+    Improved XCM weight calculation error handling and traceability. The `WeightBounds` trait now returns detailed `XcmError` types instead of opaque results, allowing downstream consumers to access specific error context for failures like instruction decoding issues, weight overflows, and instruction limit violations. Added structured debug logging with contextual information to aid in diagnosing weight estimation failures during message preparation and execution.
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: staging-xcm-builder
+  bump: major
+- name: staging-xcm-executor
+  bump: major

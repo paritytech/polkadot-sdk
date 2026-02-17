@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Contains functionality related to PVFs that is shared by the PVF host and the PVF workers.
+#![deny(unused_crate_dependencies)]
 
 pub mod error;
 pub mod execute;
@@ -31,7 +32,8 @@ pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
+use sp_core::H256;
 use std::{
 	io::{self, Read, Write},
 	mem,
@@ -85,6 +87,15 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	let mut buf = vec![0; len];
 	r.read_exact(&mut buf)?;
 	Ok(buf)
+}
+
+#[derive(Debug, Default, Clone, Copy, Encode, Decode, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct ArtifactChecksum(H256);
+
+/// Compute the checksum of the given artifact.
+pub fn compute_checksum(data: &[u8]) -> ArtifactChecksum {
+	ArtifactChecksum(H256::from_slice(&sp_crypto_hashing::twox_256(data)))
 }
 
 #[cfg(all(test, not(feature = "test-utils")))]

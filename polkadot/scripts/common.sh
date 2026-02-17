@@ -8,7 +8,7 @@ SRCS=(
 )
 
 DEMOS=(
-	"test-parachains/"
+	"test-parachains/addr test-parachains/halt test-parachains/undying"
 )
 
 # Make pushd/popd silent.

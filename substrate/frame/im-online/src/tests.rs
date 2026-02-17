@@ -50,9 +50,6 @@ fn test_unresponsiveness_slash_fraction() {
 		dummy_offence.slash_fraction(17),
 		Perbill::from_parts(46200000), // 4.62%
 	);
-
-	// Offline offences should never lead to being disabled.
-	assert_eq!(dummy_offence.disable_strategy(), DisableStrategy::Never);
 }
 
 #[test]
@@ -128,8 +125,9 @@ fn heartbeat(
 		signature: signature.clone(),
 	})
 	.map_err(|e| match e {
-		TransactionValidityError::Invalid(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN)) =>
-			"invalid validators len",
+		TransactionValidityError::Invalid(InvalidTransaction::Custom(INVALID_VALIDATORS_LEN)) => {
+			"invalid validators len"
+		},
 		e @ _ => <&'static str>::from(e),
 	})?;
 	ImOnline::heartbeat(RuntimeOrigin::none(), heartbeat, signature)
@@ -228,9 +226,10 @@ fn should_generate_heartbeats() {
 
 		// check stuff about the transaction.
 		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.call {
-			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
-				heartbeat,
+		let heartbeat = match ex.function {
+			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) => {
+				heartbeat
+			},
 			e => panic!("Unexpected call: {:?}", e),
 		};
 
@@ -342,9 +341,10 @@ fn should_not_send_a_report_if_already_online() {
 		assert_eq!(pool_state.read().transactions.len(), 0);
 		// check stuff about the transaction.
 		let ex: Extrinsic = Decode::decode(&mut &*transaction).unwrap();
-		let heartbeat = match ex.call {
-			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) =>
-				heartbeat,
+		let heartbeat = match ex.function {
+			crate::mock::RuntimeCall::ImOnline(crate::Call::heartbeat { heartbeat, .. }) => {
+				heartbeat
+			},
 			e => panic!("Unexpected call: {:?}", e),
 		};
 

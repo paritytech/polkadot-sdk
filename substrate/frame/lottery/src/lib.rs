@@ -54,6 +54,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo},
@@ -66,9 +69,8 @@ use frame_support::{
 pub use pallet::*;
 use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
-	ArithmeticError, DispatchError, RuntimeDebug,
+	ArithmeticError, Debug, DispatchError,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
@@ -78,9 +80,7 @@ type BalanceOf<T> =
 // We use this to uniquely match someone's incoming call with the calls configured for the lottery.
 type CallIndex = (u8, u8);
 
-#[derive(
-	Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Default, Eq, PartialEq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct LotteryConfig<BlockNumber, Balance> {
 	/// Price per entry.
 	price: Balance,
@@ -145,6 +145,7 @@ pub mod pallet {
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The manager origin.
@@ -266,11 +267,11 @@ pub mod pallet {
 							LotteryIndex::<T>::mutate(|index| *index = index.saturating_add(1));
 							// Set a new start with the current block.
 							config.start = n;
-							return T::WeightInfo::on_initialize_repeat()
+							return T::WeightInfo::on_initialize_repeat();
 						} else {
 							// Else, kill the lottery storage.
 							*lottery = None;
-							return T::WeightInfo::on_initialize_end()
+							return T::WeightInfo::on_initialize_end();
 						}
 						// We choose not need to kill Participants and Tickets to avoid a large
 						// number of writes at one time. Instead, data persists between lotteries,
@@ -298,7 +299,7 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			T::WeightInfo::buy_ticket()
-				.saturating_add(call.get_dispatch_info().weight)
+				.saturating_add(call.get_dispatch_info().call_weight)
 		)]
 		pub fn buy_ticket(
 			origin: OriginFor<T>,
@@ -428,7 +429,7 @@ impl<T: Config> Pallet<T> {
 	fn call_to_index(call: &<T as Config>::RuntimeCall) -> Result<CallIndex, DispatchError> {
 		let encoded_call = call.encode();
 		if encoded_call.len() < 2 {
-			return Err(Error::<T>::EncodingFailed.into())
+			return Err(Error::<T>::EncodingFailed.into());
 		}
 		Ok((encoded_call[0], encoded_call[1]))
 	}
@@ -491,14 +492,14 @@ impl<T: Config> Pallet<T> {
 	/// Returns `None` if there are no tickets.
 	fn choose_ticket(total: u32) -> Option<u32> {
 		if total == 0 {
-			return None
+			return None;
 		}
 		let mut random_number = Self::generate_random_number(0);
 
 		// Best effort attempt to remove bias from modulus operator.
 		for i in 1..T::MaxGenerateRandom::get() {
 			if random_number < u32::MAX - u32::MAX % total {
-				break
+				break;
 			}
 
 			random_number = Self::generate_random_number(i);

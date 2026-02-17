@@ -17,13 +17,29 @@
 /// A special pallet that exposes dispatchables that are only useful for testing.
 pub use pallet::*;
 
+use codec::Encode;
+
 /// Some key that we set in genesis and only read in [`TestOnRuntimeUpgrade`] to ensure that
 /// [`OnRuntimeUpgrade`] works as expected.
 pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 
+/// Generates the storage key for Alice's account on the relay chain.
+pub fn relay_alice_account_key() -> alloc::vec::Vec<u8> {
+	use sp_keyring::Sr25519Keyring;
+
+	let alice = Sr25519Keyring::Alice.to_account_id();
+
+	let mut key = sp_io::hashing::twox_128(b"System").to_vec();
+	key.extend_from_slice(&sp_io::hashing::twox_128(b"Account"));
+	key.extend_from_slice(&sp_io::hashing::blake2_128(&alice.encode()));
+	key.extend_from_slice(&alice.encode());
+	key
+}
+
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
+	use alloc::vec;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -32,6 +48,10 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + cumulus_pallet_parachain_system::Config {}
+
+	/// A simple storage map for testing purposes.
+	#[pallet::storage]
+	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
@@ -42,7 +62,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn set_custom_validation_head_data(
 			_: OriginFor<T>,
-			custom_header: sp_std::vec::Vec<u8>,
+			custom_header: alloc::vec::Vec<u8>,
 		) -> DispatchResult {
 			cumulus_pallet_parachain_system::Pallet::<T>::set_custom_validation_head_data(
 				custom_header,
@@ -73,23 +93,73 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Reads a key and writes a big value under this key.
+		///
+		/// At genesis this `key` is empty and thus, will only be set in consequent blocks.
+		pub fn read_and_write_big_value(_: OriginFor<T>) -> DispatchResult {
+			let key = &b"really_huge_value"[..];
+			sp_io::storage::get(key);
+			sp_io::storage::set(key, &vec![0u8; 1024 * 1024 * 5]);
+
+			Ok(())
+		}
+
+		/// Stores `()` in `TestMap` for keys from 0 up to `max_key`.
+		#[pallet::weight(0)]
+		pub fn store_values_in_map(_: OriginFor<T>, max_key: u32) -> DispatchResult {
+			for i in 0..=max_key {
+				TestMap::<T>::insert(i, ());
+			}
+			Ok(())
+		}
+
+		/// Removes the value associated with `key` from `TestMap`.
+		#[pallet::weight(0)]
+		pub fn remove_value_from_map(_: OriginFor<T>, key: u32) -> DispatchResult {
+			TestMap::<T>::remove(key);
+			Ok(())
+		}
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub self_para_id: Option<cumulus_primitives_core::ParaId>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			self.self_para_id.map(|para_id| {
-				crate::ParachainId::set(&para_id);
-			});
 		}
+	}
+}
+
+impl<T: Config> cumulus_pallet_parachain_system::OnSystemEvent for Pallet<T> {
+	fn on_validation_data(_data: &cumulus_primitives_core::PersistedValidationData) {
+		// Nothing to do here for tests
+	}
+
+	fn on_validation_code_applied() {
+		// Nothing to do here for tests
+	}
+
+	fn on_relay_state_proof(
+		relay_state_proof: &cumulus_pallet_parachain_system::relay_state_snapshot::RelayChainStateProof,
+	) -> frame_support::weights::Weight {
+		use crate::{Balance, Nonce};
+		use frame_system::AccountInfo;
+		use pallet_balances::AccountData;
+
+		let alice_key = crate::test_pallet::relay_alice_account_key();
+
+		// Verify that Alice's account is included in the relay proof.
+		relay_state_proof
+			.read_optional_entry::<AccountInfo<Nonce, AccountData<Balance>>>(&alice_key)
+			.expect("Invalid relay chain state proof");
+
+		frame_support::weights::Weight::zero()
 	}
 }

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS \"exists!:bool\"",
+  "describe": {
+    "columns": [
+      {
+        "name": "exists!:bool",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e712acbeb712c0a61fc2a47f966abae1ae43ffba0920a9d209d01dcfce44c5e0"
+}

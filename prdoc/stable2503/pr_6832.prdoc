@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Remove collation-generation subsystem from validator nodes"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Collation-generation is only needed for Collators, and therefore not needed for validators
+
+crates: 
+  - name: polkadot-service
+    bump: patch

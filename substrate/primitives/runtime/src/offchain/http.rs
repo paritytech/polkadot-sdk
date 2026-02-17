@@ -48,18 +48,13 @@
 //! assert_eq!(body.error(), &None);
 //! ```
 
-use sp_core::{
-	offchain::{
-		HttpError, HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, Timestamp,
-	},
-	RuntimeDebug,
+use alloc::{str, vec, vec::Vec};
+use sp_core::offchain::{
+	HttpError, HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, Timestamp,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::vec;
-use sp_std::{prelude::Vec, str};
 
 /// Request method (HTTP verb)
-#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Method {
 	/// GET request
 	Get,
@@ -92,7 +87,7 @@ mod header {
 	use super::*;
 
 	/// A header type.
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+	#[derive(Clone, PartialEq, Eq, Debug)]
 	pub struct Header {
 		name: Vec<u8>,
 		value: Vec<u8>,
@@ -123,7 +118,7 @@ mod header {
 }
 
 /// An HTTP request builder.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Request<'a, T = Vec<&'static [u8]>> {
 	/// Request method
 	pub method: Method,
@@ -233,7 +228,7 @@ impl<'a, I: AsRef<[u8]>, T: IntoIterator<Item = I>> Request<'a, T> {
 }
 
 /// A request error
-#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Error {
 	/// Deadline has been reached.
 	DeadlineReached,
@@ -244,7 +239,7 @@ pub enum Error {
 }
 
 /// A struct representing an uncompleted http request.
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct PendingRequest {
 	/// Request ID
 	pub id: RequestId,
@@ -311,7 +306,7 @@ impl PendingRequest {
 }
 
 /// A HTTP response.
-#[derive(RuntimeDebug)]
+#[derive(Debug)]
 pub struct Response {
 	/// Request id
 	pub id: RequestId,
@@ -404,7 +399,7 @@ impl Iterator for ResponseBody {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.error.is_some() {
-			return None
+			return None;
 		}
 
 		if self.filled_up_to.is_none() {
@@ -413,7 +408,7 @@ impl Iterator for ResponseBody {
 			match result {
 				Err(e) => {
 					self.error = Some(e);
-					return None
+					return None;
 				},
 				Ok(0) => return None,
 				Ok(size) => {
@@ -425,7 +420,7 @@ impl Iterator for ResponseBody {
 
 		if Some(self.position) == self.filled_up_to {
 			self.filled_up_to = None;
-			return self.next()
+			return self.next();
 		}
 
 		let result = self.buffer[self.position];
@@ -435,7 +430,7 @@ impl Iterator for ResponseBody {
 }
 
 /// A collection of Headers in the response.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Headers {
 	/// Raw headers
 	pub raw: Vec<(Vec<u8>, Vec<u8>)>,
@@ -452,20 +447,20 @@ impl Headers {
 		let raw = name.as_bytes();
 		for (key, val) in &self.raw {
 			if &**key == raw {
-				return str::from_utf8(val).ok()
+				return str::from_utf8(val).ok();
 			}
 		}
 		None
 	}
 
 	/// Convert this headers into an iterator.
-	pub fn into_iter(&self) -> HeadersIterator {
+	pub fn into_iter(&self) -> HeadersIterator<'_> {
 		HeadersIterator { collection: &self.raw, index: None }
 	}
 }
 
 /// A custom iterator traversing all the headers.
-#[derive(Clone, RuntimeDebug)]
+#[derive(Clone, Debug)]
 pub struct HeadersIterator<'a> {
 	collection: &'a [(Vec<u8>, Vec<u8>)],
 	index: Option<usize>,

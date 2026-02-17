@@ -19,11 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use core::{
-	cmp,
-	convert::{TryFrom, TryInto},
-	mem::size_of,
-};
+use core::{cmp, mem::size_of};
 use sp_runtime::traits::{Bounded, Hash, StaticLookup};
 
 use frame_benchmarking::{account, v2::*, BenchmarkError};
@@ -202,7 +198,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(voter), last_hash, index, approve);
 
-		//nothing to verify
+		// nothing to verify
 		Ok(())
 	}
 

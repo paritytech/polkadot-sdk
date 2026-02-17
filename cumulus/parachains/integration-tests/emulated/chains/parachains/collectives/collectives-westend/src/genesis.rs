@@ -30,6 +30,7 @@ pub fn genesis() -> Storage {
 		system: collectives_westend_runtime::SystemConfig::default(),
 		balances: collectives_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: collectives_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -51,6 +52,7 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: collectives_westend_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),

@@ -25,13 +25,13 @@ extern crate alloc;
 use serde::Serialize;
 
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
-	ConsensusEngineId, RuntimeDebug,
+	ConsensusEngineId, Debug, OpaqueValue,
 };
 
 /// The log target to be used by client code.
@@ -77,10 +77,11 @@ pub type RoundNumber = u64;
 pub type AuthorityList = Vec<(AuthorityId, AuthorityWeight)>;
 
 /// A GRANDPA message for a substrate chain.
-pub type Message<Header> = grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Message<Header> =
+	finality_grandpa::Message<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 
 /// A signed message.
-pub type SignedMessage<Header> = grandpa::SignedMessage<
+pub type SignedMessage<Header> = finality_grandpa::SignedMessage<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -89,21 +90,22 @@ pub type SignedMessage<Header> = grandpa::SignedMessage<
 
 /// A primary propose message for this chain's block type.
 pub type PrimaryPropose<Header> =
-	grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::PrimaryPropose<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A prevote message for this chain's block type.
-pub type Prevote<Header> = grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+pub type Prevote<Header> =
+	finality_grandpa::Prevote<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A precommit message for this chain's block type.
 pub type Precommit<Header> =
-	grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
+	finality_grandpa::Precommit<<Header as HeaderT>::Hash, <Header as HeaderT>::Number>;
 /// A catch up message for this chain's block type.
-pub type CatchUp<Header> = grandpa::CatchUp<
+pub type CatchUp<Header> = finality_grandpa::CatchUp<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
 	AuthorityId,
 >;
 /// A commit message for this chain's block type.
-pub type Commit<Header> = grandpa::Commit<
+pub type Commit<Header> = finality_grandpa::Commit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -111,7 +113,7 @@ pub type Commit<Header> = grandpa::Commit<
 >;
 
 /// A compact commit message for this chain's block type.
-pub type CompactCommit<Header> = grandpa::CompactCommit<
+pub type CompactCommit<Header> = finality_grandpa::CompactCommit<
 	<Header as HeaderT>::Hash,
 	<Header as HeaderT>::Number,
 	AuthoritySignature,
@@ -135,7 +137,7 @@ pub struct GrandpaJustification<Header: HeaderT> {
 }
 
 /// A scheduled change of authority set.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ScheduledChange<N> {
 	/// The new authorities after the change, along with their respective weights.
@@ -145,7 +147,7 @@ pub struct ScheduledChange<N> {
 }
 
 /// An consensus log item for GRANDPA.
-#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub enum ConsensusLog<N: Codec> {
 	/// Schedule an authority set change.
@@ -229,7 +231,7 @@ impl<N: Codec> ConsensusLog<N> {
 /// GRANDPA happens when a voter votes on the same round (either at prevote or
 /// precommit stage) for different blocks. Proving is achieved by collecting the
 /// signed messages of conflicting votes.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, TypeInfo)]
 pub struct EquivocationProof<H, N> {
 	set_id: SetId,
 	equivocation: Equivocation<H, N>,
@@ -263,21 +265,39 @@ impl<H, N> EquivocationProof<H, N> {
 
 /// Wrapper object for GRANDPA equivocation proofs, useful for unifying prevote
 /// and precommit equivocations under a common type.
-#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq, TypeInfo)]
+#[derive(Clone, Debug, Decode, DecodeWithMemTracking, Encode, PartialEq, Eq, TypeInfo)]
 pub enum Equivocation<H, N> {
 	/// Proof of equivocation at prevote stage.
-	Prevote(grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>),
+	Prevote(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	),
 	/// Proof of equivocation at precommit stage.
-	Precommit(grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>),
+	Precommit(
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	),
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Prevote<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Prevote<H, N>,
+			finality_grandpa::Prevote<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -285,13 +305,19 @@ impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Prevote<H, N>, Autho
 	}
 }
 
-impl<H, N> From<grandpa::Equivocation<AuthorityId, grandpa::Precommit<H, N>, AuthoritySignature>>
-	for Equivocation<H, N>
+impl<H, N>
+	From<
+		finality_grandpa::Equivocation<
+			AuthorityId,
+			finality_grandpa::Precommit<H, N>,
+			AuthoritySignature,
+		>,
+	> for Equivocation<H, N>
 {
 	fn from(
-		equivocation: grandpa::Equivocation<
+		equivocation: finality_grandpa::Equivocation<
 			AuthorityId,
-			grandpa::Precommit<H, N>,
+			finality_grandpa::Precommit<H, N>,
 			AuthoritySignature,
 		>,
 	) -> Self {
@@ -332,7 +358,7 @@ where
 			if $equivocation.first.0.target_hash == $equivocation.second.0.target_hash &&
 				$equivocation.first.0.target_number == $equivocation.second.0.target_number
 			{
-				return false
+				return false;
 			}
 
 			// check signatures on both votes are valid
@@ -342,7 +368,8 @@ where
 				&$equivocation.first.1,
 				$equivocation.round_number,
 				report.set_id,
-			);
+			)
+			.is_valid();
 
 			let valid_second = check_message_signature(
 				&$message($equivocation.second.0),
@@ -350,7 +377,8 @@ where
 				&$equivocation.second.1,
 				$equivocation.round_number,
 				report.set_id,
-			);
+			)
+			.is_valid();
 
 			return valid_first && valid_second
 		};
@@ -358,10 +386,10 @@ where
 
 	match report.equivocation {
 		Equivocation::Prevote(equivocation) => {
-			check!(equivocation, grandpa::Message::Prevote);
+			check!(equivocation, finality_grandpa::Message::Prevote);
 		},
 		Equivocation::Precommit(equivocation) => {
-			check!(equivocation, grandpa::Message::Precommit);
+			check!(equivocation, finality_grandpa::Message::Precommit);
 		},
 	}
 }
@@ -386,15 +414,36 @@ pub fn localized_payload_with_buffer<E: Encode>(
 	(message, round, set_id).encode_to(buf)
 }
 
+/// Result of checking a message signature.
+#[derive(Clone, Encode, Decode, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum SignatureResult {
+	/// Valid signature.
+	Valid,
+
+	/// Invalid signature.
+	Invalid,
+
+	/// Valid signature, but the message was signed in the previous set.
+	OutdatedSet,
+}
+
+impl SignatureResult {
+	/// Returns `true` if the signature is valid.
+	pub fn is_valid(&self) -> bool {
+		matches!(self, SignatureResult::Valid)
+	}
+}
+
 /// Check a message signature by encoding the message as a localized payload and
 /// verifying the provided signature using the expected authority id.
 pub fn check_message_signature<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
 	set_id: SetId,
-) -> bool
+) -> SignatureResult
 where
 	H: Encode,
 	N: Encode,
@@ -407,13 +456,13 @@ where
 /// The encoding necessary to verify the signature will be done using the given
 /// buffer, the original content of the buffer will be cleared.
 pub fn check_message_signature_with_buffer<H, N>(
-	message: &grandpa::Message<H, N>,
+	message: &finality_grandpa::Message<H, N>,
 	id: &AuthorityId,
 	signature: &AuthoritySignature,
 	round: RoundNumber,
 	set_id: SetId,
 	buf: &mut Vec<u8>,
-) -> bool
+) -> SignatureResult
 where
 	H: Encode,
 	N: Encode,
@@ -422,26 +471,45 @@ where
 
 	localized_payload_with_buffer(round, set_id, message, buf);
 
-	let valid = id.verify(&buf, signature);
-
-	if !valid {
-		let log_target = if cfg!(feature = "std") { CLIENT_LOG_TARGET } else { RUNTIME_LOG_TARGET };
-
-		log::debug!(target: log_target, "Bad signature on message from {:?}", id);
+	if id.verify(&buf, signature) {
+		return SignatureResult::Valid;
 	}
 
-	valid
+	let log_target = if cfg!(feature = "std") { CLIENT_LOG_TARGET } else { RUNTIME_LOG_TARGET };
+	log::debug!(
+		target: log_target,
+		"Bad signature on message from id={id:?} round={round:?} set_id={set_id:?}",
+	);
+
+	// Check if the signature is valid in the previous set.
+	if set_id == 0 {
+		return SignatureResult::Invalid;
+	}
+
+	let prev_set_id = set_id - 1;
+	localized_payload_with_buffer(round, prev_set_id, message, buf);
+	let valid = id.verify(&buf, signature);
+	log::debug!(
+		target: log_target,
+		"Previous set signature check for id={id:?} round={round:?} previous_set={prev_set_id:?} valid={valid:?}"
+	);
+
+	if valid {
+		SignatureResult::OutdatedSet
+	} else {
+		SignatureResult::Invalid
+	}
 }
 
 /// Localizes the message to the given set and round and signs the payload.
 #[cfg(feature = "std")]
 pub fn sign_message<H, N>(
 	keystore: KeystorePtr,
-	message: grandpa::Message<H, N>,
+	message: finality_grandpa::Message<H, N>,
 	public: AuthorityId,
 	round: RoundNumber,
 	set_id: SetId,
-) -> Option<grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
+) -> Option<finality_grandpa::SignedMessage<H, N, AuthoritySignature, AuthorityId>>
 where
 	H: Encode,
 	N: Encode,
@@ -456,7 +524,7 @@ where
 		.try_into()
 		.ok()?;
 
-	Some(grandpa::SignedMessage { message, signature, id: public })
+	Some(finality_grandpa::SignedMessage { message, signature, id: public })
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API
@@ -465,22 +533,7 @@ where
 /// the runtime API boundary this type is unknown and as such we keep this
 /// opaque representation, implementors of the runtime API will have to make
 /// sure that all usages of `OpaqueKeyOwnershipProof` refer to the same type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
-pub struct OpaqueKeyOwnershipProof(Vec<u8>);
-
-impl OpaqueKeyOwnershipProof {
-	/// Create a new `OpaqueKeyOwnershipProof` using the given encoded
-	/// representation.
-	pub fn new(inner: Vec<u8>) -> OpaqueKeyOwnershipProof {
-		OpaqueKeyOwnershipProof(inner)
-	}
-
-	/// Try to decode this `OpaqueKeyOwnershipProof` into the given concrete key
-	/// ownership proof type.
-	pub fn decode<T: Decode>(self) -> Option<T> {
-		codec::Decode::decode(&mut &self.0[..]).ok()
-	}
-}
+pub type OpaqueKeyOwnershipProof = OpaqueValue;
 
 sp_api::decl_runtime_apis! {
 	/// APIs for integrating the GRANDPA finality gadget into runtimes.

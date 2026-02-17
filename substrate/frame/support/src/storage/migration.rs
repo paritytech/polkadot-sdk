@@ -22,8 +22,8 @@ use crate::{
 	storage::{storage_prefix, unhashed},
 	StorageHasher, Twox128,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 
 use super::PrefixIterator;
 
@@ -32,7 +32,7 @@ pub struct StorageIterator<T> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<T>,
+	_phantom: ::core::marker::PhantomData<T>,
 }
 
 impl<T> StorageIterator<T> {
@@ -85,7 +85,7 @@ impl<T: Decode + Sized> Iterator for StorageIterator<T> {
 					}
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -95,7 +95,7 @@ pub struct StorageKeyIterator<K, T, H: ReversibleStorageHasher> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<(K, T, H)>,
+	_phantom: ::core::marker::PhantomData<(K, T, H)>,
 }
 
 impl<K, T, H: ReversibleStorageHasher> StorageKeyIterator<K, T, H> {
@@ -156,7 +156,7 @@ impl<K: Decode + Sized, T: Decode + Sized, H: ReversibleStorageHasher> Iterator
 					}
 				},
 				None => None,
-			}
+			};
 		}
 	}
 }
@@ -368,7 +368,7 @@ pub fn move_pallet(old_pallet_name: &[u8], new_pallet_name: &[u8]) {
 /// NOTE: The value at the key `from_prefix` is not moved.
 pub fn move_prefix(from_prefix: &[u8], to_prefix: &[u8]) {
 	if from_prefix == to_prefix {
-		return
+		return;
 	}
 
 	let iter = PrefixIterator::<_> {

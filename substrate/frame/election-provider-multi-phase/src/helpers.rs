@@ -21,14 +21,14 @@ use crate::{
 	unsigned::{MinerConfig, MinerVoterOf},
 	SolutionTargetIndexOf, SolutionVoterIndexOf, VoteWeight,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[macro_export]
 macro_rules! log {
 	($level:tt, $pattern:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
 			target: $crate::LOG_TARGET,
-			concat!("[#{:?}] 🗳  ", $pattern), <frame_system::Pallet<T>>::block_number() $(, $values)*
+			concat!("[#{:?}] 🗳  ", $pattern), frame_system::Pallet::<T>::block_number() $(, $values)*
 		)
 	};
 }

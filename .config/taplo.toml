@@ -6,6 +6,7 @@ exclude = [
 	"cumulus/zombienet/**",
 	"polkadot/node/malus/integrationtests/**",
 	"polkadot/zombienet_tests/**",
+	"substrate/client/transaction-pool/tests/zombienet/**",
 	"substrate/zombienet/**",
 	"target/**",
 ]
@@ -14,7 +15,7 @@ exclude = [
 [formatting]
 reorder_arrays = true
 inline_table_expand = false
-array_auto_expand = false
+array_auto_expand = true
 array_auto_collapse = false
 indent_string = "	"         # tab
 
@@ -33,3 +34,17 @@ keys = ["build"]
 
 [rule.formatting]
 reorder_arrays = false
+
+[[rule]]
+include = ["Cargo.toml"]
+keys = ["workspace.dependencies"]
+
+[rule.formatting]
+reorder_keys = true
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["build-dependencies", "dependencies", "dev-dependencies"]
+
+[rule.formatting]
+reorder_keys = true

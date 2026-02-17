@@ -1,0 +1,11 @@
+title: Add number of live peers available for requests
+
+doc:
+  - audience: [Node Operator, Node Dev]
+    description: |
+      This PR adds a new metric for the number of live peers available for beefy requests.
+      The metric is exposed under the name `substrate_beefy_on_demand_live_peers`.
+
+crates:
+  - name: sc-consensus-beefy
+    bump: minor

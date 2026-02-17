@@ -1,0 +1,10 @@
+title: "pallet-conviction-voting: Include events for vote and remove vote"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Introduce event called `Voted: { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> }` and  `VoteRemoved: { who: T::AccountId, vote: AccountVote<BalanceOf<T, I>> }`
+
+crates:
+  - name: pallet-conviction-voting
+    bump: major

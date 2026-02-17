@@ -87,8 +87,6 @@ pub mod keyword {
 }
 
 pub struct CompositeDef {
-	/// The index of the CompositeDef item in the pallet module.
-	pub index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
 	/// Name of the associated type.
@@ -104,7 +102,6 @@ pub struct CompositeDef {
 impl CompositeDef {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		index: usize,
 		scrate: &syn::Path,
 		item: &mut syn::Item,
 	) -> syn::Result<Self> {
@@ -114,11 +111,12 @@ impl CompositeDef {
 			// a fixed variant count.
 			for variant in &item.variants {
 				match variant.fields {
-					syn::Fields::Named(_) | syn::Fields::Unnamed(_) =>
+					syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
 						return Err(syn::Error::new(
 							variant.ident.span(),
 							"The composite enum does not support variants with fields!",
-						)),
+						))
+					},
 					syn::Fields::Unit => (),
 				}
 			}
@@ -127,12 +125,12 @@ impl CompositeDef {
 			return Err(syn::Error::new(
 				item.span(),
 				"Invalid pallet::composite_enum, expected enum item",
-			))
+			));
 		};
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = format!("Invalid pallet::composite_enum, `{}` must be public", item.ident);
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		let has_instance = if item.generics.params.first().is_some() {
@@ -154,9 +152,12 @@ impl CompositeDef {
 			let derive_attr: syn::Attribute = syn::parse_quote! {
 				#[derive(
 					Copy, Clone, Eq, PartialEq,
-					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
+					#scrate::__private::codec::Encode,
+					#scrate::__private::codec::Decode,
+					#scrate::__private::codec::DecodeWithMemTracking,
+					#scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
-					#scrate::__private::RuntimeDebug,
+					#scrate::__private::Debug,
 				)]
 			};
 			item.attrs.push(derive_attr);
@@ -180,7 +181,6 @@ impl CompositeDef {
 			syn::parse2::<keyword::CompositeKeyword>(item.ident.to_token_stream())?;
 
 		Ok(CompositeDef {
-			index,
 			composite_keyword,
 			attr_span,
 			generics: item.generics.clone(),

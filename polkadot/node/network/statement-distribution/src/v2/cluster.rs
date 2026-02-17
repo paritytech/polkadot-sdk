@@ -60,13 +60,6 @@ use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex}
 use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Hash, PartialEq, Eq)]
-struct ValidStatementManifest {
-	remote: ValidatorIndex,
-	originator: ValidatorIndex,
-	candidate_hash: CandidateHash,
-}
-
 // A piece of knowledge about a candidate
 #[derive(Hash, Clone, PartialEq, Eq)]
 enum Knowledge {
@@ -105,7 +98,7 @@ impl ClusterTracker {
 	/// Instantiate a new `ClusterTracker` tracker. Fails if `cluster_validators` is empty
 	pub fn new(cluster_validators: Vec<ValidatorIndex>, seconding_limit: usize) -> Option<Self> {
 		if cluster_validators.is_empty() {
-			return None
+			return None;
 		}
 		Some(ClusterTracker {
 			validators: cluster_validators,
@@ -125,11 +118,11 @@ impl ClusterTracker {
 		statement: CompactStatement,
 	) -> Result<Accept, RejectIncoming> {
 		if !self.is_in_group(sender) || !self.is_in_group(originator) {
-			return Err(RejectIncoming::NotInGroup)
+			return Err(RejectIncoming::NotInGroup);
 		}
 
 		if self.they_sent(sender, Knowledge::Specific(statement.clone(), originator)) {
-			return Err(RejectIncoming::Duplicate)
+			return Err(RejectIncoming::Duplicate);
 		}
 
 		match statement {
@@ -152,7 +145,7 @@ impl ClusterTracker {
 					.count();
 
 				if other_seconded_for_orig_from_remote == self.seconding_limit {
-					return Err(RejectIncoming::ExcessiveSeconded)
+					return Err(RejectIncoming::ExcessiveSeconded);
 				}
 
 				// at this point, it doesn't seem like the remote has done anything wrong.
@@ -164,7 +157,7 @@ impl ClusterTracker {
 			},
 			CompactStatement::Valid(candidate_hash) => {
 				if !self.knows_candidate(sender, candidate_hash) {
-					return Err(RejectIncoming::CandidateUnknown)
+					return Err(RejectIncoming::CandidateUnknown);
 				}
 
 				Ok(Accept::Ok)
@@ -241,11 +234,11 @@ impl ClusterTracker {
 		statement: CompactStatement,
 	) -> Result<(), RejectOutgoing> {
 		if !self.is_in_group(target) || !self.is_in_group(originator) {
-			return Err(RejectOutgoing::NotInGroup)
+			return Err(RejectOutgoing::NotInGroup);
 		}
 
 		if self.they_know_statement(target, originator, statement.clone()) {
-			return Err(RejectOutgoing::Known)
+			return Err(RejectOutgoing::Known);
 		}
 
 		match statement {
@@ -253,14 +246,14 @@ impl ClusterTracker {
 				// we send the same `Seconded` statements to all our peers, and only the first `k`
 				// from each originator.
 				if !self.seconded_already_or_within_limit(originator, candidate_hash) {
-					return Err(RejectOutgoing::ExcessiveSeconded)
+					return Err(RejectOutgoing::ExcessiveSeconded);
 				}
 
 				Ok(())
 			},
 			CompactStatement::Valid(candidate_hash) => {
 				if !self.knows_candidate(target, candidate_hash) {
-					return Err(RejectOutgoing::CandidateUnknown)
+					return Err(RejectOutgoing::CandidateUnknown);
 				}
 
 				Ok(())
@@ -436,13 +429,15 @@ impl ClusterTracker {
 
 	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
 		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
-			self.validators.len()
+			self.validators.len() &&
+			// No reason to warn if we are the only node in the cluster.
+			self.validators.len() > 1
 		{
 			gum::warn!(
 				target: LOG_TARGET,
 				pending_statements  = ?self.pending,
 				?parent_hash,
-				"Cluster has too many pending statements, something wrong with our connection to our group peers \n
+				"Cluster has too many pending statements, something wrong with our connection to our group peers
 				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			);
 		}

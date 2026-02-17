@@ -1,0 +1,32 @@
+title: Introduce `SlotSchedule` runtime api
+doc:
+- audience: Runtime Dev
+  description: |-
+    This pull requests introduces the `SlotSchedule` runtime api. This runtime api will be used in the future to determine the number of parachains blocks to produce per relay chain slot. Right now the pull request only introduces the runtime api and implements it for the parachain runtimes.
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/8905
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: glutton-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: cumulus-primitives-core
+  bump: minor

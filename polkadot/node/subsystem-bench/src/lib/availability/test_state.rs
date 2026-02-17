@@ -14,24 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::configuration::{TestAuthorities, TestConfiguration};
+use crate::{
+	configuration::{TestAuthorities, TestConfiguration},
+	environment::GENESIS_HASH,
+	mock::runtime_api::default_node_features,
+};
 use bitvec::bitvec;
+use codec::Encode;
 use colored::Colorize;
 use itertools::Itertools;
-use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
-	request_response::v1::ChunkFetchingRequest, Versioned, VersionedValidationProtocol,
+	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
+	ValidationProtocols, VersionedValidationProtocol,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
+use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, Hash, HeadData, Header,
-	PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext,
+	ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, sync::Arc};
 
@@ -49,14 +56,20 @@ pub struct TestState {
 	pub pov_size_to_candidate: HashMap<usize, usize>,
 	// Map from generated candidate hashes to candidate index in `available_data` and `chunks`.
 	pub candidate_hashes: HashMap<CandidateHash, usize>,
+	// Map from candidate hash to occupied core index.
+	pub candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	// Per candidate index receipts.
 	pub candidate_receipt_templates: Vec<CandidateReceipt>,
 	// Per candidate index `AvailableData`
 	pub available_data: Vec<AvailableData>,
-	// Per candiadte index chunks
+	// Per candidate index chunks
 	pub chunks: Vec<Vec<ErasureChunk>>,
+	// Per-core ValidatorIndex -> ChunkIndex mapping
+	pub chunk_indices: Vec<Vec<ChunkIndex>>,
 	// Per relay chain block - candidate backed by our backing group
 	pub backed_candidates: Vec<CandidateReceipt>,
+	// Request protcol names
+	pub req_protocol_names: ReqProtocolNames,
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
 	// Chung fetching requests for backed candidates
@@ -73,6 +86,7 @@ pub struct TestState {
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
+		use polkadot_primitives::MutateDescriptorV2;
 		let mut test_state = Self {
 			available_data: Default::default(),
 			candidate_receipt_templates: Default::default(),
@@ -89,6 +103,9 @@ impl TestState {
 			candidate_receipts: Default::default(),
 			block_headers: Default::default(),
 			test_authorities: config.generate_authorities(),
+			req_protocol_names: ReqProtocolNames::new(GENESIS_HASH, None),
+			chunk_indices: Default::default(),
+			candidate_hash_to_core_index: Default::default(),
 		};
 
 		// we use it for all candidates.
@@ -99,11 +116,22 @@ impl TestState {
 			relay_parent_storage_root: Default::default(),
 		};
 
+		test_state.chunk_indices = (0..config.n_cores)
+			.map(|core_index| {
+				availability_chunk_indices(
+					&default_node_features(),
+					config.n_validators,
+					CoreIndex(core_index as u32),
+				)
+				.unwrap()
+			})
+			.collect();
+
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
 			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
 
-			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
+			let mut candidate_receipt = dummy_candidate_receipt_v2(dummy_hash());
 			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
 
 			let new_available_data = AvailableData {
@@ -117,12 +145,15 @@ impl TestState {
 				|_, _| {},
 			);
 
-			candidate_receipt.descriptor.erasure_root = erasure_root;
+			candidate_receipt.descriptor.set_erasure_root(erasure_root);
 
 			test_state.chunks.push(new_chunks);
 			test_state.available_data.push(new_available_data);
 			test_state.pov_size_to_candidate.insert(pov_size, index);
-			test_state.candidate_receipt_templates.push(candidate_receipt);
+			test_state.candidate_receipt_templates.push(CandidateReceipt {
+				descriptor: candidate_receipt.descriptor,
+				commitments_hash: candidate_receipt.commitments_hash,
+			});
 		}
 
 		test_state.block_infos = (1..=config.num_blocks)
@@ -151,7 +182,7 @@ impl TestState {
 
 		// Generate all candidates
 		let candidates_count = config.n_cores * config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
+		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {candidates_count} candidates.").bright_blue());
 		test_state.candidates = (0..candidates_count)
 			.map(|index| {
 				let pov_size = test_state.pov_sizes.next().expect("This is a cycle; qed");
@@ -163,9 +194,16 @@ impl TestState {
 					test_state.candidate_receipt_templates[candidate_index].clone();
 
 				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+				candidate_receipt
+					.descriptor
+					.set_relay_parent(Hash::from_low_u64_be(index as u64));
 				// Store the new candidate in the state
 				test_state.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
+
+				let core_index = (index % config.n_cores) as u32;
+				test_state
+					.candidate_hash_to_core_index
+					.insert(candidate_receipt.hash(), core_index.into());
 
 				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 
@@ -239,7 +277,7 @@ impl TestState {
 						.flatten()
 						.expect("should be signed");
 
-						peer_bitfield_message_v2(block_info.hash, signed_bitfield)
+						peer_bitfield_message_v3(block_info.hash, signed_bitfield)
 					})
 					.collect::<Vec<_>>();
 
@@ -253,16 +291,16 @@ impl TestState {
 	}
 }
 
-fn peer_bitfield_message_v2(
+fn peer_bitfield_message_v3(
 	relay_hash: H256,
 	signed_bitfield: Signed<AvailabilityBitfield>,
 ) -> VersionedValidationProtocol {
-	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
+	let bitfield = polkadot_node_network_protocol::v3::BitfieldDistributionMessage::Bitfield(
 		relay_hash,
 		signed_bitfield.into(),
 	);
 
-	Versioned::V2(polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
-		bitfield,
-	))
+	ValidationProtocols::V3(
+		polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(bitfield),
+	)
 }

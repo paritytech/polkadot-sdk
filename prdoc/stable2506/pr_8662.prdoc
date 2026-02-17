@@ -1,0 +1,10 @@
+title: '[pallet-revive] update dry-run logic'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Revert #8504
+    - Add a `prepare_dry_run` that run before dry_run
+
+crates:
+- name: pallet-revive
+  bump: major

@@ -39,7 +39,6 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
@@ -91,8 +90,6 @@ impl Config for Runtime {
 impl pallet_example_basic::Config for Runtime {
 	// Use the dynamic key in the pallet config:
 	type MagicNumber = dynamic_params::pallet1::Key1;
-
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 

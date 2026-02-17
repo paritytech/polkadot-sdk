@@ -121,9 +121,6 @@ This is currently a `no op`.
 
 * `is_frozen()`: Load the value of `Frozen` from storage. Return true if `Some` and false if `None`.
 
-* `last_valid_block()`: Load the value of `Frozen` from storage and return. None indicates that all blocks in the chain
-  are potentially valid.
-
 * `revert_and_freeze(BlockNumber)`:
   1. If `is_frozen()` return.
   1. Set `Frozen` to `Some(BlockNumber)` to indicate a rollback to the block number.

@@ -16,14 +16,20 @@
 // limitations under the License.
 
 //! Interfaces, types and utils for benchmarking a FRAME runtime.
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::{prelude::Box, vec::Vec};
+use sp_runtime::{
+	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
+};
+use sp_runtime_interface::pass_by::{
+	AllocateAndReturnByCodec, AllocateAndReturnPointer, PassFatPointerAndDecode,
+	PassFatPointerAndRead,
+};
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -195,11 +201,19 @@ impl From<DispatchError> for BenchmarkError {
 	}
 }
 
+impl From<TransactionValidityError> for BenchmarkError {
+	fn from(e: TransactionValidityError) -> Self {
+		Self::Stop(e.into())
+	}
+}
+
 /// Configuration used to setup and run runtime benchmarks.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 pub struct BenchmarkConfig {
 	/// The encoded name of the pallet to benchmark.
 	pub pallet: Vec<u8>,
+	/// The encoded name of the pallet instance to benchmark.
+	pub instance: Vec<u8>,
 	/// The encoded name of the benchmark/extrinsic to run.
 	pub benchmark: Vec<u8>,
 	/// The selected component values to use when running the benchmark.
@@ -229,6 +243,7 @@ pub struct BenchmarkMetadata {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
+	#[api_version(2)]
 	pub trait Benchmark {
 		/// Get the benchmark metadata available for this runtime.
 		///
@@ -238,22 +253,33 @@ sp_api::decl_runtime_apis! {
 		fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>);
 
 		/// Dispatch the given benchmark.
-		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, sp_runtime::RuntimeString>;
+		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, alloc::string::String>;
 	}
+}
+
+/// Get the number of nanoseconds passed since the UNIX epoch
+///
+/// WARNING! This is a non-deterministic call. Do not use this within
+/// consensus critical logic.
+pub fn current_time() -> u128 {
+	u128::from_le_bytes(self::benchmarking::current_time())
 }
 
 /// Interface that provides functions for benchmarking the runtime.
 #[sp_runtime_interface::runtime_interface]
 pub trait Benchmarking {
-	/// Get the number of nanoseconds passed since the UNIX epoch
+	/// Get the number of nanoseconds passed since the UNIX epoch, as u128 le-bytes.
+	///
+	/// You may want to use the standalone function [`current_time`].
 	///
 	/// WARNING! This is a non-deterministic call. Do not use this within
 	/// consensus critical logic.
-	fn current_time() -> u128 {
+	fn current_time() -> AllocateAndReturnPointer<[u8; 16], 16> {
 		std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
 			.expect("Unix time doesn't go backwards; qed")
 			.as_nanos()
+			.to_le_bytes()
 	}
 
 	/// Reset the trie database to the genesis state.
@@ -263,11 +289,11 @@ pub trait Benchmarking {
 
 	/// Commit pending storage changes to the trie database and clear the database cache.
 	fn commit_db(&mut self) {
-		self.commit()
+		self.commit();
 	}
 
 	/// Get the read/write count.
-	fn read_write_count(&self) -> (u32, u32, u32, u32) {
+	fn read_write_count(&self) -> AllocateAndReturnByCodec<(u32, u32, u32, u32)> {
 		self.read_write_count()
 	}
 
@@ -277,17 +303,17 @@ pub trait Benchmarking {
 	}
 
 	/// Get the DB whitelist.
-	fn get_whitelist(&self) -> Vec<TrackedStorageKey> {
+	fn get_whitelist(&self) -> AllocateAndReturnByCodec<Vec<TrackedStorageKey>> {
 		self.get_whitelist()
 	}
 
 	/// Set the DB whitelist.
-	fn set_whitelist(&mut self, new: Vec<TrackedStorageKey>) {
+	fn set_whitelist(&mut self, new: PassFatPointerAndDecode<Vec<TrackedStorageKey>>) {
 		self.set_whitelist(new)
 	}
 
 	// Add a new item to the DB whitelist.
-	fn add_to_whitelist(&mut self, add: TrackedStorageKey) {
+	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
 		let mut whitelist = self.get_whitelist();
 		match whitelist.iter_mut().find(|x| x.key == add.key) {
 			// If we already have this key in the whitelist, update to be the most constrained
@@ -306,18 +332,20 @@ pub trait Benchmarking {
 	}
 
 	// Remove an item from the DB whitelist.
-	fn remove_from_whitelist(&mut self, remove: Vec<u8>) {
+	fn remove_from_whitelist(&mut self, remove: PassFatPointerAndRead<Vec<u8>>) {
 		let mut whitelist = self.get_whitelist();
 		whitelist.retain(|x| x.key != remove);
 		self.set_whitelist(whitelist);
 	}
 
-	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
+	fn get_read_and_written_keys(
+		&self,
+	) -> AllocateAndReturnByCodec<Vec<(Vec<u8>, u32, u32, bool)>> {
 		self.get_read_and_written_keys()
 	}
 
 	/// Get current estimated proof size.
-	fn proof_size(&self) -> Option<u32> {
+	fn proof_size(&self) -> AllocateAndReturnByCodec<Option<u32>> {
 		self.proof_size()
 	}
 }
@@ -342,6 +370,90 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
+/// The recording trait used to mark the start and end of a benchmark.
+pub trait Recording {
+	/// Start the benchmark.
+	fn start(&mut self) {}
+
+	// Stop the benchmark.
+	fn stop(&mut self) {}
+}
+
+/// A no-op recording, used for unit test.
+struct NoopRecording;
+impl Recording for NoopRecording {}
+
+/// A no-op recording, used for tests that should setup some state before running the benchmark.
+struct TestRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
+}
+
+impl<'a> TestRecording<'a> {
+	fn new(on_before_start: &'a dyn Fn()) -> Self {
+		Self { on_before_start: Some(on_before_start) }
+	}
+}
+
+impl<'a> Recording for TestRecording<'a> {
+	fn start(&mut self) {
+		(self.on_before_start.take().expect("start called more than once"))();
+	}
+}
+
+/// Records the time and proof size of a single benchmark iteration.
+pub struct BenchmarkRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
+	start_extrinsic: Option<u128>,
+	finish_extrinsic: Option<u128>,
+	start_pov: Option<u32>,
+	end_pov: Option<u32>,
+}
+
+impl<'a> BenchmarkRecording<'a> {
+	pub fn new(on_before_start: &'a dyn Fn()) -> Self {
+		Self {
+			on_before_start: Some(on_before_start),
+			start_extrinsic: None,
+			finish_extrinsic: None,
+			start_pov: None,
+			end_pov: None,
+		}
+	}
+}
+
+impl<'a> Recording for BenchmarkRecording<'a> {
+	fn start(&mut self) {
+		(self.on_before_start.take().expect("start called more than once"))();
+		self.start_pov = crate::benchmarking::proof_size();
+		self.start_extrinsic = Some(current_time());
+	}
+
+	fn stop(&mut self) {
+		self.finish_extrinsic = Some(current_time());
+		self.end_pov = crate::benchmarking::proof_size();
+	}
+}
+
+impl<'a> BenchmarkRecording<'a> {
+	pub fn start_pov(&self) -> Option<u32> {
+		self.start_pov
+	}
+
+	pub fn end_pov(&self) -> Option<u32> {
+		self.end_pov
+	}
+
+	pub fn diff_pov(&self) -> Option<u32> {
+		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
+	}
+
+	pub fn elapsed_extrinsic(&self) -> Option<u128> {
+		self.start_extrinsic
+			.zip(self.finish_extrinsic)
+			.map(|(start, end)| end.saturating_sub(start))
+	}
+}
+
 /// The required setup for creating a benchmark.
 ///
 /// Instance generic parameter is optional and can be used in order to capture unused generics for
@@ -353,9 +465,27 @@ pub trait BenchmarkingSetup<T, I = ()> {
 	/// Set up the storage, and prepare a closure to run the benchmark.
 	fn instance(
 		&self,
+		recording: &mut impl Recording,
 		components: &[(BenchmarkParameter, u32)],
 		verify: bool,
-	) -> Result<Box<dyn FnOnce() -> Result<(), BenchmarkError>>, BenchmarkError>;
+	) -> Result<(), BenchmarkError>;
+
+	/// Same as `instance` but passing a closure to run before the benchmark starts.
+	fn test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+		on_before_start: &dyn Fn(),
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut TestRecording::new(on_before_start), components, true);
+	}
+
+	/// Same as `instance` but passing a no-op recording for unit tests.
+	fn unit_test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut NoopRecording {}, components, true);
+	}
 }
 
 /// Grab an account, seeded by a name and index.

@@ -1,0 +1,20 @@
+title: '`trace_block`: Support overwriting `execute_block`'
+doc:
+- audience: Node Dev
+  description: |-
+    This is required for example for parachains that require special extensions to be registered (e.g. `ProofSizeExt`) to succeed the block execution.
+
+    This pull request changes the signature of `spawn_tasks` which now requires a `tracing_execute_block` parameter. If your chain is a solochain, just set the parameter to `None` or overwrite it if you need any special handling. For parachain builders, this value can be set to `cumulus_service::ParachainTracingExecuteBlock`.
+crates:
+- name: cumulus-client-service
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-service
+  bump: major
+- name: sc-tracing
+  bump: major

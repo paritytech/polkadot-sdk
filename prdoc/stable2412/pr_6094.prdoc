@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Polkadot OmniNode Docs
+
+doc:
+  - audience: ...
+    description: |
+      Adds documentation in https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html and rust-docs for polkadot-omni-node project.
+
+crates:
+  - name: sp-genesis-builder
+    bump: patch
+  - name: pallet-aura
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-sdk-frame # since the crate is "experimental, we don't need to bump yet."
+    bump: major
+  - name: polkadot-omni-node
+    bump: patch

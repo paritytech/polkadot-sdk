@@ -160,16 +160,17 @@ pub fn params_to_wasmtime_semantics(par: &ExecutorParams) -> (Semantics, Determi
 
 	for p in par.iter() {
 		match p {
-			ExecutorParam::MaxMemoryPages(max_pages) =>
+			ExecutorParam::MaxMemoryPages(max_pages) => {
 				sem.heap_alloc_strategy = HeapAllocStrategy::Dynamic {
 					maximum_pages: Some((*max_pages).saturating_add(DEFAULT_HEAP_PAGES_ESTIMATE)),
-				},
+				}
+			},
 			ExecutorParam::StackLogicalMax(slm) => stack_limit.logical_max = *slm,
 			ExecutorParam::StackNativeMax(snm) => stack_limit.native_stack_max = *snm,
 			ExecutorParam::WasmExtBulkMemory => sem.wasm_bulk_memory = true,
 			ExecutorParam::PrecheckingMaxMemory(_) |
 			ExecutorParam::PvfPrepTimeout(_, _) |
-			ExecutorParam::PvfExecTimeout(_, _) => (), /* Not used here */
+			ExecutorParam::PvfExecTimeout(_, _) => (), // Not used here
 		}
 	}
 	sem.deterministic_stack_limit = Some(stack_limit.clone());
@@ -215,19 +216,19 @@ type HostFunctions = (
 struct ValidationExternalities(sp_externalities::Extensions);
 
 impl sp_externalities::Externalities for ValidationExternalities {
-	fn storage(&self, _: &[u8]) -> Option<Vec<u8>> {
+	fn storage(&mut self, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("storage: unsupported feature for parachain validation")
 	}
 
-	fn storage_hash(&self, _: &[u8]) -> Option<Vec<u8>> {
+	fn storage_hash(&mut self, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("storage_hash: unsupported feature for parachain validation")
 	}
 
-	fn child_storage_hash(&self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
+	fn child_storage_hash(&mut self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("child_storage_hash: unsupported feature for parachain validation")
 	}
 
-	fn child_storage(&self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
+	fn child_storage(&mut self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("child_storage: unsupported feature for parachain validation")
 	}
 
@@ -275,11 +276,11 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("child_storage_root: unsupported feature for parachain validation")
 	}
 
-	fn next_child_storage_key(&self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
+	fn next_child_storage_key(&mut self, _: &ChildInfo, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("next_child_storage_key: unsupported feature for parachain validation")
 	}
 
-	fn next_storage_key(&self, _: &[u8]) -> Option<Vec<u8>> {
+	fn next_storage_key(&mut self, _: &[u8]) -> Option<Vec<u8>> {
 		panic!("next_storage_key: unsupported feature for parachain validation")
 	}
 
@@ -372,10 +373,126 @@ impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
 			.map_err(|e| format!("Failed to read the static section from the PVF blob: {:?}", e))?
 		{
 			Some(version) => {
-				use parity_scale_codec::Encode;
+				use codec::Encode;
 				Ok(version.encode())
 			},
 			None => Err("runtime version section is not found".to_string()),
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn prep_hash_matches_artifact_effect_of_executor_params() {
+		use ExecutorParam::*;
+
+		// If you're adding a new ExecutorParam, please add it to the `cases` below.
+
+		let _coverage_check = |param: &ExecutorParam| match param {
+			MaxMemoryPages(_) => true,
+			StackLogicalMax(_) => true,
+			StackNativeMax(_) => true,
+			PrecheckingMaxMemory(_) => true,
+			PvfPrepTimeout(_, _) => true,
+			PvfExecTimeout(_, _) => true,
+			WasmExtBulkMemory => true,
+		};
+
+		// A minimal module with memory and an exported `validate_block` function.
+		let wat = r#"(module
+			(memory 1)
+			(func (export "validate_block") (param i32 i32))
+		)"#;
+		let wasm = wat::parse_str(wat).expect("wat parsing failed");
+		let blob = prevalidate(&wasm).expect("valid runtime blob");
+
+		let base = ExecutorParams::default();
+
+		let prepare_with = |params: &ExecutorParams| -> Vec<u8> {
+			prepare(blob.clone(), params).expect("prepare should succeed")
+		};
+
+		// Define pairs that toggle exactly one parameter.
+		let cases: Vec<(&str, ExecutorParams, ExecutorParams)> = vec![
+			(
+				"MaxMemoryPages",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(128)][..]),
+			),
+			(
+				"StackLogicalMax",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::StackLogicalMax(DEFAULT_LOGICAL_STACK_MAX + 1)][..],
+				),
+			),
+			(
+				"StackNativeMax",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::StackNativeMax(DEFAULT_NATIVE_STACK_MAX + 1024)][..],
+				),
+			),
+			(
+				"PrecheckingMaxMemory",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::PrecheckingMaxMemory(300 * 1024 * 1024)][..]),
+			),
+			(
+				"PvfPrepTimeout(Precheck)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfPrepTimeout(polkadot_primitives::PvfPrepKind::Precheck, 1)]
+						[..],
+				),
+			),
+			(
+				"PvfPrepTimeout(Prepare)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfPrepTimeout(polkadot_primitives::PvfPrepKind::Prepare, 2)]
+						[..],
+				),
+			),
+			(
+				"PvfExecTimeout(Backing)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfExecTimeout(polkadot_primitives::PvfExecKind::Backing, 1)]
+						[..],
+				),
+			),
+			(
+				"PvfExecTimeout(Approval)",
+				base.clone(),
+				ExecutorParams::from(
+					&[ExecutorParam::PvfExecTimeout(polkadot_primitives::PvfExecKind::Approval, 2)]
+						[..],
+				),
+			),
+			(
+				"WasmExtBulkMemory",
+				base.clone(),
+				ExecutorParams::from(&[ExecutorParam::WasmExtBulkMemory][..]),
+			),
+		];
+
+		for (name, a, b) in cases.into_iter() {
+			let art_a = prepare_with(&a);
+			let art_b = prepare_with(&b);
+			let artifact_changed = art_a != art_b;
+			let prep_hash_changed = a.prep_hash() != b.prep_hash();
+			assert_eq!(
+				artifact_changed,
+				prep_hash_changed,
+				"ExecutorParam classification mismatch for {}: artifact_changed={}, prep_hash_changed={}",
+				name,
+				artifact_changed,
+				prep_hash_changed,
+			);
 		}
 	}
 }

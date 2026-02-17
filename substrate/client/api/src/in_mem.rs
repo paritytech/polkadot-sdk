@@ -42,7 +42,7 @@ use crate::{
 	backend::{self, NewBlockState},
 	blockchain::{self, BlockStatus, HeaderBackend},
 	leaves::LeafSet,
-	UsageInfo,
+	TrieCacheContext, UsageInfo,
 };
 
 struct PendingBlock<B: BlockT> {
@@ -192,7 +192,7 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		self.canon_equals_to(other) && self.storage.read().blocks == other.storage.read().blocks
 	}
@@ -201,7 +201,7 @@ impl<Block: BlockT> Blockchain<Block> {
 	pub fn canon_equals_to(&self, other: &Self) -> bool {
 		// Check ptr equality first to avoid double read locks.
 		if ptr::eq(self, other) {
-			return true
+			return true;
 		}
 		let this = self.storage.read();
 		let other = other.storage.read();
@@ -307,7 +307,7 @@ impl<Block: BlockT> Blockchain<Block> {
 			if !stored_justifications.append(justification) {
 				return Err(sp_blockchain::Error::BadJustification(
 					"Duplicate consensus engine ID".into(),
-				))
+				));
 			}
 		} else {
 			*block_justifications = Some(Justifications::from(justification));
@@ -417,20 +417,6 @@ impl<Block: BlockT> blockchain::Backend<Block> for Blockchain<Block> {
 
 	fn leaves(&self) -> sp_blockchain::Result<Vec<Block::Hash>> {
 		Ok(self.storage.read().leaves.hashes())
-	}
-
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> sp_blockchain::Result<Vec<Block::Hash>> {
-		Ok(self
-			.storage
-			.read()
-			.leaves
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
 	}
 
 	fn children(&self, _parent_hash: Block::Hash) -> sp_blockchain::Result<Vec<Block::Hash>> {
@@ -598,6 +584,8 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	) -> sp_blockchain::Result<()> {
 		Ok(())
 	}
+
+	fn set_create_gap(&mut self, _create_gap: bool) {}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
@@ -664,7 +652,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	type OffchainStorage = OffchainStorage;
 
 	fn begin_operation(&self) -> sp_blockchain::Result<Self::BlockImportOperation> {
-		let old_state = self.state_at(Default::default())?;
+		let old_state = self.state_at(Default::default(), TrieCacheContext::Untrusted)?;
 		Ok(BlockImportOperation {
 			pending_block: None,
 			old_state,
@@ -680,7 +668,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		operation: &mut Self::BlockImportOperation,
 		block: Block::Hash,
 	) -> sp_blockchain::Result<()> {
-		operation.old_state = self.state_at(block)?;
+		operation.old_state = self.state_at(block, TrieCacheContext::Untrusted)?;
 		Ok(())
 	}
 
@@ -746,9 +734,13 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		None
 	}
 
-	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State> {
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		_trie_cache_context: TrieCacheContext,
+	) -> sp_blockchain::Result<Self::State> {
 		if hash == Default::default() {
-			return Ok(Self::State::default())
+			return Ok(Self::State::default());
 		}
 
 		self.states
@@ -795,7 +787,7 @@ impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 	if storage.top.iter().any(|(k, _)| well_known_keys::is_child_storage_key(k)) {
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	if storage
@@ -803,7 +795,7 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 		.keys()
 		.any(|child_key| !well_known_keys::is_child_storage_key(child_key))
 	{
-		return Err(sp_blockchain::Error::InvalidState)
+		return Err(sp_blockchain::Error::InvalidState);
 	}
 
 	Ok(())

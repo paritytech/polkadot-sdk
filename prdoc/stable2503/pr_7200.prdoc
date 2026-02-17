@@ -1,0 +1,40 @@
+title: 'XCM: Deny barrier checks for nested XCMs with specific instructions to be
+  executed on the local chain'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR improves the validation of nested XCM instructions by introducing a
+    new barrier, `DenyRecursively`, which provides more precise control over
+    instruction denial. Previously, `DenyThenTry<Deny, Allow>`` was used, which
+    primarily applied denial rules at the top level. This has now been replaced
+    with `DenyThenTry<DenyRecursively<Deny>, Allow>`, ensuring that both
+    top-level and nested local instructions are properly checked. This change
+    enhances the security and predictability of XCM execution by enforcing
+    consistent denial policies across all levels of message execution. If you
+    need to deny instructions recursively make sure to change your barrier in
+    the XCM configuration.
+crates:
+- name: staging-xcm-builder
+  bump: minor
+- name: staging-xcm-executor
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: contracts-rococo-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch

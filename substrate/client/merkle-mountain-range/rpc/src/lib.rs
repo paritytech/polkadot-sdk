@@ -36,7 +36,7 @@ use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
-use sp_mmr_primitives::{Error as MmrError, Proof};
+use sp_mmr_primitives::{AncestryProof as MmrAncestryProof, Error as MmrError, LeafProof};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
@@ -52,17 +52,17 @@ pub struct LeavesProof<BlockHash> {
 	pub block_hash: BlockHash,
 	/// SCALE-encoded vector of `LeafData`.
 	pub leaves: Bytes,
-	/// SCALE-encoded proof data. See [sp_mmr_primitives::Proof].
+	/// SCALE-encoded proof data. See [sp_mmr_primitives::LeafProof].
 	pub proof: Bytes,
 }
 
 impl<BlockHash> LeavesProof<BlockHash> {
 	/// Create new `LeavesProof` from a given vector of `Leaf` and a
-	/// [sp_mmr_primitives::Proof].
+	/// [sp_mmr_primitives::LeafProof].
 	pub fn new<Leaf, MmrHash>(
 		block_hash: BlockHash,
 		leaves: Vec<Leaf>,
-		proof: Proof<MmrHash>,
+		proof: LeafProof<MmrHash>,
 	) -> Self
 	where
 		Leaf: Encode,
@@ -105,6 +105,32 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 		best_known_block_number: Option<BlockNumber>,
 		at: Option<BlockHash>,
 	) -> RpcResult<LeavesProof<BlockHash>>;
+
+	/// Generate an MMR ancestry proof for the given `prev_block_number`.
+	///
+	/// This method calls into a runtime with MMR pallet included and attempts to generate
+	/// an MMR ancestry proof for the MMR root at the prior block with number `prev_block_number`,
+	/// with the reference MMR root at `best_known_block_number`. `best_known_block_number` must be
+	/// larger than the `prev_block_number` for the function to succeed.
+	///
+	/// Optionally via `at`, a block hash at which the runtime should be queried can be specified.
+	/// Optionally via `best_known_block_number`, the proof can be generated using the MMR's state
+	/// at a specific best block. Note that if `best_known_block_number` is provided, then also
+	/// specifying the block hash via `at` isn't super-useful here, unless you're generating proof
+	/// using non-finalized blocks where there are several competing forks. That's because MMR state
+	/// will be fixed to the state with `best_known_block_number`, which already points to
+	/// some historical block.
+	///
+	/// Returns the SCALE-encoded ancestry proof for the prior block's MMR root against the MMR root
+	/// of the best block specified. The order of entries in the `leaves` field of the returned
+	/// struct is the same as the order of the entries in `block_numbers` supplied
+	#[method(name = "mmr_generateAncestryProof")]
+	fn generate_ancestry_proof(
+		&self,
+		prev_block_number: BlockNumber,
+		best_known_block_number: Option<BlockNumber>,
+		at: Option<BlockHash>,
+	) -> RpcResult<MmrAncestryProof<MmrHash>>;
 
 	/// Verify an MMR `proof`.
 	///
@@ -186,6 +212,27 @@ where
 		Ok(LeavesProof::new(block_hash, leaves, proof))
 	}
 
+	fn generate_ancestry_proof(
+		&self,
+		prev_block_number: NumberFor<Block>,
+		best_known_block_number: Option<NumberFor<Block>>,
+		at: Option<<Block as BlockT>::Hash>,
+	) -> RpcResult<MmrAncestryProof<MmrHash>> {
+		let mut api = self.client.runtime_api();
+		let block_hash = at.unwrap_or_else(||
+			// If the block hash is not supplied assume the best block.
+			self.client.info().best_hash);
+
+		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
+
+		let proof = api
+			.generate_ancestry_proof(block_hash, prev_block_number, best_known_block_number)
+			.map_err(runtime_error_into_rpc_error)?
+			.map_err(mmr_error_into_rpc_error)?;
+
+		Ok(proof)
+	}
+
 	fn verify_proof(&self, proof: LeavesProof<<Block as BlockT>::Hash>) -> RpcResult<bool> {
 		let mut api = self.client.runtime_api();
 
@@ -258,7 +305,7 @@ mod tests {
 	fn should_serialize_leaf_proof() {
 		// given
 		let leaf = vec![1_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -281,7 +328,7 @@ mod tests {
 		// given
 		let leaf_a = vec![1_u8, 2, 3, 4];
 		let leaf_b = vec![2_u8, 2, 3, 4];
-		let proof = Proof {
+		let proof = LeafProof {
 			leaf_indices: vec![1, 2],
 			leaf_count: 9,
 			items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -306,7 +353,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],
@@ -333,7 +380,7 @@ mod tests {
 			block_hash: H256::repeat_byte(0),
 			leaves: Bytes(vec![vec![1_u8, 2, 3, 4], vec![2_u8, 2, 3, 4]].encode()),
 			proof: Bytes(
-				Proof {
+				LeafProof {
 					leaf_indices: vec![1, 2],
 					leaf_count: 9,
 					items: vec![H256::repeat_byte(1), H256::repeat_byte(2)],

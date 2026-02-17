@@ -1,0 +1,13 @@
+title: "Move bitfield_distribution to blocking task pool and set capacity to 8192"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This is moving bitfield_distribution to the blocking task pool because it does cpu
+      intensive work and to make it snappier. Additionally, also increase the message
+      capacity of the subsystem to make sure the queue does not get full if there is a
+      burst of messages.
+
+crates:
+  - name: polkadot-overseer
+    bump: patch

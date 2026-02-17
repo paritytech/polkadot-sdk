@@ -1,0 +1,10 @@
+title: "sp-trie: minor fix to avoid panic on badly-constructed proof"
+
+doc:
+  - audience: ["Runtime Dev", "Runtime User"]
+    description: |
+      "Added a check when decoding encoded proof nodes in `sp-trie` to avoid panicking when receiving a badly constructed proof, instead erroring out."
+
+crates:
+- name: sp-trie
+  bump: patch

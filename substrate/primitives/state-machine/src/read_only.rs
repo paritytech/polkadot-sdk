@@ -18,17 +18,18 @@
 //! Read-only version of Externalities.
 
 use crate::{Backend, StorageKey, StorageValue};
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
+use core::{
+	any::{Any, TypeId},
+	marker::PhantomData,
+};
 use hash_db::Hasher;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,
 };
 use sp_externalities::MultiRemovalResults;
-use std::{
-	any::{Any, TypeId},
-	marker::PhantomData,
-};
 
 /// Trait for inspecting state in any backend.
 ///
@@ -88,39 +89,39 @@ where
 		panic!("Should not be used in read-only externalities!")
 	}
 
-	fn storage(&self, key: &[u8]) -> Option<StorageValue> {
+	fn storage(&mut self, key: &[u8]) -> Option<StorageValue> {
 		self.backend
 			.storage(key)
 			.expect("Backed failed for storage in ReadOnlyExternalities")
 	}
 
-	fn storage_hash(&self, key: &[u8]) -> Option<Vec<u8>> {
+	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		self.backend
 			.storage_hash(key)
 			.expect("Backed failed for storage_hash in ReadOnlyExternalities")
 			.map(|h| h.encode())
 	}
 
-	fn child_storage(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
+	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
 		self.backend
 			.child_storage(child_info, key)
 			.expect("Backed failed for child_storage in ReadOnlyExternalities")
 	}
 
-	fn child_storage_hash(&self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
+	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 		self.backend
 			.child_storage_hash(child_info, key)
 			.expect("Backed failed for child_storage_hash in ReadOnlyExternalities")
 			.map(|h| h.encode())
 	}
 
-	fn next_storage_key(&self, key: &[u8]) -> Option<StorageKey> {
+	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
 		self.backend
 			.next_storage_key(key)
 			.expect("Backed failed for next_storage_key in ReadOnlyExternalities")
 	}
 
-	fn next_child_storage_key(&self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
+	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
 		self.backend
 			.next_child_storage_key(child_info, key)
 			.expect("Backed failed for next_child_storage_key in ReadOnlyExternalities")

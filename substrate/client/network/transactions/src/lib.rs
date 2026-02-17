@@ -30,20 +30,24 @@ use crate::config::*;
 
 use codec::{Decode, Encode};
 use futures::{prelude::*, stream::FuturesUnordered};
-use libp2p::{multiaddr, PeerId};
 use log::{debug, trace, warn};
 
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, ProtocolId, SetConfig},
-	error,
-	service::traits::{NotificationEvent, NotificationService, ValidationResult},
+	config::{NonReservedPeerMode, ProtocolId, SetConfig},
+	error, multiaddr,
+	peer_store::PeerStoreProvider,
+	service::{
+		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_common::{role::ObservedRole, ExHashT};
 use sc_network_sync::{SyncEvent, SyncEventStream};
+use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 
@@ -60,6 +64,9 @@ pub mod config;
 
 /// A set of transactions.
 pub type Transactions<E> = Vec<E>;
+
+/// Logging target for the file.
+const LOG_TARGET: &str = "sync";
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -106,7 +113,7 @@ impl<H: ExHashT> Future for PendingTransaction<H> {
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
 		if let Poll::Ready(import_result) = self.validation.poll_unpin(cx) {
-			return Poll::Ready((self.tx_hash.clone(), import_result))
+			return Poll::Ready((self.tx_hash.clone(), import_result));
 		}
 
 		Poll::Pending
@@ -124,11 +131,17 @@ pub struct TransactionsHandlerPrototype {
 
 impl TransactionsHandlerPrototype {
 	/// Create a new instance.
-	pub fn new<Hash: AsRef<[u8]>>(
+	pub fn new<
+		Hash: AsRef<[u8]>,
+		Block: BlockT,
+		Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
+	>(
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-	) -> (Self, NonDefaultSetConfig) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let protocol_name: ProtocolName = if let Some(fork_id) = fork_id {
 			format!("/{}/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
@@ -136,7 +149,7 @@ impl TransactionsHandlerPrototype {
 			format!("/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash))
 		}
 		.into();
-		let (config, notification_service) = NonDefaultSetConfig::new(
+		let (config, notification_service) = Net::notification_config(
 			protocol_name.clone(),
 			vec![format!("/{}/transactions/1", protocol_id.as_ref()).into()],
 			MAX_TRANSACTIONS_SIZE,
@@ -147,6 +160,8 @@ impl TransactionsHandlerPrototype {
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
+			metrics,
+			peer_store_handle,
 		);
 
 		(Self { protocol_name, notification_service }, config)
@@ -160,7 +175,7 @@ impl TransactionsHandlerPrototype {
 	pub fn build<
 		B: BlockT + 'static,
 		H: ExHashT,
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	>(
 		self,
@@ -231,7 +246,7 @@ enum ToHandler<H: ExHashT> {
 pub struct TransactionsHandler<
 	B: BlockT + 'static,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 > {
 	protocol_name: ProtocolName,
@@ -272,7 +287,7 @@ impl<B, H, N, S> TransactionsHandler<B, H, N, S>
 where
 	B: BlockT + 'static,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	/// Turns the [`TransactionsHandler`] into a future that should run forever and not be
@@ -329,7 +344,7 @@ where
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
 				let Some(role) = self.network.peer_role(peer, handshake) else {
 					log::debug!(target: "sub-libp2p", "role for {peer} couldn't be determined");
-					return
+					return;
 				};
 
 				let _was_in = self.peers.insert(
@@ -353,7 +368,8 @@ where
 				{
 					self.on_transactions(peer, m);
 				} else {
-					warn!(target: "sub-libp2p", "Failed to decode transactions list");
+					warn!(target: "sub-libp2p", "Failed to decode transactions list from peer {peer}");
+					self.network.report_peer(peer, rep::BAD_TRANSACTION);
 				}
 			},
 		}
@@ -369,7 +385,7 @@ where
 					iter::once(addr).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "sync", "Add reserved peer failed: {}", err);
+					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
@@ -378,7 +394,7 @@ where
 					iter::once(remote).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "sync", "Remove reserved peer failed: {}", err);
+					log::error!(target: LOG_TARGET, "Remove reserved peer failed: {}", err);
 				}
 			},
 		}
@@ -388,20 +404,20 @@ where
 	fn on_transactions(&mut self, who: PeerId, transactions: Transactions<B::Extrinsic>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			trace!(target: "sync", "{} Ignoring transactions while major syncing", who);
-			return
+			trace!(target: LOG_TARGET, "{} Ignoring transactions while major syncing", who);
+			return;
 		}
 
-		trace!(target: "sync", "Received {} transactions from {}", transactions.len(), who);
+		trace!(target: LOG_TARGET, "Received {} transactions from {}", transactions.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			for t in transactions {
 				if self.pending_transactions.len() > MAX_PENDING_TRANSACTIONS {
 					debug!(
-						target: "sync",
+						target: LOG_TARGET,
 						"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit",
 						MAX_PENDING_TRANSACTIONS,
 					);
-					break
+					break;
 				}
 
 				let hash = self.transaction_pool.hash_of(&t);
@@ -427,8 +443,9 @@ where
 
 	fn on_handle_transaction_import(&mut self, who: PeerId, import: TransactionImport) {
 		match import {
-			TransactionImport::KnownGood =>
-				self.network.report_peer(who, rep::ANY_TRANSACTION_REFUND),
+			TransactionImport::KnownGood => {
+				self.network.report_peer(who, rep::ANY_TRANSACTION_REFUND)
+			},
 			TransactionImport::NewGood => self.network.report_peer(who, rep::GOOD_TRANSACTION),
 			TransactionImport::Bad => self.network.report_peer(who, rep::BAD_TRANSACTION),
 			TransactionImport::None => {},
@@ -439,19 +456,21 @@ where
 	pub fn propagate_transaction(&mut self, hash: &H) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
-		debug!(target: "sync", "Propagating transaction [{:?}]", hash);
+		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
+		} else {
+			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
 		}
 	}
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;
@@ -459,10 +478,10 @@ where
 		for (who, peer) in self.peers.iter_mut() {
 			// never send transactions to the light node
 			if matches!(peer.role, ObservedRole::Light) {
-				continue
+				continue;
 			}
 
-			let (hashes, to_send): (Vec<_>, Vec<_>) = transactions
+			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
 				.iter()
 				.filter(|(hash, _)| peer.known_transactions.insert(hash.clone()))
 				.cloned()
@@ -503,11 +522,17 @@ where
 	fn propagate_transactions(&mut self) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
-		debug!(target: "sync", "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
+
+		if transactions.is_empty() {
+			return;
+		}
+
+		debug!(target: LOG_TARGET, "Propagating transactions");
+
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);
 	}

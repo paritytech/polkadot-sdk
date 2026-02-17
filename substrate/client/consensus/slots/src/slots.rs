@@ -21,9 +21,10 @@
 //! This is used instead of `futures_timer::Interval` because it was unreliable.
 
 use super::{InherentDataProviderExt, Slot, LOG_TARGET};
-use sp_consensus::SelectChain;
+use sp_consensus::{SelectChain, SyncOracle};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_trie::recorder::Recorder;
 
 use futures_timer::Delay;
 use std::time::{Duration, Instant};
@@ -62,6 +63,8 @@ pub struct SlotInfo<B: BlockT> {
 	///
 	/// For more information see [`Proposer::propose`](sp_consensus::Proposer::propose).
 	pub block_size_limit: Option<usize>,
+	/// Optional [`Recorder`] to use when build the block.
+	pub storage_proof_recorder: Option<Recorder<HashingFor<B>>>,
 }
 
 impl<B: BlockT> SlotInfo<B> {
@@ -82,26 +85,51 @@ impl<B: BlockT> SlotInfo<B> {
 			chain_head,
 			block_size_limit,
 			ends_at: Instant::now() + time_until_next_slot(duration),
+			storage_proof_recorder: None,
+		}
+	}
+
+	/// Create a new [`SlotInfo`] with a storage proof recorder.
+	///
+	/// `ends_at` is calculated using `timestamp` and `duration`.
+	pub fn with_storage_proof_recorder(
+		slot: Slot,
+		create_inherent_data: Box<dyn InherentDataProvider>,
+		duration: Duration,
+		chain_head: B::Header,
+		block_size_limit: Option<usize>,
+		storage_proof_recorder: Recorder<HashingFor<B>>,
+	) -> Self {
+		Self {
+			slot,
+			create_inherent_data,
+			duration,
+			chain_head,
+			block_size_limit,
+			ends_at: Instant::now() + time_until_next_slot(duration),
+			storage_proof_recorder: Some(storage_proof_recorder),
 		}
 	}
 }
 
 /// A stream that returns every time there is a new slot.
-pub(crate) struct Slots<Block, SC, IDP> {
+pub(crate) struct Slots<Block, SC, IDP, SO> {
 	last_slot: Slot,
 	slot_duration: Duration,
 	until_next_slot: Option<Delay>,
 	create_inherent_data_providers: IDP,
 	select_chain: SC,
+	sync_oracle: SO,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
-impl<Block, SC, IDP> Slots<Block, SC, IDP> {
+impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO> {
 	/// Create a new `Slots` stream.
 	pub fn new(
 		slot_duration: Duration,
 		create_inherent_data_providers: IDP,
 		select_chain: SC,
+		sync_oracle: SO,
 	) -> Self {
 		Slots {
 			last_slot: 0.into(),
@@ -109,17 +137,19 @@ impl<Block, SC, IDP> Slots<Block, SC, IDP> {
 			until_next_slot: None,
 			create_inherent_data_providers,
 			select_chain,
+			sync_oracle,
 			_phantom: Default::default(),
 		}
 	}
 }
 
-impl<Block, SC, IDP> Slots<Block, SC, IDP>
+impl<Block, SC, IDP, SO> Slots<Block, SC, IDP, SO>
 where
 	Block: BlockT,
 	SC: SelectChain<Block>,
 	IDP: CreateInherentDataProviders<Block, ()> + 'static,
 	IDP::InherentDataProviders: crate::InherentDataProviderExt,
+	SO: SyncOracle,
 {
 	/// Returns a future that fires when the next slot starts.
 	pub async fn next_slot(&mut self) -> SlotInfo<Block> {
@@ -138,6 +168,11 @@ where
 			let wait_dur = time_until_next_slot(self.slot_duration);
 			self.until_next_slot = Some(Delay::new(wait_dur));
 
+			if self.sync_oracle.is_major_syncing() {
+				log::debug!(target: LOG_TARGET, "Skipping slot: major sync is in progress.");
+				continue;
+			}
+
 			let chain_head = match self.select_chain.best_chain().await {
 				Ok(x) => x,
 				Err(e) => {
@@ -147,7 +182,7 @@ where
 						e,
 					);
 					// Let's retry at the next slot.
-					continue
+					continue;
 				},
 			};
 
@@ -164,7 +199,7 @@ where
 						e,
 					);
 					// Let's retry at the next slot.
-					continue
+					continue;
 				},
 			};
 
@@ -180,7 +215,7 @@ where
 					self.slot_duration,
 					chain_head,
 					None,
-				)
+				);
 			}
 		}
 	}

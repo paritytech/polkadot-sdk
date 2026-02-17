@@ -1,0 +1,41 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: ERC20 Asset Transactor
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces an Asset Transactor for dealing with ERC20 tokens and adds it to Asset Hub
+      Westend.
+      This means asset ids of the form `{ parents: 0, interior: X1(AccountKey20 { key, network }) }` will be
+      matched by this transactor and the corresponding `transfer` function will be called in the
+      smart contract whose address is `key`.
+      If your chain uses `pallet-revive`, you can support ERC20s as well by adding the transactor, which lives
+      in `assets-common`.
+  - audience: Runtime User
+    description: |
+      This PR allows ERC20 tokens on Asset Hub to be referenced in XCM via their smart contract address.
+      This is the first step towards cross-chain transferring ERC20s created on the Hub.
+
+crates:
+- name: assets-common
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: penpal-runtime
+  bump: patch
+- name: staging-xcm-executor
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: ethereum-standards
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch

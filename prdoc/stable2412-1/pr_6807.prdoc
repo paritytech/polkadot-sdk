@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Retry approval on availability failure if the check is still needed 
+
+doc:
+  - audience: Node Dev
+    description: |
+      Recovering the POV can fail in situation where the node just restart and the DHT topology
+      wasn't fully discovered yet, so the current node can't connect to most of its Peers. 
+      This is bad because for gossiping the assignment you need to be connected to just a few 
+      peers, so because we can't approve the candidate other nodes will see this as a no show.
+      Fix it by retrying to approve a candidate for a fixed number of atttempts if the block is 
+      still needed.
+
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: minor

@@ -1,0 +1,16 @@
+title: Upgrade libp2p to 0.54.1
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Upgrade libp2p from 0.52.4 to 0.54.1
+
+crates:
+  - name: sc-network
+    bump: major
+  - name: sc-network-types
+    bump: minor
+  - name: sc-network-sync
+    bump: patch
+  - name: sc-telemetry
+    bump: minor

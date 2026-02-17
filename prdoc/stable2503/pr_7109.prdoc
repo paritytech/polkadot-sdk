@@ -1,0 +1,11 @@
+title: Add "run to block" tools
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduce `frame_system::Pallet::run_to_block`, `frame_system::Pallet::run_to_block_with`, and `frame_system::RunToBlockHooks` to establish a generic `run_to_block` mechanism for mock tests, minimizing redundant implementations across various pallets.
+
+    Closes #299.
+
+crates:
+- name: frame-system
+  bump: minor

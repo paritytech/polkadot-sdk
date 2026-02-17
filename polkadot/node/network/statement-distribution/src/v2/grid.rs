@@ -46,10 +46,8 @@
 //! - Request/response for the candidate + votes.
 //!   - Ignore if they are inconsistent with the manifest.
 //!   - A malicious backing group is capable of producing an unbounded number of backed candidates.
-//!     - We request the candidate only if the candidate has a hypothetical depth in any of our
-//!       fragment trees, and:
-//!     - the seconding validators have not seconded any other candidates at that depth in any of
-//!       those fragment trees
+//!     - We request the candidate only if the candidate is a hypothetical member in any of our
+//!       fragment chains, and:
 //! - All members of the group attempt to circulate all statements (in compact form) from the rest
 //!   of the group on candidates that have already been backed.
 //!   - They do this via the grid topology.
@@ -60,7 +58,7 @@
 //!         - which has sent a `BackedCandidateAcknowledgement`
 //!   - 1st-hop nodes do the same thing
 
-use polkadot_node_network_protocol::{grid_topology::SessionGridTopology, v2::StatementFilter};
+use polkadot_node_network_protocol::{grid_topology::SessionGridTopology, v3::StatementFilter};
 use polkadot_primitives::{CandidateHash, CompactStatement, GroupIndex, Hash, ValidatorIndex};
 
 use std::collections::{
@@ -133,7 +131,7 @@ pub fn build_session_topology<'a>(
 		None => {
 			gum::warn!(target: LOG_TARGET, ?our_index, "our index unrecognized in topology?");
 
-			return view
+			return view;
 		},
 		Some(n) => n,
 	};
@@ -167,7 +165,7 @@ pub fn build_session_topology<'a>(
 							.cloned(),
 					);
 
-					continue
+					continue;
 				}
 
 				if our_neighbors.validator_indices_y.contains(&group_val) {
@@ -180,7 +178,7 @@ pub fn build_session_topology<'a>(
 							.cloned(),
 					);
 
-					continue
+					continue;
 				}
 
 				// If they don't share a slice with us, we don't send to anybody
@@ -193,7 +191,7 @@ pub fn build_session_topology<'a>(
 							"validator index unrecognized in topology?"
 						);
 
-						continue
+						continue;
 					},
 					Some(n) => n,
 				};
@@ -202,7 +200,7 @@ pub fn build_session_topology<'a>(
 				for potential_link in &their_neighbors.validator_indices_x {
 					if our_neighbors.validator_indices_y.contains(potential_link) {
 						sub_view.receiving.insert(*potential_link);
-						break // one max
+						break; // one max
 					}
 				}
 
@@ -210,7 +208,7 @@ pub fn build_session_topology<'a>(
 				for potential_link in &their_neighbors.validator_indices_y {
 					if our_neighbors.validator_indices_x.contains(potential_link) {
 						sub_view.receiving.insert(*potential_link);
-						break // one max
+						break; // one max
 					}
 				}
 			}
@@ -285,15 +283,16 @@ impl GridTracker {
 			//   * They are in the sending set for the group AND we have sent them a manifest AND
 			//     the received manifest is partial.
 			ManifestKind::Full => receiving_from,
-			ManifestKind::Acknowledgement =>
+			ManifestKind::Acknowledgement => {
 				sending_to &&
 					self.confirmed_backed
 						.get(&candidate_hash)
-						.map_or(false, |c| c.has_sent_manifest_to(sender)),
+						.map_or(false, |c| c.has_sent_manifest_to(sender))
+			},
 		};
 
 		if !manifest_allowed {
-			return Err(ManifestImportError::Disallowed)
+			return Err(ManifestImportError::Disallowed);
 		}
 
 		let (group_size, backing_threshold) =
@@ -305,18 +304,18 @@ impl GridTracker {
 		let remote_knowledge = manifest.statement_knowledge.clone();
 
 		if !remote_knowledge.has_len(group_size) {
-			return Err(ManifestImportError::Malformed)
+			return Err(ManifestImportError::Malformed);
 		}
 
 		if !remote_knowledge.has_seconded() {
-			return Err(ManifestImportError::Malformed)
+			return Err(ManifestImportError::Malformed);
 		}
 
 		// ensure votes are sufficient to back.
 		let votes = remote_knowledge.backing_validators();
 
 		if votes < backing_threshold {
-			return Err(ManifestImportError::Insufficient)
+			return Err(ManifestImportError::Insufficient);
 		}
 
 		self.received.entry(sender).or_default().import_received(
@@ -388,7 +387,7 @@ impl GridTracker {
 		{
 			if claimed_group_index != group_index {
 				// This is misbehavior, but is handled more comprehensively elsewhere
-				continue
+				continue;
 			}
 
 			let statement_filter = self
@@ -591,7 +590,7 @@ impl GridTracker {
 		};
 
 		if !known.note_fresh_statement(in_group, kind) {
-			return
+			return;
 		}
 
 		// Add to `pending_statements` for all validators we communicate with
@@ -773,11 +772,11 @@ impl ReceivedManifests {
 				{
 					let prev = e.get();
 					if prev.claimed_group_index != manifest_summary.claimed_group_index {
-						return Err(ManifestImportError::Conflicting)
+						return Err(ManifestImportError::Conflicting);
 					}
 
 					if prev.claimed_parent_hash != manifest_summary.claimed_parent_hash {
-						return Err(ManifestImportError::Conflicting)
+						return Err(ManifestImportError::Conflicting);
 					}
 
 					if !manifest_summary
@@ -785,7 +784,7 @@ impl ReceivedManifests {
 						.seconded_in_group
 						.contains(&prev.statement_knowledge.seconded_in_group)
 					{
-						return Err(ManifestImportError::Conflicting)
+						return Err(ManifestImportError::Conflicting);
 					}
 
 					if !manifest_summary
@@ -793,7 +792,7 @@ impl ReceivedManifests {
 						.validated_in_group
 						.contains(&prev.statement_knowledge.validated_in_group)
 					{
-						return Err(ManifestImportError::Conflicting)
+						return Err(ManifestImportError::Conflicting);
 					}
 
 					let mut fresh_seconded =
@@ -809,7 +808,7 @@ impl ReceivedManifests {
 					);
 
 					if !within_limits {
-						return Err(ManifestImportError::Overflow)
+						return Err(ManifestImportError::Overflow);
 					}
 				}
 
@@ -851,7 +850,7 @@ fn updating_ensure_within_seconding_limit(
 	new_seconded: &BitSlice<u8, Lsb0>,
 ) -> bool {
 	if seconding_limit == 0 {
-		return false
+		return false;
 	}
 
 	// due to the check above, if this was non-existent this function will
@@ -860,7 +859,7 @@ fn updating_ensure_within_seconding_limit(
 
 	for i in new_seconded.iter_ones() {
 		if counts[i] == seconding_limit {
-			return false
+			return false;
 		}
 	}
 
@@ -979,7 +978,7 @@ impl KnownBackedCandidate {
 		statement_kind: StatementKind,
 	) -> Vec<(ValidatorIndex, bool)> {
 		if group_index != self.group_index {
-			return Vec::new()
+			return Vec::new();
 		}
 
 		self.mutual_knowledge
@@ -1008,7 +1007,7 @@ impl KnownBackedCandidate {
 		statement_kind: StatementKind,
 	) -> Vec<ValidatorIndex> {
 		if group_index != self.group_index {
-			return Vec::new()
+			return Vec::new();
 		}
 
 		self.mutual_knowledge

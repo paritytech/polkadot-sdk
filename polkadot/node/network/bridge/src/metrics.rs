@@ -47,12 +47,11 @@ impl Metrics {
 	}
 
 	pub fn note_peer_count(&self, peer_set: PeerSet, version: ProtocolVersion, count: usize) {
-		self.0.as_ref().map(|metrics| {
-			metrics
-				.peer_count
-				.with_label_values(&[peer_set_label(peer_set, version)])
-				.set(count as u64)
-		});
+		if let Some(metrics) = self.0.as_ref() {
+			let label = peer_set_label(peer_set, version);
+			metrics.peer_count.with_label_values(&[label]).set(count as u64);
+			metrics.peer_connectivity.with_label_values(&[label]).observe(count as f64);
+		}
 	}
 
 	pub fn on_notification_received(
@@ -131,6 +130,7 @@ impl Metrics {
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
 	peer_count: prometheus::GaugeVec<prometheus::U64>,
+	peer_connectivity: prometheus::HistogramVec,
 	connected_events: prometheus::CounterVec<prometheus::U64>,
 	disconnected_events: prometheus::CounterVec<prometheus::U64>,
 	desired_peer_count: prometheus::GaugeVec<prometheus::U64>,
@@ -161,6 +161,16 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_peer_count",
 						"The number of peers on a parachain-related peer-set",
 					),
+					&["protocol"]
+				)?,
+				registry,
+			)?,
+			peer_connectivity: prometheus::register(
+				prometheus::HistogramVec::new(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_peer_connectivity",
+						"Histogram of peer counts on a parachain-related peer-set to track connectivity patterns",
+					).buckets(vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 100.0, 250.0, 500.0, 1000.0]),
 					&["protocol"]
 				)?,
 				registry,

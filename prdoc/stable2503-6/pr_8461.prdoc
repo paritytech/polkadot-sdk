@@ -1,0 +1,29 @@
+title: Use litep2p as the default network backend
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR makes the litep2p backend the default backend.
+      Litep2p is a lightweight alternative to libp2p, that is designed to be more
+      efficient and easier to use. At the same time, litep2p brings performance
+      improvements and reduces the CPU usage significantly.
+      Libp2p is the old network backend, that may still be used for compatibility
+      reasons until the whole ecosystem is migrated to litep2p.
+
+crates:
+  - name: sc-network
+    bump: minor
+  - name: sc-cli
+    bump: patch
+  - name: sc-network-types
+    bump: minor
+  - name: polkadot-service
+    bump: minor
+  - name: sc-offchain
+    bump: patch
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
+  - name: cumulus-relay-chain-inprocess-interface
+    bump: patch
+  - name: polkadot-omni-node-lib
+    bump: patch

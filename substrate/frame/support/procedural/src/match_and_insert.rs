@@ -50,33 +50,33 @@ struct MatchAndInsertDef {
 impl syn::parse::Parse for MatchAndInsertDef {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 		let mut target;
-		let _ = input.parse::<keyword::target>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::target>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(target in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(target in target);
 		let target = target.parse()?;
 
 		let mut pattern;
-		let _ = input.parse::<keyword::pattern>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::pattern>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(pattern in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(pattern in pattern);
 		let pattern = pattern.parse::<TokenStream>()?.into_iter().collect::<Vec<TokenTree>>();
 
 		if let Some(t) = pattern.iter().find(|t| matches!(t, TokenTree::Group(_))) {
-			return Err(syn::Error::new(t.span(), "Unexpected group token tree"))
+			return Err(syn::Error::new(t.span(), "Unexpected group token tree"));
 		}
 		if let Some(t) = pattern.iter().find(|t| matches!(t, TokenTree::Literal(_))) {
-			return Err(syn::Error::new(t.span(), "Unexpected literal token tree"))
+			return Err(syn::Error::new(t.span(), "Unexpected literal token tree"));
 		}
 
 		if pattern.is_empty() {
-			return Err(syn::Error::new(Span::call_site(), "empty match pattern is invalid"))
+			return Err(syn::Error::new(Span::call_site(), "empty match pattern is invalid"));
 		}
 
 		let mut tokens;
-		let _ = input.parse::<keyword::tokens>()?;
-		let _ = input.parse::<syn::Token![=]>()?;
+		input.parse::<keyword::tokens>()?;
+		input.parse::<syn::Token![=]>()?;
 		let _replace_with_bracket: syn::token::Bracket = syn::bracketed!(tokens in input);
 		let _replace_with_brace: syn::token::Brace = syn::braced!(tokens in tokens);
 		let tokens = tokens.parse()?;
@@ -116,7 +116,7 @@ fn expand_in_stream(
 					Ok(s) => {
 						extended.extend(once(TokenTree::Group(Group::new(group.delimiter(), s))));
 						extended.extend(stream);
-						return Ok(extended)
+						return Ok(extended);
 					},
 					Err(_) => {
 						extended.extend(once(TokenTree::Group(group)));
@@ -132,7 +132,7 @@ fn expand_in_stream(
 					extended
 						.extend(once(tokens.take().expect("tokens is used to replace only once")));
 					extended.extend(stream);
-					return Ok(extended)
+					return Ok(extended);
 				}
 			},
 		}

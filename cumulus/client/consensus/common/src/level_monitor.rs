@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use sc_client_api::{blockchain::Backend as _, Backend, HeaderBackend as _};
 use sp_blockchain::{HashAndNumber, HeaderMetadata, TreeRoute};
@@ -117,7 +118,7 @@ where
 					"Could not fetch header metadata for leaf: {leaf:?}",
 				);
 
-				continue
+				continue;
 			};
 
 			self.import_counter = self.import_counter.max(meta.number);
@@ -127,7 +128,7 @@ where
 				self.freshness.insert(meta.hash, meta.number);
 				self.levels.entry(meta.number).or_default().insert(meta.hash);
 				if meta.number <= self.lowest_level {
-					break
+					break;
 				}
 
 				meta = match self.backend.blockchain().header_metadata(meta.parent) {
@@ -139,7 +140,7 @@ where
 							"Could not fetch header metadata for parent: {:?}",
 							meta.parent,
 						);
-						break
+						break;
 					},
 				}
 			}
@@ -169,7 +170,7 @@ where
 	pub fn enforce_limit(&mut self, number: NumberFor<Block>) {
 		let level_len = self.levels.get(&number).map(|l| l.len()).unwrap_or_default();
 		if level_len < self.level_limit {
-			return
+			return;
 		}
 
 		// Sort leaves by freshness only once (less fresh first) and keep track of
@@ -274,7 +275,7 @@ where
 						"Unable getting route to any leaf from {:?} (this is a bug)",
 						blk_hash,
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -302,7 +303,7 @@ where
 				target_info = Some(candidate_info);
 				if early_stop {
 					// We will never find a candidate with an worst freshest leaf than this.
-					break
+					break;
 				}
 			}
 		}
@@ -324,7 +325,7 @@ where
 			log::debug!(target: LOG_TARGET, "Removing block (@{}) {:?}", number, hash);
 			if let Err(err) = self.backend.remove_leaf_block(hash) {
 				log::debug!(target: LOG_TARGET, "Remove not possible for {}: {}", hash, err);
-				return false
+				return false;
 			}
 			self.levels.get_mut(&number).map(|level| level.remove(&hash));
 			self.freshness.remove(&hash);
@@ -355,7 +356,7 @@ where
 		let to_skip = leaves.len() - target.freshest_leaf_idx;
 		leaves.iter().enumerate().rev().skip(to_skip).for_each(|(leaf_idx, leaf_hash)| {
 			if invalidated_leaves.contains(&leaf_idx) {
-				return
+				return;
 			}
 			match sp_blockchain::tree_route(self.backend.blockchain(), target_hash, *leaf_hash) {
 				Ok(route) if route.retracted().is_empty() => {

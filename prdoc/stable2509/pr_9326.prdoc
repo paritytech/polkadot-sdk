@@ -1,0 +1,12 @@
+title: '[HRMP] Check messages order before enqueing them'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/pull/8860
+
+    This PR adds a check in order to ensure that the collator has respected the proper order when sending the HRMP messages to the runtime.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: polkadot-primitives
+  bump: minor

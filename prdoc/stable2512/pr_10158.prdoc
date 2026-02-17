@@ -1,0 +1,10 @@
+title: allow more generic origins in xcm-emulator message processor
+doc:
+- audience: Runtime Dev
+  description: |-
+    Right now the default message processor is somewhat tied to specific `AggregateMessageOrigin` from `polkadot_runtime_parachains::inclusion`. this pr changes it so that we require a conversion from that AggregateMessageOrigin, but nothing else, the rest stays generic.
+
+    In the longer run we can allow customizing the processor to some other thing, but this was a sufficiently easier change
+crates:
+- name: xcm-emulator
+  bump: patch

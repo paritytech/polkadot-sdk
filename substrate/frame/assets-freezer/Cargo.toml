@@ -1,0 +1,46 @@
+[package]
+name = "pallet-assets-freezer"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "MIT-0"
+homepage.workspace = true
+repository.workspace = true
+description = "Provides freezing features to `pallet-assets`"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
+log = { workspace = true }
+pallet-assets = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame/std",
+	"log/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"scale-info/std",
+]
+runtime-benchmarks = [
+	"frame/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+]
+try-runtime = [
+	"frame/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime",
+]

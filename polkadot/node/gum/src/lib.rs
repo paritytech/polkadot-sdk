@@ -40,7 +40,7 @@
 //!
 //! ### Log levels
 //!
-//! All of the the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
+//! All of the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
 //! In decreasing order of priority they are:
 //!
 //! - `error!`
@@ -169,7 +169,7 @@ impl Freq {
 
 		// Two attempts is not enough to call something as frequent.
 		if self.ema.count < 3 {
-			return false
+			return false;
 		}
 
 		let rate = 1000.0 / self.ema.current; // Current EMA represents interval in ms

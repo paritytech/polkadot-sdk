@@ -22,19 +22,23 @@ use crate::{
 	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt},
 };
 use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
-use polkadot_node_network_protocol::Versioned;
+use polkadot_node_network_protocol::ValidationProtocols;
 use polkadot_node_subsystem::{
-	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
+	messages::{ApprovalVotingParallelMessage, NetworkBridgeTxMessage},
+	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::{
-	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
+	messages::{BitfieldDistributionMessage, NetworkBridgeEvent, StatementDistributionMessage},
 	OverseerSignal,
 };
 use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
-const CHUNK_REQ_PROTOCOL_NAME_V1: &str =
-	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/1";
+const ALLOWED_PROTOCOLS: &[&str] = &[
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/2",
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_attested_candidate/2",
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/send_dispute/1",
+];
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
@@ -98,16 +102,24 @@ impl MockNetworkBridgeTx {
 		loop {
 			let subsystem_message = ctx.recv().await.expect("Overseer never fails us");
 			match subsystem_message {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
 							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
-							let peer_id =
-								request.authority_id().expect("all nodes are authorities").clone();
+							let peer_id = match request.authority_id() {
+								Some(v) => v.clone(),
+								None => self
+									.test_authorities
+									.peer_id_to_authority
+									.get(request.peer_id().expect("Should exist"))
+									.expect("Should exist")
+									.clone(),
+							};
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.
@@ -115,11 +127,11 @@ impl MockNetworkBridgeTx {
 									.into_response_sender()
 									.send(Err(RequestFailure::NotConnected))
 									.expect("send never fails");
-								continue
+								continue;
 							}
 
 							let peer_message =
-								NetworkMessage::RequestFromNode(peer_id.clone(), request);
+								NetworkMessage::RequestFromNode(peer_id.clone(), Box::new(request));
 
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
@@ -141,7 +153,23 @@ impl MockNetworkBridgeTx {
 								.expect("Should not fail");
 						}
 					},
-					_ => unimplemented!("Unexpected network bridge message"),
+					NetworkBridgeTxMessage::SendValidationMessages(messages) => {
+						for (peers, message) in messages {
+							for peer in peers {
+								self.to_network_interface
+									.unbounded_send(NetworkMessage::MessageFromNode(
+										self.test_authorities
+											.peer_id_to_authority
+											.get(&peer)
+											.unwrap()
+											.clone(),
+										message.clone(),
+									))
+									.expect("Should not fail");
+							}
+						}
+					},
+					message => unimplemented!("Unexpected network bridge message {:?}", message),
 				},
 			}
 		}
@@ -159,29 +187,33 @@ impl MockNetworkBridgeRx {
 					if let Some(message) = maybe_peer_message {
 						match message {
 							NetworkMessage::MessageFromPeer(peer_id, message) => match message {
-								Versioned::V2(
-									polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
+								ValidationProtocols::V3(
+									polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(
 										bitfield,
 									),
 								) => {
 									ctx.send_message(
-										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V2(bitfield)))
+										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::ValidationProtocols::V3(bitfield)))
 									).await;
 								},
-								Versioned::V3(
+								ValidationProtocols::V3(
 									polkadot_node_network_protocol::v3::ValidationProtocol::ApprovalDistribution(msg)
 								) => {
-									ctx.send_message(
-										ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::Versioned::V3(msg)))
-									).await;
+										ctx.send_message(
+											ApprovalVotingParallelMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::ValidationProtocols::V3(msg)))
+										).await;
 								}
-								_ => {
-									unimplemented!("We only talk v2 network protocol")
+								ValidationProtocols::V3(
+									polkadot_node_network_protocol::v3::ValidationProtocol::StatementDistribution(msg)
+								) => {
+									ctx.send_message(
+										StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::ValidationProtocols::V3(msg)))
+									).await;
 								},
 							},
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
-									assert_eq!(&*protocol.name, CHUNK_REQ_PROTOCOL_NAME_V1);
+									assert!(ALLOWED_PROTOCOLS.contains(&&*protocol.name), "Unexpected protocol {:?}", protocol.name);
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
 										inbound_queue
 											.send(request)

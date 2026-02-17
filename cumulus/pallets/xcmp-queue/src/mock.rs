@@ -15,12 +15,13 @@
 
 use super::*;
 use crate as xcmp_queue;
+use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, Nothing, OriginTrait},
+	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -30,10 +31,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_builder::{
-	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset,
-	ParentIsPreset,
-};
 use xcm_executor::traits::ConvertOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -45,14 +42,13 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
+			Pallet, Call, Config<T>, Storage, Inherent, Event<T>,
 		},
 		XcmpQueue: xcmp_queue::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
 	pub const SS58Prefix: u8 = 42;
 }
 
@@ -73,7 +69,6 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
@@ -87,25 +82,14 @@ impl frame_system::Config for Test {
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 5;
-	pub const MaxReserves: u32 = 50;
 }
 
 pub type Balance = u64;
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 }
 
 impl cumulus_pallet_parachain_system::Config for Test {
@@ -121,6 +105,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 parameter_types! {
@@ -130,60 +115,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
-
-/// Means for transacting assets on this chain.
-pub type LocalAssetTransactor = FungibleAdapter<
-	// Use this currency:
-	Balances,
-	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<RelayChain>,
-	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We don't track any teleports.
-	(),
->;
-
-pub type LocationToAccountId = (ParentIsPreset<AccountId>,);
-
-pub struct XcmConfig;
-impl xcm_executor::Config for XcmConfig {
-	type RuntimeCall = RuntimeCall;
-	type XcmSender = XcmRouter;
-	// How to withdraw and deposit an asset.
-	type AssetTransactor = LocalAssetTransactor;
-	type OriginConverter = ();
-	type IsReserve = NativeAsset;
-	type IsTeleporter = NativeAsset;
-	type UniversalLocation = UniversalLocation;
-	type Barrier = ();
-	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
-	type Trader = ();
-	type ResponseHandler = ();
-	type AssetTrap = ();
-	type AssetClaims = ();
-	type SubscriptionService = ();
-	type PalletInstancesInfo = AllPalletsWithSystem;
-	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type AssetLocker = ();
-	type AssetExchanger = ();
-	type FeeManager = ();
-	type MessageExporter = ();
-	type UniversalAliases = Nothing;
-	type CallDispatcher = RuntimeCall;
-	type SafeCallFilter = Everything;
-	type Aliasers = Nothing;
-	type TransactionalProcessor = FrameTransactionalProcessor;
-	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
-	type HrmpChannelClosingHandler = ();
-}
-
-pub type XcmRouter = (
-	// XCMP to communicate with the sibling chains.
-	XcmpQueue,
-);
 
 pub struct SystemParachainAsSuperuser<RuntimeOrigin>(PhantomData<RuntimeOrigin>);
 impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
@@ -208,13 +139,14 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 
 parameter_types! {
 	pub static EnqueuedMessages: Vec<(ParaId, Vec<u8>)> = Default::default();
+	pub static FirstPagePos: BTreeMap<ParaId, usize> = Default::default();
 }
 
 /// An `EnqueueMessage` implementation that puts all messages in thread-local storage.
 pub struct EnqueueToLocalStorage<T>(PhantomData<T>);
 
 impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage<T> {
-	type MaxMessageLen = sp_core::ConstU32<65_536>;
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn enqueue_message(message: BoundedSlice<u8, Self::MaxMessageLen>, origin: ParaId) {
 		let mut msgs = EnqueuedMessages::get();
@@ -239,6 +171,10 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 		EnqueuedMessages::set(msgs);
 		T::on_queue_changed(origin, Self::footprint(origin));
 	}
+}
+
+impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalStorage<T> {
+	type MaxMessageLen = sp_core::ConstU32<256>;
 
 	fn footprint(origin: ParaId) -> QueueFootprint {
 		let msgs = EnqueuedMessages::get();
@@ -249,9 +185,31 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 				footprint.storage.size += m.len() as u64;
 			}
 		}
-		footprint.pages = footprint.storage.size as u32 / 16; // Number does not matter
+		// Let's consider that we add one message per page
+		footprint.pages = footprint.storage.count as u32;
 		footprint.ready_pages = footprint.pages;
 		footprint
+	}
+
+	fn get_batches_footprints<'a>(
+		origin: ParaId,
+		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
+		total_pages_limit: u32,
+	) -> BatchesFootprints {
+		// Let's consider that we add one message per page
+		let footprint = Self::footprint(origin);
+		let mut batches_footprints = BatchesFootprints {
+			first_page_pos: *FirstPagePos::get().entry(origin).or_default(),
+			footprints: vec![],
+		};
+		for (idx, msg) in msgs.enumerate() {
+			if footprint.pages + idx as u32 + 1 > total_pages_limit {
+				break;
+			}
+
+			batches_footprints.push(msg.into(), true);
+		}
+		batches_footprints
 	}
 }
 
@@ -276,7 +234,11 @@ impl Config for Test {
 	type ChannelInfo = MockedChannelInfo;
 	type VersionWrapper = ();
 	type XcmpQueue = EnqueueToLocalStorage<Pallet<Test>>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
+	// need to set the page size larger than that until we reduce the channel size on-chain.
+	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = SystemParachainAsSuperuser<RuntimeOrigin>;
 	type WeightInfo = ();
@@ -294,7 +256,7 @@ pub struct MockedChannelInfo;
 impl GetChannelInfo for MockedChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus {
 		if id == HRMP_PARA_ID.into() {
-			return ChannelStatus::Ready(usize::MAX, usize::MAX)
+			return ChannelStatus::Ready(usize::MAX, usize::MAX);
 		}
 
 		ParachainSystem::get_channel_status(id)
@@ -308,7 +270,7 @@ impl GetChannelInfo for MockedChannelInfo {
 				max_message_size: u32::MAX,
 				msg_count: 0,
 				total_size: 0,
-			})
+			});
 		}
 
 		ParachainSystem::get_channel_info(id)
@@ -318,13 +280,14 @@ impl GetChannelInfo for MockedChannelInfo {
 pub(crate) fn mk_page() -> Vec<u8> {
 	let mut page = Vec::<u8>::new();
 
+	let newer_xcm_version = xcm::prelude::XCM_VERSION;
+	let older_xcm_version = newer_xcm_version - 1;
+
 	for i in 0..100 {
 		page.extend(match i % 2 {
-			0 => v2_xcm().encode(),
-			1 => v3_xcm().encode(),
+			0 => versioned_xcm(older_xcm_version).encode(),
+			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
-			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
-			// instead.
 			_ => unreachable!(),
 		});
 	}
@@ -332,12 +295,9 @@ pub(crate) fn mk_page() -> Vec<u8> {
 	page
 }
 
-pub(crate) fn v2_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v2::Instruction::<()>::ClearOrigin;
-	VersionedXcm::V2(xcm::v2::Xcm::<()>(vec![instr; 3]))
-}
-
-pub(crate) fn v3_xcm() -> VersionedXcm<()> {
-	let instr = xcm::v3::Instruction::<()>::Trap(1);
-	VersionedXcm::V3(xcm::v3::Xcm::<()>(vec![instr; 3]))
+pub(crate) fn versioned_xcm(version: XcmVersion) -> VersionedXcm<()> {
+	let instr = Instruction::<()>::Trap(1);
+	VersionedXcm::from(Xcm::<()>(vec![instr; 3]))
+		.into_version(version)
+		.expect("Version conversion should work")
 }

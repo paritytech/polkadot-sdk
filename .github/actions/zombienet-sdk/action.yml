@@ -1,0 +1,107 @@
+name: "Zombienet-sdk test"
+description: "Runs zombienet-sdk tests with archived artifacts"
+inputs:
+  build-id:
+    description: ""
+    required: true
+  ref-slug:
+    description: "Ref slug (e.g branch-name-short)"
+    required: true
+  test-filter:
+    description: "test filter to pass to nextest (e.g: functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test)"
+    required: true
+  job-name:
+    description: "Job name to use for artifact uploading"
+    required: true
+  prefix:
+    description: "Archive prefix for tests files (e.g polkadot, cumulus or substrate)"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: common_vars
+      shell: bash
+      env:
+        TEST_FILTER: ${{ inputs.test-filter }}
+        PREFIX: ${{ inputs.prefix }}
+      run: |
+        echo "::group::Test Configuration (SDK)"
+        echo "Environment Variables:"
+        echo "  ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "  ZOMBIE_PROVIDER: $ZOMBIE_PROVIDER"
+        echo "  POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "  CUMULUS_IMAGE: $CUMULUS_IMAGE"
+        echo "  COL_IMAGE: $COL_IMAGE"
+        echo "  MALUS_IMAGE: $MALUS_IMAGE"
+        echo ""
+        echo "Test Parameters:"
+        echo "  Test Filter: $TEST_FILTER"
+        echo "  Prefix: $PREFIX"
+        echo "  Job Name: ${{ inputs.job-name }}"
+        echo ""
+        # Show flaky tests information if any are disabled
+        if [[ -f .github/zombienet-flaky-tests ]]; then
+          FLAKY_COUNT=$(grep -v '^#' .github/zombienet-flaky-tests | grep -v '^$' | wc -l | tr -d ' ')
+          if [[ $FLAKY_COUNT -gt 0 ]]; then
+            echo "⚠️ Flaky/Disabled Tests: $FLAKY_COUNT test(s) currently disabled"
+            echo "📄 See: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/zombienet-flaky-tests"
+            echo "📖 Docs: https://github.com/paritytech/polkadot-sdk/blob/${{ github.sha }}/.github/ZOMBIENET_FLAKY_TESTS.md"
+          fi
+        fi
+        echo "::endgroup::"
+
+    - name: Download binaries for zombienet native tests
+      if: env.ZOMBIE_PROVIDER == 'native'
+      uses: ./.github/actions/download-binaries-for-zombienet-tests
+      with:
+        gh-token: ${{ inputs.gh-token }}
+        ref-slug: ${{ inputs.ref-slug }}
+        build-id: ${{ inputs.build-id }}
+        destination-path: ./bin
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+
+    - name: k8s_auth
+      if: env.ZOMBIE_PROVIDER == 'k8s'
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
+
+    - name: zombie_test
+      shell: bash
+      env:
+        # don't retry sdk tests
+        NEXTEST_RETRIES: 0
+        TEST_FILTER: ${{ inputs.test-filter }}
+        PREFIX: ${{ inputs.prefix }}
+      run: |
+        # RUN_IN_CI=1 shall be set only for k8s provider
+        if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+          export RUN_IN_CI=0
+          # set path to downloaded binaries
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
+        else
+          export RUN_IN_CI=1
+          # no need to check other runner variables. for k8s they shall store the same value
+          if [[ $ZOMBIENET_SDK_DEFAULT_RUNNER == "parity-zombienet" ]]; then
+            export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+          fi
+        fi
+
+        ls -ltr ./artifacts
+        # We want to run tests sequentially, '--no-capture' ensures that.
+        # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
+        # Both options cannot coexist for cargo-nextest below v0.9.94
+        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}

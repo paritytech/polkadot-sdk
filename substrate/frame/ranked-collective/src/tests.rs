@@ -20,14 +20,12 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	error::BadOrigin,
-	parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
 use sp_runtime::{
-	traits::{ReduceBy, ReplaceWithDefault},
+	traits::{BadOrigin, MaybeConvert, ReduceBy, ReplaceWithDefault},
 	BuildStorage,
 };
 
@@ -90,8 +88,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -107,8 +106,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -148,6 +148,17 @@ impl<Delta: Get<Rank>> Convert<Class, Rank> for MinRankOfClass<Delta> {
 	}
 }
 
+pub struct MaxMemberCount;
+impl MaybeConvert<Rank, MemberIndex> for MaxMemberCount {
+	fn maybe_convert(a: Rank) -> Option<MemberIndex> {
+		if a == 11 {
+			Some(2)
+		} else {
+			None
+		}
+	}
+}
+
 parameter_types! {
 	pub static MinRankOfClassDelta: Rank = 0;
 }
@@ -179,6 +190,7 @@ impl Config for Test {
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = ();
 	type VoteWeight = Geometric;
+	type MaxMemberCount = MaxMemberCount;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
 }
@@ -443,7 +455,7 @@ fn cleanup_works() {
 		);
 		assert_ok!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10));
 		// NOTE: This will fail until #10016 is merged.
-		//		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
+		// 		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
 		// Error::<Test>::NoneRemaining);
 	});
 }
@@ -643,5 +655,34 @@ fn exchange_member_same_noops() {
 			Club::exchange_member(RuntimeOrigin::root(), 1, 2),
 			Error::<Test>::AlreadyMember
 		);
+	});
+}
+
+#[test]
+fn max_member_count_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Club::do_add_member_to_rank(1, 10, false));
+		assert_ok!(Club::do_add_member_to_rank(2, 10, false));
+		assert_ok!(Club::do_add_member_to_rank(3, 10, false));
+		assert_eq!(member_count(10), 3);
+		assert_eq!(member_count(11), 0);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+		assert_noop!(Club::promote_member(RuntimeOrigin::root(), 3), Error::<Test>::TooManyMembers);
+		assert_eq!(member_count(10), 3);
+		assert_eq!(member_count(11), 2);
+
+		assert_ok!(Club::demote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+		assert_eq!(member_count(10), 3);
+		assert_eq!(member_count(11), 2);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+		assert_noop!(Club::promote_member(RuntimeOrigin::root(), 1), Error::<Test>::TooManyMembers);
+		assert_eq!(member_count(10), 3);
+		assert_eq!(member_count(11), 2);
+		assert_eq!(member_count(12), 2);
 	});
 }

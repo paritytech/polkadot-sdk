@@ -25,6 +25,7 @@
 #![warn(unused_imports)]
 
 use clap::{CommandFactory, FromArgMatches, Parser};
+use log::warn;
 use sc_service::Configuration;
 
 pub mod arg_enums;
@@ -58,11 +59,11 @@ pub trait SubstrateCli: Sized {
 
 	/// Implementation version.
 	///
-	/// By default this will look like this:
+	/// By default, it will look like this:
 	///
 	/// `2.0.0-b950f731c`
 	///
-	/// Where the hash is the short commit hash of the commit of in the Git repository.
+	/// Where the hash is the short hash of the commit in the Git repository.
 	fn impl_version() -> String;
 
 	/// Executable file name.
@@ -124,21 +125,7 @@ pub trait SubstrateCli: Sized {
 		I::Item: Into<std::ffi::OsString> + Clone,
 	{
 		let app = <Self as CommandFactory>::command();
-
-		let mut full_version = Self::impl_version();
-		full_version.push('\n');
-
-		let name = Self::executable_name();
-		let author = Self::author();
-		let about = Self::description();
-		let app = app
-			.name(name)
-			.author(author)
-			.about(about)
-			.version(full_version)
-			.propagate_version(true)
-			.args_conflicts_with_subcommands(true)
-			.subcommand_negates_reqs(true);
+		let app = Self::setup_command(app);
 
 		let matches = app.try_get_matches_from(iter).unwrap_or_else(|e| e.exit());
 
@@ -166,14 +153,7 @@ pub trait SubstrateCli: Sized {
 		I::Item: Into<std::ffi::OsString> + Clone,
 	{
 		let app = <Self as CommandFactory>::command();
-
-		let mut full_version = Self::impl_version();
-		full_version.push('\n');
-
-		let name = Self::executable_name();
-		let author = Self::author();
-		let about = Self::description();
-		let app = app.name(name).author(author).about(about).version(full_version);
+		let app = Self::setup_command(app);
 
 		let matches = app.try_get_matches_from(iter)?;
 
@@ -199,17 +179,8 @@ pub trait SubstrateCli: Sized {
 	fn create_runner<T: CliConfiguration<DVC>, DVC: DefaultConfigurationValues>(
 		&self,
 		command: &T,
-	) -> error::Result<Runner<Self>> {
-		let tokio_runtime = build_runtime()?;
-
-		// `capture` needs to be called in a tokio context.
-		// Also capture them as early as possible.
-		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-
-		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
-
-		command.init(&Self::support_url(), &Self::impl_version(), |_, _| {}, &config)?;
-		Runner::new(config, tokio_runtime, signals)
+	) -> Result<Runner<Self>> {
+		self.create_runner_with_logger_hook(command, |_, _| {})
 	}
 
 	/// Create a runner for the command provided in argument. The `logger_hook` can be used to setup
@@ -231,11 +202,15 @@ pub trait SubstrateCli: Sized {
 	/// 	}
 	/// }
 	/// ```
-	fn create_runner_with_logger_hook<T: CliConfiguration, F>(
+	fn create_runner_with_logger_hook<
+		T: CliConfiguration<DVC>,
+		DVC: DefaultConfigurationValues,
+		F,
+	>(
 		&self,
 		command: &T,
 		logger_hook: F,
-	) -> error::Result<Runner<Self>>
+	) -> Result<Runner<Self>>
 	where
 		F: FnOnce(&mut LoggerBuilder, &Configuration),
 	{
@@ -247,7 +222,32 @@ pub trait SubstrateCli: Sized {
 
 		let config = command.create_configuration(self, tokio_runtime.handle().clone())?;
 
-		command.init(&Self::support_url(), &Self::impl_version(), logger_hook, &config)?;
+		command.init(&Self::support_url(), &Self::impl_version(), |logger_builder| {
+			logger_hook(logger_builder, &config)
+		})?;
+
 		Runner::new(config, tokio_runtime, signals)
+	}
+	/// Augments a `clap::Command` with standard metadata like name, version, author, description,
+	/// etc.
+	///
+	/// This is used internally in `from_iter`, `try_from_iter` and can be used externally
+	/// to manually set up a command with Substrate CLI defaults.
+	fn setup_command(mut cmd: clap::Command) -> clap::Command {
+		let mut full_version = Self::impl_version();
+		full_version.push('\n');
+
+		cmd = cmd
+			.name(Self::executable_name())
+			.version(full_version)
+			.author(Self::author())
+			.about(Self::description())
+			.long_about(Self::description())
+			.after_help(format!("Support: {}", Self::support_url()))
+			.propagate_version(true)
+			.args_conflicts_with_subcommands(true)
+			.subcommand_negates_reqs(true);
+
+		cmd
 	}
 }

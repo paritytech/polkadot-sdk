@@ -20,41 +20,40 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
+use sp_statement_store::{SubmitResult, TopicFilter};
 
 pub mod error;
 
 /// Substrate statement RPC API
 #[rpc(client, server)]
 pub trait StatementApi {
-	/// Return all statements, SCALE-encoded.
-	#[method(name = "statement_dump")]
-	fn dump(&self) -> RpcResult<Vec<Bytes>>;
+	/// Subscribe to new statements that match the provided filters.
+	///
+	/// # Parameters
+	///
+	/// - `topic_filter` — Which topics to match. Use `TopicFilter::Any` to match all topics,
+	///   `TopicFilter::MatchAll(vec)` to match statements that include all provided topics, or
+	///   `TopicFilter::MatchAny(vec)` to match statements that include any of the provided topics.
+	///
+	/// # Returns
+	///
+	/// Returns a stream of SCALE-encoded statements as `Bytes`.
+	/// When a subscription is initiated the endpoint will immediately return the matching
+	/// statements already in the store. Subsequent matching statements will be pushed to the client
+	/// as they are added to the store.
+	#[subscription(
+		name = "statement_subscribeStatement" => "statement_statement",
+		unsubscribe = "statement_unsubscribeStatement",
+		item = Bytes,
+		with_extensions,
+	)]
+	fn subscribe_statement(&self, topic_filter: TopicFilter);
 
-	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
-	/// field.
-	#[method(name = "statement_broadcasts")]
-	fn broadcasts(&self, match_all_topics: Vec<[u8; 32]>) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the data of all known statements whose decryption key is identified as `dest` (this
-	/// will generally be the public key or a hash thereof for symmetric ciphers, or a hash of the
-	/// private key for symmetric ciphers).
-	#[method(name = "statement_posted")]
-	fn posted(&self, match_all_topics: Vec<[u8; 32]>, dest: [u8; 32]) -> RpcResult<Vec<Bytes>>;
-
-	/// Return the decrypted data of all known statements whose decryption key is identified as
-	/// `dest`. The key must be available to the client.
-	#[method(name = "statement_postedClear")]
-	fn posted_clear(
-		&self,
-		match_all_topics: Vec<[u8; 32]>,
-		dest: [u8; 32],
-	) -> RpcResult<Vec<Bytes>>;
-
-	/// Submit a pre-encoded statement.
+	/// Submit a SCALE-encoded statement.
+	///
+	/// See `Statement` definition for more details.
+	///
+	/// Returns `SubmitResult` indicating success or failure reason.
 	#[method(name = "statement_submit")]
-	fn submit(&self, encoded: Bytes) -> RpcResult<()>;
-
-	/// Remove a statement from the store.
-	#[method(name = "statement_remove")]
-	fn remove(&self, statement_hash: [u8; 32]) -> RpcResult<()>;
+	fn submit(&self, encoded: Bytes) -> RpcResult<SubmitResult>;
 }

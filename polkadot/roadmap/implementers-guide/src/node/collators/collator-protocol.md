@@ -1,5 +1,9 @@
 # Collator Protocol
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 The Collator Protocol implements the network protocol by which collators and validators communicate. It is used by
 collators to distribute collations to validators and used by validators to accept collations by collators.
 
@@ -146,12 +150,6 @@ When acting on an advertisement, we issue a `Requests::CollationFetchingV1`. How
 time per relay parent. This reduces the bandwidth requirements and as we can second only one candidate per relay parent,
 the others are probably not required anyway. If the request times out, we need to note the collator as being unreliable
 and reduce its priority relative to other collators.
-
-As a validator, once the collation has been fetched some other subsystem will inspect and do deeper validation of the
-collation. The subsystem will report to this subsystem with a [`CollatorProtocolMessage`][CPM]`::ReportCollator`. In
-that case, if we are connected directly to the collator, we apply a cost to the `PeerId` associated with the collator
-and potentially disconnect or blacklist it. If the collation is seconded, we notify the collator and apply a benefit to
-the `PeerId` associated with the collator.
 
 ### Interaction with [Candidate Backing][CB]
 

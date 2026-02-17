@@ -23,14 +23,16 @@
 extern crate alloc;
 
 pub mod backend;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod basic;
 mod error;
 mod ext;
-#[cfg(feature = "std")]
+#[cfg(feature = "fuzzing")]
+pub mod fuzzing;
+#[cfg(not(substrate_runtime))]
 mod in_memory_backend;
 pub(crate) mod overlayed_changes;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod read_only;
 mod stats;
 #[cfg(feature = "std")]
@@ -140,15 +142,16 @@ pub use crate::{
 	trie_backend_essence::{Storage, TrieBackendStorage},
 };
 
+#[cfg(not(substrate_runtime))]
+pub use crate::{
+	basic::BasicExternalities,
+	in_memory_backend::new_in_mem,
+	read_only::{InspectState, ReadOnlyExternalities},
+};
+
 #[cfg(feature = "std")]
 mod std_reexport {
-	pub use crate::{
-		basic::BasicExternalities,
-		in_memory_backend::new_in_mem,
-		read_only::{InspectState, ReadOnlyExternalities},
-		testing::TestExternalities,
-		trie_backend::create_proof_check_backend,
-	};
+	pub use crate::{testing::TestExternalities, trie_backend::create_proof_check_backend};
 	pub use sp_trie::{
 		trie_types::{TrieDBMutV0, TrieDBMutV1},
 		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, StorageProof, TrieMut,
@@ -499,7 +502,7 @@ mod execution {
 			last: &mut SmallVec<[Vec<u8>; 2]>,
 		) -> bool {
 			if stopped_at == 0 || stopped_at > MAX_NESTED_TRIE_DEPTH {
-				return false
+				return false;
 			}
 			match stopped_at {
 				1 => {
@@ -509,7 +512,7 @@ mod execution {
 						match last.len() {
 							0 => {
 								last.push(top_last);
-								return true
+								return true;
 							},
 							2 => {
 								last.pop();
@@ -518,12 +521,12 @@ mod execution {
 						}
 						// update top trie access.
 						last[0] = top_last;
-						return true
+						return true;
 					} else {
 						// No change in top trie accesses.
 						// Indicates end of reading of a child trie.
 						last.truncate(1);
-						return true
+						return true;
 					}
 				},
 				2 => {
@@ -537,7 +540,7 @@ mod execution {
 							if let Some(top_last) = top_last {
 								last.push(top_last)
 							} else {
-								return false
+								return false;
 							}
 						} else if let Some(top_last) = top_last {
 							last[0] = top_last;
@@ -546,10 +549,10 @@ mod execution {
 							last.pop();
 						}
 						last.push(child_last);
-						return true
+						return true;
 					} else {
 						// stopped at level 2 so child last is define.
-						return false
+						return false;
 					}
 				},
 				_ => (),
@@ -593,7 +596,7 @@ mod execution {
 		H::Out: Ord + Codec,
 	{
 		if start_at.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Box::new("Invalid start of range."))
+			return Err(Box::new("Invalid start of range."));
 		}
 
 		let recorder = sp_trie::recorder::Recorder::default();
@@ -610,7 +613,7 @@ mod execution {
 			{
 				child_roots.insert(state_root);
 			} else {
-				return Err(Box::new("Invalid range start child trie key."))
+				return Err(Box::new("Invalid range start child trie key."));
 			}
 
 			(Some(storage_key), start_at.get(1).cloned())
@@ -623,8 +626,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
@@ -655,12 +659,12 @@ mod execution {
 					if !child_roots.contains(value.as_slice()) {
 						child_roots.insert(value);
 						switch_child_key = Some(key);
-						break
+						break;
 					}
 				} else if recorder.estimate_encoded_size() <= size_limit {
 					count += 1;
 				} else {
-					break
+					break;
 				}
 			}
 
@@ -668,11 +672,11 @@ mod execution {
 
 			if switch_child_key.is_none() {
 				if depth == 1 {
-					break
+					break;
 				} else if completed {
 					start_at = child_key.take();
 				} else {
-					break
+					break;
 				}
 			} else {
 				child_key = switch_child_key;
@@ -743,7 +747,7 @@ mod execution {
 			if count == 0 || recorder.estimate_encoded_size() <= size_limit {
 				count += 1;
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -966,7 +970,7 @@ mod execution {
 			let (key, value) = item.map_err(|e| Box::new(e) as Box<dyn Error>)?;
 			values.push((key, value));
 			if !count.as_ref().map_or(true, |c| (values.len() as u32) < *c) {
-				break
+				break;
 			}
 		}
 
@@ -990,7 +994,7 @@ mod execution {
 			parent_storage_keys: Default::default(),
 		}];
 		if start_at.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Box::new("Invalid start of range."))
+			return Err(Box::new("Invalid start of range."));
 		}
 
 		let mut child_roots = HashSet::new();
@@ -1003,7 +1007,7 @@ mod execution {
 				child_roots.insert(state_root.clone());
 				Some((storage_key, state_root))
 			} else {
-				return Err(Box::new("Invalid range start child trie key."))
+				return Err(Box::new("Invalid range start child trie key."));
 			};
 
 			(child_key, start_at.get(1).cloned())
@@ -1022,8 +1026,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
@@ -1061,7 +1066,7 @@ mod execution {
 					if !child_roots.contains(value.as_slice()) {
 						child_roots.insert(value.clone());
 						switch_child_key = Some((key, value));
-						break
+						break;
 					}
 				}
 			}
@@ -1070,10 +1075,10 @@ mod execution {
 
 			if switch_child_key.is_none() {
 				if !completed {
-					break depth
+					break depth;
 				}
 				if depth == 1 {
-					break 0
+					break 0;
 				} else {
 					start_at = child_key.take().map(|entry| entry.0);
 				}
@@ -1273,7 +1278,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1299,7 +1304,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.changes()
+				.changes_mut()
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::<HashMap<_, _>>(),
 			map![
@@ -1340,7 +1345,7 @@ mod tests {
 
 		assert_eq!(
 			overlay
-				.children()
+				.children_mut()
 				.flat_map(|(iter, _child_info)| iter)
 				.map(|(k, v)| (k.clone(), v.value()))
 				.collect::<BTreeMap<_, _>>(),
@@ -1440,8 +1445,75 @@ mod tests {
 		}
 		overlay.rollback_transaction().unwrap();
 		{
-			let ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
+		}
+	}
+
+	// Test that we can append twice to a key, then perform a remove operation.
+	// The test checks specifically that the append is merged with its parent transaction
+	// on commit.
+	#[test]
+	fn commit_merges_append_with_parent() {
+		#[derive(codec::Encode, codec::Decode)]
+		enum Item {
+			Item1,
+			Item2,
+		}
+
+		let key = b"events".to_vec();
+		let state = new_in_mem::<BlakeTwo256>();
+		let backend = state.as_trie_backend();
+		let mut overlay = OverlayedChanges::default();
+
+		// Append first item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			ext.clear_storage(key.as_slice());
+			ext.storage_append(key.clone(), Item::Item1.encode());
+		}
+
+		// Append second item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
+
+			ext.storage_append(key.clone(), Item::Item2.encode());
+
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1, Item::Item2].encode()),);
+		}
+
+		// Remove item
+		overlay.start_transaction();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+
+			ext.place_storage(key.clone(), None);
+
+			assert_eq!(ext.storage(key.as_slice()), None);
+		}
+
+		// Remove gets commited and merged into previous transaction
+		overlay.commit_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), None,);
+		}
+
+		// Remove gets rolled back, we should see the initial append again.
+		overlay.rollback_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
+		}
+
+		overlay.commit_transaction().unwrap();
+		{
+			let mut ext = Ext::new(&mut overlay, backend, None);
+			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 	}
 
@@ -1499,7 +1571,7 @@ mod tests {
 
 		// Then only initialization item and second (committed) item should persist.
 		{
-			let ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(
 				ext.storage(key.as_slice()),
 				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),
@@ -1643,7 +1715,7 @@ mod tests {
 									key.clone(),
 									Some(value.clone()),
 								));
-								break
+								break;
 							}
 						}
 					}
@@ -1834,7 +1906,7 @@ mod tests {
 			.unwrap();
 
 			if completed_depth == 0 {
-				break
+				break;
 			}
 			assert!(result.update_last_key(completed_depth, &mut start_at));
 		}

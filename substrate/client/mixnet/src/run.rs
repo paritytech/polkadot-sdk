@@ -44,8 +44,8 @@ use mixnet::{
 };
 use sc_client_api::{BlockchainEvents, HeaderBackend};
 use sc_network::{
-	service::traits::{NotificationEvent, ValidationResult},
-	NetworkNotification, NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
+	service::traits::{NetworkService, NotificationEvent, ValidationResult},
+	NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
 use sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
@@ -95,7 +95,7 @@ fn handle_packet<X, E: Decode>(
 						debug!(target: LOG_TARGET, "No space in extrinsic queue; dropping request");
 						// We don't send a reply in this case; we want the requester to retry
 						reply_manager.abandon(reply_context);
-						return
+						return;
 					}
 
 					// Decode the extrinsic
@@ -109,7 +109,7 @@ fn handle_packet<X, E: Decode>(
 								Err(RemoteErr::Decode(format!("Bad extrinsic: {}", err))),
 								mixnet,
 							);
-							return
+							return;
 						},
 					};
 
@@ -132,7 +132,7 @@ fn handle_packet<X, E: Decode>(
 					"Received reply to already-completed request with message ID {:x?}",
 					message.request_id
 				);
-				return
+				return;
 			};
 			request.send_reply(&message.data);
 		},
@@ -146,12 +146,12 @@ fn time_until(instant: Instant) -> Duration {
 
 /// Run the mixnet service. If `keystore` is `None`, the service will not attempt to register the
 /// local node as a mixnode, even if `config.register` is `true`.
-pub async fn run<B, C, S, N, P>(
+pub async fn run<B, C, S, P>(
 	config: Config,
 	mut api_backend: ApiBackend,
 	client: Arc<C>,
 	sync: Arc<S>,
-	network: Arc<N>,
+	network: Arc<dyn NetworkService>,
 	protocol_name: ProtocolName,
 	transaction_pool: Arc<P>,
 	keystore: Option<KeystorePtr>,
@@ -161,7 +161,6 @@ pub async fn run<B, C, S, N, P>(
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	N: NetworkStateInfo + NetworkNotification + NetworkPeers,
 	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
 {
 	let local_peer_id = network.local_peer_id();
@@ -169,7 +168,7 @@ pub async fn run<B, C, S, N, P>(
 		error!(target: LOG_TARGET,
 			"Failed to convert libp2p local peer ID {local_peer_id} to mixnet peer ID; \
 			mixnet not running");
-		return
+		return;
 	};
 
 	let offchain_transaction_pool_factory =

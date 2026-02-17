@@ -32,13 +32,12 @@ use polkadot_node_primitives::{
 	disputes::ValidCandidateVotes, CandidateVotes, DisputeStatus, SignedDisputeStatement, Timestamp,
 };
 use polkadot_node_subsystem::overseer;
-use polkadot_node_subsystem_util::runtime::RuntimeInfo;
+use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
-	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorPair, ValidatorSignature,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, ExecutorParams, Hash,
+	IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
-use sc_keystore::LocalKeystore;
 
 use crate::LOG_TARGET;
 
@@ -63,12 +62,12 @@ impl<'a> CandidateEnvironment<'a> {
 	///
 	/// Return: `None` in case session is outside of session window.
 	pub async fn new<Context>(
-		keystore: &LocalKeystore,
 		ctx: &mut Context,
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
 		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
+		controlled_indices: &mut ControlledValidatorIndices,
 	) -> Option<CandidateEnvironment<'a>> {
 		let disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), relay_parent)
@@ -82,8 +81,9 @@ impl<'a> CandidateEnvironment<'a> {
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) =>
-				(&extended_session_info.session_info, &extended_session_info.executor_params),
+			Ok(extended_session_info) => {
+				(&extended_session_info.session_info, &extended_session_info.executor_params)
+			},
 			Err(_) => return None,
 		};
 
@@ -98,14 +98,17 @@ impl<'a> CandidateEnvironment<'a> {
 			let mut d: HashSet<ValidatorIndex> = HashSet::new();
 			for v in disabled_onchain.into_iter().chain(disabled_offchain.into_iter()) {
 				if d.len() == byzantine_threshold {
-					break
+					break;
 				}
 				d.insert(v);
 			}
 			d
 		};
 
-		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
+		let controlled_indices = controlled_indices
+			.get(session_index, &session.validators)
+			.map_or(HashSet::new(), |index| HashSet::from([index]));
+
 		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
@@ -155,7 +158,7 @@ impl OwnVoteState {
 	fn new(votes: &CandidateVotes, env: &CandidateEnvironment) -> Self {
 		let controlled_indices = env.controlled_indices();
 		if controlled_indices.is_empty() {
-			return Self::CannotVote
+			return Self::CannotVote;
 		}
 
 		let our_valid_votes = controlled_indices
@@ -319,7 +322,7 @@ impl CandidateVoteState<CandidateVotes> {
 					"Validator index doesn't match claimed key",
 				);
 
-				continue
+				continue;
 			}
 			if statement.candidate_hash() != &expected_candidate_hash {
 				gum::error!(
@@ -330,7 +333,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected candidate!",
 				);
-				continue
+				continue;
 			}
 			if statement.session_index() != env.session_index() {
 				gum::error!(
@@ -341,7 +344,7 @@ impl CandidateVoteState<CandidateVotes> {
 					?expected_candidate_hash,
 					"Vote is for unexpected session!",
 				);
-				continue
+				continue;
 			}
 
 			match statement.statement() {
@@ -631,23 +634,4 @@ impl ImportResult {
 			None
 		}
 	}
-}
-
-/// Find indices controlled by this validator.
-///
-/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
-fn find_controlled_validator_indices(
-	keystore: &LocalKeystore,
-	validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-) -> HashSet<ValidatorIndex> {
-	let mut controlled = HashSet::new();
-	for (index, validator) in validators.iter().enumerate() {
-		if keystore.key_pair::<ValidatorPair>(validator).ok().flatten().is_none() {
-			continue
-		}
-
-		controlled.insert(ValidatorIndex(index as _));
-	}
-
-	controlled
 }

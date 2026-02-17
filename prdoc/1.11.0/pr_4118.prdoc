@@ -1,0 +1,13 @@
+title: "pallet assets: minor improvement on errors returned for some calls"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Some calls in pallet assets have better errors. No new error is introduced, only more sensible choice are made.
+  - audience: Runtime User
+    description: |
+      Some calls in pallet assets have better errors. No new error is introduced, only more sensible choice are made.
+
+crates:
+  - name: pallet-assets
+    bump: minor

@@ -86,7 +86,7 @@
 //! ---
 //! ☠️ DO NT RE-USE ANY OF THE SEEDS AND SECRETS FROM THIS PAGE ☠️.
 //!
-//! You can read more about security and risks in [SECURITY.md](./SECURITY.md) and in the [Polkadot Wiki](https://wiki.polkadot.network/docs/learn-account-generation).
+//! You can read more about security and risks in [SECURITY.md](./SECURITY.md) and in the [Polkadot Wiki](https://wiki.polkadot.network/learn/learn-accounts/#account-generation).
 //!
 //! ---
 //!
@@ -310,7 +310,7 @@
 
 use clap::Parser;
 use sc_cli::{
-	Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
+	Error, GenerateCmd, GenerateKeyCmdCommon, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
 	VerifyCmd,
 };
 
@@ -324,7 +324,7 @@ use sc_cli::{
 pub enum Subkey {
 	/// Generate a random node key, write it to a file or stdout and write the
 	/// corresponding peer-id to stderr
-	GenerateNodeKey(GenerateNodeKeyCmd),
+	GenerateNodeKey(GenerateKeyCmdCommon),
 
 	/// Generate a random account
 	Generate(GenerateCmd),

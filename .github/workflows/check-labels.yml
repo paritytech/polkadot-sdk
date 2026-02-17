@@ -1,5 +1,9 @@
 name: Check labels
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
@@ -8,6 +12,7 @@ on:
 jobs:
   check-labels:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check labels
         env:

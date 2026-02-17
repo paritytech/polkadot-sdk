@@ -19,18 +19,26 @@
 
 use crate::{KeyTypeId, RuntimePublic};
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
-pub use sp_core::ed25519::*;
+use sp_core::proof_of_possession::NonAggregatable;
+pub use sp_core::{
+	crypto::{CryptoBytes, SignatureBytes},
+	ed25519::*,
+};
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::ED25519);
 }
 
-pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
+pub use app::{
+	Pair as AppPair, ProofOfPossession as AppProofOfPossession, Public as AppPublic,
+	Signature as AppSignature,
+};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
+	type ProofOfPossession = Signature;
 
 	fn all(key_type: KeyTypeId) -> crate::Vec<Self> {
 		sp_io::crypto::ed25519_public_keys(key_type)
@@ -46,6 +54,24 @@ impl RuntimePublic for Public {
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
 		sp_io::crypto::ed25519_verify(signature, msg.as_ref(), self)
+	}
+
+	fn generate_proof_of_possession(
+		&mut self,
+		key_type: KeyTypeId,
+		owner: &[u8],
+	) -> Option<Self::ProofOfPossession> {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
+		sp_io::crypto::ed25519_sign(key_type, self, &proof_of_possession_statement)
+	}
+
+	fn verify_proof_of_possession(
+		&self,
+		owner: &[u8],
+		proof_of_possession: &Self::ProofOfPossession,
+	) -> bool {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
+		sp_io::crypto::ed25519_verify(&proof_of_possession, &proof_of_possession_statement, &self)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

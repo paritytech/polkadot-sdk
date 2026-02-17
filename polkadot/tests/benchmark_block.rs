@@ -58,7 +58,13 @@ async fn build_chain(runtime: &str, base_path: &Path) {
 	let mut cmd = Command::new(cargo_bin("polkadot"))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
-		.args(["--chain", runtime, "--force-authoring", "--alice"])
+		.args([
+			"--chain",
+			runtime,
+			"--force-authoring",
+			"--alice",
+			"--unsafe-force-node-key-generation",
+		])
 		.arg("-d")
 		.arg(base_path)
 		.arg("--no-hardware-benchmarks")
@@ -88,7 +94,7 @@ fn benchmark_block(runtime: &str, base_path: &Path, block: u32) -> Result<(), St
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	Ok(())

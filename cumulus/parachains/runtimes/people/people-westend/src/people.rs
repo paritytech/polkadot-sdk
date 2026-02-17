@@ -18,17 +18,15 @@ use crate::xcm_config::LocationToAccountId;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
-	parameter_types, traits::ConstU32, CloneNoBound, EqNoBound, PartialEqNoBound,
-	RuntimeDebugNoBound,
+	parameter_types, traits::ConstU32, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
 use parachains_common::{impls::ToParentTreasury, DAYS};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, Verify},
-	RuntimeDebug,
+	Debug,
 };
-use sp_std::prelude::*;
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`
@@ -37,6 +35,7 @@ parameter_types! {
 	//   17 | Min size without `IdentityInfo` (accounted for in byte deposit)
 	pub const BasicDeposit: Balance = deposit(1, 17);
 	pub const ByteDeposit: Balance = deposit(0, 1);
+	pub const UsernameDeposit: Balance = deposit(0, 32);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
 	pub RelayTreasuryAccount: AccountId =
 		parachains_common::TREASURY_PALLET_ID.into_account_truncating();
@@ -47,6 +46,7 @@ impl pallet_identity::Config for Runtime {
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
 	type ByteDeposit = ByteDeposit;
+	type UsernameDeposit = UsernameDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
@@ -58,8 +58,11 @@ impl pallet_identity::Config for Runtime {
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
 	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type UsernameGracePeriod = ConstU32<{ 3 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
@@ -67,7 +70,7 @@ impl pallet_identity::Config for Runtime {
 /// in the `IdentityInfo` struct.
 #[bitflags]
 #[repr(u64)]
-#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum IdentityField {
 	Display,
 	Legal,
@@ -86,10 +89,11 @@ pub enum IdentityField {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	EqNoBound,
 	MaxEncodedLen,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 )]
 #[codec(mel_bound())]
@@ -151,7 +155,7 @@ impl IdentityInformationProvider for IdentityInfo {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_identity_info() -> Self {
-		let data = Data::Raw(vec![0; 32].try_into().unwrap());
+		let data = Data::Raw(alloc::vec![0; 32].try_into().unwrap());
 
 		IdentityInfo {
 			display: data.clone(),

@@ -1,0 +1,10 @@
+title: Increase litep2p keep-alive to 10 seconds to mirror libp2p
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Increase litep2p keep-alive to 10 seconds to mirror libp2p behavior.
+
+crates:
+  - name: sc-network
+    bump: patch

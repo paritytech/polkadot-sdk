@@ -16,14 +16,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::OutputFormat;
-use ansi_term::Colour;
+use console::style;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
 use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
+
+use crate::PrintFullHashOnDebugLogging;
 
 /// State of the informant display system.
 ///
@@ -47,19 +48,16 @@ pub struct InformantDisplay<B: BlockT> {
 	last_total_bytes_inbound: u64,
 	/// The last seen total of bytes sent.
 	last_total_bytes_outbound: u64,
-	/// The format to print output in.
-	format: OutputFormat,
 }
 
 impl<B: BlockT> InformantDisplay<B> {
 	/// Builds a new informant display system.
-	pub fn new(format: OutputFormat) -> InformantDisplay<B> {
+	pub fn new() -> InformantDisplay<B> {
 		InformantDisplay {
 			last_number: None,
 			last_update: Instant::now(),
 			last_total_bytes_inbound: 0,
 			last_total_bytes_outbound: 0,
-			format,
 		}
 	}
 
@@ -69,11 +67,11 @@ impl<B: BlockT> InformantDisplay<B> {
 		info: &ClientInfo<B>,
 		net_status: NetworkStatus,
 		sync_status: SyncStatus<B>,
+		num_connected_peers: usize,
 	) {
 		let best_number = info.chain.best_number;
 		let best_hash = info.chain.best_hash;
 		let finalized_number = info.chain.finalized_number;
-		let num_connected_peers = sync_status.num_connected_peers;
 		let speed = speed::<B>(best_number, self.last_number, self.last_update);
 		let total_bytes_inbound = net_status.total_bytes_inbound;
 		let total_bytes_outbound = net_status.total_bytes_outbound;
@@ -94,7 +92,7 @@ impl<B: BlockT> InformantDisplay<B> {
 		};
 
 		let (level, status, target) =
-			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync) {
+			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync.clone()) {
 				// Do not set status to "Block history" when we are doing a major sync.
 				//
 				// A node could for example have been warp synced to the tip of the chain and
@@ -105,26 +103,19 @@ impl<B: BlockT> InformantDisplay<B> {
 					_,
 					Some(WarpSyncProgress { phase: WarpSyncPhase::DownloadingBlocks(n), .. }),
 				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
-				(
-					_,
-					_,
-					Some(WarpSyncProgress { phase: WarpSyncPhase::AwaitingTargetBlock, .. }),
-				) => ("⏩", "Waiting for pending target block".into(), "".into()),
 				// Handle all phases besides the two phases we already handle above.
 				(_, _, Some(warp))
-					if !matches!(
-						warp.phase,
-						WarpSyncPhase::AwaitingTargetBlock | WarpSyncPhase::DownloadingBlocks(_)
-					) =>
-					(
-						"⏩",
-						"Warping".into(),
-						format!(
-							", {}, {:.2} Mib",
-							warp.phase,
-							(warp.total_bytes as f32) / (1024f32 * 1024f32)
-						),
-					),
+					if !matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)) =>
+				{
+					let total_mib = (warp.total_bytes as f32) / (1024f32 * 1024f32);
+					let progress_text = if let Some(ref status) = warp.status {
+						format!(", {status}, {total_mib:.2} Mib")
+					} else {
+						format!(" {total_mib:.2} Mib")
+					};
+
+					("⏩", "Warping".into(), progress_text)
+				},
 				(_, Some(state), _) => (
 					"⚙️ ",
 					"State sync".into(),
@@ -136,26 +127,48 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				),
 				(SyncState::Idle, _, _) => ("💤", "Idle".into(), "".into()),
-				(SyncState::Downloading { target }, _, _) =>
-					("⚙️ ", format!("Syncing{}", speed), format!(", target=#{target}")),
-				(SyncState::Importing { target }, _, _) =>
-					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
+				(SyncState::Downloading { target }, _, _) => {
+					("⚙️ ", format!("Syncing{}", speed), format!(", target=#{target}"))
+				},
+				(SyncState::Importing { target }, _, _) => {
+					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}"))
+				},
 			};
 
-		info!(
-			target: "substrate",
-			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
-			level,
-			self.format.print_with_color(Colour::White.bold(), status),
-			target,
-			self.format.print_with_color(Colour::White.bold(), num_connected_peers),
-			self.format.print_with_color(Colour::White.bold(), best_number),
-			best_hash,
-			self.format.print_with_color(Colour::White.bold(), finalized_number),
-			info.chain.finalized_hash,
-			self.format.print_with_color(Colour::Green, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-			self.format.print_with_color(Colour::Red, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
-		)
+		let show_block_info = match sync_status.warp_sync {
+			Some(warp) => matches!(warp.phase, WarpSyncPhase::DownloadingBlocks(_)),
+			_ => true,
+		};
+
+		if show_block_info {
+			// Show full log with best/finalized blocks
+			info!(
+				target: "substrate",
+				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
+				level,
+				style(&status).white().bold(),
+				target,
+				style(num_connected_peers).white().bold(),
+				style(best_number).white().bold(),
+				PrintFullHashOnDebugLogging(&best_hash),
+				style(finalized_number).white().bold(),
+				PrintFullHashOnDebugLogging(&info.chain.finalized_hash),
+				style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+				style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
+			)
+		} else {
+			// Simplified log for warp sync without best/finalized blocks
+			info!(
+				target: "substrate",
+				"{} {}{} ({} peers), ⬇ {} ⬆ {}",
+				level,
+				style(&status).white().bold(),
+				target,
+				style(num_connected_peers).white().bold(),
+				style(TransferRateFormat(avg_bytes_per_sec_inbound)).green(),
+				style(TransferRateFormat(avg_bytes_per_sec_outbound)).red(),
+			)
+		}
 	}
 }
 
@@ -211,17 +224,17 @@ impl fmt::Display for TransferRateFormat {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		// Special case 0.
 		if self.0 == 0 {
-			return write!(f, "0")
+			return write!(f, "0");
 		}
 
 		// Under 0.1 kiB, display plain bytes.
 		if self.0 < 100 {
-			return write!(f, "{} B/s", self.0)
+			return write!(f, "{} B/s", self.0);
 		}
 
 		// Under 1.0 MiB/sec, display the value in kiB/sec.
 		if self.0 < 1024 * 1024 {
-			return write!(f, "{:.1}kiB/s", self.0 as f64 / 1024.0)
+			return write!(f, "{:.1}kiB/s", self.0 as f64 / 1024.0);
 		}
 
 		write!(f, "{:.1}MiB/s", self.0 as f64 / (1024.0 * 1024.0))

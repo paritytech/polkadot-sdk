@@ -31,7 +31,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 pub(crate) fn initialize_transport() -> Result<WsTrans, io::Error> {
 	let transport = {
 		let tcp_transport = libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new());
-		let inner = libp2p::dns::TokioDnsConfig::system(tcp_transport)?;
+		let inner = libp2p::dns::tokio::Transport::system(tcp_transport)?;
 		libp2p::websocket::framed::WsConfig::new(inner).and_then(|connec, _| {
 			let connec = connec
 				.with(|item| {
@@ -111,7 +111,7 @@ impl<T: AsyncWrite> StreamSink<T> {
 				log::error!(target: "telemetry",
 					"Detected some internal buffering happening in the telemetry");
 				let err = io::Error::new(io::ErrorKind::Other, "Internal buffering detected");
-				return Poll::Ready(Err(err))
+				return Poll::Ready(Err(err));
 			}
 		}
 

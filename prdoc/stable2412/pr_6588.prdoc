@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "rpc server: fix subscription id_provider being reset to default one"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The modification ensures that the id_provider variable is cloned instead of taken, which can help prevent issues related id provider being reset to the default.
+
+
+crates:
+  - name: sc-rpc-server
+    bump: patch

@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Deprecate XCMv2
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      XCMv2 has been deprecated. It will be removed when XCMv5 is released.
+      Use version 3 or 4 instead.
+  - audience: Runtime User
+    description: |
+      XCMv2 has been deprecated. It will be removed when XCMv5 is released.
+      Use version 3 or 4 instead.
+
+crates:
+- name: staging-xcm
+  bump: minor
+- name: xcm-procedural
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor

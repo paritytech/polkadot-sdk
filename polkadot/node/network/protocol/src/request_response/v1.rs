@@ -16,13 +16,13 @@
 
 //! Requests and responses as sent over the wire for the individual protocols.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use polkadot_node_primitives::{
 	AvailableData, DisputeMessage, ErasureChunk, PoV, Proof, UncheckedDisputeMessage,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
 	ValidatorIndex,
 };
 
@@ -33,7 +33,8 @@ use super::{IsRequest, Protocol};
 pub struct ChunkFetchingRequest {
 	/// Hash of candidate we want a chunk for.
 	pub candidate_hash: CandidateHash,
-	/// The index of the chunk to fetch.
+	/// The validator index we are requesting from. This must be identical to the index of the
+	/// chunk we'll receive. For v2, this may not be the case.
 	pub index: ValidatorIndex,
 }
 
@@ -53,6 +54,15 @@ impl From<Option<ChunkResponse>> for ChunkFetchingResponse {
 		match x {
 			Some(c) => ChunkFetchingResponse::Chunk(c),
 			None => ChunkFetchingResponse::NoSuchChunk,
+		}
+	}
+}
+
+impl From<ChunkFetchingResponse> for Option<ChunkResponse> {
+	fn from(x: ChunkFetchingResponse) -> Self {
+		match x {
+			ChunkFetchingResponse::Chunk(c) => Some(c),
+			ChunkFetchingResponse::NoSuchChunk => None,
 		}
 	}
 }
@@ -80,7 +90,7 @@ impl From<ErasureChunk> for ChunkResponse {
 impl ChunkResponse {
 	/// Re-build an `ErasureChunk` from response and request.
 	pub fn recombine_into_chunk(self, req: &ChunkFetchingRequest) -> ErasureChunk {
-		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index }
+		ErasureChunk { chunk: self.chunk, proof: self.proof, index: req.index.into() }
 	}
 }
 
@@ -176,32 +186,6 @@ impl From<Option<AvailableData>> for AvailableDataFetchingResponse {
 impl IsRequest for AvailableDataFetchingRequest {
 	type Response = AvailableDataFetchingResponse;
 	const PROTOCOL: Protocol = Protocol::AvailableDataFetchingV1;
-}
-
-/// Request for fetching a large statement via request/response.
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct StatementFetchingRequest {
-	/// Data needed to locate and identify the needed statement.
-	pub relay_parent: Hash,
-	/// Hash of candidate that was used create the `CommittedCandidateReceipt`.
-	pub candidate_hash: CandidateHash,
-}
-
-/// Respond with found full statement.
-///
-/// In this protocol the requester will only request data it was previously notified about,
-/// therefore not having the data is not really an option and would just result in a
-/// `RequestFailure`.
-#[derive(Debug, Clone, Encode, Decode)]
-pub enum StatementFetchingResponse {
-	/// Data missing to reconstruct the full signed statement.
-	#[codec(index = 0)]
-	Statement(CommittedCandidateReceipt),
-}
-
-impl IsRequest for StatementFetchingRequest {
-	type Response = StatementFetchingResponse;
-	const PROTOCOL: Protocol = Protocol::StatementFetchingV1;
 }
 
 /// A dispute request.

@@ -1,0 +1,7 @@
+title: '[AHM] add election-provider-multi-block::minimum-score to genesis config'
+doc:
+- audience: Runtime Dev
+  description: Adds the ability to set the genesis `miniumScore` in `election-provider-multi-block`.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: minor

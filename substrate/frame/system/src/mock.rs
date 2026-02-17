@@ -17,7 +17,7 @@
 
 use crate::{self as frame_system, *};
 use frame_support::{derive_impl, parameter_types};
-use sp_runtime::{BuildStorage, Perbill};
+use sp_runtime::{type_with_default::TypeWithDefault, BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -30,17 +30,18 @@ frame_support::construct_runtime!(
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024, u64::MAX);
+const MAX_BLOCK_LENGTH: u32 = 2048;
 
 parameter_types! {
 	pub Version: RuntimeVersion = RuntimeVersion {
-		spec_name: sp_version::create_runtime_str!("test"),
-		impl_name: sp_version::create_runtime_str!("system-test"),
+		spec_name: alloc::borrow::Cow::Borrowed("test"),
+		impl_name: alloc::borrow::Cow::Borrowed("system-test"),
 		authoring_version: 1,
 		spec_version: 1,
 		impl_version: 1,
 		apis: sp_version::create_apis_vec!([]),
 		transaction_version: 1,
-		state_version: 1,
+		system_version: 1,
 	};
 	pub const DbWeight: RuntimeDbWeight = RuntimeDbWeight {
 		read: 10,
@@ -63,8 +64,12 @@ parameter_types! {
 		})
 		.avg_block_initialization(Perbill::from_percent(0))
 		.build_or_panic();
-	pub RuntimeBlockLength: limits::BlockLength =
-		limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(MAX_BLOCK_LENGTH)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * MAX_BLOCK_LENGTH
+		})
+		.build();
 }
 
 parameter_types! {
@@ -78,6 +83,14 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
+#[derive(Debug, TypeInfo)]
+pub struct DefaultNonceProvider;
+impl Get<u64> for DefaultNonceProvider {
+	fn get() -> u64 {
+		System::block_number()
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
@@ -87,6 +100,7 @@ impl Config for Test {
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
+	type Nonce = TypeWithDefault<u64, DefaultNonceProvider>;
 }
 
 parameter_types! {
@@ -112,6 +126,9 @@ pub const CALL: &<Test as Config>::RuntimeCall =
 
 /// Create new externalities for `System` module tests.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	// Initialize logging
+	sp_tracing::try_init_simple();
+
 	let mut ext: sp_io::TestExternalities =
 		RuntimeGenesisConfig::default().build_storage().unwrap().into();
 	// Add to each test the initial weight of a block

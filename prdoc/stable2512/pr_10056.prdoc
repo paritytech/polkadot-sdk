@@ -1,0 +1,12 @@
+title: Upgrade litep2p 0.10.0 -> 0.11.0
+doc:
+- audience: Node Dev
+  description: This upgrade fixes the initialization of mDNS in the environment with
+    no multicast addresses available and compatibility with kubo IPFS >= 0.37 when
+    run with `--ipfs-server`. It also enables communication with remote peers having
+    RSA network identity keys.
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-types
+  bump: major

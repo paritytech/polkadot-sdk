@@ -28,6 +28,8 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::InspectHold;
 use frame_support::{
 	pallet_prelude::*,
@@ -36,6 +38,7 @@ use frame_support::{
 		fungible::{Mutate, MutateHold},
 		tokens::{fungible::Inspect, Fortitude, Preservation},
 	},
+	weights::WeightMeter,
 	BoundedBTreeMap, DefaultNoBound,
 };
 use frame_system::Pallet as System;
@@ -43,15 +46,11 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
-#[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
 
 mod v14 {
 	use super::*;
 
-	#[derive(
-		Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ContractInfo<T: Config> {
 		pub trie_id: TrieId,
@@ -95,7 +94,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 	v14::ContractInfoOf::<T>::insert(account, info);
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 struct ContractInfo<T: Config> {
 	pub trie_id: TrieId,
@@ -125,7 +124,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v15_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
 			v14::ContractInfoOf::<T>::iter_from(v14::ContractInfoOf::<T>::hashed_key_for(
 				last_account,
@@ -234,10 +233,12 @@ impl<T: Config> MigrationStep for Migration<T> {
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			(IsFinished::No, T::WeightInfo::v15_migration_step())
+			meter.consume(T::WeightInfo::v15_migration_step());
+			IsFinished::No
 		} else {
 			log::info!(target: LOG_TARGET, "Done Migrating Storage Deposits.");
-			(IsFinished::Yes, T::WeightInfo::v15_migration_step())
+			meter.consume(T::WeightInfo::v15_migration_step());
+			IsFinished::Yes
 		}
 	}
 

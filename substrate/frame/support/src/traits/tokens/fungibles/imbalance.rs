@@ -24,11 +24,19 @@ use super::*;
 use crate::traits::{
 	fungible,
 	misc::{SameOrOther, TryDrop},
-	tokens::{imbalance::Imbalance as ImbalanceT, AssetId, Balance},
+	tokens::{
+		imbalance::{
+			Imbalance as ImbalanceT, ImbalanceAccounting, TryMerge, UnsafeConstructorDestructor,
+			UnsafeManualAccounting,
+		},
+		AssetId, Balance,
+	},
 };
-use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
+use alloc::boxed::Box;
+use core::marker::PhantomData;
+use frame_support_procedural::{DebugNoBound, EqNoBound, PartialEqNoBound};
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::Zero;
-use sp_std::marker::PhantomData;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.
@@ -42,7 +50,7 @@ pub trait HandleImbalanceDrop<AssetId, Balance> {
 ///
 /// Importantly, it has a special `Drop` impl, and cannot be created outside of this module.
 #[must_use]
-#[derive(EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[derive(EqNoBound, PartialEqNoBound, DebugNoBound)]
 pub struct Imbalance<
 	A: AssetId,
 	B: Balance,
@@ -98,12 +106,12 @@ impl<
 
 	/// Forget the imbalance without invoking the on-drop handler.
 	pub(crate) fn forget(imbalance: Self) {
-		sp_std::mem::forget(imbalance);
+		core::mem::forget(imbalance);
 	}
 
 	pub fn drop_zero(self) -> Result<(), Self> {
 		if self.amount.is_zero() {
-			sp_std::mem::forget(self);
+			core::mem::forget(self);
 			Ok(())
 		} else {
 			Err(self)
@@ -114,7 +122,7 @@ impl<
 		let first = self.amount.min(amount);
 		let second = self.amount - first;
 		let asset = self.asset.clone();
-		sp_std::mem::forget(self);
+		core::mem::forget(self);
 		(Imbalance::new(asset.clone(), first), Imbalance::new(asset, second))
 	}
 
@@ -129,7 +137,7 @@ impl<
 	pub fn merge(mut self, other: Self) -> Result<Self, (Self, Self)> {
 		if self.asset == other.asset {
 			self.amount = self.amount.saturating_add(other.amount);
-			sp_std::mem::forget(other);
+			core::mem::forget(other);
 			Ok(self)
 		} else {
 			Err((self, other))
@@ -138,7 +146,7 @@ impl<
 	pub fn subsume(&mut self, other: Self) -> Result<(), Self> {
 		if self.asset == other.asset {
 			self.amount = self.amount.saturating_add(other.amount);
-			sp_std::mem::forget(other);
+			core::mem::forget(other);
 			Ok(())
 		} else {
 			Err(other)
@@ -154,7 +162,7 @@ impl<
 		if self.asset == other.asset {
 			let (a, b) = (self.amount, other.amount);
 			let asset = self.asset.clone();
-			sp_std::mem::forget((self, other));
+			core::mem::forget((self, other));
 
 			if a == b {
 				Ok(SameOrOther::None)
@@ -173,6 +181,68 @@ impl<
 
 	pub fn asset(&self) -> A {
 		self.asset.clone()
+	}
+}
+
+impl<
+		A: AssetId,
+		B: Balance,
+		OnDrop: HandleImbalanceDrop<A, B>,
+		OppositeOnDrop: HandleImbalanceDrop<A, B>,
+	> TryMerge for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
+		self.merge(other)
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> UnsafeConstructorDestructor<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn unsafe_clone(&self) -> Box<dyn ImbalanceAccounting<u128>> {
+		let clone = Self {
+			asset: self.asset.clone(),
+			amount: self.amount,
+			_phantom: PhantomData::default(),
+		};
+		Box::new(clone)
+	}
+	fn forget_imbalance(&mut self) -> u128 {
+		let amount = self.amount.saturated_into();
+		self.amount = 0u128.saturated_into();
+		amount
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> UnsafeManualAccounting<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn saturating_subsume(&mut self, mut other: Box<dyn ImbalanceAccounting<u128>>) {
+		let amount = other.forget_imbalance();
+		self.amount = self.amount.saturating_add(amount.saturated_into());
+	}
+}
+
+impl<
+		A: AssetId + 'static,
+		B: Balance + 'static,
+		OnDrop: HandleImbalanceDrop<A, B> + 'static,
+		OppositeOnDrop: HandleImbalanceDrop<A, B> + 'static,
+	> ImbalanceAccounting<u128> for Imbalance<A, B, OnDrop, OppositeOnDrop>
+{
+	fn amount(&self) -> u128 {
+		self.peek().saturated_into()
+	}
+	fn saturating_take(&mut self, amount: u128) -> Box<dyn ImbalanceAccounting<u128>> {
+		Box::new(self.extract(amount.saturated_into()))
 	}
 }
 

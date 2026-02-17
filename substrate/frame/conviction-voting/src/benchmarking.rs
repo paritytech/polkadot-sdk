@@ -19,6 +19,7 @@
 
 use super::*;
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{
@@ -30,7 +31,6 @@ use frame_support::{
 	},
 };
 use sp_runtime::traits::Bounded;
-use sp_std::collections::btree_map::BTreeMap;
 
 use crate::Pallet as ConvictionVoting;
 
@@ -73,6 +73,8 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let account_vote = account_vote::<T, I>(100u32.into());
 
+		T::VotingHooks::on_vote_worst_case(&caller);
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len() - 1;
@@ -99,6 +101,8 @@ benchmarks_instance_pallet! {
 		let caller = funded_account::<T, I>("caller", 0);
 		whitelist_account!(caller);
 		let old_account_vote = account_vote::<T, I>(100u32.into());
+
+		T::VotingHooks::on_vote_worst_case(&caller);
 
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
@@ -128,6 +132,8 @@ benchmarks_instance_pallet! {
 		whitelist_account!(caller);
 		let old_account_vote = account_vote::<T, I>(100u32.into());
 
+		T::VotingHooks::on_vote_worst_case(&caller);
+
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];
 		let r = polls.len();
@@ -156,6 +162,8 @@ benchmarks_instance_pallet! {
 		let voter_lookup = T::Lookup::unlookup(voter.clone());
 		whitelist_account!(caller);
 		let old_account_vote = account_vote::<T, I>(100u32.into());
+
+		T::VotingHooks::on_vote_worst_case(&caller);
 
 		let (class, all_polls) = fill_voting::<T, I>();
 		let polls = &all_polls[&class];

@@ -1,0 +1,34 @@
+title: Remove unused deps
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove unused deps using `cargo udeps`
+crates:
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: cumulus-client-bootnodes
+  bump: patch
+- name: cumulus-primitives-parachain-inherent
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch
+- name: pallet-ah-ops
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: polkadot-node-core-pvf
+  bump: patch
+- name: snowbridge-runtime-common
+  bump: patch
+- name: snowbridge-test-utils
+  bump: patch
+- name: sp-core
+  bump: patch
+- name: sp-runtime-interface
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch

@@ -66,14 +66,11 @@ use self::{
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Received message could not be decoded.");
 const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Signatures were invalid.");
-const COST_INVALID_IMPORT: Rep =
-	Rep::Malicious("Import was deemed invalid by dispute-coordinator.");
 const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a validator.");
-/// Mildly punish peers exceeding their rate limit.
-///
-/// For honest peers this should rarely happen, but if it happens we would not want to disconnect
-/// too quickly. Minor cost should suffice for disconnecting any real flooder.
-const COST_APPARENT_FLOOD: Rep = Rep::CostMinor("Peer exceeded the rate limit.");
+
+/// Invalid imports can be caused by flooding, e.g. by a disabled validator.
+const COST_INVALID_IMPORT: Rep =
+	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
 
 /// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
@@ -132,7 +129,7 @@ enum MuxedMessage {
 	/// A new request has arrived and should be handled.
 	NewRequest(IncomingRequest<DisputeRequest>),
 
-	/// Rate limit timer hit - is is time to process one row of messages.
+	/// Rate limit timer hit - is time to process one row of messages.
 	///
 	/// This is the result of calling `self.peer_queues.pop_reqs()`.
 	WakePeerQueuesPopReqs(Vec<IncomingRequest<DisputeRequest>>),
@@ -187,7 +184,7 @@ where
 						error = ?fatal,
 						"Shutting down"
 					);
-					return
+					return;
 				},
 			}
 		}
@@ -240,7 +237,7 @@ where
 		poll_fn(|ctx| {
 			// In case of Ready(None), we want to wait for pending requests:
 			if let Poll::Ready(Some(v)) = self.pending_imports.poll_next_unpin(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)))
+				return Poll::Ready(Ok(MuxedMessage::ConfirmedImport(v?)));
 			}
 
 			let rate_limited = self.peer_queues.pop_reqs();
@@ -248,13 +245,13 @@ where
 			// We poll rate_limit before batches, so we don't unnecessarily delay importing to
 			// batches.
 			if let Poll::Ready(reqs) = rate_limited.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)))
+				return Poll::Ready(Ok(MuxedMessage::WakePeerQueuesPopReqs(reqs)));
 			}
 
 			let ready_batches = self.batches.check_batches();
 			pin_mut!(ready_batches);
 			if let Poll::Ready(ready_batches) = ready_batches.poll(ctx) {
-				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)))
+				return Poll::Ready(Ok(MuxedMessage::WakeCheckBatches(ready_batches)));
 			}
 
 			let next_req = self.receiver.recv(|| vec![COST_INVALID_REQUEST]);
@@ -263,7 +260,7 @@ where
 				return match r {
 					Err(e) => Poll::Ready(Err(incoming::Error::from(e).into())),
 					Ok(v) => Poll::Ready(Ok(MuxedMessage::NewRequest(v))),
-				}
+				};
 			}
 			Poll::Pending
 		})
@@ -293,7 +290,7 @@ where
 					sent_feedback: None,
 				})
 				.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-				return Err(JfyiError::NotAValidator(peer).into())
+				return Err(JfyiError::NotAValidator(peer).into());
 			},
 			Some(auth_id) => auth_id,
 		};
@@ -308,11 +305,11 @@ where
 			);
 			req.send_outgoing_response(OutgoingResponse {
 				result: Err(()),
-				reputation_changes: vec![COST_APPARENT_FLOOD],
+				reputation_changes: vec![],
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-			return Err(JfyiError::AuthorityFlooding(authority_id))
+			return Err(JfyiError::AuthorityFlooding(authority_id));
 		}
 		Ok(())
 	}
@@ -331,7 +328,7 @@ where
 			.runtime
 			.get_session_info_by_index(
 				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent,
+				payload.0.candidate_receipt.descriptor.relay_parent(),
 				payload.0.session_index,
 			)
 			.await?;
@@ -349,7 +346,7 @@ where
 					})
 					.map_err(|_| JfyiError::SetPeerReputation(peer))?;
 
-				return Err(From::from(JfyiError::InvalidSignature(peer)))
+				return Err(From::from(JfyiError::InvalidSignature(peer)));
 			},
 			Ok(votes) => votes,
 		};
@@ -401,7 +398,7 @@ where
 							sent_feedback: None,
 						})
 						.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
-					return Err(From::from(JfyiError::RedundantMessage(peer)))
+					return Err(From::from(JfyiError::RedundantMessage(peer)));
 				}
 			},
 		}
@@ -426,7 +423,7 @@ where
 					candidate_hash = ?candidate_receipt.hash(),
 					"Not importing empty batch"
 				);
-				return
+				return;
 			},
 			Some(vote) => (vote.0.session_index(), *vote.0.candidate_hash()),
 		};

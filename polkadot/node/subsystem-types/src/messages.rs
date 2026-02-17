@@ -33,7 +33,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{
 	approval::{
-		v1::BlockApprovalMeta,
+		v1::{BlockApprovalMeta, DelayTranche},
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
@@ -42,14 +42,18 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
-	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, HeadData, Header as BlockHeader, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo,
-	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	self,
+	async_backing::{self, Constraints},
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind as RuntimePvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -62,8 +66,8 @@ pub mod network_bridge_event;
 pub use network_bridge_event::NetworkBridgeEvent;
 
 /// A request to the candidate backing subsystem to check whether
-/// there exists vacant membership in some fragment tree.
-#[derive(Debug, Copy, Clone)]
+/// we can second this candidate.
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CanSecondRequest {
 	/// Para id of the candidate.
 	pub candidate_para_id: ParaId,
@@ -85,15 +89,17 @@ pub enum CandidateBackingMessage {
 	/// candidates of the same para that follow it in the input vector. In other words, assuming
 	/// candidates are supplied in dependency order, we must ensure that this dependency order is
 	/// preserved.
-	GetBackedCandidates(
+	GetBackableCandidates(
 		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
 		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	),
 	/// Request the subsystem to check whether it's allowed to second given candidate.
-	/// The rule is to only fetch collations that are either built on top of the root
-	/// of some fragment tree or have a parent node which represents backed candidate.
+	/// The rule is to only fetch collations that can either be directly chained to any
+	/// FragmentChain in the view or there is at least one FragmentChain where this candidate is a
+	/// potentially unconnected candidate (we predict that it may become connected to a
+	/// FragmentChain in the future).
 	///
-	/// Always responses with `false` if async backing is disabled for candidate's relay
+	/// Always responds with `false` if async backing is disabled for candidate's relay
 	/// parent.
 	CanSecond(CanSecondRequest, oneshot::Sender<bool>),
 	/// Note that the Candidate Backing subsystem should second the given candidate in the context
@@ -140,28 +146,6 @@ pub enum PreCheckOutcome {
 /// or `Ok(ValidationResult::Invalid)`.
 #[derive(Debug)]
 pub enum CandidateValidationMessage {
-	/// Validate a candidate with provided parameters using relay-chain state.
-	///
-	/// This will implicitly attempt to gather the `PersistedValidationData` and `ValidationCode`
-	/// from the runtime API of the chain, based on the `relay_parent`
-	/// of the `CandidateReceipt`.
-	///
-	/// This will also perform checking of validation outputs against the acceptance criteria.
-	///
-	/// If there is no state available which can provide this data or the core for
-	/// the para is not free at the relay-parent, an error is returned.
-	ValidateFromChainState {
-		/// The candidate receipt
-		candidate_receipt: CandidateReceipt,
-		/// The proof-of-validity
-		pov: Arc<PoV>,
-		/// Session's executor parameters
-		executor_params: ExecutorParams,
-		/// Execution kind, used for timeouts and retries (backing/approvals)
-		exec_kind: PvfExecKind,
-		/// The sending side of the response channel
-		response_sender: oneshot::Sender<Result<ValidationResult, ValidationFailed>>,
-	},
 	/// Validate a candidate with provided, exhaustive parameters for validation.
 	///
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
@@ -202,6 +186,43 @@ pub enum CandidateValidationMessage {
 	},
 }
 
+/// Extends primitives::PvfExecKind, which is a runtime parameter we don't want to change,
+/// to separate and prioritize execution jobs by request type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PvfExecKind {
+	/// For dispute requests
+	Dispute,
+	/// For approval requests
+	Approval,
+	/// For backing requests from system parachains. With relay parent hash
+	BackingSystemParas(Hash),
+	/// For backing requests. With relay parent hash
+	Backing(Hash),
+}
+
+impl PvfExecKind {
+	/// Converts priority level to &str
+	pub fn as_str(&self) -> &str {
+		match *self {
+			Self::Dispute => "dispute",
+			Self::Approval => "approval",
+			Self::BackingSystemParas(_) => "backing_system_paras",
+			Self::Backing(_) => "backing",
+		}
+	}
+}
+
+impl From<PvfExecKind> for RuntimePvfExecKind {
+	fn from(exec: PvfExecKind) -> Self {
+		match exec {
+			PvfExecKind::Dispute => RuntimePvfExecKind::Approval,
+			PvfExecKind::Approval => RuntimePvfExecKind::Approval,
+			PvfExecKind::BackingSystemParas(_) => RuntimePvfExecKind::Backing,
+			PvfExecKind::Backing(_) => RuntimePvfExecKind::Backing,
+		}
+	}
+}
+
 /// Messages received by the Collator Protocol subsystem.
 #[derive(Debug, derive_more::From)]
 pub enum CollatorProtocolMessage {
@@ -229,9 +250,6 @@ pub enum CollatorProtocolMessage {
 		/// The core index where the candidate should be backed.
 		core_index: CoreIndex,
 	},
-	/// Report a collator as having provided an invalid collation. This should lead to disconnect
-	/// and blacklist of the collator.
-	ReportCollator(CollatorId),
 	/// Get a network bridge update.
 	#[from]
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::CollatorProtocolMessage>),
@@ -244,13 +262,12 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The hash is the relay parent.
 	Seconded(Hash, SignedFullStatement),
-	/// The candidate received enough validity votes from the backing group.
-	Backed {
-		/// Candidate's para id.
-		para_id: ParaId,
-		/// Hash of the para head generated by candidate.
-		para_head: Hash,
-	},
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// pre-connect to backing groups at all allowed relay parents.
+	ConnectToBackingGroups,
+	/// A message sent by Cumulus consensus engine to the collator protocol to
+	/// disconnect from backing groups.
+	DisconnectFromBackingGroups,
 }
 
 impl Default for CollatorProtocolMessage {
@@ -294,7 +311,7 @@ pub enum DisputeCoordinatorMessage {
 		/// - we discarded the votes because
 		/// 		- they were ancient or otherwise invalid (result: `InvalidImport`)
 		/// 		- or we were not able to recover availability for an unknown candidate (result:
-		///		`InvalidImport`)
+		/// 		`InvalidImport`)
 		/// 		- or were known already (in that case the result will still be `ValidImport`)
 		/// - or we recorded them because (`ValidImport`)
 		/// 		- we cast our own vote already on that dispute
@@ -307,10 +324,10 @@ pub enum DisputeCoordinatorMessage {
 	/// Fetch a list of all recent disputes the coordinator is aware of.
 	/// These are disputes which have occurred any time in recent sessions,
 	/// and which may have already concluded.
-	RecentDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	RecentDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Fetch a list of all active disputes that the coordinator is aware of.
 	/// These disputes are either not yet concluded or recently concluded.
-	ActiveDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Get candidate votes for a candidate.
 	QueryCandidateVotes(
 		Vec<(SessionIndex, CandidateHash)>,
@@ -398,8 +415,8 @@ pub enum NetworkBridgeTxMessage {
 	/// Report a peer for their actions.
 	ReportPeer(ReportPeerMessage),
 
-	/// Disconnect a peer from the given peer-set without affecting their reputation.
-	DisconnectPeer(PeerId, PeerSet),
+	/// Disconnect peers from the given peer-set without affecting their reputation.
+	DisconnectPeers(Vec<PeerId>, PeerSet),
 
 	/// Send a message to one or more peers on the validation peer-set.
 	SendValidationMessage(Vec<PeerId>, net_protocol::VersionedValidationProtocol),
@@ -449,6 +466,16 @@ pub enum NetworkBridgeTxMessage {
 		/// The peer set we want the connection on.
 		peer_set: PeerSet,
 	},
+
+	/// Extends the known validators set with new peers we already know the `Multiaddrs`, this is
+	/// usually needed for validators that change their address mid-session. It is usually called
+	/// after a ConnectToResolvedValidators at the beginning of the session.
+	AddToResolvedValidators {
+		/// Each entry corresponds to the addresses of an already resolved validator.
+		validator_addrs: Vec<HashSet<Multiaddr>>,
+		/// The peer set we want the connection on.
+		peer_set: PeerSet,
+	},
 }
 
 /// Availability Distribution Message.
@@ -485,6 +512,8 @@ pub enum AvailabilityRecoveryMessage {
 		CandidateReceipt,
 		SessionIndex,
 		Option<GroupIndex>, // Optional backing group to request from first.
+		Option<CoreIndex>,  /* A `CoreIndex` needs to be specified for the recovery process to
+		                     * prefer systematic chunk recovery. */
 		oneshot::Sender<Result<AvailableData, crate::errors::RecoveryError>>,
 	),
 }
@@ -520,7 +549,7 @@ pub enum AvailabilityStoreMessage {
 	QueryChunkSize(CandidateHash, oneshot::Sender<Option<usize>>),
 
 	/// Query all chunks that we have for the given candidate hash.
-	QueryAllChunks(CandidateHash, oneshot::Sender<Vec<ErasureChunk>>),
+	QueryAllChunks(CandidateHash, oneshot::Sender<Vec<(ValidatorIndex, ErasureChunk)>>),
 
 	/// Query whether an `ErasureChunk` exists within the AV Store.
 	///
@@ -535,6 +564,8 @@ pub enum AvailabilityStoreMessage {
 	StoreChunk {
 		/// A hash of the candidate this chunk belongs to.
 		candidate_hash: CandidateHash,
+		/// Validator index. May not be equal to the chunk index.
+		validator_index: ValidatorIndex,
 		/// The chunk itself.
 		chunk: ErasureChunk,
 		/// Sending side of the channel to send result to.
@@ -554,6 +585,11 @@ pub enum AvailabilityStoreMessage {
 		available_data: AvailableData,
 		/// Erasure root we expect to get after chunking.
 		expected_erasure_root: Hash,
+		/// Core index where the candidate was backed.
+		core_index: CoreIndex,
+		/// Node features at the candidate relay parent. Used for computing the validator->chunk
+		/// mapping.
+		node_features: NodeFeatures,
 		/// Sending side of the channel to send result to.
 		tx: oneshot::Sender<Result<(), StoreAvailableDataError>>,
 	},
@@ -670,7 +706,7 @@ pub enum RuntimeApiRequest {
 	/// Get validation code by its hash, either past, current or future code can be returned, as
 	/// long as state is still available.
 	ValidationCodeByHash(ValidationCodeHash, RuntimeApiSender<Option<ValidationCode>>),
-	/// Get a the candidate pending availability for a particular parachain by parachain / core
+	/// Get the candidate pending availability for a particular parachain by parachain / core
 	/// index
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
@@ -709,7 +745,7 @@ pub enum RuntimeApiRequest {
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
 	/// `V5`
 	UnappliedSlashes(
-		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
 	),
 	/// Returns a merkle proof of a validator session key.
 	/// `V5`
@@ -739,6 +775,26 @@ pub enum RuntimeApiRequest {
 	/// Fetch the `ClaimQueue` from scheduler pallet
 	/// `V11`
 	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
+	/// Get the candidates pending availability for a particular parachain
+	/// `V11`
+	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
+	/// Get the backing constraints for a particular parachain.
+	/// `V12`
+	BackingConstraints(ParaId, RuntimeApiSender<Option<Constraints>>),
+	/// Get the lookahead from the scheduler params.
+	/// `V12`
+	SchedulingLookahead(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the maximum uncompressed code size.
+	/// `V12`
+	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
+	/// Returns a list of validators that lost a past session dispute and need to be slashed (v2).
+	/// `V15`
+	UnappliedSlashesV2(
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
+	),
 }
 
 impl RuntimeApiRequest {
@@ -776,6 +832,24 @@ impl RuntimeApiRequest {
 
 	/// `ClaimQueue`
 	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `candidates_pending_availability`
+	pub const CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT: u32 = 11;
+
+	/// `ValidationCodeBombLimit`
+	pub const VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT: u32 = 12;
+
+	/// `backing_constraints`
+	pub const CONSTRAINTS_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `SchedulingLookahead`
+	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaIds`
+	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
+
+	/// `UnappliedSlashesV2`
+	pub const UNAPPLIED_SLASHES_V2_RUNTIME_REQUIREMENT: u32 = 15;
 }
 
 /// A message to the Runtime API subsystem.
@@ -810,9 +884,6 @@ pub enum StatementDistributionMessage {
 pub enum ProvisionableData {
 	/// This bitfield indicates the availability of various candidate blocks.
 	Bitfield(Hash, SignedAvailabilityBitfield),
-	/// The Candidate Backing subsystem believes that this candidate is valid, pending
-	/// availability.
-	BackedCandidate(CandidateReceipt),
 	/// Misbehavior reports are self-contained proofs of validator misbehavior.
 	MisbehaviorReport(Hash, ValidatorIndex, Misbehavior),
 	/// Disputes trigger a broad dispute resolution process.
@@ -859,7 +930,7 @@ pub enum CollationGenerationMessage {
 	SubmitCollation(SubmitCollationParams),
 }
 
-/// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+/// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentCheckResult {
 	/// The vote was accepted and should be propagated onwards.
@@ -872,7 +943,7 @@ pub enum AssignmentCheckResult {
 	Bad(AssignmentCheckError),
 }
 
-/// The error result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
+/// The error result type of [`ApprovalVotingMessage::ImportAssignment`] request.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum AssignmentCheckError {
@@ -892,7 +963,7 @@ pub enum AssignmentCheckError {
 	InvalidBitfield(usize),
 }
 
-/// The result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+/// The result type of [`ApprovalVotingMessage::ImportApproval`] request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApprovalCheckResult {
 	/// The vote was accepted and should be propagated onwards.
@@ -901,7 +972,7 @@ pub enum ApprovalCheckResult {
 	Bad(ApprovalCheckError),
 }
 
-/// The error result type of [`ApprovalVotingMessage::CheckAndImportApproval`] request.
+/// The error result type of [`ApprovalVotingMessage::ImportApproval`] request.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 pub enum ApprovalCheckError {
@@ -935,6 +1006,117 @@ pub struct BlockDescription {
 	pub candidates: Vec<CandidateHash>,
 }
 
+/// Message to the approval voting parallel subsystem running both approval-distribution and
+/// approval-voting logic in parallel. This is a combination of all the messages ApprovalVoting and
+/// ApprovalDistribution subsystems can receive.
+///
+/// The reason this exists is, so that we can keep both modes of running in the same polkadot
+/// binary, based on the value of `--approval-voting-parallel-enabled`, we decide if we run with two
+/// different subsystems for approval-distribution and approval-voting or run the approval-voting
+/// parallel which has several parallel workers for the approval-distribution and a worker for
+/// approval-voting.
+///
+/// This is meant to be a temporary state until we can safely remove running the two subsystems
+/// individually.
+#[derive(Debug, derive_more::From)]
+pub enum ApprovalVotingParallelMessage {
+	/// Gets mapped into `ApprovalVotingMessage::ApprovedAncestor`
+	ApprovedAncestor(Hash, BlockNumber, oneshot::Sender<Option<HighestApprovedAncestorBlock>>),
+
+	/// Gets mapped into `ApprovalVotingMessage::GetApprovalSignaturesForCandidate`
+	GetApprovalSignaturesForCandidate(
+		CandidateHash,
+		oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+	),
+	/// Gets mapped into `ApprovalDistributionMessage::NewBlocks`
+	NewBlocks(Vec<BlockApprovalMeta>),
+	/// Gets mapped into `ApprovalDistributionMessage::DistributeAssignment`
+	DistributeAssignment(IndirectAssignmentCertV2, CandidateBitfield),
+	/// Gets mapped into `ApprovalDistributionMessage::DistributeApproval`
+	DistributeApproval(IndirectSignedApprovalVoteV2),
+	/// An update from the network bridge, gets mapped into
+	/// `ApprovalDistributionMessage::NetworkBridgeUpdate`
+	#[from]
+	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>),
+
+	/// Gets mapped into `ApprovalDistributionMessage::GetApprovalSignatures`
+	GetApprovalSignatures(
+		HashSet<(Hash, CandidateIndex)>,
+		oneshot::Sender<HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)>>,
+	),
+	/// Gets mapped into `ApprovalDistributionMessage::ApprovalCheckingLagUpdate`
+	ApprovalCheckingLagUpdate(BlockNumber),
+}
+
+impl TryFrom<ApprovalVotingParallelMessage> for ApprovalVotingMessage {
+	type Error = ();
+
+	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
+		match msg {
+			ApprovalVotingParallelMessage::ApprovedAncestor(hash, number, tx) => {
+				Ok(ApprovalVotingMessage::ApprovedAncestor(hash, number, tx))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(candidate, tx) => {
+				Ok(ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate, tx))
+			},
+			_ => Err(()),
+		}
+	}
+}
+
+impl TryFrom<ApprovalVotingParallelMessage> for ApprovalDistributionMessage {
+	type Error = ();
+
+	fn try_from(msg: ApprovalVotingParallelMessage) -> Result<Self, Self::Error> {
+		match msg {
+			ApprovalVotingParallelMessage::NewBlocks(blocks) => {
+				Ok(ApprovalDistributionMessage::NewBlocks(blocks))
+			},
+			ApprovalVotingParallelMessage::DistributeAssignment(assignment, claimed_cores) => {
+				Ok(ApprovalDistributionMessage::DistributeAssignment(assignment, claimed_cores))
+			},
+			ApprovalVotingParallelMessage::DistributeApproval(vote) => {
+				Ok(ApprovalDistributionMessage::DistributeApproval(vote))
+			},
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg) => {
+				Ok(ApprovalDistributionMessage::NetworkBridgeUpdate(msg))
+			},
+			ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				Ok(ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx))
+			},
+			ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag) => {
+				Ok(ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag))
+			},
+			_ => Err(()),
+		}
+	}
+}
+
+impl From<ApprovalDistributionMessage> for ApprovalVotingParallelMessage {
+	fn from(msg: ApprovalDistributionMessage) -> Self {
+		match msg {
+			ApprovalDistributionMessage::NewBlocks(blocks) => {
+				ApprovalVotingParallelMessage::NewBlocks(blocks)
+			},
+			ApprovalDistributionMessage::DistributeAssignment(cert, bitfield) => {
+				ApprovalVotingParallelMessage::DistributeAssignment(cert, bitfield)
+			},
+			ApprovalDistributionMessage::DistributeApproval(vote) => {
+				ApprovalVotingParallelMessage::DistributeApproval(vote)
+			},
+			ApprovalDistributionMessage::NetworkBridgeUpdate(msg) => {
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(msg)
+			},
+			ApprovalDistributionMessage::GetApprovalSignatures(candidate_indicies, tx) => {
+				ApprovalVotingParallelMessage::GetApprovalSignatures(candidate_indicies, tx)
+			},
+			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) => {
+				ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag)
+			},
+		}
+	}
+}
+
 /// Response type to `ApprovalVotingMessage::ApprovedAncestor`.
 #[derive(Clone, Debug)]
 pub struct HighestApprovedAncestorBlock {
@@ -949,21 +1131,68 @@ pub struct HighestApprovedAncestorBlock {
 	pub descriptions: Vec<BlockDescription>,
 }
 
+/// A checked indirect assignment, the crypto for the cert has been validated
+/// and the `candidate_bitfield` is correctly claimed at `delay_tranche`.
+#[derive(Debug)]
+pub struct CheckedIndirectAssignment {
+	assignment: IndirectAssignmentCertV2,
+	candidate_indices: CandidateBitfield,
+	tranche: DelayTranche,
+}
+
+impl CheckedIndirectAssignment {
+	/// Builds a checked assignment from an assignment that was checked to be valid for the
+	/// `claimed_candidate_indices` at the give tranche
+	pub fn from_checked(
+		assignment: IndirectAssignmentCertV2,
+		claimed_candidate_indices: CandidateBitfield,
+		tranche: DelayTranche,
+	) -> Self {
+		Self { assignment, candidate_indices: claimed_candidate_indices, tranche }
+	}
+
+	/// Returns the indirect assignment.
+	pub fn assignment(&self) -> &IndirectAssignmentCertV2 {
+		&self.assignment
+	}
+
+	/// Returns the candidate bitfield claimed by the assignment.
+	pub fn candidate_indices(&self) -> &CandidateBitfield {
+		&self.candidate_indices
+	}
+
+	/// Returns the tranche this assignment is claimed at.
+	pub fn tranche(&self) -> DelayTranche {
+		self.tranche
+	}
+}
+
+/// A checked indirect signed approval vote.
+///
+/// The crypto for the vote has been validated and the signature can be trusted as being valid and
+/// to correspond to the `validator_index` inside the structure.
+#[derive(Debug, derive_more::Deref, derive_more::Into)]
+pub struct CheckedIndirectSignedApprovalVote(IndirectSignedApprovalVoteV2);
+
+impl CheckedIndirectSignedApprovalVote {
+	/// Builds a checked vote from a vote that was checked to be valid and correctly signed.
+	pub fn from_checked(vote: IndirectSignedApprovalVoteV2) -> Self {
+		Self(vote)
+	}
+}
+
 /// Message to the Approval Voting subsystem.
 #[derive(Debug)]
 pub enum ApprovalVotingMessage {
-	/// Check if the assignment is valid and can be accepted by our view of the protocol.
-	/// Should not be sent unless the block hash is known.
-	CheckAndImportAssignment(
-		IndirectAssignmentCertV2,
-		CandidateBitfield,
-		oneshot::Sender<AssignmentCheckResult>,
-	),
-	/// Check if the approval vote is valid and can be accepted by our view of the
-	/// protocol.
+	/// Import an assignment into the approval-voting database.
 	///
-	/// Should not be sent unless the block hash within the indirect vote is known.
-	CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender<ApprovalCheckResult>),
+	/// Should not be sent unless the block hash is known and the VRF assignment checks out.
+	ImportAssignment(CheckedIndirectAssignment, Option<oneshot::Sender<AssignmentCheckResult>>),
+	/// Import an approval vote into approval-voting database
+	///
+	/// Should not be sent unless the block hash within the indirect vote is known, vote is
+	/// correctly signed and we had a previous assignment for the candidate.
+	ImportApproval(CheckedIndirectSignedApprovalVote, Option<oneshot::Sender<ApprovalCheckResult>>),
 	/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
 	/// The `BlockNumber` provided is the number of the block's ancestor which is the
@@ -1017,9 +1246,9 @@ pub enum GossipSupportMessage {
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::GossipSupportNetworkMessage>),
 }
 
-/// Request introduction of a candidate into the prospective parachains subsystem.
+/// Request introduction of a seconded candidate into the prospective parachains subsystem.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct IntroduceCandidateRequest {
+pub struct IntroduceSecondedCandidateRequest {
 	/// The para-id of the candidate.
 	pub candidate_para: ParaId,
 	/// The candidate receipt itself.
@@ -1028,7 +1257,7 @@ pub struct IntroduceCandidateRequest {
 	pub persisted_validation_data: PersistedValidationData,
 }
 
-/// A hypothetical candidate to be evaluated for frontier membership
+/// A hypothetical candidate to be evaluated for potential/actual membership
 /// in the prospective parachains subsystem.
 ///
 /// Hypothetical candidates are either complete or incomplete.
@@ -1073,7 +1302,7 @@ impl HypotheticalCandidate {
 	/// Get the `ParaId` of the hypothetical candidate.
 	pub fn candidate_para(&self) -> ParaId {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor().para_id,
+			HypotheticalCandidate::Complete { ref receipt, .. } => receipt.descriptor.para_id(),
 			HypotheticalCandidate::Incomplete { candidate_para, .. } => candidate_para,
 		}
 	}
@@ -1081,37 +1310,76 @@ impl HypotheticalCandidate {
 	/// Get parent head data hash of the hypothetical candidate.
 	pub fn parent_head_data_hash(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } =>
-				persisted_validation_data.parent_head.hash(),
-			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } =>
-				parent_head_data_hash,
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				persisted_validation_data.parent_head.hash()
+			},
+			HypotheticalCandidate::Incomplete { parent_head_data_hash, .. } => {
+				parent_head_data_hash
+			},
 		}
 	}
 
 	/// Get candidate's relay parent.
 	pub fn relay_parent(&self) -> Hash {
 		match *self {
-			HypotheticalCandidate::Complete { ref receipt, .. } =>
-				receipt.descriptor().relay_parent,
-			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } =>
-				candidate_relay_parent,
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				receipt.descriptor.relay_parent()
+			},
+			HypotheticalCandidate::Incomplete { candidate_relay_parent, .. } => {
+				candidate_relay_parent
+			},
+		}
+	}
+
+	/// Get the output head data hash, if the candidate is complete.
+	pub fn output_head_data_hash(&self) -> Option<Hash> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.para_head())
+			},
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the candidate commitments, if the candidate is complete.
+	pub fn commitments(&self) -> Option<&CandidateCommitments> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } => Some(&receipt.commitments),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the persisted validation data, if the candidate is complete.
+	pub fn persisted_validation_data(&self) -> Option<&PersistedValidationData> {
+		match *self {
+			HypotheticalCandidate::Complete { ref persisted_validation_data, .. } => {
+				Some(persisted_validation_data)
+			},
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
+	/// Get the validation code hash, if the candidate is complete.
+	pub fn validation_code_hash(&self) -> Option<ValidationCodeHash> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } => {
+				Some(receipt.descriptor.validation_code_hash())
+			},
+			HypotheticalCandidate::Incomplete { .. } => None,
 		}
 	}
 }
 
 /// Request specifying which candidates are either already included
-/// or might be included in the hypothetical frontier of fragment trees
-/// under a given active leaf.
+/// or might become included in fragment chain under a given active leaf (or any active leaf if
+/// `fragment_chain_relay_parent` is `None`).
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct HypotheticalFrontierRequest {
+pub struct HypotheticalMembershipRequest {
 	/// Candidates, in arbitrary order, which should be checked for
-	/// possible membership in fragment trees.
+	/// hypothetical/actual membership in fragment chains.
 	pub candidates: Vec<HypotheticalCandidate>,
-	/// Either a specific fragment tree to check, otherwise all.
-	pub fragment_tree_relay_parent: Option<Hash>,
-	/// Only return membership if all candidates in the path from the
-	/// root are backed.
-	pub backed_in_path_only: bool,
+	/// Either a specific fragment chain to check, otherwise all.
+	pub fragment_chain_relay_parent: Option<Hash>,
 }
 
 /// A request for the persisted validation data stored in the prospective
@@ -1150,9 +1418,9 @@ impl ParentHeadData {
 	}
 }
 
-/// Indicates the relay-parents whose fragment tree a candidate
-/// is present in and the depths of that tree the candidate is present in.
-pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
+/// Indicates the relay-parents whose fragment chain a candidate
+/// is present in or can be added in (right now or in the future).
+pub type HypotheticalMembership = Vec<Hash>;
 
 /// A collection of ancestor candidates of a parachain.
 pub type Ancestors = HashSet<CandidateHash>;
@@ -1160,15 +1428,11 @@ pub type Ancestors = HashSet<CandidateHash>;
 /// Messages sent to the Prospective Parachains subsystem.
 #[derive(Debug)]
 pub enum ProspectiveParachainsMessage {
-	/// Inform the Prospective Parachains Subsystem of a new candidate.
+	/// Inform the Prospective Parachains Subsystem of a new seconded candidate.
 	///
-	/// The response sender accepts the candidate membership, which is the existing
-	/// membership of the candidate if it was already known.
-	IntroduceCandidate(IntroduceCandidateRequest, oneshot::Sender<FragmentTreeMembership>),
-	/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
-	/// has been seconded. This requires that the candidate was successfully introduced in
-	/// the past.
-	CandidateSeconded(ParaId, CandidateHash),
+	/// The response sender returns false if the candidate was rejected by prospective parachains,
+	/// true otherwise (if it was accepted or already present)
+	IntroduceSecondedCandidate(IntroduceSecondedCandidateRequest, oneshot::Sender<bool>),
 	/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
@@ -1187,23 +1451,29 @@ pub enum ProspectiveParachainsMessage {
 		Ancestors,
 		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
-	/// Get the hypothetical frontier membership of candidates with the given properties
-	/// under the specified active leaves' fragment trees.
+	/// Get the hypothetical or actual membership of candidates with the given properties
+	/// under the specified active leave's fragment chain.
 	///
-	/// For any candidate which is already known, this returns the depths the candidate
-	/// occupies.
-	GetHypotheticalFrontier(
-		HypotheticalFrontierRequest,
-		oneshot::Sender<Vec<(HypotheticalCandidate, FragmentTreeMembership)>>,
+	/// For each candidate, we return a vector of leaves where the candidate is present or could be
+	/// added. "Could be added" either means that the candidate can be added to the chain right now
+	/// or could be added in the future (we may not have its ancestors yet).
+	/// Note that even if we think it could be added in the future, we may find out that it was
+	/// invalid, as time passes.
+	/// If an active leaf is not in the vector, it means that there's no
+	/// chance this candidate will become valid under that leaf in the future.
+	///
+	/// If `fragment_chain_relay_parent` in the request is `Some()`, the return vector can only
+	/// contain this relay parent (or none).
+	GetHypotheticalMembership(
+		HypotheticalMembershipRequest,
+		oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 	),
-	/// Get the membership of the candidate in all fragment trees.
-	GetTreeMembership(ParaId, CandidateHash, oneshot::Sender<FragmentTreeMembership>),
-	/// Get the minimum accepted relay-parent number for each para in the fragment tree
+	/// Get the minimum accepted relay-parent number for each para in the fragment chain
 	/// for the given relay-chain block hash.
 	///
 	/// That is, if the block hash is known and is an active leaf, this returns the
 	/// minimum relay-parent block number in the same branch of the relay chain which
-	/// is accepted in the fragment tree for each para-id.
+	/// is accepted in the fragment chain for each para-id.
 	///
 	/// If the block hash is not an active leaf, this will return an empty vector.
 	///
@@ -1213,8 +1483,10 @@ pub enum ProspectiveParachainsMessage {
 	/// Para-IDs are returned in no particular order.
 	GetMinimumRelayParents(Hash, oneshot::Sender<Vec<(ParaId, BlockNumber)>>),
 	/// Get the validation data of some prospective candidate. The candidate doesn't need
-	/// to be part of any fragment tree, but this only succeeds if the parent head-data and
-	/// relay-parent are part of some fragment tree.
+	/// to be part of any fragment chain, but this only succeeds if the parent head-data and
+	/// relay-parent are part of the `CandidateStorage` (meaning that it's a candidate which is
+	/// part of some fragment chain or which prospective-parachains predicted will become part of
+	/// some fragment chain).
 	GetProspectiveValidationData(
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,

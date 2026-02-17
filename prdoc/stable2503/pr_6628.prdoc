@@ -1,0 +1,12 @@
+title: "Remove ReportCollator message"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Remove unused message ReportCollator and test related to this message on the collator protocol validator side.
+
+crates:
+  - name: polkadot-node-subsystem-types
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: major

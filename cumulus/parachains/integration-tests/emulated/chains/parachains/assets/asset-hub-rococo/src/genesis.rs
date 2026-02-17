@@ -15,21 +15,42 @@
 
 // Substrate
 use frame_support::parameter_types;
-use sp_core::{sr25519, storage::Storage};
+use sp_core::storage::Storage;
+use sp_keyring::Sr25519Keyring as Keyring;
 
 // Cumulus
 use emulated_integration_tests_common::{
-	accounts, build_genesis_storage, collators, get_account_id_from_seed,
-	PenpalSiblingSovereignAccount, PenpalTeleportableAssetLocation, RESERVABLE_ASSET_ID,
-	SAFE_XCM_VERSION,
+	accounts, build_genesis_storage, collators,
+	snowbridge::{ETHER_MIN_BALANCE, WETH},
+	xcm_emulator::ConvertLocation,
+	PenpalALocation, PenpalASiblingSovereignAccount, PenpalATeleportableAssetLocation,
+	PenpalBLocation, PenpalBSiblingSovereignAccount, PenpalBTeleportableAssetLocation,
+	RESERVABLE_ASSET_ID, SAFE_XCM_VERSION, USDT_ID,
 };
 use parachains_common::{AccountId, Balance};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use xcm::{
+	latest::prelude::*,
+	opaque::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
+};
+use xcm_builder::ExternalConsensusLocationsConverterFor;
 
 pub const PARA_ID: u32 = 1000;
 pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 parameter_types! {
-	pub AssetHubRococoAssetOwner: AccountId = get_account_id_from_seed::<sr25519::Public>("Alice");
+	pub AssetHubRococoAssetOwner: AccountId = Keyring::Alice.to_account_id();
+	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubRococoUniversalLocation: InteriorLocation = [GlobalConsensus(RococoGlobalConsensusNetwork::get()), Parachain(PARA_ID)].into();
+	pub AssetHubWestendLocation: Location = Location::new(
+			2,
+			[GlobalConsensus( NetworkId::ByGenesis(WESTEND_GENESIS_HASH)), Parachain(PARA_ID)],
+		);
+	pub AssetHubWestendSovereignAccount: AccountId = ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			AccountId,
+		>::convert_location(&AssetHubWestendLocation::get()).unwrap();
+	pub EthereumLocation: Location = Location::new(2, [GlobalConsensus(EthereumNetwork::get())]);
 }
 
 pub fn genesis() -> Storage {
@@ -41,6 +62,7 @@ pub fn genesis() -> Storage {
 				.cloned()
 				.map(|k| (k, ED * 4096 * 4096))
 				.collect(),
+			..Default::default()
 		},
 		parachain_info: asset_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),
@@ -62,23 +84,77 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect(),
+			..Default::default()
 		},
 		polkadot_xcm: asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 			..Default::default()
 		},
 		assets: asset_hub_rococo_runtime::AssetsConfig {
-			assets: vec![(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), true, ED)],
+			assets: vec![
+				(RESERVABLE_ASSET_ID, AssetHubRococoAssetOwner::get(), false, ED),
+				(USDT_ID, AssetHubRococoAssetOwner::get(), true, ED),
+			],
 			..Default::default()
 		},
 		foreign_assets: asset_hub_rococo_runtime::ForeignAssetsConfig {
 			assets: vec![
-				// Penpal's teleportable asset representation
+				// PenpalA's teleportable asset representation
 				(
-					PenpalTeleportableAssetLocation::get(),
-					PenpalSiblingSovereignAccount::get(),
-					true,
+					PenpalATeleportableAssetLocation::get(),
+					PenpalASiblingSovereignAccount::get(),
+					false,
 					ED,
+				),
+				// PenpalB's teleportable asset representation
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					PenpalBSiblingSovereignAccount::get(),
+					false,
+					ED,
+				),
+				// Ether
+				(
+					EthereumLocation::get(),
+					AssetHubWestendSovereignAccount::get(), /* To emulate double bridging, where
+					                                         * WAH is the owner of assets from
+					                                         * Ethereum on RAH */
+					true,
+					ETHER_MIN_BALANCE,
+				),
+				// Weth
+				(
+					Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
+						],
+					),
+					AssetHubWestendSovereignAccount::get(),
+					true,
+					ETHER_MIN_BALANCE,
+				),
+			],
+			reserves: vec![
+				(
+					PenpalATeleportableAssetLocation::get(),
+					vec![(PenpalALocation::get(), true).into()],
+				),
+				(
+					PenpalBTeleportableAssetLocation::get(),
+					vec![(PenpalBLocation::get(), true).into()],
+				),
+				(EthereumLocation::get(), vec![(AssetHubWestendLocation::get(), false).into()]),
+				(
+					Location::new(
+						2,
+						[
+							GlobalConsensus(EthereumNetwork::get()),
+							AccountKey20 { network: None, key: WETH.into() },
+						],
+					),
+					vec![(AssetHubWestendLocation::get(), false).into()],
 				),
 			],
 			..Default::default()

@@ -44,7 +44,7 @@ where
 							"Discarding a message sent from overseer {:?}",
 							overseer_msg
 						);
-						continue
+						continue;
 					},
 				}
 			}
@@ -65,6 +65,7 @@ pub fn dummy_overseer_builder<Spawner, SupportsParachains>(
 	InitializedOverseerBuilder<
 		SpawnGlue<Spawner>,
 		SupportsParachains,
+		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -131,6 +132,7 @@ pub fn one_for_all_overseer_builder<Spawner, SupportsParachains, Sub>(
 		Sub,
 		Sub,
 		Sub,
+		Sub,
 	>,
 	SubsystemError,
 >
@@ -155,6 +157,7 @@ where
 		+ Subsystem<OverseerSubsystemContext<StatementDistributionMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<ApprovalDistributionMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<ApprovalVotingMessage>, SubsystemError>
+		+ Subsystem<OverseerSubsystemContext<ApprovalVotingParallelMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<GossipSupportMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<DisputeCoordinatorMessage>, SubsystemError>
 		+ Subsystem<OverseerSubsystemContext<DisputeDistributionMessage>, SubsystemError>
@@ -183,13 +186,13 @@ where
 		.statement_distribution(subsystem.clone())
 		.approval_distribution(subsystem.clone())
 		.approval_voting(subsystem.clone())
+		.approval_voting_parallel(subsystem.clone())
 		.gossip_support(subsystem.clone())
 		.dispute_coordinator(subsystem.clone())
 		.dispute_distribution(subsystem.clone())
 		.chain_selection(subsystem.clone())
 		.prospective_parachains(subsystem.clone())
 		.activation_external_listeners(Default::default())
-		.span_per_active_leaf(Default::default())
 		.active_leaves(Default::default())
 		.spawner(SpawnGlue(spawner))
 		.metrics(metrics)

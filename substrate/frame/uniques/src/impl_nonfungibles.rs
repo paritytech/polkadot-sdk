@@ -18,13 +18,13 @@
 //! Implementations for `nonfungibles` traits.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	storage::KeyPrefixIterator,
 	traits::{tokens::nonfungibles::*, Get},
 	BoundedSlice,
 };
 use sp_runtime::{DispatchError, DispatchResult};
-use sp_std::prelude::*;
 
 impl<T: Config<I>, I: 'static> Inspect<<T as SystemConfig>::AccountId> for Pallet<T, I> {
 	type ItemId = T::ItemId;
@@ -141,7 +141,7 @@ impl<T: Config<I>, I: 'static> Mutate<<T as SystemConfig>::AccountId> for Pallet
 		Self::do_burn(collection.clone(), *item, |_, d| {
 			if let Some(check_owner) = maybe_check_owner {
 				if &d.owner != check_owner {
-					return Err(Error::<T, I>::NoPermission.into())
+					return Err(Error::<T, I>::NoPermission.into());
 				}
 			}
 			Ok(())

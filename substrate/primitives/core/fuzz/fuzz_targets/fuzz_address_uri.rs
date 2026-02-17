@@ -24,11 +24,12 @@ extern crate sp_core;
 use libfuzzer_sys::fuzz_target;
 use regex::Regex;
 use sp_core::crypto::AddressUri;
+use std::sync::LazyLock;
 
-lazy_static::lazy_static! {
-	static ref SECRET_PHRASE_REGEX: Regex = Regex::new(r"^(?P<phrase>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-		.expect("constructed from known-good static value; qed");
-}
+static SECRET_PHRASE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+	Regex::new(r"^(?P<phrase>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
+		.expect("constructed from known-good static value; qed")
+});
 
 fuzz_target!(|input: &str| {
 	let regex_result = SECRET_PHRASE_REGEX.captures(input);

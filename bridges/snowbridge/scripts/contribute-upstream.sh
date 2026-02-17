@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # A script to cleanup the Snowfork fork of the polkadot-sdk to contribute it upstream back to parity/polkadot-sdk
 # ./bridges/snowbridge/scripts/contribute-upstream.sh <branchname>

@@ -1,0 +1,28 @@
+title: AdaptPrice trait is now price controlled
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The broker pallet price adaptation interface is changed to be less opinionated and more
+      information is made available to the `AdaptPrice` trait. A new example impl is included which
+      adapts the price based not on the number of cores sold, but rather on the price that was
+      achieved during the sale to mitigate a potential price manipulation vector. More information
+      here:
+
+        https://github.com/paritytech/polkadot-sdk/issues/4360
+
+  - audience: Runtime User
+    description: |
+      The price controller of the Rococo and Westend Coretime chain will be
+      adjusted with this release. This will very likely be used in the
+      fellowship production runtime to have a much larger leadin. This fixes a
+      price manipulation issue we discovered with the Kusama launch.
+
+crates:
+  - name: pallet-broker
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+

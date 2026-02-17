@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{helpers::SyncState, *};
+use crate::DenyUnsafe;
 use assert_matches::assert_matches;
 use futures::prelude::*;
 use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError, RpcModule};
@@ -97,15 +98,17 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 				Request::NetworkAddReservedPeer(peer, sender) => {
 					let _ = match sc_network::config::parse_str_addr(&peer) {
 						Ok(_) => sender.send(Ok(())),
-						Err(s) =>
-							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string()))),
+						Err(s) => {
+							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string())))
+						},
 					};
 				},
 				Request::NetworkRemoveReservedPeer(peer, sender) => {
 					let _ = match peer.parse::<PeerId>() {
 						Ok(_) => sender.send(Ok(())),
-						Err(s) =>
-							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string()))),
+						Err(s) => {
+							sender.send(Err(error::Error::MalformattedPeerArg(s.to_string())))
+						},
 					};
 				},
 				Request::NetworkReservedPeers(sender) => {
@@ -127,7 +130,7 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			future::ready(())
 		}))
 	});
-	System::new(
+	let mut module = System::new(
 		SystemInfo {
 			impl_name: "testclient".into(),
 			impl_version: "0.2.0".into(),
@@ -136,9 +139,11 @@ fn api<T: Into<Option<Status>>>(sync: T) -> RpcModule<System<Block>> {
 			chain_type: Default::default(),
 		},
 		tx,
-		sc_rpc_api::DenyUnsafe::No,
 	)
-	.into_rpc()
+	.into_rpc();
+
+	module.extensions_mut().insert(DenyUnsafe::No);
+	module
 }
 
 #[tokio::test]
@@ -364,7 +369,7 @@ fn test_add_reset_log_filter() {
 				};
 				futures::executor::block_on(fut).expect("`system_resetLogFilter` failed");
 			} else if line.contains("exit") {
-				return
+				return;
 			}
 			log::trace!(target: "test_before_add", "{}", EXPECTED_WITH_TRACE);
 			log::debug!(target: "test_before_add", "{}", EXPECTED_BEFORE_ADD);

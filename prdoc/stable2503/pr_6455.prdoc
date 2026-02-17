@@ -1,0 +1,9 @@
+title: Add litep2p network protocol benches
+doc:
+- audience: Node Dev
+  description: |-
+    Adds networking protocol benchmarks with litep2p backend
+crates:
+- name: sc-network
+  validate: false
+  bump: none

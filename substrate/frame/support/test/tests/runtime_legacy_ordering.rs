@@ -25,9 +25,12 @@ use codec::MaxEncodedLen;
 use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
+use frame_system::{
+	limits::{BlockLength, BlockWeights},
+	DispatchEventInfo,
+};
 use scale_info::TypeInfo;
-use sp_core::{sr25519, ConstU64};
+use sp_core::sr25519;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, ValidateUnsigned, Verify},
@@ -49,6 +52,7 @@ mod module1 {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
@@ -61,7 +65,9 @@ mod module1 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	#[scale_info(skip_type_params(I))]
 	pub struct Origin<T, I = ()>(pub PhantomData<(T, I)>);
 
@@ -87,6 +93,7 @@ mod module2 {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -105,7 +112,9 @@ mod module2 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct Origin;
 
 	#[pallet::event]
@@ -133,6 +142,7 @@ mod nested {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		}
@@ -152,7 +162,17 @@ mod nested {
 		}
 
 		#[pallet::origin]
-		#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+		#[derive(
+			Clone,
+			PartialEq,
+			Eq,
+			Debug,
+			Encode,
+			Decode,
+			DecodeWithMemTracking,
+			MaxEncodedLen,
+			TypeInfo,
+		)]
 		pub struct Origin;
 
 		#[pallet::event]
@@ -169,7 +189,7 @@ mod nested {
 		#[derive(frame_support::DefaultNoBound)]
 		pub struct GenesisConfig<T: Config> {
 			#[serde(skip)]
-			pub _config: sp_std::marker::PhantomData<T>,
+			pub _config: core::marker::PhantomData<T>,
 		}
 
 		#[pallet::genesis_build]
@@ -201,6 +221,7 @@ pub mod module3 {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -234,7 +255,9 @@ pub mod module3 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
 	pub struct Origin<T>(pub PhantomData<T>);
 
 	#[pallet::event]
@@ -251,7 +274,7 @@ pub mod module3 {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -293,7 +316,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -340,7 +364,7 @@ mod runtime {
 	pub type Module1_9 = module1<Instance9>;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountId = AccountId;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
@@ -351,7 +375,6 @@ impl frame_system::Config for Runtime {
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
 	type Block = Block;
-	type BlockHashCount = ConstU64<10>;
 }
 
 impl module1::Config<module1::Instance1> for Runtime {
@@ -534,8 +557,13 @@ fn origin_codec() {
 fn event_codec() {
 	use codec::Encode;
 
-	let event =
-		frame_system::Event::<Runtime>::ExtrinsicSuccess { dispatch_info: Default::default() };
+	let event = frame_system::Event::<Runtime>::ExtrinsicSuccess {
+		dispatch_info: DispatchEventInfo {
+			weight: Default::default(),
+			class: Default::default(),
+			pays_fee: Default::default(),
+		},
+	};
 	assert_eq!(RuntimeEvent::from(event).encode()[0], 30);
 
 	let event = module1::Event::<Runtime, module1::Instance1>::A(test_pub());
@@ -625,7 +653,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::operational {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(5, 0),
+			call_weight: Weight::from_parts(5, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Operational,
 			pays_fee: Pays::Yes
 		},
@@ -634,7 +663,8 @@ fn call_weight_should_attach_to_call_enum() {
 	assert_eq!(
 		module3::Call::<Runtime>::aux_4 {}.get_dispatch_info(),
 		DispatchInfo {
-			weight: Weight::from_parts(3, 0),
+			call_weight: Weight::from_parts(3, 0),
+			extension_weight: Default::default(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::Yes
 		},
@@ -809,7 +839,7 @@ fn test_metadata() {
 		PalletMetadata {
 			name: "Module3",
 			storage: Some(PalletStorageMetadata {
-				prefix: "Module3", 
+				prefix: "Module3",
 				entries: vec![
 					StorageEntryMetadata {
 						name: "Storage",
@@ -895,7 +925,7 @@ fn test_metadata() {
 		ty: meta_type::<UncheckedExtrinsic>(),
 		version: 4,
 		signed_extensions: vec![SignedExtensionMetadata {
-			identifier: "UnitSignedExtension",
+			identifier: "UnitTransactionExtension",
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],

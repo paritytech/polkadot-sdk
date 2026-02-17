@@ -2,8 +2,8 @@
 //!
 //! At their core, blockchain logic consists of
 //!
-//! 1. on-chain state and
-//! 2. a state transition function
+//! 1. on-chain state,
+//! 2. a state transition function.
 //!
 //! In Substrate-based blockchains, state transition functions are referred to as
 //! [runtimes](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/blockchain_state_machines/index.html).
@@ -43,9 +43,9 @@
 //! for example when the encoding of a storage item is changed. However, they can also execute
 //! arbitrary logic such as:
 //!
-//! - Calling arbitrary pallet methods
-//! - Mutating arbitrary on-chain state
-//! - Cleaning up some old storage items that are no longer needed
+//! - Calling arbitrary pallet methods.
+//! - Mutating arbitrary on-chain state.
+//! - Cleaning up some old storage items that are no longer needed.
 //!
 //! ## Single Block Migrations
 //!
@@ -59,8 +59,8 @@
 //!
 //! ### Scheduling the Single Block Migrations to Run Next Runtime Upgrade
 //!
-//! Schedule migrations to run next runtime upgrade passing them as a generic parameter to your
-//! [`Executive`](frame_executive) pallet:
+//! Schedule migrations to run next runtime upgrade passing them as a parameter to your
+//! [`Config`](frame_system) pallet:
 //!
 //! ```ignore
 //! /// Tuple of migrations (structs that implement `OnRuntimeUpgrade`)
@@ -69,14 +69,9 @@
 //! 	MyCustomMigration,
 //! 	// ...more migrations here
 //! );
-//! pub type Executive = frame_executive::Executive<
-//! 	Runtime,
-//! 	Block,
-//! 	frame_system::ChainContext<Runtime>,
-//! 	Runtime,
-//! 	AllPalletsWithSystem,
-//! 	Migrations, // <-- pass your migrations to Executive here
-//! >;
+//! impl frame_system::Config for Runtime {
+//! 	type SingleBlockMigrations = Migrations;
+//! }
 //! ```
 //!
 //! ### Ensuring Single Block Migration Safety
@@ -88,9 +83,9 @@
 //!
 //! Prior to deploying migrations, it is critical to perform additional checks to ensure that when
 //! run in our real runtime they will not brick the chain due to:
-//! - Panicking
-//! - Touching too many storage keys and resulting in an excessively large PoV
-//! - Taking too long to execute
+//! - Panicking.
+//! - Touching too many storage keys and resulting in an excessively large PoV.
+//! - Taking too long to execute.
 //!
 //! [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli) has a sub-command
 //! [`on-runtime-upgrade`](https://paritytech.github.io/try-runtime-cli/try_runtime_core/commands/enum.Action.html#variant.OnRuntimeUpgrade)
@@ -129,7 +124,9 @@
 //!
 //! Suitable for migrations which could use arbitrary amounts of block weight.
 //!
-//! TODO: Link to multi block migration example/s once PR is merged (<https://github.com/paritytech/polkadot-sdk/pull/2119>).
+//! See the
+//! [multi-block-migrations example](https://github.com/paritytech/polkadot-sdk/tree/0d7d2177807ec6b3094f4491a45b0bc0d74d3c8b/substrate/frame/examples/multi-block-migrations)
+//! for reference.
 //!
 //! [`OnRuntimeUpgrade`]: frame_support::traits::OnRuntimeUpgrade
 //! [`StorageVersion`]: frame_support::traits::StorageVersion

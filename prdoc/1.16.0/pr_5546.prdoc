@@ -1,0 +1,36 @@
+title: "Transfer polkadot native assets to Ethereum through snowbridge"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Transfer polkadot native asset to Ethereum through snowbridge.
+
+crates:
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: patch
+  - name: snowbridge-pallet-outbound-queue
+    bump: patch
+  - name: snowbridge-pallet-system
+    bump: minor
+    validate: false
+  - name: snowbridge-core
+    bump: minor
+    validate: false
+  - name: snowbridge-router-primitives
+    bump: minor
+    validate: false
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-emulated-chain
+    bump: patch
+  - name: bridge-hub-westend-integration-tests
+    bump: minor
+  - name: asset-hub-westend-emulated-chain
+    bump: patch
+  - name: emulated-integration-tests-common
+    bump: patch
+

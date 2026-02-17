@@ -25,6 +25,7 @@
 //! |-------------|-------------------------|
 //! | undefined   | No profiling            |
 //! | `"jitdump"` | jitdump profiling       |
+//! | `"perfmap"` | perfmap profiling       |
 //! | other value | No profiling (warning)  |
 
 mod host;
@@ -40,4 +41,8 @@ pub use runtime::{
 	create_runtime, create_runtime_from_artifact, create_runtime_from_artifact_bytes,
 	prepare_runtime_artifact, Config, DeterministicStackLimit, InstantiationStrategy, Semantics,
 	WasmtimeRuntime,
+};
+pub use sc_executor_common::{
+	runtime_blob::RuntimeBlob,
+	wasm_runtime::{HeapAllocStrategy, WasmModule},
 };

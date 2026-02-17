@@ -20,12 +20,16 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, async_backing::Constraints, slashing, ApprovalVotingParams,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
+};
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt_v2, dummy_validation_code,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
@@ -33,7 +37,6 @@ use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	sync::{Arc, Mutex},
 };
-use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
 
 #[derive(Default)]
 struct MockSubsystemClient {
@@ -47,6 +50,7 @@ struct MockSubsystemClient {
 	validation_outputs_results: HashMap<ParaId, bool>,
 	session_index_for_child: SessionIndex,
 	candidate_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
+	candidates_pending_availability: HashMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	dmq_contents: HashMap<ParaId, Vec<InboundDownwardMessage>>,
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
@@ -140,6 +144,14 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		Ok(self.candidate_pending_availability.get(&para_id).cloned())
 	}
 
+	async fn candidates_pending_availability(
+		&self,
+		_: Hash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
+		Ok(self.candidates_pending_availability.get(&para_id).cloned().unwrap_or_default())
+	}
+
 	async fn candidate_events(&self, _: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
 		Ok(self.candidate_events.clone())
 	}
@@ -211,6 +223,13 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	}
 
 	async fn unapplied_slashes(
+		&self,
+		_: Hash,
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn unapplied_slashes_v2(
 		&self,
 		_: Hash,
 	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
@@ -290,6 +309,26 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn scheduling_lookahead(&self, _: Hash) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn backing_constraints(
+		&self,
+		_at: Hash,
+		_para_id: ParaId,
+	) -> Result<Option<Constraints>, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn validation_code_bomb_limit(&self, _: Hash) -> Result<u32, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn para_ids(&self, _: Hash) -> Result<Vec<ParaId>, ApiError> {
 		todo!("Not required for tests")
 	}
 }
@@ -690,7 +729,7 @@ fn requests_candidate_pending_availability() {
 	let para_a = ParaId::from(5_u32);
 	let para_b = ParaId::from(6_u32);
 	let spawner = sp_core::testing::TaskExecutor::new();
-	let candidate_receipt = dummy_committed_candidate_receipt(relay_parent);
+	let candidate_receipt = dummy_committed_candidate_receipt_v2(relay_parent);
 
 	let mut subsystem_client = MockSubsystemClient::default();
 	subsystem_client

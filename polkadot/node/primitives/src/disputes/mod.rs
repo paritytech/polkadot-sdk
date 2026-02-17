@@ -19,14 +19,14 @@ use std::collections::{
 	BTreeMap, BTreeSet,
 };
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 use sp_application_crypto::AppCrypto;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement, EncodeAs,
-	InvalidDisputeStatementKind, SessionIndex, SigningContext, UncheckedSigned,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
+	EncodeAs, InvalidDisputeStatementKind, SessionIndex, SigningContext, UncheckedSigned,
 	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 

@@ -18,15 +18,16 @@
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
-	ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, Commitment, DoubleVotingProof, ForkVotingProof,
+	FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{BlockNumber, Header as HeaderT};
 
 use codec::Encode;
-use std::{collections::HashMap, marker::PhantomData};
+use sp_crypto_hashing::keccak_256;
+use std::{collections::HashMap, marker::PhantomData, sync::LazyLock};
 use strum::IntoEnumIterator;
 
 /// Set of test accounts using [`crate::ecdsa_crypto`] types.
@@ -44,33 +45,26 @@ pub enum Keyring<AuthorityId> {
 	_Marker(PhantomData<AuthorityId>),
 }
 
-/// Trait representing BEEFY specific generation and signing behavior of authority id
+/// Trait representing BEEFY specific generation and signing behavior of authority id.
 ///
-/// Accepts custom hashing fn for the message and custom convertor fn for the signer.
-pub trait BeefySignerAuthority<MsgHash: Hash>: AppPair {
-	/// Generate and return signature for `message` using custom hashing `MsgHash`
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
+/// The trait mimics `BeefyAuthorityId` signing, but uses the private key instead of a keystore.
+/// This is needed for testing purposes.
+pub trait BeefySignerAuthority: AppPair {
+	/// Generate and return signature for `message`.
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
 }
 
-impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair
-where
-	MsgHash: Hash,
-	<MsgHash as Hash>::Output: Into<[u8; 32]>,
-{
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
-		let hashed_message = <MsgHash as Hash>::hash(message).into();
+impl BeefySignerAuthority for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair {
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		let hashed_message = keccak_256(message);
 		self.as_inner_ref().sign_prehashed(&hashed_message).into()
 	}
 }
 
 #[cfg(feature = "bls-experimental")]
-impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
-where
-	MsgHash: Hash,
-	<MsgHash as Hash>::Output: Into<[u8; 32]>,
-{
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
-		self.as_inner_ref().sign_with_hasher::<MsgHash>(&message).into()
+impl BeefySignerAuthority for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair {
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign(&message).into()
 	}
 }
 
@@ -78,14 +72,14 @@ where
 impl<AuthorityId> Keyring<AuthorityId>
 where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {
 	/// Sign `msg`.
 	pub fn sign(&self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
 		let key_pair: <AuthorityId as AppCrypto>::Pair = self.pair();
-		key_pair.sign_with_hasher(&msg).into()
+		BeefySignerAuthority::sign(&key_pair, msg).into()
 	}
 
 	/// Return key pair.
@@ -111,12 +105,15 @@ where
 	}
 }
 
-lazy_static::lazy_static! {
-	static ref PRIVATE_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair> =
-		Keyring::iter().map(|i| (i.clone(), i.pair())).collect();
-	static ref PUBLIC_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public> =
-		PRIVATE_KEYS.iter().map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair))).collect();
-}
+static PRIVATE_KEYS: LazyLock<HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair>> =
+	LazyLock::new(|| Keyring::iter().map(|i| (i.clone(), i.pair())).collect());
+static PUBLIC_KEYS: LazyLock<HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public>> =
+	LazyLock::new(|| {
+		PRIVATE_KEYS
+			.iter()
+			.map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair)))
+			.collect()
+	});
 
 impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Pair {
 	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
@@ -136,20 +133,42 @@ impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Public {
 	}
 }
 
-/// Create a new `EquivocationProof` based on given arguments.
-pub fn generate_equivocation_proof(
+/// Create a new `VoteMessage` from commitment primitives and keyring
+pub fn signed_vote<Number: BlockNumber>(
+	block_number: Number,
+	payload: Payload,
+	validator_set_id: ValidatorSetId,
+	keyring: &Keyring<ecdsa_crypto::AuthorityId>,
+) -> VoteMessage<Number, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
+	let commitment = Commitment { validator_set_id, block_number, payload };
+	let signature = keyring.sign(&commitment.encode());
+	VoteMessage { commitment, id: keyring.public(), signature }
+}
+
+/// Create a new `DoubleVotingProof` based on given arguments.
+pub fn generate_double_voting_proof(
 	vote1: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 	vote2: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
-) -> EquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
-	let signed_vote = |block_number: u64,
-	                   payload: Payload,
-	                   validator_set_id: ValidatorSetId,
-	                   keyring: &Keyring<ecdsa_crypto::AuthorityId>| {
-		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = keyring.sign(&commitment.encode());
-		VoteMessage { commitment, id: keyring.public(), signature }
-	};
+) -> DoubleVotingProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
 	let first = signed_vote(vote1.0, vote1.1, vote1.2, vote1.3);
 	let second = signed_vote(vote2.0, vote2.1, vote2.2, vote2.3);
-	EquivocationProof { first, second }
+	DoubleVotingProof { first, second }
+}
+
+/// Create a new `ForkVotingProof` based on vote & canonical header.
+pub fn generate_fork_voting_proof<Header: HeaderT<Number = u64>, AncestryProof>(
+	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+	ancestry_proof: AncestryProof,
+	header: Header,
+) -> ForkVotingProof<Header, ecdsa_crypto::Public, AncestryProof> {
+	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
+	ForkVotingProof { vote: signed_vote, ancestry_proof, header }
+}
+
+/// Create a new `ForkVotingProof` based on vote & canonical header.
+pub fn generate_future_block_voting_proof(
+	vote: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+) -> FutureBlockVotingProof<u64, ecdsa_crypto::Public> {
+	let signed_vote = signed_vote(vote.0, vote.1, vote.2, vote.3);
+	FutureBlockVotingProof { vote: signed_vote }
 }

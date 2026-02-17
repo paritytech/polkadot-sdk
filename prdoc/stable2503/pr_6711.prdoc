@@ -1,0 +1,13 @@
+title: Expose DHT content providers API from `sc-network`
+doc:
+- audience: Node Dev
+  description: |-
+    Expose the Kademlia content providers API for the use by `sc-network` client code:
+    1. Extend the `NetworkDHTProvider` trait with functions to start/stop providing content and query the DHT for the list of content providers for a given key.
+    2. Extend the `DhtEvent` enum with events reporting the found providers or query failures.
+    3. Implement the above for libp2p & litep2p network backends.
+crates:
+- name: sc-network
+  bump: major
+- name: sc-authority-discovery
+  bump: major

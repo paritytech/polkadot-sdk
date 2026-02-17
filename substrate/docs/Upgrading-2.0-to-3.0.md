@@ -1003,7 +1003,7 @@ modified your chain you should probably try to apply these patches:
  	};
  	use sp_timestamp;
 -	use sp_finality_tracker;
- 	use sp_keyring::AccountKeyring;
+ 	use sp_keyring::Sr25519Keyring;
  	use sc_service_test::TestNetNode;
  	use crate::service::{new_full_base, new_light_base, NewFullBase};
 -	use sp_runtime::traits::IdentifyAccount;
@@ -1034,7 +1034,7 @@ modified your chain you should probably try to apply these patches:
 +		let mut slot = 1u64;
 
  		// For the extrinsics factory
- 		let bob = Arc::new(AccountKeyring::Bob.pair());
+ 		let bob = Arc::new(Sr25519Keyring::Bob.pair());
 @@ -528,14 +539,13 @@ mod tests {
  				Ok((node, (inherent_data_providers, setup_handles.unwrap())))
  			},

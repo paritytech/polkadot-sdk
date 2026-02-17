@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update definition of frozen balance (docs PR)
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes a bug in the docs located in the definition of frozen balances. In addition, it extends that definition for completeness.
+
+crates:
+- name: frame-support
+  bump: patch

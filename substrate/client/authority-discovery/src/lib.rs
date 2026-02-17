@@ -33,19 +33,19 @@ pub use crate::{
 	worker::{AuthorityDiscovery, NetworkProvider, Role, Worker},
 };
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
 use futures::{
 	channel::{mpsc, oneshot},
 	Stream,
 };
 
-use libp2p::{Multiaddr, PeerId};
-use sc_network::event::DhtEvent;
+use sc_network::{event::DhtEvent, Multiaddr};
+use sc_network_types::PeerId;
 use sp_authority_discovery::AuthorityId;
 use sp_blockchain::HeaderBackend;
+use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::Block as BlockT;
-
 mod error;
 mod interval;
 mod service;
@@ -88,6 +88,11 @@ pub struct WorkerConfig {
 	///
 	/// Defaults to `false` to provide compatibility with old versions
 	pub strict_record_validation: bool,
+
+	/// The directory of where the persisted AddrCache file is located,
+	/// optional since NetworkConfiguration's `net_config_path` field
+	/// is optional. If None, we won't persist the AddrCache at all.
+	pub persisted_cache_directory: Option<PathBuf>,
 }
 
 impl Default for WorkerConfig {
@@ -110,6 +115,7 @@ impl Default for WorkerConfig {
 			publish_non_global_ips: true,
 			public_addresses: Vec::new(),
 			strict_record_validation: false,
+			persisted_cache_directory: None,
 		}
 	}
 }
@@ -117,16 +123,16 @@ impl Default for WorkerConfig {
 /// Create a new authority discovery [`Worker`] and [`Service`].
 ///
 /// See the struct documentation of each for more details.
-pub fn new_worker_and_service<Client, Network, Block, DhtEventStream>(
+pub fn new_worker_and_service<Client, Block, DhtEventStream>(
 	client: Arc<Client>,
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-) -> (Worker<Client, Network, Block, DhtEventStream>, Service)
+	spawner: impl SpawnNamed + 'static,
+) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + Send + Sync + 'static + HeaderBackend<Block>,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {
@@ -137,30 +143,39 @@ where
 		dht_event_rx,
 		role,
 		prometheus_registry,
+		spawner,
 	)
 }
 
 /// Same as [`new_worker_and_service`] but with support for providing the `config`.
 ///
 /// When in doubt use [`new_worker_and_service`] as it will use the default configuration.
-pub fn new_worker_and_service_with_config<Client, Network, Block, DhtEventStream>(
+pub fn new_worker_and_service_with_config<Client, Block, DhtEventStream>(
 	config: WorkerConfig,
 	client: Arc<Client>,
-	network: Arc<Network>,
+	network: Arc<dyn NetworkProvider>,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-) -> (Worker<Client, Network, Block, DhtEventStream>, Service)
+	spawner: impl SpawnNamed + 'static,
+) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery<Block> + 'static,
 	DhtEventStream: Stream<Item = DhtEvent> + Unpin,
 {
 	let (to_worker, from_service) = mpsc::channel(0);
 
-	let worker =
-		Worker::new(from_service, client, network, dht_event_rx, role, prometheus_registry, config);
+	let worker = Worker::new(
+		from_service,
+		client,
+		network,
+		dht_event_rx,
+		role,
+		prometheus_registry,
+		config,
+		spawner,
+	);
 	let service = Service::new(to_worker);
 
 	(worker, service)

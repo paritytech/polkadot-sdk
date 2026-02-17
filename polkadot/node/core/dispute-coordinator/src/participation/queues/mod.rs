@@ -22,7 +22,8 @@ use std::{
 use futures::channel::oneshot;
 use polkadot_node_subsystem::{messages::ChainApiMessage, overseer};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, ExecutorParams, Hash, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ExecutorParams, Hash,
+	SessionIndex,
 };
 
 use crate::{
@@ -208,11 +209,11 @@ impl Queues {
 	pub fn dequeue(&mut self) -> Option<ParticipationRequest> {
 		if let Some(req) = self.pop_priority() {
 			self.metrics.report_priority_queue_size(self.priority.len() as u64);
-			return Some(req.1)
+			return Some(req.1);
 		}
 		if let Some(req) = self.pop_best_effort() {
 			self.metrics.report_best_effort_queue_size(self.best_effort.len() as u64);
-			return Some(req.1)
+			return Some(req.1);
 		}
 		None
 	}
@@ -234,7 +235,7 @@ impl Queues {
 		comparator: CandidateComparator,
 	) -> std::result::Result<(), QueueError> {
 		if self.priority.len() >= PRIORITY_QUEUE_SIZE {
-			return Err(QueueError::PriorityFull)
+			return Err(QueueError::PriorityFull);
 		}
 		if let Some(request) = self.best_effort.remove(&comparator) {
 			self.priority.insert(comparator, request);
@@ -265,7 +266,7 @@ impl Queues {
 	) -> std::result::Result<(), QueueError> {
 		if priority.is_priority() {
 			if self.priority.len() >= PRIORITY_QUEUE_SIZE {
-				return Err(QueueError::PriorityFull)
+				return Err(QueueError::PriorityFull);
 			}
 			// Remove any best effort entry, using it to replace our new
 			// request.
@@ -291,10 +292,10 @@ impl Queues {
 			if self.priority.contains_key(&comparator) {
 				// The candidate is already in priority queue - don't
 				// add in in best effort too.
-				return Ok(())
+				return Ok(());
 			}
 			if self.best_effort.len() >= BEST_EFFORT_QUEUE_SIZE {
-				return Err(QueueError::BestEffortFull)
+				return Err(QueueError::BestEffortFull);
 			}
 			// Keeping old request if any.
 			match self.best_effort.entry(comparator) {
@@ -315,12 +316,12 @@ impl Queues {
 
 	/// Get best from the best effort queue.
 	fn pop_best_effort(&mut self) -> Option<(CandidateComparator, ParticipationRequest)> {
-		return Self::pop_impl(&mut self.best_effort)
+		return Self::pop_impl(&mut self.best_effort);
 	}
 
 	/// Get best priority queue entry.
 	fn pop_priority(&mut self) -> Option<(CandidateComparator, ParticipationRequest)> {
-		return Self::pop_impl(&mut self.priority)
+		return Self::pop_impl(&mut self.priority);
 	}
 
 	// `pop_best_effort` and `pop_priority` do the same but on different `BTreeMap`s. This function
@@ -405,7 +406,7 @@ impl CandidateComparator {
 		candidate: &CandidateReceipt,
 	) -> FatalResult<Self> {
 		let candidate_hash = candidate.hash();
-		let n = get_block_number(sender, candidate.descriptor().relay_parent).await?;
+		let n = get_block_number(sender, candidate.descriptor().relay_parent()).await?;
 
 		if n.is_none() {
 			gum::warn!(
@@ -457,7 +458,7 @@ impl Ord for CandidateComparator {
 				// Ditto
 				Ordering::Greater
 			},
-		}
+		};
 	}
 }
 

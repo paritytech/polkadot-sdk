@@ -1,0 +1,7 @@
+title: Record ed as part of the storage deposit
+doc:
+- audience: Runtime Dev
+  description: Fixes https://github.com/paritytech/contract-issues/issues/38
+crates:
+- name: pallet-revive
+  bump: patch

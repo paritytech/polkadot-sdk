@@ -1,0 +1,9 @@
+title: 'chainHead: Always report discarded items for storage operations'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    This PR ensures that substrate always reports discarded items as zero.
+    This is needed to align with the rpc-v2 spec
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch

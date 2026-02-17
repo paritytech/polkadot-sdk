@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 // helper to deserialize arbitrary arrays like [T; N]
 pub mod arrays {
-	use std::{convert::TryInto, marker::PhantomData};
+	use std::marker::PhantomData;
 
 	use serde::{
 		de::{SeqAccess, Visitor},
@@ -118,7 +118,7 @@ impl<'de, const LENGTH: usize> serde::de::Visitor<'de> for HexVisitor<LENGTH> {
 			Err(e) => return Err(serde::de::Error::custom(e.to_string())),
 		};
 		if decoded.len() != LENGTH {
-			return Err(serde::de::Error::custom("publickey expected to be 48 characters"))
+			return Err(serde::de::Error::custom("publickey expected to be 48 characters"));
 		}
 
 		let data: Self::Value = decoded

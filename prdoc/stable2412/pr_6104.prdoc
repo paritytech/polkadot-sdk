@@ -1,0 +1,10 @@
+title: "LocalTransactionPool implemented for fork aware transaction pool"
+
+doc:
+  - audience: Node Dev
+    description: |
+      LocalTransactionPool trait is implemented for fork aware transaction pool.
+
+crates:
+  - name: sc-transaction-pool
+    bump: minor

@@ -1,0 +1,12 @@
+title: 'Bridges: Add initial primitives for AssetHub bridging'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add initial primitives for AssetHubRococo and AssetHubWestend bridging
+crates:
+- name: bp-asset-hub-rococo
+  bump: minor
+- name: bp-asset-hub-westend
+  bump: minor
+- name: bp-bridge-hub-cumulus
+  bump: minor

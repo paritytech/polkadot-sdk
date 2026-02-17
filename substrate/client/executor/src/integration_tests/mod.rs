@@ -119,8 +119,9 @@ fn call_not_existing_function(wasm_method: WasmExecutionMethod) {
 	match call_in_wasm("test_calling_missing_external", &[], wasm_method, &mut ext).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"call to a missing function env:missing_external",
+				WasmExecutionMethod::Compiled { .. } => {
+					"call to a missing function env:missing_external"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},
@@ -138,8 +139,9 @@ fn call_yet_another_not_existing_function(wasm_method: WasmExecutionMethod) {
 	{
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"call to a missing function env:yet_another_missing_external",
+				WasmExecutionMethod::Compiled { .. } => {
+					"call to a missing function env:yet_another_missing_external"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},
@@ -178,7 +180,7 @@ fn storage_should_work(wasm_method: WasmExecutionMethod) {
 		assert_eq!(output, b"all ok!".to_vec().encode());
 	}
 
-	let expected = TestExternalities::new(sp_core::storage::Storage {
+	let mut expected = TestExternalities::new(sp_core::storage::Storage {
 		top: map![
 			b"input".to_vec() => value,
 			b"foo".to_vec() => b"bar".to_vec(),
@@ -186,7 +188,7 @@ fn storage_should_work(wasm_method: WasmExecutionMethod) {
 		],
 		children_default: map![],
 	});
-	assert_eq!(ext, expected);
+	assert!(ext.eq(&mut expected));
 }
 
 test_wasm_execution!(clear_prefix_should_work);
@@ -208,7 +210,7 @@ fn clear_prefix_should_work(wasm_method: WasmExecutionMethod) {
 		assert_eq!(output, b"all ok!".to_vec().encode());
 	}
 
-	let expected = TestExternalities::new(sp_core::storage::Storage {
+	let mut expected = TestExternalities::new(sp_core::storage::Storage {
 		top: map![
 			b"aaa".to_vec() => b"1".to_vec(),
 			b"aab".to_vec() => b"2".to_vec(),
@@ -216,7 +218,7 @@ fn clear_prefix_should_work(wasm_method: WasmExecutionMethod) {
 		],
 		children_default: map![],
 	});
-	assert_eq!(expected, ext);
+	assert!(expected.eq(&mut ext));
 }
 
 test_wasm_execution!(blake2_256_should_work);
@@ -728,8 +730,9 @@ fn unreachable_intrinsic(wasm_method: WasmExecutionMethod) {
 	match call_in_wasm("test_unreachable_intrinsic", &[], wasm_method, &mut ext).unwrap_err() {
 		Error::AbortedDueToTrap(error) => {
 			let expected = match wasm_method {
-				WasmExecutionMethod::Compiled { .. } =>
-					"wasm trap: wasm `unreachable` instruction executed",
+				WasmExecutionMethod::Compiled { .. } => {
+					"wasm trap: wasm `unreachable` instruction executed"
+				},
 			};
 			assert_eq!(error.message, expected);
 		},

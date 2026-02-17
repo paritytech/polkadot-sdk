@@ -22,23 +22,23 @@
 //!
 //! ```
 //! # use sc_basic_authorship::ProposerFactory;
-//! # use sp_consensus::{Environment, Proposer};
+//! # use sp_consensus::{Environment, Proposer, ProposeArgs};
 //! # use sp_runtime::generic::BlockId;
 //! # use std::{sync::Arc, time::Duration};
 //! # use substrate_test_runtime_client::{
-//! #     runtime::Transfer, AccountKeyring,
+//! #     runtime::Transfer, Sr25519Keyring,
 //! #     DefaultTestClientBuilderExt, TestClientBuilderExt,
 //! # };
 //! # use sc_transaction_pool::{BasicPool, FullChainApi};
 //! # let client = Arc::new(substrate_test_runtime_client::new());
 //! # let spawner = sp_core::testing::TaskExecutor::new();
-//! # let txpool = BasicPool::new_full(
+//! # let txpool = Arc::from(BasicPool::new_full(
 //! #     Default::default(),
 //! #     true.into(),
 //! #     None,
 //! #     spawner.clone(),
 //! #     client.clone(),
-//! # );
+//! # ));
 //! // The first step is to create a `ProposerFactory`.
 //! let mut proposer_factory = ProposerFactory::new(
 //! 		spawner,
@@ -58,11 +58,12 @@
 //!
 //! // This `Proposer` allows us to create a block proposition.
 //! // The proposer will grab transactions from the transaction pool, and put them into the block.
-//! let future = proposer.propose(
-//! 	Default::default(),
-//! 	Default::default(),
-//! 	Duration::from_secs(2),
-//! 	None,
+//! let future = Proposer::propose(
+//! 	proposer,
+//!     ProposeArgs {
+//! 	    max_duration: Duration::from_secs(2),
+//! 	    ..Default::default()
+//!     }
 //! );
 //!
 //! // We wait until the proposition is performed.
@@ -73,3 +74,4 @@
 mod basic_authorship;
 
 pub use crate::basic_authorship::{Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT};
+pub use sp_consensus::ProposeArgs;

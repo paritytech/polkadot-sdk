@@ -26,6 +26,8 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
+#[cfg(feature = "try-runtime")]
+use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use environmental::Vec;
@@ -35,14 +37,13 @@ use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
 	traits::{fungible::MutateHold, ReservableCurrency},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
-#[cfg(feature = "try-runtime")]
-use sp_std::collections::btree_map::BTreeMap;
 
 mod v13 {
 	use super::*;
@@ -79,8 +80,8 @@ where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 {
+	use alloc::vec;
 	use sp_runtime::traits::Hash;
-	use sp_std::vec;
 
 	let len = T::MaxCodeLen::get();
 	let code = vec![42u8; len as usize];
@@ -132,7 +133,7 @@ where
 		T::WeightInfo::v14_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_hash) = self.last_code_hash.take() {
 			v13::CodeInfoOf::<T, OldCurrency>::iter_from(
 				v13::CodeInfoOf::<T, OldCurrency>::hashed_key_for(last_hash),
@@ -185,10 +186,12 @@ where
 			});
 
 			self.last_code_hash = Some(hash);
-			(IsFinished::No, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more code upload deposit to migrate");
-			(IsFinished::Yes, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::Yes
 		}
 	}
 

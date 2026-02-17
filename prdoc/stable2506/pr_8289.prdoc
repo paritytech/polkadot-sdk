@@ -1,0 +1,11 @@
+title: 'Extract create_pool_with_native_on macro to common crate'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extract the macro in the `bridge-hub-westend-integration-tests` crate to the `emulated-integration-tests-common`
+    crate, so that it can be used in the runtimes repository as well.
+crates:
+- name: bridge-hub-westend-integration-tests
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: minor

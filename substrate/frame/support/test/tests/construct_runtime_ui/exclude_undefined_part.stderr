@@ -20,3 +20,9 @@ error[E0412]: cannot find type `Runtime` in this scope
    |
 42 | impl pallet::Config for Runtime {}
    |                         ^^^^^^^ not found in this scope
+   |
+help: there is an enum variant `sp_api::__private::TransactionType::Runtime`; try using the variant's enum
+   |
+42 - impl pallet::Config for Runtime {}
+42 + impl pallet::Config for sp_api::__private::TransactionType {}
+   |

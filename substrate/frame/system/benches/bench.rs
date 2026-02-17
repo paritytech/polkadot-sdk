@@ -16,15 +16,8 @@
 // limitations under the License.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use frame_support::{
-	derive_impl,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
-};
+use frame_support::{derive_impl, dispatch::DispatchClass};
+use sp_runtime::{BuildStorage, Perbill};
 #[frame_support::pallet]
 mod module {
 	use frame_support::pallet_prelude::*;
@@ -34,6 +27,7 @@ mod module {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -53,38 +47,23 @@ frame_support::construct_runtime!(
 	}
 );
 
+const MAX_BLOCK_LENGTH: u32 = 4 * 1024 * 1024;
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+
 frame_support::parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength =
-		frame_system::limits::BlockLength::max_with_normal_ratio(
-			4 * 1024 * 1024, Perbill::from_percent(75),
-		);
+		frame_system::limits::BlockLength::builder()
+			.max_length(MAX_BLOCK_LENGTH)
+			.modify_max_length_for_class(DispatchClass::Normal, |m| {
+				*m = NORMAL_DISPATCH_RATIO * MAX_BLOCK_LENGTH
+			})
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = BlockLength;
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
 	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl module::Config for Runtime {

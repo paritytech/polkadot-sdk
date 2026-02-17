@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'transfer function Preservation is changed to Expendable in fungible and fungibles adapter'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The Preservation of transfer method of fungible and fungibles adapters is changed from Preserve to Expendable. So the behavior of the TransferAsset will be consistent with the WithdrawAsset function, as in fungible and fungibles adapter.
+
+crates: 
+- name: staging-xcm-builder
+  bump: patch

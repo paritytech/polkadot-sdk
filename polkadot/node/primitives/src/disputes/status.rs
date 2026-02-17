@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 /// Timestamp based on the 1 Jan 1970 UNIX base, which is persistent across node restarts and OS
 /// reboots.
@@ -103,12 +103,15 @@ impl DisputeStatus {
 	/// candidate. This may be a no-op if the status was already concluded.
 	pub fn conclude_against(self, now: Timestamp) -> DisputeStatus {
 		match self {
-			DisputeStatus::Active | DisputeStatus::Confirmed =>
-				DisputeStatus::ConcludedAgainst(now),
-			DisputeStatus::ConcludedFor(at) =>
-				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now)),
-			DisputeStatus::ConcludedAgainst(at) =>
-				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now)),
+			DisputeStatus::Active | DisputeStatus::Confirmed => {
+				DisputeStatus::ConcludedAgainst(now)
+			},
+			DisputeStatus::ConcludedFor(at) => {
+				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now))
+			},
+			DisputeStatus::ConcludedAgainst(at) => {
+				DisputeStatus::ConcludedAgainst(std::cmp::min(at, now))
+			},
 		}
 	}
 

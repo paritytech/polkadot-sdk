@@ -16,16 +16,18 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::scheduler;
-use primitives::{CoreIndex, Id as ParaId};
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use crate::{disputes, initializer, paras};
+use alloc::vec::Vec;
 
-/// Returns the claimqueue from the scheduler
-pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	<scheduler::Pallet<T>>::claimqueue()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
-		})
-		.collect()
+use polkadot_primitives::{slashing, CandidateHash, Id as ParaId, SessionIndex};
+
+/// Implementation of `para_ids` runtime API
+pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
+	paras::Heads::<T>::iter_keys().collect()
+}
+
+/// Implementation of `unapplied_slashes_v2` runtime API
+pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
+) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+	disputes::slashing::Pallet::<T>::unapplied_slashes()
 }

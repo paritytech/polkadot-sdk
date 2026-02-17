@@ -165,6 +165,20 @@ impl<Block: BlockT> StateAction<Block> {
 	}
 }
 
+impl<Block: BlockT> From<StorageChanges<Block>> for StateAction<Block> {
+	fn from(value: StorageChanges<Block>) -> Self {
+		Self::ApplyChanges(value)
+	}
+}
+
+impl<Block: BlockT> From<sp_state_machine::StorageChanges<HashingFor<Block>>>
+	for StateAction<Block>
+{
+	fn from(value: sp_state_machine::StorageChanges<HashingFor<Block>>) -> Self {
+		Self::ApplyChanges(StorageChanges::Changes(value))
+	}
+}
+
 /// Data required to import a Block.
 #[non_exhaustive]
 pub struct BlockImportParams<Block: BlockT> {
@@ -214,6 +228,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub fork_choice: Option<ForkChoiceStrategy>,
 	/// Re-validate existing block.
 	pub import_existing: bool,
+	/// Whether to create "block gap" in case this block doesn't have parent.
+	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
 }
@@ -228,12 +244,24 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			post_digests: Vec::new(),
 			body: None,
 			indexed_body: None,
-			state_action: StateAction::Execute,
+			// Warp sync blocks are already verified, skip execution.
+			state_action: if origin == BlockOrigin::WarpSync {
+				StateAction::Skip
+			} else {
+				StateAction::Execute
+			},
 			finalized: false,
 			intermediates: HashMap::new(),
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
+			// Never create gaps for warp sync imported blocks.
+			// Warp sync downloads only session blocks. Gap sync to work needs one gap even if
+			// between gap start and gap end some blocks are existing. If each warp sync block
+			// created a gap, every new block import would override the previous gap, losing the
+			// real gap start. In case of warp sync a gap is created separately when the target
+			// block with state is imported.
+			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}
 	}
@@ -307,16 +335,10 @@ pub trait BlockImport<B: BlockT> {
 	type Error: std::error::Error + Send + 'static;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error>;
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error>;
 
 	/// Import a block.
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error>;
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error>;
 }
 
 #[async_trait::async_trait]
@@ -324,18 +346,12 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).check_block(block).await
 	}
 
 	/// Import a block.
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).import_block(block).await
 	}
 }
@@ -348,17 +364,11 @@ where
 {
 	type Error = E;
 
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).check_block(block).await
 	}
 
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).import_block(block).await
 	}
 }

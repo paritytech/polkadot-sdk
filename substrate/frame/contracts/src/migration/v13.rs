@@ -24,14 +24,13 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
+use frame_support::{pallet_prelude::*, storage_alias, weights::WeightMeter, DefaultNoBound};
 use sp_runtime::BoundedBTreeMap;
-use sp_std::prelude::*;
 
 mod v12 {
 	use super::*;
 
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ContractInfo<T: Config> {
 		pub trie_id: TrieId,
@@ -76,7 +75,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 pub type ContractInfoOf<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, <T as frame_system::Config>::AccountId, ContractInfo<T>>;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	trie_id: TrieId,
@@ -102,7 +101,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v13_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
 			v12::ContractInfoOf::<T>::iter_from(v12::ContractInfoOf::<T>::hashed_key_for(
 				last_account,
@@ -126,10 +125,12 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			ContractInfoOf::<T>::insert(key.clone(), info);
 			self.last_account = Some(key);
-			(IsFinished::No, T::WeightInfo::v13_migration_step())
+			meter.consume(T::WeightInfo::v13_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts to migrate");
-			(IsFinished::Yes, T::WeightInfo::v13_migration_step())
+			meter.consume(T::WeightInfo::v13_migration_step());
+			IsFinished::Yes
 		}
 	}
 }

@@ -70,7 +70,7 @@ A Parachain validator needs to validate a given PoVBlock, but without requiring 
 the Parachain. To still make it possible to validate the Parachain block, the PoVBlock contains the
 witness data. The witness data is a proof that is collected while building the block. The proof will
 contain all trie nodes that are read during the block production. Cumulus uses the witness data to
-reconstruct a partial trie and uses this a storage when executing the block.
+reconstruct a partial trie and uses this as storage when executing the block.
 
 The outgoing messages are also collected at block production. These are messages from the Parachain
 the block is built for to other Parachains or to the relay chain itself.

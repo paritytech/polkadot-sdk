@@ -22,8 +22,8 @@ use crate as pallet_assets;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
+	assert_ok, construct_runtime, derive_impl, parameter_types,
+	traits::{AsEnsureOriginWithArg, ConstU32},
 };
 use sp_io::storage;
 use sp_runtime::BuildStorage;
@@ -49,20 +49,9 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<3>;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 }
 
 pub struct AssetsCallbackHandle;
@@ -114,7 +103,25 @@ impl Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Freezer = TestFreezer;
-	type CallbackHandle = AssetsCallbackHandle;
+	type Holder = TestHolder;
+	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
+	type ReserveData = u128;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetsBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetsBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl<AssetIdParameter: From<u32>, ReserveIdParameter: From<u32>>
+	BenchmarkHelper<AssetIdParameter, ReserveIdParameter> for AssetsBenchmarkHelper
+{
+	fn create_asset_id_parameter(id: u32) -> AssetIdParameter {
+		id.into()
+	}
+	fn create_reserve_id_parameter(id: u32) -> ReserveIdParameter {
+		id.into()
+	}
 }
 
 use std::collections::HashMap;
@@ -125,9 +132,50 @@ pub enum Hook {
 }
 parameter_types! {
 	static Frozen: HashMap<(u32, u64), u64> = Default::default();
+	static OnHold: HashMap<(u32, u64), u64> = Default::default();
 	static Hooks: Vec<Hook> = Default::default();
 }
 
+pub struct TestHolder;
+impl BalanceOnHold<u32, u64, u64> for TestHolder {
+	fn balance_on_hold(asset: u32, who: &u64) -> Option<u64> {
+		OnHold::get().get(&(asset, *who)).cloned()
+	}
+
+	fn died(asset: u32, who: &u64) {
+		Hooks::mutate(|v| v.push(Hook::Died(asset, *who)))
+	}
+
+	fn contains_holds(asset: AssetId) -> bool {
+		OnHold::get().iter().any(|((k, _), _)| &asset == k)
+	}
+}
+
+pub(crate) fn set_balance_on_hold(asset: u32, who: u64, amount: u64) {
+	OnHold::mutate(|v| {
+		let amount_on_hold = v.get(&(asset, who)).unwrap_or(&0);
+
+		if &amount > amount_on_hold {
+			// Hold more funds
+			let amount = amount - amount_on_hold;
+			let f = DebitFlags { keep_alive: true, best_effort: false };
+			assert_ok!(Assets::decrease_balance(asset, &who, amount, f, |_, _| Ok(())));
+		} else {
+			// Release funds on hold
+			let amount = amount_on_hold - amount;
+			assert_ok!(Assets::increase_balance(asset, &who, amount, |_| Ok(())));
+		}
+
+		// Asset amount still "exists", we just store it here
+		v.insert((asset, who), amount);
+	});
+}
+
+pub(crate) fn clear_balance_on_hold(asset: u32, who: u64) {
+	OnHold::mutate(|v| {
+		v.remove(&(asset, who));
+	});
+}
 pub struct TestFreezer;
 impl FrozenBalance<u32, u64, u64> for TestFreezer {
 	fn frozen_balance(asset: u32, who: &u64) -> Option<u64> {
@@ -139,6 +187,11 @@ impl FrozenBalance<u32, u64, u64> for TestFreezer {
 
 		// Sanity check: dead accounts have no balance.
 		assert!(Assets::balance(asset, *who).is_zero());
+	}
+
+	/// Return a value that indicates if there are registered freezes for a given asset.
+	fn contains_freezes(asset: AssetId) -> bool {
+		Frozen::get().iter().any(|((k, _), _)| &asset == k)
 	}
 }
 
@@ -178,6 +231,8 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 			// id, account_id, balance
 			(999, 1, 100),
 		],
+		next_asset_id: None,
+		reserves: vec![],
 	};
 
 	config.assimilate_storage(&mut storage).unwrap();
@@ -187,4 +242,11 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| take_hooks());
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Assets::do_try_state().expect("All invariants must hold after a test");
+	})
 }

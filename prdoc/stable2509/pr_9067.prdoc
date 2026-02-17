@@ -1,0 +1,19 @@
+title: '[AHM] Derive DecodeWithMemTracking and pub fields'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Derive `DecodeWithMemTracking` on structs
+    - Make some fields public
+crates:
+- name: pallet-balances
+  bump: minor
+- name: pallet-bounties
+  bump: minor
+- name: pallet-democracy
+  bump: minor
+- name: pallet-proxy
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-treasury
+  bump: minor

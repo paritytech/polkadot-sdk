@@ -1,0 +1,15 @@
+title: Optimize finalization performance
+
+doc:
+  - audience: Node Dev
+    description: |
+      Finalization algorithm was replaced with a more efficient version, data structures refactored to be faster and do
+      fewer memory allocations. As the result some APIs have changed in a minor, but incompatible way.
+
+crates:
+- name: sc-client-api
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sp-blockchain
+  bump: major

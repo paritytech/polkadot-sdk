@@ -1,0 +1,24 @@
+title: "Prospective parachains rework"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Changes prospective-parachains from dealing with trees of unincluded candidates to maintaining only candidate chains
+      and a number of unconnected candidates (for which we don't yet know the parent candidate but which otherwise seem potentially viable).
+      This is needed for elastic scaling, in order to have full throughput even if a candidate is validated by a backing group before the parent candidate
+      is fetched from the other backing group.
+      Also simplifies the subsystem by no longer allowing parachain cycles.
+
+crates:
+  - name: polkadot-node-core-prospective-parachains
+    bump: major
+  - name: polkadot-node-core-backing
+    bump: minor
+  - name: polkadot-collator-protocol
+    bump: minor
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-subsystem-util
+    bump: major

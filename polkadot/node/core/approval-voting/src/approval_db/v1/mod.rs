@@ -22,11 +22,11 @@
 //! its data in the database. Any breaking changes here will still
 //! require a db migration (check `node/service/src/parachains_db/upgrade.rs`).
 
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use polkadot_node_primitives::approval::v1::{AssignmentCert, DelayTranche};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash, SessionIndex,
-	ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_slots::Slot;
 use std::collections::BTreeMap;

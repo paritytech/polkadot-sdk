@@ -11,9 +11,9 @@
 //! 1. Society and technology evolves.
 //! 2. Humans are fallible.
 //!
-//! This, makes the task of designing a correct, safe and long-lasting blockchain system hard.
+//! This makes the task of designing a correct, safe and long-lasting blockchain system hard.
 //!
-//! Nonetheless, in strive towards achieve this goal, Substrate embraces the following:
+//! Nonetheless, in strive towards achieving this goal, Substrate embraces the following:
 //!
 //! 1. Use of **Rust** as a modern and safe programming language, which limits human error through
 //!    various means, most notably memory and type safety.
@@ -27,7 +27,7 @@
 //!    blob.
 //!
 //! In essence, the meta-protocol of all Substrate based chains is the "Runtime as WASM blob"
-//! accord. This enables the Runtime to become inherently upgradeable, crucially without forks. The
+//! accord. This enables the Runtime to become inherently upgradeable, crucially without [forks](https://en.wikipedia.org/wiki/Fork_(blockchain)). The
 //! upgrade is merely a matter of the WASM blob being changed in the state, which is, in principle,
 //! same as updating an account's balance. Learn more about this in detail in
 //! [`crate::reference_docs::wasm_meta_protocol`].
@@ -55,7 +55,6 @@
 //! > A notable Substrate-based blockchain that has built both custom FRAME pallets and custom
 //! > node-side components is <https://github.com/Cardinal-Cryptography/aleph-node>.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_dev.mmd")]
-//!
 //! ## Structure
 //!
 //! Substrate contains a large number of crates, therefore it is useful to have an overview of what
@@ -63,9 +62,9 @@
 //! categories:
 //!
 //! * `sc-*` (short for *Substrate-client*) crates, located under `./client` folder. These are all
-//!   the crates that lead to the node software. Notable examples [`sc_network`], various consensus
-//!   crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are expected to
-//!   reside in the node side.
+//!   the crates that lead to the node software. Notable examples are [`sc_network`], various
+//!   consensus crates, RPC ([`sc_rpc_api`]) and database ([`sc_client_db`]), all of which are
+//!   expected to reside in the node side.
 //! * `sp-*` (short for *substrate-primitives*) crates, located under `./primitives` folder. These
 //!   are crates that facilitate both the node and the runtime, but are not opinionated about what
 //!   framework is using for building the runtime. Notable examples are [`sp_api`] and [`sp_io`],
@@ -86,23 +85,18 @@
 //!
 //! Substrate-based runtimes use [`substrate_wasm_builder`] in their `build.rs` to automatically
 //! build their WASM files as a part of normal build command (e.g. `cargo build`). Once built, the
-//! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}.wasm`.
+//! wasm file is placed in `./target/{debug|release}/wbuild/{runtime_name}/{runtime_name}.wasm`.
 //!
-//! ### Binaries
+//! In order to ensure that the WASM build is **deterministic**, the [Substrate Runtime Toolbox (srtool)](https://github.com/paritytech/srtool) can be used.
 //!
-//! Multiple binaries are shipped with substrate, the most important of which are located in the
-//! [`./bin`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin) folder.
+//! #### Building individual crates
 //!
-//! * [`node_cli`] is an extensive substrate node that contains the superset of all runtime and node
-//!   side features. The corresponding runtime, called [`kitchensink_runtime`] contains all of the
-//!   modules that are provided with `FRAME`. This node and runtime is only used for testing and
-//!   demonstration.
-//!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
-//!       node. Other projects typically contain a `build-spec` subcommand that does the same.
-//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node):
-//!   a template node that contains a minimal set of features and can act as a starting point of a
-//!   project.
-//! * [`subkey`]: Substrate's key management utility.
+//! When building full runtimes, the WASM builder takes care of all required configuration.
+//! For individual crates, however, the `substrate_runtime` Rust flag is needed, e.g.:
+//!
+//! ```bash
+//! RUSTFLAGS="--cfg substrate_runtime" cargo build -p sp-io --target=wasm32-unknown-unknown --no-default-features
+//! ```
 //!
 //! ### Anatomy of a Binary Crate
 //!

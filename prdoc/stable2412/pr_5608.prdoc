@@ -1,0 +1,16 @@
+title: "[pallet-revive] update runtime types" 
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactor the Ext trait to use U256 instead of BalanceOf<T> or MomentOf<T>
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-uapi
+    bump: patch
+  - name: pallet-revive-fixtures
+    bump: patch
+
+

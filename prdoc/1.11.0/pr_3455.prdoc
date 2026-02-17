@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Region reserve transfers fix
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR introduces changes enabling the transfer of coretime regions via XCM.
+      There are two primary issues that are resolved in this PR:
+      1. The mint and burn functions were not implemented for coretime regions. These operations
+        are essential for moving assets to and from the XCM holding register.
+      2. The transfer of non-fungible assets through XCM was previously disallowed. This was due 
+        to incorrectly benchmarking non-fungible asset transfers via XCM, which led to assigning 
+        it a weight of Weight::Max, effectively preventing its execution.
+
+migrations: 
+  db: []
+  runtime: 
+    - reference: pallet-broker
+      description: |
+        The region owner is optional.
+
+crates: 
+  - name: pallet-broker
+  - name: pallet-xcm
+  - name: coretime-rococo-runtime
+  - name: coretime-westend-runtime

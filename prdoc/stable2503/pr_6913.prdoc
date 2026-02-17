@@ -1,0 +1,13 @@
+title: Enable approval-voting-parallel by default on polkadot
+
+doc:
+  - audience: Node Dev
+    description: |
+        Enable approval-voting-parallel by default on polkadot
+crates:
+  - name: polkadot-network-bridge
+    bump: minor
+  - name: polkadot-gossip-support
+    bump: minor
+  - name: polkadot-overseer
+    bump: minor

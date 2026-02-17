@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! Cumulus CLI library.
 
@@ -21,13 +22,13 @@
 use std::{
 	fs,
 	io::{self, Write},
-	net::SocketAddr,
 	path::PathBuf,
 	sync::Arc,
 };
 
 use codec::Encode;
 use sc_chain_spec::ChainSpec;
+use sc_cli::RpcEndpoint;
 use sc_client_api::HeaderBackend;
 use sc_service::{
 	config::{PrometheusConfig, RpcBatchRequestConfig, TelemetryEndpoints},
@@ -96,7 +97,7 @@ impl PurgeChainCmd {
 				Some('y') | Some('Y') => {},
 				_ => {
 					println!("Aborted");
-					return Ok(())
+					return Ok(());
 				},
 			}
 		}
@@ -303,10 +304,25 @@ pub struct RunCmd {
 	)]
 	pub relay_chain_rpc_urls: Vec<Url>,
 
-	/// EXPERIMENTAL: Embed a light client for the relay chain. Only supported for full-nodes.
-	/// Will use the specified relay chain chainspec.
-	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
-	pub relay_chain_light_client: bool,
+	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
+	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
+	/// configuration of the relay-chain.
+	///
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	#[arg(long)]
+	pub experimental_max_pov_percentage: Option<u32>,
+
+	/// Disable embedded DHT bootnode.
+	///
+	/// Do not advertise the node as a parachain bootnode on the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode: bool,
+
+	/// Disable DHT bootnode discovery.
+	///
+	/// Disable discovery of the parachain bootnodes via the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode_discovery: bool,
 }
 
 impl RunCmd {
@@ -322,14 +338,17 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		let relay_chain_mode =
-			match (self.relay_chain_light_client, !self.relay_chain_rpc_urls.is_empty()) {
-				(true, _) => RelayChainMode::LightClient,
-				(_, true) => RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone()),
-				_ => RelayChainMode::Embedded,
-			};
+		let relay_chain_mode = if self.relay_chain_rpc_urls.is_empty() {
+			RelayChainMode::Embedded
+		} else {
+			RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone())
+		};
 
-		CollatorOptions { relay_chain_mode }
+		CollatorOptions {
+			relay_chain_mode,
+			embedded_dht_bootnode: !self.no_dht_bootnode,
+			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
+		}
 	}
 }
 
@@ -340,15 +359,17 @@ pub enum RelayChainMode {
 	Embedded,
 	/// Connect to remote relay chain node via websocket RPC
 	ExternalRpc(Vec<Url>),
-	/// Spawn embedded relay chain light client
-	LightClient,
 }
 
-/// Options only relevant for collator nodes
+/// Options only relevant for collator/parachain nodes
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
+	/// Enable embedded DHT bootnode.
+	pub embedded_dht_bootnode: bool,
+	/// Enable DHT bootnode discovery.
+	pub dht_bootnode_discovery: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
@@ -423,7 +444,7 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_cors(is_dev)
 	}
 
-	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<SocketAddr>> {
+	fn rpc_addr(&self, default_listen_port: u16) -> sc_cli::Result<Option<Vec<RpcEndpoint>>> {
 		self.base.rpc_addr(default_listen_port)
 	}
 
@@ -431,20 +452,32 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		self.base.rpc_methods()
 	}
 
+	fn rpc_rate_limit(&self) -> sc_cli::Result<Option<std::num::NonZeroU32>> {
+		Ok(self.base.rpc_params.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_ips(&self) -> sc_cli::Result<Vec<sc_service::config::IpNetwork>> {
+		Ok(self.base.rpc_params.rpc_rate_limit_whitelisted_ips.clone())
+	}
+
+	fn rpc_rate_limit_trust_proxy_headers(&self) -> sc_cli::Result<bool> {
+		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
+	}
+
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_request_size)
+		self.base.rpc_max_request_size()
 	}
 
 	fn rpc_max_response_size(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_response_size)
+		self.base.rpc_max_response_size()
 	}
 
 	fn rpc_max_subscriptions_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_max_subscriptions_per_connection)
+		self.base.rpc_max_subscriptions_per_connection()
 	}
 
 	fn rpc_buffer_capacity_per_connection(&self) -> sc_cli::Result<u32> {
-		Ok(self.base.rpc_message_buffer_capacity_per_connection)
+		Ok(self.base.rpc_params.rpc_message_buffer_capacity_per_connection)
 	}
 
 	fn rpc_batch_config(&self) -> sc_cli::Result<RpcBatchRequestConfig> {

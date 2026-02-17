@@ -1,0 +1,11 @@
+title: Enable approval-voting-parallel by default on polkadot
+
+doc:
+  - audience: Node Dev
+    description: |
+        Enable approval-voting-parallel by default on polkadot
+crates:
+  - name: polkadot-service
+    bump: patch
+  - name: polkadot-cli
+    bump: patch

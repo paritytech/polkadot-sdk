@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::OriginCaller;
+use alloc::boxed::Box;
+use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::DispatchResultWithPostInfo,
 	traits::{Currency, PrivilegeCmp},
@@ -21,7 +23,6 @@ use frame_support::{
 };
 use pallet_alliance::{ProposalIndex, ProposalProvider};
 use sp_runtime::DispatchError;
-use sp_std::{cmp::Ordering, marker::PhantomData, prelude::*};
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -91,7 +92,7 @@ pub struct EqualOrGreatestRootCmp;
 impl PrivilegeCmp<OriginCaller> for EqualOrGreatestRootCmp {
 	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
 		if left == right {
-			return Some(Ordering::Equal)
+			return Some(Ordering::Equal);
 		}
 		match (left, right) {
 			// Root is greater than anything.

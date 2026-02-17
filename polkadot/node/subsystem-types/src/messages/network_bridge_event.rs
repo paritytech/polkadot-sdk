@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, convert::TryFrom};
+use std::collections::HashSet;
 
-pub use sc_network::{PeerId, ReputationChange};
+pub use sc_network::ReputationChange;
+pub use sc_network_types::PeerId;
 
 use polkadot_node_network_protocol::{
 	grid_topology::SessionGridTopology, peer_set::ProtocolVersion, ObservedRole, OurView, View,
@@ -88,24 +89,30 @@ impl<M> NetworkBridgeEvent<M> {
 		T: TryFrom<&'a M, Error = WrongVariant>,
 	{
 		Ok(match *self {
-			NetworkBridgeEvent::PeerMessage(ref peer, ref msg) =>
-				NetworkBridgeEvent::PeerMessage(*peer, T::try_from(msg)?),
+			NetworkBridgeEvent::PeerMessage(ref peer, ref msg) => {
+				NetworkBridgeEvent::PeerMessage(*peer, T::try_from(msg)?)
+			},
 			NetworkBridgeEvent::PeerConnected(
 				ref peer,
 				ref role,
 				ref version,
 				ref authority_id,
 			) => NetworkBridgeEvent::PeerConnected(*peer, *role, *version, authority_id.clone()),
-			NetworkBridgeEvent::PeerDisconnected(ref peer) =>
-				NetworkBridgeEvent::PeerDisconnected(*peer),
-			NetworkBridgeEvent::NewGossipTopology(ref topology) =>
-				NetworkBridgeEvent::NewGossipTopology(topology.clone()),
-			NetworkBridgeEvent::PeerViewChange(ref peer, ref view) =>
-				NetworkBridgeEvent::PeerViewChange(*peer, view.clone()),
-			NetworkBridgeEvent::OurViewChange(ref view) =>
-				NetworkBridgeEvent::OurViewChange(view.clone()),
-			NetworkBridgeEvent::UpdatedAuthorityIds(ref peer, ref authority_ids) =>
-				NetworkBridgeEvent::UpdatedAuthorityIds(*peer, authority_ids.clone()),
+			NetworkBridgeEvent::PeerDisconnected(ref peer) => {
+				NetworkBridgeEvent::PeerDisconnected(*peer)
+			},
+			NetworkBridgeEvent::NewGossipTopology(ref topology) => {
+				NetworkBridgeEvent::NewGossipTopology(topology.clone())
+			},
+			NetworkBridgeEvent::PeerViewChange(ref peer, ref view) => {
+				NetworkBridgeEvent::PeerViewChange(*peer, view.clone())
+			},
+			NetworkBridgeEvent::OurViewChange(ref view) => {
+				NetworkBridgeEvent::OurViewChange(view.clone())
+			},
+			NetworkBridgeEvent::UpdatedAuthorityIds(ref peer, ref authority_ids) => {
+				NetworkBridgeEvent::UpdatedAuthorityIds(*peer, authority_ids.clone())
+			},
 		})
 	}
 }

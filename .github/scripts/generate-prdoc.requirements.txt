@@ -1,0 +1,6 @@
+requests
+cargo-workspace
+PyGithub
+whatthepatch
+pyyaml
+toml

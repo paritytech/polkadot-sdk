@@ -16,18 +16,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use async_trait::async_trait;
 use codec::Encode;
-use futures::Future;
 use sc_transaction_pool::BasicPool;
 use sc_transaction_pool_api::{
-	ImportNotificationStream, PoolFuture, PoolStatus, ReadyTransactions, TransactionFor,
-	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash,
+	ImportNotificationStream, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool,
+	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 
 use crate::hex_string;
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 use substrate_test_runtime_transaction_pool::TestApi;
 use tokio::sync::mpsc;
@@ -77,71 +77,72 @@ impl MiddlewarePool {
 	}
 }
 
+#[async_trait]
 impl TransactionPool for MiddlewarePool {
 	type Block = <BasicPool<TestApi, Block> as TransactionPool>::Block;
 	type Hash = <BasicPool<TestApi, Block> as TransactionPool>::Hash;
 	type InPoolTransaction = <BasicPool<TestApi, Block> as TransactionPool>::InPoolTransaction;
 	type Error = <BasicPool<TestApi, Block> as TransactionPool>::Error;
 
-	fn submit_at(
+	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-		self.inner_pool.submit_at(at, source, xts)
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+		self.inner_pool.submit_at(at, source, xts).await
 	}
 
-	fn submit_one(
+	async fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error> {
-		self.inner_pool.submit_one(at, source, xt)
+	) -> Result<TxHash<Self>, Self::Error> {
+		self.inner_pool.submit_one(at, source, xt).await
 	}
 
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		let pool = self.inner_pool.clone();
-		let sender = self.sender.clone();
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		let transaction = hex_string(&xt.encode());
+		let sender = self.sender.clone();
 
-		async move {
-			let watcher = match pool.submit_and_watch(at, source, xt).await {
-				Ok(watcher) => watcher,
-				Err(err) => {
-					let _ = sender.send(MiddlewarePoolEvent::PoolError {
-						transaction: transaction.clone(),
-						err: err.to_string(),
-					});
-					return Err(err);
-				},
-			};
-
-			let watcher = watcher.map(move |status| {
-				let sender = sender.clone();
-				let transaction = transaction.clone();
-
-				let _ = sender.send(MiddlewarePoolEvent::TransactionStatus {
-					transaction,
-					status: status.clone(),
+		let watcher = match self.inner_pool.submit_and_watch(at, source, xt).await {
+			Ok(watcher) => watcher,
+			Err(err) => {
+				let _ = sender.send(MiddlewarePoolEvent::PoolError {
+					transaction: transaction.clone(),
+					err: err.to_string(),
 				});
+				return Err(err);
+			},
+		};
 
-				status
+		let watcher = watcher.map(move |status| {
+			let sender = sender.clone();
+			let transaction = transaction.clone();
+
+			let _ = sender.send(MiddlewarePoolEvent::TransactionStatus {
+				transaction,
+				status: status.clone(),
 			});
 
-			Ok(watcher.boxed())
-		}
-		.boxed()
+			status
+		});
+
+		Ok(watcher.boxed())
 	}
 
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.inner_pool.remove_invalid(hashes)
+	async fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>> {
+		self.inner_pool.report_invalid(at, invalid_tx_errors).await
 	}
 
 	fn status(&self) -> PoolStatus {
@@ -164,17 +165,11 @@ impl TransactionPool for MiddlewarePool {
 		self.inner_pool.ready_transaction(hash)
 	}
 
-	fn ready_at(
+	async fn ready_at(
 		&self,
-		at: NumberFor<Self::Block>,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	> {
-		self.inner_pool.ready_at(at)
+		at: <Self::Block as BlockT>::Hash,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+		self.inner_pool.ready_at(at).await
 	}
 
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
@@ -183,5 +178,13 @@ impl TransactionPool for MiddlewarePool {
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
 		self.inner_pool.futures()
+	}
+
+	async fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		_timeout: std::time::Duration,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+		self.inner_pool.ready_at(at).await
 	}
 }

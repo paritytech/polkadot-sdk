@@ -36,7 +36,7 @@ use sp_core::{
 	},
 };
 use sp_externalities::{Extension, ExtensionStore, Extensions};
-use sp_trie::{PrefixedMemoryDB, StorageProof};
+use sp_trie::{recorder::Recorder, PrefixedMemoryDB, StorageProof};
 
 /// Simple HashMap-based Externalities impl.
 pub struct TestExternalities<H>
@@ -61,7 +61,7 @@ where
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// Get externalities implementation.
-	pub fn ext(&mut self) -> Ext<H, InMemoryBackend<H>> {
+	pub fn ext(&mut self) -> Ext<'_, H, InMemoryBackend<H>> {
 		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
 	}
 
@@ -169,7 +169,7 @@ where
 
 			if key.len() < hash_len {
 				log::warn!("Invalid key in `from_raw_snapshot`: {key:?}");
-				continue
+				continue;
 			}
 
 			hash.as_mut().copy_from_slice(&key[(key.len() - hash_len)..]);
@@ -209,12 +209,15 @@ where
 	///
 	/// In contrast to [`commit_all`](Self::commit_all) this will not panic if there are open
 	/// transactions.
-	pub fn as_backend(&self) -> InMemoryBackend<H> {
-		let top: Vec<_> =
-			self.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())).collect();
+	pub fn as_backend(&mut self) -> InMemoryBackend<H> {
+		let top: Vec<_> = self
+			.overlay
+			.changes_mut()
+			.map(|(k, v)| (k.clone(), v.value().cloned()))
+			.collect();
 		let mut transaction = vec![(None, top)];
 
-		for (child_changes, child_info) in self.overlay.children() {
+		for (child_changes, child_info) in self.overlay.children_mut() {
 			transaction.push((
 				Some(child_info.clone()),
 				child_changes.map(|(k, v)| (k.clone(), v.value().cloned())).collect(),
@@ -263,6 +266,21 @@ where
 		(outcome, proof)
 	}
 
+	/// Execute the given closure while `self` set as externalities and the given `proof_recorder`
+	/// enabled.
+	pub fn execute_with_recorder<R>(
+		&mut self,
+		proof_recorder: Recorder<H>,
+		execute: impl FnOnce() -> R,
+	) -> R {
+		let proving_backend =
+			TrieBackendBuilder::wrap(&self.backend).with_recorder(proof_recorder).build();
+		let mut proving_ext =
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+
+		sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute)
+	}
+
 	/// Execute the given closure while `self` is set as externalities.
 	///
 	/// Returns the result of the given closure, if no panics occurred.
@@ -276,6 +294,11 @@ where
 			sp_externalities::set_and_run_with_externalities(&mut *ext, f)
 		})
 		.map_err(|e| format!("Closure panicked: {:?}", e))
+	}
+
+	/// Resets the overlay to its default state.
+	pub fn reset_overlay(&mut self) {
+		self.overlay = Default::default();
 	}
 }
 
@@ -293,13 +316,14 @@ where
 	}
 }
 
-impl<H: Hasher> PartialEq for TestExternalities<H>
+impl<H> TestExternalities<H>
 where
+	H: Hasher,
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// This doesn't test if they are in the same state, only if they contains the
 	/// same data at this state
-	fn eq(&self, other: &TestExternalities<H>) -> bool {
+	pub fn eq(&mut self, other: &mut TestExternalities<H>) -> bool {
 		self.as_backend().eq(&other.as_backend())
 	}
 }

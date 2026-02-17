@@ -1,0 +1,13 @@
+title: '[omni-bencher] Make all runtimes work'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Add `--exclude-pallets` to exclude some pallets from runtimes where we dont have genesis presets yet
+    - Make `--genesis-builder-policy=none` work with `--runtime`
+    - CI: Run the frame-omni-bencher for all runtimes
+crates:
+- name: frame-benchmarking-cli
+  bump: major
+- name: contracts-rococo-runtime
+  bump: patch

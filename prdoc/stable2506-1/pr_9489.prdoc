@@ -1,0 +1,8 @@
+title: Remove free balance check in prepare_unlock
+doc:
+- audience: Runtime Dev
+  description: The free balance check during unlocking is unnecessary since a lock can cover both free and reserved 
+    balances. Removing it allows locks to be cleared even if part of the locked funds is reserved or already slashed.
+crates:
+- name: pallet-xcm
+  bump: patch

@@ -50,15 +50,16 @@ pub struct AccountIdConverter;
 impl xcm_executor::traits::ConvertLocation<u64> for AccountIdConverter {
 	fn convert_location(ml: &Location) -> Option<u64> {
 		match ml.unpack() {
-			(0, [Junction::AccountId32 { id, .. }]) =>
-				Some(<u64 as codec::Decode>::decode(&mut &*id.to_vec()).unwrap()),
+			(0, [Junction::AccountId32 { id, .. }]) => {
+				Some(<u64 as codec::Decode>::decode(&mut &*id.to_vec()).unwrap())
+			},
 			_ => None,
 		}
 	}
 }
 
 parameter_types! {
-	pub UniversalLocation: InteriorLocation = Junction::Parachain(101).into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([1; 32])), Junction::Parachain(101)].into();
 	pub UnitWeightCost: Weight = Weight::from_parts(10, 10);
 	pub WeightPrice: (AssetId, u128, u128) = (AssetId(Here.into()), 1_000_000, 1024);
 }

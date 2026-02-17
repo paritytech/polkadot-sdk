@@ -21,9 +21,9 @@
 
 use crate::{futures_stream::FuturesStream, LOG_TARGET};
 use futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
-use libp2p::PeerId;
 use log::{debug, error, trace, warn};
 use sc_network_common::sync::message::BlockAnnounce;
+use sc_network_types::PeerId;
 use sp_consensus::block_validation::Validation;
 use sp_runtime::traits::{Block as BlockT, Header, Zero};
 use std::{
@@ -139,7 +139,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				peer_id,
 				hash,
 			);
-			return
+			return;
 		}
 
 		// Try to allocate a slot for this block announce validation.
@@ -153,17 +153,17 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 			AllocateSlotForBlockAnnounceValidation::MaximumPeerSlotsReached => {
-				warn!(
+				debug!(
 					target: LOG_TARGET,
 					"💔 Ignored block (#{} -- {}) announcement from {} because all validation slots for this peer are occupied.",
 					number,
 					hash,
 					peer_id,
 				);
-				return
+				return;
 			},
 		}
 
@@ -231,7 +231,7 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 		peer_id: &PeerId,
 	) -> AllocateSlotForBlockAnnounceValidation {
 		if self.validations.len() >= MAX_CONCURRENT_BLOCK_ANNOUNCE_VALIDATIONS {
-			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached
+			return AllocateSlotForBlockAnnounceValidation::TotalMaximumSlotsReached;
 		}
 
 		match self.validations_per_peer.entry(*peer_id) {
@@ -262,12 +262,13 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				);
 			},
 			Entry::Occupied(mut entry) => match entry.get().checked_sub(1) {
-				Some(value) =>
+				Some(value) => {
 					if value == 0 {
 						entry.remove();
 					} else {
 						*entry.get_mut() = value;
-					},
+					}
+				},
 				None => {
 					entry.remove();
 
@@ -309,7 +310,7 @@ impl<B: BlockT> FusedStream for BlockAnnounceValidator<B> {
 mod tests {
 	use super::*;
 	use crate::block_announce_validator::AllocateSlotForBlockAnnounceValidation;
-	use libp2p::PeerId;
+	use sc_network_types::PeerId;
 	use sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 	use substrate_test_runtime_client::runtime::Block;
 

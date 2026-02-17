@@ -1,0 +1,57 @@
+title: '[AHM] Make pallet types public'
+doc:
+- audience: Runtime Dev
+  description: Preparation for AHM and making stuff public.
+crates:
+- name: cumulus-pallet-dmp-queue
+  bump: minor
+- name: cumulus-pallet-xcm
+  bump: minor
+- name: polkadot-runtime-common
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: pallet-bags-list
+  bump: minor
+- name: pallet-conviction-voting
+  bump: minor
+- name: pallet-fast-unstake
+  bump: minor
+- name: pallet-multisig
+  bump: minor
+- name: pallet-nomination-pools
+  bump: minor
+- name: pallet-preimage
+  bump: minor
+- name: pallet-scheduler
+  bump: minor
+- name: pallet-vesting
+  bump: minor
+- name: staging-parachain-info
+  bump: minor
+- name: xcm-simulator
+  bump: minor
+- name: pallet-asset-conversion
+  bump: minor
+- name: pallet-assets-freezer
+  bump: minor
+- name: pallet-assets
+  bump: minor
+- name: pallet-authority-discovery
+  bump: minor
+- name: pallet-core-fellowship
+  bump: minor
+- name: pallet-delegated-staking
+  bump: minor
+- name: pallet-example-view-functions
+  bump: minor
+- name: pallet-salary
+  bump: minor
+- name: pallet-society
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-treasury
+  bump: minor
+- name: pallet-uniques
+  bump: minor

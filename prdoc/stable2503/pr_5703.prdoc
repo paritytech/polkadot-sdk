@@ -1,0 +1,13 @@
+title: Properly handle block gap created by fast sync
+
+doc:
+  - audience: Node Dev
+    description: |
+      Implements support for handling block gaps generated during fast sync. This includes managing the creation,
+      updating, and removal of block gaps.
+      Note that this feature is not fully activated until the `body` attribute is removed from the `LightState`
+      block request in chain sync, which will occur after the issue #5406 is resolved.
+
+crates:
+  - name: sc-client-db
+    bump: patch

@@ -13,15 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use asset_hub_westend_runtime;
+
 pub mod genesis;
 
 // Substrate
 use frame_support::traits::OnInitialize;
 
 // Cumulus
+use asset_hub_westend_runtime::ForeignAssetReserveData;
 use emulated_integration_tests_common::{
 	impl_accounts_helpers_for_parachain, impl_assert_events_helpers_for_parachain,
 	impl_assets_helpers_for_parachain, impl_assets_helpers_for_system_parachain,
+	impl_bridge_helpers_for_chain, impl_foreign_assets_helpers_for_parachain,
 	impl_xcm_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 use westend_emulated_chain::Westend;
@@ -39,6 +43,8 @@ decl_test_parachains! {
 			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
+			AdditionalInherentCode: (),
+			native_total_supply_tracker: true,
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
@@ -47,6 +53,8 @@ decl_test_parachains! {
 			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
 			PoolAssets: asset_hub_westend_runtime::PoolAssets,
 			AssetConversion: asset_hub_westend_runtime::AssetConversion,
+			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
+			Revive: asset_hub_westend_runtime::Revive,
 		}
 	},
 }
@@ -56,4 +64,15 @@ impl_accounts_helpers_for_parachain!(AssetHubWestend);
 impl_assert_events_helpers_for_parachain!(AssetHubWestend);
 impl_assets_helpers_for_system_parachain!(AssetHubWestend, Westend);
 impl_assets_helpers_for_parachain!(AssetHubWestend);
+impl_foreign_assets_helpers_for_parachain!(
+	AssetHubWestend,
+	xcm::v5::Location,
+	ForeignAssetReserveData
+);
 impl_xcm_helpers_for_parachain!(AssetHubWestend);
+impl_bridge_helpers_for_chain!(
+	AssetHubWestend,
+	ParaPallet,
+	PolkadotXcm,
+	bp_bridge_hub_westend::RuntimeCall::XcmOverBridgeHubRococo
+);

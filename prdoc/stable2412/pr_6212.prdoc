@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Added Trusted Query API calls for Westend and Rococo chains"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Added is_trusted_reserve and is_trusted_teleporter API calls to relay chains.
+      Given an asset and a location, they return if the chain trusts that location as a reserve or teleporter for that asset respectively.
+      You can implement them on your runtime by simply calling a helper function on `pallet-xcm`.
+      ```rust
+      	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+        fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+          PolkadotXcm::is_trusted_reserve(asset, location)
+        }
+        fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> Result<bool, xcm_runtime_apis::trusted_query::Error> {
+          PolkadotXcm::is_trusted_teleporter(asset, location)
+        }
+      }
+      ```
+
+  - audience: Runtime User
+    description: |
+      There's a new runtime API to check if a chain trust a Location as a reserve or teleporter for a given Asset.
+      It's implemented in all the relays and system parachains in Westend and Rococo.
+
+crates:
+  - name: westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor

@@ -1,11 +1,9 @@
-FROM docker.io/parity/base-bin
+FROM docker.io/paritytech/base-bin
 
 # metadata
 ARG VCS_REF
 ARG BUILD_DATE
 ARG POLKADOT_VERSION
-ARG POLKADOT_GPGKEY=9D4B2B6EB8F97156D19669A9FF0812D491B96798
-ARG GPG_KEYSERVER="keyserver.ubuntu.com"
 
 LABEL io.parity.image.authors="devops-team@parity.io" \
 	io.parity.image.vendor="Parity Technologies" \

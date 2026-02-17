@@ -1,0 +1,8 @@
+title: Align omni-node and polkadot-parachain versions 
+doc:
+- audience: [ Runtime Dev, Node Dev, Node Operator ]
+  description: |-
+    Aligned polkadot-omni-node & polkadot-parachain versions. There is one NODE_VERSION constant, in polkadot-omni-node-lib, used by both binaries.
+crates:
+- name: polkadot-omni-node-lib 
+  bump: patch

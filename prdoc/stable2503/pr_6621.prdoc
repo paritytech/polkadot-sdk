@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update Conviction Voting Pallet to Support Block Number Provider
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR makes the block number provider used in the society pallet configurable. Before this PR, society pallet always used the system block number,
+      with this PR some runtime can opt to use the relay chain block number instead.
+
+crates:
+- name: pallet-conviction-voting
+  bump: major

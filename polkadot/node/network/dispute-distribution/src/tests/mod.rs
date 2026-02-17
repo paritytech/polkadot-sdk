@@ -18,19 +18,19 @@
 //! Subsystem unit tests
 
 use std::{
-	collections::HashSet,
+	collections::{BTreeMap, HashSet},
 	task::Poll,
 	time::{Duration, Instant},
 };
 
 use assert_matches::assert_matches;
+use codec::{Decode, Encode};
 use futures::{
 	channel::oneshot,
 	future::{poll_fn, ready},
 	pin_mut, Future,
 };
 use futures_timer::Delay;
-use parity_scale_codec::{Decode, Encode};
 
 use sc_network::{config::RequestResponseConfig, ProtocolName};
 
@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams, Hash, NodeFeatures,
-	SessionIndex, SessionInfo,
+	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
 };
 
 use self::mock::{
@@ -101,7 +101,7 @@ fn send_honors_rate_limit() {
 		// First send should not be rate limited:
 		gum::trace!("Passed time: {:#?}", Instant::now().saturating_duration_since(before_request));
 		// This test would likely be flaky on CI:
-		//assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
+		// assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
 
 		let relay_parent = Hash::random();
 		let candidate = make_candidate_receipt(relay_parent);
@@ -390,17 +390,12 @@ fn receive_rate_limit_is_enforced() {
 			rx_response_flood.await,
 			Ok(resp) => {
 				let sc_network::config::OutgoingResponse {
-					result: _,
-					reputation_changes,
+					result,
+					reputation_changes: _,
 					sent_feedback: _,
 				} = resp;
-				gum::trace!(
-					target: LOG_TARGET,
-					?reputation_changes,
-					"Received reputation changes."
-				);
-				// Received punishment for flood:
-				assert_eq!(reputation_changes.len(), 1);
+				// Received error because of flood.
+				assert!(!result.is_ok());
 			}
 		);
 		gum::trace!("Need to wait 2 patch intervals:");
@@ -496,7 +491,7 @@ fn send_dispute_gets_cleaned_up() {
 			MOCK_SESSION_INDEX,
 			None,
 			// No disputes any more:
-			Vec::new(),
+			BTreeMap::new(),
 		)
 		.await;
 
@@ -547,7 +542,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head),
 			MOCK_SESSION_INDEX,
 			None,
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -562,7 +557,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head2),
 			MOCK_NEXT_SESSION_INDEX,
 			Some(MOCK_NEXT_SESSION_INFO.clone()),
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -741,7 +736,7 @@ async fn activate_leaf(
 	// New session if we expect the subsystem to request it.
 	new_session: Option<SessionInfo>,
 	// Currently active disputes to send to the subsystem.
-	active_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	active_disputes: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
@@ -856,7 +851,7 @@ async fn handle_subsystem_startup(
 		Some(MOCK_SESSION_INFO.clone()),
 		ongoing_dispute
 			.into_iter()
-			.map(|c| (MOCK_SESSION_INDEX, c, DisputeStatus::Active))
+			.map(|c| ((MOCK_SESSION_INDEX, c), DisputeStatus::Active))
 			.collect(),
 	)
 	.await;
@@ -879,7 +874,10 @@ where
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
-	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = DisputeDistributionSubsystem::new(
 		keystore,
 		req_receiver,

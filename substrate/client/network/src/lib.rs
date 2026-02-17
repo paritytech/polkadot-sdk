@@ -243,6 +243,8 @@
 //! More precise usage details are still being worked on and will likely change in the future.
 
 mod behaviour;
+mod bitswap;
+mod litep2p;
 mod protocol;
 
 #[cfg(test)]
@@ -262,20 +264,25 @@ pub mod transport;
 pub mod types;
 pub mod utils;
 
+pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
 #[doc(inline)]
-pub use libp2p::{multiaddr, Multiaddr, PeerId};
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
+pub use sc_network_types::{
+	multiaddr::{self, Multiaddr},
+	PeerId,
+};
 pub use service::{
+	metrics::NotificationMetrics,
 	signature::Signature,
 	traits::{
-		KademliaKey, MessageSink, NetworkBlock, NetworkDHTProvider, NetworkEventStream,
-		NetworkNotification, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
-		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest,
+		KademliaKey, MessageSink, NetworkBackend, NetworkBlock, NetworkDHTProvider,
+		NetworkEventStream, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
+		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest, NotificationConfig,
 		NotificationSender as NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
@@ -283,6 +290,9 @@ pub use service::{
 	PublicKey,
 };
 pub use types::ProtocolName;
+
+/// Log target for `sc-network`.
+const LOG_TARGET: &str = "sub-libp2p";
 
 /// The maximum allowed number of established connections per peer.
 ///
@@ -295,3 +305,6 @@ const MAX_CONNECTIONS_PER_PEER: usize = 2;
 
 /// The maximum number of concurrent established connections that were incoming.
 const MAX_CONNECTIONS_ESTABLISHED_INCOMING: u32 = 10_000;
+
+/// Maximum response size limit.
+pub const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;

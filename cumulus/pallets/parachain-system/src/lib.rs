@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -27,35 +27,40 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use codec::{Decode, DecodeLimit, Encode};
+use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
-	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
-	defensive,
-	dispatch::{DispatchResult, Pays, PostDispatchInfo},
+	dispatch::{DispatchClass, DispatchResult},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
+use parachain_inherent::{
+	deconstruct_parachain_inherent_data, AbridgedInboundDownwardMessages,
+	AbridgedInboundHrmpMessages, BasicParachainInherentData, InboundMessageId, InboundMessagesData,
+};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	},
-	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
+	traits::{BlockNumberProvider, Hash},
+	Debug, FixedU128, SaturatedConversion,
 };
-use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
-use xcm::latest::XcmHash;
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
+use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
 pub mod migration;
@@ -72,10 +77,11 @@ pub mod consensus_hook;
 pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
+mod descendant_validation;
+pub mod parachain_inherent;
 
 use unincluded_segment::{
-	Ancestor, HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
-	UsedBandwidth,
+	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
 };
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
@@ -91,20 +97,22 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 ///     struct BlockExecutor;
 ///     struct Runtime;
-///     struct CheckInherents;
 ///
 ///     cumulus_pallet_parachain_system::register_validate_block! {
 ///         Runtime = Runtime,
 ///         BlockExecutor = Executive,
-///         CheckInherents = CheckInherents,
 ///     }
 ///
 /// # fn main() {}
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
+pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
+
+const LOG_TARGET: &str = "parachain-system";
 
 /// Something that can check the associated relay block number.
 ///
@@ -172,24 +180,18 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 pub mod ump_constants {
-	use super::FixedU128;
-
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The base number message size in KB is multiplied by before increasing the fee factor.
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::*;
-	use frame_system::{pallet_prelude::*, WeightInfo as SystemWeightInfo};
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -199,6 +201,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something which can be notified when the validation data is set.
@@ -244,11 +247,23 @@ pub mod pallet {
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
-		///
-		/// This config type is only available when the `parameterized-consensus-hook` crate feature
-		/// is activated.
-		#[cfg(feature = "parameterized-consensus-hook")]
 		type ConsensusHook: ConsensusHook;
+
+		/// The offset between the tip of the relay chain and the parent relay block used as parent
+		/// when authoring a parachain block.
+		///
+		/// This setting directly impacts the number of descendant headers that are expected in the
+		/// `set_validation_data` inherent.
+		///
+		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
+		/// the relay parent plus `N` descendants. These headers are required to validate that new
+		/// parachain blocks are authored at the correct offset.
+		///
+		/// While this helps to reduce forks on the parachain side, it increases the delay for
+		/// processing XCM messages. So, the value should be chosen wisely.
+		///
+		/// If set to 0, this config has no impact.
+		type RelayParentOffset: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -262,8 +277,12 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::kill();
 			let relay_upgrade_go_ahead = <UpgradeGoAhead<T>>::take();
 
-			let vfp = <ValidationData<T>>::get()
-				.expect("set_validation_data inherent needs to be present in every block!");
+			let vfp = <ValidationData<T>>::get().expect(
+				r"Missing required set_validation_data inherent. This inherent must be
+				present in every block. This error typically occurs when the set_validation_data
+				execution failed and was rejected by the block builder. Check earlier log entries
+				for the specific cause of the failure.",
+			);
 
 			LastRelayChainBlockNumber::<T>::put(vfp.relay_parent_number);
 
@@ -274,7 +293,7 @@ pub mod pallet {
 						false,
 						"host configuration is promised to set until `on_finalize`; qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -289,7 +308,7 @@ pub mod pallet {
 						"relevant messaging state is promised to be set until `on_finalize`; \
 							qed",
 					);
-					return
+					return;
 				},
 			};
 
@@ -310,7 +329,7 @@ pub mod pallet {
 							"relevant messaging state is promised to be set until `on_finalize`; \
 								qed",
 						);
-						return (0, 0)
+						return (0, 0);
 					},
 				};
 
@@ -344,6 +363,18 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
+				if let Some(core_info) =
+					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+				{
+					PendingUpwardSignals::<T>::append(
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					);
+				}
+
+				// Send the pending UMP signals.
+				Self::send_ump_signals();
+
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
 				// This makes delivery of new messages cheaper.
@@ -369,7 +400,8 @@ pub mod pallet {
 
 			let maximum_channels = host_config
 				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take()) as usize;
+				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
+				as usize;
 
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
@@ -428,6 +460,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -450,13 +485,16 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the keys
+			// in the proof. Because these values will be read in `validate_block` and thus,
+			// need to be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
-			HrmpWatermark::<T>::kill();
 			UpwardMessages::<T>::kill();
 			HrmpOutboundMessages::<T>::kill();
 			CustomValidationHeadData::<T>::kill();
-
-			weight += T::DbWeight::get().writes(6);
+			// The same as above. Reading here to make sure that the key is included in the proof.
+			HrmpWatermark::<T>::get();
+			weight += T::DbWeight::get().reads_writes(1, 5);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -497,6 +535,24 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
+			// We need to ensure that `CoreInfo` digest exists only once.
+			match CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					assert_eq!(
+						core_info.claim_queue_offset.0,
+						T::RelayParentOffset::get() as u8,
+						"Only {} is supported as valid claim queue offset",
+						T::RelayParentOffset::get()
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
+			}
+
 			weight
 		}
 	}
@@ -514,11 +570,13 @@ pub mod pallet {
 		/// if the appropriate time has come.
 		#[pallet::call_index(0)]
 		#[pallet::weight((0, DispatchClass::Mandatory))]
-		// TODO: This weight should be corrected.
+		// TODO: This weight should be corrected. Currently the weight is registered manually in the
+		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
-			data: ParachainInherentData,
-		) -> DispatchResultWithPostInfo {
+			data: BasicParachainInherentData,
+			inbound_messages_data: InboundMessagesData,
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
 				!<ValidationData<T>>::exists(),
@@ -528,17 +586,17 @@ pub mod pallet {
 			// TODO: This is more than zero, but will need benchmarking to figure out what.
 			let mut total_weight = Weight::zero();
 
-			// NOTE: the inherent data is expected to be unique, even if this block is built
+			// NOTE: the inherent data is expected to be unique, even if this block is build
 			// in the context of the same relay parent as the previous one. In particular,
 			// the inherent shouldn't contain messages that were already processed by any of the
 			// ancestors.
 			//
 			// This invariant should be upheld by the `ProvideInherent` implementation.
-			let ParachainInherentData {
+			let BasicParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
-				downward_messages,
-				horizontal_messages,
+				relay_parent_descendants,
+				collator_peer_id,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -554,11 +612,26 @@ pub mod pallet {
 			)
 			.expect("Invalid relay chain state proof");
 
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+
+			if expected_rp_descendants_num > 0 {
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
+					&relay_state_proof,
+					relay_parent_descendants,
+					vfp.relay_parent_storage_root,
+					expected_rp_descendants_num,
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_rp_descendants_num: {expected_rp_descendants_num} \
+						error: {err:?}"
+					);
+				};
+			}
+
 			// Update the desired maximum capacity according to the consensus hook.
-			#[cfg(feature = "parameterized-consensus-hook")]
-			let (consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(&relay_state_proof);
-			#[cfg(not(feature = "parameterized-consensus-hook"))]
-			let (consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(&relay_state_proof);
+			let (consensus_hook_weight, capacity) =
+				T::ConsensusHook::on_state_proof(&relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
 			// Deposit a log indicating the relay-parent storage root.
@@ -571,7 +644,7 @@ pub mod pallet {
 				),
 			);
 
-			// initialization logic: we know that this runs exactly once every block,
+			// Initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
 			let upgrade_go_ahead_signal = relay_state_proof
@@ -629,19 +702,34 @@ pub mod pallet {
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
 
+			total_weight.saturating_accrue(
+				<T::OnSystemEvent as OnSystemEvent>::on_relay_state_proof(&relay_state_proof),
+			);
+
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
+
+			if let Some(collator_peer_id) = collator_peer_id {
+				PendingUpwardSignals::<T>::append(
+					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
+				);
+			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
-				downward_messages,
+				inbound_messages_data.downward_messages,
 			));
 			total_weight.saturating_accrue(Self::enqueue_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
-				horizontal_messages,
+				inbound_messages_data.horizontal_messages,
 				vfp.relay_parent_number,
 			));
 
-			Ok(PostDispatchInfo { actual_weight: Some(total_weight), pays_fee: Pays::No })
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				total_weight,
+				DispatchClass::Mandatory,
+			);
+
+			Ok(())
 		}
 
 		#[pallet::call_index(1)]
@@ -655,52 +743,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
-		/// later.
-		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
-		/// version and name should be verified on upgrade. Since the authorization only has a hash,
-		/// it cannot actually perform the verification.
-		///
-		/// This call requires Root origin.
-		#[pallet::call_index(2)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
-		)]
-		pub fn authorize_upgrade(
-			origin: OriginFor<T>,
-			code_hash: T::Hash,
-			check_version: bool,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			frame_system::Pallet::<T>::do_authorize_upgrade(code_hash, check_version);
-			Ok(())
-		}
-
-		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
-		///
-		/// If the authorization required a version check, this call will ensure the spec name
-		/// remains unchanged and that the spec version has increased.
-		///
-		/// Note that this function will not apply the new `code`, but only attempt to schedule the
-		/// upgrade with the Relay Chain.
-		///
-		/// All origins are allowed.
-		#[pallet::call_index(3)]
-		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
-		#[allow(deprecated)]
-		#[deprecated(
-			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
-		)]
-		pub fn enact_authorized_upgrade(
-			_: OriginFor<T>,
-			code: Vec<u8>,
-		) -> DispatchResultWithPostInfo {
-			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
-			Ok(post)
-		}
+		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
+		// again will require to bump the transaction version of runtimes using this pallet.
 	}
 
 	#[pallet::event]
@@ -735,10 +779,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -748,14 +788,13 @@ pub mod pallet {
 	/// The segment length is limited by the capacity returned from the [`ConsensusHook`] configured
 	/// in the pallet.
 	#[pallet::storage]
-	pub(super) type UnincludedSegment<T: Config> =
-		StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
+	pub type UnincludedSegment<T: Config> = StorageValue<_, Vec<Ancestor<T::Hash>>, ValueQuery>;
 
 	/// Storage field that keeps track of bandwidth used by the unincluded segment along with the
 	/// latest HRMP watermark. Used for limiting the acceptance of new blocks with
 	/// respect to relay chain constraints.
 	#[pallet::storage]
-	pub(super) type AggregatedUnincludedSegment<T: Config> =
+	pub type AggregatedUnincludedSegment<T: Config> =
 		StorageValue<_, SegmentTracker<T::Hash>, OptionQuery>;
 
 	/// In case of a scheduled upgrade, this storage field contains the validation code to be
@@ -765,7 +804,7 @@ pub mod pallet {
 	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
 	/// with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
-	pub(super) type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -773,23 +812,23 @@ pub mod pallet {
 	/// This will be cleared in `on_initialize` of each new block if no other pallet already set
 	/// the value.
 	#[pallet::storage]
-	pub(super) type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type NewValidationCode<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	/// The [`PersistedValidationData`] set for this block.
-	/// This value is expected to be set only once per block and it's never stored
-	/// in the trie.
+	///
+	/// This value is expected to be set only once by the [`Pallet::set_validation_data`] inherent.
 	#[pallet::storage]
-	pub(super) type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
+	pub type ValidationData<T: Config> = StorageValue<_, PersistedValidationData>;
 
 	/// Were the validation data set to notify the relay chain?
 	#[pallet::storage]
-	pub(super) type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type DidSetValidationCode<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The relay chain block number associated with the last parachain block.
 	///
 	/// This is updated in `on_finalize`.
 	#[pallet::storage]
-	pub(super) type LastRelayChainBlockNumber<T: Config> =
+	pub type LastRelayChainBlockNumber<T: Config> =
 		StorageValue<_, RelayChainBlockNumber, ValueQuery>;
 
 	/// An option which indicates if the relay-chain restricts signalling a validation code upgrade.
@@ -800,7 +839,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeRestriction>, ValueQuery>;
 
 	/// Optional upgrade go-ahead signal from the relay-chain.
@@ -809,7 +848,7 @@ pub mod pallet {
 	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAhead<T: Config> =
+	pub type UpgradeGoAhead<T: Config> =
 		StorageValue<_, Option<relay_chain::UpgradeGoAhead>, ValueQuery>;
 
 	/// The state proof for the last relay parent block.
@@ -819,7 +858,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
+	pub type RelayStateProof<T: Config> = StorageValue<_, sp_trie::StorageProof>;
 
 	/// The snapshot of some state related to messaging relevant to the current parachain as per
 	/// the relay parent.
@@ -829,7 +868,7 @@ pub mod pallet {
 	///
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
-	pub(super) type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
+	pub type RelevantMessagingState<T: Config> = StorageValue<_, MessagingStateSnapshot>;
 
 	/// The parachain host configuration that was obtained from the relay parent.
 	///
@@ -839,85 +878,93 @@ pub mod pallet {
 	/// This data is also absent from the genesis.
 	#[pallet::storage]
 	#[pallet::disable_try_decode_storage]
-	pub(super) type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
+	pub type HostConfiguration<T: Config> = StorageValue<_, AbridgedHostConfiguration>;
 
 	/// The last downward message queue chain head we have observed.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
+	pub type LastDmqMqcHead<T: Config> = StorageValue<_, MessageQueueChain, ValueQuery>;
 
 	/// The message queue chain heads we have observed per each channel incoming channel.
 	///
 	/// This value is loaded before and saved after processing inbound downward messages carried
 	/// by the system inherent.
 	#[pallet::storage]
-	pub(super) type LastHrmpMqcHeads<T: Config> =
+	pub type LastHrmpMqcHeads<T: Config> =
 		StorageValue<_, BTreeMap<ParaId, MessageQueueChain>, ValueQuery>;
 
 	/// Number of downward messages processed in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// The last processed downward message.
+	///
+	/// We need to keep track of this to filter the messages that have been already processed.
+	#[pallet::storage]
+	pub type LastProcessedDownwardMessage<T: Config> = StorageValue<_, InboundMessageId>;
 
 	/// HRMP watermark that was set in a block.
-	///
-	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpWatermark<T: Config> =
-		StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+
+	/// The last processed HRMP message.
+	///
+	/// We need to keep track of this to filter the messages that have been already processed.
+	#[pallet::storage]
+	pub type LastProcessedHrmpMessage<T: Config> = StorageValue<_, InboundMessageId>;
 
 	/// HRMP messages that were sent in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
-	pub(super) type HrmpOutboundMessages<T: Config> =
+	pub type HrmpOutboundMessages<T: Config> =
 		StorageValue<_, Vec<OutboundHrmpMessage>, ValueQuery>;
 
 	/// Upward messages that were sent in a block.
 	///
-	/// This will be cleared in `on_initialize` of each new block.
+	/// This will be cleared in `on_initialize` for each new block.
 	#[pallet::storage]
-	pub(super) type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type UpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Upward messages that are still pending and not yet send to the relay chain.
+	/// Upward messages that are still pending and not yet sent to the relay chain.
 	#[pallet::storage]
-	pub(super) type PendingUpwardMessages<T: Config> =
-		StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Initialization value for the delivery fee factor for UMP.
-	#[pallet::type_value]
-	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
+	/// Upward signals that are still pending and not yet sent to the relay chain.
+	///
+	/// This will be cleared in `on_finalize` for each block.
+	#[pallet::storage]
+	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
-	pub(super) type UpwardDeliveryFeeFactor<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+	pub type UpwardDeliveryFeeFactor<T: Config> =
+		StorageValue<_, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
 	#[pallet::storage]
-	pub(super) type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type AnnouncedHrmpMessagesPerCandidate<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The weight we reserve at the beginning of the block for processing XCMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedXcmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// The weight we reserve at the beginning of the block for processing DMP messages. This
 	/// overrides the amount set in the Config trait.
 	#[pallet::storage]
-	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
+	pub type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
-	pub(super) type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -927,14 +974,28 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData =
-				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
-					"validation function params are always injected into inherent data; qed",
-				);
+			let data = match data
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()
+			{
+				None => {
+					// Key Self::INHERENT_IDENTIFIER is expected to contain versioned inherent
+					// data. Older nodes are unaware of the new format and might provide the
+					// legacy data format. We try to load it and transform it into the current
+					// version.
+					let data = data
+						.get_data::<v0::ParachainInherentData>(
+							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
+						)
+						.ok()
+						.flatten()?;
+					data.into()
+				},
+				Some(data) => data,
+			};
 
-			Self::drop_processed_messages_from_inherent(&mut data);
-
-			Some(Call::set_validation_data { data })
+			Some(Self::do_create_inherent(data))
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
@@ -946,7 +1007,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -954,30 +1015,6 @@ pub mod pallet {
 		fn build(&self) {
 			// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
 			sp_io::storage::set(b":c", &[]);
-		}
-	}
-
-	#[pallet::validate_unsigned]
-	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = frame_system::Pallet::<T>::validate_authorized_upgrade(&code[..])
-				{
-					return Ok(ValidTransaction {
-						priority: 100,
-						requires: Vec::new(),
-						provides: vec![hash.as_ref().to_vec()],
-						longevity: TransactionLongevity::max_value(),
-						propagate: true,
-					})
-				}
-			}
-			if let Call::set_validation_data { .. } = call {
-				return Ok(Default::default())
-			}
-			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -999,25 +1036,19 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
 
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 
-	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = f.saturating_mul(
-				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		UpwardDeliveryFeeFactor::<T>::set(val);
 	}
+}
 
-	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f =
-				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+impl<T: Config> ListChannelInfos for Pallet<T> {
+	fn outgoing_channels() -> Vec<ParaId> {
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
+		state.egress_channels.into_iter().map(|(id, _)| id).collect()
 	}
 }
 
@@ -1040,7 +1071,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let channels = match RelevantMessagingState::<T>::get() {
 			None => {
 				log::warn!("calling `get_channel_status` with no RelevantMessagingState?!");
-				return ChannelStatus::Closed
+				return ChannelStatus::Closed;
 			},
 			Some(d) => d.egress_channels,
 		};
@@ -1057,7 +1088,7 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 		let meta = &channels[index].1;
 		if meta.msg_count + 1 > meta.max_capacity {
 			// The channel is at its capacity. Skip it for now.
-			return ChannelStatus::Full
+			return ChannelStatus::Full;
 		}
 		let max_size_now = meta.max_total_size - meta.total_size;
 		let max_size_ever = meta.max_message_size;
@@ -1079,35 +1110,54 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Updates inherent data to only contain messages that weren't already processed
-	/// by the runtime based on last relay chain block number.
+	/// The bandwidth limit per block that applies when receiving messages from the relay chain via
+	/// DMP or XCMP.
 	///
-	/// This method doesn't check for mqc heads mismatch.
-	fn drop_processed_messages_from_inherent(para_inherent: &mut ParachainInherentData) {
-		let ParachainInherentData { downward_messages, horizontal_messages, .. } = para_inherent;
+	/// The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for XCMP).
+	///
+	/// The purpose of this limit is to make sure that the total size of the messages received by
+	/// the parachain from the relay chain doesn't exceed the block size. Currently each message
+	/// passing mechanism can use 1/6 of the total block PoV which means that in total 1/3
+	/// of the block PoV can be used for message passing.
+	fn messages_collection_size_limit() -> usize {
+		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let max_block_pov = max_block_weight.proof_size();
 
-		// Last relay chain block number. Any message with sent-at block number less
-		// than or equal to this value is assumed to be processed previously.
+		let remaining_proof_size =
+			frame_system::Pallet::<T>::remaining_block_weight().remaining().proof_size();
+
+		(max_block_pov / 6).min(remaining_proof_size).saturated_into()
+	}
+
+	/// Updates inherent data to only include the messages that weren't already processed
+	/// by the runtime and to compress (hash) the messages that exceed the allocated size.
+	///
+	/// This method doesn't check for mqc heads mismatch. If the MQC doesn't match after
+	/// dropping messages, the runtime will panic when executing the inherent.
+	fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
+		let (data, mut downward_messages, mut horizontal_messages) =
+			deconstruct_parachain_inherent_data(data);
 		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
 
+		let messages_collection_size_limit = Self::messages_collection_size_limit();
 		// DMQ.
-		let dmq_processed_num = downward_messages
-			.iter()
-			.take_while(|message| message.sent_at <= last_relay_block_number)
-			.count();
-		downward_messages.drain(..dmq_processed_num);
+		let last_processed_msg = LastProcessedDownwardMessage::<T>::get()
+			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
+		downward_messages.drop_processed_messages(&last_processed_msg);
+		let mut size_limit = messages_collection_size_limit;
+		let downward_messages = downward_messages.into_abridged(&mut size_limit);
 
 		// HRMP.
-		for horizontal in horizontal_messages.values_mut() {
-			let horizontal_processed_num = horizontal
-				.iter()
-				.take_while(|message| message.sent_at <= last_relay_block_number)
-				.count();
-			horizontal.drain(..horizontal_processed_num);
-		}
+		let last_processed_msg = LastProcessedHrmpMessage::<T>::get()
+			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
+		horizontal_messages.drop_processed_messages(&last_processed_msg);
+		size_limit = size_limit.saturating_add(messages_collection_size_limit);
+		let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
 
-		// If MQC doesn't match after dropping messages, the runtime will panic when creating
-		// inherent.
+		let inbound_messages_data =
+			InboundMessagesData::new(downward_messages, horizontal_messages);
+
+		Call::set_validation_data { data, inbound_messages_data }
 	}
 
 	/// Enqueue all inbound downward messages relayed by the collator into the MQ pallet.
@@ -1121,37 +1171,40 @@ impl<T: Config> Pallet<T> {
 	/// hash doesn't match the expected.
 	fn enqueue_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
-		downward_messages: Vec<InboundDownwardMessage>,
+		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		let dm_count = downward_messages.len() as u32;
+		downward_messages.check_enough_messages_included_basic("DMQ");
+
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
-		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(dm_count);
-		if dm_count != 0 {
-			Self::deposit_event(Event::DownwardMessagesReceived { count: dm_count });
+		let (messages, hashed_messages) = downward_messages.messages();
+		let message_count = messages.len() as u32;
+		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(message_count);
+		if let Some(last_msg) = messages.last() {
+			Self::deposit_event(Event::DownwardMessagesReceived { count: message_count });
 
 			// Eagerly update the MQC head hash:
-			for m in &downward_messages {
-				dmq_head.extend_downward(m);
+			for msg in messages {
+				dmq_head.extend_downward(msg);
 			}
-			let bounded = downward_messages
-				.iter()
-				// Note: we are not using `.defensive()` here since that prints the whole value to
-				// console. In case that the message is too long, this clogs up the log quite badly.
-				.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
-					Ok(bounded) => Some(bounded),
-					Err(_) => {
-						defensive!("Inbound Downward message was too long; dropping");
-						None
-					},
-				});
-			T::DmpQueue::handle_messages(bounded);
 			<LastDmqMqcHead<T>>::put(&dmq_head);
-
 			Self::deposit_event(Event::DownwardMessagesProcessed {
 				weight_used,
 				dmq_head: dmq_head.head(),
 			});
+
+			let mut last_processed_msg =
+				InboundMessageId { sent_at: last_msg.sent_at, reverse_idx: 0 };
+			for msg in hashed_messages {
+				dmq_head.extend_with_hashed_msg(msg);
+
+				if msg.sent_at == last_processed_msg.sent_at {
+					last_processed_msg.reverse_idx += 1;
+				}
+			}
+			LastProcessedDownwardMessage::<T>::put(last_processed_msg);
+
+			T::DmpQueue::handle_messages(downward_messages.bounded_msgs_iter());
 		}
 
 		// After hashing each message in the message queue chain submitted by the collator, we
@@ -1159,11 +1212,67 @@ impl<T: Config> Pallet<T> {
 		//
 		// A mismatch means that at least some of the submitted messages were altered, omitted or
 		// added improperly.
-		assert_eq!(dmq_head.head(), expected_dmq_mqc_head);
+		assert_eq!(dmq_head.head(), expected_dmq_mqc_head, "DMQ head mismatch");
 
-		ProcessedDownwardMessages::<T>::put(dm_count);
+		ProcessedDownwardMessages::<T>::put(message_count);
 
 		weight_used
+	}
+
+	fn get_ingress_channel_or_panic(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		sender: ParaId,
+	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
+		let maybe_channel_idx = ingress_channels
+			.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender)
+			.ok();
+		let maybe_channel = maybe_channel_idx
+			.and_then(|channel_idx| ingress_channels.get(channel_idx))
+			.map(|(_, channel)| channel);
+		maybe_channel.unwrap_or_else(|| {
+			panic!(
+				"One of the messages submitted by the collator was sent from a sender ({}) \
+				that doesn't have a channel opened to this parachain",
+				<ParaId as Into<u32>>::into(sender)
+			)
+		})
+	}
+
+	fn check_hrmp_mcq_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Check that the MQC heads for each channel provided by the relay chain match the MQC
+		// heads we have after processing all incoming messages.
+		//
+		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
+		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
+		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
+		// would corrupt the message queue chain.
+		for (sender, channel) in ingress_channels {
+			let cur_head = mqc_heads.entry(*sender).or_default().head();
+			let target_head = channel.mqc_head.unwrap_or_default();
+			assert_eq!(cur_head, target_head, "HRMP head mismatch");
+		}
+	}
+
+	/// Performs some checks related to the sender and the `sent_at` field of an HRMP message.
+	///
+	/// **Panics** if the message submitted by the collator doesn't respect the expected order or if
+	///            it was sent from a para which has no open channel to this parachain.
+	fn check_hrmp_message_metadata(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		maybe_prev_msg_metadata: &mut Option<(u32, ParaId)>,
+		msg_metadata: (u32, ParaId),
+	) {
+		// Check that the message is properly ordered.
+		if let Some(prev_msg) = maybe_prev_msg_metadata {
+			assert!(&msg_metadata >= prev_msg, "[HRMP] Messages order violation");
+		}
+		*maybe_prev_msg_metadata = Some(msg_metadata);
+
+		// Check that the message is sent from an existing channel.
+		Self::get_ingress_channel_or_panic(ingress_channels, msg_metadata.1);
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -1178,88 +1287,101 @@ impl<T: Config> Pallet<T> {
 	///            correspond to the ones found on the relay-chain.
 	fn enqueue_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check that all submitted messages are sent from channels that exist. The
-		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		for sender in horizontal_messages.keys() {
-			// A violation of the assertion below indicates that one of the messages submitted
-			// by the collator was sent from a sender that doesn't have a channel opened to
-			// this parachain, according to the relay-parent state.
-			assert!(ingress_channels.binary_search_by_key(sender, |&(s, _)| s).is_ok(),);
+		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+		let (messages, hashed_messages) = horizontal_messages.messages();
+
+		// First, check the HRMP advancement rule.
+		let maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| *sender);
+		if let Some(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
+			let channel =
+				Self::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
+			horizontal_messages.check_enough_messages_included_advanced(
+				"HRMP",
+				AbridgedInboundMessagesSizeInfo {
+					max_full_messages_size: Self::messages_collection_size_limit(),
+					first_hashed_msg_max_size: channel.max_message_size as usize,
+				},
+			);
 		}
 
-		// Second, prepare horizontal messages for a more convenient processing:
-		//
-		// instead of a mapping from a para to a list of inbound HRMP messages, we will have a
-		// list of tuples `(sender, message)` first ordered by `sent_at` (the relay chain block
-		// number in which the message hit the relay-chain) and second ordered by para id
-		// ascending.
-		//
-		// The messages will be dispatched in this order.
-		let mut horizontal_messages = horizontal_messages
-			.into_iter()
-			.flat_map(|(sender, channel_contents)| {
-				channel_contents.into_iter().map(move |message| (sender, message))
-			})
-			.collect::<Vec<_>>();
-		horizontal_messages.sort_by(|a, b| {
-			// first sort by sent-at and then by the para id
-			match a.1.sent_at.cmp(&b.1.sent_at) {
-				cmp::Ordering::Equal => a.0.cmp(&b.0),
-				ord => ord,
+		Self::prune_closed_mqc_heads(ingress_channels, &mut mqc_heads);
+
+		if messages.is_empty() {
+			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
+			let last_processed_msg =
+				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
+
+			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
+			HrmpWatermark::<T>::put(relay_parent_number);
+			LastHrmpMqcHeads::<T>::put(&mqc_heads); // write back in case of modification
+
+			return T::DbWeight::get().reads_writes(1, 2);
+		}
+
+		let mut prev_msg_metadata = None;
+		let mut last_processed_block = HrmpWatermark::<T>::get();
+		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
+		for (sender, msg) in messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
+			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
+
+			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
+				last_processed_block = last_processed_msg.sent_at;
 			}
-		});
+			last_processed_msg.sent_at = msg.sent_at;
+		}
 
-		let last_mqc_heads = <LastHrmpMqcHeads<T>>::get();
-		let mut running_mqc_heads = BTreeMap::new();
-		let mut hrmp_watermark = None;
+		LastHrmpMqcHeads::<T>::put(&mqc_heads);
 
-		{
-			for (sender, ref horizontal_message) in &horizontal_messages {
-				if hrmp_watermark.map(|w| w < horizontal_message.sent_at).unwrap_or(true) {
-					hrmp_watermark = Some(horizontal_message.sent_at);
-				}
+		for (sender, msg) in hashed_messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
+			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
-				running_mqc_heads
-					.entry(sender)
-					.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
-					.extend_hrmp(horizontal_message);
+			if msg.sent_at == last_processed_msg.sent_at {
+				last_processed_msg.reverse_idx += 1;
 			}
 		}
-		let message_iter = horizontal_messages
-			.iter()
-			.map(|&(sender, ref message)| (sender, message.sent_at, &message.data[..]));
+		if last_processed_msg.sent_at > 0 && last_processed_msg.reverse_idx == 0 {
+			last_processed_block = last_processed_msg.sent_at;
+		}
+		LastProcessedHrmpMessage::<T>::put(&last_processed_msg);
+		Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
 
 		let max_weight =
 			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
-		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(message_iter, max_weight);
+		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
+			horizontal_messages.flat_msgs_iter(),
+			max_weight,
+		);
 
-		// Check that the MQC heads for each channel provided by the relay chain match the MQC
-		// heads we have after processing all incoming messages.
-		//
-		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
-		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
-		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
-		// would corrupt the message queue chain.
-		for (sender, channel) in ingress_channels {
-			let cur_head = running_mqc_heads
-				.entry(sender)
-				.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
-				.head();
-			let target_head = channel.mqc_head.unwrap_or_default();
+		// Update watermark
+		HrmpWatermark::<T>::put(last_processed_block);
 
-			assert!(cur_head == target_head);
-		}
+		weight_used.saturating_add(T::DbWeight::get().reads_writes(2, 3))
+	}
 
-		<LastHrmpMqcHeads<T>>::put(running_mqc_heads);
-
-		// If we processed at least one message, then advance watermark to that location or if there
-		// were no messages, set it to the block number of the relay parent.
-		HrmpWatermark::<T>::put(hrmp_watermark.unwrap_or(relay_parent_number));
-
-		weight_used
+	/// Remove all MQC heads that do not correspond to an open channel.
+	fn prune_closed_mqc_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Complexity is O(N * lg N) but could be optimized for O(N)
+		mqc_heads.retain(|para, _| {
+			ingress_channels
+				.binary_search_by_key(para, |&(channel_sender, _)| channel_sender)
+				.is_ok()
+		});
 	}
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
@@ -1340,7 +1462,6 @@ impl<T: Config> Pallet<T> {
 
 	/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
 	/// unincluded segment.
-	//
 	// Reads: 2
 	// Writes: 1
 	fn adjust_egress_bandwidth_limits() {
@@ -1457,6 +1578,15 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
+	/// Send the pending ump signals
+	fn send_ump_signals() {
+		let ump_signals = PendingUpwardSignals::<T>::take();
+		if !ump_signals.is_empty() {
+			UpwardMessages::<T>::append(UMP_SEPARATOR);
+			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
+		}
+	}
+
 	/// Open HRMP channel for using it in benchmarks or tests.
 	///
 	/// The caller assumes that the pallet will accept regular outbound message to the sibling
@@ -1531,7 +1661,7 @@ impl<T: Config> Pallet<T> {
 }
 
 /// Type that implements `SetCode`.
-pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSetCode<T>(core::marker::PhantomData<T>);
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
@@ -1560,7 +1690,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
@@ -1571,9 +1701,7 @@ impl<T: Config> Pallet<T> {
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				// We increase the fee factor by a factor based on the new message's size in KB
-				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-				Self::increase_fee_factor((), message_size_factor);
+				Self::increase_fee_factor((), message_len as u128);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
@@ -1606,44 +1734,78 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
 	}
+
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		if message.len() > max_upward_message_size as usize {
+			Err(MessageSendError::TooBig)
+		} else {
+			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {
+		const MAX_UPWARD_MESSAGE_SIZE: u32 = 65_531 * 3;
+		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+		HostConfiguration::<T>::mutate(|cfg| match cfg {
+			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+			None => {
+				*cfg = Some(AbridgedHostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+					max_upward_message_num_per_candidate: 2,
+					hrmp_max_message_num_per_candidate: 2,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					async_backing_params: relay_chain::AsyncBackingParams {
+						allowed_ancestry_len: 0,
+						max_candidate_depth: 0,
+					},
+				})
+			},
+		})
+	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl<T: Config> polkadot_runtime_common::xcm_sender::EnsureForParachain for Pallet<T> {
-	fn ensure(para_id: ParaId) {
-		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
-			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+impl<T: Config> InspectMessageQueues for Pallet<T> {
+	fn clear_messages() {
+		PendingUpwardMessages::<T>::kill();
+	}
+
+	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
+		use xcm::prelude::*;
+
+		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
+			.iter()
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
+			.collect();
+
+		if messages.is_empty() {
+			vec![]
+		} else {
+			vec![(VersionedLocation::from(Location::parent()), messages)]
 		}
 	}
 }
 
-/// Something that can check the inherents of a block.
-#[cfg_attr(
-	feature = "parameterized-consensus-hook",
-	deprecated = "consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
-)]
-pub trait CheckInherents<Block: BlockT> {
-	/// Check all inherents of the block.
-	///
-	/// This function gets passed all the extrinsics of the block, so it is up to the callee to
-	/// identify the inherents. The `validation_data` can be used to access the
-	fn check_inherents(
-		block: &Block,
-		validation_data: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult;
-}
-
-/// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
-#[doc(hidden)]
-pub struct DummyCheckInherents<Block>(sp_std::marker::PhantomData<Block>);
-
-#[allow(deprecated)]
-impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
-	fn check_inherents(
-		_: &Block,
-		_: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult {
-		sp_inherents::CheckInherentsResult::new()
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
+	fn ensure(para_id: ParaId) {
+		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
+			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+		}
 	}
 }
 
@@ -1654,17 +1816,39 @@ impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
 /// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
 /// when the new validation is written to the state. This means that
 /// from the next block the runtime is being using this new code.
-#[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnSystemEvent {
 	/// Called in each blocks once when the validation data is set by the inherent.
 	fn on_validation_data(data: &PersistedValidationData);
 	/// Called when the validation code is being applied, aka from the next block on this is the new
 	/// runtime.
 	fn on_validation_code_applied();
+	/// Called to process keys from the verified relay chain state proof.
+	fn on_relay_state_proof(
+		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
+	) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl OnSystemEvent for Tuple {
+	fn on_validation_data(data: &PersistedValidationData) {
+		for_tuples!( #( Tuple::on_validation_data(data); )* );
+	}
+
+	fn on_validation_code_applied() {
+		for_tuples!( #( Tuple::on_validation_code_applied(); )* );
+	}
+
+	fn on_relay_state_proof(
+		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
+	) -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
+		weight
+	}
 }
 
 /// Holds the most recent relay-parent state root and block number of the current parachain block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
 pub struct RelayChainState {
 	/// Current relay chain height.
 	pub number: relay_chain::BlockNumber,
@@ -1708,7 +1892,7 @@ pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 ///   of [`RelayChainState`].
 /// - [`current_block_number`](Self::current_block_number): Will return
 ///   [`Pallet::last_relay_block_number()`].
-pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
@@ -1719,7 +1903,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std

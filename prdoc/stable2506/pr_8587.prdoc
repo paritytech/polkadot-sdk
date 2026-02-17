@@ -1,0 +1,12 @@
+title: '[pallet-revive] make subscription task panic on error'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - subscription task are "essential tasks" and the service should go down when they fail.
+    - Upgrade subxt to 0.41
+    - Update zombienet-sdk to use the subxt re-export of subxt so it does not conflict with the workspace version
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch

@@ -75,12 +75,12 @@ async fn sync_cycle_from_offline_to_syncing_to_offline() {
 		for peer in 0..3 {
 			// Online
 			if net.peer(peer).is_offline() {
-				return Poll::Pending
+				return Poll::Pending;
 			}
 			if peer < 2 {
 				// Major syncing.
 				if net.peer(peer).blocks_count() < 100 && !net.peer(peer).is_major_syncing() {
-					return Poll::Pending
+					return Poll::Pending;
 				}
 			}
 		}
@@ -93,7 +93,7 @@ async fn sync_cycle_from_offline_to_syncing_to_offline() {
 		net.poll(cx);
 		for peer in 0..3 {
 			if net.peer(peer).is_major_syncing() {
-				return Poll::Pending
+				return Poll::Pending;
 			}
 		}
 		Poll::Ready(())
@@ -283,12 +283,12 @@ async fn sync_justifications() {
 			if net.peer(0).client().justifications(hashes[height - 1]).unwrap() !=
 				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
-				return Poll::Pending
+				return Poll::Pending;
 			}
 			if net.peer(1).client().justifications(hashes[height - 1]).unwrap() !=
 				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
-				return Poll::Pending
+				return Poll::Pending;
 			}
 		}
 
@@ -436,7 +436,7 @@ async fn can_sync_small_non_best_forks() {
 
 		assert!(net.peer(0).client().header(small_hash).unwrap().is_some());
 		if net.peer(1).client().header(small_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -448,7 +448,7 @@ async fn can_sync_small_non_best_forks() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		if net.peer(1).client().header(another_fork).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -486,7 +486,7 @@ async fn can_sync_forks_ahead_of_the_best_chain() {
 		net.poll(cx);
 
 		if net.peer(1).client().header(fork_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -540,7 +540,7 @@ async fn can_sync_explicit_forks() {
 
 		assert!(net.peer(0).client().header(small_hash).unwrap().is_some());
 		if net.peer(1).client().header(small_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -749,24 +749,6 @@ async fn sync_blocks_when_block_announce_validator_says_it_is_new_best() {
 	}
 }
 
-/// Waits for some time until the validation is successful.
-struct DeferredBlockAnnounceValidator;
-
-impl BlockAnnounceValidator<Block> for DeferredBlockAnnounceValidator {
-	fn validate(
-		&mut self,
-		_: &Header,
-		_: &[u8],
-	) -> Pin<Box<dyn Future<Output = Result<Validation, Box<dyn std::error::Error + Send>>> + Send>>
-	{
-		async {
-			futures_timer::Delay::new(std::time::Duration::from_millis(500)).await;
-			Ok(Validation::Success { is_new_best: false })
-		}
-		.boxed()
-	}
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn wait_until_deferred_block_announce_validation_is_ready() {
 	sp_tracing::try_init_simple();
@@ -844,6 +826,7 @@ async fn sync_to_tip_requires_that_sync_protocol_is_informed_about_best_block() 
 
 /// Ensures that if we as a syncing node sync to the tip while we are connected to another peer
 /// that is currently also doing a major sync.
+#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_to_tip_when_we_sync_together_with_multiple_peers() {
 	sp_tracing::try_init_simple();
@@ -1020,7 +1003,7 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 		if net.peer(1).client().justifications(hashof10).unwrap() !=
 			Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
-			return Poll::Pending
+			return Poll::Pending;
 		}
 
 		Poll::Ready(())
@@ -1049,8 +1032,8 @@ async fn syncs_all_forks_from_single_peer() {
 		})
 		.await;
 
-		if net.peer(1).sync_service().best_seen_block().await.unwrap() == Some(12) {
-			break
+		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
+			break;
 		}
 	}
 
@@ -1217,7 +1200,7 @@ async fn syncs_indexed_blocks() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn warp_sync() {
+async fn warp_sync_gap_sync_skips_bodies_if_blocks_pruning() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(0);
 	// Create 3 synced peers and 1 peer trying to warp sync.
@@ -1226,12 +1209,18 @@ async fn warp_sync() {
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256), // Pruning enabled, gap sync expected to not request bodies
 		..Default::default()
 	});
-	let gap_end = net.peer(0).push_blocks(63, false).pop().unwrap();
+
+	// Splitting blocks into chunks to demonstrate how gap sync works
+	let gap_start = net.peer(0).push_blocks(1, false);
+	let blocks = net.peer(0).push_blocks(61, false);
+	let gap_end = net.peer(0).push_blocks(1, false);
 	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
+
 	// Wait for peer 3 to sync state.
 	net.run_until_sync().await;
 	// Make sure it was not a full sync.
@@ -1242,7 +1231,67 @@ async fn warp_sync() {
 	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
-		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
+		let peer = net.peer(3);
+
+		// Gap blocks should only have headers (not bodies) due to pruning
+		let gap_blocks_dont_have_bodies = gap_start
+			.iter()
+			.chain(blocks.iter())
+			.chain(gap_end.iter())
+			.all(|b| peer.has_block(*b) && !peer.has_body(*b));
+
+		// Target block should have body (downloaded during warp sync)
+		let target_has_body = peer.has_body(target);
+
+		if gap_blocks_dont_have_bodies && target_has_body {
+			Poll::Ready(())
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn warp_sync_gap_sync_requests_bodies_if_archive_node() {
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(0);
+	// Create 3 synced peers and 1 peer trying to warp sync.
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(FullPeerConfig {
+		sync_mode: SyncMode::Warp,
+		blocks_pruning: None, // Archive mode, gap sync expected to request bodies too
+		..Default::default()
+	});
+
+	// Splitting blocks into chunks to demonstrate how gap sync works
+	let gap_start = net.peer(0).push_blocks(1, false);
+	let blocks = net.peer(0).push_blocks(61, false);
+	let gap_end = net.peer(0).push_blocks(1, false);
+	let target = net.peer(0).push_blocks(1, false);
+	net.peer(1).push_blocks(64, false);
+	net.peer(2).push_blocks(64, false);
+
+	// Wait for peer 3 to sync state.
+	net.run_until_sync().await;
+	// Make sure it was not a full sync.
+	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
+	// Make sure warp sync was successful.
+	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
+
+	// Wait for peer 3 to download block history (gap sync).
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		let peer = net.peer(3);
+		if gap_start
+			.iter()
+			.chain(blocks.iter())
+			.chain(gap_end.iter())
+			.chain(target.iter())
+			.all(|b| peer.has_body(*b))
+		{
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1298,7 +1347,8 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
-		target_block: Some(target_block),
+		blocks_pruning: Some(256),
+		target_header: Some(target_block),
 		..Default::default()
 	});
 
@@ -1309,7 +1359,7 @@ async fn warp_sync_to_target_block() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		let peer = net.peer(3);
-		if blocks.iter().all(|b| peer.has_body(*b)) {
+		if blocks.iter().all(|b| peer.has_block(*b)) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1347,4 +1397,49 @@ async fn syncs_huge_blocks() {
 	net.run_until_sync().await;
 	assert_eq!(net.peer(0).client.info().best_number, 33);
 	assert_eq!(net.peer(1).client.info().best_number, 33);
+}
+
+/// Test syncing 512 blocks with 900 KiB headers (empty bodies) to test large header handling.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn syncs_blocks_with_large_headers() {
+	use sc_consensus::ForkChoiceStrategy;
+	use sp_runtime::{
+		generic::{BlockId, DigestItem},
+		Digest,
+	};
+
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(2);
+
+	{
+		let peer = net.peer(0);
+		let best_hash = peer.client.info().best_hash;
+		peer.generate_blocks_at_with_inherent_digests(
+			BlockId::Hash(best_hash),
+			512,
+			BlockOrigin::Own,
+			|builder| builder.build().unwrap().block,
+			|i| {
+				let large_data = vec![i as u8; 900 * 1024];
+				Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] }
+			},
+			false,
+			true,
+			true,
+			ForkChoiceStrategy::LongestChain,
+		);
+		assert_eq!(peer.client.info().best_number, 512);
+	}
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(1).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[1]));
+
+	net.add_full_peer();
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(2).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[2]));
 }

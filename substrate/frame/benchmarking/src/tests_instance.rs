@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::prelude::*;
 
 #[frame_support::pallet]
 mod pallet_test {
@@ -41,6 +40,7 @@ mod pallet_test {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + OtherConfig {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type LowerBound: Get<u32>;
@@ -62,6 +62,7 @@ mod pallet_test {
 		#[pallet::weight({0})]
 		pub fn set_value(origin: OriginFor<T>, n: u32) -> DispatchResult {
 			let _sender = ensure_signed(origin)?;
+			assert!(n >= T::LowerBound::get());
 			Value::<T, I>::put(n);
 			Ok(())
 		}
@@ -82,7 +83,13 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		TestPallet: pallet_test,
+		TestPallet2: pallet_test::<Instance2>,
 	}
+);
+
+crate::define_benchmarks!(
+	[pallet_test, TestPallet]
+	[pallet_test, TestPallet2]
 );
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -118,6 +125,12 @@ impl pallet_test::Config for Test {
 	type UpperBound = ConstU32<100>;
 }
 
+impl pallet_test::Config<pallet_test::Instance2> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type LowerBound = ConstU32<50>;
+	type UpperBound = ConstU32<100>;
+}
+
 impl pallet_test::OtherConfig for Test {
 	type OtherEvent = RuntimeEvent;
 }
@@ -131,7 +144,7 @@ mod benchmarks {
 	use crate::account;
 	use frame_support::ensure;
 	use frame_system::RawOrigin;
-	use sp_std::prelude::*;
+	use sp_core::Get;
 
 	// Additional used internally by the benchmark macro.
 	use super::pallet_test::{Call, Config, Pallet};
@@ -145,7 +158,7 @@ mod benchmarks {
 		}
 
 		set_value {
-			let b in 1 .. 1000;
+			let b in ( <T as Config<I>>::LowerBound::get() ) .. ( <T as Config<I>>::UpperBound::get() );
 			let caller = account::<T::AccountId>("caller", 0, 0);
 		}: _ (RawOrigin::Signed(caller), b.into())
 		verify {
@@ -174,4 +187,49 @@ mod benchmarks {
 			crate::tests_instance::Test
 		)
 	}
+}
+
+#[test]
+fn ensure_correct_instance_is_selected() {
+	use crate::utils::Benchmarking;
+
+	let whitelist = vec![];
+
+	let mut batches = Vec::<crate::BenchmarkBatch>::new();
+	let config = crate::BenchmarkConfig {
+		pallet: "pallet_test".bytes().collect::<Vec<_>>(),
+		// We only want that this `instance` is used.
+		// Otherwise the wrong components are used.
+		instance: "TestPallet".bytes().collect::<Vec<_>>(),
+		benchmark: "set_value".bytes().collect::<Vec<_>>(),
+		selected_components: TestPallet::benchmarks(false)
+			.into_iter()
+			.find_map(|b| {
+				if b.name == "set_value".as_bytes() {
+					Some(b.components.into_iter().map(|c| (c.0, c.1)).collect::<Vec<_>>())
+				} else {
+					None
+				}
+			})
+			.unwrap(),
+		verify: false,
+		internal_repeats: 1,
+	};
+	let params = (&config, &whitelist);
+
+	let state = sc_client_db::BenchmarkingState::<sp_runtime::traits::BlakeTwo256>::new(
+		Default::default(),
+		None,
+		false,
+		false,
+	)
+	.unwrap();
+
+	let mut overlay = Default::default();
+	let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+	sp_externalities::set_and_run_with_externalities(&mut ext, || {
+		add_benchmarks!(params, batches);
+		Ok::<_, crate::BenchmarkError>(())
+	})
+	.unwrap();
 }

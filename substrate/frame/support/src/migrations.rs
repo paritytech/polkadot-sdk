@@ -17,20 +17,21 @@
 
 use crate::{
 	defensive,
-	storage::transactional::with_transaction_opaque_err,
+	storage::{storage_prefix, transactional::with_transaction_opaque_err},
 	traits::{
 		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
 		StorageVersion,
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Handles storage migration pallet versioning.
 ///
@@ -71,7 +72,7 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// /// - https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40
 /// mod version_unchecked {
 /// 	use super::*;
-/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
+/// 	pub struct VersionUncheckedMigrateV5ToV6<T>(core::marker::PhantomData<T>);
 /// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
 /// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
@@ -102,7 +103,7 @@ pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Wei
 #[derive(Encode, Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
-	MigrationExecuted(sp_std::vec::Vec<u8>),
+	MigrationExecuted(alloc::vec::Vec<u8>),
 	/// This migration is a noop, do not run post_upgrade checks.
 	Noop,
 }
@@ -125,7 +126,7 @@ impl<
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			Ok(VersionedPostUpgradeData::MigrationExecuted(Inner::pre_upgrade()?).encode())
@@ -175,14 +176,15 @@ impl<
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(
-		versioned_post_upgrade_data_bytes: sp_std::vec::Vec<u8>,
+		versioned_post_upgrade_data_bytes: alloc::vec::Vec<u8>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		use codec::DecodeAll;
 		match <VersionedPostUpgradeData>::decode_all(&mut &versioned_post_upgrade_data_bytes[..])
 			.map_err(|_| "VersionedMigration post_upgrade failed to decode PreUpgradeData")?
 		{
-			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) =>
-				Inner::post_upgrade(inner_bytes),
+			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) => {
+				Inner::post_upgrade(inner_bytes)
+			},
 			VersionedPostUpgradeData::Noop => Ok(()),
 		}
 	}
@@ -298,13 +300,9 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// 	AnyOtherMigrations...
 /// );
 ///
-/// pub type Executive = frame_executive::Executive<
-/// 	Runtime,
-/// 	Block,
-/// 	frame_system::ChainContext<Runtime>,
-/// 	Runtime,
-/// 	Migrations
-/// >;
+/// impl frame_system::Config for Runtime {
+/// 	type SingleBlockMigrations = Migrations;
+/// }
 /// ```
 ///
 /// WARNING: `RemovePallet` has no guard rails preventing it from bricking the chain if the
@@ -339,7 +337,7 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
@@ -350,20 +348,128 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				P::get()
 			),
 		};
-		Ok(sp_std::vec::Vec::new())
+		Ok(alloc::vec::Vec::new())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::storage::unhashed::contains_prefixed_key;
 
 		let hashed_prefix = twox_128(P::get().as_bytes());
 		match contains_prefixed_key(&hashed_prefix) {
 			true => {
 				log::error!("{} has keys remaining post-removal ❗", P::get());
-				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
 			},
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
+		};
+		Ok(())
+	}
+}
+
+/// `RemoveStorage` is a utility struct used to remove a storage item from a specific pallet.
+///
+/// This struct is generic over three parameters:
+/// - `P` is a type that implements the [`Get`] trait for a static string, representing the pallet's
+///   name.
+/// - `S` is a type that implements the [`Get`] trait for a static string, representing the storage
+///   name.
+/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbWeight`], providing the
+///   weight for database operations.
+///
+/// On runtime upgrade, the `on_runtime_upgrade` function will clear the storage from the specified
+/// storage, logging the number of keys removed. If the `try-runtime` feature is enabled, the
+/// `pre_upgrade` and `post_upgrade` functions can be used to verify the storage removal before and
+/// after the upgrade.
+///
+/// # Examples:
+/// ```ignore
+/// construct_runtime! {
+/// 	pub enum Runtime
+/// 	{
+/// 		System: frame_system = 0,
+///
+/// 		SomePallet: pallet_something = 1,
+///
+/// 		YourOtherPallets...
+/// 	}
+/// };
+///
+/// parameter_types! {
+/// 		pub const SomePallet: &'static str = "SomePallet";
+/// 		pub const StorageAccounts: &'static str = "Accounts";
+/// 		pub const StorageAccountCount: &'static str = "AccountCount";
+/// }
+///
+/// pub type Migrations = (
+/// 	RemoveStorage<SomePallet, StorageAccounts, RocksDbWeight>,
+/// 	RemoveStorage<SomePallet, StorageAccountCount, RocksDbWeight>,
+/// 	AnyOtherMigrations...
+/// );
+///
+/// impl frame_system::Config for Runtime {
+/// 	type SingleBlockMigrations = Migrations;
+/// }
+/// ```
+///
+/// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
+/// operation of removing storage for the given pallet would exceed the block weight limit.
+///
+/// If your storage has too many keys to be removed in a single block, it is advised to wait for
+/// a multi-block scheduler currently under development which will allow for removal of storage
+/// items (and performing other heavy migrations) over multiple blocks
+/// (see <https://github.com/paritytech/substrate/issues/13690>).
+pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
+	PhantomData<(P, S, DbWeight)>,
+);
+impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
+	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
+{
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
+				log::error!(
+					"`clear_prefix` failed to remove all keys for storage `{}` from pallet `{}`. THIS SHOULD NEVER HAPPEN! 🚨",
+					S::get(), P::get()
+				);
+				value
+			},
+		} as u64;
+
+		log::info!("Removed `{}` `{}` `{}` keys 🧹", keys_removed, P::get(), S::get());
+
+		DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => log::info!("Found `{}` `{}` keys pre-removal 👀", P::get(), S::get()),
+			false => log::warn!(
+				"Migration RemoveStorage<{}, {}> can be removed (no keys found pre-removal).",
+				P::get(),
+				S::get()
+			),
+		};
+		Ok(Default::default())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => {
+				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
+				return Err("Keys remaining post-removal, this should never happen 🚨".into());
+			},
+			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
 		};
 		Ok(())
 	}
@@ -391,6 +497,16 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// Returns the prefixes of the keys to be migrated or `None` if the migration does not know.
+	///
+	/// This function is optional and provides information to the migration framework
+	/// to know which storage prefixes are being migrated. It can be helpful to let
+	/// chain explorers know which part of the state is possibly in a state where it
+	/// cannot be read correctly.
+	fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+		None::<core::iter::Empty<_>>
+	}
+
 	/// Try to migrate as much as possible with the given weight.
 	///
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
@@ -416,10 +532,29 @@ pub trait SteppedMigration {
 		})
 		.map_err(|()| SteppedMigrationError::Failed)?
 	}
+
+	/// Hook for testing that is run before the migration is started.
+	///
+	/// Returns some bytes which are passed into `post_upgrade` after the migration is completed.
+	/// This is not run for the real migration, so panicking is not an issue here.
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	/// Hook for testing that is run after the migration is completed.
+	///
+	/// Should be used to verify the state of the chain after the migration. The `state` parameter
+	/// is the return value from `pre_upgrade`. This is not run for the real migration, so panicking
+	/// is not an issue here.
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		Ok(())
+	}
 }
 
 /// Error that can occur during a [`SteppedMigration`].
-#[derive(Debug, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, PartialEq, Eq, scale_info::TypeInfo)]
 pub enum SteppedMigrationError {
 	// Transient errors:
 	/// The remaining weight is not enough to do anything.
@@ -560,7 +695,8 @@ pub trait SteppedMigrations {
 
 	/// The `n`th [`SteppedMigration::id`].
 	///
-	/// Is guaranteed to return `Some` if `n < Self::len()`.
+	/// Is guaranteed to return `Some` if `n < Self::len()`. Calling this with any index larger or
+	/// equal to `Self::len()` MUST return `None`.
 	fn nth_id(n: u32) -> Option<Vec<u8>>;
 
 	/// The [`SteppedMigration::max_steps`] of the `n`th migration.
@@ -585,6 +721,24 @@ pub trait SteppedMigrations {
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
+
+	/// Get the storage prefixes modified by the `n`th migration.
+	///
+	/// Returns `None` if the index is out of bounds.
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>>;
+
+	/// Call the pre-upgrade hooks of the `n`th migration.
+	///
+	/// Returns `None` if the index is out of bounds.
+	#[cfg(feature = "try-runtime")]
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>>;
+
+	/// Call the post-upgrade hooks of the `n`th migration.
+	///
+	/// Returns `None` if the index is out of bounds.
+	#[cfg(feature = "try-runtime")]
+	fn nth_post_upgrade(n: u32, _state: Vec<u8>)
+		-> Option<Result<(), sp_runtime::TryRuntimeError>>;
 
 	/// The maximal encoded length across all cursors.
 	fn cursor_max_encoded_len() -> usize;
@@ -649,6 +803,23 @@ impl SteppedMigrations for () {
 		None
 	}
 
+	fn nth_migrating_prefixes(_n: u32) -> Option<Option<Vec<Vec<u8>>>> {
+		None
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_pre_upgrade(_n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
+		Some(Ok(Vec::new()))
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_post_upgrade(
+		_n: u32,
+		_state: Vec<u8>,
+	) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+		Some(Ok(()))
+	}
+
 	fn cursor_max_encoded_len() -> usize {
 		0
 	}
@@ -663,26 +834,27 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	fn len() -> u32 {
 		1
 	}
-
-	fn nth_id(_n: u32) -> Option<Vec<u8>> {
-		Some(T::id().encode())
+	// It should be generally fine to call with n>0, but the code should not attempt to.
+	fn nth_id(n: u32) -> Option<Vec<u8>> {
+		n.is_zero()
+			.then(|| T::id().encode())
+			.defensive_proof("nth_id should only be called with n==0")
 	}
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
-		// It should be generally fine to call with n>0, but the code should not attempt to.
 		n.is_zero()
-			.then_some(T::max_steps())
+			.then(|| T::max_steps())
 			.defensive_proof("nth_max_steps should only be called with n==0")
 	}
 
 	fn nth_step(
-		_n: u32,
+		n: u32,
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		if !_n.is_zero() {
+		if !n.is_zero() {
 			defensive!("nth_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {
@@ -703,7 +875,7 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		if n != 0 {
 			defensive!("nth_transactional_step should only be called with n==0");
-			return None
+			return None;
 		}
 
 		let cursor = match cursor {
@@ -717,6 +889,29 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		Some(
 			T::transactional_step(cursor, meter).map(|cursor| cursor.map(|cursor| cursor.encode())),
 		)
+	}
+
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
+		n.is_zero()
+			.then(|| T::migrating_prefixes().map(|p| p.into_iter().collect()))
+			.defensive_proof("nth_migrating_prefixes should only be called with n==0")
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
+		if n != 0 {
+			defensive!("nth_pre_upgrade should only be called with n==0");
+		}
+
+		Some(T::pre_upgrade())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_post_upgrade(n: u32, state: Vec<u8>) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+		if n != 0 {
+			defensive!("nth_post_upgrade should only be called with n==0");
+		}
+		Some(T::post_upgrade(state))
 	}
 
 	fn cursor_max_encoded_len() -> usize {
@@ -784,6 +979,48 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
+	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
+		let mut i = 0;
+		for_tuples!( #(
+            let len = Tuple::len() as u32;
+            if (i + len) > n {
+                return Tuple::nth_migrating_prefixes(n - i);
+            }
+            i += len;
+        )* );
+		None
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
+		let mut i = 0;
+
+		for_tuples! ( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_pre_upgrade(n - i)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn nth_post_upgrade(n: u32, state: Vec<u8>) -> Option<Result<(), sp_runtime::TryRuntimeError>> {
+		let mut i = 0;
+
+		for_tuples! ( #(
+			if (i + Tuple::len()) > n {
+				return Tuple::nth_post_upgrade(n - i, state)
+			}
+
+			i += Tuple::len();
+		)* );
+
+		None
+	}
+
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
 		let mut i = 0;
 
@@ -825,6 +1062,7 @@ mod tests {
 	use crate::{assert_ok, storage::unhashed};
 
 	#[derive(Decode, Encode, MaxEncodedLen, Eq, PartialEq)]
+	#[allow(dead_code)]
 	pub enum Either<L, R> {
 		Left(L),
 		Right(R),
@@ -846,6 +1084,10 @@ mod tests {
 			log::info!("M0");
 			unhashed::put(&[0], &());
 			Ok(None)
+		}
+
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()])
 		}
 	}
 
@@ -870,6 +1112,10 @@ mod tests {
 		fn max_steps() -> Option<u32> {
 			Some(1)
 		}
+
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M1_prefix".to_vec()])
+		}
 	}
 
 	pub struct M2;
@@ -893,6 +1139,28 @@ mod tests {
 		fn max_steps() -> Option<u32> {
 			Some(2)
 		}
+
+		fn migrating_prefixes() -> Option<impl IntoIterator<Item = Vec<u8>>> {
+			Some(vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()])
+		}
+	}
+
+	pub struct M3;
+	impl SteppedMigration for M3 {
+		type Cursor = ();
+		type Identifier = u8;
+
+		fn id() -> Self::Identifier {
+			3
+		}
+
+		fn step(
+			_cursor: Option<Self::Cursor>,
+			_meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			log::info!("M3");
+			Ok(None)
+		}
 	}
 
 	pub struct F0;
@@ -901,7 +1169,7 @@ mod tests {
 		type Identifier = u8;
 
 		fn id() -> Self::Identifier {
-			3
+			4
 		}
 
 		fn step(
@@ -995,5 +1263,58 @@ mod tests {
 			.unwrap()
 			.is_err());
 		});
+	}
+
+	#[test]
+	fn nth_migrating_prefixes_works() {
+		// Test single migration
+		assert_eq!(
+			M0::nth_migrating_prefixes(0),
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+
+		// Test migration with no prefixes
+		assert_eq!(M3::nth_migrating_prefixes(0), Some(None));
+
+		// Test tuple migrations
+		type Pair = (M0, M1);
+		assert_eq!(Pair::len(), 2);
+
+		// First migration in tuple
+		assert_eq!(
+			Pair::nth_migrating_prefixes(0),
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+
+		// Second migration in tuple
+		assert_eq!(Pair::nth_migrating_prefixes(1), Some(Some(vec![b"M1_prefix".to_vec()])));
+
+		// Out of bounds
+		assert_eq!(Pair::nth_migrating_prefixes(2), None);
+
+		// Test nested tuples
+		type Nested = (M0, (M1, M2));
+		assert_eq!(Nested::len(), 3);
+
+		// First migration
+		assert_eq!(
+			Nested::nth_migrating_prefixes(0),
+			Some(Some(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+
+		// Second migration (first in inner tuple)
+		assert_eq!(Nested::nth_migrating_prefixes(1), Some(Some(vec![b"M1_prefix".to_vec()])));
+
+		// Third migration (second in inner tuple)
+		assert_eq!(
+			Nested::nth_migrating_prefixes(2),
+			Some(Some(vec![
+				b"M2_prefix1".to_vec(),
+				b"M2_prefix2".to_vec(),
+				b"M2_prefix3".to_vec()
+			]))
+		);
+
+		assert_eq!(Nested::nth_migrating_prefixes(3), None);
 	}
 }

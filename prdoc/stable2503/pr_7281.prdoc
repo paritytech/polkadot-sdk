@@ -1,0 +1,13 @@
+title: '[pallet-revive] fix eth fee estimation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix EVM fee cost estimation.
+    The current estimation was shown in Native and not EVM decimal currency.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

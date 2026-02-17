@@ -1,0 +1,9 @@
+title: networking::TransactionPool should accept Arc
+doc:
+- audience: Node Dev
+  description: The `sc_network_transactions::config::TransactionPool` trait now returns an `Arc` for transactions.
+crates:
+- name: sc-network-transactions
+  bump: minor
+- name: sc-service
+  bump: minor

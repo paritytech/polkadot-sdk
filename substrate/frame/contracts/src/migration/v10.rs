@@ -36,16 +36,19 @@ use frame_support::{
 		tokens::{fungible::Inspect, Fortitude::Polite, Preservation::Preserve},
 		ExistenceRequirement, ReservableCurrency,
 	},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
 use sp_runtime::{
 	traits::{Hash, TrailingZeroInput, Zero},
 	Perbill, Saturating,
 };
-use sp_std::prelude::*;
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 mod v9 {
 	use super::*;
@@ -54,7 +57,7 @@ mod v9 {
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T, OldCurrency))]
 	pub struct ContractInfo<T: Config, OldCurrency>
 	where
@@ -97,7 +100,7 @@ pub fn store_old_contract_info<T: Config, OldCurrency>(
 	v9::ContractInfoOf::<T, OldCurrency>::insert(account, info);
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct DepositAccount<T: Config>(AccountIdOf<T>);
 
@@ -109,7 +112,7 @@ impl<T: Config> Deref for DepositAccount<T> {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T, OldCurrency))]
 pub struct ContractInfo<T: Config, OldCurrency>
 where
@@ -160,7 +163,7 @@ where
 		T::WeightInfo::v10_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
 			v9::ContractInfoOf::<T, OldCurrency>::iter_from(
 				v9::ContractInfoOf::<T, OldCurrency>::hashed_key_for(last_account),
@@ -267,10 +270,12 @@ where
 			// Store last key for next migration step
 			self.last_account = Some(account);
 
-			(IsFinished::No, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "Done Migrating contract info");
-			(IsFinished::Yes, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::Yes
 		}
 	}
 
