@@ -484,3 +484,53 @@ fn choose_account_one_participant() {
 		assert_eq!(Lottery::choose_account().unwrap(), 1);
 	});
 }
+
+/// Payout still works when the lottery account has additional provider/consumer/sufficient
+/// references. Nobody should be able to block the payout by adding references.
+#[test]
+fn payout_works_with_additional_references() {
+	new_test_ext().execute_with(|| {
+		let price = 10;
+		let length = 20;
+		let delay = 5;
+
+		let calls = vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+			dest: 0,
+			value: 0,
+		})];
+		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls));
+		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, false));
+
+		// Buy tickets
+		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+			dest: 2,
+			value: 0,
+		}));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(1), call.clone()));
+		assert_ok!(Lottery::buy_ticket(RuntimeOrigin::signed(2), call.clone()));
+		assert_eq!(TicketsCount::<Test>::get(), 2);
+
+		// Add extra references to the lottery account
+		let lottery_account = Lottery::account_id();
+		frame_system::Pallet::<Test>::inc_providers(&lottery_account);
+		frame_system::Pallet::<Test>::inc_sufficients(&lottery_account);
+
+		// Go to payout
+		System::run_to_block::<AllPalletsWithSystem>(length + delay);
+
+		// Lottery should have completed successfully
+		assert!(crate::Lottery::<Test>::get().is_none());
+		assert_eq!(TicketsCount::<Test>::get(), 0);
+
+		// Winner received the pot (minus ED retained in lottery account)
+		// The extra references did not block the payout.
+		assert_eq!(
+			Balances::reducible_balance(
+				&lottery_account,
+				Preservation::Expendable,
+				Fortitude::Polite
+			),
+			1 // Only ED remains
+		);
+	});
+}
