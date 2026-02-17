@@ -41,7 +41,7 @@ use std::{
 		Arc,
 	},
 };
-use wasmtime::{AsContext, Cache, CacheConfig, Engine, Memory};
+use wasmtime::{AsContext, Cache, CacheConfig, Engine, Memory, Table};
 
 const MAX_INSTANCE_COUNT: u32 = 64;
 
@@ -51,6 +51,8 @@ pub(crate) struct StoreData {
 	pub(crate) host_state: Option<HostState>,
 	/// This will be always set once the store is initialized.
 	pub(crate) memory: Option<Memory>,
+	/// The indirect function table, if exported by the module.
+	pub(crate) table: Option<Table>,
 }
 
 impl StoreData {

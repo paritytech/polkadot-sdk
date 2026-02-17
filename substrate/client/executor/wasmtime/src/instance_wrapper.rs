@@ -137,8 +137,12 @@ impl InstanceWrapper {
 		})?;
 
 		let memory = get_linear_memory(&instance, &mut store)?;
+		let table = instance
+			.get_export(&mut store, "__indirect_function_table")
+			.and_then(|e| e.into_table());
 
 		store.data_mut().memory = Some(memory);
+		store.data_mut().table = table;
 
 		Ok(InstanceWrapper { instance, store, _release_instance_handle })
 	}

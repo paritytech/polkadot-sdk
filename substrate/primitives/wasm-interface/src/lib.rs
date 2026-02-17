@@ -22,7 +22,7 @@
 extern crate alloc;
 
 use alloc::{borrow::Cow, string::String, vec, vec::Vec};
-use core::{iter::Iterator, marker::PhantomData, mem};
+use core::{iter::Iterator, marker::PhantomData, mem, result};
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]
 #[macro_export]

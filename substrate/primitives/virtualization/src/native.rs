@@ -20,8 +20,8 @@ use crate::{
 	LOG_TARGET,
 };
 use polkavm::{
-	Caller, CallerRef, Config, Engine, ExecutionError, GasMeteringKind, Instance, Linker, Module,
-	ModuleConfig, Reg, StateArgs, Trap,
+	CallError, Caller, Config, Engine, GasMeteringKind, Instance, Linker, Module, ModuleConfig,
+	RawInstance, Reg,
 };
 use std::{
 	cell::RefCell,
@@ -29,6 +29,20 @@ use std::{
 	rc::{Rc, Weak},
 	sync::OnceLock,
 };
+
+/// User error type returned from `on_ecall` to signal that execution should stop.
+///
+/// This is used as the `UserError` type parameter for [`Instance`] and [`Linker`].
+/// When the syscall handler sets `exit` to true, `on_ecall` returns this error which
+/// propagates as `CallError::User(EcallError)`.
+#[derive(Debug)]
+struct EcallError;
+
+impl core::fmt::Display for EcallError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "ecall requested exit")
+	}
+}
 
 /// This is the single PolkaVM engine we use for everything.
 ///
@@ -47,7 +61,7 @@ fn engine() -> &'static Engine {
 /// Native implementation of [`VirtT`].
 pub struct Virt {
 	/// The PolkaVM instance we are managing.
-	instance: Instance<Self>,
+	instance: Instance<Self, EcallError>,
 	/// Reference counted memory so that we can hand out multiple references to it.
 	///
 	/// This is needed because we need to make changes to the type from within `on_ecall`
@@ -75,22 +89,44 @@ struct WhileExec {
 }
 
 /// The native [`MemoryT`] implementation.
-pub enum Memory {
-	/// While not executing we access memory through a [`Instance`].
-	Idle(Instance<Virt>),
-	/// While executing we have to use the [`Caller`] passed to `on_ecall` to access memory.
-	///
-	/// Trying to use an `Instance` while already executing it will lead to a dead lock. `on_ecall`
-	/// will make sure to replace `Idle` with `Executing` before callign the syscall handler.
-	Executing(CallerRef<()>),
-}
+///
+/// Provides access to the guest memory of a [`RawInstance`] owned by [`Virt`].
+///
+/// This type exists because memory access is needed both from outside execution (through
+/// the [`Instance`] in [`Virt`]) and from inside `on_ecall` callbacks (through the
+/// [`Caller`]'s `&mut RawInstance`). Since [`Instance`] derefs to [`RawInstance`], both
+/// paths reach the same underlying object. We share it via [`Rc`] so that [`MemoryT`]
+/// consumers hold a [`Weak`] reference that becomes invalid when [`Virt`] is dropped.
+///
+/// # Safety
+///
+/// The inner pointer is valid for the lifetime of the [`Instance`] in [`Virt`]. All access
+/// is confined to `read_memory_into` and `write_memory` on the [`RawInstance`], which do
+/// not interfere with PolkaVM's execution state.
+pub struct Memory(*mut RawInstance);
 
 impl Memory {
-	fn into_caller(self) -> Option<CallerRef<()>> {
-		match self {
-			Self::Executing(caller) => Some(caller),
-			_ => None,
-		}
+	/// Create a new `Memory` from a mutable reference to an [`Instance`].
+	///
+	/// # Safety
+	///
+	/// The caller must ensure the [`Instance`] outlives all uses of this `Memory`.
+	unsafe fn new(instance: &mut Instance<Virt, EcallError>) -> Self {
+		Memory(&mut **instance as *mut RawInstance)
+	}
+
+	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
+		// SAFETY: The pointer is valid for the lifetime of `Virt` which owns
+		// both the `Instance` and the `Rc<RefCell<Memory>>`.
+		unsafe { (*self.0).read_memory_into(offset, dest) }
+			.map(|_| ())
+			.map_err(|_| MemoryError::OutOfBounds)
+	}
+
+	fn write(&self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
+		// SAFETY: The pointer is valid for the lifetime of `Virt` which owns
+		// both the `Instance` and the `Rc<RefCell<Memory>>`.
+		unsafe { (*self.0).write_memory(offset, src) }.map_err(|_| MemoryError::OutOfBounds)
 	}
 }
 
@@ -130,27 +166,27 @@ impl VirtT for Virt {
 
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
-		let module = Module::new(&engine, &module_config, program).map_err(|err| {
+		let module = Module::new(&engine, &module_config, program.into()).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 			InstantiateError::InvalidImage
 		})?;
 
-		let mut linker = Linker::new(&engine);
-		linker.func_fallback(on_ecall);
+		let mut linker = Linker::<Self, EcallError>::new();
+		linker.define_fallback(on_ecall);
 		let instance = linker.instantiate_pre(&module).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to link program: {err}");
 			InstantiateError::InvalidImage
 		})?;
 
-		let instance = instance.instantiate().map_err(|err| {
+		let mut instance = instance.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?;
-		let virt = Self {
-			while_exec: None,
-			memory: Rc::new(RefCell::new(Memory::Idle(instance.clone()))),
-			instance,
-		};
+		// SAFETY: `instance` is moved into `Virt` below and lives as long as `Virt`,
+		// which also owns the `Rc<RefCell<Memory>>`. The `Memory` is only accessed via
+		// `Weak` references which become invalid once `Virt` is dropped.
+		let memory = unsafe { Memory::new(&mut instance) };
+		let virt = Self { while_exec: None, memory: Rc::new(RefCell::new(memory)), instance };
 		Ok(virt)
 	}
 
@@ -180,20 +216,14 @@ impl VirtT for Virt {
 impl MemoryT for Weak<RefCell<Memory>> {
 	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
 		let rc = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		let result = match &*rc.borrow() {
-			Memory::Idle(instance) => instance.read_memory_into_slice(offset, dest),
-			Memory::Executing(caller) => caller.read_memory_into_slice(offset, dest),
-		};
-		result.map(|_| ()).map_err(|_| MemoryError::OutOfBounds)
+		let memory = rc.borrow();
+		memory.read(offset, dest)
 	}
 
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
 		let rc = self.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		let result = match &mut *rc.borrow_mut() {
-			Memory::Idle(instance) => instance.write_memory(offset, src),
-			Memory::Executing(caller) => caller.write_memory(offset, src),
-		};
-		result.map_err(|_| MemoryError::OutOfBounds)
+		let memory = rc.borrow();
+		memory.write(offset, src)
 	}
 }
 
@@ -241,74 +271,64 @@ impl Virt {
 		syscall_handler: SyscallHandler<T>,
 		state: &mut SharedState<T>,
 	) -> Result<(), ExecError> {
-		let mut state_args = StateArgs::new();
-		state_args.reset_memory(false).set_gas(state.gas_left.try_into().map_err(|_| {
-			log::debug!(target: LOG_TARGET, "{} is not a valid gas value", state.gas_left);
-			ExecError::InvalidGasValue
-		})?);
-		self.instance
-			.update_state(state_args)
-			.expect("We only set valid state above; qed");
+		self.instance.reset_memory().map_err(|_| ExecError::InvalidInstance)?;
+		self.instance.set_gas(state.gas_left);
 
 		// It does not really make sense to set `exit` to true before calling execute. However,
 		// it seems least surprising to not even start the execution in this case.
 		if state.exit {
-			return Ok(())
+			return Ok(());
 		}
 
 		self.while_exec = Some(WhileExec {
 			syscall_handler: syscall_handler.into(),
 			state: state as *mut _ as usize,
 		});
+		// SAFETY: We need to pass `&mut self` (as user_data) to `call_typed` while also
+		// calling it on `self.instance`. Rust's borrow checker cannot split borrows through
+		// `self`, so we use a raw pointer. This is safe because `call_typed` only accesses
+		// `user_data` from within `on_ecall` callbacks, which in turn only access
+		// `self.while_exec` and `self.memory` — never `self.instance`.
+		let virt_ptr = self as *mut Self;
 		let outcome =
-			self.instance.clone().call_typed(self, function, ()).map_err(|err| match err {
-				ExecutionError::Trap(_) => ExecError::Trap,
-				ExecutionError::OutOfGas => ExecError::OutOfGas,
-				ExecutionError::Error(err) => {
-					log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
-					ExecError::InvalidImage
-				},
-			});
+			self.instance
+				.call_typed(unsafe { &mut *virt_ptr }, function, ())
+				.map_err(|err| match err {
+					CallError::Trap => ExecError::Trap,
+					CallError::NotEnoughGas => ExecError::OutOfGas,
+					CallError::Error(err) => {
+						log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
+						ExecError::InvalidImage
+					},
+					CallError::User(_) => ExecError::Trap,
+					CallError::Step => ExecError::Trap,
+				});
 
 		self.while_exec = None;
-		state.gas_left = self.instance.gas_remaining().expect("metering is enabled; qed").get();
+		state.gas_left = self.instance.gas();
 
 		outcome
 	}
 }
 
-fn on_ecall(caller: Caller<'_, Virt>, syscall_id: &[u8]) -> Result<(), Trap> {
-	let syscall_no = if syscall_id.len() == 4 {
-		u32::from_le_bytes([syscall_id[0], syscall_id[1], syscall_id[2], syscall_id[3]])
-	} else {
-		log::debug!(
-			target: LOG_TARGET,
-			"All syscall identifiers need to be exactly 4 bytes. Supplied id: {:?}",
-			syscall_id
-		);
-		return Err(Trap::default());
-	};
+fn on_ecall(caller: Caller<'_, Virt>, syscall_id: u32) -> Result<(), EcallError> {
+	let virt = caller.user_data;
+	let instance = caller.instance;
 
-	let (caller, virt) = caller.split();
-
-	// caller is moved later and hence we need to copy the register values
-	let a0 = caller.get_reg(Reg::A0);
-	let a1 = caller.get_reg(Reg::A1);
-	let a2 = caller.get_reg(Reg::A2);
-	let a3 = caller.get_reg(Reg::A3);
-	let a4 = caller.get_reg(Reg::A4);
-	let a5 = caller.get_reg(Reg::A5);
+	let a0 = instance.reg(Reg::A0) as u32;
+	let a1 = instance.reg(Reg::A1) as u32;
+	let a2 = instance.reg(Reg::A2) as u32;
+	let a3 = instance.reg(Reg::A3) as u32;
+	let a4 = instance.reg(Reg::A4) as u32;
+	let a5 = instance.reg(Reg::A5) as u32;
 
 	// make gas_left available to the syscall handler
-	let gas_left_before = caller.gas_remaining().expect("metering is enabled; qed").get();
+	let gas_left_before = instance.gas();
 	// SAFETY: no other reference is created from `state` while borrowing via
 	// `state()`.
 	unsafe {
 		virt.state().gas_left = gas_left_before;
 	}
-
-	let instance =
-		mem::replace(&mut *virt.memory.borrow_mut(), Memory::Executing(caller.into_ref()));
 
 	let while_exec = virt
 		.while_exec
@@ -317,12 +337,7 @@ fn on_ecall(caller: Caller<'_, Virt>, syscall_id: &[u8]) -> Result<(), Trap> {
 
 	// delegate to our syscall handler
 	let result =
-		(while_exec.syscall_handler.0)(while_exec.state, syscall_no, a0, a1, a2, a3, a4, a5);
-
-	let mut caller = mem::replace(&mut *virt.memory.borrow_mut(), instance).into_caller().expect(
-		"We just set this to a a caller before calling into the syscaller handler.
-		The syscall handler cannot change this field; qed",
-	);
+		(while_exec.syscall_handler.0)(while_exec.state, syscall_id, a0, a1, a2, a3, a4, a5);
 
 	// SAFETY: no other reference is created from `state` while borrowing via
 	// `state()`.
@@ -330,13 +345,13 @@ fn on_ecall(caller: Caller<'_, Virt>, syscall_id: &[u8]) -> Result<(), Trap> {
 
 	// syscall handler might have reduced the gas left value
 	let consumed = gas_left_before.saturating_sub(state.gas_left);
-	caller.consume_gas(consumed);
+	instance.set_gas(instance.gas().saturating_sub(consumed));
 
 	if state.exit {
-		Err(Trap::default())
+		Err(EcallError)
 	} else {
-		caller.set_reg(Reg::A0, result as u32);
-		caller.set_reg(Reg::A1, (result >> 32) as u32);
+		instance.set_reg(Reg::A0, (result as u32).into());
+		instance.set_reg(Reg::A1, ((result >> 32) as u32).into());
 		Ok(())
 	}
 }

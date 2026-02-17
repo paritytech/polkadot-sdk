@@ -185,7 +185,7 @@ pub struct SharedState<T> {
 	/// virtualization system before calling the syscall handler. Can be reduced by the syscall
 	/// handler in order to consume additional gas. Increments inside the syscall handler will
 	/// be discarded.
-	pub gas_left: u64,
+	pub gas_left: i64,
 	/// Can be used by the syscall handler to signal that the execution should stop.
 	///
 	/// When this is set to true by the syscall handler it will make the execution trap upon

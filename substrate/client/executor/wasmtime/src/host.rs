@@ -179,8 +179,9 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 	) -> sp_wasm_interface::Result<Result<(), u8>> {
 		let (mut virt, memory) = match self.host_state_mut().virt_instances.remove(&instance_id) {
 			Some(VirtOrMem::Instance { virt, memory }) => (virt, memory),
-			Some(VirtOrMem::Memory(_)) =>
-				Err("it is illegal to call execute the same instance while already executing")?,
+			Some(VirtOrMem::Memory(_)) => {
+				Err("it is illegal to call execute the same instance while already executing")?
+			},
 			None => return Ok(Err(VirtExecError::InvalidInstance.into())),
 		};
 
@@ -191,15 +192,15 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 				.data()
 				.table
 				.ok_or("Runtime doesn't have a table; sandbox is unavailable")?;
-			let table_item = table.get(&mut self.caller, syscall_handler);
+			let table_item = table.get(&mut self.caller, syscall_handler as u64);
 
-			table_item
-				.ok_or("dispatch_thunk_id is out of bounds")?
-				.funcref()
-				.ok_or("dispatch_thunk_idx should be a funcref")?
-				.ok_or("dispatch_thunk_idx should point to actual func")?
-				.typed(&mut self.caller)
-				.map_err(|_| "dispatch_thunk_idx has the wrong type")?
+			match table_item.ok_or("dispatch_thunk_id is out of bounds")? {
+				wasmtime::Ref::Func(Some(func)) => func
+					.typed(&mut self.caller)
+					.map_err(|_| "dispatch_thunk_idx has the wrong type")?,
+				wasmtime::Ref::Func(None) => Err("dispatch_thunk_idx should point to actual func")?,
+				_ => Err("dispatch_thunk_idx should be a funcref")?,
+			}
 		};
 
 		self.host_state_mut()
@@ -264,10 +265,10 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 			.get(&instance_id)
 			.map(|instance| instance.memory())
 		else {
-			return Ok(Err(VirtDestroyError::InvalidInstance.into()))
+			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
 		};
 		if let Err(err) = memory.read(offset, dest) {
-			return Ok(Err(err.into()))
+			return Ok(Err(err.into()));
 		}
 		Ok(Ok(()))
 	}
@@ -284,10 +285,10 @@ impl<'a> sp_wasm_interface::Virtualization for HostContext<'a> {
 			.get_mut(&instance_id)
 			.map(|instance| instance.memory_mut())
 		else {
-			return Ok(Err(VirtDestroyError::InvalidInstance.into()))
+			return Ok(Err(VirtDestroyError::InvalidInstance.into()));
 		};
 		if let Err(err) = memory.write(offset, src) {
-			return Ok(Err(err.into()))
+			return Ok(Err(err.into()));
 		}
 		Ok(Ok(()))
 	}
@@ -363,7 +364,7 @@ extern "C" fn virt_syscall_handler(
 	a4: u32,
 	a5: u32,
 ) -> u64 {
-	let syscall_handler = state.user.syscall_handler;
+	let syscall_handler = state.user.syscall_handler.clone();
 	let state_ptr = state.user.state_ptr;
 
 	// sync current gas counter to runtime memory. exit is not synced as it is input only.
