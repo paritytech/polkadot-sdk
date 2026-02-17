@@ -24,7 +24,7 @@ use crate::{
 	slots,
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
-use alloc::{sync::Arc, vec::Vec};
+use alloc::sync::Arc;
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,

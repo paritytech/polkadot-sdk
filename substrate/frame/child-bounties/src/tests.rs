@@ -35,12 +35,11 @@ use frame_support::{
 	PalletId,
 };
 
+use super::Event as ChildBountiesEvent;
 use sp_runtime::{
 	traits::{BadOrigin, IdentityLookup},
 	BuildStorage, Perbill, Permill, TokenError,
 };
-// use pallet_assets::AssetCategoryManager;
-use super::Event as ChildBountiesEvent;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type BountiesError = pallet_bounties::Error<Test>;

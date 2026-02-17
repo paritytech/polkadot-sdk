@@ -1981,15 +1981,10 @@ pub mod pallet {
 		type Balance = T::Balance;
 
 		/// Get all assets in a category
-		// TODO: Refine or investigate
 		fn assets_in_category(category: &[u8]) -> Vec<Self::AssetKind> {
-			let bounded_category: BoundedVec<u8, ConstU32<32>> =
-				category.to_vec().try_into().unwrap_or_default();
-
-			AssetCategories::<T, I>::get(&bounded_category)
-				.into_inner()
-				.into_iter()
-				.collect()
+			BoundedVec::<u8, ConstU32<32>>::try_from(category.to_vec())
+				.map(|bounded_category| AssetCategories::<T, I>::get(bounded_category).into_inner())
+				.unwrap_or_default()
 		}
 
 		/// Get available balance of a specific asset in treasury    

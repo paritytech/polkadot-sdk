@@ -103,8 +103,10 @@ use frame_support::{
 	pallet_prelude::DispatchError,
 	print,
 	traits::{
-		tokens::{Pay, asset_ops::common_ops::AssetCategoryManager}, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
-		ReservableCurrency, WithdrawReasons,
+		tokens::{asset_ops::common_ops::AssetCategoryManager, Pay},
+		Currency,
+		ExistenceRequirement::KeepAlive,
+		Get, Imbalance, OnUnbalanced, ReservableCurrency, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec, PalletId,
@@ -189,15 +191,7 @@ pub enum PaymentState<AssetKind, Balance, Id> {
 
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-    DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-    Debug,
-    TypeInfo,
-    MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum SpendAsset<AssetKind> {
 	/// Spend a specific asset
@@ -205,19 +199,11 @@ pub enum SpendAsset<AssetKind> {
 	/// Spend from a category of assets
 	Category(BoundedVec<u8, ConstU32<32>>),
 }
-// TODO: Move to primitives
+
 /// Represents a partial payment using a specific asset from a category
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct PaymentExecution<AssetKind, Balance, PaymentId> {
 	/// The asset used for this partial payment
@@ -519,6 +505,14 @@ pub mod pallet {
 		TooManyFailedPayments,
 
 		AssetNotFound,
+
+		ConversionFailed,
+
+		ArithmeticOverflow,
+
+		ConversionRateMismatch,
+
+		InvalidConversionRate,
 	}
 
 	#[pallet::hooks]
@@ -736,62 +730,69 @@ pub mod pallet {
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
 
-			match *asset {
-				SpendAsset::Category(ref category) => {
-					let assets = Self::validate_category_spend(category, amount)?;
+			if let SpendAsset::Category(ref category) = *asset {
+				let assets = Self::validate_category_spend(category, amount)?;
 
-					// This helps prevent issues where assets in the same category
-					// might have different conversion rates to native currency
-					if let Some(first_asset) = assets.first() {
-						let first_native =
-							T::BalanceConverter::from_asset_balance(amount, first_asset.clone())
-								.ok();
+				if let Some(base) = assets.first() {
+					let native =
+                        T::BalanceConverter::from_asset_balance(amount, base.clone())
+							.or_else(|_| {
+								log::error!(
+									"Failed to convert first asset in {:?} to native balance",
+									category
+								);
+								Err(Error::<T, I>::ConversionFailed)
+							})?;
 
-						// Store first_native for comparison with others
-						if let Some(first_native) = first_native {
-							for asset_kind in assets.iter().skip(1) {
-								let current_native = T::BalanceConverter::from_asset_balance(
-									amount,
-									asset_kind.clone(),
-								)
-								.ok(); // Convert Result to Option
+					for (index, asset_kind) in assets.iter().enumerate().skip(1) {
+						let candidate = T::BalanceConverter::from_asset_balance(amount, asset_kind.clone(),
+                            ).or_else(|_| {
+                            log::error!("Failed to convert asset {:?} (index {}) in category {:?} to native balance", asset_kind, index, category);    
+                            Err(Error::<T, I>::ConversionFailed)})?;
 
-								if let Some(current) = current_native {
-									// Convert to u128 for calculation
-									let first_u128: u128 = first_native.unique_saturated_into();
-									let current_u128: u128 = current.unique_saturated_into();
+						// Convert to u128
+						let first_u128: u128 = native.unique_saturated_into();
+						let current_u128: u128 = candidate.unique_saturated_into();
 
-									let max_diff = first_u128.max(current_u128);
-									let min_diff = first_u128.min(current_u128);
+						let (max, min) = if first_u128 > current_u128 {
+							(first_u128, current_u128)
+						} else {
+							(current_u128, first_u128)
+						};
 
-									// Calculate percentage difference safely
-									if max_diff > 0 {
-										let diff = max_diff - min_diff;
-										// Multiply by 100 first to maintain precision
-										let diff_percent = (diff * 100) / max_diff;
+						if max > 0 {
+							let diff =
+								max.checked_sub(min).ok_or(Error::<T, I>::ConversionFailed)?;
 
-										if diff_percent > 5 {
-											log::warn!(
+							let multiplied_diff =
+								diff.checked_mul(100).ok_or(Error::<T, I>::ConversionFailed)?;
+
+							let diff_percent = multiplied_diff.checked_div(max).unwrap_or(0);
+
+							if diff_percent > 5 {
+								log::warn!(
                                     "Asset {:?} in category {:?} has significantly different conversion rate ({}% diff)",
                                     asset_kind,
                                     category,
                                     diff_percent
                                 );
-
-											// TODO: return an error here, for now just log a
-											// warning return Err(Error::<T,
-											// I>::ConversionRateMismatch.into());
-										}
-									}
-								}
+								return Err(Error::<T, I>::ConversionRateMismatch.into());
 							}
+						} else if max == 0 && min == 0 {
+							// Both are zero, which is acceptable
+							continue;
+						} else {
+							// max == 0 but min > 0, which should't happen
+							log::error!(
+								"Zero conversion rate detected for asset {:?} in category {:?}",
+								if max == first_u128 { base } else { asset_kind },
+								category
+							);
+
+							return Err(Error::<T, I>::InvalidConversionRate.into());
 						}
 					}
-				},
-				SpendAsset::Specific(ref asset_kind) => {
-					let _ =
-						Self::ensure_sufficient_balance(asset_kind, &Self::account_id(), amount)?;
-				},
+				}
 			}
 
 			let native_amount = match *asset {
@@ -884,38 +885,29 @@ pub mod pallet {
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
-			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired);
+			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired); // when this expires we
+                                                                         // can't executed the same
+                                                                         // partial payment?
 
 			match spend.asset {
-				SpendAsset::Specific(ref asset_kind) => {
-					// Validate asset has sufficient balance before attempting payment
-					let _ = Self::ensure_sufficient_balance(
-						asset_kind,
-						&Self::account_id(),
-						spend.amount,
-					)?;
-					match spend.status {
-						PaymentState::Pending | PaymentState::Failed(_) => {
-							let id = T::Paymaster::pay(
-								&spend.beneficiary,
-								asset_kind.clone(),
-								spend.amount,
-							)
-							.map_err(|_| Error::<T, I>::PayoutError)?;
+				SpendAsset::Specific(ref asset_kind) => match spend.status {
+					PaymentState::Pending | PaymentState::Failed(_) => {
+						let id =
+							T::Paymaster::pay(&spend.beneficiary, asset_kind.clone(), spend.amount)
+								.map_err(|_| Error::<T, I>::PayoutError)?;
 
-							spend.status = PaymentState::Attempted {
-								executions: BoundedVec::try_from(vec![PaymentExecution {
-									asset: asset_kind.clone(),
-									amount: spend.amount,
-									payment_id: id,
-								}])
-								.map_err(|_| Error::<T, I>::ExecutionRateLimit)?,
+						spend.status = PaymentState::Attempted {
+							executions: BoundedVec::try_from(vec![PaymentExecution {
+								asset: asset_kind.clone(),
+								amount: spend.amount,
+								payment_id: id,
+							}])
+							.map_err(|_| Error::<T, I>::ExecutionRateLimit)?,
 
-								remaining_amount: Zero::zero(),
-							};
-						},
-						_ => return Err(Error::<T, I>::AlreadyAttempted.into()),
-					}
+							remaining_amount: Zero::zero(),
+						};
+					},
+					_ => return Err(Error::<T, I>::AlreadyAttempted.into()),
 				},
 				SpendAsset::Category(ref category) => match spend.status {
 					PaymentState::Pending => {
@@ -947,7 +939,8 @@ pub mod pallet {
 							spend.status = PaymentState::Partial(retry_amount);
 						}
 					},
-					PaymentState::Partial(unpaid) => {
+			        
+                    PaymentState::Partial(unpaid) => {
 						let (executions, remaining_amount) =
 							Self::pay_from_category(category, &spend.beneficiary, unpaid)?;
 						if remaining_amount.is_zero() {
@@ -959,6 +952,7 @@ pub mod pallet {
 							spend.status = PaymentState::Partial(remaining_amount);
 						}
 					},
+
 					PaymentState::Attempted { .. } => {
 						return Err(Error::<T, I>::AlreadyAttempted.into());
 					},
@@ -1020,7 +1014,7 @@ pub mod pallet {
 					// Check payment status
 					let results: Vec<_> = executions
 						.iter()
-						.map(|exec| (exec, T::Paymaster::check_payment(exec.payment_id.clone())))
+						.map(|exec| (exec, T::Paymaster::check_payment(exec.payment_id)))
 						.collect();
 
 					// In-progress payments
@@ -1062,14 +1056,14 @@ pub mod pallet {
 						return Ok(Pays::No.into());
 					}
 
-                    if all_succeeded && !remaining_amount.is_zero() {
-                        spend.status = State::Partial(*remaining_amount);
-                        spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
-                        Spends::<T, I>::insert(index, spend);
-                        return Ok(Pays::Yes.into())
-                    }
+					if all_succeeded && !remaining_amount.is_zero() {
+						spend.status = State::Partial(*remaining_amount);
+						spend.expire_at = now.saturating_add(T::PayoutPeriod::get());
+						Spends::<T, I>::insert(index, spend);
+						return Ok(Pays::Yes.into());
+					}
 
-                    Ok(Pays::Yes.into())
+					Ok(Pays::Yes.into())
 				},
 				_ => return Err(Error::<T, I>::NotAttempted.into()),
 			}
@@ -1122,7 +1116,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::PalletId::get().into_account_truncating()
 	}
 
-	fn ensure_sufficient_balance(
+	/// Ensure this asset has sufficient balance
+    fn ensure_sufficient_balance(
 		asset_kind: &T::AssetKind,
 		account: &T::AccountId,
 		required: AssetBalanceOf<T, I>,
@@ -1312,17 +1307,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				break;
 			}
 
-			// let available =
-			// 	Self::ensure_sufficient_balance(&asset_kind, &Self::account_id(), amount)?;
-
-            let available = match T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id()) {
-                Some(balance) if balance > Zero::zero() => balance,
-                _ => continue,
-            };
-
-			// if available.is_zero() {
-			//	continue;
-			// }
+			let available =
+				match T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id())
+				{
+					Some(balance) if balance > Zero::zero() => balance,
+					_ => continue,
+				};
 
 			let pay_amount =
 				if available >= remaining_amount { remaining_amount } else { available };
@@ -1379,18 +1369,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				break;
 			}
 
-			// let mut available =
-				// Self::ensure_sufficient_balance(&exec.asset, &Self::account_id(), exec.amount)?;
-
-            let mut available = match T::AssetCategories::available_balance(exec.asset.clone(), Self::account_id()) {
-                Some(balance) if balance >= exec.amount => balance,
-                _ => Zero::zero(),
-            };
+			let mut available =
+				match T::AssetCategories::available_balance(exec.asset.clone(), Self::account_id())
+				{
+					Some(balance) if balance >= exec.amount => balance,
+					_ => Zero::zero(),
+				};
 
 			let asset_kind = if available.is_zero() {
-				match assets.iter().find(|&ak| {
-					!used_assets.contains(ak)
-				}) {
+				match assets.iter().find(|&ak| !used_assets.contains(ak)) {
 					Some(ak) => {
 						available =
 							Self::ensure_sufficient_balance(ak, &Self::account_id(), exec.amount)?;
@@ -1424,7 +1411,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		category: &BoundedVec<u8, ConstU32<32>>,
 		amount: AssetBalanceOf<T, I>,
 	) -> Result<Vec<T::AssetKind>, DispatchError> {
-		// Just return assets
 		let assets = T::AssetCategories::assets_in_category(category.as_slice());
 		ensure!(!assets.is_empty(), Error::<T, I>::EmptyAssetCategory);
 
@@ -1432,10 +1418,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for asset_kind in &assets {
 			if let Some(balance) =
-				T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id()) // TODO:
-                                                                                              // Investigate
-                                                                                              // returning
-                                                                                              // DispatchError
+				T::AssetCategories::available_balance(asset_kind.clone(), Self::account_id())
 			{
 				accumulated = accumulated.saturating_add(balance);
 				if accumulated >= amount {

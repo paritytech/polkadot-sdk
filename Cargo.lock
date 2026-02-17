@@ -11881,7 +11881,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
- "pallet-assets",
  "pallet-balances",
  "pallet-bounties",
  "pallet-treasury",

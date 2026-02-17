@@ -21,7 +21,7 @@ use crate::xcm_config::Collectives;
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::{UnityOrOuterConversion, asset_ops::common_ops::ConfigurableAssetCategoryManager},
+		tokens::{asset_ops::common_ops::ConfigurableAssetCategoryManager, UnityOrOuterConversion},
 		EitherOf, EitherOfDiverse, FromContains,
 	},
 };
@@ -135,11 +135,8 @@ pub type TreasuryBalanceConverter = UnityOrOuterConversion<
 	AssetRate,
 >;
 
-pub type AHWAssetCategories = ConfigurableAssetCategoryManager<
-	AccountId,
-	VersionedLocatableAsset,
-	Balance,
->;
+pub type AHWAssetCategories =
+	ConfigurableAssetCategoryManager<AccountId, VersionedLocatableAsset, Balance>;
 
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;

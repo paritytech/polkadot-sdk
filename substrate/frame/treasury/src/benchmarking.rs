@@ -203,7 +203,7 @@ mod benchmarks {
 		assert_last_event::<T, I>(
 			Event::AssetSpendApproved {
 				index: 0,
-				asset:SpendAsset::Specific(asset_kind),
+				asset: SpendAsset::Specific(asset_kind),
 				amount,
 				beneficiary,
 				valid_from,
@@ -250,23 +250,21 @@ mod benchmarks {
 
 		if spend_exists {
 			let id = match Spends::<T, I>::get(0).unwrap().status {
-                
-                PaymentState::Attempted { executions, .. } => {
-                    executions.first()
-                        .expect("No executions found in Attempted state")
-                        .payment_id
-                },
-                _ => panic!("No payout attempt made"),
-            };
-            assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
+				PaymentState::Attempted { executions, .. } =>
+					executions.first().expect("No executions found in Attempted state").payment_id,
+				_ => panic!("No payout attempt made"),
+			};
+			assert_ne!(T::Paymaster::check_payment(id), PaymentStatus::Failure);
 
-			assert_last_event::<T, I>(Event::Paid { index: 0, execution: PaymentExecution {
-                asset: asset_kind,
-                amount,
-                payment_id: id
-            } }.into());
-            assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
-        }
+			assert_last_event::<T, I>(
+				Event::Paid {
+					index: 0,
+					execution: PaymentExecution { asset: asset_kind, amount, payment_id: id },
+				}
+				.into(),
+			);
+			assert!(Treasury::<T, _>::payout(RawOrigin::Signed(caller).into(), 0u32).is_err());
+		}
 
 		Ok(())
 	}
@@ -290,13 +288,14 @@ mod benchmarks {
 			)?;
 
 			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
-			match Spends::<T, I>::get(0).unwrap().status { 
-                PaymentState::Attempted { executions, .. } => {
-                    let id = executions.first()
-                        .expect("No executions found in Attempted state")
-                        .payment_id;
-                    T::Paymaster::ensure_concluded(id);
-                 },
+			match Spends::<T, I>::get(0).unwrap().status {
+				PaymentState::Attempted { executions, .. } => {
+					let id = executions
+						.first()
+						.expect("No executions found in Attempted state")
+						.payment_id;
+					T::Paymaster::ensure_concluded(id);
+				},
 				_ => panic!("No payout attempt made"),
 			};
 
