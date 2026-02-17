@@ -16,6 +16,16 @@ crates:
     bump: minor
   - name: pallet-assets
     bump: minor
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-child-bounties
+    bump: patch
+  - name: pallet-tips
+    bump: patch
+  - name: staking-async-parachain-runtime
+    bump: minor
+  - name: staking-async-rc-runtime
+    bump: minor
   - name: polkadot-runtime-common
     bump: minor
   - name: asset-hub-westend-runtime
@@ -29,6 +39,6 @@ crates:
   - name: kitchensink-runtime
     bump: minor
   - name: asset-hub-westend-integration-tests
-    bump: minor
+    bump: patch
   - name: collectives-westend-integration-tests
-    bump: minor
+    bump: patch
