@@ -160,7 +160,7 @@ pub(crate) async fn build_network_config(
 				.with_collator(|n| {
 					n.with_name("four").validator(false).with_args(vec![
 						("-lsync=trace").into(),
-						("--sync", "warp").into(),
+						// ("--sync", "warp").into(),
 						("--").into(),
 						("--sync", "warp").into(),
 					])
