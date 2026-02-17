@@ -172,18 +172,6 @@ pub(crate) fn compute_gas_ratio<T: Config>(
 	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
 }
 
-/// Compute the ratio of requested gas to available gas from `SignedGas` values.
-/// If either value is negative returns `1.0`
-pub(crate) fn compute_signed_gas_ratio<T: Config>(
-	gas_limit: &SignedGas<T>,
-	remaining_gas: &SignedGas<T>,
-) -> FixedU128 {
-	match (gas_limit.to_weight_fee(), remaining_gas.to_weight_fee()) {
-		(Some(num), Some(denom)) => compute_gas_ratio::<T>(num, denom),
-		_ => FixedU128::one(),
-	}
-}
-
 /// Scale weight by the given ratio.
 pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
 	Weight::from_parts(
@@ -535,30 +523,8 @@ pub mod ethereum_execution {
 					let provided_gas = SignedGas::from_ethereum_gas(*gas);
 					let gas_limit = provided_gas.min(&capped_remaining_gas);
 
-					// Scale weight and deposit proportionally based on gas ratio.
-					// TODO: Only apply ratio scaling when should_apply_eip_150 is false?
-					let (nested_weight_limit, nested_deposit_limit) = if should_apply_eip_150 {
-						let ratio =
-							compute_signed_gas_ratio::<T>(&gas_limit, &capped_remaining_gas);
-
-						(
-							scale_weight_by_ratio(capped_weight_left, ratio),
-							meter
-								.deposit
-								.limit
-								.is_some()
-								.then(|| ratio.saturating_mul_int(capped_deposit_left)),
-						)
-					} else {
-						(
-							capped_weight_left,
-							if meter.deposit.limit.is_none() {
-								None
-							} else {
-								Some(capped_deposit_left)
-							},
-						)
-					};
+					// Note: No ratio scaling needed: in ethereum mode, gas is the single
+					// source of truth.
 
 					// Stipend: validate against uncapped `weight_left`, add to gas_limit.
 					let (gas_limit, stipend) = if *add_stipend {
@@ -572,7 +538,16 @@ pub mod ethereum_execution {
 						(gas_limit, None)
 					};
 
-					(gas_limit, nested_weight_limit, nested_deposit_limit, stipend)
+					(
+						gas_limit,
+						capped_weight_left,
+						if meter.deposit.limit.is_none() {
+							None
+						} else {
+							Some(capped_deposit_left)
+						},
+						stipend,
+					)
 				},
 
 				CallResources::WeightDeposit { weight, deposit_limit } => {

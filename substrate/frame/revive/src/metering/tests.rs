@@ -164,36 +164,6 @@ fn test_compute_gas_ratio() {
 }
 
 #[test]
-fn test_compute_signed_gas_ratio() {
-	use super::math::compute_signed_gas_ratio;
-
-	ExtBuilder::default().build().execute_with(|| {
-		// (gas_limit, remaining_gas, expected_numerator, expected_denominator)
-		let ratio_cases: Vec<(SignedGas<Test>, SignedGas<Test>, u128, u128)> = vec![
-			// Both positive: delegates to compute_gas_ratio
-			(SignedGas::Positive(50), SignedGas::Positive(100), 1, 2),
-			(SignedGas::Positive(100), SignedGas::Positive(100), 1, 1),
-			(SignedGas::Positive(200), SignedGas::Positive(100), 1, 1),
-			(SignedGas::Positive(1), SignedGas::Positive(3), 1, 3),
-			(SignedGas::Positive(0), SignedGas::Positive(100), 0, 1),
-			(SignedGas::Positive(0), SignedGas::Positive(0), 1, 1),
-			// Negative gas_limit or remaining: fallback to 1.0
-			(SignedGas::Negative(50), SignedGas::Positive(100), 1, 1),
-			(SignedGas::Positive(50), SignedGas::Negative(100), 1, 1),
-			(SignedGas::Negative(50), SignedGas::Negative(100), 1, 1),
-		];
-
-		for (gas_limit, remaining, num, denom) in ratio_cases {
-			assert_eq!(
-				compute_signed_gas_ratio::<Test>(&gas_limit, &remaining),
-				FixedU128::from_rational(num, denom),
-				"failed for gas_limit={gas_limit:?}, remaining={remaining:?}"
-			);
-		}
-	});
-}
-
-#[test]
 fn test_apply_eip_150_to_balance() {
 	use super::math::eip_150;
 
@@ -985,7 +955,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000),
 					Ethereum { gas: 10000, add_stipend: false },
 				),
-				Some((10000, 11842, 0, 2000, 4577887218)),
+				Some((10000, 288823359, 0, 2000, 4577887218)),
 			),
 			// 14: Ethereum gas, large refund, gas_limit (708617660) is binding.
 			(
@@ -1027,7 +997,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
 					Ethereum { gas: 300, add_stipend: false },
 				),
-				Some((300, 149, 0, 60, 2000461760)),
+				Some((300, 150, 1232, 60, 2000461760)),
 			),
 			// 19: Ethereum gas, gas_limit (600), proof_size near boundary.
 			(
@@ -1035,7 +1005,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
 					Ethereum { gas: 600, add_stipend: false },
 				),
-				Some((600, 299, 0, 120, 2000461760)),
+				Some((600, 300, 0, 120, 2000461760)),
 			),
 			// 20: Ethereum gas, gas_limit (600), proof_size just over boundary.
 			(
@@ -1043,7 +1013,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
 					Ethereum { gas: 600, add_stipend: false },
 				),
-				Some((600, 300, 0, 120, 2000503536)),
+				Some((600, 21188, 0, 120, 2000503536)),
 			),
 		],
 	);
@@ -1244,6 +1214,67 @@ fn substrate_nesting_charges_works_with_eip_150() {
 			),
 		],
 	);
+}
+
+/// Proves that without ratio scaling, the deposit_limit set by a substrate call
+/// (WeightDeposit) is correctly enforced as a total budget across ethereum children.
+///
+/// Call chain: ethereum root → substrate (WeightDeposit) → ethereum children.
+#[test]
+fn ethereum_execution_substrate_deposit_limit_respected() {
+	use CallResources::{Ethereum, WeightDeposit};
+
+	let gas_scale = <Test as Config>::GasScale::get().into();
+
+	ExtBuilder::default()
+		.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+		.build()
+		.execute_with(|| {
+			let eth_tx_info = EthTxInfo::<Test>::new(100, Weight::from_parts(1_000_000_000, 2_000));
+			let root = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+				eth_gas_limit: 5_000_000_000u64.div_ceil(gas_scale),
+				weight_limit: Weight::MAX,
+				eth_tx_info,
+			})
+			.unwrap();
+
+			// 1. Substrate call sets weight = 10_000, deposit_limit = 1000.
+			let deposit_limit = 1_000u64;
+			let mut parent = root
+				.new_nested(
+					&WeightDeposit { weight: Weight::from_parts(10_000, 0), deposit_limit },
+					false,
+				)
+				.unwrap();
+
+			assert_eq!(parent.deposit_left().unwrap(), deposit_limit);
+
+			// 2. Ethereum contract makes two calls, each with half the gas.
+			let remaining_gas = parent.eth_gas_left().unwrap();
+			let child_gas = remaining_gas / 2;
+
+			// 3. First child uses 700 deposit (more than the ~500 ratio scaling would allow, but
+			//    within the total budget).
+			let mut child1 = parent
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, false)
+				.unwrap();
+
+			child1.charge_deposit(&StorageDeposit::Charge(700)).unwrap();
+			parent.absorb_all_meters(child1, &ALICE, None);
+
+			assert_eq!(parent.deposit_left().unwrap(), 300);
+
+			// 4. Second child uses the remaining 300 deposit.
+			let mut child2 = parent
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, false)
+				.unwrap();
+
+			child2.charge_deposit(&StorageDeposit::Charge(300)).unwrap();
+			parent.absorb_all_meters(child2, &ALICE, None);
+
+			// Total deposit = 700 + 300 = 1000 = deposit_limit. Both calls succeeded.
+			assert_eq!(parent.deposit_left().unwrap(), 0);
+		});
 }
 
 #[test]
