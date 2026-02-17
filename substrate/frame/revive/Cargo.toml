@@ -1,8 +1,10 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "pallet-revive"
 version = "0.1.0"
 authors.workspace = true
-edition.workspace = true
+edition = "2024"
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true

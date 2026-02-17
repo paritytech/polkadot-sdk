@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{Config, DebugSettingsOf};
+use Debug;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
-use Debug;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(

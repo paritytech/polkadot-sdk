@@ -18,9 +18,9 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{vm::evm::Halt, weights::WeightInfo, Config, Error};
+use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
-use frame_support::{weights::Weight, DefaultNoBound};
+use frame_support::{DefaultNoBound, weights::Weight};
 use sp_runtime::DispatchError;
 
 #[cfg(test)]

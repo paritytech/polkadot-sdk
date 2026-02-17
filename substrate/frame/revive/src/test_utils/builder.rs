@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{deposit_limit, ETH_GAS_LIMIT, WEIGHT_LIMIT};
+use super::{ETH_GAS_LIMIT, WEIGHT_LIMIT, deposit_limit};
 use crate::{
-	address::AddressMapper, evm::TransactionSigned, metering::TransactionLimits, AccountIdOf,
-	BalanceOf, Code, Config, ContractResult, ExecConfig, ExecReturnValue, InstantiateReturnValue,
-	OriginFor, Pallet, Weight, U256,
+	AccountIdOf, BalanceOf, Code, Config, ContractResult, ExecConfig, ExecReturnValue,
+	InstantiateReturnValue, OriginFor, Pallet, U256, Weight, address::AddressMapper,
+	evm::TransactionSigned, metering::TransactionLimits,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
