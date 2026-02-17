@@ -253,7 +253,7 @@ pub mod pallet {
 						let lottery_account = Self::account_id();
 						let lottery_balance = T::Currency::reducible_balance(
 							&lottery_account,
-							Preservation::Expendable,
+							Preservation::Preserve,
 							Fortitude::Polite,
 						);
 
@@ -263,7 +263,7 @@ pub mod pallet {
 							&lottery_account,
 							&winner,
 							lottery_balance,
-							Preservation::Expendable,
+							Preservation::Preserve,
 						);
 						debug_assert!(res.is_ok());
 
@@ -280,8 +280,6 @@ pub mod pallet {
 						} else {
 							// Else, kill the lottery storage.
 							*lottery = None;
-							// Clean up the sufficient reference since lottery is ending
-							frame_system::Pallet::<T>::dec_sufficients(&lottery_account);
 							return T::WeightInfo::on_initialize_end()
 						}
 						// We choose not need to kill Participants and Tickets to avoid a large
@@ -377,8 +375,6 @@ pub mod pallet {
 				LotteryIndex::<T>::put(new_index);
 				Ok(())
 			})?;
-			// Make sure pot has a sufficient reference to avoid account death during payout
-			frame_system::Pallet::<T>::inc_sufficients(&Self::account_id());
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())
 		}

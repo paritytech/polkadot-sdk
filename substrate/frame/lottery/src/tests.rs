@@ -86,10 +86,10 @@ fn basic_end_to_end_works() {
 
 		// Go to payout
 		System::run_to_block::<AllPalletsWithSystem>(25);
-		// User 1 wins
+		// User 1 wins, gets pot minus ED (ED stays in lottery account)
 		assert_eq!(
 			Balances::reducible_balance(&1, Preservation::Expendable, Fortitude::Polite),
-			70 + 40
+			70 + 40 - 1
 		);
 		// Lottery is reset and restarted
 		assert_eq!(TicketsCount::<Test>::get(), 0);
