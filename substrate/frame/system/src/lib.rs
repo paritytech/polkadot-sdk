@@ -1077,9 +1077,9 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
 
-	/// Whether a runtime upgrade is scheduled at the next block.
+	/// Number of blocks till the pending code upgrade is applied.
 	#[pallet::storage]
-	pub(super) type UpgradeNextBlock<T: Config> = StorageValue<_, (), ValueQuery>;
+	pub(super) type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1596,14 +1596,13 @@ impl<T: Config> Pallet<T> {
 			0..=2 => {
 				storage::unhashed::put_raw(well_known_keys::CODE, code);
 				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+				Self::deposit_event(Event::CodeUpdated);
 			},
 			_ => {
-				UpgradeNextBlock::<T>::put(());
+				BlocksTillUpgrade::<T>::put(2u8);
 				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
 			},
 		}
-
-		Self::deposit_event(Event::CodeUpdated);
 	}
 
 	/// Replace code with pending code if scheduled to enact in this block and in that case emit
@@ -1613,23 +1612,32 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `true` if the pending code upgrade was applied.
 	pub fn maybe_apply_pending_code_upgrade() -> bool {
-		UpgradeNextBlock::<T>::mutate_exists(|maybe_scheduled| {
-			if maybe_scheduled.take().is_some() {
-				let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
-				else {
-					// should never happen
-					defensive!("UpgradeScheduledAt is set but no pending code found");
-					return false;
-				};
-				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
-				storage::unhashed::kill(well_known_keys::PENDING_CODE);
+		let Some(remaining) = BlocksTillUpgrade::<T>::get() else {
+			return false;
+		};
 
-				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+		let remaining = remaining.saturating_sub(1);
 
-				return true;
-			}
-			false
-		})
+		if remaining > 0 {
+			BlocksTillUpgrade::<T>::put(remaining);
+			return false;
+		}
+
+		BlocksTillUpgrade::<T>::kill();
+
+		let Some(new_code) = storage::unhashed::get_raw(well_known_keys::PENDING_CODE) else {
+			// should never happen
+			defensive!("BlocksTillUpgrade is set but no pending code found");
+			return false;
+		};
+
+		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+		storage::unhashed::kill(well_known_keys::PENDING_CODE);
+
+		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+		Self::deposit_event(Event::CodeUpdated);
+
+		true
 	}
 
 	/// Whether all inherents have been applied.

@@ -754,7 +754,7 @@ fn set_code_via_authorization_works() {
 		);
 
 		// Can apply correct runtime
-		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
+		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.to_vec()));
 		System::assert_has_event(SysEvent::CodeUpdated.into());
 		assert!(System::authorized_upgrade().is_none());
 	});
@@ -996,16 +996,33 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 		let pending = storage::unhashed::get_raw(well_known_keys::PENDING_CODE)
 			.expect("Pending code should exist");
 		assert_eq!(pending, code.clone());
+		// BlocksTillUpgrade should be set to 2
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(2u8));
 		// Immediate code not updated
 		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
 		assert_ne!(current, code.clone());
-		crate::Pallet::<Test>::set_block_number(2);
-		// Apply on finalize at block 2
-		crate::Pallet::<Test>::maybe_apply_pending_code_upgrade();
+		// CodeUpdated event should NOT be emitted yet
+		assert!(System::events()
+			.iter()
+			.all(|e| !matches!(e.event, RuntimeEvent::System(SysEvent::CodeUpdated))));
+		// First on_finalize (block N): counter goes 2 -> 1, no apply yet
+		assert!(!crate::Pallet::<Test>::maybe_apply_pending_code_upgrade());
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), Some(1u8));
+		// Code still not updated
+		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
+		assert_ne!(current, code.clone());
+		// Second on_finalize (block N+1): counter goes 1 -> 0, apply
+		assert!(crate::Pallet::<Test>::maybe_apply_pending_code_upgrade());
 		// Code should now be updated
 		let updated =
 			storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");
 		assert_eq!(updated, code);
+		// Pending code should be cleaned up
+		assert!(storage::unhashed::get_raw(well_known_keys::PENDING_CODE).is_none());
+		// BlocksTillUpgrade should be killed
+		assert_eq!(BlocksTillUpgrade::<Test>::get(), None);
+		// CodeUpdated event should now be emitted
+		System::assert_has_event(SysEvent::CodeUpdated.into());
 	});
 }
 
