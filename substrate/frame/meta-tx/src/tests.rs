@@ -128,7 +128,7 @@ fn sign_and_execute_meta_tx() {
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch {
 			meta_tx: Box::new(meta_tx.clone()),
-			len: meta_tx.encoded_size() as u32,
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
@@ -224,7 +224,7 @@ fn invalid_signature() {
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch {
 			meta_tx: Box::new(meta_tx.clone()),
-			len: meta_tx.encoded_size() as u32,
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
@@ -289,7 +289,7 @@ fn meta_tx_extension_work() {
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch {
 			meta_tx: Box::new(meta_tx.clone()),
-			len: meta_tx.encoded_size() as u32,
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
@@ -363,7 +363,7 @@ fn meta_tx_call_fails() {
 		let meta_tx = MetaTxFor::<Runtime>::decode(&mut &meta_tx_encoded[..]).unwrap();
 		let call = RuntimeCall::MetaTx(Call::dispatch {
 			meta_tx: Box::new(meta_tx.clone()),
-			len: meta_tx.encoded_size() as u32,
+			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		});
 		let tx_bare_ext = create_tx_bare_ext(bob_account.clone());
 		let tx_sig = create_signature(call.clone(), tx_bare_ext.clone(), bob_keyring);
