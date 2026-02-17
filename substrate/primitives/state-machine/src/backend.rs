@@ -429,7 +429,7 @@ impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 				.map(Into::into);
 
 			if pending_code.is_some() {
-				return pending_code
+				return pending_code;
 			}
 		}
 		self.backend

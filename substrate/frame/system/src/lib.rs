@@ -1619,14 +1619,14 @@ impl<T: Config> Pallet<T> {
 				else {
 					// should never happen
 					defensive!("UpgradeScheduledAt is set but no pending code found");
-					return false
+					return false;
 				};
 				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 				storage::unhashed::kill(well_known_keys::PENDING_CODE);
 
 				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 
-				return true
+				return true;
 			}
 			false
 		})
