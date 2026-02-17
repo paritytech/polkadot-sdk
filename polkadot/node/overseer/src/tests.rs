@@ -27,7 +27,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
-	BackableCandidateRef, NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
+	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,

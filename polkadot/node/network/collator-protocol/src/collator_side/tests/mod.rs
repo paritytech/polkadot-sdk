@@ -1306,7 +1306,7 @@ fn validator_reconnect_readvertises_collation() {
 			expect_advertise_collation_msg(
 				virtual_overseer,
 				&[peer],
-				test_state.relay_parent,
+				test_state.scheduling_parent,
 				vec![candidate.hash()],
 			)
 			.await;
@@ -2171,7 +2171,7 @@ fn readvertise_collation_on_authority_id_update() {
 				Some(test_state.current_group_validator_authority_ids()),
 				&test_state,
 				virtual_overseer,
-				vec![(test_state.relay_parent, 10)],
+				vec![(test_state.scheduling_parent, 10)],
 				1,
 			)
 			.await;
@@ -2193,13 +2193,14 @@ fn readvertise_collation_on_authority_id_update() {
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
-				test_state.relay_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
 			)
 			.await;
 
 			// Send peer view change - peer is interested in the relay parent
-			send_peer_view_change(virtual_overseer, &peer, vec![test_state.relay_parent]).await;
+			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
+				.await;
 
 			// No advertisement should happen because the peer's authority ID (Eve)
 			// doesn't match any validator in the group for this collation
@@ -2224,7 +2225,7 @@ fn readvertise_collation_on_authority_id_update() {
 			expect_advertise_collation_msg(
 				virtual_overseer,
 				&[peer],
-				test_state.relay_parent,
+				test_state.scheduling_parent,
 				vec![candidate.hash()],
 			)
 			.await;
@@ -2261,7 +2262,7 @@ fn no_duplicate_advertisement_on_authority_id_update() {
 				Some(test_state.current_group_validator_authority_ids()),
 				&test_state,
 				virtual_overseer,
-				vec![(test_state.relay_parent, 10)],
+				vec![(test_state.scheduling_parent, 10)],
 				1,
 			)
 			.await;
@@ -2276,19 +2277,20 @@ fn no_duplicate_advertisement_on_authority_id_update() {
 				virtual_overseer,
 				test_state.current_group_validator_authority_ids(),
 				&test_state,
-				test_state.relay_parent,
+				test_state.scheduling_parent,
 				CoreIndex(0),
 			)
 			.await;
 
 			// Peer view change triggers advertisement
-			send_peer_view_change(virtual_overseer, &peer, vec![test_state.relay_parent]).await;
+			send_peer_view_change(virtual_overseer, &peer, vec![test_state.scheduling_parent])
+				.await;
 
 			// First advertisement
 			expect_advertise_collation_msg(
 				virtual_overseer,
 				&[peer],
-				test_state.relay_parent,
+				test_state.scheduling_parent,
 				vec![candidate.hash()],
 			)
 			.await;

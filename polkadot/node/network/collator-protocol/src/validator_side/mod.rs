@@ -499,12 +499,6 @@ struct State {
 }
 
 impl State {
-	fn collations(&self, relay_parent: &Hash) -> Option<&Collations> {
-		self.per_scheduling_parent
-			.get(relay_parent)
-			.map(|per_scheduling_parent| &per_scheduling_parent.collations)
-	}
-
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
@@ -2774,15 +2768,15 @@ pub fn descriptor_version_sanity_check_with_params(
 }
 
 // Sanity check the candidate descriptor version.
-pub fn descriptor_version_sanity_check(
+fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
-	per_relay_parent: &PerSchedulingParent,
+	per_scheduling_parent: &PerSchedulingParent,
 ) -> std::result::Result<(), SecondingError> {
 	descriptor_version_sanity_check_with_params(
 		descriptor,
-		per_relay_parent.v3_enabled,
-		per_relay_parent.current_core,
-		per_relay_parent.session_index,
+		per_scheduling_parent.v3_enabled,
+		per_scheduling_parent.current_core,
+		per_scheduling_parent.session_index,
 	)
 }
 

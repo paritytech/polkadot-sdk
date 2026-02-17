@@ -43,11 +43,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_node_features, request_session_index_for_child,
-	request_validator_groups, request_validators, runtime::recv_runtime,
+	request_claim_queue, request_session_index_for_child, request_validator_groups,
+	request_validators, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	node_features, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
 	GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData, SessionIndex,
 };
 use requests::PendingRequests;
@@ -455,17 +455,6 @@ impl CollationManager {
 
 		per_rp.remove_advertisement(&advertisement);
 
-		let Some(session_info) = self.per_session.get(&per_rp.session_index) else {
-			gum::debug!(
-				target: LOG_TARGET,
-				hash = ?advertisement.relay_parent,
-				para_id = ?advertisement.para_id,
-				peer_id = ?advertisement.peer_id,
-				"Collation fetch concluded for relay parent whose session index is unknown"
-			);
-			return CanSecond::No(None, reject_info);
-		};
-
 		match process_collation_fetch_result(res) {
 			Ok(fetched_collation) => {
 				// It can't be a duplicate, because we check before initiating fetch. For the old
@@ -717,11 +706,6 @@ impl CollationManager {
 			let validators = recv_runtime(request_validators(*parent, sender).await).await?;
 			let (groups, group_rotation_info) =
 				recv_runtime(request_validator_groups(*parent, sender).await).await?;
-			let v2_receipts = recv_runtime(request_node_features(*parent, index, sender).await)
-				.await?
-				.get(node_features::FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false);
 
 			let our_group =
 				polkadot_node_subsystem_util::signing_key_and_index(&validators, &self.keystore)
@@ -731,12 +715,7 @@ impl CollationManager {
 
 			self.per_session.insert(
 				index,
-				PerSessionInfo {
-					our_group,
-					n_cores: groups.len(),
-					group_rotation_info,
-					v2_receipts,
-				},
+				PerSessionInfo { our_group, n_cores: groups.len(), group_rotation_info },
 			);
 		}
 
@@ -1045,7 +1024,6 @@ struct PerSessionInfo {
 	// The group rotation info changes once per session, apart from the `now` field. The caller
 	// must ensure to override it with the right value.
 	group_rotation_info: GroupRotationInfo,
-	v2_receipts: bool,
 }
 
 // Requests backing subsystem to sanity check the advertisement.

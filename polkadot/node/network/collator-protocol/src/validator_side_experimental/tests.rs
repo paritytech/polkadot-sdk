@@ -126,7 +126,6 @@ struct SessionInfo {
 	validators: Vec<ValidatorId>,
 	validator_groups: Vec<Vec<ValidatorIndex>>,
 	group_rotation_info: GroupRotationInfo,
-	v2_receipts: bool,
 	scheduling_lookahead: u32,
 	paras: Vec<ParaId>,
 }
@@ -230,7 +229,6 @@ impl Default for TestState {
 				validators,
 				validator_groups,
 				group_rotation_info,
-				v2_receipts: true,
 				scheduling_lookahead: 3,
 				paras: vec![100.into(), 200.into(), 600.into()],
 			},
@@ -404,11 +402,8 @@ impl TestState {
 				)) => {
 					let session_index = self.rp_info.get(&rp).unwrap().session_index;
 					assert_eq!(session_index, s_index);
-					let session_info = self.session_info.get(&session_index).unwrap();
 					let mut node_features = NodeFeatures::EMPTY;
 					node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
-					node_features
-						.set(FeatureIndex::CandidateReceiptV2 as usize, session_info.v2_receipts);
 					tx.send(Ok(node_features)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -677,7 +672,7 @@ impl TestState {
 		if let Some(prospective_candidate) = adv.prospective_candidate {
 			let expected_req = CanSecondRequest {
 				candidate_para_id: adv.para_id,
-				candidate_relay_parent: adv.relay_parent,
+				candidate_scheduling_parent: adv.relay_parent,
 				candidate_hash: prospective_candidate.candidate_hash,
 				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
 			};
@@ -769,10 +764,11 @@ impl TestState {
 		assert_matches!(
 			msg,
 			AllMessages::CandidateBacking(
-				CandidateBackingMessage::Second(rp, receipt, pvd, pov)
+				CandidateBackingMessage::Second { scheduling_parent, candidate, pvd, pov }
 			) => {
-				assert_eq!(rp, receipt.descriptor.relay_parent());
-				assert_eq!(receipt, expected_receipt);
+				// TODO: This should use scheduling_parent(): https://github.com/paritytech/polkadot-sdk/issues/11084
+				assert_eq!(scheduling_parent, candidate.descriptor.relay_parent());
+				assert_eq!(candidate, expected_receipt);
 				assert_eq!(pvd, expected_pvd);
 				assert_eq!(pov, expected_pov);
 			}
@@ -844,6 +840,10 @@ impl TestState {
 								assert_eq!(statement, stmt);
 							}
 						);
+					},
+					CollationVersion::V3 => {
+						// TODO: https://github.com/paritytech/polkadot-sdk/issues/11084
+						panic!("CollationVersion::V3 is not yet supported in tests");
 					}
 				};
 			}
@@ -2379,9 +2379,6 @@ async fn test_collation_response_out_of_view() {
 async fn test_v2_descriptor_without_feature_enabled() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-	// Clear the node feature.
-	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = false;
 
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
@@ -2417,18 +2414,11 @@ async fn test_v2_descriptor_without_feature_enabled() {
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
 #[tokio::test]
-// Test that we still accept v1 candidates regardless of whether the v2 descriptor node feature is
-// enabled or not
-async fn v1_descriptor_compatibility(#[case] v2_receipts: bool) {
+// Test that we accept v1 candidates.
+async fn v1_descriptor_compatibility() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-
-	// Set the node feature.
-	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = v2_receipts;
 
 	let db = MockDb::default();
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
