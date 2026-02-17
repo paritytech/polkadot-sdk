@@ -88,6 +88,10 @@ const LOG_TARGET: &str = "statement-gossip";
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+/// Maximum number of statements to propagate per cycle remaining statements are buffered.
+const MAX_STATEMENTS_PER_PROPAGATION: usize = 256;
+/// Maximum number of in-flight send futures before skipping propagation.
+const MAX_PENDING_SENDS: usize = 4096;
 
 #[cfg_attr(any(test, feature = "test-helpers"), doc(hidden))]
 #[cfg_attr(any(test, feature = "test-helpers"), allow(dead_code))]
@@ -321,6 +325,7 @@ impl StatementHandlerPrototype {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
+			pending_propagation: Vec::new(),
 		};
 
 		Ok(handler)
@@ -544,6 +549,8 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Pending statement send operations, polled by the main loop.
 	pending_sends: PendingSends,
+	/// Buffer for statements that exceeded the per-cycle propagation limit.
+	pending_propagation: Vec<(Hash, Statement)>,
 }
 
 /// Peer information
@@ -740,6 +747,7 @@ where
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
+			pending_propagation: Vec::new(),
 		}
 	}
 
@@ -1109,10 +1117,31 @@ where
 			return
 		}
 
-		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
-		if !statements.is_empty() {
-			self.do_propagate_statements(&statements);
+		if self.pending_sends.len() > MAX_PENDING_SENDS {
+			log::debug!(
+				target: LOG_TARGET,
+				"Skipping propagation, {} sends still pending",
+				self.pending_sends.len()
+			);
+			return;
 		}
+
+		let mut statements = std::mem::take(&mut self.pending_propagation);
+
+		if let Ok(recent) = self.statement_store.take_recent_statements() {
+			statements.extend(recent);
+		}
+
+		if statements.is_empty() {
+			return;
+		}
+
+		// Save overflow to the buffer for the next cycle
+		if statements.len() > MAX_STATEMENTS_PER_PROPAGATION {
+			self.pending_propagation = statements.split_off(MAX_STATEMENTS_PER_PROPAGATION);
+		}
+
+		self.do_propagate_statements(&statements);
 	}
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
@@ -1692,6 +1721,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
+			pending_propagation: Vec::new(),
 		};
 		(
 			handler,
@@ -1983,6 +2013,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
+			pending_propagation: Vec::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2055,6 +2086,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
+			pending_propagation: Vec::new(),
 		};
 		(
 			handler,
