@@ -358,7 +358,8 @@ impl StatementHandlerPrototype {
 
 	/// Process statements from a peer (runs in worker thread).
 	/// Decodes the notification, filters statements, and queues them for validation.
-	async fn process_on_statements(
+	#[cfg_attr(any(test, feature = "test-helpers"), allow(dead_code))]
+	pub(crate) async fn process_on_statements(
 		who: PeerId,
 		notification: Vec<u8>,
 		shared_state: &Arc<RwLock<PendingState>>,
@@ -371,6 +372,12 @@ impl StatementHandlerPrototype {
 		// Decode the notification
 		let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) else {
 			log::debug!(target: LOG_TARGET, "Worker: Failed to decode statement list from {who}");
+			let _ = event_sender
+				.send(WorkerEvent::ReputationChange(ReputationChange {
+					peer: who,
+					change: rep::INVALID_STATEMENT,
+				}))
+				.await;
 			return;
 		};
 
@@ -940,10 +947,10 @@ where
 				}
 
 				// Send raw notification to worker for decoding and processing
-				if let Err(e) = self.statements_queue_sender.try_send(OnStatementsRequest {
-					who: peer,
-					notification: notification.to_vec(),
-				}) {
+				if let Err(e) = self
+					.statements_queue_sender
+					.try_send(OnStatementsRequest { who: peer, notification })
+				{
 					log::debug!(
 						target: LOG_TARGET,
 						"Failed to send notification to worker: {:?}",
@@ -2820,6 +2827,573 @@ mod tests {
 			notifications_for_new_peer > 1,
 			"New peer should have received multiple chunks due to 1MB limit, got {}",
 			notifications_for_new_peer
+		);
+	}
+
+	/// Helper to set up shared state for direct `process_on_statements` testing
+	/// without going through the full handler/run loop.
+	fn build_worker_test_env(
+		num_peers: usize,
+		queue_capacity: usize,
+	) -> (
+		PeersState,
+		Arc<RwLock<PendingState>>,
+		Arc<TestStatementStore>,
+		async_channel::Sender<(Hash, Statement)>,
+		async_channel::Receiver<(Hash, Statement)>,
+		async_channel::Sender<WorkerEvent>,
+		async_channel::Receiver<WorkerEvent>,
+		Vec<PeerId>,
+	) {
+		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
+		let mut peer_ids = Vec::new();
+		for _ in 0..num_peers {
+			let peer_id = PeerId::random();
+			peer_ids.push(peer_id);
+			peers.write().unwrap().insert(
+				peer_id,
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(10_000).unwrap()),
+					role: ObservedRole::Full,
+				},
+			);
+		}
+
+		let pending_state = Arc::new(RwLock::new(PendingState::new()));
+		let statement_store = Arc::new(TestStatementStore::new());
+		let (submit_sender, submit_receiver) = async_channel::bounded(queue_capacity);
+		let (event_sender, event_receiver) = async_channel::bounded(queue_capacity);
+
+		(
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			submit_receiver,
+			event_sender,
+			event_receiver,
+			peer_ids,
+		)
+	}
+
+	fn make_statement(index: usize) -> Statement {
+		let mut stmt = Statement::new();
+		let mut data = vec![0u8; 128];
+		data[..8].copy_from_slice(&(index as u64).to_le_bytes());
+		stmt.set_plain_data(data);
+		stmt
+	}
+
+	/// Multiple workers process the same statement from different peers concurrently
+	#[tokio::test]
+	async fn test_concurrent_workers_same_statement_different_peers() {
+		let num_peers = 20;
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			submit_receiver,
+			event_sender,
+			event_receiver,
+			peer_ids,
+		) = build_worker_test_env(num_peers, 1000);
+
+		let statement = make_statement(42);
+		let expected_hash = statement.hash();
+		let notification = vec![statement].encode();
+
+		let mut handles = Vec::new();
+		for peer_id in &peer_ids {
+			let who = *peer_id;
+			let notif = notification.clone();
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sq = submit_sender.clone();
+			let es = event_sender.clone();
+			let sp = peers.clone();
+
+			handles.push(tokio::spawn(async move {
+				StatementHandlerPrototype::process_on_statements(
+					who, notif, &ss, &store, &sq, &es, &sp, &None,
+				)
+				.await;
+			}));
+		}
+
+		for h in handles {
+			h.await.unwrap();
+		}
+
+		// Only one submission should reach the validation queue
+		let mut submitted = Vec::new();
+		while let Ok((hash, _stmt)) = submit_receiver.try_recv() {
+			submitted.push(hash);
+		}
+		assert_eq!(
+			submitted.len(),
+			1,
+			"Expected exactly 1 submission to validation queue, got {}",
+			submitted.len()
+		);
+		assert_eq!(submitted[0], expected_hash);
+
+		let state = pending_state.read().unwrap();
+		let recorded_peers = state.pending_statements_peers.get(&expected_hash).unwrap();
+		assert_eq!(
+			recorded_peers.len(),
+			num_peers,
+			"Expected all {} peers recorded in pending_statements_peers, got {}",
+			num_peers,
+			recorded_peers.len()
+		);
+		for peer_id in &peer_ids {
+			assert!(
+				recorded_peers.contains(peer_id),
+				"Peer {} should be in pending_statements_peers",
+				peer_id
+			);
+		}
+
+		drop(event_sender);
+		let mut reputation_events = Vec::new();
+		while let Ok(event) = event_receiver.try_recv() {
+			if let WorkerEvent::ReputationChange(rc) = event {
+				reputation_events.push(rc);
+			}
+		}
+
+		assert!(!reputation_events.is_empty(), "Expected at least some reputation change events");
+	}
+
+	/// Multiple workers process distinct statements from the same peer concurrently
+	#[tokio::test]
+	async fn test_concurrent_workers_distinct_statements_same_peer() {
+		let num_workers = 10;
+		let statements_per_worker = 50;
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			submit_receiver,
+			event_sender,
+			_event_receiver,
+			peer_ids,
+		) = build_worker_test_env(1, 10_000);
+
+		let peer_id = peer_ids[0];
+
+		let mut handles = Vec::new();
+		let mut all_expected_hashes = HashSet::new();
+		for worker_idx in 0..num_workers {
+			let mut statements = Vec::new();
+			for stmt_idx in 0..statements_per_worker {
+				let stmt = make_statement(worker_idx * 1000 + stmt_idx);
+				all_expected_hashes.insert(stmt.hash());
+				statements.push(stmt);
+			}
+			let notification = statements.encode();
+
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sq = submit_sender.clone();
+			let es = event_sender.clone();
+			let sp = peers.clone();
+
+			handles.push(tokio::spawn(async move {
+				StatementHandlerPrototype::process_on_statements(
+					peer_id,
+					notification,
+					&ss,
+					&store,
+					&sq,
+					&es,
+					&sp,
+					&None,
+				)
+				.await;
+			}));
+		}
+
+		for h in handles {
+			h.await.unwrap();
+		}
+
+		// All unique statements should be submitted to the validation queue.
+		let mut submitted_hashes = HashSet::new();
+		while let Ok((hash, _stmt)) = submit_receiver.try_recv() {
+			submitted_hashes.insert(hash);
+		}
+		assert_eq!(
+			submitted_hashes.len(),
+			all_expected_hashes.len(),
+			"Expected {} unique submissions, got {}",
+			all_expected_hashes.len(),
+			submitted_hashes.len()
+		);
+		assert_eq!(submitted_hashes, all_expected_hashes);
+
+		let state = pending_state.read().unwrap();
+		for hash in &all_expected_hashes {
+			assert!(
+				state.pending_statements_peers.contains_key(hash),
+				"Hash should be in pending_statements_peers"
+			);
+		}
+	}
+
+	/// Many workers, many peers, overlapping statements
+	/// N peers each send batches containing some overlapping and some unique statements
+	/// Verifies that:
+	/// 1. Each unique statement is submitted exactly once
+	/// 2. No panics or deadlocks occur under contention
+	/// 3. All peers are properly recorded in pending_statements_peers
+	#[tokio::test]
+	async fn test_concurrent_workers_overlapping_statements_many_peers() {
+		let num_peers = 10;
+		let statements_per_peer = 30;
+		let overlap_count = 10; // First N statements are shared across all peers
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			submit_receiver,
+			event_sender,
+			_event_receiver,
+			peer_ids,
+		) = build_worker_test_env(num_peers, 10_000);
+
+		let shared_statements: Vec<Statement> =
+			(0..overlap_count).map(|i| make_statement(i)).collect();
+		let shared_hashes: HashSet<Hash> = shared_statements.iter().map(|s| s.hash()).collect();
+
+		let mut all_expected_hashes = shared_hashes.clone();
+
+		// Each peer gets shared statements + unique ones
+		let mut handles = Vec::new();
+		for (peer_idx, peer_id) in peer_ids.iter().enumerate() {
+			let mut batch = shared_statements.clone();
+			for stmt_idx in 0..(statements_per_peer - overlap_count) {
+				let stmt = make_statement(10_000 + peer_idx * 1000 + stmt_idx);
+				all_expected_hashes.insert(stmt.hash());
+				batch.push(stmt);
+			}
+			let notification = batch.encode();
+
+			let who = *peer_id;
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sq = submit_sender.clone();
+			let es = event_sender.clone();
+			let sp = peers.clone();
+
+			handles.push(tokio::spawn(async move {
+				StatementHandlerPrototype::process_on_statements(
+					who,
+					notification,
+					&ss,
+					&store,
+					&sq,
+					&es,
+					&sp,
+					&None,
+				)
+				.await;
+			}));
+		}
+
+		for h in handles {
+			h.await.unwrap();
+		}
+
+		let mut submitted_hashes = HashSet::new();
+		let mut submission_counts: HashMap<Hash, usize> = HashMap::new();
+		while let Ok((hash, _stmt)) = submit_receiver.try_recv() {
+			submitted_hashes.insert(hash);
+			*submission_counts.entry(hash).or_insert(0) += 1;
+		}
+
+		assert_eq!(
+			submitted_hashes.len(),
+			all_expected_hashes.len(),
+			"Expected {} unique submissions, got {}. Missing: {:?}",
+			all_expected_hashes.len(),
+			submitted_hashes.len(),
+			all_expected_hashes.difference(&submitted_hashes).collect::<Vec<_>>()
+		);
+
+		for hash in &shared_hashes {
+			assert_eq!(
+				submission_counts[hash], 1,
+				"Shared statement should be submitted exactly once, got {}",
+				submission_counts[hash]
+			);
+		}
+
+		// Shared hashes have multiple peers
+		let state = pending_state.read().unwrap();
+		for hash in &shared_hashes {
+			let recorded = state.pending_statements_peers.get(hash).unwrap();
+			assert!(
+				recorded.len() >= 2,
+				"Shared hash should have at least 2 peers recorded, got {}",
+				recorded.len()
+			);
+		}
+	}
+
+	/// Verifies that workers handle `TrySendError::Full` gracefully without panicking
+	/// or corrupting shared state
+	#[tokio::test]
+	async fn test_concurrent_workers_submit_queue_full() {
+		let num_peers = 5;
+		let queue_capacity = 2;
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			_submit_sender,
+			_submit_receiver,
+			event_sender,
+			_event_receiver,
+			peer_ids,
+		) = build_worker_test_env(num_peers, 1000);
+
+		// Override with a small submit queue
+		let (small_submit_sender, small_submit_receiver) = async_channel::bounded(queue_capacity);
+
+		let statements_per_peer = 50;
+		let mut handles = Vec::new();
+		for (peer_idx, peer_id) in peer_ids.iter().enumerate() {
+			let mut batch = Vec::new();
+			for stmt_idx in 0..statements_per_peer {
+				batch.push(make_statement(peer_idx * 1000 + stmt_idx));
+			}
+			let notification = batch.encode();
+
+			let who = *peer_id;
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sq = small_submit_sender.clone();
+			let es = event_sender.clone();
+			let sp = peers.clone();
+
+			handles.push(tokio::spawn(async move {
+				StatementHandlerPrototype::process_on_statements(
+					who,
+					notification,
+					&ss,
+					&store,
+					&sq,
+					&es,
+					&sp,
+					&None,
+				)
+				.await;
+			}));
+		}
+
+		for h in handles {
+			h.await.unwrap();
+		}
+
+		let mut submitted = 0;
+		while let Ok(_) = small_submit_receiver.try_recv() {
+			submitted += 1;
+		}
+		assert!(submitted > 0, "At least some statements should have been submitted");
+		assert!(
+			submitted <= queue_capacity + num_peers,
+			"Submitted count ({}) should be bounded by queue capacity ({}) plus concurrent senders ({})",
+			submitted,
+			queue_capacity,
+			num_peers
+		);
+
+		// Key here no panics, no deadlocks, shared state is consistent
+		// pending_state should only contain entries for statements that were successfully submitted
+		let state = pending_state.read().unwrap();
+		assert!(
+			state.pending_statements_peers.len() <= submitted,
+			"Pending entries ({}) should not exceed submitted count ({})",
+			state.pending_statements_peers.len(),
+			submitted
+		);
+	}
+
+	/// Multiple worker tasks race to consume from the same channel and process overlapping
+	/// statements
+	#[tokio::test]
+	async fn test_concurrent_run_on_statements_workers() {
+		let num_workers = 4;
+		let num_peers = 8;
+		let statements_per_peer = 20;
+		let overlap_count = 5;
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			submit_receiver,
+			event_sender,
+			event_receiver,
+			peer_ids,
+		) = build_worker_test_env(num_peers, 10_000);
+
+		let (input_sender, input_receiver) = async_channel::bounded::<OnStatementsRequest>(1000);
+
+		let mut worker_handles = Vec::new();
+		for _ in 0..num_workers {
+			let recv = input_receiver.clone();
+			let sq = submit_sender.clone();
+			let es = event_sender.clone();
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sp = peers.clone();
+
+			worker_handles.push(tokio::spawn(StatementHandlerPrototype::run_on_statements_worker(
+				recv, sq, es, ss, store, sp, None,
+			)));
+		}
+
+		let shared_statements: Vec<Statement> =
+			(0..overlap_count).map(|i| make_statement(i)).collect();
+		let shared_hashes: HashSet<Hash> = shared_statements.iter().map(|s| s.hash()).collect();
+		let mut all_expected_hashes = shared_hashes.clone();
+
+		for (peer_idx, peer_id) in peer_ids.iter().enumerate() {
+			let mut batch = shared_statements.clone();
+			for stmt_idx in 0..(statements_per_peer - overlap_count) {
+				let stmt = make_statement(10_000 + peer_idx * 1000 + stmt_idx);
+				all_expected_hashes.insert(stmt.hash());
+				batch.push(stmt);
+			}
+			let notification = batch.encode();
+			input_sender
+				.send(OnStatementsRequest { who: *peer_id, notification })
+				.await
+				.unwrap();
+		}
+
+		drop(input_sender);
+
+		for h in worker_handles {
+			h.await.unwrap();
+		}
+
+		drop(submit_sender);
+		let mut submitted_hashes = HashSet::new();
+		let mut submission_counts: HashMap<Hash, usize> = HashMap::new();
+		while let Ok((hash, _stmt)) = submit_receiver.try_recv() {
+			submitted_hashes.insert(hash);
+			*submission_counts.entry(hash).or_insert(0) += 1;
+		}
+
+		assert_eq!(
+			submitted_hashes.len(),
+			all_expected_hashes.len(),
+			"Expected {} unique submissions, got {}",
+			all_expected_hashes.len(),
+			submitted_hashes.len()
+		);
+
+		// Shared statements submitted exactly
+		for hash in &shared_hashes {
+			assert_eq!(
+				submission_counts[hash], 1,
+				"Shared statement should be submitted exactly once"
+			);
+		}
+
+		let state = pending_state.read().unwrap();
+		for hash in &shared_hashes {
+			let recorded = state.pending_statements_peers.get(hash).unwrap();
+			assert!(
+				recorded.len() >= 2,
+				"Shared hash should have multiple peers, got {}",
+				recorded.len()
+			);
+		}
+
+		drop(event_sender);
+		let mut rep_count = 0;
+		while let Ok(_) = event_receiver.try_recv() {
+			rep_count += 1;
+		}
+		assert!(
+			rep_count >= num_peers,
+			"Expected at least {} reputation events, got {}",
+			num_peers,
+			rep_count
+		);
+	}
+
+	/// Stress test: High contention scenario with many peers sending many statements
+	/// to verify no deadlocks occur under heavy load.
+	#[tokio::test]
+	async fn test_high_contention_no_deadlock() {
+		let num_peers = 50;
+		let statements_per_peer = 100;
+		let (
+			peers,
+			pending_state,
+			statement_store,
+			submit_sender,
+			_submit_receiver,
+			event_sender,
+			_event_receiver,
+			peer_ids,
+		) = build_worker_test_env(num_peers, 100_000);
+
+		let mut handles = Vec::new();
+		for (peer_idx, peer_id) in peer_ids.iter().enumerate() {
+			let mut batch = Vec::new();
+			for stmt_idx in 0..statements_per_peer {
+				batch.push(make_statement(peer_idx * 10_000 + stmt_idx));
+			}
+			let notification = batch.encode();
+
+			let who = *peer_id;
+			let ss = pending_state.clone();
+			let store = statement_store.clone() as Arc<dyn StatementStore>;
+			let sq = submit_sender.clone();
+			let es = event_sender.clone();
+			let sp = peers.clone();
+
+			handles.push(tokio::spawn(async move {
+				StatementHandlerPrototype::process_on_statements(
+					who,
+					notification,
+					&ss,
+					&store,
+					&sq,
+					&es,
+					&sp,
+					&None,
+				)
+				.await;
+			}));
+		}
+
+		let all_done = futures::future::join_all(handles);
+		let result: Result<Vec<Result<(), tokio::task::JoinError>>, _> =
+			tokio::time::timeout(std::time::Duration::from_secs(30), all_done).await;
+		assert!(result.is_ok());
+
+		for r in result.unwrap() {
+			r.unwrap();
+		}
+
+		let state = pending_state.read().unwrap();
+		let expected_total = num_peers * statements_per_peer;
+		assert_eq!(
+			state.pending_statements_peers.len(),
+			expected_total,
+			"Expected {} pending entries, got {}",
+			expected_total,
+			state.pending_statements_peers.len()
 		);
 	}
 }
