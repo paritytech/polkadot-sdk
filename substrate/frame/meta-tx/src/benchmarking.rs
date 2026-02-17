@@ -82,13 +82,13 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 		<T as Config>::Extension: Default,
 	)]
 mod benchmarks {
+	use codec::Compact;
+
 	use super::*;
 
 	#[benchmark]
-	fn bare_dispatch(n: Linear<4, 100>) {
-		let meta_call =
-			frame_system::Call::<T>::remark { remark: vec![0x11u8; n.saturating_sub(4) as usize] }
-				.into();
+	fn bare_dispatch(n: Linear<8, 100>) {
+		let meta_call = frame_system::Call::<T>::remark { remark: vec![] }.into();
 		let meta_ext = T::Extension::default();
 		let meta_ext_weight = meta_ext.weight(&meta_call);
 
@@ -110,9 +110,15 @@ mod benchmarks {
 			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		};
 
+		let length_of_compact_vec = ((n - 4) / 2) as usize;
+		let mut compact_vec = Vec::<Compact<u16>>::with_capacity(length_of_compact_vec);
+		for _ in 0..length_of_compact_vec {
+			compact_vec.push(Compact::from(0xffff));
+		}
+
 		#[block]
 		{
-			let _ = meta_tx.encoded_size();
+			let _ = compact_vec.encode();
 			let _ = call.dispatch_bypass_filter(origin);
 		}
 
