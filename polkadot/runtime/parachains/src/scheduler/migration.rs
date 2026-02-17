@@ -211,7 +211,6 @@ impl<T: Config> UncheckedMigrateToV4<T> {
 				old_descriptor.queue().is_none() && old_descriptor.current_work().is_none(),
 				"Old CoreDescriptors should be empty"
 			);
-
 		}
 
 		// Verify new storage (Twox64Concat allows iteration)
