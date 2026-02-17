@@ -1,8 +1,8 @@
 title: '[staking] enhance error logging from voter list updates'
 doc:
 - audience: Runtime Dev
-  description: Adds logging for errors encountered during updates to the voter list
-    when adding or removing nominators and validators.
+  description: Propagate errors received from VoterList properly & log them for debugging purposes.
+    
 crates:
 - name: pallet-staking-async
   bump: patch
