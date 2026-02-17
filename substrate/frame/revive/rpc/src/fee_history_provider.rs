@@ -14,7 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{client::SubstrateBlockNumber, ClientError};
+use crate::{ClientError, client::SubstrateBlockNumber};
 use pallet_revive::evm::{Block, FeeHistoryResult, ReceiptInfo};
 use sp_core::U256;
 use std::{collections::BTreeMap, sync::Arc};

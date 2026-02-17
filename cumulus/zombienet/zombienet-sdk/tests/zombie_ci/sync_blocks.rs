@@ -78,8 +78,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					// Leaving them in case we switch to `k8s` some day.
 					resources.with_request_cpu(2).with_request_memory("2G")
 				})
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

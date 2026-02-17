@@ -24,8 +24,8 @@ mod weight;
 mod tests;
 
 use crate::{
-	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt, BalanceOf, Config,
-	Error, ExecConfig, ExecOrigin as Origin, StorageDeposit, LOG_TARGET,
+	BalanceOf, Config, Error, ExecConfig, ExecOrigin as Origin, LOG_TARGET, StorageDeposit,
+	evm::fees::InfoT, exec::CallResources, storage::ContractInfo, vm::evm::Halt,
 };
 
 pub use gas::SignedGas;
