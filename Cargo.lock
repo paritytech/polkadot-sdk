@@ -22509,7 +22509,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client-fixtures"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -22548,7 +22548,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.26.0"
+version = "0.26.1"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -22590,7 +22590,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",

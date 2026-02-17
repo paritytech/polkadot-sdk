@@ -1320,11 +1320,11 @@ snowbridge-outbound-queue-primitives = { path = "bridges/snowbridge/primitives/o
 snowbridge-outbound-queue-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.18.0" }
 snowbridge-outbound-queue-v2-runtime-api = { path = "bridges/snowbridge/pallets/outbound-queue-v2/runtime-api", default-features = false, version = "0.7.0" }
 snowbridge-pallet-ethereum-client = { path = "bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.18.2" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.26.0" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "bridges/snowbridge/pallets/ethereum-client/fixtures", default-features = false, version = "0.26.1" }
 snowbridge-pallet-inbound-queue = { path = "bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.18.0" }
-snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.26.0" }
+snowbridge-pallet-inbound-queue-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue/fixtures", default-features = false, version = "0.26.1" }
 snowbridge-pallet-inbound-queue-v2 = { path = "bridges/snowbridge/pallets/inbound-queue-v2", default-features = false, version = "0.7.0" }
-snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false, version = "0.7.0" }
+snowbridge-pallet-inbound-queue-v2-fixtures = { path = "bridges/snowbridge/pallets/inbound-queue-v2/fixtures", default-features = false, version = "0.7.1" }
 snowbridge-pallet-outbound-queue = { path = "bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.18.0" }
 snowbridge-pallet-outbound-queue-v2 = { path = "bridges/snowbridge/pallets/outbound-queue-v2", default-features = false, version = "0.7.1" }
 snowbridge-pallet-system = { path = "bridges/snowbridge/pallets/system", default-features = false, version = "0.18.0" }
