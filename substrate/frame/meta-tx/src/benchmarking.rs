@@ -110,7 +110,8 @@ mod benchmarks {
 			meta_tx_encoded_len: meta_tx.encoded_size() as u32,
 		};
 
-		// Encoded size of meta tx is 4 bytes, 4 bytes is size of u16 compact number with max value 0xffff.
+		// Encoded size of meta tx is 4 bytes, 4 bytes is size of u16 compact number with max value
+		// 0xffff.
 		let length_of_compact_vec = ((n - 4) / 4) as usize;
 		let mut compact_vec = Vec::<Compact<u16>>::with_capacity(length_of_compact_vec);
 		for _ in 0..length_of_compact_vec {
