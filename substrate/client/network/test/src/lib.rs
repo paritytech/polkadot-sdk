@@ -654,7 +654,10 @@ where
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let result = self.inner.check_block(block).await;
-		if !matches!(result, Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain)) {
+		if !matches!(
+			result,
+			Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain | ImportResult::KnownBad)
+		) {
 			self.import_errors.fetch_add(1, Ordering::Relaxed);
 		}
 		result
