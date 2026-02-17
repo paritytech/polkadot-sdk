@@ -1033,8 +1033,12 @@ pub(crate) mod tests {
 	use crate::{artifacts::generate_artifact_path, testing::artifact_id, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_primitives::BlockData;
+	use polkadot_node_core_pvf_common::execute::ValidationContext;
+	use polkadot_node_primitives::{BlockData, PoV};
+	use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 	use sp_core::H256;
+	use std::sync::Arc;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -1229,6 +1233,21 @@ pub(crate) mod tests {
 		}
 	}
 
+	/// Helper to create a standard validation context for tests.
+	fn test_validation_context(
+		pvd: Arc<PersistedValidationData>,
+		pov: Arc<PoV>,
+	) -> ValidationContext {
+		ValidationContext {
+			candidate_receipt: dummy_candidate_receipt(H256::default()),
+			pvd,
+			pov,
+			executor_params: ExecutorParams::default(),
+			exec_timeout: TEST_EXECUTION_TIMEOUT,
+			v3_enabled: false,
+		}
+	}
+
 	#[tokio::test]
 	async fn shutdown_on_handle_drop() {
 		let test = Builder::default().build();
@@ -1300,12 +1319,14 @@ pub(crate) mod tests {
 		let pov1 = Arc::new(PoV { block_data: BlockData(b"pov1".to_vec()) });
 		let pov2 = Arc::new(PoV { block_data: BlockData(b"pov2".to_vec()) });
 
+		// Execute the same PVF with the same validation context but different priorities.
+		// This tests that priority handling works correctly for identical requests.
+		let validation_context_1 = test_validation_context(pvd.clone(), pov1.clone());
+
 		let (result_tx, result_rx_pvf_1_1) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov1.clone(),
+			validation_context_1.clone(),
 			Priority::Normal,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1316,9 +1337,7 @@ pub(crate) mod tests {
 		let (result_tx, result_rx_pvf_1_2) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov1,
+			validation_context_1,
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1327,11 +1346,10 @@ pub(crate) mod tests {
 		.unwrap();
 
 		let (result_tx, result_rx_pvf_2) = oneshot::channel();
+		let validation_context_2 = test_validation_context(pvd, pov2);
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
-			TEST_EXECUTION_TIMEOUT,
-			pvd,
-			pov2,
+			validation_context_2,
 			Priority::Normal,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1477,11 +1495,10 @@ pub(crate) mod tests {
 
 		// Send PVF for the execution and request the prechecking for it.
 		let (result_tx, result_rx_execute) = oneshot::channel();
+		let validation_context = test_validation_context(pvd.clone(), pov.clone());
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context,
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1526,11 +1543,10 @@ pub(crate) mod tests {
 		}
 
 		let (result_tx, _result_rx_execute) = oneshot::channel();
+		let validation_context = test_validation_context(pvd, pov);
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(2),
-			TEST_EXECUTION_TIMEOUT,
-			pvd,
-			pov,
+			validation_context,
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1637,11 +1653,10 @@ pub(crate) mod tests {
 
 		// Submit a execute request that fails.
 		let (result_tx, result_rx) = oneshot::channel();
+		let validation_context = test_validation_context(pvd.clone(), pov.clone());
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context.clone(),
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1671,9 +1686,7 @@ pub(crate) mod tests {
 		let (result_tx_2, result_rx_2) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context.clone(),
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
@@ -1695,9 +1708,7 @@ pub(crate) mod tests {
 		let (result_tx_3, result_rx_3) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context,
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
@@ -1752,11 +1763,10 @@ pub(crate) mod tests {
 
 		// Submit an execute request that fails.
 		let (result_tx, result_rx) = oneshot::channel();
+		let validation_context = test_validation_context(pvd.clone(), pov.clone());
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context.clone(),
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,
@@ -1786,9 +1796,7 @@ pub(crate) mod tests {
 		let (result_tx_2, result_rx_2) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context.clone(),
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx_2,
@@ -1810,9 +1818,7 @@ pub(crate) mod tests {
 		let (result_tx_3, result_rx_3) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd.clone(),
-			pov.clone(),
+			validation_context,
 			Priority::Critical,
 			PvfExecKind::Backing(H256::default()),
 			result_tx_3,
@@ -1883,11 +1889,10 @@ pub(crate) mod tests {
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 
 		let (result_tx, result_rx) = oneshot::channel();
+		let validation_context = test_validation_context(pvd, pov);
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(1),
-			TEST_EXECUTION_TIMEOUT,
-			pvd,
-			pov,
+			validation_context,
 			Priority::Normal,
 			PvfExecKind::Backing(H256::default()),
 			result_tx,

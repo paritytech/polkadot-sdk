@@ -900,10 +900,13 @@ impl Unscheduled {
 
 #[cfg(test)]
 mod tests {
-	use polkadot_node_primitives::BlockData;
+	use polkadot_node_core_pvf_common::execute::ValidationContext;
+	use polkadot_node_primitives::{BlockData, PoV};
 	use polkadot_node_subsystem_test_helpers::mock::new_leaf;
-	use polkadot_primitives::vstaging::dummy_candidate_receipt;
+	use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 	use sp_core::H256;
+	use std::sync::Arc;
 
 	use super::*;
 	use crate::testing::artifact_id;
@@ -1094,40 +1097,46 @@ mod tests {
 		assert_eq!(queue.unscheduled.unscheduled.values().map(|x| x.len()).sum::<usize>(), 0);
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
+		let relevant_validation_context = ValidationContext {
+			candidate_receipt: dummy_candidate_receipt(relevant_relay_parent),
+			pvd: Arc::new(PersistedValidationData::default()),
+			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+			executor_params: ExecutorParams::default(),
+			exec_timeout: Duration::from_secs(1),
+			v3_enabled: false,
+		};
 		let relevant_job = ExecuteJob {
 			artifact: ArtifactPathId {
 				id: artifact_id(0),
 				path: PathBuf::new(),
 				checksum: Default::default(),
 			},
-			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
-			pvd: Arc::new(PersistedValidationData::default()),
-			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
-			executor_params: ExecutorParams::default(),
+			validation_context: relevant_validation_context,
 			result_tx,
 			waiting_since: Instant::now(),
-			relay_parent: relevant_relay_parent,
-			scheduling_parent: relevant_relay_parent,
 		};
 		queue.unscheduled.add(relevant_job, Priority::Backing);
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
+			let expired_validation_context = ValidationContext {
+				candidate_receipt: dummy_candidate_receipt(old_relay_parent),
+				pvd: Arc::new(PersistedValidationData::default()),
+				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+				executor_params: ExecutorParams::default(),
+				exec_timeout: Duration::from_secs(1),
+				v3_enabled: false,
+			};
 			let expired_job = ExecuteJob {
 				artifact: ArtifactPathId {
 					id: artifact_id(0),
 					path: PathBuf::new(),
 					checksum: Default::default(),
 				},
-				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
-				pvd: Arc::new(PersistedValidationData::default()),
-				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
-				executor_params: ExecutorParams::default(),
+				validation_context: expired_validation_context,
 				result_tx,
 				waiting_since: Instant::now(),
-				relay_parent: old_relay_parent,
-				scheduling_parent: old_relay_parent,
 			};
 			queue.unscheduled.add(expired_job, Priority::Backing);
 			result_rxs.push(result_rx);
