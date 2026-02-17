@@ -1192,3 +1192,92 @@ fn xcm_converter_transfer_native_token_with_invalid_location_will_fail() {
 	let result = converter.convert();
 	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
 }
+
+fn general_key_length_collision_locations() -> (Location, Location) {
+	let mut data = [0u8; 32];
+	data[0] = 0xAB;
+
+	let victim_location = Location::new(
+		1,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(2000),
+			GeneralKey { length: 32, data },
+		],
+	);
+
+	let attacker_location = Location::new(
+		1,
+		[
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
+			Parachain(2000),
+			GeneralKey { length: 1, data },
+		],
+	);
+
+	(victim_location, attacker_location)
+}
+
+/// Registry mock: only the victim TokenId is "registered".
+pub struct VictimOnlyTokenIdConvert;
+
+impl MaybeConvert<TokenId, Location> for VictimOnlyTokenIdConvert {
+	fn maybe_convert(id: TokenId) -> Option<Location> {
+		let (victim_location, _) = general_key_length_collision_locations();
+		let victim_id = TokenIdOf::convert_location(&victim_location)?;
+		if id == victim_id {
+			Some(victim_location)
+		} else {
+			None
+		}
+	}
+}
+
+#[test]
+fn xcm_converter_mints_registered_token_id_for_colliding_general_key_location() {
+	let network = BridgedNetwork::get();
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+	let amount = 1_000_000;
+	let fee_amount = 1_000;
+	let (victim_location, attacker_location) = general_key_length_collision_locations();
+	assert_ne!(victim_location, attacker_location, "Locations must differ");
+
+	// Deterministic collision:
+	let victim_token_id = TokenIdOf::convert_location(&victim_location).unwrap();
+	let attacker_token_id = TokenIdOf::convert_location(&attacker_location).unwrap();
+	assert_ne!(victim_token_id, attacker_token_id, "TokenIds should differ after the fix");
+
+	// Optional debug prints for report clarity
+	println!("victim_location     = {victim_location:?}");
+	println!("attacker_location   = {attacker_location:?}");
+	println!("victim_token_id     = {victim_token_id:?}");
+	println!("attacker_token_id   = {attacker_token_id:?}");
+
+	// Build XCM that reserves *attacker* asset location (but will mint under victim token_id)
+	// V2 XCM format requires: WithdrawAsset(fee), PayFees, ReserveAssetDeposited, AliasOrigin,
+	// DepositAsset, SetTopic
+	let fee_asset = Asset { id: AssetId(Location::new(0, [])), fun: Fungible(fee_amount) };
+	let assets: Assets =
+		vec![Asset { id: AssetId(attacker_location.clone()), fun: Fungible(amount) }].into();
+	let filter: AssetFilter = assets.clone().into();
+
+	// Create an origin location for AliasOrigin
+	let origin_location = Location::new(1, [Parachain(1000)]);
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(vec![fee_asset.clone()].into()),
+		PayFees { asset: fee_asset },
+		ReserveAssetDeposited(assets.clone()),
+		AliasOrigin(origin_location),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+
+	let mut converter = XcmConverter::<VictimOnlyTokenIdConvert, ()>::new(&message, network);
+	let result = converter.convert();
+	assert_eq!(result.err(), Some(XcmConverterError::InvalidAsset));
+}
