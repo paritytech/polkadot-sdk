@@ -16,16 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	limits,
+	Config, Key, limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
 	vm::RuntimeCosts,
-	Config, Key,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
 use core::{marker::PhantomData, num::NonZero};
-use pallet_revive_uapi::{precompiles::storage::IStorage, StorageFlags};
+use pallet_revive_uapi::{StorageFlags, precompiles::storage::IStorage};
 use sp_core::hexdisplay::AsBytesRef;
 
 pub struct Storage<T>(PhantomData<T>);

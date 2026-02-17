@@ -107,12 +107,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the right
 				// type.
-				.with_node(|node| node.with_name("alice").with_args(vec![]));
+				.with_validator(|node| node.with_name("alice").with_args(vec![]));
 
 			(0..5).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lruntime=debug,parachain=trace").into(),
 					])

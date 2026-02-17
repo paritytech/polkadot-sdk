@@ -14,14 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::{test_helpers::asset_to_holding, *};
 use frame_support::{parameter_types, traits::fungibles::Inspect};
 use mock::{setup_pool, AccountId, AssetId, Balance, Fungibles};
 use xcm::latest::AssetId as XcmAssetId;
 use xcm_executor::AssetsInHolding;
 
 fn create_holding_asset(asset_id: AssetId, amount: Balance) -> AssetsInHolding {
-	create_asset(asset_id, amount).into()
+	asset_to_holding(create_asset(asset_id, amount))
 }
 
 fn create_asset(asset_id: AssetId, amount: Balance) -> Asset {
@@ -72,16 +72,14 @@ fn holding_asset_swap_for_target() {
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap(),
-		holding_change
-	);
+	let change = trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change, &holding_change);
 
 	assert_eq!(trader.total_fee.peek(), fee);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
 }
 
 #[test]
@@ -100,22 +98,18 @@ fn holding_asset_swap_for_target_twice() {
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee1), holding_asset, &xcm_context()).unwrap(),
-		holding_change1
-	);
-	assert_eq!(
-		trader
-			.buy_weight(weight_worth_of(fee2), holding_change1, &xcm_context())
-			.unwrap(),
-		holding_change2
-	);
+	let change1 = trader.buy_weight(weight_worth_of(fee1), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change1, &holding_change1);
+	let change2 = trader
+		.buy_weight(weight_worth_of(fee2), holding_change1, &xcm_context())
+		.unwrap();
+	assert_eq!(&change2, &holding_change2);
 
 	assert_eq!(trader.total_fee.peek(), fee1 + fee2);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee1 + fee2);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
 }
 
 #[test]
@@ -131,21 +125,20 @@ fn buy_and_refund_twice_for_target() {
 
 	let holding_asset = create_holding_asset(CLIENT_ASSET, client_asset_total);
 	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee);
-	let refund_asset = create_asset(CLIENT_ASSET, refund1);
+	let refund_asset = create_holding_asset(CLIENT_ASSET, refund1);
 
 	let target_total = Fungibles::total_issuance(TARGET_ASSET);
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap(),
-		holding_change
-	);
+	let change = trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change, &holding_change);
 
 	assert_eq!(trader.total_fee.peek(), fee);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
-	assert_eq!(trader.refund_weight(weight_worth_of(refund1), &xcm_context()), Some(refund_asset));
+	let refund = trader.refund_weight(weight_worth_of(refund1), &xcm_context());
+	assert_eq!(refund.as_ref(), Some(&refund_asset));
 
 	assert_eq!(trader.total_fee.peek(), fee - refund1);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
@@ -156,7 +149,7 @@ fn buy_and_refund_twice_for_target() {
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee - refund1);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
 }
 
 #[test]
@@ -178,55 +171,48 @@ fn buy_with_various_assets_and_refund_for_target() {
 	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee1);
 	let holding_change_2 = create_holding_asset(CLIENT_ASSET_2, client_asset_2_total - fee2);
 	// both refunds in the latest buy asset (`CLIENT_ASSET_2`).
-	let refund_asset = create_asset(CLIENT_ASSET_2, refund1);
-	let refund_asset_2 = create_asset(CLIENT_ASSET_2, refund2);
+	let refund_asset = create_holding_asset(CLIENT_ASSET_2, refund1);
+	let refund_asset_2 = create_holding_asset(CLIENT_ASSET_2, refund2);
 
 	let target_total = Fungibles::total_issuance(TARGET_ASSET);
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 	let client_total_2 = Fungibles::total_issuance(CLIENT_ASSET_2);
 
 	let mut trader = Trader::new();
+
 	// first purchase with `CLIENT_ASSET`.
-	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee1), holding_asset, &xcm_context()).unwrap(),
-		holding_change
-	);
+	let change1 = trader.buy_weight(weight_worth_of(fee1), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change1, &holding_change);
 
 	assert_eq!(trader.total_fee.peek(), fee1);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
 	// second purchase with `CLIENT_ASSET_2`.
-	assert_eq!(
-		trader
-			.buy_weight(weight_worth_of(fee2), holding_asset_2, &xcm_context())
-			.unwrap(),
-		holding_change_2
-	);
+	let change2 = trader
+		.buy_weight(weight_worth_of(fee2), holding_asset_2, &xcm_context())
+		.unwrap();
+	assert_eq!(&change2, &holding_change_2);
 
 	assert_eq!(trader.total_fee.peek(), fee1 + fee2);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET_2)));
 
 	// first refund in the last asset used with `buy_weight`.
-	assert_eq!(trader.refund_weight(weight_worth_of(refund1), &xcm_context()), Some(refund_asset));
+	let refund_holding1 = trader.refund_weight(weight_worth_of(refund1), &xcm_context());
+	assert_eq!(refund_holding1.as_ref(), Some(&refund_asset));
 
 	assert_eq!(trader.total_fee.peek(), fee1 + fee2 - refund1);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET_2)));
 
 	// second refund in the last asset used with `buy_weight`.
-	assert_eq!(
-		trader.refund_weight(weight_worth_of(refund2), &xcm_context()),
-		Some(refund_asset_2)
-	);
+	let refund_holding2 = trader.refund_weight(weight_worth_of(refund2), &xcm_context());
+	assert_eq!(refund_holding2.as_ref(), Some(&refund_asset_2));
 
 	assert_eq!(trader.total_fee.peek(), fee1 + fee2 - refund1 - refund2);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET_2)));
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee1);
-	assert_eq!(
-		Fungibles::total_issuance(CLIENT_ASSET_2),
-		client_total_2 + fee2 - refund1 - refund2
-	);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET_2), client_total_2);
 }
 
 #[test]
@@ -244,10 +230,9 @@ fn not_enough_to_refund() {
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap(),
-		holding_change
-	);
+	let refund_holding =
+		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&refund_holding, &holding_change);
 
 	assert_eq!(trader.total_fee.peek(), fee);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
@@ -255,7 +240,7 @@ fn not_enough_to_refund() {
 	assert_eq!(trader.refund_weight(weight_worth_of(refund), &xcm_context()), None);
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
 }
 
 #[test]
@@ -267,15 +252,18 @@ fn not_exchangeable_to_refund() {
 	setup_pool(CLIENT_ASSET, 1000, TARGET_ASSET, 1000);
 
 	let holding_asset = create_holding_asset(CLIENT_ASSET, client_asset_total);
-	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee);
+	let expected_change = client_asset_total - fee;
 
 	let target_total = Fungibles::total_issuance(TARGET_ASSET);
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
+	let holding_change =
+		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(holding_change.len(), 1);
 	assert_eq!(
-		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap(),
-		holding_change
+		holding_change.fungible.get(&create_asset_id(CLIENT_ASSET)).unwrap().amount(),
+		expected_change
 	);
 
 	assert_eq!(trader.total_fee.peek(), fee);
@@ -283,8 +271,9 @@ fn not_exchangeable_to_refund() {
 
 	assert_eq!(trader.refund_weight(weight_worth_of(refund), &xcm_context()), None);
 
+	// swapping does not change total issuance
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
-	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total + fee);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
 }
 
 #[test]
@@ -303,12 +292,10 @@ fn holding_asset_not_exchangeable_for_target() {
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader
-			.buy_weight(Weight::from_all(10), holding_asset, &xcm_context())
-			.unwrap_err(),
-		XcmError::FeesNotMet
-	);
+	let (_, error) = trader
+		.buy_weight(Weight::from_all(10), holding_asset, &xcm_context())
+		.unwrap_err();
+	assert_eq!(error, XcmError::FeesNotMet);
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
 	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
@@ -317,36 +304,30 @@ fn holding_asset_not_exchangeable_for_target() {
 #[test]
 fn empty_holding_asset() {
 	let mut trader = Trader::new();
-	assert_eq!(
-		trader
-			.buy_weight(Weight::from_all(10), AssetsInHolding::new(), &xcm_context())
-			.unwrap_err(),
-		XcmError::AssetNotFound
-	);
+	let (_, error) = trader
+		.buy_weight(Weight::from_all(10), AssetsInHolding::new(), &xcm_context())
+		.unwrap_err();
+	assert_eq!(error, XcmError::AssetNotFound);
 }
 
 #[test]
 fn fails_to_match_holding_asset() {
 	let mut trader = Trader::new();
 	let holding_asset = Asset { id: AssetId(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
-	assert_eq!(
-		trader
-			.buy_weight(Weight::from_all(10), holding_asset.into(), &xcm_context())
-			.unwrap_err(),
-		XcmError::AssetNotFound
-	);
+	let (_, error) = trader
+		.buy_weight(Weight::from_all(10), asset_to_holding(holding_asset), &xcm_context())
+		.unwrap_err();
+	assert_eq!(error, XcmError::AssetNotFound);
 }
 
 #[test]
 fn holding_asset_equal_to_target_asset() {
 	let mut trader = Trader::new();
 	let holding_asset = create_holding_asset(TargetAsset::get(), 10);
-	assert_eq!(
-		trader
-			.buy_weight(Weight::from_all(10), holding_asset, &xcm_context())
-			.unwrap_err(),
-		XcmError::FeesNotMet
-	);
+	let (_, error) = trader
+		.buy_weight(Weight::from_all(10), holding_asset, &xcm_context())
+		.unwrap_err();
+	assert_eq!(error, XcmError::FeesNotMet);
 }
 
 pub mod mock {
@@ -362,6 +343,7 @@ pub mod mock {
 			},
 		},
 	};
+	use pallet_asset_conversion::QuotePrice;
 	use sp_runtime::{traits::One, DispatchError};
 	use std::collections::HashMap;
 	use xcm::latest::Junction;
@@ -378,6 +360,44 @@ pub mod mock {
 	}
 
 	pub struct Swap {}
+
+	impl QuotePrice for Swap {
+		type Balance = Balance;
+		type AssetKind = AssetId;
+
+		fn quote_price_tokens_for_exact_tokens(
+			asset1: Self::AssetKind,
+			asset2: Self::AssetKind,
+			amount: Self::Balance,
+			_include_fee: bool,
+		) -> Option<Self::Balance> {
+			// Check if pool exists
+			let pool_exists = SWAP.with(|b| b.borrow().get(&(asset1, asset2)).is_some());
+			if pool_exists {
+				// 1:1 swap in this mock
+				Some(amount)
+			} else {
+				None
+			}
+		}
+
+		fn quote_price_exact_tokens_for_tokens(
+			asset1: Self::AssetKind,
+			asset2: Self::AssetKind,
+			amount: Self::Balance,
+			_include_fee: bool,
+		) -> Option<Self::Balance> {
+			// Check if pool exists
+			let pool_exists = SWAP.with(|b| b.borrow().get(&(asset1, asset2)).is_some());
+			if pool_exists {
+				// 1:1 swap in this mock
+				Some(amount)
+			} else {
+				None
+			}
+		}
+	}
+
 	impl SwapCreditT<AccountId> for Swap {
 		type Balance = Balance;
 		type AssetKind = AssetId;

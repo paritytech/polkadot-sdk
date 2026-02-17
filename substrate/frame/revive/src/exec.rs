@@ -16,6 +16,9 @@
 // limitations under the License.
 
 use crate::{
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
+	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
 	evm::{block_storage, transfer_with_dust},
 	limits,
@@ -26,9 +29,6 @@ use crate::{
 	storage::{AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -36,31 +36,31 @@ use alloc::{
 };
 use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
+	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
 	ensure,
-	storage::{with_transaction, TransactionOutcome},
+	storage::{TransactionOutcome, with_transaction},
 	traits::{
+		Time,
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		Time,
 	},
 	weights::Weight,
-	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 };
 use frame_system::{
-	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System, RawOrigin,
+	pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use sp_core::{
+	ConstU32, Get, H160, H256, U256,
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Saturating, TrailingZeroInput},
 	DispatchError, SaturatedConversion,
+	traits::{BadOrigin, Saturating, TrailingZeroInput},
 };
 
 #[cfg(test)]
@@ -692,11 +692,7 @@ enum ExecutableOrPrecompile<T: Config, E: Executable<T>, Env> {
 
 impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	fn as_executable(&self) -> Option<&E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 
 	fn is_pvm(&self) -> bool {
@@ -707,20 +703,12 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	}
 
 	fn as_precompile(&self) -> Option<&PrecompileInstance<Env>> {
-		if let Self::Precompile { instance, .. } = self {
-			Some(instance)
-		} else {
-			None
-		}
+		if let Self::Precompile { instance, .. } = self { Some(instance) } else { None }
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn into_executable(self) -> Option<E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 }
 
@@ -811,30 +799,21 @@ macro_rules! top_frame_mut {
 impl<T: Config> CachedContract<T> {
 	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn into_contract(self) -> Option<ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
-		if let CachedContract::Invalidated = self {
-			if let Some(contract) =
+		if let CachedContract::Invalidated = self &&
+			let Some(contract) =
 				AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(account_id))
-			{
-				*self = CachedContract::Cached(contract);
-			}
+		{
+			*self = CachedContract::Cached(contract);
 		}
 	}
 
@@ -959,10 +938,10 @@ where
 		let result = stack
 			.run(executable, input_data)
 			.map(|_| (address, stack.first_frame.last_frame_output));
-		if let Ok((contract, ref output)) = result {
-			if !output.did_revert() {
-				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
-			}
+		if let Ok((contract, output)) = &result &&
+			!output.did_revert()
+		{
+			Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract: *contract });
 		}
 		log::trace!(target: LOG_TARGET, "instantiate finished with: {result:?}");
 		result
@@ -1247,9 +1226,23 @@ where
 		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
+			// For DELEGATECALL, `from` is the contract making the delegatecall and
+			// `to` is the target contract whose code is being executed.
+			let (from, to) = match frame.delegate.as_ref() {
+				Some(delegate) => {
+					(T::AddressMapper::to_address(&frame.account_id), delegate.callee)
+				},
+				None => (
+					self.caller()
+						.account_id()
+						.map(T::AddressMapper::to_address)
+						.unwrap_or_default(),
+					T::AddressMapper::to_address(&frame.account_id),
+				),
+			};
 			tracer.enter_child_span(
-				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
-				T::AddressMapper::to_address(&frame.account_id),
+				from,
+				to,
 				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
@@ -1361,17 +1354,16 @@ where
 			//    account.
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
-			if let Some(precompile) = executable.as_precompile() {
-				if precompile.has_contract_info() &&
-					frame.delegate.is_none() &&
-					!<System<T>>::account_exists(account_id)
-				{
-					// prefix matching pre-compiles cannot have a contract info
-					// hence we only mint once per pre-compile
-					T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
-					// make sure the pre-compile does not destroy its account by accident
-					<System<T>>::inc_consumers(account_id)?;
-				}
+			if let Some(precompile) = executable.as_precompile() &&
+				precompile.has_contract_info() &&
+				frame.delegate.is_none() &&
+				!<System<T>>::account_exists(account_id)
+			{
+				// prefix matching pre-compiles cannot have a contract info
+				// hence we only mint once per pre-compile
+				T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
+				// make sure the pre-compile does not destroy its account by accident
+				<System<T>>::inc_consumers(account_id)?;
 			}
 
 			let mut code_deposit = executable

@@ -56,11 +56,11 @@ fn burn_at_relay(stash: &AccountId, value: Balance) -> Result<(), XcmError> {
 	let asset = Asset { id: AssetId(Location::parent()), fun: Fungible(value) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
+	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 	let withdrawn = AssetTransactor::withdraw_asset(&asset, &stash_location, None)?;
 
-	AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
-
-	let parent_assets = Into::<Assets>::into(withdrawn)
+	let assets: Assets = withdrawn.into_assets_iter().collect::<Vec<Asset>>().into();
+	let parent_assets = assets
 		.reanchored(&dest, &Here.into())
 		.defensive_map_err(|_| XcmError::ReanchorFailed)?;
 
@@ -319,16 +319,15 @@ impl pallet_broker::Config for Runtime {
 	type Currency = Balances;
 	type OnRevenue = BurnCoretimeRevenue;
 	type TimeslicePeriod = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
-	// We don't actually need any leases at launch but set to 10 in case we want to sudo some in.
-	type MaxLeasedCores = ConstU32<10>;
-	type MaxReservedCores = ConstU32<10>;
+	type MaxLeasedCores = ConstU32<50>;
+	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
-	type MaxAutoRenewals = ConstU32<20>;
+	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
