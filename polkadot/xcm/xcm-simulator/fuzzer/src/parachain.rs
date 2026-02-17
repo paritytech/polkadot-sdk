@@ -133,7 +133,6 @@ impl Config for XcmConfig {
 	type AssetTrap = ();
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -237,8 +236,9 @@ pub mod mock_msg_queue {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error(InstructionError { error, .. }) =>
-							(Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail(Some(hash), error))
+						},
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.

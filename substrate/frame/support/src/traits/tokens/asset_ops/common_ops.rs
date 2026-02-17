@@ -146,6 +146,19 @@ impl<Id, M: Convert<Id, Result<Op::Id, DispatchError>>, Op: AssetDefinition> Ass
 {
 	type Id = Id;
 }
+impl<Id, M, S, Op> Inspect<S> for MapId<Id, Op::Id, M, Op>
+where
+	M: Convert<Id, Result<Op::Id, DispatchError>>,
+	S: InspectStrategy,
+	Op: Inspect<S>,
+	Self::Id: Clone,
+{
+	fn inspect(id: &Self::Id, strategy: S) -> Result<S::Value, DispatchError> {
+		let id = M::convert(id.clone())?;
+
+		Op::inspect(&id, strategy)
+	}
+}
 impl<Id, M, S, Op> Update<S> for MapId<Id, Op::Id, M, Op>
 where
 	M: Convert<Id, Result<Op::Id, DispatchError>>,

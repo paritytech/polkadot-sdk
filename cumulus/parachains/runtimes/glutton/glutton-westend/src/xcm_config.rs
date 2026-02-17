@@ -81,7 +81,6 @@ impl xcm_executor::Config for XcmConfig {
 	type Trader = (); // balances not supported
 	type ResponseHandler = (); // Don't handle responses for now.
 	type AssetTrap = (); // don't trap for now
-	type AssetClaims = (); // don't claim for now
 	type SubscriptionService = (); // don't handle subscriptions for now
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

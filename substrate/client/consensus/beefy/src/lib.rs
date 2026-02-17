@@ -786,10 +786,11 @@ where
 				Some(active) => return Ok(active),
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
-				None =>
+				None => {
 					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
 						.await
-						.map_err(|e| Error::Backend(e.to_string()))?,
+						.map_err(|e| Error::Backend(e.to_string()))?
+				},
 			}
 		}
 	}

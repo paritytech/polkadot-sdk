@@ -372,8 +372,9 @@ impl ProtocolController {
 	/// Process connection event.
 	fn process_event(&mut self, event: Event) {
 		match event {
-			Event::IncomingConnection(peer_id, index) =>
-				self.on_incoming_connection(peer_id, index),
+			Event::IncomingConnection(peer_id, index) => {
+				self.on_incoming_connection(peer_id, index)
+			},
 			Event::Dropped(peer_id) => self.on_peer_dropped(peer_id),
 		}
 	}
@@ -386,8 +387,9 @@ impl ProtocolController {
 			Action::SetReservedPeers(peer_ids) => self.on_set_reserved_peers(peer_ids),
 			Action::SetReservedOnly(reserved_only) => self.on_set_reserved_only(reserved_only),
 			Action::DisconnectPeer(peer_id) => self.on_disconnect_peer(peer_id),
-			Action::GetReservedPeers(pending_response) =>
-				self.on_get_reserved_peers(pending_response),
+			Action::GetReservedPeers(pending_response) => {
+				self.on_get_reserved_peers(pending_response)
+			},
 		}
 	}
 
@@ -671,13 +673,14 @@ impl ProtocolController {
 					*direction = Direction::Inbound;
 					self.accept_connection(peer_id, incoming_index);
 				},
-				PeerState::NotConnected =>
+				PeerState::NotConnected => {
 					if self.peer_store.is_banned(&peer_id.into()) {
 						self.reject_connection(peer_id, incoming_index);
 					} else {
 						*state = PeerState::Connected(Direction::Inbound);
 						self.accept_connection(peer_id, incoming_index);
-					},
+					}
+				},
 			}
 			return;
 		}

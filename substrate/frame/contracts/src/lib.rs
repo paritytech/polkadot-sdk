@@ -1566,12 +1566,13 @@ impl<T: Config> Invokable<T> for CallInput<T> {
 		let mut storage_meter =
 			match StorageMeter::new(&origin, common.storage_deposit_limit, common.value) {
 				Ok(meter) => meter,
-				Err(err) =>
+				Err(err) => {
 					return InternalOutput {
 						result: Err(err.into()),
 						gas_meter,
 						storage_deposit: Default::default(),
-					},
+					}
+				},
 			};
 		let schedule = T::Schedule::get();
 		let result = ExecStack::<T, WasmBlob<T>>::run_call(
@@ -1776,7 +1777,7 @@ impl<T: Config> Pallet<T> {
 
 				let (module, deposit) = match result {
 					Ok(result) => result,
-					Err(error) =>
+					Err(error) => {
 						return ContractResult {
 							gas_consumed: Zero::zero(),
 							gas_required: Zero::zero(),
@@ -1784,7 +1785,8 @@ impl<T: Config> Pallet<T> {
 							debug_message: debug_message.unwrap_or(Default::default()).into(),
 							result: Err(error),
 							events: events(),
-						},
+						}
+					},
 				};
 
 				storage_deposit_limit =

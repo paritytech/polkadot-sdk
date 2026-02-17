@@ -19,12 +19,12 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
+	EthRpcClient,
 	cli::{self, CliCommand},
 	example::TransactionBuilder,
 	subxt_client::{
-		self, src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig,
+		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
 	},
-	EthRpcClient,
 };
 use anyhow::anyhow;
 use clap::Parser;
@@ -32,16 +32,16 @@ use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{
-		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag,
-		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, H256, U256,
+		Account, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, BlockTag, H256,
+		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
 use std::{sync::Arc, thread};
 use subxt::{
+	OnlineClient,
 	backend::rpc::RpcClient,
 	ext::subxt_rpcs::rpc_params,
 	tx::{SubmittableTransaction, TxStatus},
-	OnlineClient,
 };
 
 const LOG_TARGET: &str = "eth-rpc-tests";
@@ -135,7 +135,7 @@ async fn prepare_evm_transactions<Client: EthRpcClient + Sync + Send>(
 	let mut transactions = Vec::new();
 	for i in (0..count).rev() {
 		let nonce = start_nonce.saturating_add(U256::from(i as u64));
-		let tx_builder = TransactionBuilder::new(client.clone())
+		let tx_builder = TransactionBuilder::new(Arc::clone(&client))
 			.signer(signer.clone())
 			.nonce(nonce)
 			.value(amount)
@@ -252,8 +252,9 @@ async fn verify_transactions_in_single_block(
 
 	let block_tx_hashes = match &block.transactions {
 		HashesOrTransactionInfos::Hashes(hashes) => hashes.clone(),
-		HashesOrTransactionInfos::TransactionInfos(infos) =>
-			infos.iter().map(|info| info.hash).collect(),
+		HashesOrTransactionInfos::TransactionInfos(infos) => {
+			infos.iter().map(|info| info.hash).collect()
+		},
 	};
 
 	if let Some(missing_hash) =
@@ -302,6 +303,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 	}
 
 	run_tests!(
+		test_fibonacci_call_via_runtime_api,
 		test_transfer,
 		test_deploy_and_call,
 		test_runtime_api_dry_run_addr_works,
@@ -420,7 +422,11 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	);
 
 	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}."
+	);
 
 	// Balance transfer to contract
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
@@ -827,6 +833,124 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
 	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
+
+	Ok(())
+}
+
+/// Test that deploys and calls the Fibonacci contract via Substrate APIs works
+async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Fibonacci;
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Fibonacci",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+
+	let node_client =
+		OnlineClient::<SrcChainConfig>::from_url(SharedResources::node_rpc_url()).await?;
+	let signer = subxt_signer::sr25519::dev::alice();
+	let origin: [u8; 32] = signer.public_key().0;
+
+	// Deploy the Fibonacci contract via Substrate API
+	log::trace!(target: LOG_TARGET, "Deploying Fibonacci contract via Substrate API");
+	let dry_run_result = node_client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call(subxt_client::apis().revive_api().instantiate(
+			subxt::utils::AccountId32(origin),
+			0u128, // value
+			None,  // gas_limit
+			None,  // storage_deposit_limit
+			subxt_client::src_chain::runtime_types::pallet_revive::primitives::Code::Upload(
+				bytes.clone(),
+			),
+			vec![], // data (constructor args)
+			None,   // salt
+		))
+		.await;
+
+	assert!(dry_run_result.is_ok(), "Dry-run instantiate failed: {dry_run_result:?}");
+	let dry_run = dry_run_result.unwrap();
+	let instantiate_result = dry_run.result.expect("Dry-run should succeed");
+
+	log::trace!(
+		target: LOG_TARGET,
+		"Dry-run succeeded: address: {:?}, gas_consumed: {:?}, weight_required: {:?}",
+		instantiate_result.addr,
+		dry_run.gas_consumed,
+		dry_run.weight_required
+	);
+
+	// Now submit the actual instantiate extrinsic
+	let events = node_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&subxt_client::tx().revive().instantiate_with_code(
+				0u128,                   // value
+				dry_run.weight_required, // weight_limit from dry-run
+				u128::MAX,               // storage_deposit_limit
+				bytes,                   // code
+				vec![],                  // data
+				None,                    // salt
+			),
+			&subxt_signer::sr25519::dev::alice(),
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	// Extract the contract address from the Instantiated event
+	let instantiated_event = events
+		.find_first::<subxt_client::revive::events::Instantiated>()?
+		.expect("Instantiated event should be present");
+
+	let contract_address = instantiated_event.contract;
+	log::trace!(target: LOG_TARGET, "Contract deployed via Substrate at: {contract_address:?}");
+
+	// Verify that the dry-run predicted address matches the actual deployed address
+	assert_eq!(
+		instantiate_result.addr, contract_address,
+		"Dry-run predicted address should match actual deployed address"
+	);
+
+	// Call the deployed contract using runtime API
+	let call_data = Fibonacci::fibCall { n: 3u64 }.abi_encode();
+	let call_payload = subxt_client::apis().revive_api().call(
+		subxt::utils::AccountId32(origin),
+		contract_address,
+		0u128, // value
+		None,  // gas_limit
+		None,  // storage_deposit_limit
+		call_data,
+	);
+
+	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+
+	assert!(result.is_ok(), "Contract call failed: {result:?}");
+	let call_result = result.unwrap();
+	let exec_result = call_result.result.expect("fib(3) should succeed");
+
+	let decoded = Fibonacci::fibCall::abi_decode_returns(&exec_result.data)
+		.expect("Failed to decode return value");
+	assert_eq!(decoded, 2u64, "fib(3) should return 2");
+
+	// Verify that large Fibonacci values run out of gas
+	let call_data = Fibonacci::fibCall { n: 100u64 }.abi_encode();
+	let call_payload = subxt_client::apis().revive_api().call(
+		subxt::utils::AccountId32(origin),
+		contract_address,
+		0u128, // value
+		None,  // gas_limit
+		None,  // storage_deposit_limit
+		call_data,
+	);
+
+	let result = node_client.runtime_api().at_latest().await?.call(call_payload).await;
+	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
+	let call_result = result.unwrap();
+	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
 
 	Ok(())
 }

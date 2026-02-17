@@ -654,13 +654,14 @@ impl<H: Hasher> ValueCache<'_, H> {
 		stats.local_fetch_attempts.fetch_add(1, Ordering::Relaxed);
 
 		match self {
-			Self::Fresh(map) =>
+			Self::Fresh(map) => {
 				if let Some(value) = map.get(key) {
 					stats.local_hits.fetch_add(1, Ordering::Relaxed);
 					Some(value)
 				} else {
 					None
-				},
+				}
+			},
 			Self::ForStorageRoot {
 				local_value_cache,
 				shared_value_cache_access,

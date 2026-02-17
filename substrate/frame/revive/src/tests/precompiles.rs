@@ -18,9 +18,9 @@
 //! Precompiles added to the test runtime.
 
 use crate::{
+	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, U256, Weight,
 	exec::{CallResources, ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, ExecOrigin as Origin, ReentrancyProtection, Weight, U256,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -83,12 +83,15 @@ impl<T: Config> Precompile for NoInfo<T> {
 
 		match input {
 			INoInfoCalls::identity(INoInfo::identityCall { number }) => Ok(number.abi_encode()),
-			INoInfoCalls::reverts(INoInfo::revertsCall { error }) =>
-				Err(Error::Revert(error.as_str().into())),
-			INoInfoCalls::panics(INoInfo::panicsCall {}) =>
-				Err(Error::Panic(PanicKind::Assert.into())),
-			INoInfoCalls::errors(INoInfo::errorsCall {}) =>
-				Err(Error::Error(DispatchError::Other("precompile failed").into())),
+			INoInfoCalls::reverts(INoInfo::revertsCall { error }) => {
+				Err(Error::Revert(error.as_str().into()))
+			},
+			INoInfoCalls::panics(INoInfo::panicsCall {}) => {
+				Err(Error::Panic(PanicKind::Assert.into()))
+			},
+			INoInfoCalls::errors(INoInfo::errorsCall {}) => {
+				Err(Error::Error(DispatchError::Other("precompile failed").into()))
+			},
 			INoInfoCalls::consumeMaxGas(INoInfo::consumeMaxGasCall {}) => {
 				env.frame_meter_mut().charge_weight_token(MaxGasToken)?;
 				Ok(Vec::new())
@@ -103,8 +106,9 @@ impl<T: Config> Precompile for NoInfo<T> {
 				let call = <T as Config>::RuntimeCall::decode(&mut &call[..]).unwrap();
 				match call.dispatch(frame_origin) {
 					Ok(_) => Ok(Vec::new()),
-					Err(e) =>
-						Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller })),
+					Err(e) => {
+						Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller }))
+					},
 				}
 			},
 			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
@@ -118,8 +122,9 @@ impl<T: Config> Precompile for NoInfo<T> {
 				)?;
 				Ok(Vec::new())
 			},
-			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) =>
-				Ok(vec![42; *returnLen as usize]),
+			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) => {
+				Ok(vec![42; *returnLen as usize])
+			},
 		}
 	}
 }

@@ -337,29 +337,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					0,
 				)),
 			DebugMessage(len) => T::WeightInfo::seal_debug_message(len),
-			SetStorage { new_bytes, old_bytes } =>
-				cost_storage!(write, seal_set_storage, new_bytes, old_bytes),
+			SetStorage { new_bytes, old_bytes } => {
+				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
+			},
 			ClearStorage(len) => cost_storage!(write, seal_clear_storage, len),
 			ContainsStorage(len) => cost_storage!(read, seal_contains_storage, len),
 			GetStorage(len) => cost_storage!(read, seal_get_storage, len),
 			TakeStorage(len) => cost_storage!(write, seal_take_storage, len),
-			SetTransientStorage { new_bytes, old_bytes } =>
-				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
-			ClearTransientStorage(len) =>
-				cost_storage!(write_transient, seal_clear_transient_storage, len),
-			ContainsTransientStorage(len) =>
-				cost_storage!(read_transient, seal_contains_transient_storage, len),
-			GetTransientStorage(len) =>
-				cost_storage!(read_transient, seal_get_transient_storage, len),
-			TakeTransientStorage(len) =>
-				cost_storage!(write_transient, seal_take_transient_storage, len),
+			SetTransientStorage { new_bytes, old_bytes } => {
+				cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes)
+			},
+			ClearTransientStorage(len) => {
+				cost_storage!(write_transient, seal_clear_transient_storage, len)
+			},
+			ContainsTransientStorage(len) => {
+				cost_storage!(read_transient, seal_contains_transient_storage, len)
+			},
+			GetTransientStorage(len) => {
+				cost_storage!(read_transient, seal_get_transient_storage, len)
+			},
+			TakeTransientStorage(len) => {
+				cost_storage!(write_transient, seal_take_transient_storage, len)
+			},
 			Transfer => T::WeightInfo::seal_transfer(),
 			CallBase => T::WeightInfo::seal_call(0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			Instantiate { input_data_len, salt_len } =>
-				T::WeightInfo::seal_instantiate(input_data_len, salt_len),
+			Instantiate { input_data_len, salt_len } => {
+				T::WeightInfo::seal_instantiate(input_data_len, salt_len)
+			},
 			HashSha256(len) => T::WeightInfo::seal_hash_sha2_256(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
 			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
@@ -475,8 +482,9 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 						ReturnFlags::from_bits(*flags).ok_or(Error::<E::T>::InvalidCallFlags)?;
 					return Ok(ExecReturnValue { flags, data: data.to_vec() });
 				},
-				Termination =>
-					return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }),
+				Termination => {
+					return Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
+				},
 				SupervisorError(error) => return Err((*error).into()),
 			}
 		}
@@ -2265,8 +2273,9 @@ pub mod env {
 			Environment::new(ctx, memory, id, input_ptr, input_len, output_ptr, output_len_ptr);
 		let ret = match chain_extension.call(env)? {
 			RetVal::Converging(val) => Ok(val),
-			RetVal::Diverging { flags, data } =>
-				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data })),
+			RetVal::Diverging { flags, data } => {
+				Err(TrapReason::Return(ReturnData { flags: flags.bits(), data }))
+			},
 		};
 		ctx.chain_extension = Some(chain_extension);
 		ret
