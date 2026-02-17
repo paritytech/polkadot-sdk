@@ -494,10 +494,8 @@ fn payout_works_with_additional_references() {
 		let length = 20;
 		let delay = 5;
 
-		let calls = vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-			dest: 0,
-			value: 0,
-		})];
+		let calls =
+			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls));
 		assert_ok!(Lottery::start_lottery(RuntimeOrigin::root(), price, length, delay, false));
 
