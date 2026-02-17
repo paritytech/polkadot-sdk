@@ -1,0 +1,34 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Improve Treasury Payout of Stables
+
+doc:
+  - audience: Runtime Devs
+    description: |
+      This PR introduces category-based treasury spending, allowing the treasury to request payment from a category of assets (e.g., USD* stablecoins) rather than a single specific asset. 
+      On payout, the requested amount is distributed across available assets within that category, optimizing for successful payment execution.
+
+crates:
+  - name: pallet-treasury
+    bump: major
+  - name: frame-support
+    bump: minor
+  - name: pallet-assets
+    bump: minor
+  - name: polkadot-runtime-common
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: asset-hub-westend-integration-tests
+    bump: minor
+  - name: collectives-westend-integration-tests
+    bump: minor
