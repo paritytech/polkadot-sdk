@@ -632,6 +632,190 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	assert_eq!(sender_usdt_on_ah_before, sender_usdt_on_ah_after);
 }
 
+/// PenpalA transfers WND through Asset Hub to PenpalB and transacts on PenpalB.
+/// Uses `SetFeesMode { jit_withdraw: true }` and `preserve_origin: true` at both hops
+///
+/// Because `preserve_origin: true` is used at both hops, the origin on PenpalB is the
+/// **original PenpalA sender** — NOT Asset Hub's sovereign account.
+#[test]
+fn transfer_and_transact_from_para_through_asset_hub_to_para_jit_withdraw() {
+	let sender = PenpalASender::get();
+	let receiver = PenpalBReceiver::get();
+
+	let wnd: Location = RelayLocation::get();
+	let wnd_to_withdraw: Balance = WESTEND_ED * 100_000;
+	let fees_for_ah: Balance = WESTEND_ED * 10_000;
+	let fees_for_penpal_b: Balance = WESTEND_ED * 10_000;
+	// With jit_withdraw, delivery fees are taken from the origin's on-chain account (not from
+	// holding), so the sender needs extra balance beyond what's withdrawn in the XCM.
+	let delivery_fee_buffer: Balance = WESTEND_ED * 10_000;
+	let sender_balance: Balance = wnd_to_withdraw + delivery_fee_buffer;
+
+	let sov_of_penpal_a_on_ah = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
+	);
+	let sov_of_penpal_b_on_ah = AssetHubWestend::sovereign_account_id_of(
+		AssetHubWestend::sibling_location_of(PenpalB::para_id()),
+	);
+
+	// Fund sovereign accounts on AH (reserve for WND).
+	AssetHubWestend::fund_accounts(vec![
+		(sov_of_penpal_a_on_ah.clone().into(), ASSET_HUB_WESTEND_ED + sender_balance),
+		(sov_of_penpal_b_on_ah.clone().into(), ASSET_HUB_WESTEND_ED),
+	]);
+
+	// Give the sender WND on PenpalA (extra for JIT delivery fees).
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
+		wnd.clone(),
+		sender.clone(),
+		sender_balance,
+	);
+
+	// A simple `remark_with_event` call to be executed on PenpalB via Transact.
+	// It emits `System::Remarked { sender, hash }` which directly reveals the dispatching
+	// AccountId — making it easy to verify the origin.
+	let remark_message = b"Hello from PenpalA sender".to_vec();
+	let call: xcm::DoubleEncoded<()> = <PenpalB as Chain>::RuntimeCall::System(
+		frame_system::Call::<<PenpalB as Chain>::Runtime>::remark_with_event {
+			remark: remark_message.clone(),
+		},
+	)
+	.encode()
+	.into();
+
+	let asset_hub_location = PenpalA::sibling_location_of(AssetHubWestend::para_id());
+	// PenpalB from AH's perspective — same as from PenpalA's since both are sibling parachains.
+	let penpal_b_from_ah_pov = AssetHubWestend::sibling_location_of(PenpalB::para_id());
+
+	let mut topic_id_tracker = TopicIdTracker::new();
+
+	// Query initial balances.
+	let receiver_wnd_before = foreign_balance_on!(PenpalB, wnd.clone(), &receiver);
+
+	PenpalA::execute_with(|| {
+		let sender_signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(sender.clone());
+
+		// XCM on PenpalB (final destination).
+		let xcm_on_penpal_b = Xcm(vec![
+			RefundSurplus,
+			Transact {
+				origin_kind: OriginKind::SovereignAccount,
+				call,
+				fallback_max_weight: None,
+			},
+			ExpectTransactStatus(MaybeErrorCode::Success),
+			DepositAsset {
+				assets: Wild(AllOf { id: AssetId(wnd.clone()), fun: WildFungibility::Fungible }),
+				beneficiary: receiver.clone().into(),
+			},
+		]);
+
+		// XCM on Asset Hub (intermediate hop).
+		let xcm_on_ah = Xcm(vec![InitiateTransfer {
+			destination: penpal_b_from_ah_pov,
+			remote_fees: Some(AssetTransferFilter::ReserveDeposit(Definite(
+				(wnd.clone(), fees_for_penpal_b).into(),
+			))),
+			preserve_origin: true,
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveDeposit(Wild(
+				AllOf { id: AssetId(wnd.clone()), fun: WildFungibility::Fungible },
+			))]),
+			remote_xcm: xcm_on_penpal_b,
+		}]);
+
+		// XCM executed locally on PenpalA.
+		let xcm = Xcm::<()>(vec![
+			WithdrawAsset((wnd.clone(), wnd_to_withdraw).into()),
+			SetFeesMode { jit_withdraw: true },
+			InitiateTransfer {
+				destination: asset_hub_location,
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					(wnd.clone(), fees_for_ah).into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Wild(AllOf { id: AssetId(wnd.clone()), fun: WildFungibility::Fungible }),
+				)]),
+				remote_xcm: xcm_on_ah,
+			},
+		]);
+
+		<PenpalA as PenpalAPallet>::PolkadotXcm::execute(
+			sender_signed_origin,
+			bx!(xcm::VersionedXcm::from(xcm.into())),
+			Weight::MAX,
+		)
+		.unwrap();
+
+		PenpalA::assert_xcm_pallet_attempted_complete(None);
+		let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
+		topic_id_tracker.insert("PenpalA_sent", msg_sent_id.into());
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::MessageQueue(
+					pallet_message_queue::Event::Processed { success: true, .. }
+				) => {},
+			]
+		);
+		let mq_prc_id =
+			find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
+		topic_id_tracker.insert("AssetHubWestend_received", mq_prc_id);
+		let msg_sent_id =
+			find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
+		topic_id_tracker.insert("AssetHubWestend_sent", msg_sent_id.into());
+	});
+
+	PenpalB::execute_with(|| {
+		type RuntimeEvent = <PenpalB as Chain>::RuntimeEvent;
+		PenpalB::assert_xcmp_queue_success(None);
+
+		// The Transact dispatched `remark_with_event` which emits the sender AccountId.
+		// Verify it's the PenpalA sender's derived account — NOT Asset Hub's sovereign.
+		//
+		// Because `preserve_origin: true` was used at both hops, the origin that arrives
+		// on PenpalB is the **original sender on PenpalA**, expressed as an XCM location
+		// relative to PenpalB:
+		let expected_origin_on_penpal_b = Location::new(
+			1,
+			[
+				Parachain(PenpalA::para_id().into()),
+				AccountId32 { network: None, id: sender.clone().into() },
+			],
+		);
+		// PenpalB converts this XCM location to a local AccountId via `HashedDescription`
+		// (a deterministic hash of the location junctions).
+		let expected_dispatch_account =
+			HashedDescription::<AccountId, DescribeFamily<DescribeAllTerminal>>::convert_location(
+				&expected_origin_on_penpal_b,
+			)
+			.unwrap();
+		assert_expected_events!(
+			PenpalB,
+			vec![
+				RuntimeEvent::System(
+					frame_system::Event::Remarked { sender, .. }
+				) => {
+					sender: *sender == expected_dispatch_account,
+				},
+			]
+		);
+		let mq_prc_id = find_mq_processed_id::<PenpalB>().expect("Missing Processed Event");
+		topic_id_tracker.insert("PenpalB_received", mq_prc_id);
+	});
+
+	topic_id_tracker.assert_unique();
+
+	// Verify receiver got the remaining WND on PenpalB.
+	let receiver_wnd_after = foreign_balance_on!(PenpalB, wnd.clone(), &receiver);
+	assert!(receiver_wnd_after > receiver_wnd_before);
+}
+
 fn asset_hub_hop_assertions(sender_sa: AccountId) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 	assert_expected_events!(
