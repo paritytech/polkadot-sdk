@@ -1062,7 +1062,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		<Ledger<T>>::insert(voter.clone(), StakingLedger::<T>::new(voter.clone(), stake));
 
 		Self::do_add_nominator(&voter, Nominations { targets, submitted_in: 0, suppressed: false })
-			.unwrap_or_default();
+			.defensive();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1074,7 +1074,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 			&target,
 			ValidatorPrefs { commission: Perbill::zero(), blocked: false },
 		)
-		.unwrap_or_default();
+		.defensive();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1107,7 +1107,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				&v,
 				ValidatorPrefs { commission: Perbill::zero(), blocked: false },
 			)
-			.unwrap_or_default();
+			.defensive();
 		});
 
 		voters.into_iter().for_each(|(v, s, t)| {
@@ -1120,7 +1120,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 				&v,
 				Nominations { targets: t, submitted_in: 0, suppressed: false },
 			)
-			.unwrap_or_default();
+			.defensive();
 		});
 	}
 
