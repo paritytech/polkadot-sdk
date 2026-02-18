@@ -193,6 +193,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
 }
 
@@ -257,6 +258,26 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+}
+
+parameter_types! {
+	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_migrations::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Migrations = (
+		pallet_multisig::migrations::v2::LazyMigrationV1ToV2<Runtime, Balances>,
+	);
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+	type CursorMaxLen = ConstU32<65_536>;
+	type IdentifierMaxLen = ConstU32<256>;
+	type MigrationStatusHandler = ();
+	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type MaxServiceWeight = MbmServiceWeight;
+	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
 impl pallet_multisig::Config for Runtime {
@@ -693,6 +714,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp = 2,
 		ParachainInfo: parachain_info = 3,
 		WeightReclaim: cumulus_pallet_weight_reclaim = 4,
+		MultiBlockMigrations: pallet_migrations = 5,
 
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
@@ -788,6 +810,7 @@ pub type UncheckedExtrinsic =
 type Migrations = (
 	// unreleased
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	pallet_multisig::migrations::v1::MigrateToV1<Runtime, Balances>,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,

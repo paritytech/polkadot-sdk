@@ -29,6 +29,7 @@ pub mod pallet_collective_content;
 pub mod pallet_core_fellowship_ambassador_core;
 pub mod pallet_core_fellowship_fellowship_core;
 pub mod pallet_message_queue;
+pub mod pallet_migrations;
 pub mod pallet_multisig;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
