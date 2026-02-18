@@ -20140,6 +20140,7 @@ dependencies = [
  "sc-block-builder",
  "sc-chain-spec 28.0.0",
  "sc-client-api 28.0.0",
+ "sc-client-db",
  "sc-consensus",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
