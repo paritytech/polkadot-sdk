@@ -78,7 +78,7 @@ use sp_runtime::{
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Fungible as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 // Any runtime call can be encoded into two bytes which represent the pallet and call index.
 // We use this to uniquely match someone's incoming call with the calls configured for the lottery.
@@ -142,8 +142,8 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// The currency trait.
-		type Currency: Inspect<Self::AccountId> + Mutate<Self::AccountId>;
+		/// The fungible trait.
+		type Fungible: Inspect<Self::AccountId> + Mutate<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
@@ -251,7 +251,7 @@ pub mod pallet {
 						config.start.saturating_add(config.length).saturating_add(config.delay);
 					if payout_block <= n {
 						let lottery_account = Self::account_id();
-						let lottery_balance = T::Currency::reducible_balance(
+						let lottery_balance = T::Fungible::reducible_balance(
 							&lottery_account,
 							Preservation::Preserve,
 							Fortitude::Polite,
@@ -259,7 +259,7 @@ pub mod pallet {
 
 						let winner = Self::choose_account().unwrap_or(lottery_account.clone());
 						// Not much we can do if this fails...
-						let res = T::Currency::transfer(
+						let res = T::Fungible::transfer(
 							&lottery_account,
 							&winner,
 							lottery_balance,
@@ -458,7 +458,7 @@ impl<T: Config> Pallet<T> {
 				}
 				participating_calls.try_push(call_index).map_err(|_| Error::<T>::TooManyCalls)?;
 				// Check user has enough funds and send it to the Lottery account.
-				T::Currency::transfer(
+				T::Fungible::transfer(
 					caller,
 					&Self::account_id(),
 					config.price,

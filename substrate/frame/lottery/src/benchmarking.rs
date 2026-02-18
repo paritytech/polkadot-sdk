@@ -36,7 +36,7 @@ use sp_runtime::traits::{Bounded, Zero};
 
 // Set up and start a lottery
 fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
-	let price = T::Currency::minimum_balance();
+	let price = T::Fungible::minimum_balance();
 	let length = 10u32.into();
 	let delay = 5u32.into();
 	// Calls will be maximum length...
@@ -56,7 +56,7 @@ fn setup_lottery<T: Config>(repeat: bool) -> Result<(), &'static str> {
 /// Return the amount of money in the pot.
 /// The existential deposit is not part of the pot, keeping the lottery account alive.
 fn get_lottery_balance<T: Config>() -> BalanceOf<T> {
-	T::Currency::reducible_balance(
+	T::Fungible::reducible_balance(
 		&Lottery::<T>::account_id(),
 		Preservation::Preserve,
 		Fortitude::Polite,
@@ -70,7 +70,7 @@ mod benchmarks {
 	#[benchmark]
 	fn buy_ticket() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		T::Currency::set_balance(&caller, T::Currency::minimum_balance() * 10u32.into());
+		T::Fungible::set_balance(&caller, T::Fungible::minimum_balance() * 10u32.into());
 		setup_lottery::<T>(false)?;
 		// force user to have a long vec of calls participating
 		let set_code_index: CallIndex = Lottery::<T>::call_to_index(
@@ -150,15 +150,15 @@ mod benchmarks {
 		setup_lottery::<T>(false)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Fungible::set_balance(&winner, T::Fungible::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
+		T::Fungible::set_balance(&lottery_account, T::Fungible::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::set_balance(&winner, 0u32.into());
+		T::Fungible::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!get_lottery_balance::<T>().is_zero());
@@ -176,7 +176,7 @@ mod benchmarks {
 		assert!(crate::Lottery::<T>::get().is_none());
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
-		assert!(!T::Currency::reducible_balance(
+		assert!(!T::Fungible::reducible_balance(
 			&winner,
 			Preservation::Expendable,
 			Fortitude::Polite
@@ -191,15 +191,15 @@ mod benchmarks {
 		setup_lottery::<T>(true)?;
 		let winner = account("winner", 0, 0);
 		// User needs more than min balance to get ticket
-		T::Currency::set_balance(&winner, T::Currency::minimum_balance() * 10u32.into());
+		T::Fungible::set_balance(&winner, T::Fungible::minimum_balance() * 10u32.into());
 		// Make sure lottery account has at least min balance too
 		let lottery_account = Lottery::<T>::account_id();
-		T::Currency::set_balance(&lottery_account, T::Currency::minimum_balance() * 10u32.into());
+		T::Fungible::set_balance(&lottery_account, T::Fungible::minimum_balance() * 10u32.into());
 		// Buy a ticket
 		let call = frame_system::Call::<T>::remark { remark: vec![] };
 		Lottery::<T>::buy_ticket(RawOrigin::Signed(winner.clone()).into(), Box::new(call.into()))?;
 		// Kill user account for worst case
-		T::Currency::set_balance(&winner, 0u32.into());
+		T::Fungible::set_balance(&winner, 0u32.into());
 		// Assert that lotto is set up for winner
 		assert_eq!(TicketsCount::<T>::get(), 1);
 		assert!(!get_lottery_balance::<T>().is_zero());
@@ -218,7 +218,7 @@ mod benchmarks {
 		assert_eq!(LotteryIndex::<T>::get(), 2);
 		assert_eq!(TicketsCount::<T>::get(), 0);
 		assert_eq!(get_lottery_balance::<T>(), 0u32.into());
-		assert!(!T::Currency::reducible_balance(
+		assert!(!T::Fungible::reducible_balance(
 			&winner,
 			Preservation::Expendable,
 			Fortitude::Polite
