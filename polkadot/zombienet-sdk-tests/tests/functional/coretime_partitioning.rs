@@ -225,10 +225,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
-				.with_node(|node| node.with_name("charlie"))
-				.with_node(|node| node.with_name("dave"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("charlie"))
+				.with_validator(|node| node.with_name("dave"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_A)
