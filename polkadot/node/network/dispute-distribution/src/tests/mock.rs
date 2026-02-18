@@ -221,7 +221,7 @@ impl AuthorityDiscovery for MockAuthorityDiscovery {
 					?result,
 					"Returning authority ids for peer id"
 				);
-				return Some(result)
+				return Some(result);
 			}
 		}
 

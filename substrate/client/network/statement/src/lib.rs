@@ -45,7 +45,7 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers, ObservedRole,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -134,7 +134,8 @@ impl Metrics {
 					HistogramOpts::new(
 						"substrate_sync_propagated_statements_chunks",
 						"Distribution of chunk sizes when propagating statements",
-					).buckets(prometheus::exponential_buckets(1.0, 2.0, 14)?),
+					)
+					.buckets(prometheus::exponential_buckets(1.0, 2.0, 14)?),
 				)?,
 				r,
 			)?,
@@ -485,12 +486,13 @@ impl StatementHandlerPrototype {
 						);
 					},
 				},
-				Entry::Occupied(mut entry) =>
+				Entry::Occupied(mut entry) => {
 					if !entry.get_mut().insert(who) {
 						//  We might have raced with another worker thread adding the same peer.
 						aggregated_reputation =
 							aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
-					},
+					}
+				},
 			}
 		}
 
@@ -559,7 +561,6 @@ pub struct StatementHandler<
 pub struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
-	role: ObservedRole,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
@@ -705,8 +706,8 @@ fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 impl Peer {
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_for_testing(known_statements: LruHashSet<Hash>, role: ObservedRole) -> Self {
-		Self { known_statements, role }
+	pub fn new_for_testing(known_statements: LruHashSet<Hash>) -> Self {
+		Self { known_statements }
 	}
 }
 
@@ -894,7 +895,7 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				// only accept peers whose role can be determined
+				// Only accept peers whose role can be determined
 				let result = self
 					.network
 					.peer_role(peer, handshake)
@@ -902,10 +903,6 @@ where
 				let _ = result_tx.send(result);
 			},
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
-				let Some(role) = self.network.peer_role(peer, handshake) else {
-					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
-					return
-				};
 				{
 					let Ok(mut guard) = self.peers.write() else {
 						log::error!(target: LOG_TARGET, "peers lock poisoned");
@@ -918,13 +915,12 @@ where
 								NonZeroUsize::new(MAX_KNOWN_STATEMENTS)
 									.expect("Constant is nonzero"),
 							),
-							role,
 						},
 					);
 					debug_assert!(_was_in.is_none());
 				}
 
-				if !self.sync.is_major_syncing() && !role.is_light() {
+				if !self.sync.is_major_syncing() {
 					let hashes = self.statement_store.statement_hashes();
 					if !hashes.is_empty() {
 						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
@@ -951,7 +947,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					return
+					return;
 				}
 
 				// Send raw notification to worker for decoding and processing
@@ -985,7 +981,7 @@ where
 	pub fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
@@ -1007,12 +1003,6 @@ where
 			return;
 		};
 
-		// Never send statements to light nodes
-		if peer.role.is_light() {
-			log::trace!(target: LOG_TARGET, "{who} is a light node, skipping propagation");
-			return
-		}
-
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
@@ -1022,7 +1012,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
 		if to_send.is_empty() {
-			return
+			return;
 		}
 
 		self.send_statements_in_chunks(who, &to_send);
@@ -1114,7 +1104,7 @@ where
 	fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		if self.pending_sends.len() > MAX_PENDING_SENDS {
@@ -1170,7 +1160,7 @@ where
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-					return FilterDecision::Abort
+					return FilterDecision::Abort;
 				}
 				accumulated_size += encoded.len();
 				FilterDecision::Take
@@ -1230,23 +1220,15 @@ mod tests {
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
-		peer_roles: Arc<Mutex<HashMap<PeerId, ObservedRole>>>,
 	}
 
 	impl TestNetwork {
 		fn new() -> Self {
-			Self {
-				reported_peers: Arc::new(Mutex::new(Vec::new())),
-				peer_roles: Arc::new(Mutex::new(HashMap::new())),
-			}
+			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
 		}
 
 		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
 			self.reported_peers.lock().unwrap().clone()
-		}
-
-		fn set_peer_role(&self, peer: PeerId, role: ObservedRole) {
-			self.peer_roles.lock().unwrap().insert(peer, role);
 		}
 	}
 
@@ -1323,8 +1305,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn peer_role(&self, peer: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			self.peer_roles.lock().unwrap().get(&peer).copied()
+		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			unimplemented!()
 		}
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
@@ -1589,7 +1571,7 @@ mod tests {
 			for hash in hashes {
 				let Some(stmt) = statements.get(hash) else {
 					processed += 1;
-					continue
+					continue;
 				};
 				let encoded = stmt.encode();
 				match filter(hash, &encoded, stmt) {
@@ -1694,10 +1676,7 @@ mod tests {
 		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
 		peers.write().unwrap().insert(
 			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
-				role: ObservedRole::Full,
-			},
+			Peer { known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()) },
 		);
 
 		let handler = StatementHandler {
@@ -2047,12 +2026,8 @@ mod tests {
 			let peer_id = PeerId::random();
 			peers_map.insert(
 				peer_id,
-				Peer {
-					known_statements: LruHashSet::new(NonZeroUsize::new(10000).unwrap()),
-					role: ObservedRole::Full,
-				},
+				Peer { known_statements: LruHashSet::new(NonZeroUsize::new(10000).unwrap()) },
 			);
-			network.set_peer_role(peer_id, ObservedRole::Full);
 			peer_ids.push(peer_id);
 		}
 		let peers: PeersState = Arc::new(RwLock::new(peers_map));
@@ -2102,7 +2077,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		// Create 20MB of statements (200 statements x 100KB each)
@@ -2124,7 +2099,6 @@ mod tests {
 
 		// Setup peer and simulate connection
 		let peer_id = PeerId::random();
-		network.set_peer_role(peer_id, ObservedRole::Full);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
@@ -2186,7 +2160,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		// Create 20MB of statements (200 statements x 100KB each)
@@ -2208,9 +2182,6 @@ mod tests {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
 		let peer3 = PeerId::random();
-		network.set_peer_role(peer1, ObservedRole::Full);
-		network.set_peer_role(peer2, ObservedRole::Full);
-		network.set_peer_role(peer3, ObservedRole::Full);
 
 		// Connect peers
 		for peer in [peer1, peer2, peer3] {
@@ -2322,13 +2293,15 @@ mod tests {
 		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
 		//
 		// Statement encoding (encodes as Vec<Field>):
-		// - Compact<u32> for number of fields (1 byte for value 1)
+		// - Compact<u32> for number of fields (1 byte for value 2: expiry + data)
+		// - Field::Expiry discriminant (1 byte, value 2)
+		// - u64 expiry value (8 bytes)
 		// - Field::Data discriminant (1 byte, value 8)
 		// - Compact<u32> for the data length (2 bytes for small data)
-		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
+		// So per-statement overhead = 1 + 1 + 8 + 1 + 2 = 13 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let per_statement_overhead = 1 + 1 + 8 + 1 + 2; // Vec<Field> length + expiry field + data discriminant + Compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;
@@ -2415,7 +2388,7 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		let payload_limit = max_statement_payload_size();
@@ -2452,7 +2425,6 @@ mod tests {
 
 		// Setup peer and simulate connection
 		let peer_id = PeerId::random();
-		network.set_peer_role(peer_id, ObservedRole::Full);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
@@ -2803,7 +2775,6 @@ mod tests {
 
 		// Inject peer connection event
 		let new_peer = PeerId::random();
-		network.set_peer_role(new_peer, ObservedRole::Full);
 		event_sender
 			.send(NotificationEvent::NotificationStreamOpened {
 				peer: new_peer,
@@ -2884,10 +2855,7 @@ mod tests {
 			peer_ids.push(peer_id);
 			peers.write().unwrap().insert(
 				peer_id,
-				Peer {
-					known_statements: LruHashSet::new(NonZeroUsize::new(10_000).unwrap()),
-					role: ObservedRole::Full,
-				},
+				Peer { known_statements: LruHashSet::new(NonZeroUsize::new(10_000).unwrap()) },
 			);
 		}
 

@@ -519,7 +519,7 @@ impl<T: Config> Pallet<T> {
 
 			if forced.is_some() {
 				if NextForced::<T>::get().map_or(false, |next| next > scheduled_at) {
-					return Err(Error::<T>::TooSoon.into())
+					return Err(Error::<T>::TooSoon.into());
 				}
 
 				// only allow the next forced change when twice the window has passed since

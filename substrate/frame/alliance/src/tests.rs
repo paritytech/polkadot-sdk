@@ -27,7 +27,7 @@ use crate::{self as alliance, mock::*};
 type AllianceMotionEvent = pallet_collective::Event<Test, pallet_collective::Instance1>;
 
 fn assert_powerless(user: RuntimeOrigin, user_is_member: bool) {
-	//vote / veto with a valid proposal
+	// vote / veto with a valid proposal
 	let cid = test_cid();
 	let (proposal, _, _) = make_kick_member_proposal(42);
 

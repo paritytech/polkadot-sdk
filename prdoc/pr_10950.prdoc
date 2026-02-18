@@ -1,0 +1,13 @@
+title: 'fix(revive): handle transaction hash conflicts during re-org'
+doc:
+- audience: Runtime Dev
+  description: "## Summary\n\nFixes a UNIQUE constraint violation when processing\
+    \ blocks after a re-org:\n```\nUNIQUE constraint failed: transaction_hashes.transaction_hash\n\
+    ```\n\n## Problem\n\nWhen a blockchain re-org occurs:\n1. Block A contains transaction\
+    \ TX1 \u2192 stored in `transaction_hashes`\n2. Server restarts (clearing the\
+    \ in-memory `block_number_to_hashes` map)\n3. Re-org happens, Block B (different\
+    \ hash) now contains the same TX1\n4. INSERT fails because TX1 already exists\
+    \ with old block_hash"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
