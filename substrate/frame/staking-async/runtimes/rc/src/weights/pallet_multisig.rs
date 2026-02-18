@@ -166,9 +166,6 @@ impl<T: frame_system::Config> pallet_multisig::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn poke_deposit(_s: u32, ) -> Weight {
-		Default::default()
-	}
 	/// Storage: `Multisig::Multisigs` (r:1 w:0)
 	/// Proof: `Multisig::Multisigs` (`max_values`: None, `max_size`: Some(3346), added: 5821, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
