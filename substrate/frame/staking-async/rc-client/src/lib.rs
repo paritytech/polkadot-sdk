@@ -121,7 +121,9 @@ extern crate alloc;
 pub mod benchmarking;
 pub mod weights;
 
-use alloc::{vec, vec::Vec};
+#[cfg(feature = "xcm-sender")]
+use alloc::vec;
+use alloc::vec::Vec;
 use codec::Decode;
 #[cfg(feature = "xcm-sender")]
 use core::fmt::Display;
