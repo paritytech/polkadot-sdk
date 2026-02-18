@@ -39,15 +39,34 @@ pub enum AuraConsensusId {
 	Sr25519,
 }
 
-/// Determines the appropriate Aura consensus ID based on the chain spec ID.
+/// Determines the appropriate Aura consensus ID based on the chain spec ID,
+/// emitting warnings about the assumptions being made.
 ///
 /// Most parachains use Sr25519 for Aura consensus, but Asset Hub Polkadot
 /// (formerly Statemint) uses Ed25519.
+///
+/// # Warnings
+///
+/// - For `asset-hub-polkadot` / `statemint`: warns that Ed25519 is assumed based on the chain spec
+///   id, as this is a hardcoded special case.
+/// - For all other chains: warns that Sr25519 is assumed by default, and that Ed25519 runtimes are
+///   not yet supported (unless they are asset-hub-polkadot).
 pub fn aura_id_from_chain_spec_id(id: &str) -> AuraConsensusId {
-	let id = id.replace('_', "-");
-	if id.starts_with("asset-hub-polkadot") || id.starts_with("statemint") {
+	let id_normalized = id.replace('_', "-");
+	if id_normalized.starts_with("asset-hub-polkadot") || id_normalized.starts_with("statemint") {
+		log::warn!(
+			"⚠️  Aura authority id type is assumed to be `ed25519` because the chain spec id \
+			starts with `asset-hub-polkadot` or `statemint`. This is a known special case for \
+			Asset Hub Polkadot (formerly Statemint). If this assumption is wrong for your runtime, \
+			the node may not work correctly."
+		);
 		AuraConsensusId::Ed25519
 	} else {
+		log::warn!(
+			"⚠️  Aura authority id type is assumed to be `sr25519` by default. Runtimes using \
+			`ed25519` for Aura are not yet supported (except for `asset-hub-polkadot` / `statemint`). \
+			If your runtime uses `ed25519` for Aura, it may not work correctly with this node."
+		);
 		AuraConsensusId::Sr25519
 	}
 }
@@ -136,7 +155,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 		if !metadata_inspector.pallet_exists(DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME) {
 			log::warn!(
 				r#"⚠️  The parachain system pallet (https://docs.rs/crate/cumulus-pallet-parachain-system/latest) is
-			   missing from the runtime’s metadata. Please check Omni Node docs for runtime conventions:
+			   missing from the runtime's metadata. Please check Omni Node docs for runtime conventions:
 			   https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions."#
 			);
 		}
