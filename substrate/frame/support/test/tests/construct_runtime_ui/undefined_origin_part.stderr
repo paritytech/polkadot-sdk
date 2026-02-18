@@ -32,3 +32,9 @@ help: consider importing one of these type aliases
    |
 18 + use frame_system::Origin;
    |
+
+error[E0282]: type annotations needed
+  --> tests/construct_runtime_ui/undefined_origin_part.rs:70:11
+   |
+70 |         Pallet: pallet expanded::{}::{Pallet, Origin},
+   |                 ^^^^^^ cannot infer type

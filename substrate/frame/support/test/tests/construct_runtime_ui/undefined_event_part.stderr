@@ -51,3 +51,9 @@ help: consider importing one of these enums
    |
 18 + use frame_system::Event;
    |
+
+error[E0282]: type annotations needed
+  --> tests/construct_runtime_ui/undefined_event_part.rs:70:11
+   |
+70 |         Pallet: pallet expanded::{}::{Pallet, Event},
+   |                 ^^^^^^ cannot infer type
