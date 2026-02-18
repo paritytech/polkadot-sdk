@@ -283,6 +283,14 @@ mod tests {
 	}
 
 	#[test]
+	fn test_aura_consensus_id() {
+		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		// Should detect and return the consensus ID from metadata types
+		let aura_id = metadata_inspector.aura_consensus_id();
+		assert!(aura_id.is_some(), "Should detect Aura consensus ID from runtime metadata");
+	}
+
+	#[test]
 	fn test_aura_id_from_chain_spec_id() {
 		use crate::runtime::{aura_id_from_chain_spec_id, AuraConsensusId};
 
