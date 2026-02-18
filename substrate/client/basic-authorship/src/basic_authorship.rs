@@ -593,7 +593,7 @@ where
 			debug!(target: LOG_TARGET, "[{:?}] Failed to unshield transaction", shielded_tx_hash);
 			return Ok(());
 		};
-		trace!(target: LOG_TARGET, "[{:?}] Unshielded inner transaction: {:?}", shielded_tx_hash, unshielded_tx_data);
+		debug!(target: LOG_TARGET, "[{:?}] Unshielded inner transaction: {:?}", shielded_tx_hash, unshielded_tx_data);
 
 		match sc_block_builder::BlockBuilder::push(block_builder, unshielded_tx_data) {
 			Ok(()) => {
