@@ -365,7 +365,7 @@ impl CallDef {
 
 				if let (Some(weight_of_authorize_expr), None) = (&weight_of_authorize, &authorize) {
 					let msg = "Invalid pallet::call, weight_of_authorize attribute must be used with authorize attribute";
-					
+
 					return Err(syn::Error::new(weight_of_authorize_expr.span(), msg));
 				}
 
