@@ -27,7 +27,6 @@ use serde_json::json;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use subxt::{ext::scale_value::value, OnlineClient, PolkadotConfig};
 
-use crate::utils::initialize_network;
 use zombienet_sdk::{subxt, subxt_signer::sr25519::dev, NetworkConfig, NetworkConfigBuilder};
 
 const PARA_A: u32 = 2000;
@@ -45,7 +44,8 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 
 	log::info!("Spawning network");
-	let mut network = initialize_network(config).await?;
+	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
+	let network = spawn_fn(config).await?;
 
 	let relay_alice = network.get_node("alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
@@ -232,7 +232,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_A)
-				.with_chain(chain_a.as_str())
+				.with_chain(chain_a)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
@@ -242,7 +242,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_B)
-				.with_chain(chain_b.as_str())
+				.with_chain(chain_b)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
