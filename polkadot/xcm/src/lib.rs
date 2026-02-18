@@ -31,6 +31,9 @@ use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
 use scale_info::TypeInfo;
 
+#[deprecated(
+	note = "XCMv3 will be removed once XCMv6 is released. Please use XCMv4 or XCMv5 instead."
+)]
 pub mod v3;
 pub mod v4;
 pub mod v5;
@@ -326,6 +329,7 @@ versioned_type! {
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
 	#[codec(index = 3)]
+	#[deprecated]
 	V3(v3::Xcm<RuntimeCall>),
 	#[codec(index = 4)]
 	V4(v4::Xcm<RuntimeCall>),
