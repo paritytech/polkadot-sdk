@@ -1,77 +1,58 @@
-title: Kanas/omni node aura warnings
+title: 'Add warnings for Aura authority ID type assumptions'
 doc:
-- audience: Todo
-  description: "# Description\n\nThis PR addresses issue #11026 by adding warnings\
-    \ when `polkadot-omni-node-lib` makes assumptions about Aura authority ID types\
-    \ and implements optional metadata-based detection to automatically determine\
-    \ the correct type from runtime metadata.\n\nThe library currently assumes that\
-    \ the Aura authority ID type is `ed25519` for `asset-hub-polkadot`/`statemint`\
-    \ and `sr25519` for all other chains. This PR makes these assumptions explicit\
-    \ through warnings and adds optional metadata-based detection to improve accuracy.\n\
-    \nCloses #11026\n\n## Integration\n\n**No integration changes required.** This\
-    \ is a non-breaking enhancement that adds warnings and improves detection logic.\
-    \ Downstream projects will see warnings when assumptions are made, but behavior\
-    \ remains the same. No code changes are needed in downstream projects.\n\n## Review\
-    \ Notes\n\n### Implementation Overview\n\nThis PR implements all three improvements\
-    \ suggested in issue #11026:\n\n1. **Warnings for assumptions**: Emits warnings\
-    \ when assuming `ed25519` for `asset-hub-polkadot`/`statemint` or defaulting to\
-    \ `sr25519` for other chains\n2. **General warnings**: Warns that `sr25519` is\
-    \ used by default and that `ed25519` runtimes are not yet supported\n3. **Optional\
-    \ metadata detection**: Adds support to read the Aura authority ID type from runtime\
-    \ metadata when available\n\n### Changes Made\n\n**File: `cumulus/polkadot-omni-node/lib/src/common/runtime.rs`**\n\
-    \n1. **Added `aura_consensus_id()` method to `MetadataInspector`**:\n   - Scans\
-    \ runtime metadata types for `sp_consensus_aura::sr25519::AuthorityId` or `sp_consensus_aura::ed25519::AuthorityId`\n\
-    \   - Returns `Some(AuraConsensusId)` if found, `None` otherwise\n   - Only checks\
-    \ if Aura pallet exists in metadata\n\n2. **Updated `DefaultRuntimeResolver::runtime()`**:\n\
-    \   - When metadata check fails entirely:\n     - Falls back to chain spec ID\
-    \ check (`aura_id_from_chain_spec_id`)\n     - Emits warning for `asset-hub-polkadot`/`statemint`\
-    \ (ed25519 assumption)\n     - Emits warning for other chains (sr25519 default,\
-    \ mentions ed25519 not supported)\n   - When metadata exists but `aura_consensus_id()`\
-    \ returns `None`:\n     - Falls back to chain spec ID check with same warnings\
-    \ as above\n   - When `aura_consensus_id()` succeeds:\n     - Uses detected type\
-    \ without warning\n\n3. **Added test coverage**:\n   - Test verifies `aura_consensus_id()`\
-    \ correctly detects `sr25519` from test runtime metadata\n\n### Example Behavior\n\
-    \n**Before this PR:**\n- No warnings when assumptions are made\n- Always uses\
-    \ chain spec ID-based heuristics\n\n**After this PR:**\n- If metadata detection\
-    \ succeeds \u2192 uses detected type (no warning)\n- If metadata unavailable or\
-    \ detection fails:\n  - `asset-hub-polkadot`/`statemint` \u2192 uses `ed25519`\
-    \ with warning: `\"\u26A0\uFE0F  Assuming Aura authority ID type \\`ed25519\\\
-    ` for chain spec \\`{id}\\`.\"`\n  - Other chains \u2192 uses `sr25519` with warning:\
-    \ `\"\u26A0\uFE0F  Unable to determine Aura authority ID type from metadata for\
-    \ chain spec \\`{id}\\`. Defaulting to \\`sr25519\\`. Ed25519 runtimes are not\
-    \ supported yet.\"`\n\n### Code Example\n\n```diff\n+ fn aura_consensus_id(&self)\
-    \ -> Option<AuraConsensusId> {\n+     if !self.pallet_exists(DEFAULT_AURA_PALLET_NAME)\
-    \ {\n+         return None;\n+     }\n+\n+     for portable_type in self.0.types().types()\
-    \ {\n+         let path = &portable_type.ty.path;\n+         let segments = path.segments();\n\
-    +\n+         if segments.len() >= 3 {\n+             let last_three = &segments[segments.len()\
-    \ - 3..];\n+             match last_three {\n+                 [\"sp_consensus_aura\"\
-    , \"sr25519\", \"AuthorityId\"] =>\n+                     return Some(AuraConsensusId::Sr25519),\n\
-    +                 [\"sp_consensus_aura\", \"ed25519\", \"AuthorityId\"] =>\n+\
-    \                     return Some(AuraConsensusId::Ed25519),\n+              \
-    \   _ => continue,\n+             }\n+         }\n+     }\n+     None\n+ }\n```\n\
-    \n### Testing\n\n- Added unit test `test_aura_consensus_id()` that verifies metadata\
-    \ detection works correctly with the test runtime (which uses `sr25519`)\n\n###\
-    \ Notes\n\n- Warnings follow existing codebase style (multi-line raw strings with\
-    \ emoji, matching other warnings in this file)\n- The fallback logic preserves\
-    \ existing behavior while making assumptions explicit\n- Metadata detection is\
-    \ optional and gracefully falls back when metadata is unavailable or doesn't contain\
-    \ the required information\n\n# Checklist\n\n* [x] My PR includes a detailed description\
-    \ as outlined in the \"Description\" and its two subsections above.\n* [ ] My\
-    \ PR follows the [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
-    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
-    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
-    \ labels manually\n* [ ] I have made corresponding changes to the documentation\
-    \ (if applicable)\n* [x] I have added tests that prove my fix is effective or\
-    \ that my feature works (if applicable)\n\n## Bot Commands\n\nYou can use the\
-    \ following bot commands in comments to help manage your PR:\n\n**Labeling (Self-service\
-    \ for contributors):**\n* `/cmd label T1-FRAME` - Add a single label\n* `/cmd\
-    \ label T1-FRAME R0-no-crate-publish-required` - Add multiple labels\n* `/cmd\
-    \ label T6-XCM D2-substantial I5-enhancement` - Add multiple labels at once\n\
-    * See [label documentation](https://paritytech.github.io/labels/doc_polkadot-sdk.html)\
-    \ for all available labels\n\n**Other useful commands:**\n* `/cmd fmt` - Format\
-    \ code (cargo +nightly fmt and taplo)\n* `/cmd prdoc` - Generate PR documentation\n\
-    * `/cmd bench` - Run benchmarks\n* `/cmd update-ui` - Update UI tests\n* `/cmd\
-    \ --help` - Show help for all available commands"
+- audience: Node Dev
+  description: |-
+    This PR addresses issue #11026 by adding warnings when `polkadot-omni-node-lib` makes assumptions about Aura authority ID types and implements optional metadata-based detection to automatically determine the correct type from runtime metadata.
+
+    The library currently assumes that the Aura authority ID type is `ed25519` for `asset-hub-polkadot`/`statemint` and `sr25519` for all other chains. This PR makes these assumptions explicit through warnings and adds optional metadata-based detection to improve accuracy.
+
+    ## Implementation Overview
+
+    This PR implements all three improvements suggested in issue #11026:
+
+    1. **Warnings for assumptions**: Emits warnings when assuming `ed25519` for `asset-hub-polkadot`/`statemint` or defaulting to `sr25519` for other chains
+    2. **General warnings**: Warns that `sr25519` is used by default and that `ed25519` runtimes are not yet supported
+    3. **Optional metadata detection**: Adds support to read the Aura authority ID type from runtime metadata when available
+
+    ## Changes Made
+
+    **File: `cumulus/polkadot-omni-node/lib/src/common/runtime.rs`**
+
+    1. **Added `aura_consensus_id()` method to `MetadataInspector`**:
+       - Scans runtime metadata types for `sp_consensus_aura::sr25519::AuthorityId` or `sp_consensus_aura::ed25519::AuthorityId`
+       - Returns `Some(AuraConsensusId)` if found, `None` otherwise
+       - Only checks if Aura pallet exists in metadata
+
+    2. **Updated `DefaultRuntimeResolver::runtime()`**:
+       - When metadata check fails entirely:
+         - Falls back to chain spec ID check (`aura_id_from_chain_spec_id`)
+         - Emits warning for `asset-hub-polkadot`/`statemint` (ed25519 assumption)
+         - Emits warning for other chains (sr25519 default, mentions ed25519 not supported)
+       - When metadata exists but `aura_consensus_id()` returns `None`:
+         - Falls back to chain spec ID check with same warnings as above
+       - When `aura_consensus_id()` succeeds:
+         - Uses detected type without warning
+
+    3. **Added test coverage**:
+       - Test verifies `aura_consensus_id()` correctly detects `sr25519` from test runtime metadata
+
+    ## Example Behavior
+
+    **Before this PR:**
+    - No warnings when assumptions are made
+    - Always uses chain spec ID-based heuristics
+
+    **After this PR:**
+    - If metadata detection succeeds → uses detected type (no warning)
+    - If metadata unavailable or detection fails:
+      - `asset-hub-polkadot`/`statemint` → uses `ed25519` with warning: `"⚠️  Assuming Aura authority ID type \`ed25519\` for chain spec \`{id}\`."`
+      - Other chains → uses `sr25519` with warning: `"⚠️  Unable to determine Aura authority ID type from metadata for chain spec \`{id}\`. Defaulting to \`sr25519\`. Ed25519 runtimes are not supported yet."`
+
+    ## Notes
+
+    - The fallback logic preserves existing behavior while making assumptions explicit
+    - Metadata detection is optional and gracefully falls back when metadata is unavailable or doesn't contain the required information
+    - No breaking changes. This is a non-breaking enhancement that adds warnings and improves detection logic.
 crates:
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: patch
