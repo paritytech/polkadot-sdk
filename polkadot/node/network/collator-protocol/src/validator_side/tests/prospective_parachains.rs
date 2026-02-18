@@ -208,7 +208,7 @@ pub(super) async fn update_view(
 						Some(msg) => msg,
 						None => {
 							// No message arrived - ancestry is cached
-							break
+							break;
 						},
 					},
 				};

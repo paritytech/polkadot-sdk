@@ -218,10 +218,8 @@ impl CollationManager {
 		}
 
 		for leaf in added.iter() {
-			let Some(allowed_ancestry) = self
-				.implicit_view
-				.known_allowed_relay_parents_under(leaf)
-				.map(|v| v.to_vec())
+			let Some(allowed_ancestry) =
+				self.implicit_view.known_allowed_relay_parents_under(leaf).map(|v| v.to_vec())
 			else {
 				continue;
 			};
@@ -351,8 +349,7 @@ impl CollationManager {
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 		for leaf in leaves {
 			let free_slots = self.claim_queue_state.free_slots(&leaf);
-			let Some(allowed_parents) =
-				self.implicit_view.known_allowed_relay_parents_under(&leaf)
+			let Some(allowed_parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf)
 			else {
 				continue;
 			};
