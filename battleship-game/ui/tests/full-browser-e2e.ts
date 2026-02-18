@@ -1,10 +1,7 @@
 import { chromium, Page } from "playwright";
-import { startProxy } from "../src/chain/smoldot-proxy.ts";
 
 const BASE_URL = "http://localhost:3000";
-const RPC_URL = process.env.WS_URL || "ws://localhost:9944";
 const CHROMIUM_PATH = "/nix/store/g245pzpbacazlrca1fb7crb9883rhhs3-chromium-144.0.7559.59/bin/chromium";
-const PROXY_PORT = 9999;
 
 async function waitForText(page: Page, text: string, timeout = 30000) {
   await page.waitForFunction(
@@ -22,12 +19,12 @@ async function selectDevPlayer(page: Page, player: "alice" | "bob") {
   await page.click(`[data-player="${player}"]`);
   await page.click("#wallet-continue-btn");
 
-  // Wait for either lobby or game screen
-  for (let i = 0; i < 60; i++) {
+  // Wait for either lobby or game screen (up to 180s for in-browser smoldot sync)
+  for (let i = 0; i < 180; i++) {
     const lobby = await page.locator("#game-lobby.active").isVisible().catch(() => false);
     const game = await page.locator("#game.active").isVisible().catch(() => false);
     if (lobby || game) break;
-    if (i === 59) {
+    if (i === 179) {
       const activeScreens = await page.evaluate(() =>
         Array.from(document.querySelectorAll(".screen.active")).map(s => s.id)
       ).catch(() => []);
@@ -278,12 +275,6 @@ async function test() {
   console.log("FULL BROWSER E2E TEST");
   console.log("=".repeat(60));
 
-  console.log("Starting smoldot proxy...");
-  const proxy = await startProxy(PROXY_PORT);
-  console.log(`Smoldot proxy running on port ${proxy.port}`);
-  console.log("Waiting 60s for smoldot to sync...");
-  await new Promise(r => setTimeout(r, 60000));
-
   console.log("Launching browser...");
   const browser = await chromium.launch({
     headless: true,
@@ -315,10 +306,8 @@ async function test() {
 
   try {
     console.log("\n--- PHASE 1: Connect to lobby ---");
-    const rpcParam = encodeURIComponent(RPC_URL);
-    const proxyParam = encodeURIComponent(`ws://127.0.0.1:${PROXY_PORT}`);
-    await alicePage.goto(`${BASE_URL}/?devMode=true&rpc=${rpcParam}&smoldotProxy=${proxyParam}`);
-    await bobPage.goto(`${BASE_URL}/?devMode=true&rpc=${rpcParam}&smoldotProxy=${proxyParam}`);
+    await alicePage.goto(`${BASE_URL}/?devMode=true`);
+    await bobPage.goto(`${BASE_URL}/?devMode=true`);
 
     await selectDevPlayer(alicePage, "alice");
     console.log("✓ Alice connected to lobby");
@@ -537,7 +526,6 @@ async function test() {
     throw error;
   } finally {
     await browser.close();
-    proxy.stop();
   }
 }
 
