@@ -681,7 +681,9 @@ mod v4_tests {
 			assert!(popped.contains(&pool_para_2), "pool_para_2 should be in queue");
 
 			// Test 2: Verify bulk assignments from ClaimQueue were dropped
-			// and the authoritative descriptor assignments are used instead
+			// and the authoritative descriptor assignments are used instead.
+			// Advance to the block where the schedule becomes active.
+			frame_system::Pallet::<Test>::set_block_number(block_number);
 			let peeked = scheduler::assigner_coretime::peek_next_block::<Test>(10);
 			let core_assignments = peeked.get(&core).expect("Core should have assignments");
 			let para_ids: Vec<ParaId> = core_assignments.iter().copied().collect();
