@@ -77,6 +77,9 @@
 //!
 //! ## Future Work / Ideas
 //!
+//! - [ ] Westend integration
+//! 	- [ ] Add the ability to send the price updates to westend AH. Simple.
+//! - [ ] Add all the other transactions to manage and have a manager origin.
 //! - [ ] Companion binary to manage the OCW storage + submit transactions
 //! - [ ] OCWs should not overlap, add the lock mechanism from EPMB
 //! - [ ] OCW-fork: Maybe the OCW should include the block has on top of which it is built, such
@@ -85,9 +88,6 @@
 //! - [ ] One papi test for quick-ish sanity test
 //! - [ ] papi test for validator disabling/swapping (checked manually, see
 //!   `TweakValidatorSetOption::UsePreviousKickRandom` in the rc)
-//! - [ ] Westend integration
-//! 	- [ ] Add the ability to send the price updates to westend AH. Simple.
-//! - [ ] Add all the other transactions to manage and have a manager origin.
 //! - [x] ZN atm is using the same session key as the stash keys. It should be altered to actually
 //!   generate new session keys that are not the same as `derive("Alice")` etc and put them in the
 //!   keystore and register them. Alternatively, we can write some scripts that at startup. Without
@@ -100,9 +100,9 @@
 //!   validation etc)
 //! - [ ] More tests in integration-tests crate.
 //! - [ ] handle validator disabling via a message from RC
+//! - [ ] Slashing for not providing price updates.
 //! - [x] Sanity check: is there any issues with running a parachain with 600 collators? don't think
 //!   so!
-//! - [ ] Slashing for not providing price updates.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

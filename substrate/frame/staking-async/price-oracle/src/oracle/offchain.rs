@@ -669,6 +669,79 @@ mod parsing_methods {
 	}
 }
 
+/// Live tests that query the actual API endpoints to verify their response formats haven't changed.
+///
+/// These are gated behind the `live-parsing-test` feature and should only be run occasionally:
+///
+/// ```bash
+/// cargo test -p pallet-staking-async-price-oracle --features live-parsing-test live_parsing
+/// ```
+#[cfg(all(test, feature = "live-parsing-test"))]
+mod live_parsing_tests {
+	use super::*;
+	use crate::oracle::mock::Runtime;
+	use std::process::Command;
+	type Worker = OracleOffchainWorker<Runtime>;
+
+	/// Fetch the response body from a URL using `curl`.
+	fn curl_get(url: &str) -> Vec<u8> {
+		let output = Command::new("curl")
+			.args(["-s", "--fail", "--max-time", "15", url])
+			.output()
+			.expect("failed to execute curl — is it installed?");
+
+		assert!(
+			output.status.success(),
+			"curl request to {url} failed with status {:?}, stderr: {}",
+			output.status.code(),
+			String::from_utf8_lossy(&output.stderr)
+		);
+
+		output.stdout
+	}
+
+	#[test]
+	fn live_crypto_compare_free() {
+		let body = curl_get("https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD");
+		let price = Worker::parse_response(&ParsingMethod::CryptoCompareFree, body)
+			.expect("CryptoCompare response format has changed — parsing failed");
+
+		// Sanity: DOT price should be somewhere between $0.01 and $10_000.
+		assert!(
+			price > FixedU128::from_rational(1, 100) &&
+				price < FixedU128::from_rational(10_000, 1),
+			"CryptoCompare returned an implausible DOT price: {price:?}"
+		);
+	}
+
+	#[test]
+	fn live_binance_free() {
+		let body =
+			curl_get("https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT");
+		let price = Worker::parse_response(&ParsingMethod::BinanceFree, body)
+			.expect("Binance response format has changed — parsing failed");
+
+		assert!(
+			price > FixedU128::from_rational(1, 100) &&
+				price < FixedU128::from_rational(10_000, 1),
+			"Binance returned an implausible DOT price: {price:?}"
+		);
+	}
+
+	#[test]
+	fn live_coin_lore_free() {
+		let body = curl_get("https://api.coinlore.net/api/ticker/?id=45219");
+		let price = Worker::parse_response(&ParsingMethod::CoinLoreFree, body)
+			.expect("CoinLore response format has changed — parsing failed");
+
+		assert!(
+			price > FixedU128::from_rational(1, 100) &&
+				price < FixedU128::from_rational(10_000, 1),
+			"CoinLore returned an implausible DOT price: {price:?}"
+		);
+	}
+}
+
 #[cfg(test)]
 mod unit_tests {
 	use super::*;
