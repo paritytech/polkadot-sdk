@@ -212,7 +212,7 @@ impl<T: Config> Pallet<T> {
 		ledger.update()?;
 		// update this staker in the sorted list, if they exist in it.
 		if T::VoterList::contains(stash) {
-			// This might fail if the voter list is locked.
+			// This might fail if the voter list is locked and auto-rebag is disabled
 			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash))
 				.inspect_err(|err| crate::log!(warn, "error updating voter list: {:?}", err));
 		}
