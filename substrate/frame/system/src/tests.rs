@@ -1001,6 +1001,11 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 		// Immediate code not updated
 		let current = storage::unhashed::get_raw(well_known_keys::CODE).unwrap_or_default();
 		assert_ne!(current, code.clone());
+		// RuntimeEnvironmentUpdated digest should already be present
+		assert!(System::digest()
+			.logs()
+			.iter()
+			.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
 		// CodeUpdated event should NOT be emitted yet
 		assert!(System::events()
 			.iter()

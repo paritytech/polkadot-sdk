@@ -1601,6 +1601,7 @@ impl<T: Config> Pallet<T> {
 			_ => {
 				BlocksTillUpgrade::<T>::put(2u8);
 				storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 			},
 		}
 	}
@@ -1634,7 +1635,6 @@ impl<T: Config> Pallet<T> {
 		storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
 		storage::unhashed::kill(well_known_keys::PENDING_CODE);
 
-		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
 
 		true
