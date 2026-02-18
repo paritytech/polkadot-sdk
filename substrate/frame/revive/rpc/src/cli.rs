@@ -27,10 +27,11 @@ use jsonrpsee::server::RpcModule;
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	TaskManager,
-	config::{PrometheusConfig, RpcConfiguration},
+	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	start_rpc_servers,
 };
 use sqlx::sqlite::SqlitePoolOptions;
+use std::path::PathBuf;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -39,6 +40,15 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 const DEFAULT_RPC_PORT: u16 = 8545;
 
 const IN_MEMORY_DB: &str = "sqlite::memory:";
+
+/// The type of database to use for storing Ethereum transaction data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum DatabaseType {
+	/// In-memory SQLite database. Data is lost on restart.
+	Temporary,
+	/// Persistent on-disk SQLite database at {base-path}/{database-name}.
+	Persistent,
+}
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -56,11 +66,15 @@ pub struct CliCommand {
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
 
-	/// The database used to store Ethereum transaction hashes.
-	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
-	/// queries for transactions that are not in the in memory cache.
-	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
-	pub database_url: String,
+	/// Database storage type: `temporary` uses an in-memory SQLite database (data is lost on
+	/// restart), `persistent` uses an on-disk SQLite database at `{base-path}/{database-name}`.
+	#[clap(long, value_enum, default_value_t = DatabaseType::Temporary)]
+	pub database_type: DatabaseType,
+
+	/// Database filename, created under the resolved base path.
+	/// Only used when `--database-type=persistent`.
+	#[clap(long, default_value = "receipts.db")]
+	pub database_name: String,
 
 	/// If provided, index the last n blocks
 	#[clap(long)]
@@ -104,6 +118,47 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 
 	logger.init()?;
 	Ok(())
+}
+
+/// Resolve the base directory for persistent database storage.
+///
+/// - If `base_path` is `Some` (explicit `--base-path` or `--dev` temp dir), use it directly.
+/// - If `base_path` is `None`, use the platform default with an optional chain-id subdirectory:
+///   - macOS: `~/Library/Application Support/eth-rpc/<chain-id>/`
+///   - Linux: `~/.local/share/eth-rpc/<chain-id>/`
+///   - Windows: `%APPDATA%\eth-rpc\<chain-id>\`
+fn resolve_db_dir(base_path: Option<BasePath>, chain_id: &str) -> PathBuf {
+	match base_path {
+		Some(path) => path.path().to_path_buf(),
+		None => {
+			let base = BasePath::from_project("", "", "eth-rpc");
+			if chain_id.is_empty() { base.path().to_path_buf() } else { base.path().join(chain_id) }
+		},
+	}
+}
+
+/// Resolve the full SQLite connection URL from CLI arguments.
+///
+/// - `Temporary`: returns an in-memory SQLite URL.
+/// - `Persistent`: resolves the base path, creates the directory, and returns a file-based URL.
+fn resolve_db_url(
+	database_type: DatabaseType,
+	base_path: Option<BasePath>,
+	database_name: &str,
+	chain_id: &str,
+) -> anyhow::Result<String> {
+	match database_type {
+		DatabaseType::Temporary => Ok(IN_MEMORY_DB.to_string()),
+		DatabaseType::Persistent => {
+			let db_dir = resolve_db_dir(base_path, chain_id);
+			std::fs::create_dir_all(&db_dir).map_err(|e| {
+				anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
+			})?;
+			let db_path = db_dir.join(database_name);
+			log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
+			Ok(format!("sqlite:{}?mode=rwc", db_path.display()))
+		},
+	}
 }
 
 fn build_client(
@@ -169,7 +224,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		prometheus_params,
 		node_rpc_url,
 		cache_size,
-		database_url,
+		database_type,
+		database_name,
 		earliest_receipt_block,
 		index_last_n_blocks,
 		shared_params,
@@ -180,6 +236,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
 	let is_dev = shared_params.dev;
+	let base_path = shared_params.base_path()?;
+	let chain_id = shared_params.chain_id(is_dev);
+	let database_url = resolve_db_url(database_type, base_path, &database_name, &chain_id)?;
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
 		.map(|addrs| addrs.into_iter().map(Into::into).collect());
@@ -295,4 +354,83 @@ fn rpc_module(
 		.merge(polkadot_api)
 		.map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use tempfile::TempDir;
+
+	#[test]
+	fn temporary_returns_in_memory_url() {
+		let url = resolve_db_url(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
+		assert_eq!(url, IN_MEMORY_DB);
+	}
+
+	#[test]
+	fn persistent_with_explicit_base_path() {
+		let tmp = TempDir::new().unwrap();
+		let base = BasePath::new(tmp.path());
+		let url = resolve_db_url(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
+		let expected = format!("sqlite:{}?mode=rwc", tmp.path().join("receipts.db").display());
+		assert_eq!(url, expected);
+		assert!(tmp.path().exists());
+	}
+
+	#[test]
+	fn persistent_with_custom_database_name() {
+		let tmp = TempDir::new().unwrap();
+		let base = BasePath::new(tmp.path());
+		let url = resolve_db_url(DatabaseType::Persistent, Some(base), "custom.db", "").unwrap();
+		let expected = format!("sqlite:{}?mode=rwc", tmp.path().join("custom.db").display());
+		assert_eq!(url, expected);
+	}
+
+	#[test]
+	fn persistent_default_path_with_chain_id() {
+		let url = resolve_db_url(DatabaseType::Persistent, None, "receipts.db", "westend").unwrap();
+		assert!(url.contains("eth-rpc"));
+		assert!(url.contains("westend"));
+		assert!(url.contains("receipts.db"));
+	}
+
+	#[test]
+	fn persistent_default_path_without_chain_id() {
+		let url = resolve_db_url(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
+		assert!(url.contains("eth-rpc"));
+		assert!(url.contains("receipts.db"));
+	}
+
+	#[test]
+	fn persistent_creates_nested_directories() {
+		let tmp = TempDir::new().unwrap();
+		let nested = tmp.path().join("a").join("b");
+		let base = BasePath::new(&nested);
+		resolve_db_url(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
+		assert!(nested.exists());
+	}
+
+	#[test]
+	fn resolve_db_dir_with_base_path_ignores_chain_id() {
+		let tmp = TempDir::new().unwrap();
+		let base = BasePath::new(tmp.path());
+		let dir = resolve_db_dir(Some(base), "some-chain");
+		assert_eq!(dir, tmp.path());
+	}
+
+	#[test]
+	fn resolve_db_dir_platform_default_includes_chain_id() {
+		let dir = resolve_db_dir(None, "westend");
+		let dir_str = dir.to_string_lossy();
+		assert!(dir_str.contains("eth-rpc"));
+		assert!(dir_str.ends_with("westend"));
+	}
+
+	#[test]
+	fn resolve_db_dir_platform_default_no_chain_id() {
+		let dir = resolve_db_dir(None, "");
+		let dir_str = dir.to_string_lossy();
+		assert!(dir_str.contains("eth-rpc"));
+		assert!(!dir_str.ends_with('/'));
+	}
 }
