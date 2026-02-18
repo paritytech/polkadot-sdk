@@ -246,7 +246,7 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
-		let (capped_weight_left, capped_deposit_left) = if should_apply_eip_150 {
+		let (weight_left, deposit_left) = if should_apply_eip_150 {
 			(eip_150::apply_weight(weight_left), eip_150::apply_balance::<T>(deposit_left))
 		} else {
 			(weight_left, deposit_left)
@@ -254,39 +254,32 @@ pub mod substrate_execution {
 
 		let (nested_weight_limit, nested_deposit_limit, stipend) = {
 			match limit {
-				CallResources::NoLimits => (capped_weight_left, capped_deposit_left, None),
+				CallResources::NoLimits => (weight_left, deposit_left, None),
 
 				CallResources::Ethereum { gas, add_stipend } => {
 					// Convert leftover weight and deposit to an ethereum-gas equivalent,
-					// apply EIP-150 63/64 rule, then cap by the requested `gas`.
-					// Distribute the capped gas back into weight and deposit portions
-					// using the same ratio so that the nested frame receives proportional limits.
-					let capped_remaining_gas = {
-						let weight_gas_left = SignedGas::<T>::from_weight_fee(
-							T::FeeInfo::weight_to_fee_average(&weight_left),
-						);
-						let deposit_gas_left = SignedGas::<T>::from_adjusted_deposit_charge(
-							&StorageDeposit::Charge(deposit_left),
-						);
-						let Some(remaining_gas) =
-							(weight_gas_left.saturating_add(&deposit_gas_left)).to_ethereum_gas()
-						else {
-							return Err(<Error<T>>::OutOfGas.into());
-						};
-						if should_apply_eip_150 {
-							eip_150::apply_balance::<T>(remaining_gas)
-						} else {
-							remaining_gas
-						}
+					// then cap that gas by the requested `gas`. Distribute the capped gas
+					// back into weight and deposit portions using the same ratio so that
+					// the nested frame receives proportional limits.
+					let weight_gas_left = SignedGas::<T>::from_weight_fee(
+						T::FeeInfo::weight_to_fee_average(&weight_left),
+					);
+					let deposit_gas_left = SignedGas::<T>::from_adjusted_deposit_charge(
+						&StorageDeposit::Charge(deposit_left),
+					);
+					let Some(remaining_gas) =
+						(weight_gas_left.saturating_add(&deposit_gas_left)).to_ethereum_gas()
+					else {
+						return Err(<Error<T>>::OutOfGas.into());
 					};
 
-					let gas_limit = capped_remaining_gas.min(*gas);
-					let ratio = compute_gas_ratio::<T>(gas_limit, capped_remaining_gas);
+					let gas_limit = remaining_gas.min(*gas);
 
-					let mut weight_limit = scale_weight_by_ratio(capped_weight_left, ratio);
-					let deposit_limit = ratio.saturating_mul_int(capped_deposit_left);
+					let ratio = compute_gas_ratio::<T>(gas_limit, remaining_gas);
+					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
+					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
-					// Stipend: check against uncapped `weight_left` (parent's actual budget) but
+					// Stipend: check against `weight_left` (parent's actual budget) but
 					// add to `weight_limit` (nested frame's allowance) as a bonus
 					let stipend = if *add_stipend {
 						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
@@ -299,10 +292,11 @@ pub mod substrate_execution {
 					(weight_left.min(weight_limit), deposit_left.min(deposit_limit), stipend)
 				},
 
-				CallResources::WeightDeposit { weight, deposit_limit } => {
-					// Take the minimum of the capped parent's left and the requested per-call
-					// limits
-					(capped_weight_left.min(*weight), capped_deposit_left.min(*deposit_limit), None)
+				CallResources::WeightDeposit { weight, deposit_limit } =>
+				// when explicit weight+deposit requested, take the minimum of parent's left
+				// and the requested per-call limits.
+				{
+					(weight_left.min(*weight), deposit_left.min(*deposit_limit), None)
 				},
 			}
 		};
@@ -518,7 +512,7 @@ pub mod ethereum_execution {
 
 				CallResources::Ethereum { gas, add_stipend } => {
 					let gas_limit = SignedGas::from_ethereum_gas(*gas);
-					// Stipend: validate against uncapped `weight_left`, add to gas_limit.
+					// Stipend: validate against `weight_left`, add to gas_limit.
 					let (gas_limit, stipend) = if *add_stipend {
 						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
 						let gas_with_stipend =
