@@ -356,10 +356,8 @@ where
 			let mut parent_hash = parent_search_result.best_parent_header.hash();
 			let mut parent_header = parent_search_result.best_parent_header;
 			// Distance from included block to best parent.
-			let initial_parent_depth: u32 = (*parent_header.number())
-				.saturating_sub(*included_header.number())
-				.try_into()
-				.unwrap_or(u32::MAX);
+			let initial_parent_depth = (*parent_header.number())
+				.saturating_sub(*included_header.number());
 			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
@@ -382,7 +380,7 @@ where
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
+			for n_built in 0..2u32 {
 				let slot_claim = match can_build_upon(parent_hash) {
 					Some(fut) => match fut.await {
 						None => break,
@@ -394,7 +392,7 @@ where
 				tracing::debug!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
-					unincluded_segment_len = initial_parent_depth + n_built as u32,
+					unincluded_segment_len = ?initial_parent_depth.saturating_add(n_built.into()),
 					"Slot claimed. Building"
 				);
 
