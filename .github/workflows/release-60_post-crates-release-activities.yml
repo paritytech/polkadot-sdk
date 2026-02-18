@@ -27,7 +27,14 @@ permissions:
   pull-requests: write
 
 jobs:
+  #check-synchronization:
+   # uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    #secrets:
+     # fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+
   set-image:
+    #needs: [ check-synchronization ]
+    #if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -283,9 +290,18 @@ jobs:
             echo "No changes to commit"
           fi
 
+      - name: Generate token for paritytech/polkadot-sdk
+        id: generate_write_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
+
       - name: Create Pull Request to base release branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         shell: bash
         run: |
           BRANCH_NAME="${{ github.ref_name }}"
@@ -300,15 +316,30 @@ jobs:
             BASE_RELEASE="$FULL_RELEASE"
           fi
 
+          TARGET_REPO="paritytech/polkadot-sdk"
+
+          # Determine if running from a fork or the main repo
+          if [ "${{ github.repository }}" = "$TARGET_REPO" ]; then
+            # Same-repo PR: head is just the branch name
+            PR_HEAD="$BRANCH_NAME"
+            EXTRA_FLAGS=""
+          else
+            # Cross-fork PR: head needs the fork owner prefix
+            FORK_OWNER="${{ github.repository_owner }}"
+            PR_HEAD="${FORK_OWNER}:${BRANCH_NAME}"
+            EXTRA_FLAGS="--no-maintainer-edit"
+          fi
+
           # Check if PR already exists
-          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$BASE_RELEASE" --json number --jq '.[0].number')
+          EXISTING_PR=$(gh pr list --repo "$TARGET_REPO" --head "$PR_HEAD" --base "$BASE_RELEASE" --json number --jq '.[0].number')
 
           if [ -n "$EXISTING_PR" ]; then
             echo "✅ PR #$EXISTING_PR already exists for this branch"
-            echo "PR URL: $(gh pr view $EXISTING_PR --json url --jq '.url')"
+            echo "PR URL: $(gh pr view $EXISTING_PR --repo "$TARGET_REPO" --json url --jq '.url')"
           else
-            echo "Creating PR from $BRANCH_NAME to $BASE_RELEASE..."
+            echo "Creating PR from $PR_HEAD to $BASE_RELEASE in $TARGET_REPO..."
             gh pr create \
+              --repo "$TARGET_REPO" \
               --title "[${BASE_RELEASE}] Post crates release activities for $FULL_RELEASE" \
               --body "Automated PR containing post-crates-release activities:
           - NODE_VERSION bumps (if selected)
@@ -317,23 +348,33 @@ jobs:
           - Taplo formatting
           - PRDocs reorganization (if prdocs exist)" \
               --base "$BASE_RELEASE" \
-              --head "$BRANCH_NAME"
-            echo "✅ PR created successfully"
+              --head "$PR_HEAD" \
+              $EXTRA_FLAGS
+            echo "PR created successfully"
           fi
 
       - name: Add comment about spec_version
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         shell: bash
         run: |
           BRANCH_NAME="${{ github.ref_name }}"
+          TARGET_REPO="paritytech/polkadot-sdk"
 
-          # Find the PR number for this branch
-          PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number')
+          # Match the head format used when creating the PR
+          if [ "${{ github.repository }}" = "$TARGET_REPO" ]; then
+            PR_HEAD="$BRANCH_NAME"
+          else
+            FORK_OWNER="${{ github.repository_owner }}"
+            PR_HEAD="${FORK_OWNER}:${BRANCH_NAME}"
+          fi
+
+          # Find the PR number for this branch in the upstream repo
+          PR_NUMBER=$(gh pr list --repo "$TARGET_REPO" --head "$PR_HEAD" --json number --jq '.[0].number')
 
           if [ -n "$PR_NUMBER" ]; then
             echo "Adding comment to PR #$PR_NUMBER..."
-            gh pr comment "$PR_NUMBER" --body "⚠️ **Reminder:** spec_version is not bumped automatically as part of this flow. Please ensure it is updated manually if required."
+            gh pr comment "$PR_NUMBER" --repo "$TARGET_REPO" --body "⚠️ **Reminder:** If spec_version was not bumped automatically as part of this flow. Please ensure it is updated manually if required."
           else
-            echo "WARNING: Could not find PR for branch $BRANCH_NAME"
+            echo "⚠️ WARNING: Could not find PR for branch $PR_HEAD"
           fi
