@@ -820,7 +820,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// A new opinion from `origin` about the `price` of `asset_id`.
+		/// A new opinion from `origin` about the `price` of `asset_id` that was produced in
+		/// `produced_in`.
 		#[pallet::call_index(0)]
 		#[pallet::weight((T::WeightInfo::vote(), DispatchClass::Operational))]
 		pub fn vote(
@@ -888,30 +889,6 @@ pub mod pallet {
 			_asset_id: T::AssetId,
 			_index: u32,
 		) -> DispatchResult {
-			Ok(())
-		}
-
-		#[pallet::call_index(5)]
-		#[pallet::weight({(1000, DispatchClass::Operational)})]
-		pub fn force_set_authorities(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-
-		#[pallet::call_index(6)]
-		#[pallet::weight({(1000, DispatchClass::Operational)})]
-		pub fn set_invulnerables(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-
-		#[pallet::call_index(7)]
-		#[pallet::weight({(1000, DispatchClass::Operational)})]
-		pub fn ban_authority(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-
-		#[pallet::call_index(8)]
-		#[pallet::weight({(1000, DispatchClass::Operational)})]
-		pub fn unban_authority(_origin: OriginFor<T>) -> DispatchResult {
 			Ok(())
 		}
 	}
