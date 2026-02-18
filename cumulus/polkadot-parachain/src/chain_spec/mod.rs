@@ -276,8 +276,13 @@ impl RuntimeResolverT for RuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
 		let legacy_runtime = LegacyRuntime::from_id(chain_spec.id());
 		Ok(match legacy_runtime {
-			LegacyRuntime::AssetHubPolkadot =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519)),
+			LegacyRuntime::AssetHubPolkadot => {
+				log::warn!(
+					"Assuming Aura authority ID type `ed25519` for chain spec `{}`",
+					chain_spec.id(),
+				);
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Ed25519))
+			},
 			LegacyRuntime::AssetHub |
 			LegacyRuntime::BridgeHub(_) |
 			LegacyRuntime::Collectives |
@@ -285,8 +290,14 @@ impl RuntimeResolverT for RuntimeResolver {
 			LegacyRuntime::People(_) |
 			LegacyRuntime::Glutton |
 			LegacyRuntime::Penpal |
-			LegacyRuntime::Omni =>
-				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)),
+			LegacyRuntime::Omni => {
+				log::warn!(
+					"Using Aura authority ID type `sr25519` by default for chain spec `{}`. \
+					Ed25519 runtimes are not supported",
+					chain_spec.id(),
+				);
+				Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519))
+			},
 		})
 	}
 }

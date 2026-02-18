@@ -29,6 +29,8 @@ use subxt_metadata::{Metadata, StorageEntryType};
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 /// Expected frame system pallet runtime type name.
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
+/// Expected Aura pallet runtime type name.
+pub const DEFAULT_AURA_PALLET_NAME: &str = "Aura";
 
 /// The Aura ID used by the Aura consensus
 #[derive(PartialEq)]
@@ -101,12 +103,28 @@ pub trait RuntimeResolver {
 /// `Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519))`.
 pub struct DefaultRuntimeResolver;
 
-impl RuntimeResolver for DefaultRuntimeResolver {
-	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
-			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
-			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(AuraConsensusId::Sr25519)))
-		};
+	impl RuntimeResolver for DefaultRuntimeResolver {
+		fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
+			let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
+				log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
+				let id = chain_spec.id();
+				let aura_id = if id == "asset-hub-polkadot" || id == "statemint" {
+					log::warn!(
+						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `ed25519`."#,
+						id
+					);
+					AuraConsensusId::Ed25519
+				} else {
+					log::warn!(
+						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `sr25519`."#,
+						id
+					);
+					AuraConsensusId::Sr25519
+				};
+				return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(aura_id)))
+			};
 
 		let block_number = match metadata_inspector.block_number() {
 			Some(inner) => inner,
@@ -129,7 +147,29 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			);
 		}
 
-		Ok(Runtime::Omni(block_number, Consensus::Aura(AuraConsensusId::Sr25519)))
+		let aura_id = match metadata_inspector.aura_consensus_id() {
+			Some(aura_id) => aura_id,
+			None => {
+				let id = chain_spec.id();
+				if id == "asset-hub-polkadot" || id == "statemint" {
+					log::warn!(
+						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `ed25519`."#,
+						id
+					);
+					AuraConsensusId::Ed25519
+				} else {
+					log::warn!(
+						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `sr25519`."#,
+						id
+					);
+					AuraConsensusId::Sr25519
+				}
+			},
+		};
+
+		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }
 
@@ -157,6 +197,30 @@ impl MetadataInspector {
 			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
+	fn aura_consensus_id(&self) -> Option<AuraConsensusId> {
+		if !self.pallet_exists(DEFAULT_AURA_PALLET_NAME) {
+			return None;
+		}
+
+		for portable_type in self.0.types().types() {
+			let path = &portable_type.ty.path;
+			let segments = path.segments();
+
+			if segments.len() >= 3 {
+				let last_three = &segments[segments.len() - 3..];
+				match last_three {
+					["sp_consensus_aura", "sr25519", "AuthorityId"] =>
+						return Some(AuraConsensusId::Sr25519),
+					["sp_consensus_aura", "ed25519", "AuthorityId"] =>
+						return Some(AuraConsensusId::Ed25519),
+					_ => continue,
+				}
+			}
+		}
+
+		None
+	}
+
 	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
@@ -178,7 +242,7 @@ impl MetadataInspector {
 #[cfg(test)]
 mod tests {
 	use crate::runtime::{
-		BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
+		AuraConsensusId, BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
 		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
 	};
 	use codec::Decode;
@@ -209,5 +273,12 @@ mod tests {
 	fn test_runtime_block_number() {
 		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
 		assert_eq!(metadata_inspector.block_number().unwrap(), BlockNumber::U32);
+	}
+
+	#[test]
+	fn test_aura_consensus_id() {
+		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
+		let aura_id = metadata_inspector.aura_consensus_id();
+		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
 }
