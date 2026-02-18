@@ -67,7 +67,7 @@ pub(crate) async fn build_network_config(
 					"tests/zombie_ci/full_node_warp_sync/warp-sync-relaychain-spec.json",
 				)
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| {
+				.with_validator(|node| {
 					let n = node.with_name("alice");
 					if with_snapshot {
 						n.with_db_snapshot(relaychain_snapshot.as_str())
@@ -78,7 +78,7 @@ pub(crate) async fn build_network_config(
 						])
 					}
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					let n = node.with_name("bob");
 					if with_snapshot {
 						n.with_db_snapshot(relaychain_snapshot.as_str())
@@ -86,7 +86,7 @@ pub(crate) async fn build_network_config(
 						n
 					}
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					let n = node.with_name("charlie");
 					if with_snapshot {
 						n.with_db_snapshot(relaychain_snapshot.as_str())
@@ -94,7 +94,7 @@ pub(crate) async fn build_network_config(
 						n
 					}
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("dave").with_args(vec![
 						("-lparachain=debug,sync=trace").into(),
 						("--no-beefy").into(),
@@ -112,8 +112,8 @@ pub(crate) async fn build_network_config(
 						("--blocks-pruning", "256").into(),
 					])
 				})
-				.with_node(|node| {
-					node.with_name("eve").validator(false).with_args(vec![
+				.with_fullnode(|node| {
+					node.with_name("eve").with_args(vec![
 						("-lparachain=debug,sync=trace").into(),
 						("--no-beefy").into(),
 						("--sync", "warp").into(),
@@ -205,18 +205,14 @@ pub async fn add_relaychain_node(
 	let options = AddNodeOptions {
 		image: Some(images.polkadot.as_str().try_into()?),
 		command: Some("polkadot".try_into()?),
-		subcommand: None,
+		chain_spec: Some(format!("{base_dir}/rococo-local.json").into()),
 		args: vec![
 			"-lparachain=debug,sync=trace".into(),
 			"--no-beefy".into(),
 			("--sync", "warp").into(),
 		],
-		env: vec![],
 		is_validator,
-		rpc_port: None,
-		prometheus_port: None,
-		p2p_port: None,
-		chain_spec: Some(format!("{base_dir}/rococo-local.json").into()),
+		..Default::default()
 	};
 
 	network.add_node(name, options).await?;
