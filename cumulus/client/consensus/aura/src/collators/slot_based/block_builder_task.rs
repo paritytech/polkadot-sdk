@@ -214,7 +214,7 @@ where
 
 			tracing::error!(
 				target: LOG_TARGET,
-				relay_parent_offset_fake?,
+				?relay_parent_offset_fake,
 				relay_parent_offset,
 				"Override relay parent offset. This should be removed once the runtime API is fixed."
 			);
