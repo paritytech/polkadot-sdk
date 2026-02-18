@@ -216,7 +216,7 @@ impl<SC, TC, LM> LoopMetrics<SC, TC, LM> {
 								error=?err,
 								"Failed to create tokio runtime. Prometheus metrics are not available"
 							);
-							return
+							return;
 						},
 					};
 

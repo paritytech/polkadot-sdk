@@ -124,20 +124,20 @@ pub mod ecdsa_bls377 {
 			let msg_hash = H::hash(message).into();
 
 			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
-				return false
+				return false;
 			};
 			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
-				return false
+				return false;
 			};
 			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
-				return false
+				return false;
 			}
 
 			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
-				return false
+				return false;
 			};
 			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
-				return false
+				return false;
 			};
 			bls377::Pair::verify(&right_sig, message, &right_pub)
 		}
@@ -245,20 +245,20 @@ pub mod ecdsa_bls381 {
 			let msg_hash = H::hash(message).into();
 
 			let Ok(left_pub) = public.0[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].try_into() else {
-				return false
+				return false;
 			};
 			let Ok(left_sig) = sig.0[..ecdsa::SIGNATURE_SERIALIZED_SIZE].try_into() else {
-				return false
+				return false;
 			};
 			if !ecdsa::Pair::verify_prehashed(&left_sig, &msg_hash, &left_pub) {
-				return false
+				return false;
 			}
 
 			let Ok(right_pub) = public.0[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].try_into() else {
-				return false
+				return false;
 			};
 			let Ok(right_sig) = sig.0[ecdsa::SIGNATURE_SERIALIZED_SIZE..].try_into() else {
-				return false
+				return false;
 			};
 			bls381::Pair::verify(&right_sig, message, &right_pub)
 		}
@@ -328,7 +328,7 @@ pub struct Pair<
 	_phantom: PhantomData<fn() -> SubTag>,
 }
 
-///Implementation of Clone for PairedCrypto
+/// Implementation of Clone for PairedCrypto
 impl<
 		LeftPair: PairT + Clone,
 		RightPair: PairT + Clone,
@@ -343,7 +343,7 @@ impl<
 	}
 }
 
-///Implementation of keypair for paired cryptographic keys
+/// Implementation of keypair for paired cryptographic keys
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
@@ -367,7 +367,7 @@ where
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
-			return Err(SecretStringError::InvalidSeedLength)
+			return Err(SecretStringError::InvalidSeedLength);
 		}
 		let left = LeftPair::from_seed_slice(&seed_slice)?;
 		let right = RightPair::from_seed_slice(&seed_slice)?;
@@ -422,7 +422,7 @@ where
 		let Ok(left_pub) = public.0[..LeftPair::Public::LEN].try_into() else { return false };
 		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
-			return false
+			return false;
 		}
 
 		let Ok(right_pub) = public.0[LeftPair::Public::LEN..].try_into() else { return false };
@@ -497,25 +497,25 @@ where
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
-			return false
+			return false;
 		};
 		let Ok(left_proof_of_possession) =
 			proof_of_possession.0[0..LeftPair::ProofOfPossession::LEN].try_into()
 		else {
-			return false
+			return false;
 		};
 
 		if !LeftPair::verify_proof_of_possession(owner, &left_proof_of_possession, &left_pub) {
-			return false
+			return false;
 		}
 
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
-			return false
+			return false;
 		};
 		let Ok(right_proof_of_possession) =
 			proof_of_possession.0[LeftPair::ProofOfPossession::LEN..].try_into()
 		else {
-			return false
+			return false;
 		};
 		RightPair::verify_proof_of_possession(owner, &right_proof_of_possession, &right_pub)
 	}

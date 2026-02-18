@@ -443,6 +443,10 @@ pub use pallet_conviction_voting;
 #[cfg(feature = "pallet-core-fellowship")]
 pub use pallet_core_fellowship;
 
+/// FRAME pallet for Dynamic Allocation Pool (DAP).
+#[cfg(feature = "pallet-dap")]
+pub use pallet_dap;
+
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
 pub use pallet_delegated_staking;
@@ -702,10 +706,6 @@ pub use pallet_staking_async_ah_client;
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-rc-client")]
 pub use pallet_staking_async_rc_client;
-
-/// Reward function for FRAME staking pallet.
-#[cfg(feature = "pallet-staking-async-reward-fn")]
-pub use pallet_staking_async_reward_fn;
 
 /// RPC runtime API for transaction payment FRAME pallet.
 #[cfg(feature = "pallet-staking-async-runtime-api")]

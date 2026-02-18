@@ -344,7 +344,7 @@ fn block_builder_does_not_include_invalid() {
 		.is_err());
 
 	let block = builder.build().unwrap().block;
-	//transfer from Eve should not be included
+	// transfer from Eve should not be included
 	assert_eq!(block.extrinsics.len(), 1);
 	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 
@@ -424,8 +424,8 @@ fn uncles_with_multiple_forks() {
 	// block tree:
 	// G -> A1 -> A2 -> A3 -> A4 -> A5
 	//      A1 -> B2 -> B3 -> B4
-	//	          B2 -> C3
-	//	    A1 -> D2
+	// 	          B2 -> C3
+	// 	    A1 -> D2
 	let client = substrate_test_runtime_client::new();
 
 	// G -> A1
@@ -1489,6 +1489,7 @@ fn doesnt_import_blocks_that_revert_finality() {
 				trie_cache_maximum_size: Some(1 << 20),
 				state_pruning: Some(PruningMode::ArchiveAll),
 				blocks_pruning: BlocksPruning::KeepAll,
+				pruning_filters: Default::default(),
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
 				metrics_registry: None,
 			},
@@ -1770,6 +1771,7 @@ fn returns_status_for_pruned_blocks() {
 				trie_cache_maximum_size: Some(1 << 20),
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				pruning_filters: Default::default(),
 				source: DatabaseSource::RocksDb { path: tmp.path().into(), cache_size: 1024 },
 				metrics_registry: None,
 			},

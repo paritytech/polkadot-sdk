@@ -166,7 +166,7 @@ where
 				Some(a) => a,
 				None => {
 					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
-					return
+					return;
 				},
 			};
 		let treasury_account: AccountIdOf<T> = TreasuryAccount::get();
@@ -223,7 +223,9 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 

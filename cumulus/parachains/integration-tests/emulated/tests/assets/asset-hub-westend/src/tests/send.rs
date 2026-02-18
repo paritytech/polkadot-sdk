@@ -79,8 +79,8 @@ pub fn penpal_register_foreign_asset_on_asset_hub(asset_location_on_penpal: Loca
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				// Burned the fee
-				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
+				// Withdraw the fee
+				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
 					who: *who == penpal_sovereign_account,
 					amount: *amount == fee_amount,
 				},
@@ -181,11 +181,11 @@ fn send_xcm_from_para_to_asset_hub_paying_fee_with_sufficient_asset() {
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
-				// Burned the fee
-				RuntimeEvent::Assets(pallet_assets::Event::Burned { asset_id, owner, balance }) => {
+				// Withdrawn the fee
+				RuntimeEvent::Assets(pallet_assets::Event::Withdrawn { asset_id, who, amount }) => {
 					asset_id: *asset_id == ASSET_ID,
-					owner: *owner == para_sovereign_account,
-					balance: *balance == fee_amount,
+					who: *who == para_sovereign_account,
+					amount: *amount == fee_amount,
 				},
 				// Asset created
 				RuntimeEvent::Assets(pallet_assets::Event::Created { asset_id, creator, owner }) => {
