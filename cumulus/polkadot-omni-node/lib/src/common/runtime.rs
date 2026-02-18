@@ -29,6 +29,8 @@ use subxt_metadata::{Metadata, StorageEntryType};
 pub const DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME: &str = "ParachainSystem";
 /// Expected frame system pallet runtime type name.
 pub const DEFAULT_FRAME_SYSTEM_PALLET_NAME: &str = "System";
+/// Expected Aura pallet runtime type name.
+pub const DEFAULT_AURA_PALLET_NAME: &str = "Aura";
 
 /// The Aura ID used by the Aura consensus
 #[derive(Debug, PartialEq)]
@@ -116,10 +118,23 @@ pub struct DefaultRuntimeResolver;
 
 impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
-		let aura_id = aura_id_from_chain_spec_id(chain_spec.id());
-
 		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
 			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
+			let id = chain_spec.id();
+			let aura_id = aura_id_from_chain_spec_id(id);
+			if aura_id == AuraConsensusId::Ed25519 {
+				log::warn!(
+					r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `ed25519`."#,
+					id
+				);
+			} else {
+				log::warn!(
+					r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `sr25519`. Ed25519 runtimes are not supported yet."#,
+					id
+				);
+			}
 			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(aura_id)));
 		};
 
@@ -141,6 +156,26 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			);
 		}
 
+		let aura_id = match metadata_inspector.aura_consensus_id() {
+			Some(aura_id) => aura_id,
+			None => {
+				let id = chain_spec.id();
+				let fallback = aura_id_from_chain_spec_id(id);
+				if fallback == AuraConsensusId::Ed25519 {
+					log::warn!(
+						r#"⚠️  Assuming Aura authority ID type `ed25519` for chain spec `{}`."#,
+						id
+					);
+				} else {
+					log::warn!(
+						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
+			   Defaulting to `sr25519`. Ed25519 runtimes are not supported yet."#,
+						id
+					);
+				}
+				fallback
+			},
+		};
 		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }
@@ -169,6 +204,30 @@ impl MetadataInspector {
 			.and_then(|portable_type| BlockNumber::from_type_def(&portable_type.type_def))
 	}
 
+	fn aura_consensus_id(&self) -> Option<AuraConsensusId> {
+		if !self.pallet_exists(DEFAULT_AURA_PALLET_NAME) {
+			return None;
+		}
+
+		for portable_type in self.0.types().types() {
+			let path = &portable_type.ty.path;
+			let segments = path.segments();
+
+			if segments.len() >= 3 {
+				let last_three = &segments[segments.len() - 3..];
+				match last_three {
+					["sp_consensus_aura", "sr25519", "AuthorityId"] =>
+						return Some(AuraConsensusId::Sr25519),
+					["sp_consensus_aura", "ed25519", "AuthorityId"] =>
+						return Some(AuraConsensusId::Ed25519),
+					_ => continue,
+				}
+			}
+		}
+
+		None
+	}
+
 	fn fetch_metadata(chain_spec: &dyn ChainSpec) -> Result<Metadata, sc_cli::Error> {
 		let mut storage = chain_spec.build_storage()?;
 		let code_bytes = storage
@@ -190,7 +249,7 @@ impl MetadataInspector {
 #[cfg(test)]
 mod tests {
 	use crate::runtime::{
-		BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
+		AuraConsensusId, BlockNumber, MetadataInspector, DEFAULT_FRAME_SYSTEM_PALLET_NAME,
 		DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME,
 	};
 	use codec::Decode;
