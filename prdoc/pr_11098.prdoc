@@ -1,0 +1,39 @@
+title: Deprecates XCM V3
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Deprecates XCM V3 issue: https://github.com/paritytech/polkadot-sdk/issues/7807
+
+    ## Integration
+
+    *In depth notes about how this PR should be integrated by downstream projects. This part is
+    mandatory, and should be reviewed by reviewers, if the PR does NOT have the
+    `R0-no-crate-publish-required` label. In case of a `R0-no-crate-publish-required`, it can be
+    ignored.*
+
+    ## Review Notes
+    - Deprecates XCM V3
+    - Move types from V3 to V4 and write conversions
+    - Move V3 to V4 in tests
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [x] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+        * External contributors: Use `/cmd label <label-name>` to add labels
+        * Maintainers can also add labels manually
+    * [x] I have made corresponding changes to the documentation (if applicable)
+    * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: xcm-procedural
+  bump: major
+- name: staging-xcm
+  bump: major
