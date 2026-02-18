@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet(dev_mode)]
+#[allow(unused_assignments)]
 pub mod pallet {
 	use frame_support::{ensure, pallet_prelude::DispatchResult};
 
@@ -25,7 +26,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
-    #[pallet::tasks_experimental]
+	#[pallet::tasks_experimental]
 	impl<T: Config> Pallet<T> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
@@ -41,7 +42,7 @@ pub mod pallet {
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet_with_instance {
-	use frame_support::pallet_prelude::{ValueQuery, StorageValue};
+	use frame_support::pallet_prelude::{StorageValue, ValueQuery};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {}
@@ -52,7 +53,7 @@ pub mod pallet_with_instance {
 	#[pallet::storage]
 	pub type SomeStorage<T, I = ()> = StorageValue<_, u32, ValueQuery>;
 
-    #[pallet::tasks_experimental]
+	#[pallet::tasks_experimental]
 	impl<T: Config<I>, I> Pallet<T, I> {
 		#[pallet::task_index(0)]
 		#[pallet::task_condition(|i, j| i == 0u32 && j == 2u64)]
@@ -65,5 +66,4 @@ pub mod pallet_with_instance {
 	}
 }
 
-fn main() {
-}
+fn main() {}
