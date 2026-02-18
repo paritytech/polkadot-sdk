@@ -16,14 +16,14 @@
 // limitations under the License.
 
 use crate::{
+	ClientError,
 	client::{SubscriptionType, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::SrcChainConfig,
-	ClientError,
 };
 use jsonrpsee::core::async_trait;
 use sp_core::H256;
 use std::sync::Arc;
-use subxt::{backend::legacy::LegacyRpcMethods, OnlineClient};
+use subxt::{OnlineClient, backend::legacy::LegacyRpcMethods};
 use tokio::sync::RwLock;
 
 /// BlockInfoProvider cache and retrieves information about blocks.

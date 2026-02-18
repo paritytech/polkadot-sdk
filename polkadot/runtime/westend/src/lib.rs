@@ -509,7 +509,6 @@ impl pallet_authorship::Config for Runtime {
 parameter_types! {
 	pub const Period: BlockNumber = 10 * MINUTES;
 	pub const Offset: BlockNumber = 0;
-	pub const KeyDeposit: Balance = deposit(1, 5 * 32 + 33);
 }
 
 impl_opaque_keys! {
@@ -535,7 +534,7 @@ impl pallet_session::Config for Runtime {
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
-	type KeyDeposit = KeyDeposit;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -899,7 +898,7 @@ impl ah_client::Config for Runtime {
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type SessionInterface = Self;
+	type SessionInterface = Session;
 	type SendToAssetHub = StakingXcmToAssetHub;
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
@@ -957,7 +956,7 @@ impl pallet_treasury::Config for Runtime {
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
-		crate::xcm_config::XcmRouter,
+		crate::xcm_config::XcmConfig,
 		crate::XcmPallet,
 		ConstU32<{ 6 * HOURS }>,
 		Self::Beneficiary,
@@ -3000,12 +2999,15 @@ sp_api::impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// Westend only knows about WND.
-					vec![Asset{
-						id: AssetId(TokenLocation::get()),
-						fun: Fungible(1_000_000 * UNITS),
-					}].into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(TokenLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 

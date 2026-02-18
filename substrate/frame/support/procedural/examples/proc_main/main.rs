@@ -32,6 +32,27 @@ pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
 mod inject_runtime_type;
 mod runtime;
+
+#[crate::runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
+	pub struct Runtime;
+
+	#[runtime::pallet_index(0)]
+	pub type System = self::frame_system;
+}
 mod tasks;
 
 #[import_section(tasks::tasks_example)]
@@ -109,11 +130,11 @@ pub mod frame_system {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			if let Err(_err) = task.run() {
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			Ok(().into())
@@ -225,27 +246,6 @@ type AccountId = u32;
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 type Block = generic::Block<Header, UncheckedExtrinsic>;
-
-#[crate::runtime]
-mod runtime {
-	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeFreezeReason,
-		RuntimeHoldReason,
-		RuntimeSlashReason,
-		RuntimeLockId,
-		RuntimeTask,
-		RuntimeViewFunction
-	)]
-	pub struct Runtime;
-
-	#[runtime::pallet_index(0)]
-	pub type System = self::frame_system;
-}
 
 #[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {

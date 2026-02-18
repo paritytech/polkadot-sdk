@@ -265,7 +265,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
+				return;
 			}
 		}
 	}
@@ -281,7 +281,7 @@ impl Collator {
 			Delay::new(Duration::from_secs(1)).await;
 
 			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}

@@ -1,0 +1,11 @@
+title: 'Bump pallet-staking-reward-fn'
+doc:
+- audience: Runtime Dev
+  description: |-
+    sp-arithmetic was bumped in a previous PR but not published yet on crates.io.
+    Both polkadot-runtime-common (already bumped and not released in a previous PR) and pallet-staking-reward-fn depend on it.
+    Bump pallet-staking-reward-fn so that parity-publish CI job can correctly resolve sp-arithmetic.
+    Without this fix, we would end up with a dependency graph with two versions of sp-arithmetic with one of the two missing a trait impl needed by polkadot-runtime-common.
+crates:
+- name: pallet-staking-reward-fn
+  bump: patch

@@ -29,6 +29,8 @@
 use crate::config::*;
 
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
+#[cfg(any(test, feature = "test-helpers"))]
+use futures::future::pending;
 use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
 use prometheus_endpoint::{
 	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
@@ -43,7 +45,7 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkPeers, ObservedRole,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -59,7 +61,6 @@ use std::{
 	sync::Arc,
 };
 use tokio::time::timeout;
-
 pub mod config;
 
 /// A set of statements.
@@ -206,32 +207,44 @@ impl StatementHandlerPrototype {
 		statement_store: Arc<dyn StatementStore>,
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
+		mut num_submission_workers: usize,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
-		let (queue_sender, mut queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
+		let (queue_sender, queue_receiver) = async_channel::bounded(MAX_PENDING_STATEMENTS);
 
-		let store = statement_store.clone();
-		executor(
-			async move {
-				loop {
-					let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
-						queue_receiver.next().await;
-					match task {
-						None => return,
-						Some((statement, completion)) => {
-							let result = store.submit(statement, StatementSource::Network);
-							if completion.send(result).is_err() {
-								log::debug!(
-									target: LOG_TARGET,
-									"Error sending validation completion"
-								);
-							}
-						},
+		if num_submission_workers == 0 {
+			log::warn!(
+				target: LOG_TARGET,
+				"num_submission_workers is 0, defaulting to 1"
+			);
+			num_submission_workers = 1;
+		}
+
+		for _ in 0..num_submission_workers {
+			let store = statement_store.clone();
+			let mut queue_receiver = queue_receiver.clone();
+			executor(
+				async move {
+					loop {
+						let task: Option<(Statement, oneshot::Sender<SubmitResult>)> =
+							queue_receiver.next().await;
+						match task {
+							None => return,
+							Some((statement, completion)) => {
+								let result = store.submit(statement, StatementSource::Network);
+								if completion.send(result).is_err() {
+									log::debug!(
+										target: LOG_TARGET,
+										"Error sending validation completion"
+									);
+								}
+							},
+						}
 					}
 				}
-			}
-			.boxed(),
-		);
+				.boxed(),
+			);
+		}
 
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
@@ -305,7 +318,6 @@ pub struct StatementHandler<
 pub struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
-	role: ObservedRole,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
@@ -384,8 +396,8 @@ fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 impl Peer {
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_for_testing(known_statements: LruHashSet<Hash>, role: ObservedRole) -> Self {
-		Self { known_statements, role }
+	pub fn new_for_testing(known_statements: LruHashSet<Hash>) -> Self {
+		Self { known_statements }
 	}
 }
 
@@ -420,7 +432,7 @@ where
 			statement_store,
 			queue_sender,
 			metrics: None,
-			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
+			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 		}
@@ -544,31 +556,25 @@ where
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
-				// only accept peers whose role can be determined
+				// Only accept peers whose role can be determined
 				let result = self
 					.network
 					.peer_role(peer, handshake)
 					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
 				let _ = result_tx.send(result);
 			},
-			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
-				let Some(role) = self.network.peer_role(peer, handshake) else {
-					log::debug!(target: LOG_TARGET, "role for {peer} couldn't be determined");
-					return
-				};
-
+			NotificationEvent::NotificationStreamOpened { peer, .. } => {
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
 						known_statements: LruHashSet::new(
 							NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
 						),
-						role,
 					},
 				);
 				debug_assert!(_was_in.is_none());
 
-				if !self.sync.is_major_syncing() && !role.is_light() {
+				if !self.sync.is_major_syncing() {
 					let hashes = self.statement_store.statement_hashes();
 					if !hashes.is_empty() {
 						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
@@ -589,7 +595,7 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					return
+					return;
 				}
 
 				if let Ok(statements) = <Statements as Decode>::decode(&mut notification.as_ref()) {
@@ -618,7 +624,7 @@ where
 					self.metrics.as_ref().map(|metrics| {
 						metrics.ignored_statements.inc_by(statements_left);
 					});
-					break
+					break;
 				}
 
 				let hash = s.hash();
@@ -699,7 +705,7 @@ where
 	pub async fn propagate_statement(&mut self, hash: &Hash) {
 		// Accept statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		log::debug!(target: LOG_TARGET, "Propagating statement [{:?}]", hash);
@@ -716,12 +722,6 @@ where
 			return;
 		};
 
-		// Never send statements to light nodes
-		if peer.role.is_light() {
-			log::trace!(target: LOG_TARGET, "{who} is a light node, skipping propagation");
-			return
-		}
-
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| peer.known_statements.insert(*hash).then(|| stmt))
@@ -730,7 +730,7 @@ where
 		log::trace!(target: LOG_TARGET, "We have {} statements that the peer doesn't know about", to_send.len());
 
 		if to_send.is_empty() {
-			return
+			return;
 		}
 
 		self.send_statements_in_chunks(who, &to_send).await;
@@ -766,7 +766,7 @@ where
 	async fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			return
+			return;
 		}
 
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
@@ -801,7 +801,7 @@ where
 			&entry.get().hashes,
 			&mut |_hash, encoded, _stmt| {
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-					return FilterDecision::Abort
+					return FilterDecision::Abort;
 				}
 				accumulated_size += encoded.len();
 				FilterDecision::Take
@@ -857,23 +857,15 @@ mod tests {
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
-		peer_roles: Arc<Mutex<HashMap<PeerId, ObservedRole>>>,
 	}
 
 	impl TestNetwork {
 		fn new() -> Self {
-			Self {
-				reported_peers: Arc::new(Mutex::new(Vec::new())),
-				peer_roles: Arc::new(Mutex::new(HashMap::new())),
-			}
+			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
 		}
 
 		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
 			self.reported_peers.lock().unwrap().clone()
-		}
-
-		fn set_peer_role(&self, peer: PeerId, role: ObservedRole) {
-			self.peer_roles.lock().unwrap().insert(peer, role);
 		}
 	}
 
@@ -950,8 +942,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn peer_role(&self, peer: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			self.peer_roles.lock().unwrap().get(&peer).copied()
+		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
+			unimplemented!()
 		}
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
@@ -1118,7 +1110,7 @@ mod tests {
 			for hash in hashes {
 				let Some(stmt) = statements.get(hash) else {
 					processed += 1;
-					continue
+					continue;
 				};
 				let encoded = stmt.encode();
 				match filter(hash, &encoded, stmt) {
@@ -1213,10 +1205,7 @@ mod tests {
 		let mut peers = HashMap::new();
 		peers.insert(
 			peer_id,
-			Peer {
-				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
-				role: ObservedRole::Full,
-			},
+			Peer { known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()) },
 		);
 
 		let handler = StatementHandler {
@@ -1450,7 +1439,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		// Create 20MB of statements (200 statements x 100KB each)
@@ -1472,7 +1461,6 @@ mod tests {
 
 		// Setup peer and simulate connection
 		let peer_id = PeerId::random();
-		network.set_peer_role(peer_id, ObservedRole::Full);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
@@ -1534,7 +1522,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		// Create 20MB of statements (200 statements x 100KB each)
@@ -1556,9 +1544,6 @@ mod tests {
 		let peer1 = PeerId::random();
 		let peer2 = PeerId::random();
 		let peer3 = PeerId::random();
-		network.set_peer_role(peer1, ObservedRole::Full);
-		network.set_peer_role(peer2, ObservedRole::Full);
-		network.set_peer_role(peer3, ObservedRole::Full);
 
 		// Connect peers
 		for peer in [peer1, peer2, peer3] {
@@ -1664,13 +1649,15 @@ mod tests {
 		//   max_size = MAX_STATEMENT_NOTIFICATION_SIZE - Compact::<u32>::max_encoded_len()
 		//
 		// Statement encoding (encodes as Vec<Field>):
-		// - Compact<u32> for number of fields (1 byte for value 1)
+		// - Compact<u32> for number of fields (1 byte for value 2: expiry + data)
+		// - Field::Expiry discriminant (1 byte, value 2)
+		// - u64 expiry value (8 bytes)
 		// - Field::Data discriminant (1 byte, value 8)
 		// - Compact<u32> for the data length (2 bytes for small data)
-		// So per-statement overhead = 1 + 1 + 2 = 4 bytes
+		// So per-statement overhead = 1 + 1 + 8 + 1 + 2 = 13 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 2; // Vec<Field> length + discriminant + Compact data length
+		let per_statement_overhead = 1 + 1 + 8 + 1 + 2; // Vec<Field> length + expiry field + data discriminant + Compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;
@@ -1752,7 +1739,7 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, network, notification_service) =
+		let (mut handler, statement_store, _network, notification_service) =
 			build_handler_no_peers();
 
 		let payload_limit = max_statement_payload_size();
@@ -1789,7 +1776,6 @@ mod tests {
 
 		// Setup peer and simulate connection
 		let peer_id = PeerId::random();
-		network.set_peer_role(peer_id, ObservedRole::Full);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamOpened {

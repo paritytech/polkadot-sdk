@@ -707,7 +707,7 @@ async fn handle_leaf_activation(
 				}
 				tx.send(hypothetical_memberships).unwrap();
 				// this is the last expected runtime api call
-				break
+				break;
 			},
 			msg => panic!("unexpected runtime API call: {msg:?}"),
 		}

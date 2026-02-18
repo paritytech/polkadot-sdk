@@ -93,7 +93,7 @@ pub mod relay_chain_driven {
 						CollationRequest { relay_parent, pvd: validation_data, sender: this_tx };
 
 					if stream_tx.send(request).await.is_err() {
-						return None
+						return None;
 					}
 
 					this_rx.await.ok().flatten()

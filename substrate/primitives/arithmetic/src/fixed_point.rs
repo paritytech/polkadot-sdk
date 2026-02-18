@@ -19,7 +19,6 @@
 //! Similar to types that implement [`PerThing`](crate::per_things), these are also
 //! fixed-point types, however, they are able to represent larger fractions:
 #![doc = docify::embed!("./src/lib.rs", fixed_u64)]
-//!
 //! ### Fixed Point Types in Practice
 //!
 //! If one needs to exceed the value of one (1), then
@@ -30,7 +29,6 @@
 	"./src/lib.rs",
 	fixed_u64_block_computation_example
 )]
-//!
 //! For a much more comprehensive example, be sure to look at the source for broker (the "coretime")
 //! pallet.
 //!
@@ -183,7 +181,7 @@ pub trait FixedPointNumber:
 		d: D,
 	) -> Option<Self> {
 		if d == D::zero() {
-			return None
+			return None;
 		}
 
 		let n: I129 = n.into();
@@ -591,10 +589,10 @@ macro_rules! implement_fixed {
 			/// Compute the square root. If it overflows or is negative, then `None` is returned.
 			pub const fn checked_sqrt(self) -> Option<Self> {
 				if self.0 == 0 {
-					return Some(Self(0))
+					return Some(Self(0));
 				}
 				if self.0 < 1 {
-					return None
+					return None;
 				}
 				let v = self.0 as u128;
 
@@ -685,7 +683,7 @@ macro_rules! implement_fixed {
 				} else {
 					let unsigned_inner = n.value as $inner_type;
 					if unsigned_inner as u128 != n.value || (unsigned_inner > 0) != (n.value > 0) {
-						return None
+						return None;
 					};
 					if n.negative {
 						match unsigned_inner.checked_neg() {
@@ -779,7 +777,7 @@ macro_rules! implement_fixed {
 				rounding: SignedRounding,
 			) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs = self.into_i129();
@@ -813,7 +811,7 @@ macro_rules! implement_fixed {
 
 			fn saturating_pow(self, exp: usize) -> Self {
 				if exp == 0 {
-					return Self::saturating_from_integer(1)
+					return Self::saturating_from_integer(1);
 				}
 
 				let exp = exp as u32;
@@ -891,7 +889,7 @@ macro_rules! implement_fixed {
 		impl CheckedDiv for $name {
 			fn checked_div(&self, other: &Self) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs: I129 = self.0.into();
@@ -1000,9 +998,99 @@ macro_rules! implement_fixed {
 			type Err = &'static str;
 
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
-				let inner: <Self as FixedPointNumber>::Inner =
-					s.parse().map_err(|_| "invalid string input for fixed point number")?;
-				Ok(Self::from_inner(inner))
+				let s = s.trim();
+
+				// Check if the string contains a decimal point
+				if let Some(dot_pos) = s.find('.') {
+					// Parse as decimal number (e.g., "1.0", "123.456")
+					let (integer_part, fractional_part) = s.split_at(dot_pos);
+					let fractional_part = &fractional_part[1..]; // Skip the '.'
+
+					// Check if it's a negative number
+					let is_negative = integer_part.starts_with('-');
+
+					// For unsigned types, reject negative numbers
+					if is_negative && !$name::SIGNED {
+						return Err(
+							"negative numbers not supported for unsigned fixed point types",
+						);
+					}
+
+					// Parse integer part
+					let integer: i128 = if integer_part.is_empty() {
+						0
+					} else {
+						integer_part
+							.parse()
+							.map_err(|_| "invalid integer part in decimal number")?
+					};
+
+					// Parse fractional part
+					let fractional_raw: u128 = if fractional_part.is_empty() {
+						0
+					} else {
+						fractional_part
+							.parse()
+							.map_err(|_| "invalid fractional part in decimal number")?
+					};
+
+					// Convert fractional part to the appropriate scale
+					let fractional_digits = fractional_part.len() as u32;
+
+					// Calculate fractional value using more careful arithmetic
+					let fractional_scaled: i128 = if fractional_digits > 0 {
+						// Checked math to avoid overflow
+						let Some(scale_factor) = 10u128.checked_pow(fractional_digits) else {
+							return Err("fractional part has too many digits");
+						};
+
+						// For very large DIV values, we need to be more careful
+						let div_u128 = Self::DIV as u128;
+
+						// Calculate: fractional_raw * DIV / scale_factor
+						// We do this carefully to avoid intermediate overflow
+						// Use alternative calculation: (fractional_raw / scale_factor) * DIV
+						let quotient = fractional_raw / scale_factor;
+						let remainder = fractional_raw % scale_factor;
+						quotient
+							.checked_mul(div_u128)
+							.and_then(|base| {
+								let remainder_scaled = (remainder * div_u128) / scale_factor;
+								base.checked_add(remainder_scaled)
+							})
+							.ok_or("fractional part overflow")?
+							.try_into()
+							.map_err(|_| "fractional part too large for signed representation")?
+					} else {
+						0
+					};
+
+					// Combine integer and fractional parts using wider arithmetic
+					let div_i128 = Self::DIV as i128;
+					let integer_scaled =
+						integer.checked_mul(div_i128).ok_or("integer part overflow")?;
+
+					let result = if is_negative {
+						integer_scaled
+							.checked_sub(fractional_scaled)
+							.ok_or("number too large for fixed point representation")?
+					} else {
+						integer_scaled
+							.checked_add(fractional_scaled)
+							.ok_or("number too large for fixed point representation")?
+					};
+
+					// Convert to target type
+					let inner = <Self as FixedPointNumber>::Inner::try_from(result)
+						.map_err(|_| "number out of range for fixed point type")?;
+
+					Ok(Self::from_inner(inner))
+				} else {
+					// Parse as raw inner value (legacy behavior)
+					let inner: <Self as FixedPointNumber>::Inner =
+						s.parse().map_err(|_| "invalid string input for fixed point number")?;
+					Ok(Self::from_inner(inner))
+				}
 			}
 		}
 
@@ -2230,8 +2318,122 @@ macro_rules! implement_fixed {
 					);
 				}
 			}
+
+			#[test]
+			fn from_str_works() {
+				use core::str::FromStr;
+				// Test decimal notation
+				let val = $name::from_str("1.0").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy());
+
+				let val = $name::from_str("0.5").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy() / 2);
+
+				let val = $name::from_str("2.5").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy() * 5 / 2);
+
+				// Test whole numbers
+				let val = $name::from_str("42").unwrap();
+				assert_eq!(val.into_inner(), 42);
+
+				let val = $name::from_str("100.0").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy() * 100);
+
+				// Test fractional-only
+				let val = $name::from_str("0.25").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy() / 4);
+
+				let val = $name::from_str(".5").unwrap();
+				assert_eq!(val.into_inner(), $name::accuracy() / 2);
+
+				// Test precision with multiple decimal places
+				let val = $name::from_str("1.00045").unwrap();
+				let expected = $name::accuracy() + ($name::accuracy() * 45 / 100000);
+				assert_eq!(val.into_inner(), expected);
+
+				// Test high precision fractional - use precision appropriate for each type
+				if $name::accuracy() >= 1_000_000_000_000_000_000 {
+					// FixedU128/FixedI128: Test full 18 decimal places
+					let val = $name::from_str("0.123456789012345678").unwrap();
+					let expected = ($name::accuracy() as u128 * 123456789012345678u128) /
+						1000000000000000000u128;
+					assert_eq!(val.into_inner() as u128, expected);
+				} else {
+					// FixedU64/FixedI64: Test 9 decimal places
+					let val = $name::from_str("0.123456789").unwrap();
+					let expected = ($name::accuracy() as u128 * 123456789u128) / 1000000000u128;
+					assert_eq!(val.into_inner() as u128, expected);
+				}
+
+				// Test legacy behavior (raw inner values)
+				let val = $name::from_str("1000000000").unwrap();
+				assert_eq!(val.into_inner(), 1000000000);
+
+				if $name::SIGNED {
+					// Test negative values
+					let val = $name::from_str("-1.0").unwrap();
+					assert_eq!(val.into_inner(), 0 - $name::accuracy());
+
+					let val = $name::from_str("-0.5").unwrap();
+					assert_eq!(val.into_inner(), 0 - $name::accuracy() / 2);
+
+					let val = $name::from_str("-2.5").unwrap();
+					assert_eq!(val.into_inner(), 0 - $name::accuracy() * 5 / 2);
+				} else {
+					// Test negative number rejection for unsigned types
+					assert!($name::from_str("-1.0").is_err());
+					assert!($name::from_str("-0.5").is_err());
+					assert!($name::from_str("-123.456").is_err());
+				}
+
+				// Test error cases
+				assert!($name::from_str("").is_err());
+				assert!($name::from_str("abc").is_err());
+				assert!($name::from_str("1.2.3").is_err());
+				assert!($name::from_str("1.abc").is_err());
+				assert!($name::from_str("abc.1").is_err());
+			}
 		}
 	};
+}
+
+#[cfg(test)]
+mod precision_tests {
+	use super::*;
+	use core::str::FromStr;
+
+	#[test]
+	fn test_from_str_precision_verification() {
+		// Test FixedU64 (DIV = 1_000_000_000)
+		let val = FixedU64::from_str("0.123456789").unwrap();
+		let expected = 123456789u64; // 0.123456789 * 1_000_000_000
+		assert_eq!(val.into_inner(), expected);
+
+		// Test FixedU128 (DIV = 1_000_000_000_000_000_000)
+		let val = FixedU128::from_str("0.123456789012345678").unwrap();
+		let expected = 123456789012345678u128; // 0.123456789012345678 * 1_000_000_000_000_000_000
+		assert_eq!(val.into_inner(), expected);
+
+		// Test a more complex case with FixedU128
+		let val = FixedU128::from_str("1.123456789012345678").unwrap();
+		let expected = 1000000000000000000u128 + 123456789012345678u128;
+		assert_eq!(val.into_inner(), expected);
+
+		// Test FixedI64 negative values
+		let val = FixedI64::from_str("-0.123456789").unwrap();
+		let expected = -123456789i64; // -0.123456789 * 1_000_000_000
+		assert_eq!(val.into_inner(), expected);
+
+		// Test edge case: exact precision match for FixedU64
+		let val = FixedU64::from_str("1.000000001").unwrap();
+		let expected = 1000000001u64; // Should be exactly 1 * 1_000_000_000 + 1
+		assert_eq!(val.into_inner(), expected);
+
+		// Test fractional precision truncation for FixedU64 with more than 9 digits
+		let val = FixedU64::from_str("0.1234567891234").unwrap();
+		let expected = 123456789u64; // Should truncate after 9 digits: 0.123456789
+		assert_eq!(val.into_inner(), expected);
+	}
 }
 
 implement_fixed!(

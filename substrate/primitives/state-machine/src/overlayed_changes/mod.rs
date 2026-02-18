@@ -651,7 +651,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode,
 	{
 		if let Some(cache) = &self.storage_transaction_cache {
-			return (cache.transaction_storage_root, true)
+			return (cache.transaction_storage_root, true);
 		}
 
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
@@ -696,7 +696,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 				// V1 is equivalent to V0 on empty root.
 				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>);
 
-			return Ok((root, true))
+			return Ok((root, true));
 		}
 
 		let root = if let Some((changes, info)) = self.child_changes_mut(storage_key) {

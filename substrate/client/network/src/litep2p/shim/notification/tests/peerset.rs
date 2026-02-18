@@ -990,7 +990,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 				state,
 				&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) }
 			);
-			continue
+			continue;
 		}
 
 		// Part of the new reserved nodes.
@@ -1001,7 +1001,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 				peerset.peers().get(peer),
 				Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
 			);
-			continue
+			continue;
 		}
 
 		// Previously reserved, but remained connected.
@@ -1011,7 +1011,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 				state,
 				&PeerState::Connected { direction: Direction::Outbound(Reserved::No) }
 			);
-			continue
+			continue;
 		}
 		panic!("Invalid state peer={peer:?} state={state:?}");
 	}
