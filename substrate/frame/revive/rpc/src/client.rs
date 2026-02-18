@@ -37,7 +37,7 @@ use pallet_revive::{
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
 	Config, OnlineClient,
@@ -314,43 +314,6 @@ impl Client {
 		self.block_notifier = notifier;
 	}
 
-	/// Subscribe to past blocks executing the callback for each block in `range`.
-	async fn subscribe_past_blocks<F, Fut>(
-		&self,
-		range: Range<SubstrateBlockNumber>,
-		callback: F,
-	) -> Result<(), ClientError>
-	where
-		F: Fn(Arc<SubstrateBlock>) -> Fut + Send + Sync,
-		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
-	{
-		let mut block = self
-			.block_provider
-			.block_by_number(range.end)
-			.await?
-			.ok_or(ClientError::BlockNotFound)?;
-
-		loop {
-			let block_number = block.number();
-			log::trace!(target: "eth-rpc::subscription", "Processing past block #{block_number}");
-
-			let parent_hash = block.header().parent_hash;
-			callback(block.clone()).await.inspect_err(|err| {
-				log::error!(target: "eth-rpc::subscription", "Failed to process past block #{block_number}: {err:?}");
-			})?;
-
-			if range.start < block_number {
-				block = self
-					.block_provider
-					.block_by_hash(&parent_hash)
-					.await?
-					.ok_or(ClientError::BlockNotFound)?;
-			} else {
-				return Ok(());
-			}
-		}
-	}
-
 	/// Subscribe to new blocks, and execute the async closure for each block.
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
@@ -433,27 +396,88 @@ impl Client {
 		.await
 	}
 
-	/// Cache old blocks up to the given block number.
-	pub async fn subscribe_and_cache_blocks(
-		&self,
-		index_last_n_blocks: SubstrateBlockNumber,
-	) -> Result<(), ClientError> {
-		let last = self.latest_block().await.number().saturating_sub(1);
-		let range = last.saturating_sub(index_last_n_blocks)..last;
-		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
+	/// Sync all historical blocks backward from latest finalized to the first EVM block.
+	///
+	/// Iterates backward, stopping at whichever is higher:
+	/// - `earliest_receipt_block` (user-specified lower bound)
+	/// - The auto-discovered first EVM block (where `eth_block_hash` returns `None`)
+	///
+	/// When the first EVM block is discovered, `earliest_receipt_block` is updated
+	/// so future RPC queries won't attempt to serve pre-revive blocks.
+	pub async fn sync_historic_blocks(&self) -> Result<(), ClientError> {
+		let latest = self.latest_finalized_block().await.number().saturating_sub(1);
+		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
 
-		self.subscribe_past_blocks(range, |block| async move {
-			let ethereum_hash = self
+		log::info!(target: LOG_TARGET,
+			"🗄️ Syncing historic blocks from #{latest} down to #{lower_bound}");
+
+		let mut block = match self.block_provider.block_by_number(latest).await {
+			Ok(Some(block)) => block,
+			Ok(None) | Err(_) => {
+				log::error!(target: LOG_TARGET,
+					"⚠️ Could not fetch block #{latest}, aborting historic sync");
+				return Ok(());
+			},
+		};
+
+		let mut last_synced = latest;
+		loop {
+			let block_number = block.number();
+			let parent_hash = block.header().parent_hash;
+
+			let ethereum_hash = match self
 				.runtime_api(block.hash())
-				.eth_block_hash(pallet_revive::evm::U256::from(block.number()))
-				.await?
-				.ok_or(ClientError::EthereumBlockNotFound)?;
-			self.receipt_provider.insert_block_receipts(&block, &ethereum_hash).await?;
-			Ok(())
-		})
-		.await?;
+				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
+				.await
+			{
+				Ok(hash) => hash,
+				Err(err) => {
+					log::error!(target: LOG_TARGET,
+						"⚠️ Failed to fetch eth_block_hash for block #{block_number}: {err:?}, \
+						stopping historic sync");
+					break;
+				},
+			};
 
-		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
+			match ethereum_hash {
+				Some(hash) => {
+					if let Err(err) =
+						self.receipt_provider.insert_block_receipts(&block, &hash).await
+					{
+						log::error!(target: LOG_TARGET,
+							"⚠️ Failed to insert receipts for block #{block_number}: {err:?}, \
+							stopping historic sync");
+						break;
+					}
+					last_synced = block_number;
+				},
+				None => {
+					// Block predates pallet-revive. First EVM block is block_number + 1.
+					let first_evm_block = block_number + 1;
+					log::info!(target: LOG_TARGET,
+						"🔍 Auto-discovered first EVM block: #{first_evm_block}");
+					self.receipt_provider.update_earliest_receipt_block(first_evm_block);
+					break;
+				},
+			}
+
+			if lower_bound < block_number {
+				block = match self.block_provider.block_by_hash(&parent_hash).await {
+					Ok(Some(block)) => block,
+					Ok(None) | Err(_) => {
+						log::error!(target: LOG_TARGET,
+							"⚠️ Could not fetch parent block of #{block_number}, \
+							stopping historic sync");
+						break;
+					},
+				};
+			} else {
+				break;
+			}
+		}
+
+		log::info!(target: LOG_TARGET,
+			"🗄️ Finished syncing historic blocks (#{last_synced}..#{latest})");
 		Ok(())
 	}
 

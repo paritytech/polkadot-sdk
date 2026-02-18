@@ -32,7 +32,14 @@ use pallet_revive::{
 	evm::{GenericTransaction, H256, Log, ReceiptGasInfo, ReceiptInfo, TransactionSigned, U256},
 };
 use sp_core::keccak_256;
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{
+	future::Future,
+	pin::Pin,
+	sync::{
+		Arc,
+		atomic::{AtomicU32, Ordering},
+	},
+};
 use subxt::{OnlineClient, blocks::ExtrinsicDetails};
 
 type FetchReceiptDataFn = Arc<
@@ -54,7 +61,9 @@ pub struct ReceiptExtractor {
 	fetch_eth_block_hash: FetchEthBlockHashFn,
 
 	/// Earliest block number to consider when searching for transaction receipts.
-	earliest_receipt_block: Option<SubstrateBlockNumber>,
+	/// Stored as AtomicU32 so that updates (e.g. from sync auto-discovery) are visible across
+	/// clones. A value of `0` means "not set".
+	earliest_receipt_block: Arc<AtomicU32>,
 
 	/// Recover the ethereum address from a transaction signature.
 	recover_eth_address: RecoverEthAddressFn,
@@ -63,7 +72,20 @@ pub struct ReceiptExtractor {
 impl ReceiptExtractor {
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		block_number < self.earliest_receipt_block.unwrap_or_default()
+		let earliest = self.earliest_receipt_block.load(Ordering::Relaxed);
+		earliest > 0 && block_number < earliest
+	}
+
+	/// Update the earliest receipt block number.
+	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
+		log::info!(target: LOG_TARGET, "📌 Updating earliest receipt block to #{block_number}");
+		self.earliest_receipt_block.store(block_number, Ordering::Relaxed);
+	}
+
+	/// Get the earliest receipt block number, if set.
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		let val = self.earliest_receipt_block.load(Ordering::Relaxed);
+		if val > 0 { Some(val) } else { None }
 	}
 
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
@@ -116,7 +138,9 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block,
+			earliest_receipt_block: Arc::new(AtomicU32::new(
+				earliest_receipt_block.unwrap_or(0),
+			)),
 			recover_eth_address: recover_eth_address_fn,
 		})
 	}
@@ -135,7 +159,7 @@ impl ReceiptExtractor {
 		Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block: None,
+			earliest_receipt_block: Arc::new(AtomicU32::new(0)),
 			recover_eth_address: Arc::new(|signed_tx: &TransactionSigned| {
 				signed_tx.recover_eth_address()
 			}),
@@ -351,5 +375,48 @@ impl ReceiptExtractor {
 		block_number: u64,
 	) -> Option<H256> {
 		(self.fetch_eth_block_hash)(*block_hash, block_number).await
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn earliest_receipt_block_default_is_none() {
+		let extractor = ReceiptExtractor::new_mock();
+		assert_eq!(extractor.earliest_receipt_block(), None);
+	}
+
+	#[test]
+	fn update_earliest_receipt_block_sets_value() {
+		let extractor = ReceiptExtractor::new_mock();
+		extractor.update_earliest_receipt_block(42);
+		assert_eq!(extractor.earliest_receipt_block(), Some(42));
+	}
+
+	#[test]
+	fn update_visible_across_clones() {
+		let extractor = ReceiptExtractor::new_mock();
+		let clone = extractor.clone();
+		extractor.update_earliest_receipt_block(100);
+		assert_eq!(clone.earliest_receipt_block(), Some(100));
+	}
+
+	#[test]
+	fn is_before_earliest_block_with_no_bound() {
+		let extractor = ReceiptExtractor::new_mock();
+		// No earliest set (0) → never "before"
+		assert!(!extractor.is_before_earliest_block(0));
+		assert!(!extractor.is_before_earliest_block(999));
+	}
+
+	#[test]
+	fn is_before_earliest_block_with_bound() {
+		let extractor = ReceiptExtractor::new_mock();
+		extractor.update_earliest_receipt_block(10);
+		assert!(extractor.is_before_earliest_block(9));
+		assert!(!extractor.is_before_earliest_block(10));
+		assert!(!extractor.is_before_earliest_block(11));
 	}
 }

@@ -222,6 +222,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Get the earliest receipt block number.
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.earliest_receipt_block()
+	}
+
+	/// Update the earliest receipt block (e.g. after auto-discovering the first EVM block).
+	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
+		self.receipt_extractor.update_earliest_receipt_block(block_number);
+	}
+
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
@@ -1136,5 +1146,13 @@ mod tests {
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 
 		Ok(())
+	}
+
+	#[test]
+	fn earliest_receipt_block_passthrough() {
+		let extractor = ReceiptExtractor::new_mock();
+		assert_eq!(extractor.earliest_receipt_block(), None);
+		extractor.update_earliest_receipt_block(50);
+		assert_eq!(extractor.earliest_receipt_block(), Some(50));
 	}
 }

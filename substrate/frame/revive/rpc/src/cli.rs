@@ -76,9 +76,11 @@ pub struct CliCommand {
 	#[clap(long, default_value = "receipts.db")]
 	pub database_name: String,
 
-	/// If provided, index the last n blocks
+	/// Sync all historical blocks from the latest finalized block down to the first EVM block
+	/// or --earliest-receipt-block, whichever is higher.
+	/// Requires --database-type=persistent.
 	#[clap(long)]
-	pub index_last_n_blocks: Option<SubstrateBlockNumber>,
+	pub sync: bool,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -161,6 +163,14 @@ fn resolve_db_url(
 	}
 }
 
+/// Validate that `--sync` is only used with `--database-type=persistent`.
+fn validate_sync_args(sync: bool, database_type: DatabaseType) -> anyhow::Result<()> {
+	if sync && database_type == DatabaseType::Temporary {
+		anyhow::bail!("--sync requires --database-type=persistent");
+	}
+	Ok(())
+}
+
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	cache_size: usize,
@@ -227,7 +237,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		database_type,
 		database_name,
 		earliest_receipt_block,
-		index_last_n_blocks,
+		sync,
 		shared_params,
 		allow_unprotected_txs,
 		..
@@ -239,6 +249,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let base_path = shared_params.base_path()?;
 	let chain_id = shared_params.chain_id(is_dev);
 	let database_url = resolve_db_url(database_type, base_path, &database_name, &chain_id)?;
+
+	validate_sync_args(sync, database_type)?;
+
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
 		.map(|addrs| addrs.into_iter().map(Into::into).collect());
@@ -305,8 +318,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
 			];
 
-			if let Some(index_last_n_blocks) = index_last_n_blocks {
-				futures.push(Box::pin(client.subscribe_and_cache_blocks(index_last_n_blocks)));
+			if sync {
+				futures.push(Box::pin(client.sync_historic_blocks()));
 			}
 
 			if let Err(err) = futures::future::try_join_all(futures).await {
@@ -432,5 +445,21 @@ mod tests {
 		let dir_str = dir.to_string_lossy();
 		assert!(dir_str.contains("eth-rpc"));
 		assert!(!dir_str.ends_with('/'));
+	}
+
+	#[test]
+	fn sync_with_temporary_is_rejected() {
+		let err = validate_sync_args(true, DatabaseType::Temporary).unwrap_err();
+		assert!(err.to_string().contains("--sync requires --database-type=persistent"));
+	}
+
+	#[test]
+	fn sync_with_persistent_is_accepted() {
+		validate_sync_args(true, DatabaseType::Persistent).unwrap();
+	}
+
+	#[test]
+	fn no_sync_with_temporary_is_accepted() {
+		validate_sync_args(false, DatabaseType::Temporary).unwrap();
 	}
 }
