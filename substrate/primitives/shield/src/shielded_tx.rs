@@ -19,11 +19,8 @@ pub struct ShieldedTransaction {
 
 impl ShieldedTransaction {
     pub fn parse(ciphertext: &[u8]) -> Option<Self> {
-        let mut cursor: usize = 0;
-
-        let key_hash_end = cursor.checked_add(KEY_HASH_LEN)?;
-        let key_hash: [u8; KEY_HASH_LEN] = ciphertext.get(cursor..key_hash_end)?.try_into().ok()?;
-        cursor = key_hash_end;
+        let key_hash: [u8; KEY_HASH_LEN] = ciphertext.get(0..KEY_HASH_LEN)?.try_into().ok()?;
+        let mut cursor = KEY_HASH_LEN;
 
         let kem_ct_len_end = cursor.checked_add(2)?;
         let kem_ct_len = ciphertext
