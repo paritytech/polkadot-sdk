@@ -16,7 +16,10 @@
 // limitations under the License.
 
 use super::{Token, Weight, WeightMeter};
-use crate::{metering::math::eip_150::NUMERATOR, tests::Test};
+use crate::{
+	metering::math::eip_150::{NUMERATOR, Rule},
+	tests::Test,
+};
 
 /// A simple utility macro that helps to match against a
 /// list of tokens.
@@ -171,7 +174,7 @@ fn eip_150_overhead_top_call() {
 fn eip_150_overhead_subcall() {
 	// Subcall leaf meter (no children): peak stays at zero
 	let mut subcall_meter =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(10000, 5000), None);
+		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(10000, 5000), None, Rule::Apply);
 	subcall_meter.charge(SimpleToken(6300)).unwrap();
 	assert_eq!(subcall_meter.eip_150_peak(), Weight::zero());
 	assert_eq!(subcall_meter.weight_required(), Weight::from_parts(6300, 0));
@@ -193,7 +196,11 @@ fn eip_150_overhead_single_subcall() {
 	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
 	parent.charge(SimpleToken(parent_consumption)).unwrap();
 
-	let mut child = WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(50_000, 25_000), None);
+	let mut child = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(50_000, 25_000),
+		None,
+		Rule::Apply,
+	);
 	child.charge(SimpleToken(child_consumption)).unwrap();
 
 	// Before absorb: parent is top-call with no children yet, peak and overhead are zero.
@@ -228,12 +235,18 @@ fn eip_150_overhead_nested_two_levels() {
 	let mut top_call_meter = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
 	top_call_meter.charge(SimpleToken(1000)).unwrap();
 
-	let mut level1 =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	let mut level1 = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(500_000, 250_000),
+		None,
+		Rule::Apply,
+	);
 	level1.charge(SimpleToken(2000)).unwrap();
 
-	let mut level2 =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(250_000, 125_000), None);
+	let mut level2 = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(250_000, 125_000),
+		None,
+		Rule::Apply,
+	);
 	level2.charge(SimpleToken(6300)).unwrap();
 
 	// level2 is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
@@ -265,8 +278,11 @@ fn eip_150_overhead_two_sequential_children() {
 	parent.charge(SimpleToken(500)).unwrap();
 
 	// First child: 3000 weight, overhead = ceil(3000/63) = 48
-	let mut child_a =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	let mut child_a = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(500_000, 250_000),
+		None,
+		Rule::Apply,
+	);
 	child_a.charge(SimpleToken(3000)).unwrap();
 	parent.absorb_nested(child_a);
 	// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
@@ -283,8 +299,11 @@ fn eip_150_overhead_two_sequential_children() {
 	assert_eq!(parent.compute_eip_150_total_overhead(), Weight::zero());
 
 	// Second child
-	let mut child_b =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	let mut child_b = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(500_000, 250_000),
+		None,
+		Rule::Apply,
+	);
 	child_b.charge(SimpleToken(1000)).unwrap();
 	// Subcall leaf: no children, overhead = ceil(1000/63) = 16
 	assert_eq!(child_b.weight_required(), Weight::from_parts(1000, 0));
@@ -307,7 +326,11 @@ fn eip_150_overhead_zero_consumption_child() {
 	parent.charge(SimpleToken(5000)).unwrap();
 
 	// Child consumes zero weight
-	let child = WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(50_000, 25_000), None);
+	let child = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(50_000, 25_000),
+		None,
+		Rule::Apply,
+	);
 	parent.absorb_nested(child);
 
 	// Zero-consumption child: overhead = ceil(0/63) = 0
@@ -324,8 +347,11 @@ fn eip_150_overhead_child_heavier_than_parent() {
 	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
 	parent.charge(SimpleToken(1)).unwrap();
 
-	let mut child =
-		WeightMeter::<Test>::new_with_eip_150(Weight::from_parts(500_000, 250_000), None);
+	let mut child = WeightMeter::<Test>::new_with_eip_150(
+		Weight::from_parts(500_000, 250_000),
+		None,
+		Rule::Apply,
+	);
 	child.charge(SimpleToken(63_000)).unwrap();
 
 	parent.absorb_nested(child);

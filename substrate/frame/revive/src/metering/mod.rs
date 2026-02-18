@@ -140,17 +140,17 @@ impl<T: Config> Default for TransactionLimits<T> {
 impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Create a new nested meter with derived resource limits.
 	///
-	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
-	pub fn new_nested(
+	/// The `eip_150_rule` parameter controls whether the EIP-150 63/64 gas rule is applied.
+	pub(crate) fn new_nested(
 		&self,
 		limit: &CallResources<T>,
-		should_apply_eip_150: bool,
+		eip_150_rule: math::eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
 				limit={limit:?}, \
-				should_apply_eip_150={should_apply_eip_150}, \
+				eip_150_rule={eip_150_rule:?}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
@@ -163,15 +163,10 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		let mut new_meter = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-				math::ethereum_execution::new_nested_meter(
-					self,
-					limit,
-					eth_tx_info,
-					should_apply_eip_150,
-				)
+				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info, eip_150_rule)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
-				math::substrate_execution::new_nested_meter(self, limit, should_apply_eip_150)
+				math::substrate_execution::new_nested_meter(self, limit, eip_150_rule)
 			},
 		}?;
 
@@ -472,7 +467,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Returns the highest deposit amount needed during execution,
 	/// accounting for temporary storage spikes before later refunds.
 	pub fn deposit_required(&self) -> DepositOf<T> {
-		StorageDeposit::Charge(self.deposit.deposit_required_with_eip_150())
+		self.deposit.deposit_required_with_eip_150()
 	}
 
 	/// Get the Ethereum gas that has been consumed during the lifetime of this meter

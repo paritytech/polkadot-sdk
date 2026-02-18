@@ -22,7 +22,10 @@ use crate::{
 	address::{self, AddressMapper},
 	evm::{block_storage, transfer_with_dust},
 	limits,
-	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
+	metering::{
+		ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter,
+		math::eip_150,
+	},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -1142,13 +1145,16 @@ where
 			},
 		};
 
+		let eip_150_rule =
+			if origin_is_caller { eip_150::Rule::Skip } else { eip_150::Rule::Apply };
+
 		let frame = Frame {
 			delegate,
 			value_transferred,
 			contract_info,
 			account_id,
 			entry_point,
-			frame_meter: meter.new_nested(call_resources, !origin_is_caller)?,
+			frame_meter: meter.new_nested(call_resources, eip_150_rule)?,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),

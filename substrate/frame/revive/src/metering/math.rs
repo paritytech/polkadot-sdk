@@ -41,11 +41,38 @@ pub(crate) mod eip_150 {
 
 	/// EIP-150 peak tracking: stores the minimum starting value a meter needs
 	/// so that every subcall receives enough resources after the 63/64 split.
+	#[derive(Copy, Clone)]
 	pub(crate) enum Peak<V> {
 		/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
 		TopCall(V),
 		/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
 		Subcall(V),
+	}
+
+	/// Whether the EIP-150 63/64 gas rule should be applied.
+	#[derive(Copy, Clone, Debug)]
+	pub(crate) enum Rule {
+		/// Apply the 63/64 rule (nested subcall).
+		Apply,
+		/// Skip the rule (top-level call).
+		Skip,
+	}
+
+	impl Rule {
+		/// Returns `true` when the 63/64 rule should be applied.
+		pub(crate) fn should_apply(&self) -> bool {
+			matches!(self, Self::Apply)
+		}
+	}
+
+	impl<V: Copy + Zero> Peak<V> {
+		/// Create a zero-initialized peak tracker from the given rule.
+		pub(crate) fn new(rule: Rule) -> Self {
+			match rule {
+				Rule::Apply => Self::Subcall(V::zero()),
+				Rule::Skip => Self::TopCall(V::zero()),
+			}
+		}
 	}
 
 	impl<V: Copy + Zero> Default for Peak<V> {
@@ -216,14 +243,14 @@ pub mod substrate_execution {
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
 	///   weight+deposit) to derive per-frame limits.
 	///
-	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
+	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
 	///
 	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
 	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
-		should_apply_eip_150: bool,
+		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
 		let (
 			self_consumed_weight,
@@ -246,7 +273,7 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
-		let (weight_left, deposit_left) = if should_apply_eip_150 {
+		let (weight_left, deposit_left) = if eip_150_rule.should_apply() {
 			(eip_150::apply_weight(weight_left), eip_150::apply_balance::<T>(deposit_left))
 		} else {
 			(weight_left, deposit_left)
@@ -302,16 +329,8 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: if should_apply_eip_150 {
-				WeightMeter::new_with_eip_150(nested_weight_limit, stipend)
-			} else {
-				WeightMeter::new(nested_weight_limit, stipend)
-			},
-			deposit: if should_apply_eip_150 {
-				meter.deposit.nested_with_eip_150(Some(nested_deposit_limit))
-			} else {
-				meter.deposit.nested(Some(nested_deposit_limit))
-			},
+			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
+			deposit: meter.deposit.nested_with_eip_150(Some(nested_deposit_limit), eip_150_rule),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -440,7 +459,7 @@ pub mod ethereum_execution {
 	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
 	///   ethereum gas
 	///
-	/// The `should_apply_eip_150` parameter controls whether the EIP-150 gas rule is applied.
+	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
 	///
 	/// The function ensures the nested frame's derived gas+resources remain within the parent's
 	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
@@ -449,7 +468,7 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
 		eth_tx_info: &EthTxInfo<T>,
-		should_apply_eip_150: bool,
+		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
 		let (
 			self_consumed_weight,
@@ -463,7 +482,7 @@ pub mod ethereum_execution {
 
 		let remaining_gas = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
-		let (remaining_gas, max_total_gas) = if should_apply_eip_150 {
+		let (remaining_gas, max_total_gas) = if eip_150_rule.should_apply() {
 			let capped_remaining_gas = remaining_gas.apply_eip_150();
 			let retained_gas = remaining_gas.saturating_sub(&capped_remaining_gas);
 			let max_total_gas = meter.max_total_gas.saturating_sub(&retained_gas);
@@ -557,16 +576,8 @@ pub mod ethereum_execution {
 		let nested_max_total_gas = total_gas_consumption.saturating_add(&nested_gas_limit);
 
 		Ok(FrameMeter::<T> {
-			weight: if should_apply_eip_150 {
-				WeightMeter::new_with_eip_150(nested_weight_limit, stipend)
-			} else {
-				WeightMeter::new(nested_weight_limit, stipend)
-			},
-			deposit: if should_apply_eip_150 {
-				meter.deposit.nested_with_eip_150(nested_deposit_limit)
-			} else {
-				meter.deposit.nested(nested_deposit_limit)
-			},
+			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
+			deposit: meter.deposit.nested_with_eip_150(nested_deposit_limit, eip_150_rule),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,

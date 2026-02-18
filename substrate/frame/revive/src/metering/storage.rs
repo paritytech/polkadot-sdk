@@ -23,7 +23,9 @@ mod tests;
 use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, metering::math::eip_150::Peak as Eip150Peak, storage::ContractInfo,
+	StorageDeposit as Deposit,
+	metering::math::{eip_150, eip_150::Peak as Eip150Peak},
+	storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
@@ -246,6 +248,7 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
+	#[cfg(test)]
 	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
 			limit = Some(new_limit.min(old_limit));
@@ -254,11 +257,13 @@ where
 		RawMeter { limit, ..Default::default() }
 	}
 
-	/// Like [`Self::nested`] but marks the meter as subject to the EIP-150 63/64 rule.
-	pub fn nested_with_eip_150(&self, limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
-		let mut meter = self.nested(limit);
-		meter.eip_150_peak = Eip150Peak::Subcall(Zero::zero());
-		meter
+	/// Like [`Self::nested`] but initializes EIP-150 peak tracking from the given rule.
+	pub fn nested_with_eip_150(
+		&self,
+		limit: Option<BalanceOf<T>>,
+		eip_150_rule: eip_150::Rule,
+	) -> RawMeter<T, E, Nested> {
+		RawMeter { limit, eip_150_peak: Eip150Peak::new(eip_150_rule), ..Default::default() }
 	}
 
 	/// Reset this meter to its original setting.
@@ -364,6 +369,11 @@ where
 		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
 	}
 
+	/// Get the deposit required including EIP-150 63/64 overhead.
+	pub(crate) fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
+		Deposit::Charge(self.eip_150_peak.get()).max(self.max_charged())
+	}
+
 	/// Track the EIP-150 deposit peak when absorbing a child meter.
 	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
 		let consumed_deposit = self.consumed().charge_or_zero();
@@ -392,11 +402,6 @@ where
 			|a, b| a.saturating_add(b),
 			|a, b| a.saturating_sub(b),
 		)
-	}
-
-	/// Get the deposit required including EIP-150 63/64 overhead.
-	pub(crate) fn deposit_required_with_eip_150(&self) -> BalanceOf<T> {
-		self.eip_150_peak.get().max(self.max_charged().charge_or_zero())
 	}
 
 	/// The amount of balance still available from the current meter.

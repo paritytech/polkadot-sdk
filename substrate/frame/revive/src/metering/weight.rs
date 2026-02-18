@@ -18,9 +18,10 @@
 #[cfg(test)]
 mod tests;
 
-use super::math::eip_150::Peak as Eip150Peak;
+use super::math::eip_150;
 use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
+use eip_150::Peak as Eip150Peak;
 use frame_support::{DefaultNoBound, weights::Weight};
 use sp_runtime::DispatchError;
 
@@ -153,24 +154,34 @@ pub struct WeightMeter<T: Config> {
 
 impl<T: Config> WeightMeter<T> {
 	pub fn new(weight_limit: Weight, stipend: Option<Weight>) -> Self {
+		Self::new_inner(weight_limit, stipend, Default::default())
+	}
+
+	/// Like [`Self::new`] but initializes EIP-150 peak tracking from the given rule.
+	pub fn new_with_eip_150(
+		weight_limit: Weight,
+		stipend: Option<Weight>,
+		eip_150_rule: eip_150::Rule,
+	) -> Self {
+		Self::new_inner(weight_limit, stipend, Eip150Peak::new(eip_150_rule))
+	}
+
+	fn new_inner(
+		weight_limit: Weight,
+		stipend: Option<Weight>,
+		eip_150_peak: Eip150Peak<Weight>,
+	) -> Self {
 		WeightMeter {
 			weight_limit,
 			effective_weight_limit: weight_limit,
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
-			eip_150_peak: Eip150Peak::TopCall(Weight::zero()),
+			eip_150_peak,
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
 		}
-	}
-
-	/// Like [`Self::new`] but marks the meter as subject to the EIP-150 63/64 rule.
-	pub fn new_with_eip_150(weight_limit: Weight, stipend: Option<Weight>) -> Self {
-		let mut meter = Self::new(weight_limit, stipend);
-		meter.eip_150_peak = Eip150Peak::Subcall(Weight::zero());
-		meter
 	}
 
 	pub fn set_effective_weight_limit(&mut self, limit: Weight) {

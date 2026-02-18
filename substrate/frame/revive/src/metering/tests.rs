@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::SignedGas;
+use super::{SignedGas, math::eip_150};
 use crate::{
 	BalanceOf, CallResources, Code, Config, EthTxInfo, StorageDeposit, TransactionLimits,
 	TransactionMeter, WeightToken,
@@ -84,8 +84,6 @@ fn test_apply_eip_150_to_signed_gas() {
 
 #[test]
 fn test_apply_eip_150_to_weight() {
-	use super::math::eip_150;
-
 	let test_cases: Vec<(Weight, Weight)> = vec![
 		(Weight::from_parts(6400, 6400), Weight::from_parts(6300, 6300)),
 		(Weight::from_parts(64, 64), Weight::from_parts(63, 63)),
@@ -108,8 +106,6 @@ fn test_apply_eip_150_to_weight() {
 
 #[test]
 fn test_compute_eip_150_overhead() {
-	use super::math::eip_150;
-
 	// Given consumed weight, verify: apply_eip_150(consumed + overhead) == consumed
 	let input_weights: Vec<Weight> = vec![
 		Weight::from_parts(0, 0),
@@ -165,8 +161,6 @@ fn test_compute_gas_ratio() {
 
 #[test]
 fn test_apply_eip_150_to_balance() {
-	use super::math::eip_150;
-
 	ExtBuilder::default().build().execute_with(|| {
 		// (input, expected)
 		let test_cases: Vec<(u64, u64)> = vec![
@@ -575,7 +569,7 @@ fn substrate_metering_charges_works() {
 }
 
 fn run_nesting_tests(
-	apply_eip_150: bool,
+	eip_150_rule: eip_150::Rule,
 	tests: Vec<(
 		((u64, u64, u64, u64, u64, i64), CallResources<Test>),
 		Option<(u64, u64, u64, u64, u64)>,
@@ -630,7 +624,7 @@ fn run_nesting_tests(
 					},
 					_ => call_resource,
 				};
-				let nested = transaction_meter.new_nested(&scaled_call_resource, apply_eip_150);
+				let nested = transaction_meter.new_nested(&scaled_call_resource, eip_150_rule);
 
 				if let Some((
 					gas_left,
@@ -673,7 +667,7 @@ fn substrate_nesting_works() {
 	use CallResources::{Ethereum, NoLimits, WeightDeposit};
 
 	run_nesting_tests(
-		false,
+		eip_150::Rule::Skip,
 		vec![
 			(
 				((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
@@ -832,7 +826,7 @@ fn substrate_nesting_works_with_eip_150() {
 	use CallResources::{Ethereum, NoLimits, WeightDeposit};
 
 	run_nesting_tests(
-		true,
+		eip_150::Rule::Apply,
 		vec![
 			// 0: NoLimits, low consumption.
 			(
@@ -1007,7 +1001,7 @@ fn substrate_nesting_works_with_eip_150() {
 }
 
 fn run_nesting_charges_tests(
-	apply_eip_150: bool,
+	eip_150_rule: eip_150::Rule,
 	tests: Vec<(
 		(u64, u64, u64, u64, u64, i64, u64),
 		Vec<(Charge, Option<(u64, u64, u64, u64, u64)>)>,
@@ -1059,7 +1053,7 @@ fn run_nesting_charges_tests(
 							gas: gas_limit.div_ceil(gas_scale),
 							add_stipend: false,
 						},
-						apply_eip_150,
+						eip_150_rule,
 					)
 					.unwrap();
 
@@ -1121,7 +1115,7 @@ fn substrate_nesting_charges_works() {
 	use Charge::{D, W};
 
 	run_nesting_charges_tests(
-		false,
+		eip_150::Rule::Skip,
 		vec![
 			(
 				(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 100, 1000i64, 1000u64),
@@ -1160,7 +1154,7 @@ fn substrate_nesting_charges_works_with_eip_150() {
 	use Charge::{D, W};
 
 	run_nesting_charges_tests(
-		true,
+		eip_150::Rule::Apply,
 		vec![
 			// 0: proof_size starts at 9984 (vs 10107 without EIP-150).
 			// W(0, 10000) fails after W(100,100) leaves only 9884.
@@ -1224,7 +1218,7 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			let mut parent = root
 				.new_nested(
 					&WeightDeposit { weight: Weight::from_parts(10_000, 0), deposit_limit },
-					false,
+					eip_150::Rule::Skip,
 				)
 				.unwrap();
 
@@ -1237,7 +1231,7 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			// 3. First child uses 700 deposit (more than the ~500 ratio scaling would allow, but
 			//    within the total budget).
 			let mut child1 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, false)
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Skip)
 				.unwrap();
 
 			child1.charge_deposit(&StorageDeposit::Charge(700)).unwrap();
@@ -1247,7 +1241,7 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 
 			// 4. Second child uses the remaining 300 deposit.
 			let mut child2 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, false)
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Skip)
 				.unwrap();
 
 			child2.charge_deposit(&StorageDeposit::Charge(300)).unwrap();
