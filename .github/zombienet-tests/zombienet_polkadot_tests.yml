@@ -1,28 +1,23 @@
 # Functional tests using traditional zombienet
-# TODO: Disabled until:
-# https://github.com/paritytech/zombienet-sdk/pull/487
-# https://github.com/paritytech/zombienet-sdk/pull/484
-# - job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
-#   test-filter: "functional::parachains_pvf::parachains_pvf_test"
-#   runner-type: "default"
-#   use-zombienet-sdk: true
-#
-# - job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
-#   test-filter: "functional::parachains_disputes::parachains_disputes_test"
-#   runner-type: "default"
-#   use-zombienet-sdk: true
+- job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
+  test-filter: "functional::parachains_pvf::parachains_pvf_test"
+  runner-type: "default"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
+  test-filter: "functional::parachains_disputes::parachains_disputes_test"
+  runner-type: "default"
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
   test-filter: "functional::beefy_and_mmr::beefy_and_mmr_test"
   runner-type: "default"
   use-zombienet-sdk: true
 
-# Disabled until:
-# https://github.com/paritytech/zombienet-sdk/pull/484
-# - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
-#   test-filteer: "functional::parachains_garbage_candidate::parachains_garbage_candidate_test"
-#   runner-type: "default"
-#   use-zombienet-sdk: true
+- job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
+  test-filteer: "functional::parachains_garbage_candidate::parachains_garbage_candidate_test"
+  runner-type: "default"
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
   test-filter: "functional::parachains_max_tranche0::parachains_max_tranche0"
