@@ -45,7 +45,7 @@ async fn coretime_assignment_boundary_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Spawning network");
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = spawn_fn(config).await?;
+	let mut network = spawn_fn(config).await?;
 
 	let relay_alice = network.get_node("alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
