@@ -33,7 +33,9 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{
+	ChildInfo, RelayChainError, RelayChainInterface, RelayChainResult,
+};
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
@@ -241,6 +243,18 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 			.map_err(RelayChainError::StateMachineError)
 	}
 
+	async fn prove_child_read(
+		&self,
+		relay_parent: PHash,
+		child_info: &ChildInfo,
+		child_keys: &[Vec<u8>],
+	) -> RelayChainResult<StorageProof> {
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
+
+		sp_state_machine::prove_child_read(state_backend, child_info, child_keys)
+			.map_err(RelayChainError::StateMachineError)
+	}
+
 	/// Wait for a given relay chain block in an async way.
 	///
 	/// The caller needs to pass the hash of a block it waits for and the function will return when
@@ -421,6 +435,7 @@ fn build_polkadot_full_node(
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
 		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {

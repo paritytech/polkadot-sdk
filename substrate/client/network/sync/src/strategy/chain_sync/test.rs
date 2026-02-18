@@ -93,6 +93,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -158,6 +159,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		8,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -364,6 +366,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -522,6 +525,7 @@ fn can_sync_huge_fork() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -670,6 +674,7 @@ fn syncs_fork_without_duplicate_requests() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -818,6 +823,7 @@ fn removes_target_fork_on_disconnect() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -853,6 +859,7 @@ fn can_import_response_with_missing_blocks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -894,6 +901,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1046,6 +1054,7 @@ fn request_across_forks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1154,6 +1163,7 @@ fn sync_verification_failed_with_gap_filled() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1263,6 +1273,7 @@ fn sync_verification_failed_with_gap_filled() {
 				best_queued_number: 64 as u64,
 				target: 84 as u64,
 				blocks: BlockCollection::new(),
+				stats: GapSyncStats::new(),
 			});
 		} else if loop_index == 1 {
 			if sync.gap_sync.is_none() {
@@ -1291,6 +1302,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
+		false,
 		None,
 		std::iter::empty(),
 	)
@@ -1306,6 +1318,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
+			stats: GapSyncStats::new(),
 		});
 
 		// Announce the block as unknown.
@@ -1328,6 +1341,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 			best_queued_number: *blocks[0].header().number(),
 			target: *blocks[0].header().number(),
 			blocks: BlockCollection::new(),
+			stats: GapSyncStats::new(),
 		});
 
 		// Announce the block as known.
@@ -1339,5 +1353,121 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		sync.on_blocks_processed(1, 1, results.into_iter().collect());
 		// Ensure the gap is cleared out.
 		assert!(sync.gap_sync.is_none());
+	}
+}
+
+#[test]
+fn gap_sync_body_request_depends_on_pruning_mode() {
+	sp_tracing::try_init_simple();
+
+	for archive_blocks in [true, false] {
+		// Bodies only needed for archive mode
+		let should_request_bodies = archive_blocks;
+		log::info!("Testing gap sync with archive_blocks: {}", archive_blocks);
+
+		let client = Arc::new(TestClientBuilder::new().build());
+		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+
+		let mut sync = ChainSync::new(
+			ChainSyncMode::Full,
+			client.clone(),
+			5,
+			64,
+			ProtocolName::Static(""),
+			Arc::new(MockBlockDownloader::new()),
+			archive_blocks,
+			None,
+			std::iter::empty(),
+		)
+		.unwrap();
+
+		let peer_id = PeerId::random();
+
+		// Simulate gap: blocks 5-10 missing
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: 5,
+			target: 10,
+			blocks: BlockCollection::new(),
+			stats: GapSyncStats::new(),
+		});
+
+		sync.add_peer(peer_id, blocks[9].hash(), 10);
+
+		let requests = sync.block_requests();
+		assert!(
+			!requests.is_empty(),
+			"[archive_blocks={archive_blocks}] Should generate gap sync request"
+		);
+
+		let (_peer, request) = &requests[0];
+
+		// Verify the exact expected field combination
+		let expected_fields = if should_request_bodies {
+			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+		} else {
+			BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION
+		};
+
+		assert_eq!(
+			request.fields, expected_fields,
+			"[archive_blocks={archive_blocks}] Gap sync fields mismatch: expected {expected_fields:?}, got {:?}",
+			request.fields
+		);
+	}
+}
+
+#[test]
+fn regular_sync_always_requests_bodies_regardless_of_pruning() {
+	sp_tracing::try_init_simple();
+
+	// Verify that regular (non-gap) sync always requests bodies,
+	// regardless of pruning mode - our optimization only applies to gap sync
+	for archive_blocks in [true, false] {
+		log::info!("Testing regular sync with archive_blocks: {}", archive_blocks);
+
+		let client = Arc::new(TestClientBuilder::new().build());
+		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
+
+		let mut sync = ChainSync::new(
+			ChainSyncMode::Full,
+			client.clone(),
+			5,
+			64,
+			ProtocolName::Static(""),
+			Arc::new(MockBlockDownloader::new()),
+			archive_blocks,
+			None,
+			std::iter::empty(),
+		)
+		.unwrap();
+
+		let peer_id = PeerId::random();
+
+		// Ensure we're NOT in gap sync mode
+		assert!(
+			sync.gap_sync.is_none(),
+			"[archive_blocks={archive_blocks}] Should not have gap sync active"
+		);
+
+		// Add peer ahead of us to trigger regular sync
+		sync.add_peer(peer_id, blocks[4].hash(), 5);
+
+		let requests = sync.block_requests();
+
+		// Regular sync may not always generate requests immediately depending on state,
+		// but when it does, it should request bodies
+		if !requests.is_empty() {
+			let (_peer, request) = &requests[0];
+
+			// Verify exact expected fields for Full mode
+			let expected_fields =
+				BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION;
+
+			assert_eq!(
+				request.fields, expected_fields,
+				"[archive_blocks={archive_blocks}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
+				request.fields
+			);
+		}
 	}
 }
