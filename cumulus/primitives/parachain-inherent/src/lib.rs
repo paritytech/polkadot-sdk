@@ -131,27 +131,17 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 }
 
 #[cfg(feature = "std")]
-impl ParachainInherentData {
-	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used
-	/// to create inherent data compatible with old runtimes.
-	fn as_v0(&self) -> v0::ParachainInherentData {
-		v0::ParachainInherentData {
-			validation_data: self.validation_data.clone(),
-			relay_chain_state: self.relay_chain_state.clone(),
-			downward_messages: self.downward_messages.clone(),
-			horizontal_messages: self.horizontal_messages.clone(),
-		}
-	}
-}
-
-#[cfg(feature = "std")]
 #[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for ParachainInherentData {
 	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,
 	) -> Result<(), sp_inherents::Error> {
-		inherent_data.put_data(PARACHAIN_INHERENT_IDENTIFIER_V0, &self.as_v0())?;
+		// Put full data at the V0 identifier too, so that older runtimes (which read from
+		// `sysi1337` and expect 5 fields) can correctly SCALE-decode the `relay_parent_descendants`
+		// field. SCALE ignores any trailing bytes (the `collator_peer_id` field) that the older
+		// runtime doesn't know about.
+		inherent_data.put_data(PARACHAIN_INHERENT_IDENTIFIER_V0, &self)?;
 		inherent_data.put_data(INHERENT_IDENTIFIER, &self)
 	}
 
