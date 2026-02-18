@@ -186,6 +186,7 @@ pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
 use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
+use sp_runtime::traits::TryGetDecodeFn;
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -529,6 +530,7 @@ pub mod pallet {
 		/// The aggregated `RuntimeCall` type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
+			+ TryGetDecodeFn
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
 			+ GetDispatchInfo

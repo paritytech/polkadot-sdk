@@ -28,7 +28,7 @@ pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{MultiAddress, MultiSigner, StateVersion},
+	sp_runtime::{traits::TryGetDecodeFn, MultiAddress, MultiSigner, StateVersion},
 };
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::currency::UNITS;
@@ -60,7 +60,7 @@ frame_support::parameter_types! {
 
 /// Builds an (un)congestion XCM program with the `report_bridge_status` call for
 /// `ToRococoXcmRouter`.
-pub fn build_congestion_message<RuntimeCall>(
+pub fn build_congestion_message<RuntimeCall: TryGetDecodeFn>(
 	bridge_id: sp_core::H256,
 	is_congested: bool,
 ) -> alloc::vec::Vec<Instruction<RuntimeCall>> {

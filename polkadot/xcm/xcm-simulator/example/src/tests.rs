@@ -18,11 +18,12 @@ use crate::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, weights::Weight};
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::latest::QueryResponseInfo;
 use xcm_simulator::{mock_message_queue::ReceivedDmp, TestExt};
 
 // Helper function for forming buy execution message
-fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
+fn buy_execution<C: TryGetDecodeFn>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 

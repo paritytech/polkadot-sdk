@@ -21,7 +21,7 @@ use mock::{
 	CENTS,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, TryGetDecodeFn};
 use xcm::latest::{prelude::*, Error::UntrustedTeleportLocation};
 use xcm_executor::XcmExecutor;
 use xcm_simulator::fake_message_hash;
@@ -32,7 +32,7 @@ pub const INITIAL_BALANCE: u128 = 100_000_000_000;
 pub const REGISTER_AMOUNT: Balance = 10 * CENTS;
 
 // Construct a `BuyExecution` order.
-fn buy_execution<C>() -> Instruction<C> {
+fn buy_execution<C: TryGetDecodeFn>() -> Instruction<C> {
 	BuyExecution { fees: (Here, REGISTER_AMOUNT).into(), weight_limit: Unlimited }
 }
 
@@ -341,7 +341,7 @@ fn recursive_xcm_execution_fail() {
 	// Dummy filter to allow all
 	struct AllowAll;
 	impl ShouldExecute for AllowAll {
-		fn should_execute<RuntimeCall>(
+		fn should_execute<RuntimeCall: TryGetDecodeFn>(
 			_: &Location,
 			_: &mut [Instruction<RuntimeCall>],
 			_: Weight,
@@ -354,7 +354,7 @@ fn recursive_xcm_execution_fail() {
 	// Dummy filter which denies `ClearOrigin`
 	struct DenyClearOrigin;
 	impl DenyExecution for DenyClearOrigin {
-		fn deny_execution<RuntimeCall>(
+		fn deny_execution<RuntimeCall: TryGetDecodeFn>(
 			_: &Location,
 			instructions: &mut [Instruction<RuntimeCall>],
 			_: Weight,

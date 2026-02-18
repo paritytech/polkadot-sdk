@@ -24,13 +24,16 @@ use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
 	traits::{Contains, ContainsPair, Get, PalletsInfoAccess},
 };
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, TryGetDecodeFn};
 use xcm::prelude::*;
 
 /// The trait to parameterize the `XcmExecutor`.
 pub trait Config {
 	/// The outer call dispatch type.
-	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo;
+	type RuntimeCall: Parameter
+		+ TryGetDecodeFn
+		+ Dispatchable<PostInfo = PostDispatchInfo>
+		+ GetDispatchInfo;
 
 	/// How to send an onward XCM message.
 	///

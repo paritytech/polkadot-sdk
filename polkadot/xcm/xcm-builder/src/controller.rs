@@ -23,16 +23,17 @@ use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
 };
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 
 /// Umbrella trait for all Controller traits.
-pub trait Controller<Origin, RuntimeCall, Timeout>:
+pub trait Controller<Origin, RuntimeCall: TryGetDecodeFn, Timeout>:
 	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
 {
 }
 
-impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
+impl<T, Origin, RuntimeCall: TryGetDecodeFn, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
 	T: ExecuteController<Origin, RuntimeCall>
 		+ SendController<Origin>
 		+ QueryController<Origin, Timeout>
@@ -51,7 +52,7 @@ pub trait ExecuteControllerWeightInfo {
 /// - Validating and Converting the origin to a Location.
 /// - Handling versioning.
 /// - Calling  the internal executor, which implements [`ExecuteXcm`].
-pub trait ExecuteController<Origin, RuntimeCall> {
+pub trait ExecuteController<Origin, RuntimeCall: TryGetDecodeFn> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
 
@@ -135,7 +136,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 	) -> Result<QueryId, DispatchError>;
 }
 
-impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
+impl<Origin, RuntimeCall: TryGetDecodeFn> ExecuteController<Origin, RuntimeCall> for () {
 	type WeightInfo = ();
 	fn execute(
 		_origin: Origin,

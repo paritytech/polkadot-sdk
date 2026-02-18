@@ -24,7 +24,7 @@ use xcm::{latest::prelude::*, DoubleEncoded};
 
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmBalancesWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_runtime::BoundedVec;
+use sp_runtime::{traits::TryGetDecodeFn, BoundedVec};
 use xcm::latest::AssetTransferFilter;
 
 /// Types of asset supported by the Rococo runtime.
@@ -90,7 +90,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct RococoXcmWeight<RuntimeCall>(core::marker::PhantomData<RuntimeCall>);
-impl<RuntimeCall> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
+impl<RuntimeCall: TryGetDecodeFn> XcmWeightInfo<RuntimeCall> for RococoXcmWeight<RuntimeCall> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmBalancesWeight::<Runtime>::withdraw_asset())
 	}

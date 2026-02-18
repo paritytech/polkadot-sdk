@@ -10,7 +10,7 @@ use frame_support::{dispatch::GetDispatchInfo, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	codec::{Decode, Encode},
-	traits::Get,
+	traits::{Get, TryGetDecodeFn},
 	DispatchError,
 };
 use sp_std::{fmt::Debug, marker::PhantomData};
@@ -119,7 +119,7 @@ where
 	XcmSender: SendXcm,
 	RewardBalance: Into<u128> + Clone,
 	XcmExecutor: ExecuteXcm<Call>,
-	Call: Decode + GetDispatchInfo,
+	Call: Decode + TryGetDecodeFn + GetDispatchInfo,
 {
 	type Error = DispatchError;
 	type Beneficiary = Location;
@@ -193,7 +193,7 @@ mod tests {
 	}
 
 	pub struct MockXcmExecutor;
-	impl<C> ExecuteXcm<C> for MockXcmExecutor {
+	impl<C: TryGetDecodeFn> ExecuteXcm<C> for MockXcmExecutor {
 		type Prepared = Weightless;
 		fn prepare(_: Xcm<C>, _: Weight) -> Result<Self::Prepared, InstructionError> {
 			Err(InstructionError { index: 0, error: XcmError::Unimplemented })
@@ -213,6 +213,7 @@ mod tests {
 
 	#[derive(Debug, Decode, Default)]
 	pub struct MockCall;
+	impl TryGetDecodeFn for MockCall {}
 	impl GetDispatchInfo for MockCall {
 		fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
 			Default::default()
@@ -312,7 +313,7 @@ mod tests {
 	#[test]
 	fn pay_reward_fails_on_charge_fees() {
 		struct FailingXcmExecutor;
-		impl<C> ExecuteXcm<C> for FailingXcmExecutor {
+		impl<C: TryGetDecodeFn> ExecuteXcm<C> for FailingXcmExecutor {
 			type Prepared = Weightless;
 			fn prepare(_: Xcm<C>, _: Weight) -> Result<Self::Prepared, InstructionError> {
 				Err(InstructionError { index: 0, error: XcmError::Unimplemented })

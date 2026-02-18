@@ -304,7 +304,7 @@ pub trait PreparedMessage {
 pub type InstructionIndex = u8;
 
 /// Type of XCM message executor.
-pub trait ExecuteXcm<Call> {
+pub trait ExecuteXcm<Call: TryGetDecodeFn> {
 	type Prepared: PreparedMessage;
 	/// If it fails, returns the index of the problematic instruction.
 	fn prepare(
@@ -342,7 +342,7 @@ impl PreparedMessage for Weightless {
 	}
 }
 
-impl<C> ExecuteXcm<C> for () {
+impl<C: TryGetDecodeFn> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
 	fn prepare(_: Xcm<C>, _: Weight) -> result::Result<Self::Prepared, InstructionError> {
 		Err(InstructionError { index: 0, error: Error::Unimplemented })

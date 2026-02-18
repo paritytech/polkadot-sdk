@@ -16,10 +16,11 @@
 
 use crate::AssetsInHolding;
 use core::result::Result;
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::latest::{prelude::*, Weight};
 
 /// Determine the weight of an XCM message.
-pub trait WeightBounds<RuntimeCall> {
+pub trait WeightBounds<RuntimeCall: TryGetDecodeFn> {
 	/// Return the maximum amount of weight that an attempted execution of this message could
 	/// consume.
 	fn weight(

@@ -449,6 +449,7 @@ fn construct_runtime_final_expansion(
 			#scrate::__private::scale_info::TypeInfo
 		)]
 		pub struct #name;
+
 		impl #scrate::sp_runtime::traits::GetRuntimeBlockType for #name {
 			type RuntimeBlock = #block;
 		}

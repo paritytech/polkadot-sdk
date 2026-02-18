@@ -23,7 +23,7 @@ use codec::Encode;
 use frame_support::weights::Weight;
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
-use sp_runtime::BoundedVec;
+use sp_runtime::{traits::TryGetDecodeFn, BoundedVec};
 use xcm::{
 	latest::{prelude::*, AssetTransferFilter},
 	DoubleEncoded,
@@ -63,7 +63,7 @@ impl WeighAssets for Assets {
 }
 
 pub struct BridgeHubWestendXcmWeight<Call>(core::marker::PhantomData<Call>);
-impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
+impl<Call: TryGetDecodeFn> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 	fn withdraw_asset(assets: &Assets) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::withdraw_asset())
 	}

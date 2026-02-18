@@ -18,6 +18,7 @@
 
 use core::ops::ControlFlow;
 use frame_support::traits::ProcessMessageError;
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::latest::{Instruction, Location};
 
 /// Creates an instruction matcher from an XCM. Since XCM versions differ, we need to make a trait
@@ -30,7 +31,7 @@ pub trait CreateMatcher {
 	fn matcher(self) -> Self::Matcher;
 }
 
-impl<'a, Call> CreateMatcher for &'a mut [Instruction<Call>] {
+impl<'a, Call: TryGetDecodeFn> CreateMatcher for &'a mut [Instruction<Call>] {
 	type Matcher = Matcher<'a, Call>;
 
 	fn matcher(self) -> Self::Matcher {
@@ -116,13 +117,13 @@ pub trait MatchXcm {
 ///
 /// Implements `MatchXcm` to allow an iterator-like API to match against each `Instruction`
 /// contained within the slice, which facilitates the building of XCM barriers.
-pub struct Matcher<'a, Call> {
+pub struct Matcher<'a, Call: TryGetDecodeFn> {
 	pub(crate) xcm: &'a mut [Instruction<Call>],
 	pub(crate) current_idx: usize,
 	pub(crate) total_inst: usize,
 }
 
-impl<'a, Call> MatchXcm for Matcher<'a, Call> {
+impl<'a, Call: TryGetDecodeFn> MatchXcm for Matcher<'a, Call> {
 	type Error = ProcessMessageError;
 	type Inst = Instruction<Call>;
 	type Loc = Location;

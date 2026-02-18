@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{Everything, Nothing, ProcessMessageError},
 	weights::Weight,
 };
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, TryGetDecodeFn};
 use xcm::prelude::*;
 
 use crate::{
@@ -75,6 +75,7 @@ pub struct TestOrigin;
 	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
 )]
 pub struct TestCall;
+impl TryGetDecodeFn for TestCall {}
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
 	type Config = ();
@@ -93,7 +94,7 @@ impl GetDispatchInfo for TestCall {
 
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
-impl<C> WeightBounds<C> for TestWeigher {
+impl<C: TryGetDecodeFn> WeightBounds<C> for TestWeigher {
 	fn weight(_message: &mut Xcm<C>, _weight_limit: Weight) -> Result<Weight, InstructionError> {
 		Ok(Weight::from_parts(2, 2))
 	}
@@ -194,7 +195,7 @@ impl TransactAsset for TestAssetTransactor {
 /// Test barrier that just lets everything through.
 pub struct TestBarrier;
 impl ShouldExecute for TestBarrier {
-	fn should_execute<Call>(
+	fn should_execute<Call: TryGetDecodeFn>(
 		_origin: &Location,
 		_instructions: &mut [Instruction<Call>],
 		_max_weight: Weight,

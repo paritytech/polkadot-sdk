@@ -18,6 +18,7 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::{latest::prelude::*, MAX_INSTRUCTIONS_TO_DECODE};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
@@ -83,7 +84,7 @@ pub trait Config: crate::Config + pallet_balances::Config {
 	fn get_asset() -> Asset;
 }
 
-#[benchmarks]
+#[benchmarks(where <T as crate::Config>::RuntimeCall: TryGetDecodeFn)]
 mod benchmarks {
 	use super::*;
 

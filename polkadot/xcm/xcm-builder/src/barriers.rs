@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{Contains, ContainsPair, Get, Nothing, ProcessMessageError},
 };
 use polkadot_parachain_primitives::primitives::IsSystem;
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::prelude::*;
 use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Properties, ShouldExecute};
 
@@ -33,7 +34,7 @@ use xcm_executor::traits::{CheckSuspension, DenyExecution, OnResponse, Propertie
 /// out of the local chain to another one.
 pub struct TakeWeightCredit;
 impl ShouldExecute for TakeWeightCredit {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -65,7 +66,7 @@ const MAX_ASSETS_FOR_BUY_EXECUTION: usize = 2;
 /// pay for execution.
 pub struct AllowTopLevelPaidExecutionFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowTopLevelPaidExecutionFrom<T> {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -174,7 +175,7 @@ pub struct WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>(
 impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPrefixes: Get<u32>>
 	ShouldExecute for WithComputedOrigin<InnerBarrier, LocalUniversal, MaxPrefixes>
 {
-	fn should_execute<Call>(
+	fn should_execute<Call: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -234,7 +235,7 @@ impl<InnerBarrier: ShouldExecute, LocalUniversal: Get<InteriorLocation>, MaxPref
 /// Requires some inner barrier to pass on the rest of the message.
 pub struct TrailingSetTopicAsId<InnerBarrier>(PhantomData<InnerBarrier>);
 impl<InnerBarrier: ShouldExecute> ShouldExecute for TrailingSetTopicAsId<InnerBarrier> {
-	fn should_execute<Call>(
+	fn should_execute<Call: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -266,7 +267,7 @@ where
 	Inner: ShouldExecute,
 	SuspensionChecker: CheckSuspension,
 {
-	fn should_execute<Call>(
+	fn should_execute<Call: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -286,7 +287,7 @@ where
 /// can be sent.
 pub struct AllowUnpaidExecutionFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowUnpaidExecutionFrom<T> {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -322,7 +323,7 @@ pub struct AllowExplicitUnpaidExecutionFrom<T, Aliasers = Nothing>(PhantomData<(
 impl<T: Contains<Location>, Aliasers: ContainsPair<Location, Location>> ShouldExecute
 	for AllowExplicitUnpaidExecutionFrom<T, Aliasers>
 {
-	fn should_execute<Call>(
+	fn should_execute<Call: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<Call>],
 		max_weight: Weight,
@@ -439,7 +440,7 @@ impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
 /// Allows only messages if the generic `ResponseHandler` expects them via `expecting_response`.
 pub struct AllowKnownQueryResponses<ResponseHandler>(PhantomData<ResponseHandler>);
 impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<ResponseHandler> {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -469,7 +470,7 @@ impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<Res
 /// `UnsubscribeVersion` instruction.
 pub struct AllowSubscriptionsFrom<T>(PhantomData<T>);
 impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -500,7 +501,7 @@ impl<T: Contains<Location>> ShouldExecute for AllowSubscriptionsFrom<T> {
 /// documentation.
 pub struct AllowHrmpNotificationsFromRelayChain;
 impl ShouldExecute for AllowHrmpNotificationsFromRelayChain {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -539,7 +540,7 @@ where
 	Deny: DenyExecution,
 	Allow: ShouldExecute,
 {
-	fn should_execute<RuntimeCall>(
+	fn should_execute<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
@@ -553,7 +554,7 @@ where
 // See issue <https://github.com/paritytech/polkadot/issues/5233>
 pub struct DenyReserveTransferToRelayChain;
 impl DenyExecution for DenyReserveTransferToRelayChain {
-	fn deny_execution<RuntimeCall>(
+	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
@@ -608,7 +609,7 @@ impl<Inner: DenyExecution> DenyRecursively<Inner> {
 	///
 	/// Ensures that restricted instructions are blocked at any depth within the XCM.
 	/// Uses a **recursion counter** to prevent stack overflows from deep nesting.
-	fn deny_recursively<RuntimeCall>(
+	fn deny_recursively<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		xcm: &mut Xcm<RuntimeCall>,
 		max_weight: Weight,
@@ -650,7 +651,7 @@ impl<Inner: DenyExecution> DenyExecution for DenyRecursively<Inner> {
 	///
 	/// This checks for `SetAppendix`, `SetErrorHandler`, and `ExecuteWithOrigin` instruction
 	/// applying the deny filter **recursively** to any nested XCMs found.
-	fn deny_execution<RuntimeCall>(
+	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,

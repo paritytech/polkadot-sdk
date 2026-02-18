@@ -51,12 +51,12 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
 		impl XcmBuilderState for ExplicitUnpaidRequired {}
 
 		/// Type used to build XCM programs
-		pub struct XcmBuilder<Call, S: XcmBuilderState> {
+		pub struct XcmBuilder<Call: sp_runtime::traits::TryGetDecodeFn, S: XcmBuilderState> {
 			pub(crate) instructions: Vec<Instruction<Call>>,
 			pub state: core::marker::PhantomData<S>,
 		}
 
-		impl<Call> Xcm<Call> {
+		impl<Call: sp_runtime::traits::TryGetDecodeFn> Xcm<Call> {
 			pub fn builder() -> XcmBuilder<Call, PaymentRequired> {
 				XcmBuilder::<Call, PaymentRequired> {
 					instructions: Vec::new(),
@@ -90,7 +90,7 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> Result<Token
 		.map(|variant| convert_variant_to_method(name, variant, None))
 		.collect::<Result<Vec<_>>>()?;
 	let output = quote! {
-		impl<Call> XcmBuilder<Call, AnythingGoes> {
+		impl<Call: sp_runtime::traits::TryGetDecodeFn> XcmBuilder<Call, AnythingGoes> {
 			#(#methods)*
 
 			pub fn build(self) -> Xcm<Call> {
@@ -152,7 +152,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.collect::<Result<Vec<_>>>()?;
 
 	let first_impl = quote! {
-		impl<Call> XcmBuilder<Call, PaymentRequired> {
+		impl<Call: sp_runtime::traits::TryGetDecodeFn> XcmBuilder<Call, PaymentRequired> {
 			#(#load_holding_methods)*
 		}
 	};
@@ -211,7 +211,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.collect::<Result<Vec<_>>>()?;
 
 	let second_impl = quote! {
-		impl<Call> XcmBuilder<Call, LoadedHolding> {
+		impl<Call: sp_runtime::traits::TryGetDecodeFn> XcmBuilder<Call, LoadedHolding> {
 			#(#allowed_after_load_holding_methods)*
 			#(#pay_fees_methods)*
 		}
@@ -237,7 +237,7 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 		Some(quote! { XcmBuilder<Call, AnythingGoes> }),
 	)?;
 	Ok(quote! {
-		impl<Call> XcmBuilder<Call, ExplicitUnpaidRequired> {
+		impl<Call: sp_runtime::traits::TryGetDecodeFn> XcmBuilder<Call, ExplicitUnpaidRequired> {
 			#method
 		}
 	})

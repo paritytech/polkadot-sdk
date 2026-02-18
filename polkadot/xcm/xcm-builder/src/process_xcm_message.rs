@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ProcessMessage, ProcessMessageError},
 };
 use scale_info::TypeInfo;
+use sp_runtime::traits::TryGetDecodeFn;
 use sp_weights::{Weight, WeightMeter};
 use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 
@@ -35,7 +36,7 @@ pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 impl<
 		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
-		Call: Decode + GetDispatchInfo,
+		Call: Decode + TryGetDecodeFn + GetDispatchInfo,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
 {
 	type Origin = MessageOrigin;

@@ -71,6 +71,11 @@ pub fn expand_outer_dispatch(
 		pub enum RuntimeCall {
 			#variant_defs
 		}
+
+		impl #scrate::sp_runtime::traits::TryGetDecodeFn for RuntimeCall {
+
+		}
+
 		#[cfg(test)]
 		impl RuntimeCall {
 			/// Return a list of the module names together with their size in memory.

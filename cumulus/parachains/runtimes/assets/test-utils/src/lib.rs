@@ -22,8 +22,8 @@ pub mod xcm_helpers;
 
 use frame_support::traits::ProcessMessageError;
 pub use parachains_runtimes_test_utils::*;
+use sp_runtime::traits::TryGetDecodeFn;
 use std::fmt::Debug;
-
 use xcm::latest::prelude::*;
 use xcm_builder::{CreateMatcher, MatchXcm};
 
@@ -44,7 +44,9 @@ fn get_fungible_delivery_fees<S: SendXcm>(destination: Location, message: Xcm<()
 
 /// Helper function to verify `xcm` contains all relevant instructions expected on destination
 /// chain as part of a reserve-asset-transfer.
-pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: Debug>(
+pub(crate) fn assert_matches_reserve_asset_deposited_instructions<
+	RuntimeCall: TryGetDecodeFn + Debug,
+>(
 	xcm: &mut Xcm<RuntimeCall>,
 	expected_reserve_assets_deposited: &Assets,
 	expected_beneficiary: &Location,

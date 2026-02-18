@@ -16,6 +16,7 @@
 use core::{marker::PhantomData, ops::ControlFlow};
 use cumulus_primitives_core::Weight;
 use frame_support::traits::{Contains, ProcessMessageError};
+use sp_runtime::traits::TryGetDecodeFn;
 use xcm::prelude::{ExportMessage, Instruction, Location, NetworkId};
 
 use xcm_builder::{CreateMatcher, MatchXcm};
@@ -34,7 +35,7 @@ where
 	FromOrigin: Contains<Location>,
 	ToGlobalConsensus: Contains<NetworkId>,
 {
-	fn deny_execution<RuntimeCall>(
+	fn deny_execution<RuntimeCall: TryGetDecodeFn>(
 		origin: &Location,
 		message: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,

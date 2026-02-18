@@ -14,7 +14,7 @@ use crate::v2::{
 
 use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
-use sp_runtime::traits::MaybeConvert;
+use sp_runtime::traits::{MaybeConvert, TryGetDecodeFn};
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -57,12 +57,12 @@ macro_rules! match_expression {
 	};
 }
 
-pub struct XcmConverter<'a, ConvertAssetId, Call> {
+pub struct XcmConverter<'a, ConvertAssetId, Call: TryGetDecodeFn> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: NetworkId,
 	_marker: PhantomData<ConvertAssetId>,
 }
-impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
+impl<'a, ConvertAssetId, Call: TryGetDecodeFn> XcmConverter<'a, ConvertAssetId, Call>
 where
 	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {

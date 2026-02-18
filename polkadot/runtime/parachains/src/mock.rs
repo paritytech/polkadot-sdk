@@ -48,7 +48,7 @@ use polkadot_primitives::{
 use sp_core::{ConstU32, H256};
 use sp_io::TestExternalities;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, TryGetDecodeFn},
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
@@ -270,7 +270,7 @@ thread_local! {
 /// versions in the `VERSION_WRAPPER`.
 pub struct TestUsesOnlyStoredVersionWrapper;
 impl WrapVersion for TestUsesOnlyStoredVersionWrapper {
-	fn wrap_version<RuntimeCall: Decode + GetDispatchInfo>(
+	fn wrap_version<RuntimeCall: Decode + TryGetDecodeFn + GetDispatchInfo>(
 		dest: &Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()> {
