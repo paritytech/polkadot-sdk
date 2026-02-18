@@ -835,31 +835,26 @@ fn substrate_nesting_works_with_eip_150() {
 		true,
 		vec![
 			// 0: NoLimits, low consumption.
-			// 63/64 reduces all remaining resources uniformly.
 			(
 				((5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64), NoLimits),
-				Some((2953117620u64, 1476558808, 9949, 590623523, 2000007500u64)),
+				Some((2953117620u64, 1476558808, 9984, 590623523, 2000007500u64)),
 			),
 			// 1: NoLimits, high ref_time consumption.
-			// Less remaining after charges → smaller 63/64 reduction.
 			(
 				((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
-				Some((415517270, 492064207, 1088, 83103453, 4577887218)),
+				Some((415517270, 496576993, 1089, 83103453, 4577887220)),
 			),
-			// 2: NoLimits, large deposit refund (negative deposit_charge).
-			// Refund increases available deposit; 63/64 applied to the larger amount.
+			// 2: NoLimits, large deposit refund.
 			(
 				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000), NoLimits),
-				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
 			),
 			// 3: NoLimits, very large deposit refund.
-			// Deposit left is massive; gas_consumed = 0 because refund exceeds charges.
 			(
 				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -70000000000), NoLimits),
-				Some((310775670520, 173742185285, 814679, 62155134102, 0)),
+				Some((310775670520, 174033524174, 814679, 62155134102, 0)),
 			),
-			// 4: WeightDeposit, limits much larger than 63/64 capped values.
-			// 63/64 is binding (limits are not). Same as NoLimits case 0.
+			// 4: WeightDeposit, limits larger than remaining budget.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
@@ -868,10 +863,9 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
 			),
-			// 5: WeightDeposit, ref_time limit (1B) is below 63/64 capped ref_time.
-			// ref_time is clamped to 1B, other resources by 63/64.
+			// 5: WeightDeposit, ref_time limit (1B) binding.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
@@ -880,10 +874,9 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1000000000, 9949, 590623523, 2000007500)),
+				Some((2953117620, 1000000000, 9984, 590623523, 2000007500)),
 			),
-			// 6: WeightDeposit, proof_size limit (10000) caps proof_size.
-			// 63/64 of proof_size ≈ 9949, but limit is 10000, so 63/64 is binding.
+			// 6: WeightDeposit, proof_size limit (10000) not binding.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
@@ -892,10 +885,9 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
 			),
-			// 7: WeightDeposit, deposit limit (100M) is below 63/64 capped deposit.
-			// Deposit is clamped to 100M.
+			// 7: WeightDeposit, deposit limit (100M) binding.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
@@ -904,10 +896,9 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 100000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9949, 100000000, 2000007500)),
+				Some((2953117620, 1476558808, 9984, 100000000, 2000007500)),
 			),
-			// 8: WeightDeposit, all explicit limits much smaller than 63/64 capped.
-			// Explicit limits are binding, identical to non-EIP-150 case.
+			// 8: WeightDeposit, all explicit limits binding.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
@@ -932,22 +923,20 @@ fn substrate_nesting_works_with_eip_150() {
 				Some((1580000, 40000, 200, 300000, 3800001000)),
 			),
 			// 11: Ethereum gas, gas_limit (2999992501) > 63/64 of remaining.
-			// 63/64 is binding, gas_limit is not.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
 					Ethereum { gas: 2999992501, add_stipend: false },
 				),
-				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
 			),
 			// 12: Ethereum gas, gas_limit (2999992490) > 63/64 of remaining.
-			// 63/64 is binding; same result as case 11.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
 					Ethereum { gas: 2999992490, add_stipend: false },
 				),
-				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
 			),
 			// 13: Ethereum gas, very small gas_limit (10000) is binding over 63/64.
 			(
@@ -963,25 +952,23 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
 					Ethereum { gas: 708617660, add_stipend: false },
 				),
-				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
 			),
 			// 15: Ethereum gas, large refund, gas_limit (3157000000) > 63/64.
-			// 63/64 is binding.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
 					Ethereum { gas: 3157000000, add_stipend: false },
 				),
-				Some((697545520, 18703122785, 1827, 139509102, 4291382335)),
+				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
 			),
 			// 16: Ethereum gas, tiny gas_limit (500), high proof_size consumption.
-			// Gas almost exhausted; weight/deposit collapse to near-zero.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
 					Ethereum { gas: 500, add_stipend: false },
 				),
-				Some((4, 1476335227, 0, 0, 4999999996)),
+				Some((10, 1499769119, 0, 0, 5000000000)),
 			),
 			// 17: Ethereum gas, even smaller gas_limit (300).
 			(
@@ -989,7 +976,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
 					Ethereum { gas: 300, add_stipend: false },
 				),
-				Some((4, 1476335227, 0, 0, 4999999996)),
+				Some((10, 1499769119, 0, 0, 5000000000)),
 			),
 			// 18: Ethereum gas, small gas_limit (300), moderate proof_size.
 			(
@@ -1167,10 +1154,7 @@ fn substrate_nesting_charges_works() {
 	);
 }
 
-/// Tests where EIP-150 63/64 rule is the binding constraint for nested meter charges.
-///
-/// Uses gas_limit = 5B (>> remaining ~3B) so the gas_limit itself never binds —
-/// only the 63/64 reduction constrains resources.
+/// Tests where EIP-150 63/64 gas rule is the binding constraint for nested meter charges.
 #[test]
 fn substrate_nesting_charges_works_with_eip_150() {
 	use Charge::{D, W};
@@ -1178,38 +1162,35 @@ fn substrate_nesting_charges_works_with_eip_150() {
 	run_nesting_charges_tests(
 		true,
 		vec![
-			// 0: 63/64 caps proof_size to 9949. After W(100, 100) it's 9849.
-			// W(0, 10000) FAILS because 9849 < 10000.
-			// (Without EIP-150, proof_size starts at 10107, so 10000 fits.)
+			// 0: proof_size starts at 9984 (vs 10107 without EIP-150).
+			// W(0, 10000) fails after W(100,100) leaves only 9884.
 			(
 				(5_000_000_000u64, 1_000_000_000, 2_000, 1000, 1000, 1000i64, 5_000_000_000u64),
 				vec![
 					(
 						W(100, 100),
-						Some((2953117420u64, 1476558708, 9849, 590623483, 2000007700u64)),
+						Some((2953117420u64, 1476558708, 9884, 590623483, 2000007700u64)),
 					),
-					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
+					(D(100), Some((2953116920, 1476558458, 9884, 590623383, 2000008200))),
 					(W(0, 10000), None),
 				],
 			),
-			// 1: 63/64 caps deposit to ~590M.
-			// D(595M) FAILS because 590M < 595M.
-			// (Without EIP-150, deposit starts at ~600M, so 595M fits.)
+			// 1: deposit starts at ~590M (vs ~600M without EIP-150).
+			// D(595M) fails; D(-595M) refund succeeds.
 			(
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
 				vec![
 					(D(595000000), None),
-					(D(-595000000), Some((2953117620, 1476558808, 9949, 590623523, 2000007500))),
+					(D(-595000000), Some((2953117620, 1476558808, 9984, 590623523, 2000007500))),
 				],
 			),
-			// 2: 63/64 caps gas to ~2.95B (vs ~3B without EIP-150).
-			// All charges succeed; values reflect the 63/64-reduced gas/weight/deposit.
+			// 2: All charges succeed within the 63/64-reduced budget.
 			(
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
 				vec![
-					(W(100, 100), Some((2953117420, 1476558708, 9849, 590623483, 2000007700))),
-					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
-					(W(100000000, 0), Some((2753116920, 1376558458, 9849, 550623383, 2200008200))),
+					(W(100, 100), Some((2953117420, 1476558708, 9884, 590623483, 2000007700))),
+					(D(100), Some((2953116920, 1476558458, 9884, 590623383, 2000008200))),
+					(W(100000000, 0), Some((2753116920, 1376558458, 9884, 550623383, 2200008200))),
 				],
 			),
 		],

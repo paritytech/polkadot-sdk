@@ -469,13 +469,18 @@ pub mod ethereum_execution {
 
 		let remaining_gas = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
+		let (remaining_gas, max_total_gas) = if should_apply_eip_150 {
+			let capped_remaining_gas = remaining_gas.apply_eip_150();
+			let retained_gas = remaining_gas.saturating_sub(&capped_remaining_gas);
+			let max_total_gas = meter.max_total_gas.saturating_sub(&retained_gas);
+			(capped_remaining_gas, max_total_gas)
+		} else {
+			(remaining_gas, meter.max_total_gas.clone())
+		};
+
 		let weight_left = {
 			let unbounded_weight_left = eth_tx_info
-				.weight_remaining(
-					&meter.max_total_gas,
-					&total_consumed_weight,
-					&total_consumed_deposit,
-				)
+				.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
 				.ok_or(<Error<T>>::OutOfGas)?;
 
 			unbounded_weight_left.min(
@@ -487,16 +492,8 @@ pub mod ethereum_execution {
 			)
 		};
 
-		let (capped_remaining_gas, capped_weight_left) = if should_apply_eip_150 {
-			(remaining_gas.apply_eip_150(), eip_150::apply_weight(weight_left))
-		} else {
-			(remaining_gas, weight_left)
-		};
-
-		// Compute capped_deposit_left from capped_remaining_gas to be consistent with 63/64 gas cap
-		let capped_deposit_left = {
-			let Some(unbounded_deposit_left) = capped_remaining_gas.to_adjusted_deposit_charge()
-			else {
+		let deposit_left = {
+			let Some(unbounded_deposit_left) = remaining_gas.to_adjusted_deposit_charge() else {
 				return Err(<Error<T>>::OutOfGas.into());
 			};
 
@@ -513,19 +510,14 @@ pub mod ethereum_execution {
 		let (nested_gas_limit, nested_weight_limit, nested_deposit_limit, stipend) = {
 			match limit {
 				CallResources::NoLimits => (
-					capped_remaining_gas,
-					capped_weight_left,
-					if meter.deposit.limit.is_none() { None } else { Some(capped_deposit_left) },
+					remaining_gas,
+					weight_left,
+					if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 					None,
 				),
 
 				CallResources::Ethereum { gas, add_stipend } => {
-					let provided_gas = SignedGas::from_ethereum_gas(*gas);
-					let gas_limit = provided_gas.min(&capped_remaining_gas);
-
-					// Note: No ratio scaling needed: in ethereum mode, gas is the single
-					// source of truth.
-
+					let gas_limit = SignedGas::from_ethereum_gas(*gas);
 					// Stipend: validate against uncapped `weight_left`, add to gas_limit.
 					let (gas_limit, stipend) = if *add_stipend {
 						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
@@ -539,20 +531,16 @@ pub mod ethereum_execution {
 					};
 
 					(
-						gas_limit,
-						capped_weight_left,
-						if meter.deposit.limit.is_none() {
-							None
-						} else {
-							Some(capped_deposit_left)
-						},
+						remaining_gas.min(&gas_limit),
+						weight_left,
+						if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 						stipend,
 					)
 				},
 
 				CallResources::WeightDeposit { weight, deposit_limit } => {
-					let nested_weight_limit = capped_weight_left.min(*weight);
-					let nested_deposit_limit = capped_deposit_left.min(*deposit_limit);
+					let nested_weight_limit = weight_left.min(*weight);
+					let nested_deposit_limit = deposit_left.min(*deposit_limit);
 
 					let new_max_total_gas = eth_tx_info.gas_consumption(
 						&total_consumed_weight.saturating_add(nested_weight_limit),
@@ -563,7 +551,7 @@ pub mod ethereum_execution {
 					let gas_limit = new_max_total_gas.saturating_sub(&total_gas_consumption);
 
 					(
-						capped_remaining_gas.min(&gas_limit),
+						remaining_gas.min(&gas_limit),
 						nested_weight_limit,
 						Some(nested_deposit_limit),
 						None,
