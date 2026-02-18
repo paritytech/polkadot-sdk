@@ -285,9 +285,9 @@ mod tests {
 	#[test]
 	fn test_aura_consensus_id() {
 		let metadata_inspector = MetadataInspector(cumulus_test_runtime_metadata());
-		// Should detect and return the consensus ID from metadata types
+		// Verify that the function correctly detects sr25519 from metadata
 		let aura_id = metadata_inspector.aura_consensus_id();
-		assert!(aura_id.is_some(), "Should detect Aura consensus ID from runtime metadata");
+		assert_eq!(aura_id, Some(AuraConsensusId::Sr25519));
 	}
 
 	#[test]
