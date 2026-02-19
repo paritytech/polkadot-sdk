@@ -22332,7 +22332,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "bp-relayers",
  "frame-support",
@@ -22433,7 +22433,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-primitives"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "alloy-core",
  "ethabi-decode",
