@@ -1,29 +1,40 @@
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
-   |
-27 |       #[pallet::without_storage_info]
-   |  _______________^
-28 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
-29 | |
-30 | |     #[pallet::hooks]
-...  |
-38 | |     #[pallet::storage]
-39 | |     type Foo<T> = StorageValue<Value = Bar>;
-   | |____________^ unsatisfied trait bound
-   |
+ --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
+  |
+ 27 |       #[pallet::without_storage_info]
+    |  _______________^
+ 28 | |     pub struct Pallet<T>(core::marker::PhantomData<T>);
+ 29 | |
+ 30 | |     #[pallet::hooks]
+...   |
+ 38 | |     #[pallet::storage]
+ 39 | |     type Foo<T> = StorageValue<Value = Bar>;
+    | |____________^ unsatisfied trait bound
+    |
 help: the trait `WrapperTypeDecode` is not implemented for `Bar`
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
-   |
-36 |     struct Bar;
-   |     ^^^^^^^^^^
-   = help: the following other types implement trait `WrapperTypeDecode`:
-             Arc<T>
-             Box<T>
-             Rc<T>
-             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
-   = note: required for `Bar` to implement `Decode`
-   = note: required for `Bar` to implement `FullCodec`
-   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
+   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
+    |
+ 36 |     struct Bar;
+    |     ^^^^^^^^^^
+help: the following other types implement trait `WrapperTypeDecode`
+   --> $WORKSPACE/substrate/primitives/core/src/lib.rs
+    |
+    | impl codec::WrapperTypeDecode for Bytes {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes`
+    |
+   ::: $CARGO/parity-scale-codec-3.7.5/src/codec.rs
+    |
+    | impl<T> WrapperTypeDecode for Box<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Box<T>`
+...
+    | impl<T> WrapperTypeDecode for Rc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Rc<T>`
+...
+    | impl<T> WrapperTypeDecode for Arc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Arc<T>`
+    = note: required for `Bar` to implement `Decode`
+    = note: required for `Bar` to implement `FullCodec`
+    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `PartialStorageInfoTrait`
 
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:27:12
@@ -118,26 +129,37 @@ help: the trait `TypeInfo` is not implemented for `Bar`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
-   |
-38 |       #[pallet::storage]
-   |  _______________^
-39 | |     type Foo<T> = StorageValue<Value = Bar>;
-   | |____________^ unsatisfied trait bound
-   |
+ --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
+  |
+ 38 |       #[pallet::storage]
+    |  _______________^
+ 39 | |     type Foo<T> = StorageValue<Value = Bar>;
+    | |____________^ unsatisfied trait bound
+    |
 help: the trait `WrapperTypeDecode` is not implemented for `Bar`
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
-   |
-36 |     struct Bar;
-   |     ^^^^^^^^^^
-   = help: the following other types implement trait `WrapperTypeDecode`:
-             Arc<T>
-             Box<T>
-             Rc<T>
-             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
-   = note: required for `Bar` to implement `Decode`
-   = note: required for `Bar` to implement `FullCodec`
-   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
+   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
+    |
+ 36 |     struct Bar;
+    |     ^^^^^^^^^^
+help: the following other types implement trait `WrapperTypeDecode`
+   --> $WORKSPACE/substrate/primitives/core/src/lib.rs
+    |
+    | impl codec::WrapperTypeDecode for Bytes {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes`
+    |
+   ::: $CARGO/parity-scale-codec-3.7.5/src/codec.rs
+    |
+    | impl<T> WrapperTypeDecode for Box<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Box<T>`
+...
+    | impl<T> WrapperTypeDecode for Rc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Rc<T>`
+...
+    | impl<T> WrapperTypeDecode for Arc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Arc<T>`
+    = note: required for `Bar` to implement `Decode`
+    = note: required for `Bar` to implement `FullCodec`
+    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
@@ -196,26 +218,37 @@ help: the trait `WrapperTypeEncode` is not implemented for `Bar`
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `StorageEntryMetadataBuilder`
 
 error[E0277]: the trait bound `Bar: WrapperTypeDecode` is not satisfied
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
-   |
-38 |       #[pallet::storage]
-   |  _______________^
-39 | |     type Foo<T> = StorageValue<Value = Bar>;
-   | |____________^ unsatisfied trait bound
-   |
+ --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
+  |
+ 38 |       #[pallet::storage]
+    |  _______________^
+ 39 | |     type Foo<T> = StorageValue<Value = Bar>;
+    | |____________^ unsatisfied trait bound
+    |
 help: the trait `WrapperTypeDecode` is not implemented for `Bar`
-  --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
-   |
-36 |     struct Bar;
-   |     ^^^^^^^^^^
-   = help: the following other types implement trait `WrapperTypeDecode`:
-             Arc<T>
-             Box<T>
-             Rc<T>
-             frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes
-   = note: required for `Bar` to implement `Decode`
-   = note: required for `Bar` to implement `FullCodec`
-   = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `TryDecodeEntireStorage`
+   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:36:2
+    |
+ 36 |     struct Bar;
+    |     ^^^^^^^^^^
+help: the following other types implement trait `WrapperTypeDecode`
+   --> $WORKSPACE/substrate/primitives/core/src/lib.rs
+    |
+    | impl codec::WrapperTypeDecode for Bytes {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `frame_support::sp_runtime::sp_application_crypto::sp_core::Bytes`
+    |
+   ::: $CARGO/parity-scale-codec-3.7.5/src/codec.rs
+    |
+    | impl<T> WrapperTypeDecode for Box<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Box<T>`
+...
+    | impl<T> WrapperTypeDecode for Rc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Rc<T>`
+...
+    | impl<T> WrapperTypeDecode for Arc<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Arc<T>`
+    = note: required for `Bar` to implement `Decode`
+    = note: required for `Bar` to implement `FullCodec`
+    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageFoo<T>, Bar>` to implement `TryDecodeEntireStorage`
 
 error[E0277]: the trait bound `Bar: EncodeLike` is not satisfied
   --> tests/pallet_ui/storage_ensure_span_are_ok_on_wrong_gen.rs:38:12
