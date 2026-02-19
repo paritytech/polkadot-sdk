@@ -47,10 +47,12 @@ jobs:
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           # Source common library for helper functions
           . ./.github/scripts/common/lib.sh
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.tag }})
+          RELEASE_TAG=$(validate_stable_tag "$INPUT_TAG")
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   fetch-artifacts-from-s3:
@@ -71,15 +73,17 @@ jobs:
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         id: fetch_artifacts_from_s3
+        env:
+          PACKAGE_TYPE: ${{ inputs.package_type }}
         run: |
           . ./.github/scripts/common/lib.sh
           NODE_VERSION="$(get_polkadot_node_version_from_code)"
           echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_OUTPUT
 
           # Fetch specific package type artifact (deb or rpm)
-          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+          if [[ "$PACKAGE_TYPE" == "deb" ]]; then
             fetch_debian_package_from_s3 polkadot
-          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+          elif [[ "$PACKAGE_TYPE" == "rpm" ]]; then
             fetch_rpm_package_from_s3 polkadot
           fi
 
@@ -134,14 +138,15 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+          PACKAGE_TYPE: ${{ inputs.package_type }}
         run: |
           # --- Sync Local Repo from S3 ---
           mkdir -p "$LOCAL_REPO_PATH"
-          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+          if [[ "$PACKAGE_TYPE" == "deb" ]]; then
             aws s3 sync "$AWS_REPO_PATH/db" "$LOCAL_REPO_PATH/db" || true
             aws s3 sync "$AWS_REPO_PATH/pool" "$LOCAL_REPO_PATH/pool" || true
             aws s3 sync "$AWS_REPO_PATH/dists" "$LOCAL_REPO_PATH/dists" || true
-          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+          elif [[ "$PACKAGE_TYPE" == "rpm" ]]; then
             aws s3 sync "$AWS_REPO_PATH" "$LOCAL_REPO_PATH" || true
           fi
 
@@ -151,16 +156,18 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PGP_KMS_KEY: ${{ secrets.PGP_KMS_KEY }}
           PGP_KMS_HASH: ${{ secrets.PGP_KMS_HASH }}
+          PACKAGE_TYPE: ${{ inputs.package_type }}
+          DISTRIBUTION: ${{ inputs.distribution }}
         run: |
           . ./.github/scripts/common/lib.sh
           import_gpg_keys
 
           # --- Add Package to Repo and Sign ---
-          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+          if [[ "$PACKAGE_TYPE" == "deb" ]]; then
             debname=$(find release-artifacts/ -name 'polkadot_*.deb' | head -n 1)
-            reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
+            reprepro -b "$LOCAL_REPO_PATH" includedeb "$DISTRIBUTION" "$debname"
 
-          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+          elif [[ "$PACKAGE_TYPE" == "rpm" ]]; then
             rpmname=$(find release-artifacts/ -name 'polkadot-*.rpm' | head -n 1)
 
             echo "Signing package with pgpkms (via AWS KMS)..."
@@ -184,10 +191,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+          DISTRIBUTION: ${{ inputs.distribution }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ inputs.cloudfront_distribution_id }}
+          PACKAGE_TYPE: ${{ inputs.package_type }}
         run: |
-          if [[ "${{ inputs.distribution }}" == "release" ]]; then
+          if [[ "$DISTRIBUTION" == "release" ]]; then
             aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           else
             aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH"
           fi
-          aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
+          aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/${PACKAGE_TYPE}/*"
