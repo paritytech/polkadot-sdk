@@ -24,6 +24,8 @@ use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 mod basic;
 mod per_leaf;
 
+// ClaimQueueState (basic.rs) is used by PerLeafClaimQueueState, which is used by
+// validator_side_experimental. Not used directly in validator_side after leaf-based refactoring.
 pub(crate) use basic::ClaimQueueState;
 pub(crate) use per_leaf::PerLeafClaimQueueState;
 

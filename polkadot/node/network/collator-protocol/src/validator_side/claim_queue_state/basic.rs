@@ -501,6 +501,9 @@ impl ClaimQueueState {
 	/// Returns `true` if there is a free spot in claim queue (free claim) for `para_id` at
 	/// `relay_parent` or if there is an existing claim for the provided candidate at
 	/// `relay_parent`.
+	///
+	/// Note: No longer used directly in validator_side after leaf-based refactoring,
+	/// but still used by PerLeafClaimQueueState (for validator_side_experimental).
 	pub(crate) fn has_or_can_claim_at(
 		&mut self,
 		relay_parent: &Hash,
@@ -518,15 +521,6 @@ impl ClaimQueueState {
 			return true;
 		}
 		self.find_claim(relay_parent, para_id, &[ClaimState::Free], true).is_some()
-	}
-
-	/// Returns a `Vec` of `ParaId`s with all free claims at `relay_parent`.
-	pub(crate) fn get_free_at(&self, relay_parent: &Hash) -> VecDeque<ParaId> {
-		let window = self.get_window(relay_parent);
-		window
-			.filter(|b| matches!(b.claimed, ClaimState::Free))
-			.filter_map(|b| b.claim)
-			.collect()
 	}
 
 	/// Returns the number of claims for a specific para id at a specific relay parent.

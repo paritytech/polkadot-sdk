@@ -127,6 +127,17 @@ pub(super) async fn update_view(
 		)
 		.await;
 
+		// After constructing per_relay_parent, the code fetches claim queue for the leaf
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::ClaimQueue(tx),
+			)) if parent == leaf_hash => {
+				let _ = tx.send(Ok(test_state.claim_queue.clone()));
+			}
+		);
+
 		// activate_leaf calls fetch_ancestors
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -598,16 +609,18 @@ fn v1_advertisement_accepted_and_seconded() {
 fn obsolete_positions_rejected() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set up claim queue: [A, B, B]
-	// Para A only appears at position 0
+	// Set up claim queue at LEAF: [B, B, A]
+	// Para A only appears at position 2
+	// With offset=1, valid range is [0, lookahead-offset-1] = [0, 1]
+	// Para A at position 2 is OUTSIDE valid range → should be rejected
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
 			[
-				test_state.chain_ids[0], // Position 0: Para A
+				ParaId::from(999),       // Position 0: Para B (dummy)
 				ParaId::from(999),       // Position 1: Para B (dummy)
-				ParaId::from(999),       // Position 2: Para B (dummy)
+				test_state.chain_ids[0], // Position 2: Para A (beyond valid range at offset=1)
 			]
 			.into_iter(),
 		),
@@ -1557,6 +1570,23 @@ fn advertisement_spam_protection() {
 fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::with_one_scheduled_para();
 
+	// Increase claim queue to length 4 (offset=2 from leaf + 2 advertisements at head_c)
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+	test_state.scheduling_lookahead = 4;
+
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
@@ -2415,8 +2445,10 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		.await;
 
 		let relay_parent_3 = Hash::from_low_u64_be(relay_parent_2.to_low_u64_be() - 1);
+		// Update claim queue to have capacity for 4 total ads (2 from rp_2, 2 more at rp_3)
+		// With fresh claim queue approach, we need total capacity to match total expected ads
 		*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() =
-			VecDeque::from([para_id_a, para_id_a, para_id_b]);
+			VecDeque::from([para_id_a, para_id_a, para_id_b, para_id_b]);
 		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent_3, 3)]).await;
 
 		submit_second_and_assert(
@@ -2573,8 +2605,12 @@ fn collation_fetching_fairness_handles_old_claims() {
 
 		let relay_parent_4 = Hash::from_low_u64_be(relay_parent_3.to_low_u64_be() - 1);
 
+		// Increase capacity to account for candidates from previous views
+		// Total expected: 2 A (from rp_2) + 1 A (from rp_4) = 3 A
+		//                 1 B (from rp_2) + 1 B (from rp_4) = 2 B
+		// So need: 3 A entries, 2 B entries in claim queue
 		*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() =
-			VecDeque::from([para_id_a, para_id_b, para_id_a]);
+			VecDeque::from([para_id_a, para_id_b, para_id_a, para_id_b, para_id_a]);
 		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent_4, 4)]).await;
 
 		submit_second_and_assert(
@@ -2641,17 +2677,22 @@ fn collation_fetching_fairness_handles_old_claims() {
 fn claims_below_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// Set claim queue length to 3: total capacity 3 for 3 advertisements
+	// (2 at hash_a, 1 at hash_c). 4th should be rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2731,17 +2772,22 @@ fn claims_below_are_counted_correctly() {
 fn claims_above_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// Set claim queue length to 3: exactly 3 slots for the 3 successful advertisements
+	// The test expects 4th advertisement to be rejected (claim queue full)
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -2836,17 +2882,22 @@ fn claims_above_are_counted_correctly() {
 fn claim_fills_last_free_slot() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Shorten the claim queue to make the test smaller
+	// Set claim queue length to 3 to cover the depth of the ancestry
+	// (advertising at block 0 when leaf is at block 2 requires offset 2, so need length >= 3)
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
-			[ParaId::from(test_state.chain_ids[0]), ParaId::from(test_state.chain_ids[0])]
-				.into_iter(),
+			[
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+				ParaId::from(test_state.chain_ids[0]),
+			]
+			.into_iter(),
 		),
 	);
 	test_state.claim_queue = claim_queue;
-	test_state.scheduling_lookahead = 2;
+	test_state.scheduling_lookahead = 3;
 
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
@@ -3375,6 +3426,12 @@ mod ah_stop_gap {
 
 				// activate new relay parent
 				let head = Hash::from_low_u64_be(head.to_low_u64_be() - 1);
+				// Increase claim queue capacity to account for candidates from previous view
+				// Previous view had 3 candidates, new view needs room for 1 more invulnerable
+				*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() = VecDeque::from_iter(
+					[ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID]
+						.into_iter(),
+				);
 				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 2)]).await;
 
 				// The race begins again. The permissionless sends another advertisement, which
