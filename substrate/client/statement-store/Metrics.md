@@ -17,7 +17,6 @@ why it matters how to read it and what problems it helps diagnose.
   - [Operation Latency](#operation-latency)
   - [Network Health Indicators](#network-health-indicators)
   - [Statement Expiration & Cleanup](#statement-expiration--cleanup)
-  - [Validation Pipeline](#validation-pipeline)
   - [Initial Sync](#initial-sync)
 ---
 
@@ -115,7 +114,7 @@ of statements in the database
 #### Rejection Reasons Breakdown
 - **Metric:** `rate(substrate_sub_statement_store_rejections_total[$__rate_interval])` with label `reason`
 - **Type:** CounterVec (displayed as stacked rate)
-- **Labels:** `reason` = `data_too_large` | `channel_priority_too_low` | `account_full` | `store_full`
+- **Labels:** `reason` = `data_too_large` | `channel_priority_too_low` | `account_full` | `store_full` | `no_allowance`
 - **What it measures:** Statements that passed validation but were rejected by the store
 - **Why it matters:** Each rejection reason points to a different problem:
   - **`store_full`** (red): The global store is at capacity. All new submissions are rejected.
@@ -126,6 +125,8 @@ of statements in the database
     statement in the same channel. The submitter should increase priority.
   - **`data_too_large`** (purple): Statement data exceeds `max_size`. The client is submitting
     oversized data.
+  - **`no_allowance`** (grey): The account has no statement allowance set by the runtime.
+    The runtime must grant an allowance before the account can submit statements.
 - **How to read:** Bar chart color of the dominant bar tells you the primary
   rejection cause.
 
@@ -223,7 +224,7 @@ percentiles, making it easy to spot tail latency regressions.
 
 #### Submit Latency (Total)
 - **Metric:** `substrate_sub_statement_store_submit_duration_seconds` (histogram)
-- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s
+- **Buckets:** 1μs, 10μs, 100μs, 1ms, 10ms, 100ms, 1s
 - **What it measures:** Time to submit a statement, including signature verification,
   runtime validation, and database write.
 - **Why it matters:** This is the single most important latency metric it affects
@@ -237,7 +238,7 @@ percentiles, making it easy to spot tail latency regressions.
 
 #### Statement Send Latency (Percentiles)
 - **Metric:** `substrate_sync_statement_sent_latency_seconds` (histogram)
-- **Buckets:** 1ms, 2ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
+- **Buckets:** 1μs, 10μs, 100μs, 1ms, 10ms, 100ms, 1s
 - **What it measures:** Time to send a statement notification to a peer via the network layer.
 - **Why it matters:** Measures network-level latenc high values indicate network
   congestion, slow peers
@@ -258,7 +259,7 @@ percentiles, making it easy to spot tail latency regressions.
 
 #### Expiration Check Latency
 - **Metric:** `substrate_sub_statement_store_check_expiration_duration_seconds` (histogram)
-- **Buckets:** 0.1ms, 0.5ms, 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s
+- **Buckets:** 1μs, 10μs, 100μs, 1ms, 10ms, 100ms, 1s
 - **What it measures:** Time spent in each expiration check cycle, expiration periodically
   scans accounts and marks statements as expired.
 - **Why it matters:** Expiration checks run on the main store thread. If they take too long,
@@ -277,24 +278,6 @@ percentiles, making it easy to spot tail latency regressions.
 - **Problems it solves:**
   - Verify that the expirtion system is working
   - Detect mass expiration events
-
----
-
-### Validation Pipeline
-
-#### Validation Pipeline Latency (Percentiles)
-- **Metric:** `substrate_sync_statement_validation_pipeline_duration_seconds` (histogram)
-- **Buckets:** 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
-- **What it measures:** End-to-end time from receiving a statement from a peer to completing
-  its validation (including queue wait time and store submission).
-- **Why it matters:** Gets the full pipeline latency as experienced by the network layer,
-  including any queuing delays. If p99 is high while Submit Latency is low, the bottleneck is
-  in the queue, not the store. If both are high, the store itself is slow.
-- **How to read:** Three lines (green=p50, yellow=p90, red=p99)
-- **Problems it solves:**
-  - Distinguish queuing delay from processing delay by comparing with Submit Latency
-  - Detect when validation workers are overloaded (high pipeline latency + high pending validations)
-  - Track release-over-release performance
 
 ---
 

@@ -850,7 +850,7 @@ impl Store {
 			(needs_expiry, num_accounts_checked)
 		};
 
-		let mut successfully_expired = 0;
+		let mut expired = 0;
 
 		for hash in needs_expiry {
 			if let Err(e) = self.remove(&hash) {
@@ -861,7 +861,7 @@ impl Store {
 					e
 				);
 			} else {
-				successfully_expired += 1;
+				expired += 1;
 				log::trace!(
 					target: LOG_TARGET,
 					"Marked statement {:?} as expired",
@@ -880,7 +880,7 @@ impl Store {
 		drop(_start_check_expiration_timer);
 
 		self.metrics.report(|metrics| {
-			metrics.statements_expired_total.inc_by(successfully_expired);
+			metrics.statements_expired_total.inc_by(expired);
 		});
 	}
 
@@ -917,7 +917,6 @@ impl Store {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 
-		// Report storage metrics
 		self.metrics.report(|metrics| {
 			metrics.statements_total.set(active_count as u64);
 			metrics.bytes_total.set(total_size as u64);
@@ -1320,7 +1319,6 @@ impl StatementStore for Store {
 			}
 			self.subscription_manager.notify(statement);
 		} // Release index lock
-		drop(_histogram_submit_start_timer);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New

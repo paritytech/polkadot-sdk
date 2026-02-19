@@ -105,7 +105,6 @@ struct Metrics {
 	bytes_sent_total: Counter<U64>,
 	bytes_received_total: Counter<U64>,
 	sent_latency_seconds: Histogram,
-	validation_pipeline_duration_seconds: Histogram,
 	initial_sync_statements_sent: Counter<U64>,
 	initial_sync_bursts_total: Counter<U64>,
 	initial_sync_peers_active: Gauge<U64>,
@@ -193,17 +192,6 @@ impl Metrics {
 					HistogramOpts::new(
 						"substrate_sync_statement_sent_latency_seconds",
 						"Time to send statement messages to peers",
-					)
-					// Buckets from 1μs to ~1s covering microsecond to millisecond range.
-					.buckets(vec![0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0]),
-				)?,
-				r,
-			)?,
-			validation_pipeline_duration_seconds: register(
-				Histogram::with_opts(
-					HistogramOpts::new(
-						"substrate_sync_statement_validation_pipeline_duration_seconds",
-						"End-to-end time from receiving a statement to completing validation",
 					)
 					// Buckets from 1μs to ~1s covering microsecond to millisecond range.
 					.buckets(vec![0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0]),
@@ -317,13 +305,9 @@ impl StatementHandlerPrototype {
 		let metrics =
 			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
 
-		let validation_histogram =
-			metrics.as_ref().map(|m| m.validation_pipeline_duration_seconds.clone());
-
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
 			let mut queue_receiver = queue_receiver.clone();
-			let histogram = validation_histogram.clone();
 			executor(
 				async move {
 					loop {
@@ -332,9 +316,7 @@ impl StatementHandlerPrototype {
 						match task {
 							None => return,
 							Some((statement, completion)) => {
-								let _timer = histogram.as_ref().map(|h| h.start_timer());
 								let result = store.submit(statement, StatementSource::Network);
-								drop(_timer);
 								if completion.send(result).is_err() {
 									log::debug!(
 										target: LOG_TARGET,
