@@ -1,0 +1,93 @@
+title: 'feat(utility): add dispatch_as_signed extrinsic (RFC #11099)'
+doc:
+- audience: Todo
+  description: "# Description\n\nIntroduce a new `dispatch_as_signed` extrinsic in\
+    \ `pallet-utility` that converts a pallet origin (e.g. Treasurer) into its sovereign\
+    \ account and dispatches the given call using that account as a signed origin.\
+    \ Addresses the lack of a direct way to run general calls with a signed origin\
+    \ when initiated by a pallet origin.\n\nAddress issue  #11099\n\n## Integration\n\
+    \nDownstream runtimes using `pallet_utility` must add a new required `Config`\
+    \ type:\n\n```diff\n  impl pallet_utility::Config for Runtime {\n      type RuntimeEvent\
+    \ = RuntimeEvent;\n      type RuntimeCall = RuntimeCall;\n      type PalletsOrigin\
+    \ = OriginCaller;\n+     type ConvertOriginToAccount = pallet_utility::NoOriginConversion;\n\
+    \      type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;\n\
+    \  }\n```\n\n- **Default:** `NoOriginConversion` \u2014 no pallet origin maps\
+    \ to an account; `dispatch_as_signed` will always return `BadOrigin`.\n- **Custom:**\
+    \ Implement `ConvertOriginToAccount<PalletsOrigin, AccountId>` and map specific\
+    \ pallet origins (e.g. Treasurer, MediumSpender) to their sovereign accounts.\n\
+    \n## Review Notes\n\n<details>\n\n**Summary**\n\n- New `ConvertOriginToAccount`\
+    \ trait: maps `PalletsOrigin` \u2192 `Option<AccountId>`.\n- New extrinsic `dispatch_as_signed(origin,\
+    \ call)` that:\n  1. Converts the origin into `PalletsOrigin`\n  2. Uses `ConvertOriginToAccount`\
+    \ to obtain the sovereign account\n  3. Dispatches `call` with `RawOrigin::Signed(who)`\n\
+    \n**Config**\n\n- `type ConvertOriginToAccount`: implements `ConvertOriginToAccount<Self::PalletsOrigin,\
+    \ AccountId>`.\n- `NoOriginConversion`: always returns `None`, keeping previous\
+    \ behavior when `dispatch_as_signed` is not used.\n\n**Example (test runtime)**\n\
+    \nThe tests use a simple converter that maps `Signed` to its account:\n\n```rust\n\
+    impl ConvertOriginToAccount<OriginCaller, u64> for TestConvertOriginToAccount\
+    \ {\n    fn convert_origin_to_account(origin: &OriginCaller) -> Option<u64> {\n\
+    \        match origin {\n            OriginCaller::system(frame_system::RawOrigin::Signed(who))\
+    \ => Some(*who),\n            _ => None,\n        }\n    }\n}\n```\n\nFor a runtime\
+    \ with Treasury, a custom implementation would match the relevant `OriginCaller`\
+    \ variant(s) and return `pallet_treasury::PalletId::get().into_account_truncating()`\
+    \ for those origins.\n\n**API**\n\n```rust\npub fn dispatch_as_signed(\n    origin:\
+    \ OriginFor<T>,\n    call: Box<<T as Config>::RuntimeCall>,\n) -> DispatchResult;\n\
+    ```\n\n**Tests**\n\n- `dispatch_as_signed_works` \u2014 signed origin dispatches\
+    \ successfully.\n- `dispatch_as_signed_bad_origin` \u2014 non-convertible origin\
+    \ (e.g. Root) returns `BadOrigin`.\n\n**Files touched**\n\n- `substrate/frame/utility/src/lib.rs`\
+    \ \u2014 trait, extrinsic, docs\n- `substrate/frame/utility/src/weights.rs` \u2014\
+    \ weight for `dispatch_as_signed`\n- `substrate/frame/utility/src/benchmarking.rs`\
+    \ \u2014 benchmark\n- `substrate/frame/utility/src/tests.rs` \u2014 unit tests\n\
+    - All runtimes/mocks using `pallet_utility` \u2014 added `type ConvertOriginToAccount\
+    \ = NoOriginConversion`\n\n</details>\n\n# Checklist\n\n* [x] My PR includes a\
+    \ detailed description as outlined in the \"Description\" and its two subsections\
+    \ above.\n* [x] My PR follows the [labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\
+    \ of this project (at minimum one label for `T` required)\n* [x] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [x] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)"
+crates:
+- name: bridge-runtime-common
+  bump: major
+- name: pallet-bridge-relayers
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-contracts
+  bump: major
+- name: pallet-multi-asset-bounties
+  bump: major
+- name: pallet-proxy
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-safe-mode
+  bump: major
+- name: pallet-treasury
+  bump: major
+- name: pallet-tx-pause
+  bump: major
+- name: pallet-utility
+  bump: major
