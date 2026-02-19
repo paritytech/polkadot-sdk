@@ -87,10 +87,7 @@ error[E0277]: the trait bound `RawOrigin<_>: TryFrom<OriginCaller>` is not satis
 28 | | }
    | |_^ the trait `TryFrom<OriginCaller>` is not implemented for `RawOrigin<_>`
    |
-   = help: the trait `TryFrom<OriginCaller>` is implemented for `RawOrigin<<Runtime as Config>::AccountId>`
-   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error[E0277]: the trait bound `Runtime: Config` is not satisfied
+help: the trait `TryFrom<OriginCaller>` is implemented for `RawOrigin<<Runtime as Config>::AccountId>`
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
    |
 20 | / construct_runtime! {
@@ -99,17 +96,33 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 23 | |         NodeBlock = Block,
 ...  |
 28 | | }
-   | |_^ unsatisfied trait bound
-   |
+   | |_^
+   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Runtime: Config` is not satisfied
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `Callable<T>` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `Callable<T>` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
+    |               ^^^^
+    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
+    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
@@ -203,18 +216,22 @@ note: required by a bound in `frame_system::Event`
     = note: this error originates in the derive macro `Eq` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `frame_system::Event<Runtime>: Encode` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ the trait `Encode` is not implemented for `frame_system::Event<Runtime>`
-   |
-   = help: the trait `Encode` is implemented for `frame_system::Event<T>`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ the trait `Encode` is not implemented for `frame_system::Event<Runtime>`
+    |
+help: the trait `Encode` is implemented for `frame_system::Event<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` which comes from the expansion of the derive macro `frame_support::__private::codec::Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -241,17 +258,22 @@ note: required by a bound in `frame_system::Event`
     = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `frame_system::Event<Runtime>: Decode` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ the trait `Decode` is not implemented for `frame_system::Event<Runtime>`
-   |
-   = help: the trait `Decode` is implemented for `frame_system::Event<T>`
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ the trait `Decode` is not implemented for `frame_system::Event<Runtime>`
+    |
+help: the trait `Decode` is implemented for `frame_system::Event<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: this error originates in the derive macro `frame_support::__private::codec::Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:26:11
@@ -273,52 +295,60 @@ note: required by a bound in `frame_system::Event`
     = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `std::fmt::Debug` is implemented for `frame_system::Event<T>`
-   = note: required for `frame_system::Event<Runtime>` to implement `std::fmt::Debug`
-   = note: 1 redundant requirement hidden
-   = note: required for `&frame_system::Event<Runtime>` to implement `std::fmt::Debug`
-   = note: required for the cast from `&&frame_system::Event<Runtime>` to `&dyn std::fmt::Debug`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `std::fmt::Debug` is implemented for `frame_system::Event<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: required for `frame_system::Event<Runtime>` to implement `std::fmt::Debug`
+    = note: 1 redundant requirement hidden
+    = note: required for `&frame_system::Event<Runtime>` to implement `std::fmt::Debug`
+    = note: required for the cast from `&&frame_system::Event<Runtime>` to `&dyn std::fmt::Debug`
+    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the derive macro `frame_support::DebugNoBound` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `std::fmt::Debug` is implemented for `frame_system::Error<T>`
-   = note: required for `frame_system::Error<Runtime>` to implement `std::fmt::Debug`
-   = note: 1 redundant requirement hidden
-   = note: required for `&frame_system::Error<Runtime>` to implement `std::fmt::Debug`
-   = note: required for the cast from `&&frame_system::Error<Runtime>` to `&dyn std::fmt::Debug`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `std::fmt::Debug` is implemented for `frame_system::Error<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::error]
+    |               ^^^^^
+    = note: required for `frame_system::Error<Runtime>` to implement `std::fmt::Debug`
+    = note: 1 redundant requirement hidden
+    = note: required for `&frame_system::Error<Runtime>` to implement `std::fmt::Debug`
+    = note: required for the cast from `&&frame_system::Error<Runtime>` to `&dyn std::fmt::Debug`
+    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -426,67 +456,79 @@ help: the trait `Config` is not implemented for `Runtime`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `PalletInfoAccess` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `PalletInfoAccess`
-   = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `PalletInfoAccess` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::pallet]
+    |               ^^^^^^
+    = note: required for `Pallet<Runtime>` to implement `PalletInfoAccess`
+    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `Callable<T>` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `Callable<T>` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
+    |               ^^^^
+    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
+    = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `Callable<T>` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the derive macro `PartialEq` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `Callable<T>` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
+    |               ^^^^
+    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
+    = note: this error originates in the derive macro `PartialEq` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Call<Runtime>`
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -513,18 +555,22 @@ note: the trait `Config` must be implemented
     = note: this error originates in the derive macro `PartialEq` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `frame_system::Call<Runtime>: Encode` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ the trait `Encode` is not implemented for `frame_system::Call<Runtime>`
-   |
-   = help: the trait `Encode` is implemented for `frame_system::Call<T>`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ the trait `Encode` is not implemented for `frame_system::Call<Runtime>`
+    |
+help: the trait `Encode` is implemented for `frame_system::Call<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` which comes from the expansion of the derive macro `frame_support::__private::codec::Encode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -551,39 +597,47 @@ note: required by a bound in `frame_system::Call`
     = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Encode` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `frame_system::Call<Runtime>: Decode` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ the trait `Decode` is not implemented for `frame_system::Call<Runtime>`
-   |
-   = help: the trait `Decode` is implemented for `frame_system::Call<T>`
-   = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ the trait `Decode` is not implemented for `frame_system::Call<Runtime>`
+    |
+help: the trait `Decode` is implemented for `frame_system::Call<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the derive macro `frame_support::__private::codec::Decode` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-22 | |         Block = Block,
-23 | |         NodeBlock = Block,
-...  |
-28 | | }
-   | |_^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+  |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+ 22 | |         Block = Block,
+ 23 | |         NodeBlock = Block,
+...   |
+ 28 | | }
+    | |_^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `Callable<T>` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `Callable<T>` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    |     #[pallet::call(weight = <T as Config>::SystemWeightInfo)]
+    |               ^^^^
+    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
+    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the method `get_dispatch_info` exists for reference `&frame_system::Call<Runtime>`, but its trait bounds were not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -676,20 +730,24 @@ note: the trait `Config` must be implemented
     = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
-   |
-26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-   |         ^^^^^^ unsatisfied trait bound
-   |
+ --> tests/construct_runtime_ui/deprecated_where_block.rs:26:3
+  |
+ 26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+    |         ^^^^^^ unsatisfied trait bound
+    |
 help: the trait `Config` is not implemented for `Runtime`
-  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
-   |
-20 | / construct_runtime! {
-21 | |     pub struct Runtime where
-   | |______________________^
-   = help: the trait `ViewFunctionIdPrefix` is implemented for `Pallet<T>`
-   = note: required for `Pallet<Runtime>` to implement `ViewFunctionIdPrefix`
-   = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
+    |
+ 20 | / construct_runtime! {
+ 21 | |     pub struct Runtime where
+    | |______________________^
+help: the trait `ViewFunctionIdPrefix` is implemented for `Pallet<T>`
+   --> $WORKSPACE/substrate/frame/system/src/lib.rs
+    |
+    | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: required for `Pallet<Runtime>` to implement `ViewFunctionIdPrefix`
+    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0599]: the function or associated item `storage_metadata` exists for struct `Pallet<Runtime>`, but its trait bounds were not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -900,7 +958,11 @@ help: the trait `Config` is not implemented for `Runtime`
   20 | / construct_runtime! {
   21 | |     pub struct Runtime where
      | |______________________^
-     = help: the trait `Serialize` is implemented for `GenesisConfig<T>`
+help: the trait `Serialize` is implemented for `GenesisConfig<T>`
+    --> $WORKSPACE/substrate/frame/system/src/lib.rs
+     |
+ 299 | #[frame_support::pallet]
+     | ^^^^^^^^^^^^^^^^^^^^^^^^
      = note: required for `GenesisConfig<Runtime>` to implement `Serialize`
 note: required by a bound in `frame_support::sp_runtime::serde::ser::SerializeStruct::serialize_field`
     --> $CARGO/serde_core-1.0.228/src/ser/mod.rs
@@ -910,7 +972,7 @@ note: required by a bound in `frame_support::sp_runtime::serde::ser::SerializeSt
      |     where
      |         T: ?Sized + Serialize;
      |                     ^^^^^^^^^ required by this bound in `SerializeStruct::serialize_field`
-     = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
+     = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the derive macro `frame_support::Serialize` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
  --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1

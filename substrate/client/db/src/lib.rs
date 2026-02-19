@@ -1128,13 +1128,14 @@ impl<T: Clone> FrozenForDuration<T> {
 	{
 		let mut lock = self.value.lock();
 		let now = std::time::Instant::now();
-		if now.saturating_duration_since(lock.at) > self.duration || lock.value.is_none() {
-			let new_value = f();
-			lock.at = now;
-			lock.value = Some(new_value.clone());
-			new_value
-		} else {
-			lock.value.as_ref().expect("Checked with in branch above; qed").clone()
+		match lock.value.as_ref() {
+			Some(value) if now.saturating_duration_since(lock.at) <= self.duration => value.clone(),
+			_ => {
+				let new_value = f();
+				lock.at = now;
+				lock.value = Some(new_value.clone());
+				new_value
+			},
 		}
 	}
 }
