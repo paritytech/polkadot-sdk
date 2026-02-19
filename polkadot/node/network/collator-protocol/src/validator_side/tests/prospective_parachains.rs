@@ -589,6 +589,431 @@ fn v1_advertisement_accepted_and_seconded() {
 	});
 }
 
+/// Test that obsolete claim queue positions (corresponding to already-produced blocks) are
+/// rejected. This test demonstrates the bug where para A only appears at position 0 of the claim
+/// queue, but position 0 is obsolete because a child block L already exists.
+/// Expected: Advertisement should be REJECTED (position 0 is obsolete).
+/// Current behavior: ACCEPTED (bug).
+#[test]
+fn obsolete_positions_rejected() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Set up claim queue: [A, B, B]
+	// Para A only appears at position 0
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				test_state.chain_ids[0], // Position 0: Para A
+				ParaId::from(999),       // Position 1: Para B (dummy)
+				ParaId::from(999),       // Position 2: Para B (dummy)
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		// R is the ancestor, L is the leaf (child of R)
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 5;
+		let head_r = get_parent_hash(head_l); // R is parent of L
+
+		// Activate leaf L. This creates a view where R has child L.
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R
+		// Para A only appears at position 0 in R's claim queue.
+		// But position 0 at R corresponds to block L (which already exists).
+		// Therefore, this advertisement should be REJECTED.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			head_r, // relay_parent = R (ancestor)
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+
+		// BUG: The current code will accept this advertisement and call CanSecond.
+		// Expected: No CanSecond call (should be rejected by ensure_seconding_limit_is_respected).
+		//
+		// Uncomment the following to see the bug:
+		// assert_matches!(
+		// 	overseer_recv(&mut virtual_overseer).await,
+		// 	AllMessages::CandidateBacking(
+		// 		CandidateBackingMessage::CanSecond(request, tx),
+		// 	) => {
+		// 		tx.send(false).expect("receiving side should be alive");
+		// 	}
+		// );
+
+		// After the fix, this should be rejected immediately with no messages.
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+/// Test that obsolete positions deep in the ancestry are rejected.
+/// With path [R, R+1, R+2, L], positions 0-2 at R are all obsolete.
+#[test]
+fn deep_obsolete_positions_rejected() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Set up claim queue: [A, B, B]
+	// Para A only appears at position 0
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				test_state.chain_ids[0], // Position 0: Para A (will be obsolete)
+				ParaId::from(999),       // Position 1
+				ParaId::from(999),       // Position 2
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		// Create a chain: R -> R+1 -> R+2 -> L
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 10;
+		let head_r = get_parent_hash(get_parent_hash(get_parent_hash(head_l)));
+
+		// Activate leaf L
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R
+		// With 3 descendants, positions 0-2 at R are all obsolete.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			head_r,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+
+		// After the fix, this should be rejected immediately.
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+		virtual_overseer
+	});
+}
+
+/// Test that non-obsolete positions are still accepted.
+/// With claim queue [A, B, A] and path [R, L], position 2 of A is still valid.
+#[test]
+fn non_obsolete_position_accepted() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Set up claim queue: [A, B, A]
+	// Para A appears at positions 0 and 2
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				test_state.chain_ids[0], // Position 0: Para A (will be obsolete)
+				ParaId::from(999),       // Position 1: Para B
+				test_state.chain_ids[0], // Position 2: Para A (still valid)
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 5;
+		let head_r = get_parent_hash(head_l);
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R
+		// Position 0 is obsolete, but position 2 is still valid.
+		// This should be ACCEPTED.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xCC));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			head_r,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+
+		// Should trigger CanSecond (accepted)
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		// Should proceed to fetch
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_r,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// Test that when R is the leaf itself (no children), all positions are valid.
+#[test]
+fn leaf_position_not_obsolete() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Set up claim queue: [A, B, B]
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				test_state.chain_ids[0], // Position 0: Para A
+				ParaId::from(999),
+				ParaId::from(999),
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		let head_r = Hash::from_low_u64_be(128);
+		let head_r_num: u32 = 5;
+
+		// R is the leaf itself (no children)
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_r, head_r_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise collation for Para A at relay_parent R (the leaf)
+		// Since R is the leaf, position 0 is NOT obsolete.
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xDD));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			head_r,
+			Some((candidate_hash, Hash::zero())),
+		)
+		.await;
+
+		// Should be accepted
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_r,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// Test group rotation handling: verify that per-relay-parent core assignment works correctly.
+/// When a validator rotates between cores across blocks in the implicit view, each relay parent
+/// should use its own correct core assignment (not confused with other blocks' assignments).
+///
+/// Setup: With rotation_frequency=1 and 3 cores:
+/// - Block 0: Group 0 → Core 0 (Para 1)
+/// - Block 1: Group 0 → Core 2 (Para 2)
+/// - Block 3: Group 0 → Core 0 (Para 1) again
+///
+/// Test verifies that advertisements at each relay parent are validated against that specific
+/// relay parent's core assignment, not the leaf's assignment.
+#[test]
+fn group_rotation_uses_correct_core_per_relay_parent() {
+	let mut test_state = TestState::default();
+
+	// Default: rotation_frequency=1, 3 validator groups, 3 cores
+	// Core 0 → Para 1, Core 2 → Para 2
+	// Group 0 rotation: block 0→Core 0, block 1→Core 2, block 2→Core 1, block 3→Core 0...
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+		let pair_b = CollatorPair::generate().0;
+
+		// Choose blocks where validator (group 0) is assigned to cores with paras
+		// Block 0: Group 0 at Core 0 (Para 1)
+		// Block 1: Group 0 at Core 2 (Para 2)
+		let head_block_0 = Hash::from_low_u64_be(130); // Will be block number 0
+		let head_block_1 = Hash::from_low_u64_be(129); // Will be block number 1
+
+		// Activate both blocks in the view
+		update_view(
+			&mut virtual_overseer,
+			&mut test_state,
+			vec![(head_block_0, 0), (head_block_1, 1)],
+		)
+		.await;
+
+		let peer_a = PeerId::random();
+		let peer_b = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0], // Para 1
+			CollationVersion::V2,
+		)
+		.await;
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_b,
+			pair_b.clone(),
+			test_state.chain_ids[1], // Para 2
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise for Para 1 at block 0 (where validator is on Core 0 with Para 1)
+		let candidate_hash_a = CandidateHash(Hash::repeat_byte(0xAA));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_block_0,
+			Some((candidate_hash_a, Hash::zero())),
+		)
+		.await;
+
+		// Should be accepted - validator is assigned to Para 1's core at block 0
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash_a);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_block_0,
+			test_state.chain_ids[0],
+			Some(candidate_hash_a),
+		)
+		.await;
+
+		// Advertise for Para 2 at block 1 (where validator is on Core 2 with Para 2)
+		let candidate_hash_b = CandidateHash(Hash::repeat_byte(0xBB));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_b,
+			head_block_1,
+			Some((candidate_hash_b, Hash::zero())),
+		)
+		.await;
+
+		// Should be accepted - validator is assigned to Para 2's core at block 1
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash_b);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[1]);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_block_1,
+			test_state.chain_ids[1],
+			Some(candidate_hash_b),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
 #[test]
 fn v1_advertisement_rejected_on_non_active_leaf() {
 	let mut test_state = TestState::default();
