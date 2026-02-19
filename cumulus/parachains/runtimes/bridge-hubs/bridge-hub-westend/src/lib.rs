@@ -976,6 +976,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl snowbridge_pallet_inbound_queue_v2_runtime_api::InboundQueueV2Api<Block> for Runtime {
+		fn is_message_relayed(nonce: u64) -> bool {
+			snowbridge_pallet_inbound_queue_v2::api::is_message_relayed::<Runtime>(nonce)
+		}
+	}
+
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {

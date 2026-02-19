@@ -25,6 +25,7 @@
 
 extern crate alloc;
 
+pub mod api;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
