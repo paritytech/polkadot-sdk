@@ -475,6 +475,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Chill a stash account.
+	/// Could fail if the voter list is locked and auto-rebag is disabled.
 	pub(crate) fn chill_stash(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let chilled_as_validator = Self::do_remove_validator(stash)?;
 		let chilled_as_nominator = Self::do_remove_nominator(stash)?;
@@ -748,6 +749,7 @@ impl<T: Config> Pallet<T> {
 	/// and `VoterList`.
 	///
 	/// If the nominator already exists, their nominations will be updated.
+	/// If the voter list is locked and auto-rebag is disabled, this function will fail.
 	///
 	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly
@@ -758,6 +760,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), Error<T>> {
 		if !Nominators::<T>::contains_key(who) {
 			// maybe update sorted list.
+			// could fail if the voter list is locked and auto-rebag is disabled.
 			T::VoterList::on_insert(who.clone(), Self::weight_of(who)).map_err(|err| {
 				crate::log!(debug, "error adding nominator to voter list: {:?}", err);
 				Error::<T>::VoterListUpdateFailed
