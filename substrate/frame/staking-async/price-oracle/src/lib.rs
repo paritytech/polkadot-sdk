@@ -77,10 +77,18 @@
 //!
 //! ## Future Work / Ideas
 //!
+//! - POC
+//! - [ ] Add all the other transactions to manage and have a manager origin.
 //! - [ ] Westend integration
 //! 	- [ ] Add the ability to send the price updates to westend AH. Simple.
-//! - [ ] Add all the other transactions to manage and have a manager origin.
-//! - [ ] Companion binary to manage the OCW storage + submit transactions
+//!
+//! - Rest High prio
+//! - [ ] handle validator disabling via a message from RC
+//! - [ ] Slashing for not providing price updates.
+//! - [ ] Decide on the final APIs and parsing methods.
+//! - [ ] Companion/manager binary to manage the OCW storage + submit transactions
+//!
+//! - Rest
 //! - [ ] OCWs should not overlap, add the lock mechanism from EPMB
 //! - [ ] OCW-fork: Maybe the OCW should include the block has on top of which it is built, such
 //!   that we are sure we won't include a transaction from an OCW instance running on a fork on the
@@ -99,8 +107,6 @@
 //! - [ ] More integration tests in this crate (ocw running auto, using real tx-extensions/pool
 //!   validation etc)
 //! - [ ] More tests in integration-tests crate.
-//! - [ ] handle validator disabling via a message from RC
-//! - [ ] Slashing for not providing price updates.
 //! - [x] Sanity check: is there any issues with running a parachain with 600 collators? don't think
 //!   so!
 

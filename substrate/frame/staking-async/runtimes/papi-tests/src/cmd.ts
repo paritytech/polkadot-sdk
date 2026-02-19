@@ -28,8 +28,7 @@ export async function runPreset(paraPreset: Presets): Promise<void> {
 
 export async function runZn(config: string): Promise<void> {
 	logger.info(`Launching ZN config: ${config}`);
-	// TODO:
-	cmd("/Users/kianenigma/Desktop/Parity/zombienet/javascript/bins/zombienet-macos-arm64", ["--provider", "native", "-l", "text", "spawn", config], "inherit");
+	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", config], "inherit");
 }
 
 export async function runPresetUntilLaunched(

@@ -132,7 +132,8 @@ node, bun and [just](https://github.com/casey/just) installed. Moreover, you are
 `polkadot-execution-worker` in your `PATH` already. Rest of the binaries (`chain-spec-builder`) are
 compiled from the sdk.
 
-> verified compatible zombienet version: 1.3.126
+> verified compatible zombienet version: 1.3.139-alpha or later
+> <https://github.com/paritytech/zombienet/releases/tag/v1.3.139-alpha>
 
 ### Quick Start
 
