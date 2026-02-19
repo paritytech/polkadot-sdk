@@ -18,15 +18,15 @@
 //! Transfer with dust functionality for pallet-revive.
 
 use crate::{
-	address::AddressMapper, exec::AccountIdOf, primitives::BalanceWithDust, storage::AccountInfo,
-	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET,
+	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET, address::AddressMapper, exec::AccountIdOf,
+	primitives::BalanceWithDust, storage::AccountInfo,
 };
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
+		Get,
 		fungible::Mutate,
 		tokens::{Fortitude, Precision, Preservation},
-		Get,
 	},
 };
 
@@ -184,12 +184,12 @@ pub(crate) fn burn_with_dust<T: Config>(
 mod tests {
 	use super::*;
 	use crate::{
+		Config, Error, H160, Pallet,
 		test_utils::{ALICE_ADDR, BOB_ADDR},
-		tests::{builder, test_utils::set_balance_with_dust, ExtBuilder, Test},
-		Config, Error, Pallet, H160,
+		tests::{ExtBuilder, Test, builder, test_utils::set_balance_with_dust},
 	};
 	use frame_support::{assert_err, traits::Get};
-	use sp_runtime::{traits::Zero, DispatchError};
+	use sp_runtime::{DispatchError, traits::Zero};
 
 	#[test]
 	fn transfer_with_dust_works() {

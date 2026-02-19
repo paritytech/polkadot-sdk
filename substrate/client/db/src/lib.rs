@@ -101,6 +101,26 @@ pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
 
+/// Filter to determine if a block should be excluded from pruning.
+///
+/// Note: This filter only affects **block body** (and future header) pruning.
+/// It does **not** affect state pruning, which is configured separately.
+pub trait PruningFilter: Send + Sync {
+	/// Check if a block with the given justifications should be preserved.
+	///
+	/// Returns `true` to preserve the block, `false` to allow pruning.
+	fn should_retain(&self, justifications: &Justifications) -> bool;
+}
+
+impl<F> PruningFilter for F
+where
+	F: Fn(&Justifications) -> bool + Send + Sync,
+{
+	fn should_retain(&self, justifications: &Justifications) -> bool {
+		(self)(justifications)
+	}
+}
+
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
@@ -313,7 +333,12 @@ pub struct DatabaseSettings {
 	///
 	/// NOTE: only finalized blocks are subject for removal!
 	pub blocks_pruning: BlocksPruning,
-
+	/// Filters to exclude blocks from pruning.
+	///
+	/// If any filter returns `true` for a block's justifications, the block body
+	/// (and in the future, the header) will be preserved even when it falls
+	/// outside the pruning window. Does not affect state pruning.
+	pub pruning_filters: Vec<Arc<dyn PruningFilter>>,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 }
@@ -1130,6 +1155,7 @@ pub struct Backend<Block: BlockT> {
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	pruning_filters: Vec<Arc<dyn PruningFilter>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1168,11 +1194,39 @@ impl<Block: BlockT> Backend<Block> {
 		Self::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), canonicalization_delay)
 	}
 
+	/// Create new memory-backed client backend for tests with custom pruning filters.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_pruning_filters(
+		blocks_pruning: u32,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(blocks_pruning),
+			canonicalization_delay,
+			pruning_filters,
+		)
+	}
+
 	/// Create new memory-backed client backend for tests.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_test_with_tx_storage(
 		blocks_pruning: BlocksPruning,
 		canonicalization_delay: u64,
+	) -> Self {
+		Self::new_test_with_tx_storage_and_filters(
+			blocks_pruning,
+			canonicalization_delay,
+			Default::default(),
+		)
+	}
+
+	/// Create new memory-backed client backend for tests with custom pruning filters.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_and_filters(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
 	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
@@ -1186,6 +1240,7 @@ impl<Block: BlockT> Backend<Block> {
 			state_pruning: Some(state_pruning),
 			source: DatabaseSource::Custom { db, require_create_flag: true },
 			blocks_pruning,
+			pruning_filters,
 			metrics_registry: None,
 		};
 
@@ -1278,6 +1333,7 @@ impl<Block: BlockT> Backend<Block> {
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache,
+			pruning_filters: config.pruning_filters.clone(),
 		};
 
 		// Older DB versions have no last state key. Check if the state is available and set it.
@@ -1525,8 +1581,13 @@ impl<Block: BlockT> Backend<Block> {
 				.highest_leaf()
 				.map(|(n, _)| n)
 				.unwrap_or(Zero::zero());
-			let existing_header = number <= highest_leaf && self.blockchain.header(hash)?.is_some();
-			let existing_body = pending_block.body.is_some();
+			let header_exists_in_db =
+				number <= highest_leaf && self.blockchain.header(hash)?.is_some();
+			// Body in DB (not incoming block) - needed to update gap when adding body to existing
+			// header.
+			let body_exists_in_db = self.blockchain.body(hash)?.is_some();
+			// Incoming block has body - used for fast sync gap handling.
+			let incoming_has_body = pending_block.body.is_some();
 
 			// blocks are keyed by number + hash.
 			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
@@ -1661,9 +1722,9 @@ impl<Block: BlockT> Backend<Block> {
 
 			let header = &pending_block.header;
 			let is_best = pending_block.leaf_state.is_best();
-			debug!(
+			trace!(
 				target: "db",
-				"DB Commit {hash:?} ({number}), best={is_best}, state={}, existing={existing_header}, finalized={finalized}",
+				"DB Commit {hash:?} ({number}), best={is_best}, state={}, header_in_db={header_exists_in_db} body_in_db={body_exists_in_db} incoming_body={incoming_has_body}, finalized={finalized}",
 				operation.commit_state,
 			);
 
@@ -1690,7 +1751,7 @@ impl<Block: BlockT> Backend<Block> {
 				self.force_delayed_canonicalize(&mut transaction)?
 			}
 
-			if !existing_header {
+			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
 				if number > last_finalized_num || last_finalized_num.is_zero() {
 					let mut leaves = self.blockchain.leaves.write();
@@ -1720,10 +1781,14 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			let should_check_block_gap = !existing_header || !existing_body;
+			let should_check_block_gap = !header_exists_in_db || !body_exists_in_db;
+			debug!(
+				target: "db",
+				"should_check_block_gap = {should_check_block_gap}",
+			);
 
 			if should_check_block_gap {
-				let insert_new_gap =
+				let update_gap =
 					|transaction: &mut Transaction<DbHash>,
 					 new_gap: BlockGap<NumberFor<Block>>,
 					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
@@ -1734,13 +1799,26 @@ impl<Block: BlockT> Backend<Block> {
 							&BLOCK_GAP_CURRENT_VERSION.encode(),
 						);
 						block_gap.replace(new_gap);
+						debug!(target: "db", "Update block gap. {block_gap:?}");
+					};
+
+				let remove_gap =
+					|transaction: &mut Transaction<DbHash>,
+					 block_gap: &mut Option<BlockGap<NumberFor<Block>>>| {
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+						transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+						*block_gap = None;
+						debug!(target: "db", "Removed block gap.");
 					};
 
 				if let Some(mut gap) = block_gap {
 					match gap.gap_type {
 						BlockGapType::MissingHeaderAndBody => {
+							// Handle blocks at gap start or immediately following (possibly
+							// indicating blocks already imported during warp sync where
+							// start was not updated).
 							if number == gap.start {
-								gap.start += One::one();
+								gap.start = number + One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
 									columns::KEY_LOOKUP,
@@ -1748,20 +1826,16 @@ impl<Block: BlockT> Backend<Block> {
 									hash,
 								)?;
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							}
 						},
 						BlockGapType::MissingBody => {
 							// Gap increased when syncing the header chain during fast sync.
-							if number == gap.end + One::one() && !existing_body {
+							if number == gap.end + One::one() && !incoming_has_body {
 								gap.end += One::one();
 								utils::insert_number_to_key_mapping(
 									&mut transaction,
@@ -1769,20 +1843,15 @@ impl<Block: BlockT> Backend<Block> {
 									number,
 									hash,
 								)?;
-								insert_new_gap(&mut transaction, gap, &mut block_gap);
-								debug!(target: "db", "Update block gap. {block_gap:?}");
+								update_gap(&mut transaction, gap, &mut block_gap);
 								block_gap_updated = true;
 							// Gap decreased when downloading the full blocks.
-							} else if number == gap.start && existing_body {
+							} else if number == gap.start && incoming_has_body {
 								gap.start += One::one();
 								if gap.start > gap.end {
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP);
-									transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
-									block_gap = None;
-									debug!(target: "db", "Removed block gap.");
+									remove_gap(&mut transaction, &mut block_gap);
 								} else {
-									insert_new_gap(&mut transaction, gap, &mut block_gap);
-									debug!(target: "db", "Update block gap. {block_gap:?}");
+									update_gap(&mut transaction, gap, &mut block_gap);
 								}
 								block_gap_updated = true;
 							}
@@ -1797,19 +1866,19 @@ impl<Block: BlockT> Backend<Block> {
 							end: number - One::one(),
 							gap_type: BlockGapType::MissingHeaderAndBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (warp sync) {block_gap:?}");
 					} else if number == best_num + One::one() &&
 						self.blockchain.header(parent_hash)?.is_some() &&
-						!existing_body
+						!incoming_has_body
 					{
 						let gap = BlockGap {
 							start: number,
 							end: number,
 							gap_type: BlockGapType::MissingBody,
 						};
-						insert_new_gap(&mut transaction, gap, &mut block_gap);
+						update_gap(&mut transaction, gap, &mut block_gap);
 						block_gap_updated = true;
 						debug!(target: "db", "Detected block gap (fast sync) {block_gap:?}");
 					}
@@ -1952,6 +2021,30 @@ impl<Block: BlockT> Backend<Block> {
 
 				// Before we prune a block, check if it is pinned
 				if let Some(hash) = self.blockchain.hash(number)? {
+					// Check if any pruning filter wants to preserve this block.
+					// We need to check both the current transaction justifications (not yet in DB)
+					// and the DB itself (for justifications from previous transactions).
+					if !self.pruning_filters.is_empty() {
+						let justifications = match current_transaction_justifications.get(&hash) {
+							Some(j) => Some(Justifications::from(j.clone())),
+							None => self.blockchain.justifications(hash)?,
+						};
+
+						let should_retain = justifications
+							.map(|j| self.pruning_filters.iter().any(|f| f.should_retain(&j)))
+							.unwrap_or(false);
+
+						// We can just return here, pinning can be ignored since the block will
+						// remain in the DB.
+						if should_retain {
+							debug!(
+								target: "db",
+								"Preserving block #{number} ({hash}) due to keep predicate match"
+							);
+							return Ok(());
+						}
+					}
+
 					self.blockchain.insert_persisted_body_if_pinned(hash)?;
 
 					// If the block was finalized in this transaction, it will not be in the db
@@ -2867,6 +2960,7 @@ pub(crate) mod tests {
 				state_pruning: Some(PruningMode::blocks_pruning(1)),
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
+				pruning_filters: Default::default(),
 				metrics_registry: None,
 			},
 			0,
@@ -5026,5 +5120,190 @@ pub(crate) mod tests {
 		assert!(bc.body(fork_hash_3).unwrap().is_some());
 		backend.unpin_block(fork_hash_3);
 		assert!(bc.body(fork_hash_3).unwrap().is_none());
+	}
+
+	#[test]
+	fn prune_blocks_with_empty_predicates_prunes_all() {
+		// Test backward compatibility: empty predicates means all blocks are pruned
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![], // Empty predicates
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// Justification - but no predicate to preserve it
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+
+		// Finalize blocks, adding justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// All blocks outside pruning window should be pruned, even with justification
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert_eq!(None, bc.body(blocks[1]).unwrap()); // Has justification but no predicate
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_multiple_filters_or_logic() {
+		// Test that multiple filters use OR logic: if ANY filter matches, block is kept
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![
+				Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some()),
+				Arc::new(|j: &Justifications| j.get(CONS1_ENGINE_ID).is_some()),
+			],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 7 blocks
+		for i in 0..7 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let cons0_justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		let cons1_justification = (CONS1_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks with different justification patterns
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			// Block 1: CONS0 only - should be preserved
+			op.mark_finalized(blocks[1], Some(cons0_justification.clone())).unwrap();
+			// Block 2: CONS1 only - should be preserved
+			op.mark_finalized(blocks[2], Some(cons1_justification.clone())).unwrap();
+			// Block 3: No justification - should be pruned
+			op.mark_finalized(blocks[3], None).unwrap();
+			// Block 4: Random/unknown engine ID - should be pruned
+			op.mark_finalized(blocks[4], Some(([9, 9, 9, 9], vec![7, 8, 9]))).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned (outside window, no justification)
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should be preserved (has CONS0 justification)
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+
+		// Block 2 should be preserved (has CONS1 justification)
+		assert!(bc.body(blocks[2]).unwrap().is_some());
+
+		// Block 3 should be pruned (no justification)
+		assert_eq!(None, bc.body(blocks[3]).unwrap());
+
+		// Block 4 should be pruned (unknown engine ID)
+		assert_eq!(None, bc.body(blocks[4]).unwrap());
+
+		// Blocks 5 and 6 are within the pruning window
+		assert!(bc.body(blocks[5]).unwrap().is_some());
+		assert!(bc.body(blocks[6]).unwrap().is_some());
+	}
+
+	#[test]
+	fn prune_blocks_filter_only_matches_specific_engine() {
+		// Test that a filter for one engine ID does NOT preserve blocks with a different engine ID
+		let backend = Backend::<Block>::new_test_with_tx_storage_and_filters(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+
+		// Create 5 blocks
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let cons1_justification = (CONS1_ENGINE_ID, vec![4, 5, 6]);
+
+		// Finalize blocks, adding CONS1 justification to block 1
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			// Block 1 gets CONS1 justification - should NOT be preserved by CONS0 filter
+			op.mark_finalized(blocks[1], Some(cons1_justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0 should be pruned
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+
+		// Block 1 should also be pruned (CONS1 justification, but only CONS0 filter)
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+
+		// Block 2 should be pruned
+		assert_eq!(None, bc.body(blocks[2]).unwrap());
+
+		// Blocks 3 and 4 are within the pruning window
+		assert!(bc.body(blocks[3]).unwrap().is_some());
+		assert!(bc.body(blocks[4]).unwrap().is_some());
 	}
 }
