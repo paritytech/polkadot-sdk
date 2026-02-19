@@ -64,14 +64,16 @@ jobs:
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
         id: compute_tag
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           . ./.github/scripts/common/lib.sh
 
           # Get last rc tag if exists, else set it to {version}-rc1
-          if [[ -z "${{ inputs.version }}" ]]; then
+          if [[ -z "$INPUT_VERSION" ]]; then
             version=v$(get_polkadot_node_version_from_code)
           else
-            version=$(validate_stable_tag ${{ inputs.version }})
+            version=$(validate_stable_tag "$INPUT_VERSION")
           fi
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT
