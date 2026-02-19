@@ -138,9 +138,7 @@ impl ReceiptExtractor {
 		Ok(Self {
 			fetch_receipt_data,
 			fetch_eth_block_hash,
-			earliest_receipt_block: Arc::new(AtomicU32::new(
-				earliest_receipt_block.unwrap_or(0),
-			)),
+			earliest_receipt_block: Arc::new(AtomicU32::new(earliest_receipt_block.unwrap_or(0))),
 			recover_eth_address: recover_eth_address_fn,
 		})
 	}
