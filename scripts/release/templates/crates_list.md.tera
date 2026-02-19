@@ -21,6 +21,8 @@ The following crates were updated to the corresponding versions:
 - snowbridge-pallet-ethereum-client-fixtures@0.26.1
 - snowbridge-pallet-inbound-queue-fixtures@0.26.1
 - snowbridge-pallet-inbound-queue-v2-fixtures@0.7.1
+- snowbridge-core@0.18.1
+- snowbridge-outbound-queue-primitives@0.7.1
 - polkadot@0.1.1
 - polkadot-jemalloc-shim@0.1.1
 - frame-omni-bencher@0.17.2
