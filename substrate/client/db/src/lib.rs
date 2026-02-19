@@ -4269,8 +4269,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn indexed_transaction_tail_offset_extraction_works() {
-		let backend =
-			Backend::<StoreBlock>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
+		let backend = Backend::<StoreBlock>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
 
 		let data: Vec<u8> = b"hello indexed world".to_vec();
 
