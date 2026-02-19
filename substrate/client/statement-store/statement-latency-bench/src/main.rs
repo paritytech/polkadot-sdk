@@ -30,6 +30,8 @@ use sp_statement_store::{Statement, SubmitResult, Topic, TopicFilter};
 use std::{sync::Arc, time::Duration};
 use tokio::{sync::Barrier, time::timeout};
 
+const STATEMENT_EXPIRY_SECS: u32 = 600; // 10 minutes
+
 #[derive(Parser, Debug)]
 #[command(name = "statement-latency-bench")]
 #[command(about = "Distributed statement store latency benchmark", long_about = None)]
@@ -197,9 +199,16 @@ async fn run_client(
 				let topic = generate_topic(test_run_id, client_id, round, sent_count);
 				let channel = blake2_256(sent_count.to_le_bytes().as_ref());
 
+				let expiry_timestamp = std::time::SystemTime::now()
+					.duration_since(std::time::UNIX_EPOCH)
+					.unwrap_or_default()
+					.as_secs() as u32 +
+					STATEMENT_EXPIRY_SECS;
+
 				let mut statement = Statement::new();
 				statement.set_channel(channel);
-				statement.set_expiry_from_parts(u32::MAX, (sent_count + 1) * (round as u32));
+				statement
+					.set_expiry_from_parts(expiry_timestamp, (sent_count + 1) * (round as u32));
 				statement.set_topic(0, topic.into());
 				statement.set_plain_data(vec![0u8; size]);
 				statement.sign_sr25519_private(&keyring);
