@@ -17,3 +17,5 @@ crates:
   bump: patch
 - name: polkadot-omni-node
   bump: patch
+- name: polkadot-sdk
+  bump: patch
