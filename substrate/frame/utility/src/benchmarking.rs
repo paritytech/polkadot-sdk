@@ -115,6 +115,15 @@ mod benchmark {
 		_(RawOrigin::Signed(caller), main_call, fallback_call);
 	}
 
+	#[benchmark]
+	fn dispatch_as_signed() {
+		let caller = whitelisted_caller();
+		let call = Box::new(frame_system::Call::remark { remark: vec![] }.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), call);
+	}
+
 	impl_benchmark_test_suite! {
 		Pallet,
 		tests::new_test_ext(),

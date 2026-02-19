@@ -23,11 +23,11 @@
 //!
 //! ## Overview
 //!
-//! This pallet contains two basic pieces of functionality:
+//! This pallet contains several pieces of functionality:
 //! - Batch dispatch: A stateless operation, allowing any origin to execute multiple calls in a
 //!   single dispatch. This can be useful to amalgamate proposals, combining `set_code` with
 //!   corresponding `set_storage`s, for efficient multiple payouts with just a single signature
-//!   verify, or in combination with one of the other two dispatch functionality.
+//!   verify, or in combination with one of the other dispatch functionality.
 //! - Pseudonymal dispatch: A stateless operation, allowing a signed origin to execute a call from
 //!   an alternative signed origin. Each account has 2 * 2**16 possible "pseudonyms" (alternative
 //!   account IDs) and these can be stacked. This can be useful as a key management tool, where you
@@ -35,6 +35,8 @@
 //!   it's perfectly fine to have each of them controlled by the same underlying keypair. Derivative
 //!   accounts are, for the purposes of proxy filtering considered exactly the same as the origin
 //!   and are thus hampered with the origin's filters.
+//! - [`dispatch_as_signed`](Pallet::dispatch_as_signed): Dispatch as a signed origin from the
+//!   current pallet origin's sovereign account.
 //!
 //! Since proxy filters are respected in all dispatches of this pallet, it should never need to be
 //! filtered by any proxy.
@@ -48,6 +50,9 @@
 //!
 //! #### For pseudonymal dispatch
 //! * `as_derivative` - Dispatch a call from a derivative signed origin.
+//!
+//! * `dispatch_as_signed` - Dispatch a call with a signed origin from the pallet origin's sovereign
+//!   account.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -74,6 +79,20 @@ use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
+
+/// Converts a pallet origin to its sovereign account for use with `dispatch_as_signed`.
+pub trait ConvertOriginToAccount<Origin, AccountId> {
+	/// Convert `origin` to its sovereign account, or `None` if not supported.
+	fn convert_origin_to_account(origin: &Origin) -> Option<AccountId>;
+}
+
+/// No conversion: no pallet origin maps to an account. Use when `dispatch_as_signed` is unused.
+pub struct NoOriginConversion;
+impl<O, A> ConvertOriginToAccount<O, A> for NoOriginConversion {
+	fn convert_origin_to_account(_: &O) -> Option<A> {
+		None
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -104,6 +123,12 @@ pub mod pallet {
 		type PalletsOrigin: Parameter +
 			Into<<Self as frame_system::Config>::RuntimeOrigin> +
 			IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+
+		/// Converts pallet origins to sovereign accounts for [`Pallet::dispatch_as_signed`].
+		type ConvertOriginToAccount: ConvertOriginToAccount<
+			Self::PalletsOrigin,
+			<Self as frame_system::Config>::AccountId,
+		>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -582,6 +607,34 @@ pub mod pallet {
 			Self::deposit_event(Event::DispatchedAs { result: Ok(()) });
 
 			Ok(())
+		}
+
+		/// Dispatch a call with a signed origin from the current origin's sovereign account.
+		///
+		/// The dispatch origin for this call must be a pallet origin that has an associated
+		/// sovereign account (see [`Config::ConvertOriginToAccount`]). The call is then dispatched
+		/// using `Signed(sovereign_account)`.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(8)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(
+				T::WeightInfo::dispatch_as_signed()
+					.saturating_add(dispatch_info.call_weight),
+				dispatch_info.class,
+			)
+		})]
+		pub fn dispatch_as_signed(
+			origin: OriginFor<T>,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			let runtime_pallets_origin = origin.into_caller();
+			let pallet_origin = T::PalletsOrigin::from(runtime_pallets_origin);
+			let who = T::ConvertOriginToAccount::convert_origin_to_account(&pallet_origin)
+				.ok_or(BadOrigin)?;
+			call.dispatch(frame_system::RawOrigin::Signed(who).into()).map(|_| ()).map_err(|e| e.error)
 		}
 	}
 

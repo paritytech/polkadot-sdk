@@ -219,10 +219,22 @@ impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
+
+pub struct TestConvertOriginToAccount;
+impl utility::ConvertOriginToAccount<OriginCaller, u64> for TestConvertOriginToAccount {
+	fn convert_origin_to_account(origin: &OriginCaller) -> Option<u64> {
+		match origin {
+			OriginCaller::system(frame_system::RawOrigin::Signed(who)) => Some(*who),
+			_ => None,
+		}
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
+	type ConvertOriginToAccount = TestConvertOriginToAccount;
 	type WeightInfo = ();
 }
 
@@ -1040,6 +1052,36 @@ fn dispatch_as_fallible_works() {
 				Box::new(RuntimeCall::Timestamp(TimestampCall::set { now: 0 }))
 			),
 			DispatchError::BadOrigin,
+		);
+	})
+}
+
+#[test]
+fn dispatch_as_signed_works() {
+	new_test_ext().execute_with(|| {
+		Balances::force_set_balance(RuntimeOrigin::root(), 666, 100).unwrap();
+		assert_eq!(Balances::free_balance(666), 100);
+		assert_eq!(Balances::free_balance(777), 0);
+
+		assert_ok!(Utility::dispatch_as_signed(
+			RuntimeOrigin::signed(666),
+			Box::new(call_transfer(777, 100))
+		));
+		assert_eq!(Balances::free_balance(666), 0);
+		assert_eq!(Balances::free_balance(777), 100);
+	})
+}
+
+#[test]
+fn dispatch_as_signed_bad_origin() {
+	new_test_ext().execute_with(|| {
+		// Root has no sovereign account in TestConvertOriginToAccount
+		assert_noop!(
+			Utility::dispatch_as_signed(
+				RuntimeOrigin::root(),
+				Box::new(call_transfer(2, 1))
+			),
+			BadOrigin,
 		);
 	})
 }

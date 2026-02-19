@@ -433,6 +433,7 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
+	type ConvertOriginToAccount = pallet_utility::NoOriginConversion;
 	type WeightInfo = ();
 }
 
