@@ -707,9 +707,6 @@ mod tests {
 		);
 
 		cache.cache_validation_code_by_hash(code_hash, Some(code.clone()));
-		assert_eq!(
-			cache.validation_code_by_hash((relay_parent, code_hash)),
-			Some(&code),
-		);
+		assert_eq!(cache.validation_code_by_hash((relay_parent, code_hash)), Some(&code),);
 	}
 }
