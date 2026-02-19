@@ -867,15 +867,11 @@ mod paged_snapshot {
 			.set_status(41, StakerStatus::Nominator(vec![51]))
 			.set_status(101, StakerStatus::Validator)
 			.build_and_execute(|| {
-				let bounds =
-					ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
 
 				// lock the voter list by starting a multi-page snapshot
 				let _ = <Staking as ElectionDataProvider>::electing_voters(bounds, 3).unwrap();
-				assert_eq!(
-					pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(),
-					Some(())
-				);
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
 				// validator 51 tries to chill while the list is locked — should fail
 				assert_noop!(
