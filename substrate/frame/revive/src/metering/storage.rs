@@ -22,15 +22,15 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	storage::ContractInfo, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit,
+	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
+	StorageDeposit as Deposit, storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{traits::Get, DebugNoBound, DefaultNoBound};
+use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchError, FixedPointNumber, FixedU128,
+	traits::{Saturating, Zero},
 };
 
 #[cfg(test)]
