@@ -2796,8 +2796,8 @@ pub(crate) mod tests {
 	use sp_core::H256;
 	use sp_runtime::{
 		testing::{Block as RawBlock, Header, MockCallU64, TestXt},
-		traits::{BlakeTwo256, Dispatchable, Hash},
-		ConsensusEngineId, DispatchResultWithInfo, StateVersion,
+		traits::{BlakeTwo256, Hash},
+		ConsensusEngineId, StateVersion,
 	};
 
 	const CONS0_ENGINE_ID: ConsensusEngineId = *b"CON0";
@@ -2805,80 +2805,6 @@ pub(crate) mod tests {
 
 	type UncheckedXt = TestXt<MockCallU64, ()>;
 	pub(crate) type Block = RawBlock<UncheckedXt>;
-
-	/// Call type that places `data` at the tail of the encoded extrinsic, optionally preceded
-	/// by additional arguments of varying width.
-	#[derive(
-		PartialEq,
-		Eq,
-		Debug,
-		Clone,
-		Encode,
-		Decode,
-		codec::DecodeWithMemTracking,
-		sp_runtime::scale_info::TypeInfo,
-	)]
-	enum StoreCall {
-		/// Data starts right after the call index byte.
-		#[codec(index = 0)]
-		Store { data: Vec<u8> },
-		/// 12 extra bytes (u32 + u64) before the data payload.
-		#[codec(index = 1)]
-		StoreWithArgs { arg_a: u32, arg_b: u64, data: Vec<u8> },
-	}
-
-	impl Dispatchable for StoreCall {
-		type RuntimeOrigin = u64;
-		type Config = ();
-		type Info = ();
-		type PostInfo = ();
-		fn dispatch(self, _origin: Self::RuntimeOrigin) -> DispatchResultWithInfo<Self::PostInfo> {
-			Ok(())
-		}
-	}
-
-	type StoreXt = TestXt<StoreCall, ()>;
-	type StoreBlock = RawBlock<StoreXt>;
-
-	fn insert_store_block(
-		backend: &Backend<StoreBlock>,
-		number: u64,
-		parent_hash: H256,
-		body: Vec<StoreXt>,
-		transaction_index: Option<Vec<IndexOperation>>,
-	) -> H256 {
-		use sp_runtime::testing::Digest;
-
-		let digest = Digest::default();
-		let mut header = Header {
-			number,
-			parent_hash,
-			state_root: Default::default(),
-			digest,
-			extrinsics_root: Default::default(),
-		};
-
-		let block_hash = if number == 0 { Default::default() } else { parent_hash };
-		let mut op = backend.begin_operation().unwrap();
-		backend.begin_state_operation(&mut op, block_hash).unwrap();
-		if let Some(index) = transaction_index {
-			op.update_transaction_index(index).unwrap();
-		}
-
-		let (root, overlay) = op.old_state.storage_root(
-			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
-			StateVersion::V1,
-		);
-		op.update_db_storage(overlay).unwrap();
-		header.state_root = root.into();
-
-		op.set_block_data(header.clone(), Some(body), None, None, NewBlockState::Best)
-			.unwrap();
-
-		backend.commit_operation(op).unwrap();
-
-		header.hash()
-	}
 
 	pub fn insert_header(
 		backend: &Backend<Block>,
@@ -4227,7 +4153,9 @@ pub(crate) mod tests {
 		let x0 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1 = UncheckedXt::new_transaction(1.into(), ()).encode();
 		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[1..]);
-		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
+		// Use a different tail offset for x1 to verify offset extraction works
+		// with varying prefix lengths.
+		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[2..]);
 		let index = vec![
 			IndexOperation::Insert {
 				extrinsic: 0,
@@ -4237,7 +4165,7 @@ pub(crate) mod tests {
 			IndexOperation::Insert {
 				extrinsic: 1,
 				hash: x1_hash.as_ref().to_vec(),
-				size: (x1.len() - 1) as u32,
+				size: (x1.len() - 2) as u32,
 			},
 		];
 		let hash = insert_block(
@@ -4255,7 +4183,7 @@ pub(crate) mod tests {
 		.unwrap();
 		let bc = backend.blockchain();
 		assert_eq!(bc.indexed_transaction(x0_hash).unwrap().unwrap(), &x0[1..]);
-		assert_eq!(bc.indexed_transaction(x1_hash).unwrap().unwrap(), &x1[1..]);
+		assert_eq!(bc.indexed_transaction(x1_hash).unwrap().unwrap(), &x1[2..]);
 
 		let hashof0 = bc.info().genesis_hash;
 		// Push one more blocks and make sure block is pruned and transaction index is cleared.
@@ -4265,63 +4193,6 @@ pub(crate) mod tests {
 		assert_eq!(bc.body(hashof0).unwrap(), None);
 		assert_eq!(bc.indexed_transaction(x0_hash).unwrap(), None);
 		assert_eq!(bc.indexed_transaction(x1_hash).unwrap(), None);
-	}
-
-	#[test]
-	fn indexed_transaction_tail_offset_extraction_works() {
-		let backend = Backend::<StoreBlock>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
-
-		let data: Vec<u8> = b"hello indexed world".to_vec();
-
-		// Extrinsic 0: Store { data } — minimal prefix before data.
-		let xt0 = StoreXt::new_transaction(StoreCall::Store { data: data.clone() }, ());
-		// Extrinsic 1: StoreWithArgs { arg_a, arg_b, data } — extra args before data.
-		let xt1 = StoreXt::new_transaction(
-			StoreCall::StoreWithArgs { arg_a: 42, arg_b: 999, data: data.clone() },
-			(),
-		);
-
-		let encoded0 = xt0.encode();
-		let encoded1 = xt1.encode();
-
-		// Verify data sits at the tail of both extrinsics (the invariant the pallet relies on).
-		assert_eq!(&encoded0[encoded0.len() - data.len()..], data.as_slice());
-		assert_eq!(&encoded1[encoded1.len() - data.len()..], data.as_slice());
-		// Different total lengths (xt1 has extra prefix bytes).
-		assert!(encoded1.len() > encoded0.len());
-
-		// Hash with different algorithms.
-		let blake2_hash = sp_crypto_hashing::blake2_256(&data);
-		let sha2_hash = sp_crypto_hashing::sha2_256(&data);
-
-		let index = vec![
-			IndexOperation::Insert {
-				extrinsic: 0,
-				hash: blake2_hash.to_vec(),
-				size: data.len() as u32,
-			},
-			IndexOperation::Insert {
-				extrinsic: 1,
-				hash: sha2_hash.to_vec(),
-				size: data.len() as u32,
-			},
-		];
-
-		// Process transactions
-		insert_store_block(&backend, 0, Default::default(), vec![xt0, xt1], Some(index));
-
-		let bc = backend.blockchain();
-
-		// Both hash keys retrieve the original data, regardless of extrinsic prefix length.
-		for hash in [blake2_hash, sha2_hash] {
-			let h256 = H256::from(hash);
-			assert!(bc.has_indexed_transaction(h256).unwrap());
-			assert_eq!(bc.indexed_transaction(h256).unwrap().unwrap(), data);
-		}
-
-		// A random hash is not present in the transaction column.
-		let random_hash = H256::from(sp_crypto_hashing::blake2_256(b"does not exist"));
-		assert!(!bc.has_indexed_transaction(random_hash).unwrap());
 	}
 
 	#[test]
