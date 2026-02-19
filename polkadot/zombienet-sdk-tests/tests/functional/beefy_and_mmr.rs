@@ -139,10 +139,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		// Add validator nodes and unstable validator
 		// NOTE: Once we update zombienet-sdk to newer version >v0.3.13, the following can be
 		// replaced with a group
-		r.with_node(|node| node.with_name("validator-0"))
-			.with_node(|node| node.with_name("validator-1"))
-			.with_node(|node| node.with_name("validator-2"))
-			.with_node(|node| node.with_name(UNSTABLE))
+		r.with_validator(|node| node.with_name("validator-0"))
+			.with_validator(|node| node.with_name("validator-1"))
+			.with_validator(|node| node.with_name("validator-2"))
+			.with_validator(|node| node.with_name(UNSTABLE))
 	});
 
 	builder = builder.with_global_settings(|global_settings| {
@@ -348,7 +348,11 @@ async fn verify_mmr_proofs(
 	let at_block_hash: String = rpc_client.request("chain_getBlockHash", hash_params).await?;
 
 	if at_block_hash == "0x0000000000000000000000000000000000000000000000000000000000000000" {
-		return Err(anyhow!("Block {} not found - chain only at block {}", block_21, latest_height));
+		return Err(anyhow!(
+			"Block {} not found - chain only at block {}",
+			block_21,
+			latest_height
+		));
 	}
 
 	log::info!("Testing MMR at block 21: {}", at_block_hash);

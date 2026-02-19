@@ -254,7 +254,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			});
 
 		// Add first old validator to transition type
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("old-0")
 				.with_image(old_polkadot_image.as_str())
 				.with_command(old_polkadot_command.as_str())
@@ -264,7 +264,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		});
 
 		// Add second old validator
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("old-1")
 				.with_image(old_polkadot_image.as_str())
 				.with_command(old_polkadot_command.as_str())
@@ -274,14 +274,14 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		});
 
 		// Add 2 new validators (with /req_chunk/2 support)
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("new-0")
 				.with_args(vec![
 					"-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace,sub-libp2p=trace".into(),
 				])
 		});
 
-		r.with_node(|node| {
+		r.with_validator(|node| {
 			node.with_name("new-1")
 				.with_args(vec![
 					"-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace,sub-libp2p=trace".into(),

@@ -236,14 +236,14 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			});
 
 		// Add alice as a validator
-		let r = r.with_node(|node| node.with_name("alice").validator(true));
+		let r = r.with_validator(|node| node.with_name("alice").validator(true));
 
 		// Add 3 validators
-		r.with_node(|node| {
+		r.with_validator(|node| {
 			node.with_name("validator-0").with_args(vec!["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace".into()])
-		}).with_node(|node| {
+		}).with_validator(|node| {
 			node.with_name("validator-1").with_args(vec!["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace".into()])
-		}).with_node(|node| {
+		}).with_validator(|node| {
 			node.with_name("validator-2").with_args(vec!["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace".into()])
 		})
 	});

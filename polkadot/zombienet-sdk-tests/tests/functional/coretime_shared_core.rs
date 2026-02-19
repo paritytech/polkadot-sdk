@@ -138,10 +138,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					}
 				}
 			}))
-			.with_node(|node| node.with_name("validator-0"))
-			.with_node(|node| node.with_name("validator-1"))
-			.with_node(|node| node.with_name("validator-2"))
-			.with_node(|node| node.with_name("validator-3"))
+			.with_validator(|node| node.with_name("validator-0"))
+			.with_validator(|node| node.with_name("validator-1"))
+			.with_validator(|node| node.with_name("validator-2"))
+			.with_validator(|node| node.with_name("validator-3"))
 	});
 
 	// Add 4 glutton parachains (2000-2003) without auto-onboarding.

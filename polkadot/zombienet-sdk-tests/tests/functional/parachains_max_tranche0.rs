@@ -120,13 +120,13 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					.with_request_cpu("1")
 			});
 
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("some-validator-0")
 				.with_args(vec!["-lparachain=debug,runtime=debug".into()])
 		});
 
 		(1..NUM_VALIDATORS).fold(r, |acc, i| {
-			acc.with_node(|node| {
+			acc.with_validator(|node| {
 				node.with_name(&format!("some-validator-{i}"))
 					.with_args(vec!["-lparachain=debug,runtime=debug".into()])
 			})

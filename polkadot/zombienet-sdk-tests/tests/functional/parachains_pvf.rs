@@ -85,14 +85,14 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 					.with_request_memory("2G")
 					.with_request_cpu("1")
 			})
-			.with_node(|node| node.with_name("alice").validator(true))
-			.with_node(|node| node.with_name("bob").validator(true))
-			.with_node(|node| node.with_name("charlie").validator(true))
-			.with_node(|node| node.with_name("dave").validator(true))
-			.with_node(|node| node.with_name("ferdie").validator(true))
-			.with_node(|node| node.with_name("eve").validator(true))
-			.with_node(|node| node.with_name("one").validator(true))
-			.with_node(|node| node.with_name("two").validator(true))
+			.with_validator(|node| node.with_name("alice").validator(true))
+			.with_validator(|node| node.with_name("bob").validator(true))
+			.with_validator(|node| node.with_name("charlie").validator(true))
+			.with_validator(|node| node.with_name("dave").validator(true))
+			.with_validator(|node| node.with_name("ferdie").validator(true))
+			.with_validator(|node| node.with_name("eve").validator(true))
+			.with_validator(|node| node.with_name("one").validator(true))
+			.with_validator(|node| node.with_name("two").validator(true))
 	});
 
 	// Add parachains with varying configurations
@@ -101,11 +101,9 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 			.iter()
 			.fold(builder, |builder, &(id, pov_size, complexity, collator)| {
 				let genesis_state_cmd = format!(
-					"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
-					pov_size, complexity
-				);
-				let pov_arg = format!("--pov-size={}", pov_size);
-				let complexity_arg = format!("--pvf-complexity={}", complexity);
+					"undying-collator export-genesis-state --pov-size={pov_size} --pvf-complexity={complexity}");
+				let pov_arg = format!("--pov-size={pov_size}");
+				let complexity_arg = format!("--pvf-complexity={complexity}");
 				builder.with_parachain(|p| {
 					p.with_id(id)
 						.with_genesis_state_generator(genesis_state_cmd.as_str())
@@ -184,8 +182,8 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 	log::info!("Checking PVF preparation and execution times");
 	for &name in &VALIDATOR_NAMES {
 		let node = network.get_node(name)?;
-		check_pvf_preparation_time(&node, name).await?;
-		check_pvf_execution_time(&node, name).await?;
+		check_pvf_preparation_time(node, name).await?;
+		check_pvf_execution_time(node, name).await?;
 	}
 	log::info!("All PVF timing checks passed");
 

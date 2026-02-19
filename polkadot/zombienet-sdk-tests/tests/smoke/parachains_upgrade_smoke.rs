@@ -98,8 +98,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			r.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(polkadot_image.as_str())
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

@@ -197,21 +197,21 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 		// Add honest validators
 		let r = r
-			.with_node(|node| {
+			.with_validator(|node| {
 				node.with_name("honest-validator-0")
 					.with_args(vec!["-lparachain=debug,runtime=debug".into()])
 			})
-			.with_node(|node| {
+			.with_validator(|node| {
 				node.with_name("honest-validator-1")
 					.with_args(vec!["-lparachain=debug,runtime=debug".into()])
 			})
-			.with_node(|node| {
+			.with_validator(|node| {
 				node.with_name("honest-validator-2")
 					.with_args(vec!["-lparachain=debug,runtime=debug".into()])
 			});
 
 		// Add malus validator with suggest-garbage-candidate command
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name(MALUS_VALIDATOR)
 				.with_image(malus_image.as_str())
 				.with_command("malus")
@@ -230,8 +230,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		let pov = 10_000 * (id - 1999);
 		let complexity = id - 1999;
 		let genesis_cmd = format!(
-			"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
-			pov, complexity
+			"undying-collator export-genesis-state --pov-size={pov} --pvf-complexity={complexity}"
 		);
 
 		builder = builder.with_parachain(|p| {

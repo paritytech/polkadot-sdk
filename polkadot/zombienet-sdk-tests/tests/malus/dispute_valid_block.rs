@@ -161,23 +161,23 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("alice")
 						.validator(true)
 						.with_args(vec!["--alice".into(), "-lparachain=debug".into()])
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("bob")
 						.validator(true)
 						.with_args(vec!["--bob".into(), "-lparachain=debug".into()])
 				})
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("charlie")
 						.validator(true)
 						.with_args(vec!["--charlie".into(), "-lparachain=debug".into()])
 				})
 				// Malicious validator running dispute-ancestor.
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("dave")
 						.validator(true)
 						.with_image(malus_image.as_str())

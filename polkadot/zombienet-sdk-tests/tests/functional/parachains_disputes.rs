@@ -176,7 +176,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			});
 
 		// Add nodes: alice and bob are malus with dispute-ancestor command
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("alice")
 				.with_image(malus_image.as_str())
 				.with_command("malus")
@@ -189,7 +189,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 		});
 
-		let r = r.with_node(|node| {
+		let r = r.with_validator(|node| {
 			node.with_name("bob")
 				.with_image(malus_image.as_str())
 				.with_command("malus")
@@ -204,12 +204,12 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		});
 
 		// Add remaining honest validators
-		let r = (0..6).fold(r, |acc, i| {
+		(0..6).fold(r, |acc, i| {
 			let name = ["charlie", "dave", "ferdie", "eve", "one", "two"][i as usize];
-			acc.with_node(|node| node.with_name(name).with_args(vec!["-lparachain=debug".into()]))
-		});
-
-		r
+			acc.with_validator(|node| {
+				node.with_name(name).with_args(vec!["-lparachain=debug".into()])
+			})
+		})
 	});
 
 	// Add parachains 2000..2003
@@ -229,8 +229,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.cumulus_based(false)
 				.with_default_args(vec![
 					"-lparachain=debug".into(),
-					format!("--pov-size={}", pov).as_str().into(),
-					format!("--pvf-complexity={}", complexity).as_str().into(),
+					format!("--pov-size={pov}").as_str().into(),
+					format!("--pvf-complexity={complexity}").as_str().into(),
 				])
 				.with_collator(|n| n.with_name("collator"))
 		});
