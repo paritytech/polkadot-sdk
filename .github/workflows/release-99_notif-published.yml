@@ -14,25 +14,30 @@ jobs:
         id: fetch_latest_release_tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
         run: |
           TAG_NAME=$(curl -H "Accept: application/vnd.github+json" \
           -H "X-GitHub-Api-Version: 2022-11-28" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-          -sL "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+          -sL "https://api.github.com/repos/${GH_REPOSITORY}/releases/latest" \
           | jq -r '.tag_name')
 
           echo "Latest release tag: $TAG_NAME"
           echo "latest_tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
       - name: Fetch  current release tag name
         id: fetch_curent_release_tag
+        env:
+          CURRENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
-          CURRENT_RELEASE_TAG_NAME=${{github.event.release.tag_name}}
           echo "Current release tag: $CURRENT_RELEASE_TAG_NAME"
           echo "current_tag_name=$CURRENT_RELEASE_TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Check if release is latest
         id: check_is_latest
+        env:
+          LATEST_TAG: ${{ steps.fetch_latest_release_tag.outputs.latest_tag_name }}
+          CURRENT_TAG: ${{ steps.fetch_curent_release_tag.outputs.current_tag_name }}
         run: |
-          if [[ "${{ steps.fetch_latest_release_tag.outputs.latest_tag_name }}" == "${{ steps.fetch_curent_release_tag.outputs.current_tag_name }}" ]]; then
+          if [[ "$LATEST_TAG" == "$CURRENT_TAG" ]]; then
             echo "Release is latest"
             echo "is_latest=true" >> $GITHUB_OUTPUT
           else

@@ -25,13 +25,18 @@ jobs:
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_NODE_VERSION: ${{ inputs.node_version }}
+          INPUT_STABLE_VERSION: ${{ inputs.stable_version }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          node_version=$(filter_version_from_input "${{ inputs.node_version }}")
-          echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          if [ -n "$INPUT_NODE_VERSION" ]; then
+            node_version=$(filter_version_from_input "$INPUT_NODE_VERSION")
+            echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          fi
 
-          stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
+          stable_version=$(validate_stable_tag "$INPUT_STABLE_VERSION")
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
   create-stable-branch:
@@ -88,10 +93,10 @@ jobs:
       - name: Bump versions, reorder prdocs and push stable branch
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          NODE_VERSION: ${{ needs.validate-inputs.outputs.node_version }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
           NODE_VERSION_PATTERN="\(NODE_VERSION[^=]*= \)\".*\""
           set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"

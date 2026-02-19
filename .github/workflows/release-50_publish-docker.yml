@@ -83,13 +83,16 @@ jobs:
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_STABLE_TAG: ${{ inputs.stable_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          VERSION=$(filter_version_from_input "$INPUT_VERSION")
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
-          STABLE_TAG=$(validate_stable_tag ${{ inputs.stable_tag }})
+          STABLE_TAG=$(validate_stable_tag "$INPUT_STABLE_TAG")
           echo "stable_tag=${STABLE_TAG}" >> $GITHUB_OUTPUT
 
   fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
@@ -103,11 +106,12 @@ jobs:
 
       - name: Fetch rc artifacts or release artifacts from s3 based on version
         # if: ${{ env.EVENT_NAME  == 'workflow_dispatch' && inputs.binary != 'polkadot-omni-node' && inputs.binary != 'chain-spec-builder'}}
+        env:
+          VERSION: ${{ needs.validate-inputs.outputs.stable_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="${{ needs.validate-inputs.outputs.stable_tag }}"
-          if [[ ${{ inputs.binary }} == 'polkadot' ]]; then
+          if [[ "$BINARY" == 'polkadot' ]]; then
             bins=(polkadot polkadot-prepare-worker polkadot-execute-worker)
             for bin in "${bins[@]}"; do
               fetch_release_artifacts_from_s3 $bin x86_64-unknown-linux-gnu
@@ -157,25 +161,31 @@ jobs:
         if: ${{ env.IMAGE_TYPE == 'rc' }}
         id: fetch_rc_refs
         shell: bash
+        env:
+          VALIDATED_VERSION: ${{ needs.validate-inputs.outputs.version }}
+          VALIDATED_STABLE_TAG: ${{ needs.validate-inputs.outputs.stable_tag }}
         run: |
           . ../.github/scripts/common/lib.sh
 
           commit=$(git rev-parse --short HEAD) && \
           echo "commit=${commit}" >> $GITHUB_OUTPUT
-          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
-          echo "tag=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
+          echo "release=${VALIDATED_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=$(prepare_docker_stable_tag "$VALIDATED_STABLE_TAG")" >> $GITHUB_OUTPUT
 
       - name: Fetch release tags
         working-directory: release-artifacts
         if: ${{ env.IMAGE_TYPE == 'release'}}
         id: fetch_release_refs
         shell: bash
+        env:
+          VALIDATED_VERSION: ${{ needs.validate-inputs.outputs.version }}
+          VALIDATED_STABLE_TAG: ${{ needs.validate-inputs.outputs.stable_tag }}
         run: |
           . ../.github/scripts/common/lib.sh
 
           echo "tag=latest" >> $GITHUB_OUTPUT
-          echo "release=$(echo ${{ needs.validate-inputs.outputs.version }})" >> $GITHUB_OUTPUT
-          echo "stable=$(prepare_docker_stable_tag ${{ needs.validate-inputs.outputs.stable_tag }})" >> $GITHUB_OUTPUT
+          echo "release=${VALIDATED_VERSION}" >> $GITHUB_OUTPUT
+          echo "stable=$(prepare_docker_stable_tag "$VALIDATED_STABLE_TAG")" >> $GITHUB_OUTPUT
 
       - name: Build Injected Container image for polkadot rc
         if: ${{ env.BINARY == 'polkadot' }}
@@ -184,10 +194,25 @@ jobs:
           IMAGE_NAME: ${{ env.BINARY }}
           OWNER: ${{ env.DOCKER_OWNER }}
           TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+          VALIDATED_VERSION: ${{ needs.validate-inputs.outputs.version }}
         run: |
           ls -al
           echo "Building container for $BINARY"
-          ./docker/scripts/polkadot/build-injected.sh $ARTIFACTS_FOLDER
+          echo "IMAGE_TYPE: $IMAGE_TYPE"
+
+          if [[ "$IMAGE_TYPE" == "rc" ]]; then
+            echo "Building RC container for polkadot"
+            export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected.Dockerfile"
+            export BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
+            ./docker/scripts/build-injected.sh
+          else
+            echo "Building release container for polkadot"
+            export DOCKERFILE="docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile"
+            export BINARY="polkadot,polkadot-execute-worker,polkadot-prepare-worker"
+            export POLKADOT_DEB=true
+            export VERSION="$VALIDATED_VERSION"
+           ./docker/scripts/build-injected.sh
+          fi
 
       - name: Build Injected Container image for polkadot-omni-node/chain-spec-builder
         if: ${{ env.BINARY == 'polkadot-omni-node' || env.BINARY == 'chain-spec-builder' }}
