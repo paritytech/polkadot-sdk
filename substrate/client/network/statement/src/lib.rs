@@ -389,110 +389,140 @@ impl StatementHandlerPrototype {
 
 		log::trace!(target: LOG_TARGET, "Worker processing {} statements from {}", statements.len(), who);
 
-		// Track aggregated reputation change for this peer
+		// Track aggregated reputation change for this peer.
 		let mut aggregated_reputation: i32 = 0;
 
-		for s in statements {
-			let hash = s.hash();
+		// Pre-compute hashes for all statements upfront.
+		let statements_with_hashes: Vec<(Hash, Statement)> =
+			statements.into_iter().map(|s| { let h = s.hash(); (h, s) }).collect();
 
-			// Mark statement as known for this peer.
-			{
-				let Ok(mut guard) = shared_peers.write() else {
-					log::error!(target: LOG_TARGET, "shared_peers lock poisoned");
-					break;
-				};
-				// We can't punish peers for sending us statements we already know from them,
-				// because there might be a race between us sending them the statement and them
-				// sending it to us. So we just skip duplicates from the same peer
-				if !guard
-					.get_mut(&who)
-					.map(|peer| peer.known_statements.insert(hash))
-					.unwrap_or(true)
-				{
-					continue;
-				}
+		// Pass 1: Filter by known_statements (single peers write lock).
+		// We can't punish peers for sending us statements we already know from them,
+		// because there might be a race between us sending them the statement and them
+		// sending it to us. So we just skip duplicates from the same peer.
+		let after_known_filter: Vec<(Hash, Statement)> = {
+			let Ok(mut guard) = shared_peers.write() else {
+				log::error!(target: LOG_TARGET, "shared_peers lock poisoned");
+				return;
 			};
+			let mut result = Vec::with_capacity(statements_with_hashes.len());
+			if let Some(peer) = guard.get_mut(&who) {
+				for (hash, stmt) in statements_with_hashes {
+					if peer.known_statements.insert(hash) {
+						result.push((hash, stmt));
+					}
+				}
+			} else {
+				// Peer not in map (disconnected?), process all statements.
+				result = statements_with_hashes;
+			}
+			result
+		};
 
-			// Check if we already received this from the same peer while pending validation.
-			{
-				let Ok(state) = shared_state.read() else {
-					log::error!(target: LOG_TARGET, "shared_state lock poisoned");
-					break;
-				};
-				if state
-					.pending_statements_peers
-					.get(&hash)
-					.map(|peers| peers.contains(&who))
-					.unwrap_or(false)
-				{
+		// Pass 2: Filter by pending_statements_peers (single state read lock).
+		let after_pending_filter: Vec<(Hash, Statement)> = {
+			let Ok(state) = shared_state.read() else {
+				log::error!(target: LOG_TARGET, "shared_state lock poisoned");
+				return;
+			};
+			after_known_filter
+				.into_iter()
+				.filter(|(hash, _)| {
+					if state
+						.pending_statements_peers
+						.get(hash)
+						.map(|peers| peers.contains(&who))
+						.unwrap_or(false)
+					{
+						log::trace!(
+							target: LOG_TARGET,
+							"Worker: Already received the statement from the same peer {who} while pending.",
+						);
+						aggregated_reputation =
+							aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
+						false
+					} else {
+						true
+					}
+				})
+				.collect()
+		};
+
+		// Pass 3: Filter by statement store (NO LOCK — may involve I/O).
+		let to_submit: Vec<(Hash, Statement)> = after_pending_filter
+			.into_iter()
+			.filter(|(hash, _)| {
+				if statement_store.has_statement(hash) {
 					log::trace!(
 						target: LOG_TARGET,
-						"Worker: Already received the statement from the same peer {who} while pending.",
+						"Worker: Already have statement in store (from another peer), skipping.",
 					);
+					if let Some(metrics) = metrics {
+						metrics.known_statements_received.inc();
+					}
+					false
+				} else {
 					aggregated_reputation =
-						aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
-					continue;
+						aggregated_reputation.saturating_add(rep::ANY_STATEMENT.value);
+					true
 				}
-			}
+			})
+			.collect();
 
-			// Skip if we already have this statement (from another peer).
-			if statement_store.has_statement(&hash) {
-				log::trace!(
-					target: LOG_TARGET,
-					"Worker: Already have statement in store (from another peer), skipping.",
-				);
-				if let Some(metrics) = metrics {
-					metrics.known_statements_received.inc();
-				}
-				continue;
-			}
-
-			// Queue ANY_STATEMENT reputation report for new statements
-			aggregated_reputation = aggregated_reputation.saturating_add(rep::ANY_STATEMENT.value);
-
-			// Acquire write lock to update pending state.
+		// Pass 4: Submit to validation queue (single state write lock).
+		if !to_submit.is_empty() {
 			let Ok(mut state) = shared_state.write() else {
 				log::error!(target: LOG_TARGET, "shared_state lock poisoned");
-				break;
+				// Fall through to send aggregated reputation below.
+				return;
 			};
 
-			// Check pending limit.
 			if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
 				log::debug!(
 					target: LOG_TARGET,
-					"Worker: Ignoring statement, exceeded MAX_PENDING_STATEMENTS limit",
+					"Worker: Ignoring statements, exceeded MAX_PENDING_STATEMENTS limit",
 				);
 				if let Some(metrics) = metrics {
 					metrics.ignored_statements.inc();
 				}
-				break;
-			}
-
-			match state.pending_statements_peers.entry(hash) {
-				Entry::Vacant(entry) => match submit_queue_sender.try_send((hash, s)) {
-					Ok(()) => {
-						entry.insert(HashSet::from_iter([who]));
-					},
-					Err(async_channel::TrySendError::Full(_)) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Worker: Dropped statement because validation channel is full",
-						);
-					},
-					Err(async_channel::TrySendError::Closed(_)) => {
-						log::trace!(
-							target: LOG_TARGET,
-							"Worker: Dropped statement because validation channel is closed",
-						);
-					},
-				},
-				Entry::Occupied(mut entry) => {
-					if !entry.get_mut().insert(who) {
-						//  We might have raced with another worker thread adding the same peer.
-						aggregated_reputation =
-							aggregated_reputation.saturating_add(rep::DUPLICATE_STATEMENT.value);
+			} else {
+				for (hash, s) in to_submit {
+					// Re-check the limit for each statement within the batch.
+					if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
+						if let Some(metrics) = metrics {
+							metrics.ignored_statements.inc();
+						}
+						break;
 					}
-				},
+
+					match state.pending_statements_peers.entry(hash) {
+						Entry::Vacant(entry) => match submit_queue_sender.try_send((hash, s)) {
+							Ok(()) => {
+								entry.insert(HashSet::from_iter([who]));
+							},
+							Err(async_channel::TrySendError::Full(_)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"Worker: Dropped statement because validation channel is full",
+								);
+							},
+							Err(async_channel::TrySendError::Closed(_)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"Worker: Dropped statement because validation channel is closed",
+								);
+							},
+						},
+						Entry::Occupied(mut entry) => {
+							// We might have raced with another worker thread adding the same
+							// peer.
+							if !entry.get_mut().insert(who) {
+								aggregated_reputation = aggregated_reputation
+									.saturating_add(rep::DUPLICATE_STATEMENT.value);
+							}
+						},
+					}
+				}
 			}
 		}
 
@@ -902,7 +932,7 @@ where
 					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
 				let _ = result_tx.send(result);
 			},
-			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+			NotificationEvent::NotificationStreamOpened { peer, handshake: _, .. } => {
 				{
 					let Ok(mut guard) = self.peers.write() else {
 						log::error!(target: LOG_TARGET, "peers lock poisoned");
@@ -2745,7 +2775,7 @@ mod tests {
 		let (
 			handler,
 			statement_store,
-			network,
+			_network,
 			event_sender,
 			mut notification_receiver,
 			_results_queue_sender,
