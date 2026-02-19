@@ -18,11 +18,6 @@
 mod command;
 
 // Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
-// Without it, the shim is seen as a dependency that produces no referenced symbols, so the linker
-// might drop it. We have seen it happening on CI with rust 1.88.0 and gcc/ld from Ubuntu 24.04 but
-// not with rust 1.92.0 and the same linker. It also works without the extern crate declaration on
-// both rust 1.88.0 and 1.92.0 when using clang/ld or mold, so it seems to be a combination of rust
-// version and linker.
 #[cfg(target_os = "linux")]
 extern crate polkadot_jemalloc_shim;
 
