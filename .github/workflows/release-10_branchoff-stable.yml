@@ -37,15 +37,18 @@ jobs:
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_NODE_VERSION: ${{ inputs.node_version }}
+          INPUT_STABLE_VERSION: ${{ inputs.stable_version }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          if [ -n "${{ inputs.node_version }}" ]; then
-            node_version=$(filter_version_from_input "${{ inputs.node_version }}")
+          if [ -n "$INPUT_NODE_VERSION" ]; then
+            node_version=$(filter_version_from_input "$INPUT_NODE_VERSION")
             echo "node_version=${node_version}" >> $GITHUB_OUTPUT
           fi
 
-          stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
+          stable_version=$(validate_stable_tag "$INPUT_STABLE_VERSION")
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
   create-stable-branch:
@@ -103,10 +106,10 @@ jobs:
       - name: Bump versions, reorder prdocs and push stable branch
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          NODE_VERSION: ${{ needs.validate-inputs.outputs.node_version }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          NODE_VERSION="${{ needs.validate-inputs.outputs.node_version }}"
           NODE_VERSION_PATTERN="\(NODE_VERSION[^=]*= \)\".*\""
           set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
@@ -127,12 +130,14 @@ jobs:
         if: ${{ inputs.tag_rc }}
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }} # or use a PAT with workflow scope
+          STABLE_VERSION: ${{ needs.validate-inputs.outputs.stable_version }}
+          GH_REPOSITORY: ${{ github.repository }}
         run: |
-          stable_tag_base=polkadot-${{ needs.validate-inputs.outputs.stable_version }}
+          stable_tag_base="polkadot-${STABLE_VERSION}"
           gh workflow run release-11_rc-automation.yml \
-            --repo ${{ github.repository }} \
-            --ref ${{ needs.validate-inputs.outputs.stable_version }} \
-            --field version=${stable_tag_base}
+            --repo "$GH_REPOSITORY" \
+            --ref "$STABLE_VERSION" \
+            --field version="${stable_tag_base}"
 
   tag-rc-without-branchoff:
     if: ${{ !inputs.is_new_stable && inputs.tag_rc }}
