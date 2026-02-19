@@ -903,6 +903,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 		// Macro to deduplicate the transactional holding-backup pattern.
 		macro_rules! process_holding_transaction {
+			// Use this variant for instructions that don't touch storage.
+			// Since storage is unaffected, the holding register must always be
+			// rolled back on error regardless of the `TransactionalProcessor`
+			// config item.
+			(always, $self:ident, $body:expr) => {{
+				let old_holding = $self.holding.clone();
+				let result = Config::TransactionalProcessor::process(|| $body);
+				if result.is_err() {
+					$self.holding = old_holding;
+				}
+				result
+			}};
 			($self:ident, $body:expr) => {
 				process_holding_transaction!($self, $body, {})
 			};
@@ -1371,7 +1383,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					target: "xcm::executor::BuyExecution",
 					asset_used_in_buy_execution = ?self.asset_used_in_buy_execution
 				);
-				process_holding_transaction!(self, {
+				process_holding_transaction!(always, self, {
 					// pay for `weight` using up to `fees` of the holding register.
 					let max_fee =
 						self.holding.try_take(fees.clone().into()).map_err(|e| {
@@ -1643,7 +1655,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						&want,
 						maximal,
 					)
-					.map_err(|_| XcmError::NoDeal)?;
+					.map_err(|unspent| {
+						self.holding.subsume_assets(unspent);
+						XcmError::NoDeal
+					})?;
 					self.holding.subsume_assets(received);
 					Ok(())
 				})
