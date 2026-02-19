@@ -181,6 +181,9 @@ fn validate_prune_args(prune: Option<usize>, database_type: DatabaseType) -> any
 		if database_type == DatabaseType::Persistent {
 			anyhow::bail!("--prune cannot be used with --database-type=persistent");
 		}
+		if n == 0 {
+			anyhow::bail!("--prune=0 is invalid, must be at least 1");
+		}
 		if n > MAX_PRUNE_BLOCKS {
 			anyhow::bail!("--prune={n} exceeds maximum of {MAX_PRUNE_BLOCKS}");
 		}
@@ -321,6 +324,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
+	// Read the sync boundary before subscriptions start, so the finalized
+	// subscription cannot advance `Finalized` past actual contiguous coverage.
+	let synced_upper_boundary =
+		if sync { Some(tokio_runtime.block_on(client.prepare_sync())?) } else { None };
+
 	let rpc_server_handle = start_rpc_servers(
 		&rpc_config,
 		prometheus_registry,
@@ -337,8 +345,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
 			];
 
-			if sync {
-				futures.push(Box::pin(client.sync_historic_blocks()));
+			if let Some(boundary) = synced_upper_boundary {
+				futures.push(Box::pin(client.sync_historic_blocks(boundary)));
 			}
 
 			if let Err(err) = futures::future::try_join_all(futures).await {
@@ -486,6 +494,12 @@ mod tests {
 	fn prune_with_persistent_is_rejected() {
 		let err = validate_prune_args(Some(100), DatabaseType::Persistent).unwrap_err();
 		assert!(err.to_string().contains("persistent"));
+	}
+
+	#[test]
+	fn prune_zero_is_rejected() {
+		let err = validate_prune_args(Some(0), DatabaseType::Temporary).unwrap_err();
+		assert!(err.to_string().contains("invalid"));
 	}
 
 	#[test]

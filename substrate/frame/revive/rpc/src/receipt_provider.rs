@@ -30,6 +30,45 @@ use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
+/// Labels used to track sync progress in the `sync_state` table.
+#[derive(Debug, Clone, Copy)]
+pub enum SyncLabel {
+	/// Genesis block hash — used for chain identity verification.
+	Genesis,
+	/// Lowest block that has been synced by the historic sync.
+	First,
+	/// Upper bound of contiguous coverage when the historic sync started.
+	/// Non-zero means sync is in progress (or was interrupted).
+	/// Zero (or absent) means sync completed successfully.
+	HistorySyncStart,
+	/// Latest finalized block, tracked by the live subscription.
+	Finalized,
+	/// Latest best block cached by the live subscription.
+	Best,
+	/// Auto-discovered or CLI-provided first EVM block.
+	EarliestReceiptBlock,
+}
+
+impl SyncLabel {
+	/// The string stored in the database `label` column.
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Genesis => "genesis",
+			Self::First => "first",
+			Self::HistorySyncStart => "history-sync-start",
+			Self::Finalized => "finalized",
+			Self::Best => "best",
+			Self::EarliestReceiptBlock => "earliest-receipt-block",
+		}
+	}
+}
+
+impl std::fmt::Display for SyncLabel {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(self.as_str())
+	}
+}
+
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
 pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
@@ -59,7 +98,7 @@ impl BlockHashMap {
 }
 
 /// Provides information about a block,
-/// This is an abstratction on top of [`SubstrateBlock`] that can't be mocked in tests.
+/// This is an abstraction on top of [`SubstrateBlock`] that can't be mocked in tests.
 /// Can be removed once <https://github.com/paritytech/subxt/issues/1883> is fixed.
 pub trait BlockInfo {
 	/// Returns the block hash.
@@ -86,6 +125,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, sqlx::Error> {
 		sqlx::migrate!().run(&pool).await?;
+
+		// Load auto-discovered earliest-receipt-block from sync_state (persistent DB resume).
+		if receipt_extractor.earliest_receipt_block().is_none() {
+			if let Some((block_number, _)) =
+				Self::load_sync_state(&pool, SyncLabel::EarliestReceiptBlock).await?
+			{
+				receipt_extractor.update_earliest_receipt_block(block_number);
+			}
+		}
+
 		Ok(Self {
 			pool,
 			block_provider,
@@ -95,7 +144,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		})
 	}
 
-	// Get block hash and  transaction index by transaction hash
+	// Get block hash and transaction index by transaction hash
 	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
 		let transaction_hash = transaction_hash.as_ref();
 		let result = query!(
@@ -211,7 +260,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		for block_map in block_mappings {
 			delete_tx_query = delete_tx_query.bind(block_map.substrate_hash.as_ref());
 			delete_mappings_query = delete_mappings_query.bind(block_map.substrate_hash.as_ref());
-			// logs table uses  ethereum block hash
+			// logs table uses ethereum block hash
 			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
 		}
 
@@ -232,10 +281,107 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.update_earliest_receipt_block(block_number);
 	}
 
+	/// Read a sync_state row by label (static, usable before `Self` is constructed).
+	async fn load_sync_state(
+		pool: &SqlitePool,
+		label: SyncLabel,
+	) -> Result<Option<(SubstrateBlockNumber, Option<H256>)>, sqlx::Error> {
+		let row = sqlx::query("SELECT block_number, block_hash FROM sync_state WHERE label = $1")
+			.bind(label.as_str())
+			.fetch_optional(pool)
+			.await?;
+
+		match row {
+			Some(row) => {
+				let block_number: i64 = row.get("block_number");
+				let block_hash: Option<Vec<u8>> = row.get("block_hash");
+				Ok(Some((
+					block_number as SubstrateBlockNumber,
+					block_hash.map(|b| H256::from_slice(&b)),
+				)))
+			},
+			None => Ok(None),
+		}
+	}
+
+	/// Read a sync_state row by label.
+	pub async fn get_sync_state(
+		&self,
+		label: SyncLabel,
+	) -> Result<Option<(SubstrateBlockNumber, Option<H256>)>, ClientError> {
+		Ok(Self::load_sync_state(&self.pool, label).await?)
+	}
+
+	/// Upsert a sync_state row.
+	pub async fn set_sync_state(
+		&self,
+		label: SyncLabel,
+		block_number: SubstrateBlockNumber,
+		block_hash: Option<H256>,
+	) -> Result<(), ClientError> {
+		sqlx::query(
+			"INSERT OR REPLACE INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3)",
+		)
+		.bind(label.as_str())
+		.bind(block_number as i64)
+		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
+	/// Atomically update a sync_state row only if the new block number is strictly higher.
+	///
+	/// Inserts the row if it doesn't exist yet.
+	pub async fn advance_sync_state(
+		&self,
+		label: SyncLabel,
+		block_number: SubstrateBlockNumber,
+		block_hash: Option<H256>,
+	) -> Result<(), ClientError> {
+		sqlx::query(
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
+			 ON CONFLICT(label) DO UPDATE SET block_number = $2, block_hash = $3 \
+			 WHERE block_number < $2",
+		)
+		.bind(label.as_str())
+		.bind(block_number as i64)
+		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
+	/// Atomically update a sync_state row only if the new block number is lower.
+	///
+	/// Inserts the row if it doesn't exist yet.
+	pub async fn recede_sync_state(
+		&self,
+		label: SyncLabel,
+		block_number: SubstrateBlockNumber,
+		block_hash: Option<H256>,
+	) -> Result<(), ClientError> {
+		sqlx::query(
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
+			 ON CONFLICT(label) DO UPDATE SET block_number = $2, block_hash = $3 \
+			 WHERE block_number > $2",
+		)
+		.bind(label.as_str())
+		.bind(block_number as i64)
+		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
 			BlockNumberOrTag::U256(block_number) => {
+				if *block_number > U256::from(u32::MAX) {
+					// Block number exceeds SubstrateBlockNumber range, can't be before earliest.
+					return false;
+				}
 				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
 			},
 			BlockNumberOrTag::BlockTag(_) => false,
@@ -261,7 +407,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
-	/// Prune blocks older blocks.
+	/// Prune older blocks.
 	async fn prune_blocks(
 		&self,
 		block_number: SubstrateBlockNumber,
@@ -1154,5 +1300,195 @@ mod tests {
 		assert_eq!(extractor.earliest_receipt_block(), None);
 		extractor.update_earliest_receipt_block(50);
 		assert_eq!(extractor.earliest_receipt_block(), Some(50));
+	}
+
+	#[sqlx::test]
+	async fn sync_state_roundtrip(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Initially empty
+		assert!(provider.get_sync_state(SyncLabel::Genesis).await.unwrap().is_none());
+
+		// Set and read back
+		let hash = H256::repeat_byte(0x42);
+		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash)).await.unwrap();
+		let (num, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(num, 0);
+		assert_eq!(h, Some(hash));
+
+		// Overwrite
+		let hash2 = H256::repeat_byte(0xAA);
+		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash2)).await.unwrap();
+		let (_, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(h, Some(hash2));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn sync_state_with_null_hash(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Store without a hash (e.g. earliest-receipt-block)
+		provider
+			.set_sync_state(SyncLabel::EarliestReceiptBlock, 42, None)
+			.await
+			.unwrap();
+		let (num, h) =
+			provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
+		assert_eq!(num, 42);
+		assert_eq!(h, None);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn sync_state_multiple_labels(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		let genesis_hash = H256::repeat_byte(0x01);
+		let first_hash = H256::repeat_byte(0x02);
+		let finalized_hash = H256::repeat_byte(0x03);
+
+		provider
+			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
+			.await
+			.unwrap();
+		provider.set_sync_state(SyncLabel::First, 100, Some(first_hash)).await.unwrap();
+		provider
+			.set_sync_state(SyncLabel::Finalized, 500, Some(finalized_hash))
+			.await
+			.unwrap();
+
+		let (num, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(num, 0);
+		assert_eq!(h, Some(genesis_hash));
+
+		let (num, h) = provider.get_sync_state(SyncLabel::First).await.unwrap().unwrap();
+		assert_eq!(num, 100);
+		assert_eq!(h, Some(first_hash));
+
+		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await.unwrap().unwrap();
+		assert_eq!(num, 500);
+		assert_eq!(h, Some(finalized_hash));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn new_loads_earliest_receipt_block_from_db(pool: SqlitePool) -> anyhow::Result<()> {
+		// Pre-seed the sync_state table (migrations already ran for #[sqlx::test])
+		sqlx::query(
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('earliest-receipt-block', 42, NULL)",
+		)
+		.execute(&pool)
+		.await?;
+
+		// Construct via new() — extractor has no earliest_receipt_block yet
+		let extractor = ReceiptExtractor::new_mock();
+		assert_eq!(extractor.earliest_receipt_block(), None);
+
+		let provider =
+			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor.clone(), Some(10))
+				.await?;
+
+		// new() should have loaded the value from the database
+		assert_eq!(provider.earliest_receipt_block(), Some(42));
+		// The shared AtomicU32 is also visible through the original extractor handle
+		assert_eq!(extractor.earliest_receipt_block(), Some(42));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn new_does_not_override_cli_earliest_receipt_block(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		// Pre-seed the DB with a different value
+		sqlx::query(
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('earliest-receipt-block', 42, NULL)",
+		)
+		.execute(&pool)
+		.await?;
+
+		// Extractor already has a CLI-provided value
+		let extractor = ReceiptExtractor::new_mock();
+		extractor.update_earliest_receipt_block(100);
+
+		let provider =
+			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor, Some(10)).await?;
+
+		// CLI value (100) should take precedence over DB value (42)
+		assert_eq!(provider.earliest_receipt_block(), Some(100));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn advance_sync_state_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let hash_a = H256::repeat_byte(0xAA);
+		let hash_b = H256::repeat_byte(0xBB);
+
+		// First insert creates the row.
+		provider.advance_sync_state(SyncLabel::Finalized, 100, Some(hash_a)).await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((num, h), (100, Some(hash_a)));
+
+		// Higher value advances.
+		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_b)).await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((num, h), (200, Some(hash_b)));
+
+		// Lower value is ignored.
+		provider.advance_sync_state(SyncLabel::Finalized, 50, Some(hash_a)).await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((num, h), (200, Some(hash_b)));
+
+		// Equal value is ignored (strict <).
+		let hash_c = H256::repeat_byte(0xCC);
+		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_c)).await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((num, h), (200, Some(hash_b)));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn recede_sync_state_only_decreases(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let hash_a = H256::repeat_byte(0xAA);
+		let hash_b = H256::repeat_byte(0xBB);
+
+		// First insert creates the row.
+		provider
+			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 100, Some(hash_a))
+			.await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((num, h), (100, Some(hash_a)));
+
+		// Lower value recedes.
+		provider
+			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_b))
+			.await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((num, h), (50, Some(hash_b)));
+
+		// Higher value is ignored.
+		provider
+			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 200, Some(hash_a))
+			.await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((num, h), (50, Some(hash_b)));
+
+		// Equal value is ignored (strict >).
+		let hash_c = H256::repeat_byte(0xCC);
+		provider
+			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_c))
+			.await?;
+		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((num, h), (50, Some(hash_b)));
+
+		Ok(())
 	}
 }
