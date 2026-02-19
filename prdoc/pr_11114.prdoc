@@ -1,0 +1,12 @@
+title: 'frame-omni-bencher: force the linker not to drop jemalloc shim on Linux'
+doc:
+- audience: Runtime Dev
+  description: "Force the linker to keep the polkadot_jemalloc_shim crate and its\
+    \ #[global_allocator]. Without it, the linker might drop it since it is seen as\
+    \ a dependency with no referenced symbols. The issue happens only on a subset\
+    \ of combination of rust version and linker (e.g. on CI with Ubunti 24.04, rust\
+    \ 1.88.0 + gcc/ld strips the jemalloc crate from the binary but not rust 1.92.0\
+    \ and also rust 1.88.0 + clang/mold works fine\r\n"
+crates:
+- name: frame-omni-bencher
+  bump: patch
