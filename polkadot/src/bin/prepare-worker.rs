@@ -16,10 +16,6 @@
 
 //! Prepare worker.
 
-// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
-#[cfg(target_os = "linux")]
-extern crate polkadot_jemalloc_shim;
-
 polkadot_node_core_pvf_common::decl_worker_main!(
 	"prepare-worker",
 	polkadot_node_core_pvf_prepare_worker::worker_entrypoint,
