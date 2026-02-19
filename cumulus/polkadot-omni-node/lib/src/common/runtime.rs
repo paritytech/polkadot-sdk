@@ -126,11 +126,11 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 
 		let block_number = metadata_inspector.block_number().unwrap_or_else(|| {
 			log::warn!(
-					r#"⚠️  There isn't a runtime type named `System`, corresponding to the `frame-system`
+				r#"⚠️  There isn't a runtime type named `System`, corresponding to the `frame-system`
                 pallet (https://docs.rs/frame-system/latest/frame_system/). Please check Omni Node docs for runtime conventions:
                 https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/reference_docs/omni_node/index.html#runtime-conventions.
                 Note: We'll assume a block number size of `u32`."#
-				);
+			);
 			BlockNumber::U32
 		});
 
@@ -142,12 +142,24 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			);
 		}
 
-		let aura_id = metadata_inspector
-			.aura_consensus_id()
-			.unwrap_or_else(|| aura_id_from_chain_spec_id(chain_spec.id()));
+		let aura_id = match metadata_inspector.aura_consensus_id() {
+			Some(id) => id,
+			None => {
+				log::warn!(
+					r#"⚠️  The Aura authority ID type was not found in the runtime metadata.
+					   This can be expected if the runtime does not include `pallet-aura`,
+					   or if the chain starts without Aura at genesis and enables it later
+					   via a runtime upgrade (for example, asset-hub-polkadot).
+				
+					   Falling back to chain spec ID heuristics."#
+				);				
+				aura_id_from_chain_spec_id(chain_spec.id())
+			}
+		};
 		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }
+
 
 struct MetadataInspector(Metadata);
 

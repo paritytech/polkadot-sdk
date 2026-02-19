@@ -1,33 +1,14 @@
-title: 'Add runtime metadata detection for Aura authority ID'
+title: Add runtime metadata detection for Aura authority ID
 doc:
 - audience: Node Dev
   description: |-
-    This PR adds optional runtime metadata-based detection for Aura authority ID types in `polkadot-omni-node-lib`.
-    
-    The runtime now scans metadata to determine whether the Aura pallet uses `sr25519` or `ed25519`, falling back to chain spec ID heuristics only when metadata detection unavailable or fails.
+    Adds optional runtime metadata-based detection for Aura authority ID types in `polkadot-omni-node-lib`.
 
-    ## Changes Made
+    When metadata is available, the node detects whether Aura uses `sr25519` or `ed25519`
+    directly from the runtime. If detection fails or metadata is unavailable, it falls
+    back to chain spec ID heuristics.
 
-    **File: `cumulus/polkadot-omni-node/lib/src/common/runtime.rs`**
-
-    1. **Added `aura_consensus_id()` method to `MetadataInspector`**:
-       - Scans runtime metadata types for `sp_consensus_aura::sr25519::AuthorityId` or `sp_consensus_aura::ed25519::AuthorityId` patterns
-       - Returns `Some(AuraConsensusId)` if found in metadata, `None` otherwise
-       - Early returns `None` if Aura pallet missing from metadata
-
-    2. **Updated `DefaultRuntimeResolver::runtime()`**:
-       - Calls `metadata_inspector.aura_consensus_id()` first
-       - Uses detected type immediately (no warning needed)
-       - Falls back to `aura_id_from_chain_spec_id()` only when detection returns `None`
-
-    3. **Added test coverage**:
-       - `test_aura_consensus_id()` verifies metadata detection finds authority ID type patterns correctly
-
-    ## Behavior
-
-    - If metadata contains Aura authority ID type → uses detected type (best accuracy)
-    - If metadata unavailable or detection fails → falls back to chain spec ID check with warnings (from #11026)
-
+    A warning is emitted when the Aura authority ID type is not found in metadata.
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
