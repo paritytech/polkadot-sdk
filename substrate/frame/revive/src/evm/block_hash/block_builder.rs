@@ -18,14 +18,14 @@
 //! Ethereum block builder.
 
 use crate::{
-	evm::{
-		block_hash::{
-			receipt::BLOOM_SIZE_BYTES, AccumulateReceipt, BuilderPhase, IncrementalHashBuilder,
-			IncrementalHashBuilderIR, LogsBloom,
-		},
-		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
-	},
 	Config, Pallet, ReceiptGasInfo,
+	evm::{
+		Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
+		block_hash::{
+			AccumulateReceipt, BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR,
+			LogsBloom, receipt::BLOOM_SIZE_BYTES,
+		},
+	},
 };
 
 use alloc::{vec, vec::Vec};
@@ -34,7 +34,7 @@ use codec::{Decode, Encode};
 use frame_support::traits::Time;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
-use sp_core::{keccak_256, H160, H256, U256};
+use sp_core::{H160, H256, U256, keccak_256};
 use sp_runtime::traits::{One, Zero};
 
 const LOG_TARGET: &str = "runtime::revive::block_builder";

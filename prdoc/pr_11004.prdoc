@@ -1,0 +1,7 @@
+title: 'Statementstore: Forward statements to light clients'
+doc:
+- audience: Node Dev
+  description: Forward statements to light clients. For now only done for testing purposes. Later on this needs to be improved to not overwhelm light clients.
+crates:
+- name: sc-network-statement
+  bump: patch
