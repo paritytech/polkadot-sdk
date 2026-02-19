@@ -17,7 +17,7 @@
 use crate::{
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
-	client::{SubstrateBlock, SubstrateBlockNumber},
+	client::{SubstrateBlock, SubstrateBlockNumber, SyncCheckpoint},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -128,10 +128,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Load auto-discovered earliest-receipt-block from sync_state (persistent DB resume).
 		if receipt_extractor.earliest_receipt_block().is_none() {
-			if let Some((block_number, _)) =
+			if let Some(checkpoint) =
 				Self::load_sync_state(&pool, SyncLabel::EarliestReceiptBlock).await?
 			{
-				receipt_extractor.update_earliest_receipt_block(block_number);
+				receipt_extractor.update_earliest_receipt_block(checkpoint.block_number);
 			}
 		}
 
@@ -285,7 +285,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	async fn load_sync_state(
 		pool: &SqlitePool,
 		label: SyncLabel,
-	) -> Result<Option<(SubstrateBlockNumber, Option<H256>)>, sqlx::Error> {
+	) -> Result<Option<SyncCheckpoint>, sqlx::Error> {
 		let row = sqlx::query("SELECT block_number, block_hash FROM sync_state WHERE label = $1")
 			.bind(label.as_str())
 			.fetch_optional(pool)
@@ -295,10 +295,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			Some(row) => {
 				let block_number: i64 = row.get("block_number");
 				let block_hash: Option<Vec<u8>> = row.get("block_hash");
-				Ok(Some((
-					block_number as SubstrateBlockNumber,
-					block_hash.map(|b| H256::from_slice(&b)),
-				)))
+				Ok(Some(SyncCheckpoint {
+					block_number: block_number as SubstrateBlockNumber,
+					block_hash: block_hash.map(|b| H256::from_slice(&b)),
+				}))
 			},
 			None => Ok(None),
 		}
@@ -308,7 +308,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn get_sync_state(
 		&self,
 		label: SyncLabel,
-	) -> Result<Option<(SubstrateBlockNumber, Option<H256>)>, ClientError> {
+	) -> Result<Option<SyncCheckpoint>, ClientError> {
 		Ok(Self::load_sync_state(&self.pool, label).await?)
 	}
 
@@ -1312,15 +1312,15 @@ mod tests {
 		// Set and read back
 		let hash = H256::repeat_byte(0x42);
 		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash)).await.unwrap();
-		let (num, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
-		assert_eq!(num, 0);
-		assert_eq!(h, Some(hash));
+		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_number, 0);
+		assert_eq!(checkpoint.block_hash, Some(hash));
 
 		// Overwrite
 		let hash2 = H256::repeat_byte(0xAA);
 		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash2)).await.unwrap();
-		let (_, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
-		assert_eq!(h, Some(hash2));
+		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_hash, Some(hash2));
 
 		Ok(())
 	}
@@ -1334,10 +1334,9 @@ mod tests {
 			.set_sync_state(SyncLabel::EarliestReceiptBlock, 42, None)
 			.await
 			.unwrap();
-		let (num, h) =
-			provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
-		assert_eq!(num, 42);
-		assert_eq!(h, None);
+		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_number, 42);
+		assert_eq!(checkpoint.block_hash, None);
 
 		Ok(())
 	}
@@ -1360,17 +1359,17 @@ mod tests {
 			.await
 			.unwrap();
 
-		let (num, h) = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
-		assert_eq!(num, 0);
-		assert_eq!(h, Some(genesis_hash));
+		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_number, 0);
+		assert_eq!(checkpoint.block_hash, Some(genesis_hash));
 
-		let (num, h) = provider.get_sync_state(SyncLabel::First).await.unwrap().unwrap();
-		assert_eq!(num, 100);
-		assert_eq!(h, Some(first_hash));
+		let checkpoint = provider.get_sync_state(SyncLabel::First).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_number, 100);
+		assert_eq!(checkpoint.block_hash, Some(first_hash));
 
-		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await.unwrap().unwrap();
-		assert_eq!(num, 500);
-		assert_eq!(h, Some(finalized_hash));
+		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await.unwrap().unwrap();
+		assert_eq!(checkpoint.block_number, 500);
+		assert_eq!(checkpoint.block_hash, Some(finalized_hash));
 
 		Ok(())
 	}
@@ -1432,24 +1431,24 @@ mod tests {
 
 		// First insert creates the row.
 		provider.advance_sync_state(SyncLabel::Finalized, 100, Some(hash_a)).await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
-		assert_eq!((num, h), (100, Some(hash_a)));
+		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Higher value advances.
 		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_b)).await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
-		assert_eq!((num, h), (200, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Lower value is ignored.
 		provider.advance_sync_state(SyncLabel::Finalized, 50, Some(hash_a)).await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
-		assert_eq!((num, h), (200, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Equal value is ignored (strict <).
 		let hash_c = H256::repeat_byte(0xCC);
 		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_c)).await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
-		assert_eq!((num, h), (200, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		Ok(())
 	}
@@ -1464,30 +1463,30 @@ mod tests {
 		provider
 			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 100, Some(hash_a))
 			.await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
-		assert_eq!((num, h), (100, Some(hash_a)));
+		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Lower value recedes.
 		provider
 			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_b))
 			.await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
-		assert_eq!((num, h), (50, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Higher value is ignored.
 		provider
 			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 200, Some(hash_a))
 			.await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
-		assert_eq!((num, h), (50, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Equal value is ignored (strict >).
 		let hash_c = H256::repeat_byte(0xCC);
 		provider
 			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_c))
 			.await?;
-		let (num, h) = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
-		assert_eq!((num, h), (50, Some(hash_b)));
+		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		Ok(())
 	}

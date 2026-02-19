@@ -175,6 +175,22 @@ fn validate_sync_args(sync: bool, database_type: DatabaseType) -> anyhow::Result
 	Ok(())
 }
 
+/// Validate that `--database-name` is a plain filename (no path separators).
+fn validate_database_name(database_name: &str) -> anyhow::Result<()> {
+	if database_name.is_empty() {
+		anyhow::bail!("--database-name must not be empty");
+	}
+	if std::path::Path::new(database_name)
+		.components()
+		.any(|c| !matches!(c, std::path::Component::Normal(_)))
+	{
+		anyhow::bail!(
+			"--database-name must be a plain filename without path separators, got: {database_name}"
+		);
+	}
+	Ok(())
+}
+
 /// Validate `--prune` constraints: only with temporary, and within the upper bound.
 fn validate_prune_args(prune: Option<usize>, database_type: DatabaseType) -> anyhow::Result<()> {
 	if let Some(n) = prune {
@@ -269,10 +285,11 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	let is_dev = shared_params.dev;
 	let base_path = shared_params.base_path()?;
 	let chain_id = shared_params.chain_id(is_dev);
-	let database_url = resolve_db_url(database_type, base_path, &database_name, &chain_id)?;
-
 	validate_sync_args(sync, database_type)?;
 	validate_prune_args(prune, database_type)?;
+	validate_database_name(&database_name)?;
+
+	let database_url = resolve_db_url(database_type, base_path, &database_name, &chain_id)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
@@ -521,5 +538,30 @@ mod tests {
 	#[test]
 	fn prune_none_with_temporary_is_accepted() {
 		validate_prune_args(None, DatabaseType::Temporary).unwrap();
+	}
+
+	#[test]
+	fn database_name_plain_filename_is_accepted() {
+		validate_database_name("receipts.db").unwrap();
+	}
+
+	#[test]
+	fn database_name_empty_is_rejected() {
+		validate_database_name("").unwrap_err();
+	}
+
+	#[test]
+	fn database_name_with_path_traversal_is_rejected() {
+		validate_database_name("../../etc/evil.db").unwrap_err();
+	}
+
+	#[test]
+	fn database_name_with_slash_is_rejected() {
+		validate_database_name("subdir/receipts.db").unwrap_err();
+	}
+
+	#[test]
+	fn database_name_absolute_path_is_rejected() {
+		validate_database_name("/tmp/receipts.db").unwrap_err();
 	}
 }

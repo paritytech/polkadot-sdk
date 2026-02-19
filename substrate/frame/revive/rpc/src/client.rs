@@ -73,8 +73,12 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 /// The runtime balance type.
 pub type Balance = u128;
 
-/// A stored sync state entry: block number + optional block hash.
-pub type SyncState = Option<(SubstrateBlockNumber, Option<H256>)>;
+/// A stored sync checkpoint: block number + optional block hash.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SyncCheckpoint {
+	pub block_number: SubstrateBlockNumber,
+	pub block_hash: Option<H256>,
+}
 
 /// The subscription type used to listen to new blocks.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -186,6 +190,13 @@ const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
 const REVERT_CODE: i32 = 3;
+
+/// How often (in blocks) the backward sync checkpoints its progress to the database.
+const SYNC_CHECKPOINT_INTERVAL: u64 = 1000;
+
+/// Concrete type used to pass `None` for optional sync hooks without verbose turbofish.
+type NoopSyncHook =
+	fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
@@ -450,11 +461,11 @@ impl Client {
 	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
 		let genesis_hash: H256 = self.api.genesis_hash();
 
-		if let Some((_, Some(stored))) =
-			self.receipt_provider.get_sync_state(SyncLabel::Genesis).await?
-		{
-			if stored != genesis_hash {
-				return Err(ClientError::ChainMismatch);
+		if let Some(checkpoint) = self.receipt_provider.get_sync_state(SyncLabel::Genesis).await? {
+			if let Some(stored) = checkpoint.block_hash {
+				if stored != genesis_hash {
+					return Err(ClientError::ChainMismatch);
+				}
 			}
 		}
 
@@ -491,22 +502,22 @@ impl Client {
 	/// - Otherwise, returns the subscription's `Finalized` from the previous run.
 	///
 	/// The returned value is passed to [`sync_historic_blocks`].
-	pub async fn prepare_sync(&self) -> Result<SyncState, ClientError> {
+	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
 		let history_start =
 			self.receipt_provider.get_sync_state(SyncLabel::HistorySyncStart).await?;
 
-		if let Some((num, _)) = history_start {
-			if num > 0 {
+		if let Some(checkpoint) = &history_start {
+			if checkpoint.block_number > 0 {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Previous sync was interrupted, safe boundary at #{num}");
+					"🗄️ Previous sync was interrupted, safe boundary at #{}", checkpoint.block_number);
 				return Ok(history_start);
 			}
 		}
 
 		let finalized = self.receipt_provider.get_sync_state(SyncLabel::Finalized).await?;
-		if let Some((num, _)) = &finalized {
+		if let Some(checkpoint) = &finalized {
 			log::info!(target: LOG_TARGET,
-				"🗄️ Pinned sync boundary at finalized #{num}");
+				"🗄️ Pinned sync boundary at finalized #{}", checkpoint.block_number);
 		}
 		Ok(finalized)
 	}
@@ -519,7 +530,7 @@ impl Client {
 	/// exist; otherwise starts a fresh backward sync.
 	pub async fn sync_historic_blocks(
 		&self,
-		synced_upper_boundary: SyncState,
+		synced_upper_boundary: Option<SyncCheckpoint>,
 	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
 		let latest = self.latest_finalized_block().await.number().saturating_sub(1);
@@ -533,15 +544,19 @@ impl Client {
 		let synced_lower_boundary = self.receipt_provider.get_sync_state(SyncLabel::First).await?;
 
 		match (synced_lower_boundary, synced_upper_boundary) {
-			(Some((first_num, first_hash)), Some((finalized_num, finalized_hash))) => {
+			(Some(first), Some(upper)) => {
 				// Verify boundary hashes still match the finalized chain.
-				self.verify_boundary(first_num, first_hash).await?;
-				self.verify_boundary(finalized_num, finalized_hash).await?;
+				self.verify_boundary(first.block_number, first.block_hash).await?;
+				self.verify_boundary(upper.block_number, upper.block_hash).await?;
 				// Mark sync in-progress. On crash, this value is the safe upper boundary.
 				self.receipt_provider
-					.set_sync_state(SyncLabel::HistorySyncStart, finalized_num, finalized_hash)
+					.set_sync_state(
+						SyncLabel::HistorySyncStart,
+						upper.block_number,
+						upper.block_hash,
+					)
 					.await?;
-				self.resume_sync(first_num, finalized_num, latest).await?;
+				self.resume_sync(first.block_number, upper.block_number, latest).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
@@ -567,8 +582,8 @@ impl Client {
 			.sync_backward(
 				latest,
 				0,
-				self.set_history_sync_start_hook(),
-				self.checkpoint_first_hook(),
+				Some(self.set_history_sync_start_hook()),
+				Some(self.checkpoint_first_hook()),
 			)
 			.await?;
 
@@ -592,8 +607,13 @@ impl Client {
 
 		// Top gap: [finalized + 1, latest]
 		if finalized_num < latest {
-			self.sync_backward(latest, finalized_num + 1, Self::noop_hook(), Self::noop_hook())
-				.await?;
+			self.sync_backward(
+				latest,
+				finalized_num + 1,
+				None::<NoopSyncHook>,
+				None::<NoopSyncHook>,
+			)
+			.await?;
 		}
 
 		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
@@ -601,7 +621,7 @@ impl Client {
 			.receipt_provider
 			.get_sync_state(SyncLabel::EarliestReceiptBlock)
 			.await?
-			.map(|(n, _)| n);
+			.map(|checkpoint| checkpoint.block_number);
 
 		let lower_bound = earliest.unwrap_or(0);
 		if first_num > lower_bound {
@@ -609,8 +629,8 @@ impl Client {
 				.sync_backward(
 					first_num - 1,
 					lower_bound,
-					Self::noop_hook(),
-					self.checkpoint_first_hook(),
+					None::<NoopSyncHook>,
+					Some(self.checkpoint_first_hook()),
 				)
 				.await?;
 			self.apply_discovered_earliest(&result).await;
@@ -619,12 +639,6 @@ impl Client {
 		}
 
 		Ok(())
-	}
-
-	/// No-op sync hook.
-	fn noop_hook()
-	-> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> {
-		|_num, _hash| Box::pin(async {})
 	}
 
 	/// Hook that sets `SyncLabel::HistorySyncStart` once the first block is in the DB.
@@ -683,16 +697,21 @@ impl Client {
 	/// Returns a [`SyncBackwardResult`] describing what was actually synced.
 	///
 	/// - `on_highest`: called once after the first (highest) block is inserted.
-	/// - `on_progress`: called at the first block, every 100 blocks, and at the end.
+	/// - `on_progress`: called at the first block, every `SYNC_CHECKPOINT_INTERVAL` blocks, and
+	///   once more at the end if there is un-checkpointed progress.
 	async fn sync_backward<'a, 'b>(
 		&self,
 		from: SubstrateBlockNumber,
 		lower_bound: SubstrateBlockNumber,
-		on_highest: impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
-		on_progress: impl Fn(
-			SubstrateBlockNumber,
-			H256,
-		) -> Pin<Box<dyn Future<Output = ()> + Send + 'b>>,
+		on_highest: Option<
+			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
+		>,
+		on_progress: Option<
+			impl Fn(
+				SubstrateBlockNumber,
+				H256,
+			) -> Pin<Box<dyn Future<Output = ()> + Send + 'b>>,
+		>,
 	) -> Result<SyncBackwardResult, ClientError> {
 		log::info!(target: LOG_TARGET,
 			"⬇️ Backward sync: #{from} down to #{lower_bound}");
@@ -740,18 +759,22 @@ impl Client {
 					// Track boundaries
 					if result.highest_synced.is_none() {
 						result.highest_synced = Some((block_number, block_hash));
-						on_highest(block_number, block_hash).await;
+						if let Some(ref f) = on_highest {
+							f(block_number, block_hash).await;
+						}
 					}
 					result.lowest_synced = Some((block_number, block_hash));
 					blocks_synced += 1;
 					needs_final_checkpoint = true;
 
-					if blocks_synced == 1 || blocks_synced % 100 == 0 {
+					if blocks_synced == 1 || blocks_synced % SYNC_CHECKPOINT_INTERVAL == 0 {
 						log::info!(target: LOG_TARGET,
 							"⬇️ Backward sync progress: #{block_number} \
 								({blocks_synced} blocks synced)");
 
-						on_progress(block_number, block_hash).await;
+						if let Some(ref f) = on_progress {
+							f(block_number, block_hash).await;
+						}
 						needs_final_checkpoint = false;
 					}
 				},
@@ -782,7 +805,9 @@ impl Client {
 		// Final checkpoint for any un-checkpointed progress.
 		if needs_final_checkpoint {
 			if let Some((num, hash)) = result.lowest_synced {
-				on_progress(num, hash).await;
+				if let Some(ref f) = on_progress {
+					f(num, hash).await;
+				}
 			}
 		}
 
