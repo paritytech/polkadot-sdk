@@ -39,18 +39,16 @@ pub enum AuraConsensusId {
 	Sr25519,
 }
 
-/// Determines the appropriate Aura consensus ID based on the chain spec ID,
-/// emitting warnings about the assumptions being made.
+/// Determines the appropriate Aura consensus ID based on the chain spec ID.
 ///
 /// Most parachains use Sr25519 for Aura consensus, but Asset Hub Polkadot
 /// (formerly Statemint) uses Ed25519.
 ///
-/// # Warnings
+/// # Returns
 ///
-/// - For `asset-hub-polkadot` / `statemint`: warns that Ed25519 is assumed based on the chain spec
-///   id, as this is a hardcoded special case.
-/// - For all other chains: warns that Sr25519 is assumed by default, and that Ed25519 runtimes are
-///   not yet supported (unless they are asset-hub-polkadot).
+/// Returns `AuraConsensusId::Ed25519` for chain spec IDs starting with
+/// `asset-hub-polkadot` or `statemint`, and `AuraConsensusId::Sr25519` for all
+/// other chains.
 pub fn aura_id_from_chain_spec_id(id: &str) -> AuraConsensusId {
 	let id_normalized = id.replace('_', "-");
 	if id_normalized.starts_with("asset-hub-polkadot") || id_normalized.starts_with("statemint") {

@@ -1,6 +1,6 @@
 title: 'polkadot-omni-node-lib: emit warnings for aura authority id type assumptions'
 doc:
-- audience: Runtime Dev
+- audience: Node Dev
   description: |-
     closes https://github.com/paritytech/polkadot-sdk/issues/11026
 
