@@ -185,6 +185,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"--fake-validation".into(),
 					"approval-invalid".into(),
 					"--bob".into(),
+					"--insecure-validator-i-know-what-i-do".into(),
 					"-lparachain=debug,MALUS=trace".into(),
 				])
 		});
@@ -217,8 +218,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		let pov = 25_000 * (id - 1999);
 		let complexity = id - 1999;
 		let genesis_cmd = format!(
-			"undying-collator export-genesis-state --pov-size={} --pvf-complexity={}",
-			pov, complexity
+			"undying-collator export-genesis-state --pov-size={pov} --pvf-complexity={complexity}"
 		);
 
 		builder = builder.with_parachain(|p| {

@@ -139,7 +139,7 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 	for &name in &VALIDATOR_NAMES {
 		let node = network.get_node(name)?;
 		let node_roles = node.reports("node_roles").await?;
-		assert_eq!(node_roles, 4.0, "Node {} should have node_roles = 4 (authority)", name);
+		assert_eq!(node_roles, 4.0, "Node {name} should have node_roles = 4 (authority)");
 	}
 
 	// Get relay client
@@ -172,9 +172,7 @@ async fn parachains_pvf_test() -> Result<(), anyhow::Error> {
 	let finalized_height = alice.reports("substrate_block_height{status=\"finalized\"}").await?;
 	assert!(
 		finalized_height >= MIN_FINALIZED_HEIGHT,
-		"Finalized block height should be at least {}, got {}",
-		MIN_FINALIZED_HEIGHT,
-		finalized_height
+		"Finalized block height should be at least {MIN_FINALIZED_HEIGHT}, got {finalized_height}"
 	);
 	log::info!("Finalized height OK: {}", finalized_height);
 
@@ -209,8 +207,7 @@ async fn check_pvf_preparation_time(node: &NetworkNode, name: &str) -> Result<()
 	}
 	assert!(
 		found_sample,
-		"Node {} should have at least 1 sample in acceptable preparation buckets (<= 10s)",
-		name
+		"Node {name} should have at least 1 sample in acceptable preparation buckets (<= 10s)"
 	);
 
 	// Check that time is under MAX_PVF_PREP_TIME_SECS
@@ -220,23 +217,13 @@ async fn check_pvf_preparation_time(node: &NetworkNode, name: &str) -> Result<()
 		let prep_avg = prep_sum / prep_count;
 		assert!(
 			prep_avg < MAX_PVF_PREP_TIME_SECS,
-			"Node {} average polkadot_pvf_preparation_time should be < {}s, got {} (sum={}, count={})",
-			name,
-			MAX_PVF_PREP_TIME_SECS,
-			prep_avg,
-			prep_sum,
-			prep_count
-		);
+			"Node {name} average polkadot_pvf_preparation_time should be < {MAX_PVF_PREP_TIME_SECS}s, got {prep_avg} (sum={prep_sum}, count={prep_count})");
 	}
 
 	// Check that we have 0 samples in unacceptable buckets (>= 20s)
 	for bucket in PVF_PREP_BUCKETS_UNACCEPTABLE {
 		let count = buckets.get(*bucket).copied().unwrap_or(u64::MAX);
-		assert_eq!(
-			count, 0,
-			"Node {} should have 0 samples in preparation bucket {}",
-			name, bucket
-		);
+		assert_eq!(count, 0, "Node {name} should have 0 samples in preparation bucket {bucket}");
 	}
 
 	Ok(())
@@ -259,8 +246,7 @@ async fn check_pvf_execution_time(node: &NetworkNode, name: &str) -> Result<(), 
 	}
 	assert!(
 		found_sample,
-		"Node {} should have at least 1 sample in acceptable execution buckets (<= 2s)",
-		name
+		"Node {name} should have at least 1 sample in acceptable execution buckets (<= 2s)",
 	);
 
 	// Check that the execution-time is under MAX_PVF_EXEC_TIME_SECS
@@ -270,19 +256,14 @@ async fn check_pvf_execution_time(node: &NetworkNode, name: &str) -> Result<(), 
 		let exec_avg = exec_sum / exec_count;
 		assert!(
 			exec_avg < MAX_PVF_EXEC_TIME_SECS,
-			"Node {} average polkadot_pvf_execution_time should be < {}s, got {} (sum={}, count={})",
-			name,
-			MAX_PVF_EXEC_TIME_SECS,
-			exec_avg,
-			exec_sum,
-			exec_count
+			"Node {name} average polkadot_pvf_execution_time should be < {MAX_PVF_EXEC_TIME_SECS}s, got {exec_avg} (sum={exec_sum}, count={exec_count})",
 		);
 	}
 
 	// Check that we have 0 samples in unacceptable execution buckets (> 2s)
 	for bucket in PVF_EXEC_BUCKETS_UNACCEPTABLE {
 		let count = buckets.get(*bucket).copied().unwrap_or(u64::MAX);
-		assert_eq!(count, 0, "Node {} should have 0 samples in execution bucket {}", name, bucket);
+		assert_eq!(count, 0, "Node {name} should have 0 samples in execution bucket {bucket}");
 	}
 
 	Ok(())

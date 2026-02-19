@@ -241,10 +241,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.cumulus_based(false)
 				.with_default_args(vec![
 					"-lparachain=debug".into(),
-					format!("--pov-size={}", pov).as_str().into(),
-					format!("--pvf-complexity={}", complexity).as_str().into(),
+					format!("--pov-size={pov}").as_str().into(),
+					format!("--pvf-complexity={complexity}").as_str().into(),
 				])
-				.with_collator(|n| n.with_name(&format!("collator-{}", id)))
+				.with_collator(|n| n.with_name(&format!("collator-{id}")))
 		});
 	}
 
