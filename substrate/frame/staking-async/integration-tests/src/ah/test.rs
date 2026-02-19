@@ -1419,7 +1419,7 @@ mod session_keys {
 		SetKeysExecutionCost,
 	};
 	use codec::Encode;
-	use frame_support::{assert_noop, BoundedVec};
+	use frame_support::assert_noop;
 	use rc_client::AHStakingInterface;
 
 	type Keys = Vec<u8>;
