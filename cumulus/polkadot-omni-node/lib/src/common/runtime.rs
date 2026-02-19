@@ -120,21 +120,7 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 	fn runtime(&self, chain_spec: &dyn ChainSpec) -> sc_cli::Result<Runtime> {
 		let Ok(metadata_inspector) = MetadataInspector::new(chain_spec) else {
 			log::info!("Unable to check metadata. Skipping metadata checks. Metadata checks are supported for metadata versions v14 and higher.");
-			let id = chain_spec.id();
-			let aura_id = aura_id_from_chain_spec_id(id);
-			if aura_id == AuraConsensusId::Ed25519 {
-				log::warn!(
-					r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
-			   Defaulting to `ed25519`."#,
-					id
-				);
-			} else {
-				log::warn!(
-					r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
-			   Defaulting to `sr25519`. Ed25519 runtimes are not supported yet."#,
-					id
-				);
-			}
+			let aura_id = aura_id_from_chain_spec_id(chain_spec.id());
 			return Ok(Runtime::Omni(BlockNumber::U32, Consensus::Aura(aura_id)));
 		};
 
@@ -156,26 +142,9 @@ impl RuntimeResolver for DefaultRuntimeResolver {
 			);
 		}
 
-		let aura_id = match metadata_inspector.aura_consensus_id() {
-			Some(aura_id) => aura_id,
-			None => {
-				let id = chain_spec.id();
-				let fallback = aura_id_from_chain_spec_id(id);
-				if fallback == AuraConsensusId::Ed25519 {
-					log::warn!(
-						r#"⚠️  Assuming Aura authority ID type `ed25519` for chain spec `{}`."#,
-						id
-					);
-				} else {
-					log::warn!(
-						r#"⚠️  Unable to determine Aura authority ID type from metadata for chain spec `{}`.
-			   Defaulting to `sr25519`. Ed25519 runtimes are not supported yet."#,
-						id
-					);
-				}
-				fallback
-			},
-		};
+		let aura_id = metadata_inspector
+			.aura_consensus_id()
+			.unwrap_or_else(|| aura_id_from_chain_spec_id(chain_spec.id()));
 		Ok(Runtime::Omni(block_number, Consensus::Aura(aura_id)))
 	}
 }

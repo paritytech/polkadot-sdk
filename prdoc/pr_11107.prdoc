@@ -1,58 +1,33 @@
-title: 'Add warnings for Aura authority ID type assumptions'
+title: 'Add runtime metadata detection for Aura authority ID'
 doc:
 - audience: Node Dev
   description: |-
-    This PR addresses issue #11026 by adding warnings when `polkadot-omni-node-lib` makes assumptions about Aura authority ID types and implements optional metadata-based detection to automatically determine the correct type from runtime metadata.
-
-    The library currently assumes that the Aura authority ID type is `ed25519` for `asset-hub-polkadot`/`statemint` and `sr25519` for all other chains. This PR makes these assumptions explicit through warnings and adds optional metadata-based detection to improve accuracy.
-
-    ## Implementation Overview
-
-    This PR implements all three improvements suggested in issue #11026:
-
-    1. **Warnings for assumptions**: Emits warnings when assuming `ed25519` for `asset-hub-polkadot`/`statemint` or defaulting to `sr25519` for other chains
-    2. **General warnings**: Warns that `sr25519` is used by default and that `ed25519` runtimes are not yet supported
-    3. **Optional metadata detection**: Adds support to read the Aura authority ID type from runtime metadata when available
+    This PR adds optional runtime metadata-based detection for Aura authority ID types in `polkadot-omni-node-lib`.
+    
+    The runtime now scans metadata to determine whether the Aura pallet uses `sr25519` or `ed25519`, falling back to chain spec ID heuristics only when metadata detection unavailable or fails.
 
     ## Changes Made
 
     **File: `cumulus/polkadot-omni-node/lib/src/common/runtime.rs`**
 
     1. **Added `aura_consensus_id()` method to `MetadataInspector`**:
-       - Scans runtime metadata types for `sp_consensus_aura::sr25519::AuthorityId` or `sp_consensus_aura::ed25519::AuthorityId`
-       - Returns `Some(AuraConsensusId)` if found, `None` otherwise
-       - Only checks if Aura pallet exists in metadata
+       - Scans runtime metadata types for `sp_consensus_aura::sr25519::AuthorityId` or `sp_consensus_aura::ed25519::AuthorityId` patterns
+       - Returns `Some(AuraConsensusId)` if found in metadata, `None` otherwise
+       - Early returns `None` if Aura pallet missing from metadata
 
     2. **Updated `DefaultRuntimeResolver::runtime()`**:
-       - When metadata check fails entirely:
-         - Falls back to chain spec ID check (`aura_id_from_chain_spec_id`)
-         - Emits warning for `asset-hub-polkadot`/`statemint` (ed25519 assumption)
-         - Emits warning for other chains (sr25519 default, mentions ed25519 not supported)
-       - When metadata exists but `aura_consensus_id()` returns `None`:
-         - Falls back to chain spec ID check with same warnings as above
-       - When `aura_consensus_id()` succeeds:
-         - Uses detected type without warning
+       - Calls `metadata_inspector.aura_consensus_id()` first
+       - Uses detected type immediately (no warning needed)
+       - Falls back to `aura_id_from_chain_spec_id()` only when detection returns `None`
 
     3. **Added test coverage**:
-       - Test verifies `aura_consensus_id()` correctly detects `sr25519` from test runtime metadata
+       - `test_aura_consensus_id()` verifies metadata detection finds authority ID type patterns correctly
 
-    ## Example Behavior
+    ## Behavior
 
-    **Before this PR:**
-    - No warnings when assumptions are made
-    - Always uses chain spec ID-based heuristics
+    - If metadata contains Aura authority ID type → uses detected type (best accuracy)
+    - If metadata unavailable or detection fails → falls back to chain spec ID check with warnings (from #11026)
 
-    **After this PR:**
-    - If metadata detection succeeds → uses detected type (no warning)
-    - If metadata unavailable or detection fails:
-      - `asset-hub-polkadot`/`statemint` → uses `ed25519` with warning: `"⚠️  Assuming Aura authority ID type \`ed25519\` for chain spec \`{id}\`."`
-      - Other chains → uses `sr25519` with warning: `"⚠️  Unable to determine Aura authority ID type from metadata for chain spec \`{id}\`. Defaulting to \`sr25519\`. Ed25519 runtimes are not supported yet."`
-
-    ## Notes
-
-    - The fallback logic preserves existing behavior while making assumptions explicit
-    - Metadata detection is optional and gracefully falls back when metadata is unavailable or doesn't contain the required information
-    - No breaking changes. This is a non-breaking enhancement that adds warnings and improves detection logic.
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
