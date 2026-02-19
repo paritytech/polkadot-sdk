@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -54,7 +54,10 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member, Zero},
+	Saturating,
+};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -127,8 +130,10 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ RelayParentOffsetApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -235,15 +240,19 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, parent)) =
+			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
 				continue;
 			};
 
-			let parent_hash = parent.hash;
-			let parent_header = &parent.header;
+			let parent_hash = parent_search_result.best_parent_header.hash();
+			let included_header = parent_search_result.included_header;
+			let parent_header = &parent_search_result.best_parent_header;
+			// Distance from included block to best parent (unincluded segment length).
+			let unincluded_segment_len =
+				parent_header.number().saturating_sub(*included_header.number());
 
 			// Retrieve the core.
 			let core = match determine_core(
@@ -327,7 +336,7 @@ where
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
-						unincluded_segment_len = parent.depth,
+						?unincluded_segment_len,
 						relay_parent = ?relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
 						included_hash = ?included_header_hash,
@@ -342,7 +351,7 @@ where
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				unincluded_segment_len = parent.depth,
+				?unincluded_segment_len,
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
@@ -360,6 +369,9 @@ where
 				max_pov_size: *max_pov_size,
 			};
 
+			let relay_proof_request =
+				super::super::get_relay_proof_request(&*para_client, parent_hash);
+
 			let (parachain_inherent_data, other_inherent_data) = match collator
 				.create_inherent_data_with_rp_offset(
 					relay_parent,
@@ -367,6 +379,7 @@ where
 					parent_hash,
 					slot_claim.timestamp(),
 					Some(rp_data),
+					relay_proof_request,
 					collator_peer_id,
 				)
 				.await
@@ -411,7 +424,7 @@ where
 			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					unincluded_segment_len = parent.depth,
+					?unincluded_segment_len,
 					relay_parent = ?relay_parent,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,
