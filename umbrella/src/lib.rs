@@ -891,7 +891,8 @@ pub use polkadot_node_core_approval_voting_parallel;
 #[cfg(feature = "polkadot-node-core-av-store")]
 pub use polkadot_node_core_av_store;
 
-/// The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates.
+/// The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as
+/// the issuance of statements about candidates.
 #[cfg(feature = "polkadot-node-core-backing")]
 pub use polkadot_node_core_backing;
 
