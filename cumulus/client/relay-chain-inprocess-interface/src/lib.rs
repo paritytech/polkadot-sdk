@@ -435,6 +435,7 @@ fn build_polkadot_full_node(
 		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
 		experimental_collator_protocol: false,
+		collator_reputation_persist_interval: None,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {

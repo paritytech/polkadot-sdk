@@ -22,7 +22,7 @@
 extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{weights::WeightInfo, AccountInfo, AccountInfoOf, Config, H160};
+use crate::{AccountInfo, AccountInfoOf, Config, H160, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -38,8 +38,8 @@ use alloc::vec::Vec;
 /// Module containing the old storage items.
 pub mod old {
 	use super::Config;
-	use crate::{pallet::Pallet, ContractInfo, H160};
-	use frame_support::{storage_alias, Identity};
+	use crate::{ContractInfo, H160, pallet::Pallet};
+	use frame_support::{Identity, storage_alias};
 
 	#[storage_alias]
 	/// The storage item that is being migrated from.
@@ -132,8 +132,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 #[test]
 fn migrate_to_v1() {
 	use crate::{
-		tests::{ExtBuilder, Test},
 		ContractInfo,
+		tests::{ExtBuilder, Test},
 	};
 	ExtBuilder::default().build().execute_with(|| {
 		for i in 0..10u8 {
