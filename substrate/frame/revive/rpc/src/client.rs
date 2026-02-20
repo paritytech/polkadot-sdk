@@ -75,8 +75,6 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 /// The runtime balance type.
 pub type Balance = u128;
 
-pub use crate::block_sync::SyncCheckpoint;
-
 /// The subscription type used to listen to new blocks.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SubscriptionType {
@@ -181,6 +179,13 @@ pub enum ClientError {
 	/// Stored sync boundary no longer matches the chain (e.g. after reorganization).
 	#[error("Database mismatch. Delete the database and restart.")]
 	SyncBoundaryMismatch,
+}
+
+impl ClientError {
+	/// Errors that indicate data corruption requiring manual intervention (delete DB and restart).
+	pub(crate) fn is_chain_validation_error(&self) -> bool {
+		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
+	}
 }
 
 pub(crate) const LOG_TARGET: &str = "eth-rpc::client";
@@ -416,7 +421,7 @@ impl Client {
 			{
 				if let Err(err) = self
 					.receipt_provider
-					.advance_sync_state(SyncLabel::Finalized, block_number, Some(hash))
+					.advance_sync_state(SyncLabel::LastFinalized, block_number, Some(hash))
 					.await
 				{
 					log::warn!(target: LOG_TARGET,

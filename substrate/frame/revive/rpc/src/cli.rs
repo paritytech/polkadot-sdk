@@ -369,7 +369,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	// Read the sync boundary before subscriptions start, so the finalized
 	// subscription cannot advance `Finalized` past actual contiguous coverage.
-	let synced_upper_boundary =
+	let upper_boundary =
 		if sync { Some(tokio_runtime.block_on(client.prepare_sync())?) } else { None };
 
 	let rpc_server_handle = start_rpc_servers(
@@ -388,8 +388,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 				Box::pin(client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks)),
 			];
 
-			if let Some(boundary) = synced_upper_boundary {
-				futures.push(Box::pin(client.sync_historic_blocks(boundary)));
+			if let Some(boundary) = upper_boundary {
+				futures.push(Box::pin(client.sync_past_blocks(boundary)));
 			}
 
 			if let Err(err) = futures::future::try_join_all(futures).await {

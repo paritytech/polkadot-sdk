@@ -36,7 +36,7 @@ pub enum SyncLabel {
 	/// Zero (or absent) means sync completed successfully.
 	UpperBound,
 	/// Latest finalized block, tracked by the live subscription.
-	Finalized,
+	LastFinalized,
 }
 
 impl SyncLabel {
@@ -46,7 +46,7 @@ impl SyncLabel {
 			Self::Genesis => "genesis",
 			Self::LowerBound => "sync-lower-bound",
 			Self::UpperBound => "sync-upper-bound",
-			Self::Finalized => "finalized",
+			Self::LastFinalized => "finalized",
 		}
 	}
 }
@@ -113,47 +113,63 @@ impl Client {
 	/// Returns the upper bound of contiguous DB coverage.
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let history_start = self.receipt_provider().get_sync_state(SyncLabel::UpperBound).await?;
+		let upper_bound = self.receipt_provider().get_sync_state(SyncLabel::UpperBound).await?;
 
-		if let Some(checkpoint) = &history_start {
+		if let Some(checkpoint) = &upper_bound {
 			if checkpoint.block_number > 0 {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Previous sync was interrupted, safe boundary at #{}", checkpoint.block_number);
-				return Ok(history_start);
+					"🗄️ Previous sync was interrupted, resuming from upper bound #{}", checkpoint.block_number);
+				return Ok(upper_bound);
 			}
 		}
 
-		let finalized = self.receipt_provider().get_sync_state(SyncLabel::Finalized).await?;
+		let finalized = self.receipt_provider().get_sync_state(SyncLabel::LastFinalized).await?;
 		if let Some(checkpoint) = &finalized {
 			log::info!(target: LOG_TARGET,
-				"🗄️ Pinned sync boundary at finalized #{}", checkpoint.block_number);
+				"🗄️ No interrupted sync, using last finalized #{} as upper bound", checkpoint.block_number);
 		}
 		Ok(finalized)
 	}
 
 	/// Syncs all historical blocks down to genesis.
 	/// Resumes from where it left off if possible, otherwise starts a fresh backward sync.
-	pub async fn sync_historic_blocks(
+	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are logged and swallowed
+	/// since checkpoint state preserves progress for the next restart.
+	pub async fn sync_past_blocks(
 		&self,
-		synced_upper_boundary: Option<SyncCheckpoint>,
+		upper_boundary: Option<SyncCheckpoint>,
+	) -> Result<(), ClientError> {
+		match self.sync_past_blocks_inner(upper_boundary).await {
+			Ok(()) => Ok(()),
+			Err(err) if err.is_chain_validation_error() => Err(err),
+			Err(err) => {
+				log::error!(target: LOG_TARGET,
+					"🗄️ Sync stopped: {err}. Progress saved, will resume on next restart.");
+				Ok(())
+			},
+		}
+	}
+
+	async fn sync_past_blocks_inner(
+		&self,
+		upper_boundary: Option<SyncCheckpoint>,
 	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
-		let latest = self.latest_finalized_block().await.number().saturating_sub(1);
+		let latest = self.latest_finalized_block().await.number();
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
 			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
 			.await?;
 
-		let synced_lower_boundary =
-			self.receipt_provider().get_sync_state(SyncLabel::LowerBound).await?;
+		let lower_boundary = self.receipt_provider().get_sync_state(SyncLabel::LowerBound).await?;
 
-		match (synced_lower_boundary, synced_upper_boundary) {
-			(Some(first), Some(upper)) => {
+		match (lower_boundary, upper_boundary) {
+			(Some(lower), Some(upper)) => {
 				// Verify boundary hashes still match the finalized chain.
-				self.verify_boundary(first.block_number, first.block_hash).await?;
+				self.verify_boundary(lower.block_number, lower.block_hash).await?;
 				self.verify_boundary(upper.block_number, upper.block_hash).await?;
-				self.resume_sync(first, upper, latest).await?;
+				self.resume_sync(lower, upper, latest).await?;
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
@@ -192,7 +208,7 @@ impl Client {
 	/// Resume sync by filling the top gap (new blocks) and bottom gap (backfill).
 	async fn resume_sync(
 		&self,
-		first: SyncCheckpoint,
+		lower: SyncCheckpoint,
 		upper: SyncCheckpoint,
 		latest: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
@@ -203,7 +219,7 @@ impl Client {
 
 		log::info!(target: LOG_TARGET,
 			"🗄️ Resuming sync: DB has blocks #{}..#{}, \
-			 chain head is #{latest}", first.block_number, upper.block_number);
+			 chain head is #{latest}", lower.block_number, upper.block_number);
 
 		// Top gap: [finalized + 1, latest]
 		if upper.block_number < latest {
@@ -218,9 +234,9 @@ impl Client {
 
 		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
 		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
-		if first.block_number > lower_bound {
+		if lower.block_number > lower_bound {
 			self.sync_backward(
-				first.block_number.saturating_sub(1),
+				lower.block_number.saturating_sub(1),
 				lower_bound,
 				None::<NoopSyncHook>,
 				Some(self.checkpoint_lower_bound_hook()),

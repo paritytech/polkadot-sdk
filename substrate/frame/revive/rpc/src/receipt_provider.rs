@@ -17,7 +17,8 @@
 use crate::{
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
 	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
-	client::{SubstrateBlock, SubstrateBlockNumber, SyncCheckpoint},
+	block_sync::SyncCheckpoint,
+	client::{SubstrateBlock, SubstrateBlockNumber},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -1317,7 +1318,7 @@ mod tests {
 			.await
 			.unwrap();
 		provider
-			.set_sync_state(SyncLabel::Finalized, 500, Some(finalized_hash))
+			.set_sync_state(SyncLabel::LastFinalized, 500, Some(finalized_hash))
 			.await
 			.unwrap();
 
@@ -1329,7 +1330,7 @@ mod tests {
 		assert_eq!(checkpoint.block_number, 100);
 		assert_eq!(checkpoint.block_hash, Some(first_hash));
 
-		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 500);
 		assert_eq!(checkpoint.block_hash, Some(finalized_hash));
 
@@ -1390,24 +1391,24 @@ mod tests {
 		let hash_b = H256::repeat_byte(0xBB);
 
 		// First insert creates the row.
-		provider.advance_sync_state(SyncLabel::Finalized, 100, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		provider.advance_sync_state(SyncLabel::LastFinalized, 100, Some(hash_a)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Higher value advances.
-		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_b)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		provider.advance_sync_state(SyncLabel::LastFinalized, 200, Some(hash_b)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Lower value is ignored.
-		provider.advance_sync_state(SyncLabel::Finalized, 50, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		provider.advance_sync_state(SyncLabel::LastFinalized, 50, Some(hash_a)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Equal value is ignored (strict <).
 		let hash_c = H256::repeat_byte(0xCC);
-		provider.advance_sync_state(SyncLabel::Finalized, 200, Some(hash_c)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::Finalized).await?.unwrap();
+		provider.advance_sync_state(SyncLabel::LastFinalized, 200, Some(hash_c)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		Ok(())
