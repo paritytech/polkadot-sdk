@@ -53,6 +53,12 @@ pub struct HopParams {
 	/// HOP promotion check interval in seconds
 	#[arg(long, default_value = "60")]
 	pub hop_check_interval: u64,
+
+	/// Directory for HOP persistent data storage.
+	///
+	/// If not specified, defaults to `<chain-data-dir>/hop`.
+	#[arg(long)]
+	pub hop_data_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for HopParams {
@@ -62,6 +68,7 @@ impl Default for HopParams {
 			hop_max_pool_size: (DEFAULT_MAX_POOL_SIZE / (1024 * 1024)), // Convert to MiB
 			hop_retention_blocks: DEFAULT_RETENTION_BLOCKS,             // 24 hours
 			hop_check_interval: 60,                                     // 1 minute
+			hop_data_dir: None,
 		}
 	}
 }
