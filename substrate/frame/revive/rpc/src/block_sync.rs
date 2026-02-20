@@ -64,15 +64,6 @@ pub struct SyncCheckpoint {
 	pub block_hash: Option<H256>,
 }
 
-/// Result of a backward sync pass.
-#[derive(Default)]
-struct SyncBackwardResult {
-	/// Lowest block number actually synced, with its hash.
-	lowest_synced: Option<(SubstrateBlockNumber, H256)>,
-	/// Highest block number actually synced, with its hash.
-	highest_synced: Option<(SubstrateBlockNumber, H256)>,
-}
-
 /// How often (in blocks) the backward sync checkpoints its progress to the database.
 const SYNC_CHECKPOINT_INTERVAL: u64 = 1000;
 
@@ -272,36 +263,33 @@ impl Client {
 
 	/// Backward sync from `from` down to `lower_bound` (inclusive).
 	///
-	/// - `on_highest`: called once after syncing the first block.
+	/// - `on_first_block`: called once after syncing the first block.
 	/// - `on_progress`: called at first block, every `SYNC_CHECKPOINT_INTERVAL` blocks, and at end.
 	async fn sync_backward<'a, 'b>(
 		&self,
 		from: SubstrateBlockNumber,
 		lower_bound: SubstrateBlockNumber,
-		on_highest: Option<
+		on_first_block: Option<
 			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
 		>,
 		on_progress: Option<
 			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'b>>,
 		>,
-	) -> Result<SyncBackwardResult, ClientError> {
+	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET,
 			"⬇️ Backward sync: #{from} down to #{lower_bound}");
 
-		let mut block = match self.block_provider.block_by_number(from).await {
-			Ok(Some(b)) => b,
-			Ok(None) | Err(_) => {
-				log::error!(target: LOG_TARGET,
-					"⚠️ Could not fetch block #{from}, aborting backward sync");
-				return Ok(SyncBackwardResult::default());
-			},
-		};
+		let mut block = self
+			.block_provider
+			.block_by_number(from)
+			.await?
+			.ok_or(ClientError::BlockNotFound)?;
 
-		let mut result = SyncBackwardResult::default();
 		let mut blocks_synced = 0u64;
-		let mut needs_final_checkpoint = false;
+		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
+		let at_checkpoint = |synced: u64| synced <= 1 || synced % SYNC_CHECKPOINT_INTERVAL == 0;
 
-		loop {
+		let loop_result: Result<(), ClientError> = loop {
 			let block_number = block.number();
 			let block_hash = block.hash();
 
@@ -314,7 +302,7 @@ impl Client {
 				Err(err) => {
 					log::error!(target: LOG_TARGET,
 						"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
-					break;
+					break Err(err.into());
 				},
 			};
 
@@ -325,21 +313,19 @@ impl Client {
 					{
 						log::error!(target: LOG_TARGET,
 							"⚠️ Insert failed for #{block_number}: {err:?}, stopping");
-						break;
+						break Err(err);
 					}
 
-					// Track boundaries
-					if result.highest_synced.is_none() {
-						result.highest_synced = Some((block_number, block_hash));
-						if let Some(ref f) = on_highest {
+					last_synced = Some((block_number, block_hash));
+					blocks_synced += 1;
+
+					if blocks_synced == 1 {
+						if let Some(ref f) = on_first_block {
 							f(block_number, block_hash).await;
 						}
 					}
-					result.lowest_synced = Some((block_number, block_hash));
-					blocks_synced += 1;
-					needs_final_checkpoint = true;
 
-					if blocks_synced == 1 || blocks_synced % SYNC_CHECKPOINT_INTERVAL == 0 {
+					if at_checkpoint(blocks_synced) {
 						log::info!(target: LOG_TARGET,
 							"⬇️ Backward sync progress: #{block_number} \
 								({blocks_synced} blocks synced)");
@@ -347,34 +333,43 @@ impl Client {
 						if let Some(ref f) = on_progress {
 							f(block_number, block_hash).await;
 						}
-						needs_final_checkpoint = false;
 					}
 				},
 				None => {
+					let first_evm_block = block_number + 1;
 					log::info!(target: LOG_TARGET,
-						"🔍 Auto-discovered first EVM block: #{}", block_number + 1);
-					break;
+						"🔍 Auto-discovered first EVM block: #{first_evm_block}");
+
+					// Update in-memory bound for this run.
+					self.receipt_provider.update_earliest_receipt_block(first_evm_block);
+					break Ok(());
 				},
 			}
 
 			if lower_bound < block_number {
 				let parent_hash = block.header().parent_hash;
-				block = match self.block_provider.block_by_hash(&parent_hash).await {
-					Ok(Some(b)) => b,
-					Ok(None) | Err(_) => {
+				match self
+					.block_provider
+					.block_by_hash(&parent_hash)
+					.await
+					.map_err(Into::into)
+					.and_then(|opt| opt.ok_or(ClientError::BlockNotFound))
+				{
+					Ok(b) => block = b,
+					Err(err) => {
 						log::error!(target: LOG_TARGET,
-							"⚠️ Could not fetch parent of #{block_number}, stopping");
-						break;
+							"⚠️ Could not fetch parent of #{block_number}: {err:?}, stopping");
+						break Err(err);
 					},
-				};
+				}
 			} else {
-				break;
+				break Ok(());
 			}
-		}
+		};
 
-		// Final checkpoint for any un-checkpointed progress.
-		if needs_final_checkpoint {
-			if let Some((num, hash)) = result.lowest_synced {
+		// Flush un-checkpointed progress regardless of success/failure.
+		if !at_checkpoint(blocks_synced) {
+			if let Some((num, hash)) = last_synced {
 				if let Some(ref f) = on_progress {
 					f(num, hash).await;
 				}
@@ -382,8 +377,9 @@ impl Client {
 		}
 
 		log::info!(target: LOG_TARGET,
-			"⬇️ Backward sync complete: {blocks_synced} blocks synced \
+			"⬇️ Backward sync: {blocks_synced} blocks synced \
 			 (requested #{from}..#{lower_bound})");
-		Ok(result)
+
+		loop_result
 	}
 }

@@ -328,6 +328,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.earliest_receipt_block()
 	}
 
+	/// Update the in-memory earliest receipt block number.
+	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
+		self.receipt_extractor.update_earliest_receipt_block(block_number);
+	}
+
 	/// Check if the block is before the earliest block.
 	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
 		match at {
