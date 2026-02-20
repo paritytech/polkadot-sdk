@@ -2,7 +2,6 @@ The following crates were updated to the corresponding versions:
 
 <details>
   <summary>Click to see crates list</summary>
-- snowbridge-beacon-primitives@0.18.1
 - sp-trie@42.0.1
 - frame-benchmarking@45.0.3
 - pallet-dap@0.2.0
@@ -16,11 +15,14 @@ The following crates were updated to the corresponding versions:
 - pallet-staking-async-ah-client@0.7.2
 - pallet-staking-async-rc-client@0.7.1
 - pallet-session@45.1.0
+- snowbridge-beacon-primitives@0.18.1
 - snowbridge-pallet-ethereum-client@0.18.2
 - snowbridge-pallet-outbound-queue-v2@0.7.1
 - snowbridge-pallet-ethereum-client-fixtures@0.26.1
 - snowbridge-pallet-inbound-queue-fixtures@0.26.1
 - snowbridge-pallet-inbound-queue-v2-fixtures@0.7.1
+- snowbridge-core@0.18.1
+- snowbridge-outbound-queue-primitives@0.7.1
 - polkadot@0.1.1
 - polkadot-jemalloc-shim@0.1.1
 - frame-omni-bencher@0.17.2
