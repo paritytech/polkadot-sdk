@@ -16680,6 +16680,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
+ "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
  "sc-network-statement",
@@ -21180,6 +21181,25 @@ dependencies = [
  "sp-runtime-interface 32.0.0",
  "sp-wasm-interface 24.0.0",
  "wasmtime",
+]
+
+[[package]]
+name = "sc-hop"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "hex",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "polkadot-primitives",
+ "serde",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "thiserror 1.0.65",
+ "tracing",
 ]
 
 [[package]]

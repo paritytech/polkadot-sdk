@@ -364,6 +364,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					None,
+					None,
 					spawn_handle.clone(),
 				)?;
 				Ok(module)

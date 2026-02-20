@@ -278,6 +278,7 @@ members = [
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
 	"substrate/client/informant",
+	"substrate/client/hop",
 	"substrate/client/keystore",
 	"substrate/client/merkle-mountain-range",
 	"substrate/client/merkle-mountain-range/rpc",
@@ -1230,6 +1231,7 @@ sc-executor = { path = "substrate/client/executor", default-features = false }
 sc-executor-common = { path = "substrate/client/executor/common", default-features = false }
 sc-executor-polkavm = { path = "substrate/client/executor/polkavm", default-features = false }
 sc-executor-wasmtime = { path = "substrate/client/executor/wasmtime", default-features = false }
+sc-hop = { path = "substrate/client/hop", default-features = false }
 sc-informant = { path = "substrate/client/informant", default-features = false }
 sc-keystore = { path = "substrate/client/keystore", default-features = false }
 sc-mixnet = { path = "substrate/client/mixnet", default-features = false }

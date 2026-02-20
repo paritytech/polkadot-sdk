@@ -19,6 +19,7 @@ use crate::{
 	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
+		hop::build_hop_pool,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
@@ -43,7 +44,7 @@ use log::{debug, info};
 use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::Backend;
+use sc_client_api::{Backend, HeaderBackend};
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
@@ -58,7 +59,7 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::{traits::AccountIdConversion, SaturatedConversion};
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 // Override default idle connection timeout of 10 seconds to give IPFS clients more
@@ -428,6 +429,33 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.transpose()?;
 
+			let hop_pool = build_hop_pool(&node_extra_args)?;
+			if let Some(ref pool) = hop_pool {
+				let task_pool = pool.clone();
+				let task_client = client.clone();
+				let check_interval = node_extra_args.hop_check_interval;
+				task_manager.spawn_handle().spawn("hop-promotion", None, async move {
+					loop {
+						futures_timer::Delay::new(Duration::from_secs(check_interval)).await;
+						let block = task_client
+							.info()
+							.best_number
+							.saturated_into::<u32>();
+						let expired = task_pool.drain_expired(block);
+						for (hash, entry) in &expired {
+							// TODO: Attempt promotion to pallet_transaction_storage
+							// once PreimageAuthorization integration is available.
+							log::info!(
+								target: "hop",
+								"Would promote expired HOP entry {:?} ({} bytes) to chain storage (not yet implemented)",
+								hash,
+								entry.size,
+							);
+						}
+					}
+				});
+			}
+
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
 					let statement_store = statement_store.clone();
@@ -468,12 +496,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
+				let hop_pool = hop_pool.clone();
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
+						hop_pool.clone(),
 						spawn_handle.clone(),
 					)
 				})

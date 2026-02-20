@@ -1,0 +1,33 @@
+[package]
+name = "sc-hop"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+description = "Hand-Off Protocol (HOP) ephemeral data pool service"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Core
+codec = { workspace = true, features = ["derive"] }
+parking_lot = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+
+# CLI
+clap = { workspace = true, features = ["derive"] }
+
+# RPC
+jsonrpsee = { workspace = true, features = ["server", "client", "macros"] }
+
+# Substrate primitives (client-side, always with std)
+sp-core = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
