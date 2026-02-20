@@ -85,7 +85,7 @@ pub fn generate_babe_epoch(current_slot: Slot, authorities: TestAuthorities) -> 
 		.into_iter()
 		.enumerate()
 		.map(|(index, public)| (public, index as u64))
-		.collect_vec();
+		.collect::<Vec<_>>();
 	BabeEpoch {
 		epoch_index: 1,
 		start_slot: current_slot.saturating_sub(1u64),
@@ -103,7 +103,7 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 		.clone()
 		.into_iter()
 		.zip(test_authorities.peer_ids.clone())
-		.collect_vec();
+		.collect::<Vec<_>>();
 
 	let topology = keyrings
 		.clone()
@@ -114,8 +114,8 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 			validator_index: ValidatorIndex(index as u32),
 			discovery_id,
 		})
-		.collect_vec();
-	let shuffled = (0..keyrings.len()).collect_vec();
+		.collect::<Vec<_>>();
+	let shuffled = (0..keyrings.len()).collect::<Vec<_>>();
 
 	SessionGridTopology::new(shuffled, topology)
 }

@@ -150,7 +150,7 @@ fn generate_samples(
 
 	let mut random_cores = (0..max_cores as u32).map(|val| val.into()).collect::<Vec<CoreIndex>>();
 	let (samples, _) = random_cores.partial_shuffle(&mut rand_chacha, num_samples as usize);
-	samples.into_iter().map(|val| *val).collect_vec()
+	samples.into_iter().map(|val| *val).collect::<Vec<_>>()
 }
 
 fn relay_vrf_modulo_core(vrf_in_out: &VRFInOut, n_cores: u32) -> CoreIndex {
