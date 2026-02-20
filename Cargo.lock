@@ -6976,7 +6976,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -15198,7 +15198,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "30.0.1"
+version = "30.0.2"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -16154,7 +16154,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -16534,7 +16534,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2512.3.2"
+version = "2512.3.3"
 dependencies = [
  "asset-test-utils",
  "assets-common",
