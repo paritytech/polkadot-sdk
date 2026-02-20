@@ -249,7 +249,13 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement, is_recent: bool) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
