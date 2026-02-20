@@ -214,12 +214,12 @@ fn send_token_to_rococo_v2() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Token was issued to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == token_location,
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 				// Leftover fees was deposited to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
@@ -376,7 +376,7 @@ fn send_ether_to_rococo_v2() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Ether was deposited to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
@@ -568,13 +568,13 @@ fn send_roc_from_ethereum_to_rococo() {
 			vec![
 				// ROC is withdrawn from AHW's SA on AHR
 				RuntimeEvent::Balances(
-					pallet_balances::Event::Burned { who, amount }
+					pallet_balances::Event::Withdraw { who, amount }
 				) => {
 					who: *who == sov_ahw_on_ahr,
 					amount: *amount == TOKEN_AMOUNT,
 				},
 				// ROCs deposited to beneficiary
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+				RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
 					who: *who == AssetHubRococoReceiver::get(),
 				},
 				// message processed successfully
