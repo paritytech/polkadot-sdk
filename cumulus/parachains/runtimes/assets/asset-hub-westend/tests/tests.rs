@@ -2282,7 +2282,7 @@ mod remote_test {
 	#[ignore]
 	async fn np_claim_trapped_balance() {
 		use pallet_nomination_pools::PoolMembers;
-		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+		use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 
 		// Get snapshot path from environment (required)
 		let snap_path =
@@ -2290,13 +2290,24 @@ mod remote_test {
 
 		println!("Loading snapshot from: {}", snap_path);
 
+		// Use local node if snapshot doesn't exist, otherwise use existing snapshot
 		let mut ext = Builder::<Block>::new()
-			.mode(Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path) }))
+			.mode(Mode::OfflineOrElseOnline(
+				OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path.clone()) },
+				OnlineConfig {
+					transport_uris: vec!["ws://localhost:9944".to_string()],
+					state_snapshot: Some(SnapshotConfig::new(snap_path)),
+					..Default::default()
+				},
+			))
 			.build()
 			.await
 			.expect("Failed to load snapshot");
 
 		ext.execute_with(|| {
+			// Read storage directly to debug
+			use pallet_nomination_pools::{BondedPools, SubPoolsStorage};
+
 			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
 
 			println!("\n🔍 Checking trapped balance for all pool members...\n");
@@ -2304,9 +2315,109 @@ mod remote_test {
 			// Track event count before dispatching any calls
 			let event_count_before = System::event_count();
 			let total_members = PoolMembers::<Runtime>::iter().count();
+			println!("Subpool 12: {:?}", SubPoolsStorage::<Runtime>::get(12));
 
 			// Dispatch claim_trapped_balance for all members
-			for (member_account, _pool_member) in PoolMembers::<Runtime>::iter() {
+			for (member_account, pool_member) in PoolMembers::<Runtime>::iter() {
+				// Debug specific account
+				let account_hex = format!("{:?}", member_account);
+				if account_hex.contains("3110510bbf1df94a0651703e2131dab16d986e5307df53a3f911bdde4763a42a") {
+					use pallet_nomination_pools::adapter::StakeStrategy;
+					use frame_support::traits::fungible::InspectHold;
+
+					let total_balance = pool_member.total_balance();
+					let delegation_amount = <Runtime as pallet_nomination_pools::Config>::StakeAdapter::member_delegation_balance(
+						pallet_nomination_pools::adapter::Member::from(member_account.clone())
+					).unwrap_or_default();
+					let held_amount = Balances::balance_on_hold(
+						&pallet_delegated_staking::HoldReason::StakingDelegation.into(),
+						&member_account,
+					);
+
+					println!("\n=== DEBUG ACCOUNT 3110510bbf... ===");
+					println!("Pool ID: {}", pool_member.pool_id);
+					println!("Active points: {}", pool_member.points);
+					println!("Unbonding eras: {:?}", pool_member.unbonding_eras);
+					println!("total_balance(): {}", total_balance);
+					println!("Delegation amount: {}", delegation_amount);
+					println!("Held amount: {}", held_amount);
+					println!("Expected trapped: {}", delegation_amount.saturating_sub(total_balance));
+
+
+					if let Some(bonded_pool) = BondedPools::<Runtime>::get(pool_member.pool_id) {
+						println!("\nBondedPool for pool {}:", pool_member.pool_id);
+						println!("  points: {}", bonded_pool.points);
+						println!("  state: {:?}", bonded_pool.state);
+
+						// Calculate active balance
+						let active_points = pool_member.active_points();
+						println!("  active_points: {}", active_points);
+
+						// Get the bonded balance from StakeAdapter like points_to_balance does
+						let pool_account = pallet_nomination_pools::Pallet::<Runtime>::generate_bonded_account(pool_member.pool_id);
+						let bonded_balance = <Runtime as pallet_nomination_pools::Config>::StakeAdapter::active_stake(
+							pallet_nomination_pools::adapter::Pool::from(pool_account)
+						);
+						println!("  bonded_balance (from StakeAdapter): {}", bonded_balance);
+
+						if bonded_pool.points > 0 && active_points > 0 {
+							let active_balance = (active_points as u128 * bonded_balance as u128) / bonded_pool.points as u128;
+							println!("  Calculated active_balance: {}", active_balance);
+						} else {
+							println!("  Active balance calculation skipped (zero points)");
+						}
+					} else {
+						println!("\nBondedPool NOT FOUND for pool {}", pool_member.pool_id);
+					}
+
+					// Check if SubPoolsStorage exists
+					println!("\nChecking SubPoolsStorage for pool {}...", pool_member.pool_id);
+					let sub_pools_opt = SubPoolsStorage::<Runtime>::get(pool_member.pool_id);
+					println!("  SubPoolsStorage::get() returned: {}", if sub_pools_opt.is_some() { "Some" } else { "None" });
+
+					// Also check if we can iterate to see what pools have SubPoolsStorage
+					println!("  All pools with SubPoolsStorage:");
+					for (pool_id, _) in SubPoolsStorage::<Runtime>::iter()	 {
+						println!("    pool_id: {}", pool_id);
+					}
+
+					if let Some(sub_pools) = sub_pools_opt {
+						println!("\nSubPoolsStorage for pool {}:", pool_member.pool_id);
+						println!("  no_era.points: {}", sub_pools.no_era.points);
+						println!("  no_era.balance: {}", sub_pools.no_era.balance);
+						println!("  with_era entries: {}", sub_pools.with_era.len());
+						for (era, unbond_pool) in sub_pools.with_era.iter() {
+							println!("    era {}: points={}, balance={}", era, unbond_pool.points, unbond_pool.balance);
+						}
+
+						// Manually calculate what point_to_balance should return
+						let mut total_unbonding_balance = 0u128;
+						for (era, unlocked_points) in pool_member.unbonding_eras.iter() {
+							let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
+							let is_fallback = sub_pools.with_era.get(era).is_none();
+
+							println!("\nManual calculation for era {}:", era);
+							println!("  Using: {}", if is_fallback { "no_era (fallback)" } else { "with_era" });
+							println!("  Member points: {}", unlocked_points);
+							println!("  Era pool points: {}", era_pool.points);
+							println!("  Era pool balance: {}", era_pool.balance);
+
+							if era_pool.points > 0 {
+								let calculated_balance = (*unlocked_points as u128 * era_pool.balance as u128) / era_pool.points as u128;
+								println!("  Calculated balance: {}", calculated_balance);
+								total_unbonding_balance += calculated_balance;
+							} else {
+								println!("  Era pool has 0 points - returns 0!");
+							}
+						}
+						println!("\nTotal unbonding balance (manual): {}", total_unbonding_balance);
+					} else {
+						println!("\nSubPoolsStorage NOT FOUND for pool {}", pool_member.pool_id);
+					}
+
+					println!("=====================================\n");
+				}
+
 				let call = RuntimeCall::NominationPools(
 					pallet_nomination_pools::Call::claim_trapped_balance {
 						member_account: member_account.clone().into(),

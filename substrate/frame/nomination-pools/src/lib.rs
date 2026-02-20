@@ -610,7 +610,7 @@ impl<T: Config> PoolMember<T> {
 	}
 
 	/// Active points of the member.
-	fn active_points(&self) -> BalanceOf<T> {
+	pub fn active_points(&self) -> BalanceOf<T> {
 		self.points
 	}
 
