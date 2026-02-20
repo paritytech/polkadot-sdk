@@ -61,6 +61,7 @@ sc-consensus = { default-features = true, workspace = true }
 sc-consensus-aura = { workspace = true }
 sc-consensus-manual-seal = { default-features = true, workspace = true }
 sc-executor = { default-features = true, workspace = true }
+sc-hop = { default-features = true, workspace = true }
 sc-keystore = { default-features = true, workspace = true }
 sc-network = { default-features = true, workspace = true }
 sc-network-statement = { default-features = true, workspace = true }
