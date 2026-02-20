@@ -672,6 +672,28 @@ fn spend_payout_works() {
 }
 
 #[test]
+fn spend_payout_must_follow_earlier_mature_spends() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(7), None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(8), None));
+
+		assert_noop!(
+			Treasury::payout(RuntimeOrigin::signed(1), 2),
+			Error::<Test, _>::SpendNotInOrder
+		);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_noop!(
+			Treasury::payout(RuntimeOrigin::signed(1), 2),
+			Error::<Test, _>::SpendNotInOrder
+		);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 2));
+	});
+}
+
+#[test]
 fn payout_extends_expiry() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
