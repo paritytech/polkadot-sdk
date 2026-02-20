@@ -14,6 +14,125 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! # Collator Protocol - Validator Side
+//!
+//! This module implements the validator side of the collator protocol, handling collation
+//! advertisements from collators and coordinating with the backing subsystem to validate
+//! and second candidates.
+//!
+//! ## Advertisement Validation Pipeline
+//!
+//! When a collation advertisement arrives, it goes through multiple validation layers:
+//!
+//! ### Layer 1: Basic Validation (in `handle_advertisement`)
+//! - **Peer validation:** Is the peer known and declared as a collator?
+//! - **Protocol version check:** V1 advertisements only accepted for active leaves
+//!
+//! ### Layer 2: AssetHub Hold-off (in `handle_advertisement`)
+//! - **Purpose:** Rate-limit permissionless AssetHub collators to prefer invulnerable collators
+//! - **Behavior:** Non-invulnerable collators' advertisements are delayed by HOLD_OFF_DURATION
+//! - **Note:** This happens BEFORE capacity checks, so held-off ads can be queued even when full
+//!
+//! ### Layer 3: Capacity and Position Validation (in `process_advertisement`)
+//! - **Function:** `is_slot_available()`
+//! - **Checks:**
+//!   - Para appears in claim queue for our specific core (implicit core assignment check)
+//!   - Para has non-obsolete positions (accounting for produced blocks via offset)
+//!   - Para's positions are within relay_parent's lookahead window
+//!   - Total capacity not exceeded by in-flight candidates
+//! - **Why here:** Runs AFTER hold-off so held-off advertisements can be queued even when full
+//! - **Error handling:** Returns `SecondedLimitReached` (no punishment) - fair because claim queue
+//!   may have changed since collator made the advertisement. Advertisements are cheap to process.
+//! - **Cost model:** Prevents fetching PoVs (up to 10 MB each) for candidates that can't be backed
+//!
+//! ### Layer 4: Fragment Chain Validation (in `process_advertisement`)
+//! - **Function:** `can_second()` → backing subsystem → prospective-parachain
+//! - **Checks:**
+//!   - Para is in claim queue (scheduled)
+//!   - Can candidate extend the fragment chain? (parent-child relationships, constraints)
+//!   - Is relay parent in scope?
+//!   - Does fragment chain have room? (count-based: total candidates ≤ unique cores para appears
+//!     on)
+//! - **What PP doesn't validate:**
+//!   - Specific claim queue positions (position-agnostic, only cares about count)
+//!   - Obsolete positions (uses time-based pruning when relay parents leave view)
+//!   - Core assignment for THIS validator (builds chains for all scheduled paras/cores)
+//! - **Why PP is position-agnostic:**
+//!   - Fragment chains are per-para, not per-core (serves all cores)
+//!   - Receives candidates from all validators via statement distribution
+//!   - Core assignment validated via signature verification (validator group → core mapping)
+//!   - Position-aware filtering is collator protocol's job (prevents expensive PoV fetches)
+//!
+//! ### Layer 5: Final Validation (in backing subsystem's `handle_second_message`)
+//! - **Checks:** Core assignment, claim queue membership
+//! - **Why needed:** Defense in depth, happens AFTER fetching PoV
+//! - **Trade-off:** Late check means wasted fetch if invalid, but provides safety net
+//!
+//! ## Why Multiple Layers?
+//!
+//! Each layer serves a distinct purpose:
+//! - **Layer 1:** Fast reject of obviously invalid advertisements (wrong para, wrong core)
+//! - **Layer 2:** Rate limiting for fair access (AssetHub-specific)
+//! - **Layer 3:** Pre-fetch filtering based on claim queue state (avoids expensive PoV fetches)
+//! - **Layer 4:** Structural validation of candidate chain (only PP has fragment chain state)
+//! - **Layer 5:** Final safety check post-fetch
+//!
+//! Removing Layer 3 would cause ~40 MB of wasted fetches per view window (10 MB per PoV × ~4
+//! relay parents in implicit view), as candidates would be fetched only to be rejected by Layer
+//! 4/5.
+//!
+//! ## Claim Queue Position Tracking
+//!
+//! ### The Leaf-Based Approach
+//!
+//! This implementation uses a **leaf-based** approach for claim queue validation:
+//! - Store full claim queues for active leaves only (`leaf_claim_queues`)
+//! - Use offset arithmetic to determine valid positions for each relay parent
+//! - Stateless validation: recompute on each check using fresh leaf data
+//!
+//! ### Why Leaf-Based Instead of Per-Relay-Parent?
+//!
+//! **Previous approach (per-relay-parent):**
+//! - Stored claim queue snapshot for each relay parent in implicit view
+//! - Used complex `ClaimQueueState` to track position sliding (~600 lines)
+//! - Bug: treated obsolete positions as available
+//! - Stale: used claim queue from when relay parent was created, not current state
+//!
+//! **New approach (leaf-based with offset):**
+//! - Store claim queue only for active leaves (minimal storage)
+//! - Offset = number of blocks produced since relay parent
+//! - Obsolete positions naturally skipped via offset
+//! - Fresh: always uses current leaf's claim queue
+//! - Simpler: no position migration on leaf transitions
+//!
+//! ### Offset and Position Semantics
+//!
+//! **Claim queue shifting:** As blocks are produced, position 0 is consumed and the queue shifts.
+//! - At block N, CQ `[A, B, C]` represents: N+1→A, N+2→B, N+3→C
+//! - At block N+1, CQ becomes `[B, C, X]`: position 0 consumed, new entry added
+//!
+//! **Offset calculation:** For relay_parent at offset O from leaf:
+//! - O blocks have been produced since relay_parent
+//! - These consumed the first O positions of the original claim queue
+//! - Additionally, relay_parent's lookahead limits visibility
+//! - Valid CQ range at leaf: `[0, lookahead - offset - 1]`
+//!
+//! **Example** (lookahead=3):
+//! - Leaf (offset=0): sees CQ positions [0,1,2] (all 3)
+//! - Parent (offset=1): sees CQ positions [0,1] (last position beyond lookahead)
+//! - Grandparent (offset=2): sees CQ position [0] only
+//! - Great-grandparent (offset=3): no valid positions (too far back)
+//!
+//! ### Capacity Accounting
+//!
+//! **Total capacity:** Count of para occurrences in leaf's claim queue (shared pool)
+//! **Consumed:** Sum of seconded/pending/waiting candidates across ALL relay parents in path
+//! **Available:** If consumed < total_capacity, can accept more
+//!
+//! Note: All candidates compete for the same capacity regardless of which relay parent
+//! they're built on, because they all need backing slots from the same claim queue.
+
+use bitvec::prelude::*;
 use futures::{
 	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
@@ -168,17 +287,18 @@ struct PeerData {
 impl PeerData {
 	/// Update the view, clearing all advertisements that are no longer in the
 	/// current view.
-	fn update_view(
+	fn update_view<'a>(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashSet<Hash>,
+		active_leaves: impl Iterator<Item = &'a Hash> + Clone,
 		new_view: View,
 	) {
 		let old_view = std::mem::replace(&mut self.view, new_view);
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			for removed in old_view.difference(&self.view) {
 				// Remove relay parent advertisements if it went out of our (implicit) view.
-				let keep = is_relay_parent_in_implicit_view(removed, implicit_view, active_leaves);
+				let keep =
+					is_relay_parent_in_implicit_view(removed, implicit_view, active_leaves.clone());
 
 				if !keep {
 					peer_state.advertisements.remove(&removed);
@@ -188,10 +308,10 @@ impl PeerData {
 	}
 
 	/// Prune old advertisements relative to our view.
-	fn prune_old_advertisements(
+	fn prune_old_advertisements<'a>(
 		&mut self,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashSet<Hash>,
+		active_leaves: impl Iterator<Item = &'a Hash> + Clone,
 	) {
 		if let PeerState::Collating(ref mut peer_state) = self.state {
 			peer_state.advertisements.retain(|hash, _| {
@@ -199,25 +319,35 @@ impl PeerData {
 				// - Relay parent is an active leaf
 				// - It belongs to allowed ancestry under some leaf
 				// Discard otherwise.
-				is_relay_parent_in_implicit_view(hash, implicit_view, active_leaves)
+				is_relay_parent_in_implicit_view(hash, implicit_view, active_leaves.clone())
 			});
 		}
 	}
 
 	/// Performs sanity check for an advertisement and notes it as advertised.
+	///
+	/// This stores the advertisement for duplicate detection and spam tracking.
+	/// Note: This does NOT mean the collation will be fetched - that decision happens
+	/// later in `is_slot_available()` based on claim queue capacity.
+	///
+	/// Advertisements are stored even if they won't be fetched (e.g., capacity full,
+	/// or held off) to enable duplicate detection and per-collator spam limiting.
 	fn insert_advertisement(
 		&mut self,
 		on_relay_parent: Hash,
 		candidate_hash: Option<CandidateHash>,
 		implicit_view: &ImplicitView,
-		active_leaves: &HashSet<Hash>,
 		per_relay_parent: &PerRelayParent,
+		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
 			PeerState::Collating(ref mut state) => {
-				if !is_relay_parent_in_implicit_view(&on_relay_parent, implicit_view, active_leaves)
-				{
+				if !is_relay_parent_in_implicit_view(
+					&on_relay_parent,
+					implicit_view,
+					leaf_claim_queues.keys(),
+				) {
 					return Err(InsertAdvertisementError::OutOfOurView);
 				}
 
@@ -232,9 +362,24 @@ impl PeerData {
 
 					let candidates = state.advertisements.entry(on_relay_parent).or_default();
 
-					// Current assignments is equal to the length of the claim queue. No honest
-					// collator should send that many advertisements.
-					if candidates.len() > per_relay_parent.claim_queue_len {
+					// Spam protection: limit based on scheduling_lookahead (= claim queue length)
+					// Get lookahead from any leaf's claim queue length for our core
+					let max_ads = leaf_claim_queues
+						.values()
+						.next()
+						.and_then(|cq| cq.get(&per_relay_parent.current_core))
+						.map(|v| v.len())
+						.unwrap_or_else(|| {
+							gum::warn!(
+								target: LOG_TARGET,
+								core = ?per_relay_parent.current_core,
+								relay_parent = ?on_relay_parent,
+								"No leaf claim queue available, rejecting advertisements"
+							);
+							0 // No claim queue = no advertisements accepted
+						});
+
+					if candidates.len() > max_ads {
 						return Err(InsertAdvertisementError::PeerLimitReached);
 					}
 
@@ -402,15 +547,20 @@ impl RelayParentHoldOffState {
 	}
 }
 
+/// State tracked for each relay parent in the implicit view.
+///
+/// After the leaf-based refactoring, this struct no longer stores the claim queue itself
+/// (which was the old `assignment` field). Instead:
+/// - Claim queues are stored per-leaf in `State::leaf_claim_queues`
+/// - This struct stores only the core assignment and derived metadata
+/// - Position validation uses offset arithmetic against the leaf's claim queue
 struct PerRelayParent {
 	collations: Collations,
 	v2_receipts: bool,
+	/// The core index assigned to this validator at this relay parent's block height.
+	/// Used to look up the relevant claim queue from the leaf.
 	current_core: CoreIndex,
 	session_index: SessionIndex,
-	/// Paras assigned to our core at this relay parent. Used for tracking current_assignments.
-	assigned_paras: HashSet<ParaId>,
-	/// Length of the claim queue for our core. Used for spam limit check.
-	claim_queue_len: usize,
 	ah_held_off_advertisements: RelayParentHoldOffState,
 }
 
@@ -440,26 +590,39 @@ struct State {
 	/// ancestry of some active leaf, then it does support prospective parachains.
 	implicit_view: ImplicitView,
 
-	/// All active leaves observed by us. This works as a replacement for
-	/// [`polkadot_node_network_protocol::View`] and can be dropped once the transition
-	/// to asynchronous backing is done.
-	active_leaves: HashSet<Hash>,
-
 	/// Claim queues for each active leaf. Stores the full claim queue (all cores) per leaf.
-	/// Used for validating advertisements by checking if a para has a non-obsolete position
-	/// in the claim queue when accounting for the depth in the ancestry.
-	/// TODO: Make sure this gets cleaned up properly on leaf updates!
+	///
+	/// **Why per-leaf instead of per-relay-parent:**
+	/// - Authoritative: uses current runtime state, not stale snapshots
+	/// - Minimal storage: only active leaves, not all relay parents in implicit view
+	/// - Fresh data: always reflects current claim queue state
+	/// - Offset arithmetic handles obsolete position detection automaticallny
+	///
+	/// **Lifecycle:**
+	/// - Added: when leaf is activated in `handle_our_view_change()`
+	/// - Removed: when leaf is pruned from implicit view
+	/// - Updated: automatically via view changes (old leaf removed, new leaf added)
+	///
+	/// **Usage:**
+	/// - `is_slot_available()`: validates advertisements using offset-based position checks
+	/// - `unfulfilled_claim_queue_entries()`: determines fetch priority based on CQ order
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 
-	/// State tracked per relay parent.
+	/// State tracked per relay parent in the implicit view.
+	/// Includes collation tracking, core assignment, and hold-off state.
+	/// See `PerRelayParent` struct for details.
 	per_relay_parent: HashMap<Hash, PerRelayParent>,
 
-	/// Track all active collators and their data.
+	/// Active collator peers and their declared para assignments.
+	/// Tracks connection state, protocol version, and advertisement history.
 	peer_data: HashMap<PeerId, PeerData>,
 
-	/// Parachains we're currently assigned to. With async backing enabled
-	/// this includes assignments from the implicit view.
-	current_assignments: HashMap<ParaId, usize>,
+	/// Reference count of cores we're currently assigned to across relay parents in the view.
+	/// Used for: determining which cores' claim queues to check for collator disconnection.
+	/// Value is count of relay parents where we're assigned to this core.
+	/// When a para disappears from all our assigned cores' claim queues, we disconnect its
+	/// collators.
+	assigned_cores: HashMap<CoreIndex, usize>,
 
 	/// The collations we have requested from collators.
 	collation_requests: FuturesUnordered<CollationFetchRequest>,
@@ -543,6 +706,8 @@ impl State {
 					.count()
 			});
 
+		let total = seconded + pending_fetch + waiting_for_validation + blocked_from_seconding;
+
 		gum::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
@@ -551,10 +716,11 @@ impl State {
 			pending_fetch,
 			waiting_for_validation,
 			blocked_from_seconding,
+			total,
 			"Seconded and pending collations for para",
 		);
 
-		seconded + pending_fetch + waiting_for_validation + blocked_from_seconding
+		total
 	}
 
 	/// Returns the number of collations pending to be fetched for a `ParaId`
@@ -564,12 +730,12 @@ impl State {
 	}
 }
 
-fn is_relay_parent_in_implicit_view(
+fn is_relay_parent_in_implicit_view<'a>(
 	relay_parent: &Hash,
 	implicit_view: &ImplicitView,
-	active_leaves: &HashSet<Hash>,
+	mut active_leaves: impl Iterator<Item = &'a Hash>,
 ) -> bool {
-	active_leaves.iter().any(|hash| {
+	active_leaves.any(|hash| {
 		implicit_view
 			.known_allowed_relay_parents_under(hash)
 			.unwrap_or_default()
@@ -579,7 +745,7 @@ fn is_relay_parent_in_implicit_view(
 
 async fn construct_per_relay_parent<Sender>(
 	sender: &mut Sender,
-	current_assignments: &mut HashMap<ParaId, usize>,
+	assigned_cores: &mut HashMap<CoreIndex, usize>,
 	keystore: &KeystorePtr,
 	relay_parent: Hash,
 	v2_receipts: bool,
@@ -609,58 +775,44 @@ where
 		return Ok(None);
 	};
 
-	// Fetch claim queue to determine which paras are assigned to our core
-	let mut claim_queue = request_claim_queue(relay_parent, sender)
-		.await
-		.await
-		.map_err(Error::CancelledClaimQueue)??;
-
-	let assigned_paras_vec = claim_queue.remove(&core_now).unwrap_or_else(|| VecDeque::new());
-	let claim_queue_len = assigned_paras_vec.len();
-	let assigned_paras: HashSet<ParaId> = assigned_paras_vec.iter().copied().collect();
-
-	// Update current_assignments tracking for collator connection management
-	for para_id in &assigned_paras {
-		let entry = current_assignments.entry(*para_id).or_default();
-		*entry += 1;
-		if *entry == 1 {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				para_id = ?para_id,
-				"Assigned to a parachain",
-			);
-		}
+	// Update assigned_cores tracking
+	let entry = assigned_cores.entry(core_now).or_default();
+	*entry += 1;
+	if *entry == 1 {
+		gum::debug!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?core_now,
+			"Assigned to core",
+		);
 	}
 
-	let collations = Collations::new(assigned_paras.iter());
+	// Collations state created empty - entries added on-demand when needed
+	let collations = Collations::new();
 
 	Ok(Some(PerRelayParent {
 		collations,
 		v2_receipts,
 		current_core: core_now,
 		session_index,
-		assigned_paras,
-		claim_queue_len,
 		ah_held_off_advertisements: RelayParentHoldOffState::NotStarted,
 	}))
 }
 
 fn remove_outgoing(
-	current_assignments: &mut HashMap<ParaId, usize>,
+	assigned_cores: &mut HashMap<CoreIndex, usize>,
 	per_relay_parent: PerRelayParent,
 ) {
-	for para_id in per_relay_parent.assigned_paras {
-		if let Entry::Occupied(mut occupied) = current_assignments.entry(para_id) {
-			*occupied.get_mut() -= 1;
-			if *occupied.get() == 0 {
-				occupied.remove_entry();
-				gum::debug!(
-					target: LOG_TARGET,
-					para_id = ?para_id,
-					"Unassigned from a parachain",
-				);
-			}
+	let core = per_relay_parent.current_core;
+	if let Entry::Occupied(mut occupied) = assigned_cores.entry(core) {
+		*occupied.get_mut() -= 1;
+		if *occupied.get() == 0 {
+			occupied.remove_entry();
+			gum::debug!(
+				target: LOG_TARGET,
+				?core,
+				"Unassigned from core",
+			);
 		}
 	}
 }
@@ -769,7 +921,7 @@ fn handle_peer_view_change(state: &mut State, peer_id: PeerId, view: View) {
 		None => return,
 	};
 
-	peer_data.update_view(&state.implicit_view, &state.active_leaves, view);
+	peer_data.update_view(&state.implicit_view, state.leaf_claim_queues.keys(), view);
 	state.collation_requests_cancel_handles.retain(|pc, handle| {
 		let keep = pc.peer_id != peer_id || peer_data.has_advertised(&pc.relay_parent, None);
 		if !keep {
@@ -852,6 +1004,13 @@ async fn request_collation(
 		.collations
 		.fetching_from
 		.replace((collator_id, maybe_candidate_hash));
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		%para_id,
+		"Status set to Fetching",
+	);
 
 	sender
 		.send_message(NetworkBridgeTxMessage::SendRequests(
@@ -945,7 +1104,15 @@ async fn process_incoming_peer_message<Context>(
 				return;
 			}
 
-			if state.current_assignments.contains_key(&para_id) {
+			// Check if para appears in any of our assigned cores' claim queues
+			let para_is_assigned = state.assigned_cores.keys().any(|core| {
+				state
+					.leaf_claim_queues
+					.values()
+					.any(|cq| cq.get(core).map_or(false, |paras| paras.contains(&para_id)))
+			});
+
+			if para_is_assigned {
 				gum::debug!(
 					target: LOG_TARGET,
 					peer_id = ?origin,
@@ -961,8 +1128,8 @@ async fn process_incoming_peer_message<Context>(
 					peer_id = ?origin,
 					?collator_id,
 					?para_id,
-					"Declared as collator for unneeded para. Current assignments: {:?}",
-					&state.current_assignments
+					"Declared as collator for unneeded para. Assigned cores: {:?}",
+					&state.assigned_cores
 				);
 
 				modify_reputation(
@@ -1254,16 +1421,45 @@ async fn second_unblocked_collations<Context>(
 
 /// Check if a slot is available for a candidate at the given relay parent.
 ///
-/// This function validates that:
+/// This function validates claim queue capacity and position availability using the
+/// **leaf-based offset model**. It ensures that:
 /// 1. The para appears in the claim queue for the validator's assigned core
-/// 2. The para has a non-obsolete position (accounting for blocks already produced)
-/// 3. There's a free slot after accounting for in-flight candidates
+/// 2. The para has positions within the relay_parent's valid range (accounting for offset and
+///    lookahead)
+/// 3. Total claim queue capacity is not exceeded by in-flight candidates
 ///
-/// Uses the leaf-based approach: checks the claim queue at each active leaf and computes
-/// the offset (distance from relay_parent to leaf). Positions before the offset are obsolete
-/// (already consumed by produced blocks).
+/// ## The Offset Model
 ///
-/// Returns Ok if there's a free slot on at least one path (handles forks correctly).
+/// The offset represents how many blocks have been produced since the relay_parent:
+/// - `offset = 0`: relay_parent is the current leaf itself
+/// - `offset = 1`: relay_parent is the parent of the leaf (1 block produced)
+/// - `offset = N`: N blocks produced since relay_parent
+///
+/// **Valid CQ range:** At offset O, relay_parent can use positions `[0, lookahead - O - 1]`
+/// - Lookahead limits how far ahead relay_parent can schedule
+/// - After O blocks, only (lookahead - O) future blocks remain visible
+/// - These map to CQ positions 0 to (lookahead - O - 1) at the current leaf
+///
+/// ## Capacity Accounting
+///
+/// - **Total capacity:** Para's occurrences in the leaf's entire claim queue
+/// - **Consumed:** Sum of all seconded/pending/waiting candidates for this para across ALL relay
+///   parents in the path (they all draw from the same capacity pool)
+/// - **Check:** consumed < total_capacity
+///
+/// ## Fork Handling
+///
+/// When there are multiple active leaves (forks), we check all paths and accept if
+/// valid on ANY path. This is correct because a candidate valid on one fork should
+/// be accepted even if invalid on another fork.
+///
+/// ## Leaf Transitions
+///
+/// When a new leaf arrives, the offset automatically updates (path length increases).
+/// No migration needed - validation always uses current leaf data with recalculated offset.
+/// In-flight candidates are not re-validated (bounded failure if claim queue changes).
+///
+/// Returns Ok if there's a free slot on at least one path, Err otherwise.
 fn is_slot_available(
 	relay_parent: &Hash,
 	para_id: ParaId,
@@ -1290,9 +1486,6 @@ fn is_slot_available(
 		"Checking if slot is available",
 	);
 
-	// Waiting advertisements at relay_parent that will consume positions
-	let in_waiting_queue = state.in_waiting_queue_for_para(relay_parent, &para_id);
-
 	// Check if valid on at least one path (handles forks)
 	for path in paths {
 		// Path is ordered oldest to newest: [oldest_ancestor, ..., relay_parent, ..., leaf]
@@ -1305,18 +1498,11 @@ fn is_slot_available(
 			.position(|h| h == relay_parent)
 			.ok_or(AdvertisementError::RelayParentUnknown)?;
 
-		// Offset is the number of blocks from relay_parent to leaf (exclusive of relay_parent)
-		// This equals the number of blocks that have been produced after relay_parent,
-		// which corresponds to consumed positions in the claim queue
-		let offset = path.len() - 1 - relay_parent_idx;
-
 		// Get the claim queue for our core at the leaf
 		let leaf_cq = match state.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&current_core))
 		{
 			Some(cq) => cq,
 			None => {
-				// Leaf claim queue not found - this shouldn't happen in production
-				// but might occur during view transitions. Skip this path.
 				gum::warn!(
 					target: LOG_TARGET,
 					?relay_parent,
@@ -1328,68 +1514,80 @@ fn is_slot_available(
 			},
 		};
 
+		// Position allocation using bitfield:
 		// The claim queue length represents scheduling_lookahead
 		let lookahead = leaf_cq.len();
 
-		// Valid claim queue range for relay_parent at offset O:
-		// - relay_parent can see lookahead blocks ahead: rp+1 to rp+lookahead
-		// - O blocks have been produced (rp+1 to rp+O)
-		// - Future blocks from leaf's perspective: rp+(O+1) to rp+lookahead
-		// - That's (lookahead - O) future blocks
-		// - These map to leaf CQ positions 0 to (lookahead - O - 1)
-		//
-		// Valid range: [0, lookahead - offset - 1]
-		//
-		// Example with lookahead=3:
-		// - offset 0 (leaf): [0, 2] = all 3 positions
-		// - offset 1 (parent): [0, 1] = first 2 positions
-		// - offset 2 (grandparent): [0, 0] = only first position
-		// - offset 3: [0, -1] = invalid (no positions)
+		// Offset is the number of blocks from relay_parent to leaf (exclusive of relay_parent)
+		// This equals the number of blocks that have been produced after relay_parent,
+		// which corresponds to consumed positions in the claim queue
+		let offset = path.len().saturating_sub(1 + relay_parent_idx);
+		let valid_len = lookahead.saturating_sub(offset);
 
-		let valid_start = 0;
+		// Track which claim queue positions are occupied (either by other paras or allocated
+		// candidates)
+		// Mark positions occupied by other paras (not available for our para)
+		let mut occupied = leaf_cq.iter().map(|p| p != &para_id).collect::<bitvec::vec::BitVec>();
 
-		// Check if offset is too large (beyond lookahead window)
-		if offset >= lookahead {
-			// No valid positions for this relay_parent
-			continue;
+		// Allocate positions for all relay parents in the path:
+		// Each relay parent allocates from the rightmost position in its valid range, working
+		// leftward
+		for (idx, ancestor) in path.iter().enumerate() {
+			let ancestor_offset = path.len().saturating_sub(1 + idx);
+			let ancestor_valid_len = lookahead.saturating_sub(ancestor_offset);
+			// Count all candidates at this ancestor: seconded + pending + waiting
+			let seconded_pending = state.seconded_and_pending_for_para(ancestor, &para_id);
+			let waiting = state.in_waiting_queue_for_para(ancestor, &para_id);
+			let to_allocate_start = seconded_pending + waiting;
+			let mut to_allocate = to_allocate_start;
+
+			gum::debug!(
+				target: LOG_TARGET,
+				?ancestor,
+				ancestor_offset,
+				ancestor_valid_len,
+				seconded_pending,
+				waiting,
+				to_allocate_start,
+				checking_relay_parent = ?relay_parent,
+				"Allocating for ancestor",
+			);
+
+			// Allocate from rightmost free position in this relay_parent's valid range
+			// valid_len is always <= lookahead, so min is redundant
+			for pos in (0..ancestor_valid_len).rev() {
+				if to_allocate == 0 {
+					break;
+				}
+				if !occupied[pos] {
+					gum::trace!(target: LOG_TARGET, pos, "Marking position");
+					occupied.set(pos, true);
+					to_allocate -= 1;
+				}
+			}
 		}
 
-		let valid_end_inclusive = lookahead - offset - 1;
+		// Check if any free positions remain in our valid range
+		let free_in_our_range = (0..valid_len).filter(|&pos| !occupied[pos]).count();
 
-		// Count how many times para appears in the VALID range for this relay_parent
-		let available_at_rp = leaf_cq
-			.iter()
-			.enumerate()
-			.filter(|(idx, _)| *idx >= valid_start && *idx <= valid_end_inclusive)
-			.filter(|(_, p)| **p == para_id)
-			.count();
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?offset,
+			valid_len,
+			bitfield = ?occupied,
+			"After allocation",
+		);
 
-		if available_at_rp == 0 {
-			// Para doesn't appear in valid positions for this relay_parent
-			continue;
-		}
-
-		// Count consumed: all candidates across all relay parents in the path
-		// All candidates compete for the same total claim queue capacity
-		let mut consumed = in_waiting_queue;
-		for ancestor in path.iter() {
-			consumed += state.seconded_and_pending_for_para(ancestor, &para_id);
-		}
-
-		// Total capacity: all occurrences of para in the current leaf's claim queue
-		let total_capacity = leaf_cq.iter().filter(|p| **p == para_id).count();
-
-		// Compare against TOTAL capacity, not just relay_parent-specific available slots
-		if consumed < total_capacity {
+		if free_in_our_range > 0 {
 			gum::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
 				?para_id,
 				?leaf,
 				?offset,
-				total_capacity,
-				available_at_rp,
-				?consumed,
+				valid_len,
+				free_in_our_range,
 				"Slot is available on this path",
 			);
 			return Ok(()); // Room on this path
@@ -1401,9 +1599,8 @@ fn is_slot_available(
 			?para_id,
 			?leaf,
 			?offset,
-			total_capacity,
-			available_at_rp,
-			?consumed,
+			valid_len,
+			free_in_our_range,
 			"No free slot on this path",
 		);
 	}
@@ -1427,29 +1624,18 @@ async fn handle_advertisement<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	// Extract needed info from peer_data first to avoid borrow issues
-	let collator_para_id = {
+	// Basic peer and protocol validation
+	{
 		let peer_data = state.peer_data.get(&peer_id).ok_or(AdvertisementError::UnknownPeer)?;
 
-		if peer_data.version == CollationVersion::V1 && !state.active_leaves.contains(&relay_parent)
+		if peer_data.version == CollationVersion::V1 &&
+			!state.leaf_claim_queues.contains_key(&relay_parent)
 		{
 			return Err(AdvertisementError::ProtocolMisuse);
 		}
 
-		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?
-	};
-
-	// Quick check: does para appear in claim queue for our core at all?
-	// This basic assignment check happens before hold-off logic.
-	// Full capacity check happens later in process_advertisement().
-	{
-		let per_rp = state
-			.per_relay_parent
-			.get(&relay_parent)
-			.ok_or(AdvertisementError::RelayParentUnknown)?;
-		if !per_rp.assigned_paras.contains(&collator_para_id) {
-			return Err(AdvertisementError::InvalidAssignment);
-		}
+		// Ensure peer has declared as a collator
+		peer_data.collating_para().ok_or(AdvertisementError::UndeclaredCollator)?;
 	}
 
 	let per_relay_parent = state
@@ -1465,8 +1651,8 @@ where
 			relay_parent,
 			candidate_hash,
 			&state.implicit_view,
-			&state.active_leaves,
 			&per_relay_parent,
+			&state.leaf_claim_queues,
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
@@ -1592,6 +1778,15 @@ where
 	let pending_collation =
 		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
 
+	gum::debug!(
+		target: LOG_TARGET,
+		peer_id = ?peer_id,
+		%para_id,
+		?relay_parent,
+		status = ?collations.status,
+		"Enqueue: status check",
+	);
+
 	match collations.status {
 		CollationStatus::Fetching(_) | CollationStatus::WaitingOnValidation => {
 			gum::trace!(
@@ -1606,6 +1801,13 @@ where
 		CollationStatus::Waiting => {
 			// We were waiting for a collation to be advertised to us (we were idle) so we can fetch
 			// the new collation immediately
+			gum::debug!(
+				target: LOG_TARGET,
+				peer_id = ?peer_id,
+				%para_id,
+				?relay_parent,
+				"Fetching immediately (status=Waiting)",
+			);
 			fetch_collation(sender, state, pending_collation, collator_id).await?;
 		},
 	}
@@ -1623,7 +1825,7 @@ async fn handle_our_view_change<Sender>(
 where
 	Sender: CollatorProtocolSenderTrait,
 {
-	let current_leaves = state.active_leaves.clone();
+	let current_leaves: HashSet<Hash> = state.leaf_claim_queues.keys().copied().collect();
 
 	let removed = current_leaves.iter().filter(|h| !view.contains(h));
 	let added = view.iter().filter(|h| !current_leaves.contains(h));
@@ -1642,9 +1844,15 @@ where
 			.map(|b| *b)
 			.unwrap_or(false);
 
+		// Fetch claim queue for this leaf (used for both construction and validation)
+		let leaf_claim_queue = request_claim_queue(*leaf, sender)
+			.await
+			.await
+			.map_err(Error::CancelledClaimQueue)??;
+
 		let Some(per_relay_parent) = construct_per_relay_parent(
 			sender,
-			&mut state.current_assignments,
+			&mut state.assigned_cores,
 			keystore,
 			*leaf,
 			v2_receipts,
@@ -1655,15 +1863,7 @@ where
 			continue;
 		};
 
-		state.active_leaves.insert(*leaf);
 		state.per_relay_parent.insert(*leaf, per_relay_parent);
-
-		// Fetch and store the full claim queue for this leaf
-		// Used for validating advertisements with the leaf-based position check
-		let leaf_claim_queue = request_claim_queue(*leaf, sender)
-			.await
-			.await
-			.map_err(Error::CancelledClaimQueue)??;
 		state.leaf_claim_queues.insert(*leaf, leaf_claim_queue);
 
 		state
@@ -1681,7 +1881,7 @@ where
 				// as the same session index since they must be in the same session.
 				if let Some(per_relay_parent) = construct_per_relay_parent(
 					sender,
-					&mut state.current_assignments,
+					&mut state.assigned_cores,
 					keystore,
 					*block_hash,
 					v2_receipts,
@@ -1703,7 +1903,7 @@ where
 			"handle_our_view_change - removed",
 		);
 
-		state.active_leaves.remove(removed);
+		// Leaf deactivation is tracked via leaf_claim_queues (removed when pruned below)
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
 		// pruned from the block info storage.
@@ -1711,7 +1911,7 @@ where
 
 		for removed in pruned {
 			if let Some(per_relay_parent) = state.per_relay_parent.remove(&removed) {
-				remove_outgoing(&mut state.current_assignments, per_relay_parent);
+				remove_outgoing(&mut state.assigned_cores, per_relay_parent);
 			}
 
 			// Remove claim queue data for pruned blocks
@@ -1740,14 +1940,27 @@ where
 	});
 
 	for (peer_id, peer_data) in state.peer_data.iter_mut() {
-		peer_data.prune_old_advertisements(&state.implicit_view, &state.active_leaves);
+		peer_data.prune_old_advertisements(&state.implicit_view, state.leaf_claim_queues.keys());
 
 		// Disconnect peers who are not relevant to our current or next para.
 		//
-		// If the peer hasn't declared yet, they will be disconnected if they do not
-		// declare.
+		// If the peer hasn't declared yet, they will be disconnected if they do not declare.
+		// Check if the para appears in any of our assigned cores' claim queues.
 		if let Some(para_id) = peer_data.collating_para() {
-			if !state.current_assignments.contains_key(&para_id) {
+			let mut para_still_assigned = false;
+			for core in state.assigned_cores.keys() {
+				// Check if para appears in any active leaf's claim queue for this core
+				if state
+					.leaf_claim_queues
+					.values()
+					.any(|cq| cq.get(core).map_or(false, |paras| paras.contains(&para_id)))
+				{
+					para_still_assigned = true;
+					break;
+				}
+			}
+
+			if !para_still_assigned {
 				gum::trace!(
 					target: LOG_TARGET,
 					?peer_id,
@@ -2618,7 +2831,6 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 		.get(relay_parent)
 		.ok_or(Error::RelayParentStateNotFound)?;
 	let current_core = relay_parent_state.current_core;
-	let scheduled_paras = &relay_parent_state.assigned_paras;
 
 	let paths = state.implicit_view.paths_via_relay_parent(relay_parent);
 
@@ -2638,23 +2850,13 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 			None => continue,
 		};
 
-		// Find relay_parent's position in the path to calculate offset
-		let relay_parent_idx = match path.iter().position(|h| h == relay_parent) {
-			Some(idx) => idx,
-			None => continue,
-		};
-		let offset = path.len() - 1 - relay_parent_idx;
-
 		// Build unfulfilled list by iterating claim queue in order (earlier positions prioritized)
 		// Track how many times we've added each para to avoid over-counting
 		let mut unfulfilled = VecDeque::new();
 		let mut added_per_para: HashMap<ParaId, usize> = HashMap::new();
 
+		// Iterate claim queue for our core in order (earlier positions = higher priority)
 		for para_id in leaf_cq.iter() {
-			if !scheduled_paras.contains(para_id) {
-				continue;
-			}
-
 			// Count total capacity and consumed for this para
 			let capacity = leaf_cq.iter().filter(|p| *p == para_id).count();
 			let mut consumed = 0;
