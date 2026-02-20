@@ -446,8 +446,7 @@ mod tests {
 
 	#[test]
 	fn temporary_returns_in_memory_options() {
-		let opts =
-			resolve_db_options(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
+		let opts = resolve_db_options(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
 		// In-memory options produce `:memory:` filename.
 		let filename = opts.get_filename();
 		assert_eq!(filename, std::path::Path::new(":memory:"));
@@ -484,8 +483,7 @@ mod tests {
 
 	#[test]
 	fn persistent_default_path_without_chain_id() {
-		let opts =
-			resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
+		let opts = resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
 		let filename = opts.get_filename().to_string_lossy().to_string();
 		assert!(filename.contains("eth-rpc"));
 		assert!(filename.contains("receipts.db"));

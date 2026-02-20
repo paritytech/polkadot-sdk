@@ -240,7 +240,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		pool: &SqlitePool,
 		label: SyncLabel,
 	) -> Result<Option<SyncCheckpoint>, sqlx::Error> {
-		let row = sqlx::query("SELECT block_number, block_hash FROM sync_state WHERE label = $1")
+		let row = sqlx::query("SELECT block_number, block_hash FROM sync_state WHERE label = ?")
 			.bind(label.as_str())
 			.fetch_optional(pool)
 			.await?;
@@ -277,7 +277,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_hash: Option<H256>,
 	) -> Result<(), ClientError> {
 		sqlx::query(
-			"INSERT OR REPLACE INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3)",
+			"INSERT OR REPLACE INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?)",
 		)
 		.bind(label.as_str())
 		.bind(block_number as i64)
@@ -297,7 +297,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_hash: Option<H256>,
 	) -> Result<(), ClientError> {
 		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
 			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
 			 WHERE sync_state.block_number < excluded.block_number",
 		)
@@ -319,7 +319,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_hash: Option<H256>,
 	) -> Result<(), ClientError> {
 		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
 			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
 			 WHERE sync_state.block_number > excluded.block_number",
 		)

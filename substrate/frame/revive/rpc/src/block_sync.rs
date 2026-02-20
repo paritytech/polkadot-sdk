@@ -64,8 +64,9 @@ pub struct SyncCheckpoint {
 	pub block_hash: Option<H256>,
 }
 
-/// How often (in blocks) the backward sync checkpoints its progress to the database.
-const SYNC_CHECKPOINT_INTERVAL: u64 = 1000;
+/// How often (in blocks) sync progress is checkpointed to the database.
+/// Used by both the backward historic sync and the live finalized-block tracker.
+pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 100;
 
 /// The future type returned by sync hook callbacks.
 type SyncHookFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
@@ -153,6 +154,12 @@ impl Client {
 				self.verify_boundary(first.block_number, first.block_hash).await?;
 				self.verify_boundary(upper.block_number, upper.block_hash).await?;
 				self.resume_sync(first, upper, latest).await?;
+			},
+			(Some(_), None) => {
+				log::warn!(target: LOG_TARGET,
+					"🗄️ LowerBound exists without UpperBound — possible partial corruption, \
+					 starting fresh sync from #{latest}");
+				self.fresh_sync(latest).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
@@ -284,7 +291,8 @@ impl Client {
 
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
-		let at_checkpoint = |synced: u64| synced <= 1 || synced % SYNC_CHECKPOINT_INTERVAL == 0;
+		let at_checkpoint =
+			|synced: u64| synced <= 1 || synced % u64::from(SYNC_CHECKPOINT_INTERVAL) == 0;
 
 		let loop_result: Result<(), ClientError> = loop {
 			let block_number = block.number();

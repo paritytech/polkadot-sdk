@@ -23,6 +23,7 @@ pub(crate) mod storage_api;
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	SyncLabel, TracerType, TransactionInfo,
+	block_sync::SYNC_CHECKPOINT_INTERVAL,
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
@@ -409,8 +410,10 @@ impl Client {
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Track finalized block in sync_state (monotonic advance).
-			if subscription_type == SubscriptionType::FinalizedBlocks {
+			// Track finalized block in sync_state periodically (monotonic advance).
+			if subscription_type == SubscriptionType::FinalizedBlocks &&
+				block_number % SYNC_CHECKPOINT_INTERVAL == 0
+			{
 				if let Err(err) = self
 					.receipt_provider
 					.advance_sync_state(SyncLabel::Finalized, block_number, Some(hash))
