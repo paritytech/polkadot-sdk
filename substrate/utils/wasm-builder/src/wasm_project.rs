@@ -37,7 +37,7 @@ use std::{
 	sync::OnceLock,
 };
 use strum::{EnumIter, IntoEnumIterator};
-use toml::value::Table;
+use toml::Table;
 use walkdir::WalkDir;
 
 /// Colorize an info message.
