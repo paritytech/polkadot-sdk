@@ -30,7 +30,7 @@ use sc_service::{
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	start_rpc_servers,
 };
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::path::PathBuf;
 
 // Default port if --prometheus-port is not specified
@@ -38,8 +38,6 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
-
-const IN_MEMORY_DB: &str = "sqlite::memory:";
 
 const MAX_PRUNE_BLOCKS: usize = 100_000;
 
@@ -147,18 +145,18 @@ fn resolve_db_dir(base_path: Option<BasePath>, chain_id: &str) -> PathBuf {
 	}
 }
 
-/// Resolve the full SQLite connection URL from CLI arguments.
+/// Resolve SQLite connection options from CLI arguments.
 ///
-/// - `Temporary`: returns an in-memory SQLite URL.
-/// - `Persistent`: resolves the base path, creates the directory, and returns a file-based URL.
-fn resolve_db_url(
+/// - `Temporary`: returns in-memory SQLite options.
+/// - `Persistent`: resolves the base path, creates the directory, and returns file-based options.
+fn resolve_db_options(
 	database_type: DatabaseType,
 	base_path: Option<BasePath>,
 	database_name: &str,
 	chain_id: &str,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<SqliteConnectOptions> {
 	match database_type {
-		DatabaseType::Temporary => Ok(IN_MEMORY_DB.to_string()),
+		DatabaseType::Temporary => Ok(SqliteConnectOptions::new().in_memory(true)),
 		DatabaseType::Persistent => {
 			let db_dir = resolve_db_dir(base_path, chain_id);
 			std::fs::create_dir_all(&db_dir).map_err(|e| {
@@ -166,14 +164,7 @@ fn resolve_db_url(
 			})?;
 			let db_path = db_dir.join(database_name);
 			log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-			let encoded_path = db_path
-				.display()
-				.to_string()
-				.replace('%', "%25")
-				.replace(' ', "%20")
-				.replace('#', "%23")
-				.replace('?', "%3F");
-			Ok(format!("sqlite:{encoded_path}?mode=rwc"))
+			Ok(SqliteConnectOptions::new().filename(&db_path).create_if_missing(true))
 		},
 	}
 }
@@ -241,7 +232,8 @@ fn build_client(
 	prune: Option<usize>,
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 	node_rpc_url: &str,
-	database_url: &str,
+	db_options: SqliteConnectOptions,
+	is_in_memory_db: bool,
 	max_request_size: u32,
 	max_response_size: u32,
 	abort_signal: Signals,
@@ -253,7 +245,7 @@ fn build_client(
 		let latest = block_provider.latest_finalized_block().await.number();
 		validate_earliest_receipt_block_argument(earliest_receipt_block, latest)?;
 
-		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
+		let (pool, keep_latest_n_blocks) = if is_in_memory_db {
 			let max_retained_blocks = prune.unwrap_or(256);
 			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {max_retained_blocks} blocks in memory");
 			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
@@ -261,11 +253,11 @@ fn build_client(
 					.max_connections(1)
 					.idle_timeout(None)
 					.max_lifetime(None)
-					.connect(database_url).await?;
+					.connect_with(db_options).await?;
 
 			(pool, Some(max_retained_blocks))
 		} else {
-			(SqlitePoolOptions::new().connect(database_url).await?, None)
+			(SqlitePoolOptions::new().connect_with(db_options).await?, None)
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(
@@ -321,7 +313,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 	validate_prune_args(prune, database_type)?;
 	validate_database_name(&database_name)?;
 
-	let database_url = resolve_db_url(database_type, base_path, &database_name, &chain_id)?;
+	let is_in_memory_db = database_type == DatabaseType::Temporary;
+	let db_options = resolve_db_options(database_type, base_path, &database_name, &chain_id)?;
 
 	let rpc_addrs: Option<Vec<sc_service::config::RpcEndpoint>> = rpc_params
 		.rpc_addr(is_dev, false, 8545)?
@@ -358,7 +351,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		prune,
 		earliest_receipt_block,
 		&node_rpc_url,
-		&database_url,
+		db_options,
+		is_in_memory_db,
 		rpc_config.max_request_size * 1024 * 1024,
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
@@ -451,18 +445,21 @@ mod tests {
 	use tempfile::TempDir;
 
 	#[test]
-	fn temporary_returns_in_memory_url() {
-		let url = resolve_db_url(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
-		assert_eq!(url, IN_MEMORY_DB);
+	fn temporary_returns_in_memory_options() {
+		let opts =
+			resolve_db_options(DatabaseType::Temporary, None, "receipts.db", "").unwrap();
+		// In-memory options produce `:memory:` filename.
+		let filename = opts.get_filename();
+		assert_eq!(filename, std::path::Path::new(":memory:"));
 	}
 
 	#[test]
 	fn persistent_with_explicit_base_path() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let url = resolve_db_url(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
-		let expected = format!("sqlite:{}?mode=rwc", tmp.path().join("receipts.db").display());
-		assert_eq!(url, expected);
+		let opts =
+			resolve_db_options(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
+		assert_eq!(opts.get_filename(), tmp.path().join("receipts.db"));
 		assert!(tmp.path().exists());
 	}
 
@@ -470,24 +467,28 @@ mod tests {
 	fn persistent_with_custom_database_name() {
 		let tmp = TempDir::new().unwrap();
 		let base = BasePath::new(tmp.path());
-		let url = resolve_db_url(DatabaseType::Persistent, Some(base), "custom.db", "").unwrap();
-		let expected = format!("sqlite:{}?mode=rwc", tmp.path().join("custom.db").display());
-		assert_eq!(url, expected);
+		let opts =
+			resolve_db_options(DatabaseType::Persistent, Some(base), "custom.db", "").unwrap();
+		assert_eq!(opts.get_filename(), tmp.path().join("custom.db"));
 	}
 
 	#[test]
 	fn persistent_default_path_with_chain_id() {
-		let url = resolve_db_url(DatabaseType::Persistent, None, "receipts.db", "westend").unwrap();
-		assert!(url.contains("eth-rpc"));
-		assert!(url.contains("westend"));
-		assert!(url.contains("receipts.db"));
+		let opts =
+			resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "westend").unwrap();
+		let filename = opts.get_filename().to_string_lossy().to_string();
+		assert!(filename.contains("eth-rpc"));
+		assert!(filename.contains("westend"));
+		assert!(filename.contains("receipts.db"));
 	}
 
 	#[test]
 	fn persistent_default_path_without_chain_id() {
-		let url = resolve_db_url(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
-		assert!(url.contains("eth-rpc"));
-		assert!(url.contains("receipts.db"));
+		let opts =
+			resolve_db_options(DatabaseType::Persistent, None, "receipts.db", "").unwrap();
+		let filename = opts.get_filename().to_string_lossy().to_string();
+		assert!(filename.contains("eth-rpc"));
+		assert!(filename.contains("receipts.db"));
 	}
 
 	#[test]
@@ -495,7 +496,7 @@ mod tests {
 		let tmp = TempDir::new().unwrap();
 		let nested = tmp.path().join("a").join("b");
 		let base = BasePath::new(&nested);
-		resolve_db_url(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
+		resolve_db_options(DatabaseType::Persistent, Some(base), "receipts.db", "").unwrap();
 		assert!(nested.exists());
 	}
 
