@@ -496,8 +496,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
 	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();
 }
 
