@@ -227,6 +227,7 @@ pub fn new_partial(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			vec![Arc::new(grandpa::GrandpaPruningFilter)],
 		)?;
 	let client = Arc::new(client);
 
