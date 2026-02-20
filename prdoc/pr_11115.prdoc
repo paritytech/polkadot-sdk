@@ -6,5 +6,6 @@ doc:
 crates:
 - name: pallet-staking-async-rc-client
   bump: patch
+  validate: false
 - name: asset-hub-westend-runtime
   bump: patch
