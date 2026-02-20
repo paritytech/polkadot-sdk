@@ -35,7 +35,7 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 		// receive congestion reports from the `with` location. So we assume the pipeline is
 		// congested too.
 		if pallet::Pallet::<Runtime>::is_inbound_channel_suspended(sibling_para_id) {
-			return true
+			return true;
 		}
 
 		// if the outbound channel with recipient is suspended, it means that one of further
@@ -61,11 +61,11 @@ impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
 		let Some((outbound_state, queued_pages)) =
 			pallet::Pallet::<Runtime>::outbound_channel_state(sibling_para_id)
 		else {
-			return false
+			return false;
 		};
 		// suspended channel => it is congested
 		if outbound_state == OutboundState::Suspended {
-			return true
+			return true;
 		}
 
 		// It takes some time for target parachain to suspend inbound channel with the target BH and
@@ -80,7 +80,7 @@ impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
 
 		const MAX_QUEUED_PAGES_BEFORE_DEACTIVATION: u16 = 4;
 		if queued_pages > MAX_QUEUED_PAGES_BEFORE_DEACTIVATION {
-			return true
+			return true;
 		}
 
 		false

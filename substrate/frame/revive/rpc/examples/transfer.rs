@@ -16,7 +16,7 @@
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive_eth_rpc::{EthRpcClient, example::TransactionBuilder};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 	print_balance().await?;
 	println!("\n\n=== Transferring  ===\n\n");
 
-	let tx = TransactionBuilder::new(&client)
+	let tx = TransactionBuilder::new(client.clone())
 		.signer(alith)
 		.value(value)
 		.to(ethan.address())

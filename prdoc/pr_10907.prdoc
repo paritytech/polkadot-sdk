@@ -1,0 +1,8 @@
+title: Update the resolc and retester versions
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This PR allows us to use nightly versions of the resolc compiler in the differential tests CI which include fixes not yet available in the published version of the compiler. It also bumps the commit hash of differential tests used to a version that allows for gas limits to be specified manually to circumvent the issue observed in https://github.com/paritytech/contract-issues/issues/259
+crates: []

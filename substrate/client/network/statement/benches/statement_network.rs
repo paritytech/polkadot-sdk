@@ -21,7 +21,7 @@ use futures::{stream, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
 	utils::LruHashSet,
-	NetworkPeers, ObservedRole,
+	NetworkPeers,
 };
 use sc_network_statement::{
 	config::{MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
@@ -198,7 +198,15 @@ fn build_handler(
 	);
 	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let statement_store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
@@ -211,10 +219,7 @@ fn build_handler(
 	let mut peers = HashMap::new();
 	peers.insert(
 		peer_id,
-		Peer::new_for_testing(
-			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
-			ObservedRole::Full,
-		),
+		Peer::new_for_testing(LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap())),
 	);
 
 	for _ in 0..num_threads {
@@ -282,6 +287,7 @@ fn blocking_executor(
 fn bench_on_statements(c: &mut Criterion) {
 	let statement_counts = [100, 500, 1000, 2000];
 	let thread_counts = [1, 2, 4, 8];
+	let peer_counts = [1, 2, 4, 8, 16];
 	let max_runtime_instances = 8;
 	let executor_types = [("blocking", true), ("non_blocking", false)];
 
@@ -292,39 +298,45 @@ fn bench_on_statements(c: &mut Criterion) {
 	for &num_statements in &statement_counts {
 		for &num_threads in &thread_counts {
 			for &(executor_name, is_blocking) in &executor_types {
-				let statements: Vec<Statement> =
-					(0..num_statements).map(|i| create_signed_statement(i, &keypair)).collect();
-				let executor = if is_blocking {
-					blocking_executor(&handle)
-				} else {
-					non_blocking_executor(&handle)
-				};
+				for num_peers in &peer_counts {
+					let statements: Vec<Statement> =
+						(0..num_statements).map(|i| create_signed_statement(i, &keypair)).collect();
+					let executor = if is_blocking {
+						blocking_executor(&handle)
+					} else {
+						non_blocking_executor(&handle)
+					};
 
-				let benchmark_name = format!(
-					"on_statements/statements_{}/threads_{}/{}",
-					num_statements, num_threads, executor_name
-				);
+					let benchmark_name = format!(
+						"on_statements/statements_{}/peers_{}/threads_{}/{}",
+						num_statements, num_peers, num_threads, executor_name
+					);
 
-				c.bench_function(&benchmark_name, |b| {
-					b.iter_batched(
-						|| build_handler(executor.clone(), num_threads, max_runtime_instances),
-						|(mut handler, peer_id, _temp_dir)| {
-							handler.on_statements(peer_id, statements.clone());
+					c.bench_function(&benchmark_name, |b| {
+						b.iter_batched(
+							|| build_handler(executor.clone(), num_threads, max_runtime_instances),
+							|(mut handler, peer_id, _temp_dir)| {
+								// The number of peers determines how many times we might receive a
+								// statement.
+								for _ in 0..*num_peers {
+									handler.on_statements(peer_id, statements.clone());
+								}
 
-							runtime.block_on(async {
-								while handler.pending_statements_mut().next().await.is_some() {}
-							});
+								runtime.block_on(async {
+									while handler.pending_statements_mut().next().await.is_some() {}
+								});
 
-							let pending = handler.pending_statements_mut();
-							assert!(
-								pending.is_empty(),
-								"Pending statements not empty: {}",
-								pending.len()
-							);
-						},
-						criterion::BatchSize::LargeInput,
-					)
-				});
+								let pending = handler.pending_statements_mut();
+								assert!(
+									pending.is_empty(),
+									"Pending statements not empty: {}",
+									pending.len()
+								);
+							},
+							criterion::BatchSize::LargeInput,
+						)
+					});
+				}
 			}
 		}
 	}
