@@ -16,18 +16,18 @@
 
 //! # HOP (Hand-Off Protocol) Service
 //!
-//! Ephemeral data pool service for Substrate nodes. Provides 24-hour in-memory
+//! Ephemeral data pool service for Substrate nodes. Provides 24-hour disk-backed
 //! storage with an RPC interface for submission and retrieval.
 //!
 //! ## Overview
 //!
 //! HOP is a node-level service that enables peer-to-peer data sharing when
-//! recipients are offline. Data is stored temporarily in an in-memory pool
+//! recipients are offline. Data is stored temporarily in a disk-backed pool
 //! before being promoted to permanent chain storage.
 //!
 //! ## Features
 //!
-//! - **In-memory data pool** with configurable size limits
+//! - **Disk-backed data pool** with configurable size limits
 //! - **24-hour retention** (configurable in blocks)
 //! - **RPC interface** for data submission and retrieval
 //! - **Content-addressed storage** using Blake2-256 hashes
@@ -76,7 +76,7 @@
 //!
 //! ## RPC Methods
 //!
-//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>) -> SubmitResult` - Submit data with recipient keys, returns hash + pool status
+//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data with recipient keys and personhood proof, returns hash + pool status
 //! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with ed25519 signature
 //! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
 //!
@@ -97,5 +97,5 @@ pub mod types;
 pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
-pub use rpc::{HopApiServer, HopRpcServer};
-pub use types::{HopError, HopPoolEntry, PoolStatus, SubmitResult};
+pub use rpc::{HopApiServer, HopRpcServer, NoopVerifier, PersonhoodVerifier};
+pub use types::{Alias, HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SubmitResult};

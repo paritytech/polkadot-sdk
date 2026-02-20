@@ -290,6 +290,13 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = 60)]
 	pub hop_check_interval: u64,
 
+	/// Directory for HOP persistent data storage.
+	///
+	/// If not specified, defaults to `<chain-data-dir>/hop`.
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long)]
+	pub hop_data_dir: Option<PathBuf>,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -348,6 +355,7 @@ impl<Config: CliConfig> Cli<Config> {
 			hop_max_pool_size_mb: self.hop_max_pool_size,
 			hop_retention_blocks: self.hop_retention_blocks,
 			hop_check_interval: self.hop_check_interval,
+			hop_data_dir: self.hop_data_dir.clone(),
 		}
 	}
 

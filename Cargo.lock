@@ -21198,6 +21198,7 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
+ "tempfile",
  "thiserror 1.0.65",
  "tracing",
 ]
