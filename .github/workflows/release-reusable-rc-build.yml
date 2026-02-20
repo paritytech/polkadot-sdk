@@ -228,47 +228,47 @@ jobs:
 
           import_gpg_keys
 
-       - name: Build binary
-         env:
-           BINARY_NAME: ${{ matrix.binaries }}
-           INPUT_PACKAGE: ${{ inputs.package }}
-           INPUT_FEATURES: ${{ inputs.features }}
-         run: |
-           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-           ./.github/scripts/release/build-macos-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
+      - name: Build binary
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+          INPUT_PACKAGE: ${{ inputs.package }}
+          INPUT_FEATURES: ${{ inputs.features }}
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
+          ./.github/scripts/release/build-macos-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
         with:
           subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
-       - name: Sign artifacts
-         working-directory: ${{ env.ARTIFACTS_PATH }}
-         env:
-           BINARY_NAME: ${{ matrix.binaries }}
-         run: |
-           python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
+      - name: Sign artifacts
+        working-directory: ${{ env.ARTIFACTS_PATH }}
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+        run: |
+          python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
 
-       - name: Check sha256 ${{ matrix.binaries }}
-         working-directory: ${{ env.ARTIFACTS_PATH }}
-         shell: bash
-         env:
-           BINARY_NAME: ${{ matrix.binaries }}
-         run: |
-           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+      - name: Check sha256 ${{ matrix.binaries }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
+        shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+        run: |
+          .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           echo "Checking binary  $BINARY_NAME"
-           check_sha256  "$BINARY_NAME"
+          echo "Checking binary  $BINARY_NAME"
+          check_sha256  "$BINARY_NAME"
 
-       - name: Check GPG ${{ matrix.binaries }}
-         working-directory: ${{ env.ARTIFACTS_PATH }}
-         shell: bash
-         env:
-           BINARY_NAME: ${{ matrix.binaries }}
-         run: |
-           . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+      - name: Check GPG ${{ matrix.binaries }}
+        working-directory: ${{ env.ARTIFACTS_PATH }}
+        shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+        run: |
+          . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           check_gpg  "$BINARY_NAME"
+          check_gpg  "$BINARY_NAME"
 
       - name: Upload ${{ matrix.binaries }} artifacts
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
