@@ -143,4 +143,7 @@ pub struct NodeExtraArgs {
 
 	/// HOP promotion check interval in seconds.
 	pub hop_check_interval: u64,
+
+	/// Directory for HOP persistent data storage.
+	pub hop_data_dir: Option<PathBuf>,
 }

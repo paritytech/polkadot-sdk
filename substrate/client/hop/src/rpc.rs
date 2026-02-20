@@ -19,7 +19,7 @@
 use crate::{
 	pool::HopDataPool,
 	primitives::HopHash,
-	types::{HopError, PoolStatus, SubmitResult},
+	types::{Alias, HopError, PoolStatus, SubmitResult, HOP_CONTEXT},
 };
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
@@ -28,9 +28,29 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::Bytes;
+use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_runtime::{traits::Block as BlockT, SaturatedConversion};
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
+
+/// Trait for verifying personhood ring proofs.
+/// Implemented by the node using the individuality system's ring-VRF verification.
+pub trait PersonhoodVerifier: Send + Sync + 'static {
+	/// Verify a proof and return the prover's alias.
+	/// - `proof`: raw proof bytes (SCALE-encoded ring-VRF proof)
+	/// - `context`: application context (HOP_CONTEXT)
+	/// - `msg`: message the proof is bound to (data hash)
+	fn verify(&self, proof: &[u8], context: &[u8], msg: &[u8]) -> Result<Alias, HopError>;
+}
+
+/// No-op verifier that accepts any proof and returns a zero alias.
+/// Use this when personhood verification is not needed.
+pub struct NoopVerifier;
+
+impl PersonhoodVerifier for NoopVerifier {
+	fn verify(&self, _proof: &[u8], _context: &[u8], _msg: &[u8]) -> Result<Alias, HopError> {
+		Ok([0u8; 32])
+	}
+}
 
 /// HOP RPC methods.
 #[rpc(client, server)]
@@ -40,11 +60,12 @@ pub trait HopApi<BlockHash> {
 	/// # Arguments
 	/// * `data`: The data to store, in bytes
 	/// * `recipients`: List of ephemeral ed25519 public keys (32 bytes each)
+	/// * `proof`: Personhood ring proof bytes (can be empty when using NoopVerifier)
 	///
 	/// # Returns
 	/// The content hash and current pool status
 	#[method(name = "hop_submit")]
-	fn submit(&self, data: Bytes, recipients: Vec<Bytes>) -> RpcResult<SubmitResult>;
+	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult>;
 
 	/// Claim data from the data pool by hash
 	///
@@ -69,16 +90,17 @@ pub trait HopApi<BlockHash> {
 }
 
 /// HOP RPC server implementation.
-pub struct HopRpcServer<C, Block> {
+pub struct HopRpcServer<C, Block, V: PersonhoodVerifier> {
 	pool: Arc<HopDataPool>,
 	client: Arc<C>,
-	_phantom: std::marker::PhantomData<Block>,
+	verifier: Arc<V>,
+	_phantom: PhantomData<Block>,
 }
 
-impl<C, Block> HopRpcServer<C, Block> {
+impl<C, Block, V: PersonhoodVerifier> HopRpcServer<C, Block, V> {
 	/// Create a new HOP RPC server.
-	pub fn new(pool: Arc<HopDataPool>, client: Arc<C>) -> Self {
-		Self { pool, client, _phantom: Default::default() }
+	pub fn new(pool: Arc<HopDataPool>, client: Arc<C>, verifier: Arc<V>) -> Self {
+		Self { pool, client, verifier, _phantom: Default::default() }
 	}
 
 	/// Convert Bytes to Hash with validation
@@ -95,12 +117,13 @@ impl<C, Block> HopRpcServer<C, Block> {
 }
 
 #[async_trait]
-impl<C, Block> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block>
+impl<C, Block, V> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block, V>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	V: PersonhoodVerifier,
 {
-	fn submit(&self, data: Bytes, recipients: Vec<Bytes>) -> RpcResult<SubmitResult> {
+	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult> {
 		// Parse and validate recipient keys
 		let recipient_keys: Vec<[u8; 32]> = recipients
 			.into_iter()
@@ -112,9 +135,13 @@ where
 			})
 			.collect::<RpcResult<Vec<_>>>()?;
 
+		// Compute data hash and verify personhood proof
+		let hash = H256(blake2_256(&data.0));
+		let alias = self.verifier.verify(&proof.0, &HOP_CONTEXT, hash.as_bytes())?;
+
 		// We need the current block number to know when the timeout is reached.
 		let current_block = self.client.info().best_number.saturated_into::<u32>();
-		let hash = self.pool.insert(data.0, current_block, recipient_keys)?;
+		let hash = self.pool.insert(data.0, current_block, recipient_keys, alias)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { hash: Bytes(hash.0.to_vec()), pool_status })
 	}

@@ -429,7 +429,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.transpose()?;
 
-			let hop_pool = build_hop_pool(&node_extra_args)?;
+			let hop_pool = build_hop_pool(
+				&node_extra_args,
+				parachain_config.database.path().map(|p| p.to_path_buf()),
+			)?;
 			if let Some(ref pool) = hop_pool {
 				let task_pool = pool.clone();
 				let task_client = client.clone();
@@ -441,15 +444,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 							.info()
 							.best_number
 							.saturated_into::<u32>();
-						let expired = task_pool.drain_expired(block);
-						for (hash, entry) in &expired {
-							// TODO: Attempt promotion to pallet_transaction_storage
-							// once PreimageAuthorization integration is available.
+						let freed = task_pool.cleanup_expired(block);
+						if freed > 0 {
 							log::info!(
 								target: "hop",
-								"Would promote expired HOP entry {:?} ({} bytes) to chain storage (not yet implemented)",
-								hash,
-								entry.size,
+								"Cleaned up expired HOP entries, freed {} bytes",
+								freed,
 							);
 						}
 					}

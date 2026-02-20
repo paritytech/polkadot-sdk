@@ -31,3 +31,6 @@ sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

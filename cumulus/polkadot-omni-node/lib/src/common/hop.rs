@@ -16,19 +16,32 @@
 
 use crate::common::NodeExtraArgs;
 use sc_hop::HopDataPool;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 /// Conditionally build the HOP data pool based on CLI flags.
 pub(crate) fn build_hop_pool(
 	node_extra_args: &NodeExtraArgs,
+	database_path: Option<PathBuf>,
 ) -> sc_service::error::Result<Option<Arc<HopDataPool>>> {
 	if !node_extra_args.enable_hop {
 		return Ok(None);
 	}
 
+	let data_dir = match &node_extra_args.hop_data_dir {
+		Some(dir) => dir.clone(),
+		None => database_path
+			.ok_or_else(|| {
+				sc_service::Error::Application(
+					"No database path available and --hop-data-dir not specified".into(),
+				)
+			})?
+			.join("hop"),
+	};
+
 	let pool = HopDataPool::new(
 		node_extra_args.hop_max_pool_size_mb * 1024 * 1024,
 		node_extra_args.hop_retention_blocks,
+		data_dir,
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
