@@ -213,7 +213,12 @@ mod tests {
 
 	#[derive(Debug, Decode, Default)]
 	pub struct MockCall;
-	impl TryGetDecodeFn for MockCall {}
+	impl TryGetDecodeFn for MockCall {
+		fn try_get_decode_fn<I: codec::Input>(
+		) -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>> {
+			Some(Self::decode)
+		}
+	}
 	impl GetDispatchInfo for MockCall {
 		fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
 			Default::default()

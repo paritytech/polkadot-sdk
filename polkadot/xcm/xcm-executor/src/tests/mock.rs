@@ -75,7 +75,12 @@ pub struct TestOrigin;
 	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
 )]
 pub struct TestCall;
-impl TryGetDecodeFn for TestCall {}
+impl TryGetDecodeFn for TestCall {
+	fn try_get_decode_fn<I: codec::Input>() -> Option<impl Fn(&mut I) -> Result<Self, codec::Error>>
+	{
+		Some(Self::decode)
+	}
+}
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
 	type Config = ();

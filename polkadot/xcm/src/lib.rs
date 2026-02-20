@@ -26,6 +26,7 @@ extern crate alloc;
 
 use codec::{
 	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
+	MemTrackingInput,
 };
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
@@ -54,6 +55,7 @@ mod tests;
 
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+pub const XCM_SIZE_LIMIT: usize = 16 * 1024 * 1024;
 /// The maximal number of instructions in an XCM before decoding fails.
 ///
 /// This is a deliberate limit - not a technical one.
@@ -356,6 +358,19 @@ impl<C: TryGetDecodeFn> IdentifyVersion for VersionedXcm<C> {
 }
 
 impl<C: TryGetDecodeFn> VersionedXcm<C> {
+	const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
+
+	pub fn decode_with_constraints(input: &mut &[u8]) -> Result<VersionedXcm<C>, CodecError> {
+		let mut mem_tracking_input = MemTrackingInput::new(input, XCM_SIZE_LIMIT);
+		let xcm =
+			VersionedXcm::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut mem_tracking_input)?;
+
+		if !input.is_empty() {
+			return Err(Self::DECODE_ALL_ERR_MSG.into());
+		}
+		Ok(xcm)
+	}
+
 	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
 	/// such as `MAX_XCM_DECODE_DEPTH`, `MAX_ITEMS_IN_ASSETS` or `MAX_INSTRUCTIONS_TO_DECODE`.
 	///
