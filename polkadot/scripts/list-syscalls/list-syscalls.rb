@@ -523,6 +523,14 @@ not_found_count = 0
     next
   end
 
+  if fn_name == '__stdio_read'
+    # Hardcode SYS_readv and SYS_read: musl 1.2.5's __stdio_read uses readv when there is
+    # a buffer and read otherwise. The dual-syscall pattern confuses the register tracker.
+    syscalls_for_fn[fn_name] << 0
+    syscalls_for_fn[fn_name] << 19
+    next
+  end
+
   code = code_for_fn[fn_name]
 
   found = false
