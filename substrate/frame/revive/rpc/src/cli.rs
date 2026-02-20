@@ -180,10 +180,10 @@ fn validate_database_name(database_name: &str) -> anyhow::Result<()> {
 	if database_name.is_empty() {
 		anyhow::bail!("--database-name must not be empty");
 	}
-	if std::path::Path::new(database_name)
-		.components()
-		.any(|c| !matches!(c, std::path::Component::Normal(_)))
-	{
+	let mut components = std::path::Path::new(database_name).components();
+	let is_single_normal = matches!(components.next(), Some(std::path::Component::Normal(_))) &&
+		components.next().is_none();
+	if !is_single_normal {
 		anyhow::bail!(
 			"--database-name must be a plain filename without path separators, got: {database_name}"
 		);

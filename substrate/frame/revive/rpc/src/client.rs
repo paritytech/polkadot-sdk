@@ -19,6 +19,7 @@
 
 pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
+
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	SyncLabel, TracerType, TransactionInfo,
@@ -73,12 +74,7 @@ pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 /// The runtime balance type.
 pub type Balance = u128;
 
-/// A stored sync checkpoint: block number + optional block hash.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SyncCheckpoint {
-	pub block_number: SubstrateBlockNumber,
-	pub block_hash: Option<H256>,
-}
+pub use crate::block_sync::SyncCheckpoint;
 
 /// The subscription type used to listen to new blocks.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -186,17 +182,10 @@ pub enum ClientError {
 	SyncBoundaryMismatch,
 }
 
-const LOG_TARGET: &str = "eth-rpc::client";
+pub(crate) const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
 const REVERT_CODE: i32 = 3;
-
-/// How often (in blocks) the backward sync checkpoints its progress to the database.
-const SYNC_CHECKPOINT_INTERVAL: u64 = 1000;
-
-/// Concrete type used to pass `None` for optional sync hooks without verbose turbofish.
-type NoopSyncHook =
-	fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 const NOTIFIER_CAPACITY: usize = 16;
 impl From<ClientError> for ErrorObjectOwned {
@@ -227,27 +216,15 @@ impl From<ClientError> for ErrorObjectOwned {
 	}
 }
 
-/// Result of a backward sync pass.
-///
-/// Contains the actual range that was synced and any auto-discovered boundaries.
-#[derive(Default)]
-struct SyncBackwardResult {
-	/// Lowest block number actually synced, with its hash.
-	lowest_synced: Option<(SubstrateBlockNumber, H256)>,
-	/// Highest block number actually synced, with its hash.
-	highest_synced: Option<(SubstrateBlockNumber, H256)>,
-	/// Auto-discovered first EVM block number, if eth_block_hash returned None.
-	discovered_earliest: Option<SubstrateBlockNumber>,
-}
 
 /// A client that connects to a substrate node and provides Ethereum-compatible RPC functionality.
 #[derive(Clone)]
 pub struct Client {
-	api: OnlineClient<SrcChainConfig>,
+	pub(crate) api: OnlineClient<SrcChainConfig>,
 	rpc_client: RpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
-	receipt_provider: ReceiptProvider,
-	block_provider: SubxtBlockInfoProvider,
+	pub(crate) receipt_provider: ReceiptProvider,
+	pub(crate) block_provider: SubxtBlockInfoProvider,
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
@@ -457,365 +434,6 @@ impl Client {
 		.await
 	}
 
-	/// Verify that the stored genesis hash matches the connected chain.
-	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
-		let genesis_hash: H256 = self.api.genesis_hash();
-
-		if let Some(checkpoint) = self.receipt_provider.get_sync_state(SyncLabel::Genesis).await? {
-			if let Some(stored) = checkpoint.block_hash {
-				if stored != genesis_hash {
-					return Err(ClientError::ChainMismatch);
-				}
-			}
-		}
-
-		Ok(genesis_hash)
-	}
-
-	/// Verify that a stored boundary block still exists on the finalized chain.
-	async fn verify_boundary(
-		&self,
-		num: SubstrateBlockNumber,
-		hash: Option<H256>,
-	) -> Result<(), ClientError> {
-		if let Some(stored_hash) = hash {
-			let block = self
-				.block_provider
-				.block_by_number(num)
-				.await?
-				.ok_or(ClientError::BlockNotFound)?;
-			if block.hash() != stored_hash {
-				return Err(ClientError::SyncBoundaryMismatch);
-			}
-		}
-		Ok(())
-	}
-
-	/// Determine the upper bound of contiguous coverage before subscriptions start.
-	///
-	/// Must be called before any subscription futures are spawned so that the
-	/// finalized subscription cannot advance `Finalized` past the actual
-	/// contiguous coverage boundary.
-	///
-	/// - If `HistorySyncStart > 0` (previous sync was interrupted), returns that value — it is the
-	///   safe upper bound from before the interruption.
-	/// - Otherwise, returns the subscription's `Finalized` from the previous run.
-	///
-	/// The returned value is passed to [`sync_historic_blocks`].
-	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let history_start =
-			self.receipt_provider.get_sync_state(SyncLabel::HistorySyncStart).await?;
-
-		if let Some(checkpoint) = &history_start {
-			if checkpoint.block_number > 0 {
-				log::info!(target: LOG_TARGET,
-					"🗄️ Previous sync was interrupted, safe boundary at #{}", checkpoint.block_number);
-				return Ok(history_start);
-			}
-		}
-
-		let finalized = self.receipt_provider.get_sync_state(SyncLabel::Finalized).await?;
-		if let Some(checkpoint) = &finalized {
-			log::info!(target: LOG_TARGET,
-				"🗄️ Pinned sync boundary at finalized #{}", checkpoint.block_number);
-		}
-		Ok(finalized)
-	}
-
-	/// Sync all historical blocks.
-	///
-	/// `synced_upper_boundary` is the upper bound of contiguous DB coverage,
-	/// determined by [`prepare_sync`] before subscriptions started.
-	/// Resumes from where it left off when both `First` and the boundary
-	/// exist; otherwise starts a fresh backward sync.
-	pub async fn sync_historic_blocks(
-		&self,
-		synced_upper_boundary: Option<SyncCheckpoint>,
-	) -> Result<(), ClientError> {
-		let genesis_hash = self.validate_chain_identity().await?;
-		let latest = self.latest_finalized_block().await.number().saturating_sub(1);
-		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
-
-		// Store genesis (idempotent).
-		self.receipt_provider
-			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
-			.await?;
-
-		let synced_lower_boundary = self.receipt_provider.get_sync_state(SyncLabel::First).await?;
-
-		match (synced_lower_boundary, synced_upper_boundary) {
-			(Some(first), Some(upper)) => {
-				// Verify boundary hashes still match the finalized chain.
-				self.verify_boundary(first.block_number, first.block_hash).await?;
-				self.verify_boundary(upper.block_number, upper.block_hash).await?;
-				// Mark sync in-progress. On crash, this value is the safe upper boundary.
-				self.receipt_provider
-					.set_sync_state(
-						SyncLabel::HistorySyncStart,
-						upper.block_number,
-						upper.block_hash,
-					)
-					.await?;
-				self.resume_sync(first.block_number, upper.block_number, latest).await?;
-			},
-			_ => {
-				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{latest}");
-				self.fresh_sync(latest).await?;
-			},
-		}
-
-		// Reset — signals that the sync completed successfully.
-		self.receipt_provider
-			.set_sync_state(SyncLabel::HistorySyncStart, 0, None)
-			.await?;
-
-		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
-		Ok(())
-	}
-
-	/// Fresh sync: backward from `latest` down to the first EVM block (or genesis).
-	///
-	/// Sets `HistorySyncStart` once the first block is confirmed in the DB.
-	async fn fresh_sync(&self, latest: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let result = self
-			.sync_backward(
-				latest,
-				0,
-				Some(self.set_history_sync_start_hook()),
-				Some(self.checkpoint_first_hook()),
-			)
-			.await?;
-
-		self.apply_discovered_earliest(&result).await;
-		Ok(())
-	}
-
-	/// Resume sync by filling the top gap (new blocks) and bottom gap (backfill).
-	///
-	/// The caller must set `HistorySyncStart` before calling this method
-	/// to mark the sync as in-progress.
-	async fn resume_sync(
-		&self,
-		first_num: SubstrateBlockNumber,
-		finalized_num: SubstrateBlockNumber,
-		latest: SubstrateBlockNumber,
-	) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{first_num}..#{finalized_num}, \
-			 chain head is #{latest}");
-
-		// Top gap: [finalized + 1, latest]
-		if finalized_num < latest {
-			self.sync_backward(
-				latest,
-				finalized_num + 1,
-				None::<NoopSyncHook>,
-				None::<NoopSyncHook>,
-			)
-			.await?;
-		}
-
-		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
-		let earliest = self
-			.receipt_provider
-			.get_sync_state(SyncLabel::EarliestReceiptBlock)
-			.await?
-			.map(|checkpoint| checkpoint.block_number);
-
-		let lower_bound = earliest.unwrap_or(0);
-		if first_num > lower_bound {
-			let result = self
-				.sync_backward(
-					first_num - 1,
-					lower_bound,
-					None::<NoopSyncHook>,
-					Some(self.checkpoint_first_hook()),
-				)
-				.await?;
-			self.apply_discovered_earliest(&result).await;
-		} else {
-			log::info!(target: LOG_TARGET, "🗄️ No backward gap to fill");
-		}
-
-		Ok(())
-	}
-
-	/// Hook that sets `SyncLabel::HistorySyncStart` once the first block is in the DB.
-	fn set_history_sync_start_hook<'a>(
-		&'a self,
-	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
-	{
-		move |num, hash| {
-			Box::pin(async move {
-				if let Err(err) = self
-					.receipt_provider
-					.set_sync_state(SyncLabel::HistorySyncStart, num, Some(hash))
-					.await
-				{
-					log::warn!(target: LOG_TARGET,
-						"Failed to set sync_state[history-sync-start]: {err:?}");
-				}
-			})
-		}
-	}
-
-	/// Hook that checkpoints `SyncLabel::First`, only decreasing (never losing a lower bound).
-	fn checkpoint_first_hook<'a>(
-		&'a self,
-	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
-	{
-		move |num, hash| {
-			Box::pin(async move {
-				if let Err(err) =
-					self.receipt_provider.recede_sync_state(SyncLabel::First, num, Some(hash)).await
-				{
-					log::warn!(target: LOG_TARGET,
-						"Failed to checkpoint sync_state[first]: {err:?}");
-				}
-			})
-		}
-	}
-
-	/// If the sync pass auto-discovered the first EVM block, persist it.
-	async fn apply_discovered_earliest(&self, result: &SyncBackwardResult) {
-		if let Some(first_evm) = result.discovered_earliest {
-			self.receipt_provider.update_earliest_receipt_block(first_evm);
-			if let Err(err) = self
-				.receipt_provider
-				.recede_sync_state(SyncLabel::EarliestReceiptBlock, first_evm, None)
-				.await
-			{
-				log::warn!(target: LOG_TARGET,
-					"Failed to update sync_state[earliest-receipt-block]: {err:?}");
-			}
-		}
-	}
-
-	/// Backward sync from `from` down to `lower_bound` (inclusive).
-	///
-	/// Returns a [`SyncBackwardResult`] describing what was actually synced.
-	///
-	/// - `on_highest`: called once after the first (highest) block is inserted.
-	/// - `on_progress`: called at the first block, every `SYNC_CHECKPOINT_INTERVAL` blocks, and
-	///   once more at the end if there is un-checkpointed progress.
-	async fn sync_backward<'a, 'b>(
-		&self,
-		from: SubstrateBlockNumber,
-		lower_bound: SubstrateBlockNumber,
-		on_highest: Option<
-			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
-		>,
-		on_progress: Option<
-			impl Fn(
-				SubstrateBlockNumber,
-				H256,
-			) -> Pin<Box<dyn Future<Output = ()> + Send + 'b>>,
-		>,
-	) -> Result<SyncBackwardResult, ClientError> {
-		log::info!(target: LOG_TARGET,
-			"⬇️ Backward sync: #{from} down to #{lower_bound}");
-
-		let mut block = match self.block_provider.block_by_number(from).await {
-			Ok(Some(b)) => b,
-			Ok(None) | Err(_) => {
-				log::error!(target: LOG_TARGET,
-					"⚠️ Could not fetch block #{from}, aborting backward sync");
-				return Ok(SyncBackwardResult::default());
-			},
-		};
-
-		let mut result = SyncBackwardResult::default();
-		let mut blocks_synced = 0u64;
-		let mut needs_final_checkpoint = false;
-
-		loop {
-			let block_number = block.number();
-			let block_hash = block.hash();
-
-			let ethereum_hash = match self
-				.runtime_api(block_hash)
-				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
-				.await
-			{
-				Ok(h) => h,
-				Err(err) => {
-					log::error!(target: LOG_TARGET,
-						"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
-					break;
-				},
-			};
-
-			match ethereum_hash {
-				Some(hash) => {
-					if let Err(err) =
-						self.receipt_provider.insert_block_receipts(&block, &hash).await
-					{
-						log::error!(target: LOG_TARGET,
-							"⚠️ Insert failed for #{block_number}: {err:?}, stopping");
-						break;
-					}
-
-					// Track boundaries
-					if result.highest_synced.is_none() {
-						result.highest_synced = Some((block_number, block_hash));
-						if let Some(ref f) = on_highest {
-							f(block_number, block_hash).await;
-						}
-					}
-					result.lowest_synced = Some((block_number, block_hash));
-					blocks_synced += 1;
-					needs_final_checkpoint = true;
-
-					if blocks_synced == 1 || blocks_synced % SYNC_CHECKPOINT_INTERVAL == 0 {
-						log::info!(target: LOG_TARGET,
-							"⬇️ Backward sync progress: #{block_number} \
-								({blocks_synced} blocks synced)");
-
-						if let Some(ref f) = on_progress {
-							f(block_number, block_hash).await;
-						}
-						needs_final_checkpoint = false;
-					}
-				},
-				None => {
-					let first_evm = block_number + 1;
-					log::info!(target: LOG_TARGET,
-						"🔍 Auto-discovered first EVM block: #{first_evm}");
-					result.discovered_earliest = Some(first_evm);
-					break;
-				},
-			}
-
-			if lower_bound < block_number {
-				let parent_hash = block.header().parent_hash;
-				block = match self.block_provider.block_by_hash(&parent_hash).await {
-					Ok(Some(b)) => b,
-					Ok(None) | Err(_) => {
-						log::error!(target: LOG_TARGET,
-							"⚠️ Could not fetch parent of #{block_number}, stopping");
-						break;
-					},
-				};
-			} else {
-				break;
-			}
-		}
-
-		// Final checkpoint for any un-checkpointed progress.
-		if needs_final_checkpoint {
-			if let Some((num, hash)) = result.lowest_synced {
-				if let Some(ref f) = on_progress {
-					f(num, hash).await;
-				}
-			}
-		}
-
-		log::info!(target: LOG_TARGET,
-			"⬇️ Backward sync complete: {blocks_synced} blocks synced \
-			 (requested #{from}..#{lower_bound})");
-		Ok(result)
-	}
 
 	/// Get the block hash for the given block number or tag.
 	pub async fn block_hash_for_tag(

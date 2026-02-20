@@ -1334,7 +1334,8 @@ mod tests {
 			.set_sync_state(SyncLabel::EarliestReceiptBlock, 42, None)
 			.await
 			.unwrap();
-		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
+		let checkpoint =
+			provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 42);
 		assert_eq!(checkpoint.block_hash, None);
 
