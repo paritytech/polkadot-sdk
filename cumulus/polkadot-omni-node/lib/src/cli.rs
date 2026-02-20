@@ -262,6 +262,34 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Enable HOP (Hand-Off Protocol) data pool.
+	///
+	/// The HOP pool provides ephemeral in-memory storage for peer-to-peer data
+	/// sharing. Data is stored temporarily until it expires and can be promoted
+	/// to permanent on-chain storage.
+	#[arg(long)]
+	pub enable_hop: bool,
+
+	/// HOP maximum data pool size in MiB.
+	///
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long, default_value_t = 10240)]
+	pub hop_max_pool_size: u64,
+
+	/// HOP data retention period in blocks.
+	///
+	/// At 6 seconds per block, 14400 blocks equals approximately 24 hours.
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long, default_value_t = 14400)]
+	pub hop_retention_blocks: u32,
+
+	/// HOP promotion check interval in seconds.
+	///
+	/// How often to check for expired entries that should be promoted to chain storage.
+	/// Only relevant when `--enable-hop` is used.
+	#[arg(long, default_value_t = 60)]
+	pub hop_check_interval: u64,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -316,6 +344,10 @@ impl<Config: CliConfig> Cli<Config> {
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
+			enable_hop: self.enable_hop,
+			hop_max_pool_size_mb: self.hop_max_pool_size,
+			hop_retention_blocks: self.hop_retention_blocks,
+			hop_check_interval: self.hop_check_interval,
 		}
 	}
 
