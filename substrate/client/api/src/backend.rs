@@ -142,6 +142,10 @@ pub enum NewBlockState {
 	Best,
 	/// Newly finalized block (implicitly best).
 	Final,
+	/// Block whose parent is not present in the DB. Stored for ancestry lookups
+	/// but not tracked as a leaf — adding it would create an orphan leaf with no
+	/// connection to the rest of the tree.
+	Disconnected,
 }
 
 impl NewBlockState {
@@ -149,7 +153,7 @@ impl NewBlockState {
 	pub fn is_best(self) -> bool {
 		match self {
 			NewBlockState::Best | NewBlockState::Final => true,
-			NewBlockState::Normal => false,
+			NewBlockState::Normal | NewBlockState::Disconnected => false,
 		}
 	}
 
@@ -157,7 +161,7 @@ impl NewBlockState {
 	pub fn is_final(self) -> bool {
 		match self {
 			NewBlockState::Final => true,
-			NewBlockState::Best | NewBlockState::Normal => false,
+			NewBlockState::Best | NewBlockState::Normal | NewBlockState::Disconnected => false,
 		}
 	}
 }

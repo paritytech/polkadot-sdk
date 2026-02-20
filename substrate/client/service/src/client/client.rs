@@ -696,6 +696,12 @@ where
 
 		let leaf_state = if finalized {
 			NewBlockState::Final
+		} else if origin == BlockOrigin::WarpSync {
+			// Warp sync proof blocks have no parent in the DB, so adding them as leaves would
+			// create orphan leaves that are never cleaned up until the gap closes. At that point
+			// displaced_leaves_after_finalizing would have to walk the entire chain for each
+			// orphan leaf, causing a multi-minute stall under the import lock.
+			NewBlockState::Disconnected
 		} else if is_new_best {
 			NewBlockState::Best
 		} else {

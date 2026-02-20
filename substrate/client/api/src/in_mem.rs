@@ -167,7 +167,9 @@ impl<Block: BlockT> Blockchain<Block> {
 
 		{
 			let mut storage = self.storage.write();
-			storage.leaves.import(hash, number, *header.parent_hash());
+			if !matches!(new_state, NewBlockState::Disconnected) {
+				storage.leaves.import(hash, number, *header.parent_hash());
+			}
 			storage.blocks.insert(hash, StoredBlock::new(header, body, justifications));
 
 			if let NewBlockState::Final = new_state {

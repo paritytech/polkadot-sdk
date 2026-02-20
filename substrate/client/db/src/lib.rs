@@ -1753,7 +1753,13 @@ impl<Block: BlockT> Backend<Block> {
 
 			if !header_exists_in_db {
 				// Add a new leaf if the block has the potential to be finalized.
-				if number > last_finalized_num || last_finalized_num.is_zero() {
+				// Skip for disconnected blocks (e.g. warp sync proof blocks): their parent is not
+				// in the DB, so importing them would create orphan leaves. These persist until the
+				// chain gap closes, at which point displaced_leaves_after_finalizing must walk the
+				// entire finalized chain for each orphan leaf, causing a multi-minute stall.
+				if !matches!(pending_block.leaf_state, NewBlockState::Disconnected) &&
+					(number > last_finalized_num || last_finalized_num.is_zero())
+				{
 					let mut leaves = self.blockchain.leaves.write();
 					leaves.import(hash, number, parent_hash);
 					leaves.prepare_transaction(
