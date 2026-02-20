@@ -10,8 +10,8 @@ use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
 use sp_core::{blake2_256, hexdisplay::HexDisplay, sr25519, Bytes, Pair};
 use sp_statement_store::{
-	statement_allowance_key, Channel, Statement, StatementAllowance, SubmitResult, Topic,
-	TopicFilter,
+	statement_allowance_key, Channel, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -614,7 +614,7 @@ impl Participant {
 		for idx in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_public_key(), topic_idx(*idx)].try_into().expect("Two topics")
@@ -628,12 +628,23 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
-				let statement_bytes =
+				// Skip the initial NumMatchingStatements item.
+				let _ = timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+					.await
+					.map_err(|_| anyhow!("Timeout waiting for known count"))?
+					.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+					.map_err(|e| anyhow!("Subscription error: {}", e))?;
+
+				let item =
 					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
 						.await
 						.map_err(|_| anyhow!("Timeout waiting for session key"))?
 						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement_bytes = match item {
+					StatementEvent::NewStatement(bytes) => bytes,
+					other => return Err(anyhow!("Expected Statement, got: {:?}", other)),
+				};
 				let statement = Statement::decode(&mut &statement_bytes[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
@@ -686,7 +697,7 @@ impl Participant {
 		for &(sender_idx, sender_session_key) in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_message(), topic_pair(&sender_session_key, &own_session_key)]
@@ -702,12 +713,23 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
-				let statement_bytes =
+				// Skip the initial NumMatchingStatements item.
+				let _ = timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+					.await
+					.map_err(|_| anyhow!("Timeout waiting for known count"))?
+					.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+					.map_err(|e| anyhow!("Subscription error: {}", e))?;
+
+				let item =
 					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
 						.await
 						.map_err(|_| anyhow!("Timeout waiting for message"))?
 						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
+				let statement_bytes = match item {
+					StatementEvent::NewStatement(bytes) => bytes,
+					other => return Err(anyhow!("Expected Statement, got: {:?}", other)),
+				};
 				let statement = Statement::decode(&mut &statement_bytes[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
@@ -929,7 +951,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						let topic: Topic = blake2_256(topic_str.as_bytes()).into();
 
 						let subscription = rpc_client
-							.subscribe::<Bytes>(
+							.subscribe::<StatementEvent>(
 								"statement_subscribeStatement",
 								rpc_params![TopicFilter::MatchAll(
 									vec![topic].try_into().expect("Single topic")
@@ -1007,18 +1029,35 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let mut futures: FuturesUnordered<_> = subscriptions
 						.into_iter()
 						.map(|(msg_idx, topic_str, mut subscription)| async move {
-							match timeout(total_timeout, subscription.next()).await {
-								Ok(Some(Ok(_statement_bytes))) => Ok((msg_idx, topic_str)),
-								Ok(Some(Err(e))) => Err(anyhow!(
-									"Subscription error for message {}: {}",
-									msg_idx,
-									e
-								)),
-								Ok(None) => Err(anyhow!(
-									"Subscription ended unexpectedly for message {}",
-									msg_idx
-								)),
-								Err(_) => Err(anyhow!("Timeout waiting for message {}", msg_idx)),
+							// Skip NumMatchingStatements, then wait for Statement.
+							loop {
+								match timeout(total_timeout, subscription.next()).await {
+									Ok(Some(Ok(StatementEvent::NewStatement(_)))) => {
+										return Ok((msg_idx, topic_str))
+									},
+									Ok(Some(Ok(StatementEvent::NumMatchingStatements(_)))) => {
+										continue
+									},
+									Ok(Some(Err(e))) => {
+										return Err(anyhow!(
+											"Subscription error for message {}: {}",
+											msg_idx,
+											e
+										))
+									},
+									Ok(None) => {
+										return Err(anyhow!(
+											"Subscription ended unexpectedly for message {}",
+											msg_idx
+										))
+									},
+									Err(_) => {
+										return Err(anyhow!(
+											"Timeout waiting for message {}",
+											msg_idx
+										))
+									},
+								}
 							}
 						})
 						.collect();

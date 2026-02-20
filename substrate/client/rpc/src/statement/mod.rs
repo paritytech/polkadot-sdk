@@ -27,7 +27,9 @@ use jsonrpsee::{
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::statement::{error::Error, StatementApiServer};
 use sp_core::Bytes;
-use sp_statement_store::{OptimizedTopicFilter, StatementSource, SubmitResult, TopicFilter};
+use sp_statement_store::{
+	OptimizedTopicFilter, StatementEvent, StatementSource, SubmitResult, TopicFilter,
+};
 use std::sync::Arc;
 const LOG_TARGET: &str = "statement-store-rpc";
 
@@ -109,7 +111,10 @@ impl StatementApiServer for StatementStore {
 			Some("rpc"),
 			async move {
 				for statement in existing_statements {
-					if let Err(e) = subscription_sender.send(statement.into()).await {
+					if let Err(e) = subscription_sender
+						.send(StatementEvent::NewStatement(statement.into()))
+						.await
+					{
 						log::warn!(
 							target: LOG_TARGET,
 							"Failed to send existing statement in subscription: {:?}", e

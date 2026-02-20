@@ -17,7 +17,7 @@
 
 pub use crate::runtime_api::StatementSource;
 use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
-use sp_core::{bounded_vec::BoundedVec, ConstU32};
+use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
 use std::collections::HashSet;
 
 /// Statement store error.
@@ -171,6 +171,19 @@ pub enum SubmitResult {
 	Invalid(InvalidReason),
 	/// Internal store error.
 	InternalError(Error),
+}
+
+/// An item returned by the statement subscription stream.
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "event", content = "data", rename_all = "camelCase"))]
+pub enum StatementEvent {
+	/// A statement matching the subscription filter, the data is the SCALE-encoded statement.
+	NewStatement(Bytes),
+	/// The number of statements present in the store matching the subscription filter at the time
+	/// of subscription. This is sent immediately upon subscription, before any matching statements
+	/// are sent.
+	NumMatchingStatements(u32),
 }
 
 /// Result type for `Error`

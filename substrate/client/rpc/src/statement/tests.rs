@@ -132,7 +132,7 @@ async fn subscribe_works() {
 	);
 
 	for subscription in subscriptions.into_iter() {
-		check_submitted(submitted.clone(), subscription).await;
+		check_submitted(submitted.clone(), None, subscription).await;
 	}
 
 	// Check subscribing after initial statements gets all statements through as well.
@@ -141,7 +141,7 @@ async fn subscribe_works() {
 			.await;
 
 	for subscription in subscriptions.into_iter() {
-		check_submitted(submitted.clone(), subscription).await;
+		check_submitted(submitted.clone(), Some(submitted.len() as u32), subscription).await;
 	}
 
 	let mut match_any_with_random = api_rpc
@@ -152,9 +152,17 @@ async fn subscribe_works() {
 		.await
 		.expect("Failed to subscribe");
 
+	let result = match_any_with_random.next::<StatementEvent>().await;
+	let result = result.expect("Bytes").expect("Success").0;
+	assert!(
+		matches!(result, StatementEvent::NumMatchingStatements(0)),
+		"Expected no statements for random topic, got: {:?}",
+		result
+	);
+
 	let res = tokio::time::timeout(
 		std::time::Duration::from_secs(5),
-		match_any_with_random.next::<Bytes>(),
+		match_any_with_random.next::<StatementEvent>(),
 	)
 	.await;
 	assert!(res.is_err(), "expected no message for random topic");
@@ -167,9 +175,17 @@ async fn subscribe_works() {
 		.await
 		.expect("Failed to subscribe");
 
+	let result = match_all_with_random.next::<StatementEvent>().await;
+	let result = result.expect("Bytes").expect("Success").0;
+	assert!(
+		matches!(result, StatementEvent::NumMatchingStatements(0)),
+		"Expected no statements for random topic, got: {:?}",
+		result
+	);
+
 	let res = tokio::time::timeout(
 		std::time::Duration::from_secs(5),
-		match_all_with_random.next::<Bytes>(),
+		match_all_with_random.next::<StatementEvent>(),
 	)
 	.await;
 	assert!(res.is_err(), "expected no message for random topic");
@@ -177,11 +193,31 @@ async fn subscribe_works() {
 
 async fn check_submitted(
 	mut expected: Vec<sp_statement_store::Statement>,
+	num_existing: Option<u32>,
 	mut subscription: Subscription,
 ) {
+	let result = subscription.next::<StatementEvent>().await;
+	let result = result.expect("Bytes").expect("Success").0;
+
+	if let StatementEvent::NumMatchingStatements(count) = result {
+		assert!(
+			num_existing.is_none() || num_existing == Some(count),
+			"Expected number of existing statements to be {}, got {}",
+			num_existing.unwrap_or(0),
+			count
+		);
+	}
+
 	while !expected.is_empty() {
-		let result = subscription.next::<Bytes>().await;
+		let result = subscription.next::<StatementEvent>().await;
 		let result = result.expect("Bytes").expect("Success").0;
+
+		let result = match result {
+			StatementEvent::NewStatement(bytes) => bytes,
+			_ => panic!("Expected statement"),
+		};
+
+		println!("Received statement: {:?}", result);
 		let new_statement =
 			sp_statement_store::Statement::decode(&mut &result.0[..]).expect("Decode statement");
 		let position = expected
