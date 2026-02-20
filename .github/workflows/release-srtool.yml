@@ -54,7 +54,7 @@ jobs:
           run: |
             . ./.github/scripts/common/lib.sh
 
-            echo "Github workspace: ${{ github.workspace }}"
+            echo "Github workspace: ${GITHUB_WORKSPACE}"
             echo "Current folder: $(pwd)"; ls -al
             ls -al
 
@@ -98,11 +98,16 @@ jobs:
           profile: ${{ inputs.profile }}
 
       - name: Summary
+        env:
+          SRTOOL_JSON: ${{ steps.srtool_build.outputs.json }}
+          CHAIN: ${{ matrix.chain }}
+          WASM_PATH: ${{ steps.srtool_build.outputs.wasm }}
+          WASM_COMPRESSED_PATH: ${{ steps.srtool_build.outputs.wasm_compressed }}
         run: |
-          echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.chain }}-srtool-digest.json
-          cat ${{ matrix.chain }}-srtool-digest.json
-          echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
-          echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+          echo "$SRTOOL_JSON" | jq > "${CHAIN}-srtool-digest.json"
+          cat "${CHAIN}-srtool-digest.json"
+          echo "Compact Runtime: $WASM_PATH"
+          echo "Compressed Runtime: $WASM_COMPRESSED_PATH"
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
@@ -118,25 +123,35 @@ jobs:
 
       - name: Show Runtime information
         shell: bash
+        env:
+          WASM_PATH: ${{ steps.srtool_build.outputs.wasm }}
+          WASM_COMPRESSED_PATH: ${{ steps.srtool_build.outputs.wasm_compressed }}
+          CHAIN: ${{ matrix.chain }}
         run: |
-          subwasm info ${{ steps.srtool_build.outputs.wasm }}
-          subwasm info ${{ steps.srtool_build.outputs.wasm_compressed }}
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-info.json
-          subwasm --json info ${{ steps.srtool_build.outputs.wasm_compressed }} > ${{ matrix.chain }}-compressed-info.json
+          subwasm info "$WASM_PATH"
+          subwasm info "$WASM_COMPRESSED_PATH"
+          subwasm --json info "$WASM_PATH" > "${CHAIN}-info.json"
+          subwasm --json info "$WASM_COMPRESSED_PATH" > "${CHAIN}-compressed-info.json"
 
       - name: Extract the metadata
         shell: bash
+        env:
+          WASM_PATH: ${{ steps.srtool_build.outputs.wasm }}
+          CHAIN: ${{ matrix.chain }}
         run: |
-          subwasm meta ${{ steps.srtool_build.outputs.wasm }}
-          subwasm --json meta ${{ steps.srtool_build.outputs.wasm }} > ${{ matrix.chain }}-metadata.json
+          subwasm meta "$WASM_PATH"
+          subwasm --json meta "$WASM_PATH" > "${CHAIN}-metadata.json"
 
       - name: Check the metadata diff
         shell: bash
+        env:
+          WASM_PATH: ${{ steps.srtool_build.outputs.wasm }}
+          CHAIN: ${{ matrix.chain }}
         # the following subwasm call will error for chains that are not known and/or live, that includes shell for instance
         run: |
-          subwasm diff ${{ steps.srtool_build.outputs.wasm }} --chain-b ${{ matrix.chain }} || \
-            echo "Subwasm call failed, check the logs. This is likely because ${{ matrix.chain }} is not known by subwasm" | \
-            tee ${{ matrix.chain }}-diff.txt
+          subwasm diff "$WASM_PATH" --chain-b "$CHAIN" || \
+            echo "Subwasm call failed, check the logs. This is likely because $CHAIN is not known by subwasm" | \
+            tee "${CHAIN}-diff.txt"
 
       - name: Archive Subwasm results
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
