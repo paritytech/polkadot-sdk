@@ -11191,6 +11191,7 @@ dependencies = [
  "hex",
  "parity-scale-codec",
  "ruint",
+ "scale-info",
  "serde",
  "sha2 0.10.9",
 ]

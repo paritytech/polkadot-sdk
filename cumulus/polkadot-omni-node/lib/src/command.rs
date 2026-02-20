@@ -209,7 +209,22 @@ where
 		},
 		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| {
+			runner.sync_run(|mut config| {
+				// NOTE: this command uses by default uses rocksdb thus
+				// hardcoding nomt is needed otherwise zombienet would regiester into the
+				// relay chain a wrong genesis parachain state built with sp-trie.
+				let sc_service::DatabaseSource::RocksDb { path: base_path, .. } = config.database
+				else {
+					panic!();
+				};
+
+				let role_dir = "full";
+				let dbs_base_path = base_path.join("dbs").join(role_dir);
+				let nomt_path = dbs_base_path.join("nomt").join(role_dir);
+				let paritydb_path = dbs_base_path.join("paritydb").join(role_dir);
+
+				config.database = sc_service::DatabaseSource::Nomt { nomt_path, paritydb_path };
+
 				let node =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
 				node.run_export_genesis_head_cmd(config, cmd)

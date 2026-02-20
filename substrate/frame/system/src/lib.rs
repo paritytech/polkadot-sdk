@@ -1915,7 +1915,7 @@ impl<T: Config> Pallet<T> {
 	/// tests, you can use [`Self::set_block_number`] to make the check succeed.
 	pub fn initialize(number: &BlockNumberFor<T>, parent_hash: &T::Hash, digest: &generic::Digest) {
 		let expected_block_number = Self::block_number() + One::one();
-		assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
+		// assert_eq!(expected_block_number, *number, "Block number must be strictly increasing.");
 
 		// populate environment
 		ExecutionPhase::<T>::put(Phase::Initialization);

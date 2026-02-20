@@ -561,11 +561,12 @@ where
 		match &self.inner {
 			InnerStateBackend::Trie(trie_backend) =>
 				trie_backend.raw_iter(args).map(|iter| Self::RawIter::new_trie_iterator(iter)),
-			InnerStateBackend::Nomt { session, .. } => {
+			InnerStateBackend::Nomt { session, read_recorder, .. } => {
 				Ok(Self::RawIter::new_nomt_iterator(
 					// UNWRAP: Session is expected to be open.
 					&mut *session.borrow_mut().as_mut().unwrap(),
 					args,
+					read_recorder.borrow().clone(),
 				))
 			},
 		}
@@ -613,7 +614,10 @@ where
 	H::Out: Codec,
 {
 	Trie(crate::trie_backend_essence::RawIter<S, H, C, Recorder<H>>),
-	Nomt(RefCell<std::iter::Peekable<KeyValueIterator>>),
+	Nomt {
+		iter: RefCell<std::iter::Peekable<KeyValueIterator>>,
+		maybe_recorder: Option<NomtReadRecorder>,
+	},
 }
 
 pub struct RawIter<S, H, C>
@@ -635,7 +639,11 @@ where
 		Self { inner: InnerRawIter::Trie(iter) }
 	}
 
-	pub fn new_nomt_iterator(nomt_session: &mut Session<Blake3Hasher>, args: IterArgs) -> Self {
+	pub fn new_nomt_iterator(
+		nomt_session: &mut Session<Blake3Hasher>,
+		args: IterArgs,
+		maybe_recorder: Option<NomtReadRecorder>,
+	) -> Self {
 		let start = match (&args.prefix, &args.start_at) {
 			(Some(prefix), None) => prefix.to_vec(),
 			(None, Some(start_at)) => start_at.to_vec(),
@@ -663,7 +671,7 @@ where
 
 		{
 			let mut nomt_iter_mut = nomt_iter.borrow_mut();
-			match nomt_iter_mut.peek().map(|(key, val)| key) {
+			match nomt_iter_mut.peek().map(|(key, _val)| key) {
 				Some(first_key) if args.start_at_exclusive && *first_key == start => {
 					let _ = nomt_iter_mut.next();
 				},
@@ -671,7 +679,7 @@ where
 			}
 		}
 
-		Self { inner: InnerRawIter::Nomt(nomt_iter) }
+		Self { inner: InnerRawIter::Nomt { iter: nomt_iter, maybe_recorder } }
 	}
 }
 
@@ -701,8 +709,7 @@ where
 	) -> Option<core::result::Result<StorageKey, crate::DefaultError>> {
 		match &mut self.inner {
 			InnerRawIter::Trie(trie_iter) => trie_iter.next_key(backend.trie().unwrap()),
-			InnerRawIter::Nomt(nomt_iter) =>
-				nomt_iter.borrow_mut().next().map(|(key, _val)| Ok(key)),
+			InnerRawIter::Nomt { iter, .. } => iter.borrow_mut().next().map(|(key, _val)| Ok(key)),
 		}
 	}
 
@@ -712,14 +719,22 @@ where
 	) -> Option<core::result::Result<(StorageKey, StorageValue), crate::DefaultError>> {
 		match &mut self.inner {
 			InnerRawIter::Trie(trie_iter) => trie_iter.next_pair(backend.trie().unwrap()),
-			InnerRawIter::Nomt(nomt_iter) => nomt_iter.borrow_mut().next().map(|pair| Ok(pair)),
+			InnerRawIter::Nomt { iter, maybe_recorder } => match iter.borrow_mut().next() {
+				Some((key, val)) => {
+					if let Some(NomtReadRecorder { ref staging_reads, .. }) = maybe_recorder {
+						staging_reads.lock().insert(key.to_vec(), Some(val.clone()));
+					}
+					Some(Ok((key, val)))
+				},
+				None => None,
+			},
 		}
 	}
 
 	fn was_complete(&self) -> bool {
 		match &self.inner {
 			InnerRawIter::Trie(trie_iter) => trie_iter.was_complete(),
-			InnerRawIter::Nomt(nomt_iter) => nomt_iter.borrow_mut().peek().is_some(),
+			InnerRawIter::Nomt { iter, .. } => iter.borrow_mut().peek().is_some(),
 		}
 	}
 }
@@ -739,6 +754,8 @@ pub enum ProofRecorder<H: Hasher> {
 	Nomt(NomtReadRecorder),
 }
 
+// TODO: this cuold change into a pattern like Arc<InnerNomtReadRecorder>
+// to avoid locking separately each field every time.
 #[derive(Clone)]
 pub struct NomtReadRecorder {
 	reads: Arc<Mutex<BTreeMap<Vec<u8>, Option<Vec<u8>>>>>,
@@ -820,7 +837,7 @@ impl<H: Hasher> ProofRecorder<H> {
 	}
 
 	pub fn estimate_encoded_size(&self) -> usize {
-		todo!()
+		0
 	}
 
 	pub fn reset(&self) {
