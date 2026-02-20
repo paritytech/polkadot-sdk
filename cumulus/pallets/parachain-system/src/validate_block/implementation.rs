@@ -18,7 +18,7 @@
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use crate::RelayChainBlockNumber;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMPSignal, UMP_SEPARATOR},
@@ -28,8 +28,9 @@ use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
-use nomt_core::proof::{
-	MultiProof as NomtMultiProof, VerifiedMultiProof as NomtVerifiedMultiProof,
+use nomt_core::{
+	hasher::{Blake3Hasher, ValueHasher},
+	proof::{MultiProof as NomtMultiProof, VerifiedMultiProof as NomtVerifiedMultiProof},
 };
 use polkadot_parachain_primitives::primitives::{
 	HeadData, HorizontalMessages, UpwardMessages, ValidationCode, ValidationResult,
@@ -326,7 +327,7 @@ fn trie_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,
-			&mut Default::default(),
+			&mut SizeOnlyRecorderProvider::<HashingFor<B>>::default(),
 			// We are only reading here, but need to know what the old block has written. Thus, we
 			// are passing here the overlay.
 			&mut overlay,
@@ -413,7 +414,7 @@ fn trie_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 
 #[derive(Debug)]
 struct NomtValidationBackend {
-	reads: BTreeMap<Vec<u8>, Vec<u8>>,
+	reads: BTreeMap<Vec<u8>, ([u8; 32], Vec<u8>)>,
 	proof: NomtVerifiedMultiProof,
 }
 
@@ -423,23 +424,45 @@ impl NomtValidationBackend {
 		values.reverse();
 
 		let verified_multi_proof =
-			nomt_core::proof::verify_multi_proof::<nomt_core::hasher::Blake3Hasher>(&proof, root)
-				.unwrap();
+			nomt_core::proof::verify_multi_proof::<Blake3Hasher>(&proof, root).unwrap();
 
-		let mut reads = BTreeMap::<Vec<u8>, Vec<u8>>::new();
+		let mut reads = BTreeMap::<Vec<u8>, ([u8; 32], Vec<u8>)>::new();
 
-		for path_proof_terminal in verified_multi_proof.iter_terminals() {
+		// Iterating over all the proven paths, if the hashes match then we know that a read
+		// is associated with the relative key.
+		for (index, path_proof_terminal) in verified_multi_proof.iter_terminals().enumerate() {
 			match path_proof_terminal {
 				nomt_core::proof::PathProofTerminal::Leaf(nomt_core::trie::LeafData {
 					key_path,
+					value_hash,
 					..
 				}) => {
-					// UNWRAP: Exactly one value for each LeafData is expected.
-					// NOTE: this will need to become something like an error, malformed PoV.
-					reads.insert(key_path.clone(), values.pop().unwrap());
+					// NOTE: What are reads? During block execution what is accessed by the runtime
+					// through the `storage` and `raw_iter` is registered as a read.
+					// But what about things like `exists` or `storage_hash`, are they used by the
+					// runtime or are them only used by the client?
+					//
+					// For now they are not count as reads.
+
+					if let Some(value) = values.last() {
+						if Blake3Hasher::hash_value(value) == *value_hash {
+							// TODO: udpate the code to return a proper error.
+							assert!(verified_multi_proof
+								.confirm_value_with_index(key_path, *value_hash, index)
+								.unwrap());
+							reads.insert(key_path.clone(), (*value_hash, values.pop().unwrap()));
+						}
+					}
 				},
+				// TODO: this is a rare case of collision between keys, handling it is avoided for
+				// now.
 				nomt_core::proof::PathProofTerminal::CollisionLeaf(_, _) => todo!(),
-				nomt_core::proof::PathProofTerminal::Terminator(TriePosition) => (),
+				nomt_core::proof::PathProofTerminal::Terminator(trie_pos) => {
+					// TODO: udpate the code to return a proper error.
+					assert!(verified_multi_proof
+						.confirm_nonexistence_with_index(trie_pos.raw_path(), index)
+						.unwrap());
+				},
 			}
 		}
 
@@ -447,7 +470,9 @@ impl NomtValidationBackend {
 	}
 }
 
-struct NomtRawIter {}
+struct NomtRawIter {
+	pairs: Vec<(Vec<u8>, Vec<u8>)>,
+}
 
 impl<H> sp_state_machine::StorageIterator<H> for NomtRawIter
 where
@@ -462,7 +487,7 @@ where
 		backend: &Self::Backend,
 	) -> Option<core::result::Result<sp_state_machine::StorageKey, sp_state_machine::DefaultError>>
 	{
-		todo!()
+		self.pairs.pop().map(|(key, _val)| Ok(key))
 	}
 
 	fn next_pair(
@@ -474,11 +499,11 @@ where
 			sp_state_machine::DefaultError,
 		>,
 	> {
-		todo!()
+		self.pairs.pop().map(|pair| Ok(pair))
 	}
 
 	fn was_complete(&self) -> bool {
-		todo!()
+		self.pairs.is_empty()
 	}
 }
 
@@ -492,11 +517,15 @@ where
 	type RawIter = NomtRawIter;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<sp_state_machine::StorageValue>, Self::Error> {
-		todo!()
+		Ok(self.reads.get(key).map(|(_value_hash, value)| value.clone()))
 	}
 
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error> {
-		todo!()
+		Ok(self
+			.reads
+			.get(key)
+			.map(|(value_hash, _value)| *value_hash)
+			.map(|hash: [u8; 32]| sp_core::hash::convert_hash(&hash)))
 	}
 
 	fn child_storage(
@@ -531,7 +560,7 @@ where
 	}
 
 	fn exists_storage(&self, key: &[u8]) -> Result<bool, Self::Error> {
-		todo!()
+		Ok(self.reads.get(key).is_some())
 	}
 
 	fn exists_child_storage(
@@ -559,7 +588,16 @@ where
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) -> (H::Out, sp_state_machine::BackendTransaction<H>) {
-		todo!()
+		let root = nomt_core::proof::verify_multi_proof_update::<Blake3Hasher>(
+			&self.proof,
+			delta
+				.map(|(key, maybe_val)| {
+					(key.to_vec(), maybe_val.map(|val| Blake3Hasher::hash_value(val)))
+				})
+				.collect(),
+		)
+		.unwrap();
+		(sp_core::hash::convert_hash(&root), sp_state_machine::BackendTransaction::dummy())
 	}
 
 	fn child_storage_root<'a>(
@@ -572,7 +610,47 @@ where
 	}
 
 	fn raw_iter(&self, args: sp_state_machine::IterArgs) -> Result<Self::RawIter, Self::Error> {
-		todo!()
+		let start = match (&args.prefix, &args.start_at) {
+			(Some(prefix), None) => prefix.to_vec(),
+			(None, Some(start_at)) => start_at.to_vec(),
+			(Some(prefix), Some(start_at)) => {
+				assert!(start_at.starts_with(prefix));
+				start_at.to_vec()
+			},
+			(None, None) => vec![0],
+		};
+
+		let end = if let Some(prefix) = &args.prefix {
+			let mut end = prefix.to_vec();
+			for byte in end.iter_mut().rev() {
+				*byte = byte.wrapping_add(1);
+				if *byte != 0 {
+					break;
+				}
+			}
+			Some(end)
+		} else {
+			None
+		};
+
+		let mut pairs: Vec<_> = match end {
+			Some(end) => self.reads.range(start.clone()..end.clone()),
+			None => self.reads.range(start.clone()..),
+		}
+		.into_iter()
+		.map(|(key, (_value_hash, value))| (key.clone(), value.clone()))
+		.collect();
+
+		{
+			match pairs.first().map(|(key, val)| key) {
+				Some(first_key) if args.start_at_exclusive && **first_key == start => {
+					let _ = pairs.remove(0);
+				},
+				_ => (),
+			}
+		}
+
+		Ok(NomtRawIter { pairs })
 	}
 
 	fn register_overlay_stats(&self, stats: &sp_state_machine::StateMachineStats) {
@@ -586,7 +664,7 @@ where
 
 fn nomt_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	compact_proof: sp_state_machine::NomtCompactProof,
-	blocks: Vec<B::LazyBlock>,
+	mut blocks: Vec<B::LazyBlock>,
 	ValidateBlockData {
 		ref parent_header,
 		ref parachain_head,
@@ -604,12 +682,84 @@ fn nomt_backend_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
-	// Create nomt validation backend.
-	// TODO: this root could be.
-	let state_root: &[u8] = parent_header.state_root().as_ref();
-	let nomt_backend = NomtValidationBackend::new(compact_proof, state_root.try_into().unwrap());
+	let block = blocks.pop().unwrap();
+	assert!(blocks.is_empty());
 
-	todo!()
+	let mut parent_header = parent_header.clone();
+	let state_root: &[u8] = parent_header.state_root().as_ref();
+	let backend = NomtValidationBackend::new(compact_proof, state_root.try_into().unwrap());
+	let mut overlay = OverlayedChanges::default();
+
+	parent_header = block.header().clone();
+
+	// TODO: once DummyProofSizeProvider will not be used and proper size
+	// estimation will work probably there will be a required distinction as in
+	// `trie_backend_validate_block` between `execute_backend` and `backend`.
+	run_with_externalities_and_recorder::<B, _, _>(
+		&backend,
+		&mut sp_state_machine::backend::DummyProofSizeProvider {},
+		&mut overlay,
+		|| {
+			E::execute_block(block);
+		},
+	);
+
+	run_with_externalities_and_recorder::<B, _, _>(
+		&backend,
+		&mut sp_state_machine::backend::DummyProofSizeProvider {},
+		&mut overlay,
+		|| {
+			// Ensure the validation data is correct.
+			validate_validation_data(
+				crate::ValidationData::<PSC>::get()
+					.expect("`ValidationData` must be set after executing a block; qed"),
+				&parachain_head,
+				*relay_parent_number,
+				*relay_parent_storage_root,
+			);
+
+			*new_validation_code =
+				new_validation_code.take().or(crate::NewValidationCode::<PSC>::get());
+
+			let mut found_separator = false;
+			crate::UpwardMessages::<PSC>::get()
+				.into_iter()
+				.filter_map(|m| {
+					// Filter out the `UMP_SEPARATOR` and the `UMPSignals`.
+					if m == UMP_SEPARATOR {
+						found_separator = true;
+						None
+					} else if found_separator {
+						if upward_message_signals.iter().all(|s| *s != m) {
+							upward_message_signals.push(m);
+						}
+						None
+					} else {
+						// No signal or separator
+						Some(m)
+					}
+				})
+				.for_each(|m| {
+					upward_messages.try_push(m)
+							.expect(
+								"Number of upward messages should not be greater than `MAX_UPWARD_MESSAGE_NUM`",
+							)
+				});
+
+			*processed_downward_messages += crate::ProcessedDownwardMessages::<PSC>::get();
+			horizontal_messages
+				.try_extend(crate::HrmpOutboundMessages::<PSC>::get().into_iter())
+				.expect(
+					"Number of horizontal messages should not be greater than `MAX_HORIZONTAL_MESSAGE_NUM`",
+				);
+			*hrmp_watermark = crate::HrmpWatermark::<PSC>::get();
+
+			*head_data = Some(
+				crate::CustomValidationHeadData::<PSC>::get()
+					.map_or_else(|| HeadData(parent_header.encode()), HeadData),
+			);
+		},
+	);
 }
 
 /// Validates the given [`PersistedValidationData`] against the data from the relay chain.
@@ -654,7 +804,7 @@ fn build_seed_from_head_data<B: BlockT>(
 /// Run the given closure with the externalities and recorder set.
 fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
-	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
+	recorder: &mut impl ProofSizeProvider,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,
 	execute: F,
 ) -> R {

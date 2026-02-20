@@ -257,6 +257,9 @@ where
 			api.record_proof_with_recorder(recorder.clone());
 			// TODO: handle ProofSizeEstimation!
 			// api.register_extension(ProofSizeExt::new(recorder));
+			api.register_extension(ProofSizeExt::new(
+				sp_state_machine::backend::DummyProofSizeProvider {},
+			));
 		}
 
 		api.set_call_context(CallContext::Onchain);

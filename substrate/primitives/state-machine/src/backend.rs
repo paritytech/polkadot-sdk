@@ -220,6 +220,11 @@ impl<H: Hasher> core::clone::Clone for InnerBackendTransaction<H> {
 }
 
 impl<H: Hasher> BackendTransaction<H> {
+	/// Dummy backend transaction used as in memory nomt backend output.
+	pub fn dummy() -> Self {
+		Self { inner: None }
+	}
+
 	/// Creates a BackendTransaction from a TrieBackendTransaction.
 	pub fn new_trie_transaction(trie_transaction: TrieBackendTransaction<H>) -> Self {
 		Self { inner: Some(InnerBackendTransaction::Trie(trie_transaction)) }
@@ -281,8 +286,10 @@ impl<H: Hasher> BackendTransaction<H> {
 				assert!(self.inner.is_none());
 				self.inner = Some(InnerBackendTransaction::Nomt(other.nomt_transaction()));
 			}
-			#[cfg(not(feature = "std"))]
-			unreachable!()
+			// NOTE: nothing happens if consolidate is called on top of
+			// an in memory nomt backend.
+			// #[cfg(not(feature = "std"))]
+			// unreachable!()
 		}
 	}
 
@@ -295,6 +302,14 @@ impl<H: Hasher> BackendTransaction<H> {
 impl<H: Hasher> Default for BackendTransaction<H> {
 	fn default() -> Self {
 		Self { inner: None }
+	}
+}
+
+pub struct DummyProofSizeProvider;
+
+impl sp_trie::ProofSizeProvider for DummyProofSizeProvider {
+	fn estimate_encoded_size(&self) -> usize {
+		0
 	}
 }
 

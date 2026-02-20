@@ -378,13 +378,15 @@ where
 		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
+		let backend_type = self.client.backend_type();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
 			.with_proof_recorder(PR::ENABLED.then(|| {
-				ProofRecorder::<Block>::with_ignored_nodes(
-					ignored_nodes_by_proof_recording.unwrap_or_default(),
-				)
+				// NOTE: Temporary solution, just do not expected any ignored nodes.
+				ignored_nodes_by_proof_recording.unwrap_or_default().assert_empty();
+
+				ProofRecorder::<Block>::new(backend_type)
 			}))
 			.with_inherent_digests(inherent_digests)
 			.build()?;
