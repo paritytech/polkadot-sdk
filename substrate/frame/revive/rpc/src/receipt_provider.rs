@@ -230,6 +230,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Update the in-memory earliest receipt block bound.
+	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
+		self.receipt_extractor.update_earliest_receipt_block(block_number);
+	}
+
 	/// Read a sync_state row by label (static, usable before `Self` is constructed).
 	async fn load_sync_state(
 		pool: &SqlitePool,
@@ -290,8 +295,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<(), ClientError> {
 		sqlx::query(
 			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
-			 ON CONFLICT(label) DO UPDATE SET block_number = $2, block_hash = $3 \
-			 WHERE block_number < $2",
+			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
+			 WHERE sync_state.block_number < excluded.block_number",
 		)
 		.bind(label.as_str())
 		.bind(block_number as i64)
@@ -312,8 +317,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<(), ClientError> {
 		sqlx::query(
 			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ($1, $2, $3) \
-			 ON CONFLICT(label) DO UPDATE SET block_number = $2, block_hash = $3 \
-			 WHERE block_number > $2",
+			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
+			 WHERE sync_state.block_number > excluded.block_number",
 		)
 		.bind(label.as_str())
 		.bind(block_number as i64)
@@ -326,11 +331,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Get the earliest receipt block number, if set (via CLI or auto-discovery).
 	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
 		self.receipt_extractor.earliest_receipt_block()
-	}
-
-	/// Update the in-memory earliest receipt block number.
-	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
-		self.receipt_extractor.update_earliest_receipt_block(block_number);
 	}
 
 	/// Check if the block is before the earliest block.
@@ -1438,5 +1438,25 @@ mod tests {
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		Ok(())
+	}
+
+	#[tokio::test]
+	async fn is_before_earliest_block_u256_overflow() {
+		let extractor = ReceiptExtractor::new_mock();
+		extractor.update_earliest_receipt_block(10);
+		let provider = ReceiptProvider {
+			pool: SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
+			block_provider: MockBlockInfoProvider {},
+			receipt_extractor: extractor,
+			keep_latest_n_blocks: None,
+			block_number_to_hashes: Default::default(),
+		};
+
+		// U256 > u32::MAX should never be considered "before earliest"
+		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
+		assert!(!provider.is_before_earliest_block(&huge));
+
+		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
+		assert!(!provider.is_before_earliest_block(&just_over));
 	}
 }

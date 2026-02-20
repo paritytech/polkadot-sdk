@@ -166,7 +166,8 @@ fn resolve_db_url(
 			})?;
 			let db_path = db_dir.join(database_name);
 			log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-			Ok(format!("sqlite:{}?mode=rwc", db_path.display()))
+			let encoded_path = db_path.display().to_string().replace(' ', "%20");
+			Ok(format!("sqlite:{encoded_path}?mode=rwc"))
 		},
 	}
 }
@@ -183,6 +184,9 @@ fn validate_sync_args(sync: bool, database_type: DatabaseType) -> anyhow::Result
 fn validate_database_name(database_name: &str) -> anyhow::Result<()> {
 	if database_name.is_empty() {
 		anyhow::bail!("--database-name must not be empty");
+	}
+	if database_name.contains('\\') {
+		anyhow::bail!("--database-name must not contain backslashes, got: {database_name}");
 	}
 	let mut components = std::path::Path::new(database_name).components();
 	let is_single_normal = matches!(components.next(), Some(std::path::Component::Normal(_))) &&
@@ -606,5 +610,10 @@ mod tests {
 	fn earliest_receipt_block_beyond_head_is_rejected() {
 		let err = validate_earliest_receipt_block_argument(Some(101), 100).unwrap_err();
 		assert!(err.to_string().contains("beyond the current chain head"));
+	}
+
+	#[test]
+	fn database_name_with_backslash_is_rejected() {
+		validate_database_name("sub\\dir").unwrap_err();
 	}
 }

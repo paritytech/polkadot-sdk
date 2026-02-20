@@ -67,9 +67,11 @@ pub struct SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints its progress to the database.
 const SYNC_CHECKPOINT_INTERVAL: u64 = 1000;
 
+/// The future type returned by sync hook callbacks.
+type SyncHookFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
+
 /// Concrete type used to pass `None` for optional sync hooks without verbose turbofish.
-type NoopSyncHook =
-	fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+type NoopSyncHook = fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'static>;
 
 impl Client {
 	/// Verify that the stored genesis hash matches the connected chain.
@@ -226,8 +228,7 @@ impl Client {
 	/// Hook that sets `SyncLabel::UpperBound` once the first block is in the DB.
 	fn set_sync_upper_bound_hook<'a>(
 		&'a self,
-	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
-	{
+	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
 				if let Err(err) = self
@@ -245,8 +246,7 @@ impl Client {
 	/// Hook that checkpoints `SyncLabel::LowerBound`, only decreasing.
 	fn checkpoint_lower_bound_hook<'a>(
 		&'a self,
-	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
-	{
+	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
 				if let Err(err) = self
@@ -269,12 +269,8 @@ impl Client {
 		&self,
 		from: SubstrateBlockNumber,
 		lower_bound: SubstrateBlockNumber,
-		on_first_block: Option<
-			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>,
-		>,
-		on_progress: Option<
-			impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'b>>,
-		>,
+		on_first_block: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a>>,
+		on_progress: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'b>>,
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET,
 			"⬇️ Backward sync: #{from} down to #{lower_bound}");
@@ -336,12 +332,10 @@ impl Client {
 					}
 				},
 				None => {
-					let first_evm_block = block_number + 1;
+					let first_evm = block_number.saturating_add(1);
 					log::info!(target: LOG_TARGET,
-						"🔍 Auto-discovered first EVM block: #{first_evm_block}");
-
-					// Update in-memory bound for this run.
-					self.receipt_provider.update_earliest_receipt_block(first_evm_block);
+						"🔍 Auto-discovered first EVM block: #{first_evm}");
+					self.receipt_provider.update_earliest_receipt_block(first_evm);
 					break Ok(());
 				},
 			}
