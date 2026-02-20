@@ -97,17 +97,21 @@ impl Client {
 		num: SubstrateBlockNumber,
 		hash: Option<H256>,
 	) -> Result<(), ClientError> {
-		if let Some(stored_hash) = hash {
-			let block = self
-				.block_provider()
-				.block_by_number(num)
-				.await?
-				.ok_or(ClientError::BlockNotFound)?;
-			if block.hash() != stored_hash {
-				return Err(ClientError::SyncBoundaryMismatch);
-			}
+		match (num, hash) {
+			(0, None) => Ok(()),
+			(_, None) => Err(ClientError::SyncBoundaryMismatch),
+			(_, Some(stored_hash)) => {
+				let block = self
+					.block_provider()
+					.block_by_number(num)
+					.await?
+					.ok_or(ClientError::SyncBoundaryMismatch)?;
+				if block.hash() != stored_hash {
+					return Err(ClientError::SyncBoundaryMismatch);
+				}
+				Ok(())
+			},
 		}
-		Ok(())
 	}
 
 	/// Returns the upper bound of contiguous DB coverage.
@@ -155,7 +159,7 @@ impl Client {
 		upper_boundary: Option<SyncCheckpoint>,
 	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
-		let latest = self.latest_finalized_block().await.number();
+		let latest_finalized = self.latest_finalized_block().await.number();
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
@@ -169,18 +173,18 @@ impl Client {
 				// Verify boundary hashes still match the finalized chain.
 				self.verify_boundary(lower.block_number, lower.block_hash).await?;
 				self.verify_boundary(upper.block_number, upper.block_hash).await?;
-				self.resume_sync(lower, upper, latest).await?;
+				self.resume_sync(lower, upper, latest_finalized).await?;
 			},
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
 					"🗄️ LowerBound exists without UpperBound — possible partial corruption, \
-					 starting fresh sync from #{latest}");
-				self.fresh_sync(latest).await?;
+					 starting fresh sync from #{latest_finalized}");
+				self.fresh_sync(latest_finalized).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{latest}");
-				self.fresh_sync(latest).await?;
+					"🗄️ Fresh sync: syncing backward from #{latest_finalized}");
+				self.fresh_sync(latest_finalized).await?;
 			},
 		}
 
@@ -191,13 +195,13 @@ impl Client {
 		Ok(())
 	}
 
-	/// Fresh sync: backward from `latest` down to `--earliest-receipt-block` (or genesis).
-	/// Sets `UpperBound` via hook after the first block is synced.
-	async fn fresh_sync(&self, latest: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
+	/// Fresh sync: backward from `latest_finalized` down to the first EVM block or `lower`.
+	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
+	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
+		let lower = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		self.sync_backward(
-			latest,
-			lower_bound,
+			latest_finalized,
+			lower,
 			Some(self.set_sync_upper_bound_hook()),
 			Some(self.checkpoint_lower_bound_hook()),
 		)
@@ -208,36 +212,41 @@ impl Client {
 	/// Resume sync by filling the top gap (new blocks) and bottom gap (backfill).
 	async fn resume_sync(
 		&self,
-		lower: SyncCheckpoint,
-		upper: SyncCheckpoint,
-		latest: SubstrateBlockNumber,
+		db_lower_bound: SyncCheckpoint,
+		db_upper_bound: SyncCheckpoint,
+		latest_finalized: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
 		// Mark sync in-progress. On crash, this value is the safe upper boundary.
 		self.receipt_provider()
-			.set_sync_state(SyncLabel::UpperBound, upper.block_number, upper.block_hash)
+			.set_sync_state(
+				SyncLabel::UpperBound,
+				db_upper_bound.block_number,
+				db_upper_bound.block_hash,
+			)
 			.await?;
 
 		log::info!(target: LOG_TARGET,
 			"🗄️ Resuming sync: DB has blocks #{}..#{}, \
-			 chain head is #{latest}", lower.block_number, upper.block_number);
+			 chain head is #{latest_finalized}", db_lower_bound.block_number, db_upper_bound.block_number);
 
-		// Top gap: [finalized + 1, latest]
-		if upper.block_number < latest {
+		// Top gap: sync from latest_finalized down to db_upper_bound + 1
+		if db_upper_bound.block_number < latest_finalized {
 			self.sync_backward(
-				latest,
-				upper.block_number.saturating_add(1),
+				latest_finalized,
+				db_upper_bound.block_number.saturating_add(1),
 				None::<NoopSyncHook>,
 				None::<NoopSyncHook>,
 			)
 			.await?;
 		}
 
-		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
-		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
-		if lower.block_number > lower_bound {
+		// Bottom gap: sync from db_lower_bound - 1 down to earliest-receipt-block (or first EVM
+		// block)
+		let earliest_receipt_block = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
+		if db_lower_bound.block_number > earliest_receipt_block {
 			self.sync_backward(
-				lower.block_number.saturating_sub(1),
-				lower_bound,
+				db_lower_bound.block_number.saturating_sub(1),
+				earliest_receipt_block,
 				None::<NoopSyncHook>,
 				Some(self.checkpoint_lower_bound_hook()),
 			)
@@ -285,23 +294,30 @@ impl Client {
 		}
 	}
 
-	/// Backward sync from `from` down to `lower_bound` (inclusive).
+	/// Backward sync from `upper` down to `lower` (inclusive).
+	/// Stops early if a non-EVM block is discovered (auto-discovery of first EVM block).
 	///
 	/// - `on_first_block`: called once after syncing the first block.
 	/// - `on_progress`: called at first block, every `SYNC_CHECKPOINT_INTERVAL` blocks, and at end.
 	async fn sync_backward<'a, 'b>(
 		&self,
-		from: SubstrateBlockNumber,
-		lower_bound: SubstrateBlockNumber,
+		upper: SubstrateBlockNumber,
+		lower: SubstrateBlockNumber,
 		on_first_block: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a>>,
 		on_progress: Option<impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'b>>,
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET,
-			"⬇️ Backward sync: #{from} down to #{lower_bound}");
+			"⬇️ Backward sync: #{upper} down to #{lower}");
+
+		if upper < lower {
+			log::warn!(target: LOG_TARGET,
+				"⬇️ Backward sync: upper < lower, nothing to sync");
+			return Ok(());
+		}
 
 		let mut block = self
 			.block_provider()
-			.block_by_number(from)
+			.block_by_number(upper)
 			.await?
 			.ok_or(ClientError::BlockNotFound)?;
 
@@ -365,7 +381,7 @@ impl Client {
 				},
 			}
 
-			if lower_bound < block_number {
+			if block_number > lower {
 				let parent_hash = block.header().parent_hash;
 				match self
 					.block_provider()
@@ -397,8 +413,64 @@ impl Client {
 
 		log::info!(target: LOG_TARGET,
 			"⬇️ Backward sync: {blocks_synced} blocks synced \
-			 (requested #{from}..#{lower_bound})");
+			 (requested #{upper}..#{lower})");
 
 		loop_result
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn sync_label_as_str() {
+		assert_eq!(SyncLabel::Genesis.as_str(), "genesis");
+		assert_eq!(SyncLabel::LowerBound.as_str(), "sync-lower-bound");
+		assert_eq!(SyncLabel::UpperBound.as_str(), "sync-upper-bound");
+		assert_eq!(SyncLabel::LastFinalized.as_str(), "finalized");
+	}
+
+	#[test]
+	fn sync_label_display() {
+		assert_eq!(format!("{}", SyncLabel::Genesis), "genesis");
+		assert_eq!(format!("{}", SyncLabel::LowerBound), "sync-lower-bound");
+		assert_eq!(format!("{}", SyncLabel::UpperBound), "sync-upper-bound");
+		assert_eq!(format!("{}", SyncLabel::LastFinalized), "finalized");
+	}
+
+	#[test]
+	fn sync_checkpoint_equality() {
+		let a = SyncCheckpoint { block_number: 42, block_hash: Some(H256::repeat_byte(0x01)) };
+		let b = SyncCheckpoint { block_number: 42, block_hash: Some(H256::repeat_byte(0x01)) };
+		let c = SyncCheckpoint { block_number: 42, block_hash: None };
+		assert_eq!(a, b);
+		assert_ne!(a, c);
+	}
+
+	#[test]
+	fn chain_validation_errors_are_detected() {
+		assert!(ClientError::ChainMismatch.is_chain_validation_error());
+		assert!(ClientError::SyncBoundaryMismatch.is_chain_validation_error());
+	}
+
+	#[test]
+	fn transient_errors_are_not_chain_validation_errors() {
+		assert!(!ClientError::BlockNotFound.is_chain_validation_error());
+		assert!(!ClientError::ConversionFailed.is_chain_validation_error());
+		assert!(!ClientError::ContractNotFound.is_chain_validation_error());
+		assert!(!ClientError::EthExtrinsicNotFound.is_chain_validation_error());
+		assert!(!ClientError::TxFeeNotFound.is_chain_validation_error());
+		assert!(!ClientError::TxDecodingFailed.is_chain_validation_error());
+		assert!(!ClientError::RecoverEthAddressFailed.is_chain_validation_error());
+		assert!(!ClientError::ReceiptDataNotFound.is_chain_validation_error());
+		assert!(!ClientError::EthereumBlockNotFound.is_chain_validation_error());
+		assert!(!ClientError::ReceiptDataLengthMismatch.is_chain_validation_error());
+	}
+
+	#[test]
+	fn checkpoint_interval_is_reasonable() {
+		assert!(SYNC_CHECKPOINT_INTERVAL > 0);
+		assert!(SYNC_CHECKPOINT_INTERVAL <= 1000);
 	}
 }
