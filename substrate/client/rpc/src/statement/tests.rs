@@ -213,18 +213,20 @@ async fn check_submitted(
 		let result = result.expect("Bytes").expect("Success").0;
 
 		let result = match result {
-			StatementEvent::NewStatement(bytes) => bytes,
+			StatementEvent::NewStatements(bytes) => bytes,
 			_ => panic!("Expected statement"),
 		};
 
 		println!("Received statement: {:?}", result);
-		let new_statement =
-			sp_statement_store::Statement::decode(&mut &result.0[..]).expect("Decode statement");
-		let position = expected
-			.iter()
-			.position(|x| x == &new_statement)
-			.expect("Statement should exist");
-		expected.remove(position);
+		for result in result {
+			let new_statement = sp_statement_store::Statement::decode(&mut &result.0[..])
+				.expect("Decode statement");
+			let position = expected
+				.iter()
+				.position(|x| x == &new_statement)
+				.expect("Statement should exist");
+			expected.remove(position);
+		}
 	}
 }
 
@@ -290,4 +292,138 @@ async fn subscribe_rejects_more_than_4_topics_in_match_all() {
 		"Expected error response for more than 4 topics, got: {}",
 		response
 	);
+}
+
+#[tokio::test]
+async fn send_in_chunks_empty_input() {
+	let (sender, receiver) = async_channel::bounded(16);
+	send_in_chunks(vec![], sender).await;
+	assert!(receiver.try_recv().is_err(), "No messages should be sent for empty input");
+}
+
+#[tokio::test]
+async fn send_in_chunks_single_small_statement() {
+	let (sender, receiver) = async_channel::bounded(16);
+	let statement = vec![1u8, 2, 3];
+	send_in_chunks(vec![statement.clone()], sender).await;
+
+	let event = receiver.try_recv().expect("Should receive one chunk");
+	match event {
+		StatementEvent::NewStatements(bytes) => {
+			assert_eq!(bytes.len(), 1);
+			assert_eq!(bytes[0].0, statement);
+		},
+		other => panic!("Expected NewStatements, got: {:?}", other),
+	}
+	assert!(receiver.try_recv().is_err(), "No more messages expected");
+}
+
+#[tokio::test]
+async fn send_in_chunks_multiple_small_statements_fit_in_one_chunk() {
+	let (sender, receiver) = async_channel::bounded(16);
+	let statements: Vec<Vec<u8>> = (0..10).map(|i| vec![i; 100]).collect();
+	send_in_chunks(statements.clone(), sender).await;
+
+	let event = receiver.try_recv().expect("Should receive one chunk");
+	match event {
+		StatementEvent::NewStatements(bytes) => {
+			assert_eq!(bytes.len(), 10);
+			for (i, b) in bytes.iter().enumerate() {
+				assert_eq!(b.0, statements[i]);
+			}
+		},
+		other => panic!("Expected NewStatements, got: {:?}", other),
+	}
+	assert!(receiver.try_recv().is_err(), "No more messages expected");
+}
+
+#[tokio::test]
+async fn send_in_chunks_splits_large_statements() {
+	let (sender, receiver) = async_channel::bounded(16);
+	// Each statement is 1 MB of SCALE bytes → 2 MB estimated JSON size.
+	// MAX_CHUNK_BYTES_LIMIT is 4 MB, so at most 2 statements per chunk.
+	let statement_size = 1024 * 1024;
+	let statements: Vec<Vec<u8>> = (0u8..5).map(|i| vec![i; statement_size]).collect();
+	send_in_chunks(statements.clone(), sender).await;
+
+	let mut all_received = Vec::new();
+	while let Ok(event) = receiver.try_recv() {
+		match event {
+			StatementEvent::NewStatements(bytes) => {
+				// Each chunk's total JSON estimate must not exceed MAX_CHUNK_BYTES_LIMIT
+				let json_size: usize = bytes.iter().map(|b| b.0.len() * 2).sum();
+				assert!(
+					json_size <= MAX_CHUNK_BYTES_LIMIT,
+					"Chunk JSON size {} exceeds limit {}",
+					json_size,
+					MAX_CHUNK_BYTES_LIMIT
+				);
+				all_received.extend(bytes);
+			},
+			other => panic!("Expected NewStatements, got: {:?}", other),
+		}
+	}
+	assert_eq!(all_received.len(), 5);
+	for (i, b) in all_received.iter().enumerate() {
+		assert_eq!(b.0, statements[i]);
+	}
+}
+
+#[tokio::test]
+async fn send_in_chunks_oversized_statement_is_skipped() {
+	let (sender, receiver) = async_channel::bounded(16);
+	// A single statement whose JSON estimate exceeds MAX_CHUNK_BYTES_LIMIT.
+	// The function skips it because the chunk is empty and the statement alone exceeds the limit.
+	let oversized = vec![0u8; MAX_CHUNK_BYTES_LIMIT];
+	send_in_chunks(vec![oversized], sender).await;
+
+	assert!(receiver.try_recv().is_err(), "Oversized statement should be silently dropped");
+}
+
+#[tokio::test]
+async fn send_in_chunks_oversized_statement_between_normal_ones() {
+	let (sender, receiver) = async_channel::bounded(16);
+	let small1 = vec![1u8; 100];
+	// JSON estimate = MAX_CHUNK_BYTES_LIMIT * 2, exceeds limit
+	let oversized = vec![0u8; MAX_CHUNK_BYTES_LIMIT];
+	let small2 = vec![2u8; 100];
+	send_in_chunks(vec![small1.clone(), oversized, small2.clone()], sender).await;
+
+	// The oversized statement is skipped; small1 and small2 are sent together in one chunk.
+	let event = receiver.try_recv().expect("Should receive chunk with both small statements");
+	match event {
+		StatementEvent::NewStatements(bytes) => {
+			assert_eq!(bytes.len(), 2);
+			assert_eq!(bytes[0].0, small1);
+			assert_eq!(bytes[1].0, small2);
+		},
+		other => panic!("Expected NewStatements, got: {:?}", other),
+	}
+	assert!(receiver.try_recv().is_err(), "No more messages expected");
+}
+
+#[tokio::test]
+async fn send_in_chunks_boundary_exact_fit() {
+	let (sender, receiver) = async_channel::bounded(16);
+	// Create statements that exactly fill the limit: each is MAX_CHUNK_BYTES_LIMIT / 2 SCALE
+	// bytes → MAX_CHUNK_BYTES_LIMIT JSON bytes estimate per statement.
+	let half_limit = MAX_CHUNK_BYTES_LIMIT / 2;
+	let s1 = vec![1u8; half_limit];
+	let s2 = vec![2u8; half_limit];
+	let s3 = vec![3u8; half_limit];
+	send_in_chunks(vec![s1.clone(), s2.clone(), s3.clone()], sender).await;
+
+	let mut chunks = Vec::new();
+	while let Ok(event) = receiver.try_recv() {
+		match event {
+			StatementEvent::NewStatements(bytes) => chunks.push(bytes),
+			other => panic!("Expected NewStatements, got: {:?}", other),
+		}
+	}
+
+	assert_eq!(chunks.len(), 3, "Each statement should be its own chunk");
+	assert_eq!(chunks[0].len(), 1);
+	assert_eq!(chunks[0][0].0, s1);
+	assert_eq!(chunks[1][0].0, s2);
+	assert_eq!(chunks[2][0].0, s3);
 }

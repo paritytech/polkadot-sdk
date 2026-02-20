@@ -37,7 +37,7 @@ pub trait StatementApi {
 	///
 	/// # Returns
 	///
-	/// Returns a stream of `StatementNotification` values.
+	/// Returns a stream of `StatementEvent` values.
 	/// When a subscription is initiated the endpoint will first return a
 	/// `NumMatchingStatements` item with the count of matching statements already in the store,
 	/// followed by `Statement` items for each matching statement. Subsequent matching statements

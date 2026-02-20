@@ -245,7 +245,9 @@ impl SubscriptionsInfo {
 		bytes_to_send: Bytes,
 		needs_unsubscribing: &mut HashSet<SeqID>,
 	) {
-		if let Err(err) = subscription.tx.try_send(StatementEvent::NewStatement(bytes_to_send)) {
+		if let Err(err) =
+			subscription.tx.try_send(StatementEvent::NewStatements(vec![bytes_to_send]))
+		{
 			log::debug!(
 				target: LOG_TARGET,
 				"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", subscription.seq_id, err
@@ -470,8 +472,11 @@ mod tests {
 
 	fn unwrap_statement(item: StatementEvent) -> Bytes {
 		match item {
-			StatementEvent::NewStatement(bytes) => bytes,
-			other => panic!("Expected StatementNotification::Statement, got: {:?}", other),
+			StatementEvent::NewStatements(mut batch) => {
+				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
+				batch.remove(0)
+			},
+			other => panic!("Expected StatementEvent::NewStatements, got: {:?}", other),
 		}
 	}
 	#[test]

@@ -641,11 +641,14 @@ impl Participant {
 						.map_err(|_| anyhow!("Timeout waiting for session key"))?
 						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement_bytes = match item {
-					StatementEvent::NewStatement(bytes) => bytes,
-					other => return Err(anyhow!("Expected Statement, got: {:?}", other)),
+				let mut batch = match item {
+					StatementEvent::NewStatements(batch) => batch,
+					other => return Err(anyhow!("Expected NewStatements, got: {:?}", other)),
 				};
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let session_key = sr25519::Public::from_raw(
@@ -726,11 +729,14 @@ impl Participant {
 						.map_err(|_| anyhow!("Timeout waiting for message"))?
 						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement_bytes = match item {
-					StatementEvent::NewStatement(bytes) => bytes,
-					other => return Err(anyhow!("Expected Statement, got: {:?}", other)),
+				let mut batch = match item {
+					StatementEvent::NewStatements(batch) => batch,
+					other => return Err(anyhow!("Expected NewStatements, got: {:?}", other)),
 				};
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let req = StatementMessage::decode(&mut &data[..])
@@ -1032,7 +1038,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							// Skip NumMatchingStatements, then wait for Statement.
 							loop {
 								match timeout(total_timeout, subscription.next()).await {
-									Ok(Some(Ok(StatementEvent::NewStatement(_)))) => {
+									Ok(Some(Ok(StatementEvent::NewStatements(_)))) => {
 										return Ok((msg_idx, topic_str))
 									},
 									Ok(Some(Ok(StatementEvent::NumMatchingStatements(_)))) => {

@@ -71,8 +71,11 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			.expect("Should not error");
 
 	let statement_bytes = match subscribe_item {
-		StatementEvent::NewStatement(bytes) => bytes,
-		other => panic!("Expected StatementNotification::Statement, got: {:?}", other),
+		StatementEvent::NewStatements(mut batch) => {
+			assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
+			batch.remove(0)
+		},
+		other => panic!("Expected StatementEvent::NewStatements, got: {:?}", other),
 	};
 	assert_eq!(statement_bytes, statement);
 	// Now make sure no more statements are received.
