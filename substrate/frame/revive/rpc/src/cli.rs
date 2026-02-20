@@ -166,7 +166,13 @@ fn resolve_db_url(
 			})?;
 			let db_path = db_dir.join(database_name);
 			log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-			let encoded_path = db_path.display().to_string().replace(' ', "%20");
+			let encoded_path = db_path
+				.display()
+				.to_string()
+				.replace('%', "%25")
+				.replace(' ', "%20")
+				.replace('#', "%23")
+				.replace('?', "%3F");
 			Ok(format!("sqlite:{encoded_path}?mode=rwc"))
 		},
 	}

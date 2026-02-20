@@ -76,9 +76,10 @@ type NoopSyncHook = fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'static>;
 impl Client {
 	/// Verify that the stored genesis hash matches the connected chain.
 	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
-		let genesis_hash: H256 = self.api.genesis_hash();
+		let genesis_hash: H256 = self.api().genesis_hash();
 
-		if let Some(checkpoint) = self.receipt_provider.get_sync_state(SyncLabel::Genesis).await? {
+		if let Some(checkpoint) = self.receipt_provider().get_sync_state(SyncLabel::Genesis).await?
+		{
 			if let Some(stored) = checkpoint.block_hash {
 				if stored != genesis_hash {
 					return Err(ClientError::ChainMismatch);
@@ -97,7 +98,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		if let Some(stored_hash) = hash {
 			let block = self
-				.block_provider
+				.block_provider()
 				.block_by_number(num)
 				.await?
 				.ok_or(ClientError::BlockNotFound)?;
@@ -111,7 +112,7 @@ impl Client {
 	/// Returns the upper bound of contiguous DB coverage.
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let history_start = self.receipt_provider.get_sync_state(SyncLabel::UpperBound).await?;
+		let history_start = self.receipt_provider().get_sync_state(SyncLabel::UpperBound).await?;
 
 		if let Some(checkpoint) = &history_start {
 			if checkpoint.block_number > 0 {
@@ -121,7 +122,7 @@ impl Client {
 			}
 		}
 
-		let finalized = self.receipt_provider.get_sync_state(SyncLabel::Finalized).await?;
+		let finalized = self.receipt_provider().get_sync_state(SyncLabel::Finalized).await?;
 		if let Some(checkpoint) = &finalized {
 			log::info!(target: LOG_TARGET,
 				"🗄️ Pinned sync boundary at finalized #{}", checkpoint.block_number);
@@ -139,12 +140,12 @@ impl Client {
 		let latest = self.latest_finalized_block().await.number().saturating_sub(1);
 
 		// Store genesis (idempotent).
-		self.receipt_provider
+		self.receipt_provider()
 			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
 			.await?;
 
 		let synced_lower_boundary =
-			self.receipt_provider.get_sync_state(SyncLabel::LowerBound).await?;
+			self.receipt_provider().get_sync_state(SyncLabel::LowerBound).await?;
 
 		match (synced_lower_boundary, synced_upper_boundary) {
 			(Some(first), Some(upper)) => {
@@ -161,7 +162,7 @@ impl Client {
 		}
 
 		// Reset — signals that the sync completed successfully.
-		self.receipt_provider.set_sync_state(SyncLabel::UpperBound, 0, None).await?;
+		self.receipt_provider().set_sync_state(SyncLabel::UpperBound, 0, None).await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
 		Ok(())
@@ -170,7 +171,7 @@ impl Client {
 	/// Fresh sync: backward from `latest` down to `--earliest-receipt-block` (or genesis).
 	/// Sets `UpperBound` via hook after the first block is synced.
 	async fn fresh_sync(&self, latest: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
+		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		self.sync_backward(
 			latest,
 			lower_bound,
@@ -189,7 +190,7 @@ impl Client {
 		latest: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
 		// Mark sync in-progress. On crash, this value is the safe upper boundary.
-		self.receipt_provider
+		self.receipt_provider()
 			.set_sync_state(SyncLabel::UpperBound, upper.block_number, upper.block_hash)
 			.await?;
 
@@ -201,7 +202,7 @@ impl Client {
 		if upper.block_number < latest {
 			self.sync_backward(
 				latest,
-				upper.block_number + 1,
+				upper.block_number.saturating_add(1),
 				None::<NoopSyncHook>,
 				None::<NoopSyncHook>,
 			)
@@ -209,10 +210,10 @@ impl Client {
 		}
 
 		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
-		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
+		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		if first.block_number > lower_bound {
 			self.sync_backward(
-				first.block_number - 1,
+				first.block_number.saturating_sub(1),
 				lower_bound,
 				None::<NoopSyncHook>,
 				Some(self.checkpoint_lower_bound_hook()),
@@ -232,7 +233,7 @@ impl Client {
 		move |num, hash| {
 			Box::pin(async move {
 				if let Err(err) = self
-					.receipt_provider
+					.receipt_provider()
 					.set_sync_state(SyncLabel::UpperBound, num, Some(hash))
 					.await
 				{
@@ -250,7 +251,7 @@ impl Client {
 		move |num, hash| {
 			Box::pin(async move {
 				if let Err(err) = self
-					.receipt_provider
+					.receipt_provider()
 					.recede_sync_state(SyncLabel::LowerBound, num, Some(hash))
 					.await
 				{
@@ -276,7 +277,7 @@ impl Client {
 			"⬇️ Backward sync: #{from} down to #{lower_bound}");
 
 		let mut block = self
-			.block_provider
+			.block_provider()
 			.block_by_number(from)
 			.await?
 			.ok_or(ClientError::BlockNotFound)?;
@@ -305,7 +306,7 @@ impl Client {
 			match ethereum_hash {
 				Some(hash) => {
 					if let Err(err) =
-						self.receipt_provider.insert_block_receipts(&block, &hash).await
+						self.receipt_provider().insert_block_receipts(&block, &hash).await
 					{
 						log::error!(target: LOG_TARGET,
 							"⚠️ Insert failed for #{block_number}: {err:?}, stopping");
@@ -335,7 +336,7 @@ impl Client {
 					let first_evm = block_number.saturating_add(1);
 					log::info!(target: LOG_TARGET,
 						"🔍 Auto-discovered first EVM block: #{first_evm}");
-					self.receipt_provider.update_earliest_receipt_block(first_evm);
+					self.receipt_provider().update_earliest_receipt_block(first_evm);
 					break Ok(());
 				},
 			}
@@ -343,7 +344,7 @@ impl Client {
 			if lower_bound < block_number {
 				let parent_hash = block.header().parent_hash;
 				match self
-					.block_provider
+					.block_provider()
 					.block_by_hash(&parent_hash)
 					.await
 					.map_err(Into::into)

@@ -220,11 +220,11 @@ impl From<ClientError> for ErrorObjectOwned {
 /// A client that connects to a substrate node and provides Ethereum-compatible RPC functionality.
 #[derive(Clone)]
 pub struct Client {
-	pub(crate) api: OnlineClient<SrcChainConfig>,
+	api: OnlineClient<SrcChainConfig>,
 	rpc_client: RpcClient,
 	rpc: LegacyRpcMethods<SrcChainConfig>,
-	pub(crate) receipt_provider: ReceiptProvider,
-	pub(crate) block_provider: SubxtBlockInfoProvider,
+	receipt_provider: ReceiptProvider,
+	block_provider: SubxtBlockInfoProvider,
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
@@ -324,6 +324,18 @@ impl Client {
 	/// Sets a block notifier
 	pub fn set_block_notifier(&mut self, notifier: Option<tokio::sync::broadcast::Sender<H256>>) {
 		self.block_notifier = notifier;
+	}
+
+	pub(crate) fn api(&self) -> &OnlineClient<SrcChainConfig> {
+		&self.api
+	}
+
+	pub(crate) fn receipt_provider(&self) -> &ReceiptProvider {
+		&self.receipt_provider
+	}
+
+	pub(crate) fn block_provider(&self) -> &SubxtBlockInfoProvider {
+		&self.block_provider
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.

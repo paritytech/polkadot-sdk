@@ -248,9 +248,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		match row {
 			Some(row) => {
 				let block_number: i64 = row.get("block_number");
+				let block_number: SubstrateBlockNumber = block_number.try_into().map_err(|_| {
+					sqlx::Error::Decode(format!("block_number {block_number} overflows u32").into())
+				})?;
 				let block_hash: Option<Vec<u8>> = row.get("block_hash");
 				Ok(Some(SyncCheckpoint {
-					block_number: block_number as SubstrateBlockNumber,
+					block_number,
 					block_hash: block_hash.map(|b| H256::from_slice(&b)),
 				}))
 			},
