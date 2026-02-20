@@ -17,11 +17,45 @@
 //! Historic block syncing logic for the Ethereum-compatible RPC layer.
 
 use crate::{
-	BlockInfoProvider, SyncLabel,
+	BlockInfoProvider,
 	client::{Client, ClientError, LOG_TARGET, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
 use std::{future::Future, pin::Pin};
+
+/// Labels used to track sync progress in the `sync_state` table.
+#[derive(Debug, Clone, Copy)]
+pub enum SyncLabel {
+	/// Genesis block hash — used for chain identity verification.
+	Genesis,
+	/// Lowest block synced by the historic sync.
+	/// After sync completes, this equals the first EVM block (or genesis).
+	LowerBound,
+	/// Highest block synced when the historic sync started.
+	/// Non-zero means sync is in progress (or was interrupted).
+	/// Zero (or absent) means sync completed successfully.
+	UpperBound,
+	/// Latest finalized block, tracked by the live subscription.
+	Finalized,
+}
+
+impl SyncLabel {
+	/// The string stored in the database `label` column.
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Genesis => "genesis",
+			Self::LowerBound => "sync-lower-bound",
+			Self::UpperBound => "sync-upper-bound",
+			Self::Finalized => "finalized",
+		}
+	}
+}
+
+impl std::fmt::Display for SyncLabel {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(self.as_str())
+	}
+}
 
 /// A stored sync checkpoint: block number + optional block hash.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -31,16 +65,12 @@ pub struct SyncCheckpoint {
 }
 
 /// Result of a backward sync pass.
-///
-/// Contains the actual range that was synced and any auto-discovered boundaries.
 #[derive(Default)]
 struct SyncBackwardResult {
 	/// Lowest block number actually synced, with its hash.
 	lowest_synced: Option<(SubstrateBlockNumber, H256)>,
 	/// Highest block number actually synced, with its hash.
 	highest_synced: Option<(SubstrateBlockNumber, H256)>,
-	/// Auto-discovered first EVM block number, if eth_block_hash returned None.
-	discovered_earliest: Option<SubstrateBlockNumber>,
 }
 
 /// How often (in blocks) the backward sync checkpoints its progress to the database.
@@ -88,8 +118,7 @@ impl Client {
 	/// Returns the upper bound of contiguous DB coverage.
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let history_start =
-			self.receipt_provider.get_sync_state(SyncLabel::HistorySyncStart).await?;
+		let history_start = self.receipt_provider.get_sync_state(SyncLabel::UpperBound).await?;
 
 		if let Some(checkpoint) = &history_start {
 			if checkpoint.block_number > 0 {
@@ -121,7 +150,8 @@ impl Client {
 			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
 			.await?;
 
-		let synced_lower_boundary = self.receipt_provider.get_sync_state(SyncLabel::First).await?;
+		let synced_lower_boundary =
+			self.receipt_provider.get_sync_state(SyncLabel::LowerBound).await?;
 
 		match (synced_lower_boundary, synced_upper_boundary) {
 			(Some(first), Some(upper)) => {
@@ -138,27 +168,23 @@ impl Client {
 		}
 
 		// Reset — signals that the sync completed successfully.
-		self.receipt_provider
-			.set_sync_state(SyncLabel::HistorySyncStart, 0, None)
-			.await?;
+		self.receipt_provider.set_sync_state(SyncLabel::UpperBound, 0, None).await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
 		Ok(())
 	}
 
-	/// Fresh sync: backward from `latest` down to the first EVM block (or genesis).
-	/// Sets `HistorySyncStart` via hook after the first block is synced.
+	/// Fresh sync: backward from `latest` down to `--earliest-receipt-block` (or genesis).
+	/// Sets `UpperBound` via hook after the first block is synced.
 	async fn fresh_sync(&self, latest: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let result = self
-			.sync_backward(
-				latest,
-				0,
-				Some(self.set_history_sync_start_hook()),
-				Some(self.checkpoint_first_hook()),
-			)
-			.await?;
-
-		self.apply_discovered_earliest(&result).await;
+		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
+		self.sync_backward(
+			latest,
+			lower_bound,
+			Some(self.set_sync_upper_bound_hook()),
+			Some(self.checkpoint_lower_bound_hook()),
+		)
+		.await?;
 		Ok(())
 	}
 
@@ -171,7 +197,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		// Mark sync in-progress. On crash, this value is the safe upper boundary.
 		self.receipt_provider
-			.set_sync_state(SyncLabel::HistorySyncStart, upper.block_number, upper.block_hash)
+			.set_sync_state(SyncLabel::UpperBound, upper.block_number, upper.block_hash)
 			.await?;
 
 		log::info!(target: LOG_TARGET,
@@ -190,23 +216,15 @@ impl Client {
 		}
 
 		// Bottom gap: backfill down to earliest-receipt-block (or genesis)
-		let earliest = self
-			.receipt_provider
-			.get_sync_state(SyncLabel::EarliestReceiptBlock)
-			.await?
-			.map(|checkpoint| checkpoint.block_number);
-
-		let lower_bound = earliest.unwrap_or(0);
+		let lower_bound = self.receipt_provider.earliest_receipt_block().unwrap_or(0);
 		if first.block_number > lower_bound {
-			let result = self
-				.sync_backward(
-					first.block_number - 1,
-					lower_bound,
-					None::<NoopSyncHook>,
-					Some(self.checkpoint_first_hook()),
-				)
-				.await?;
-			self.apply_discovered_earliest(&result).await;
+			self.sync_backward(
+				first.block_number - 1,
+				lower_bound,
+				None::<NoopSyncHook>,
+				Some(self.checkpoint_lower_bound_hook()),
+			)
+			.await?;
 		} else {
 			log::info!(target: LOG_TARGET, "🗄️ No backward gap to fill");
 		}
@@ -214,8 +232,8 @@ impl Client {
 		Ok(())
 	}
 
-	/// Hook that sets `SyncLabel::HistorySyncStart` once the first block is in the DB.
-	fn set_history_sync_start_hook<'a>(
+	/// Hook that sets `SyncLabel::UpperBound` once the first block is in the DB.
+	fn set_sync_upper_bound_hook<'a>(
 		&'a self,
 	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
 	{
@@ -223,45 +241,32 @@ impl Client {
 			Box::pin(async move {
 				if let Err(err) = self
 					.receipt_provider
-					.set_sync_state(SyncLabel::HistorySyncStart, num, Some(hash))
+					.set_sync_state(SyncLabel::UpperBound, num, Some(hash))
 					.await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to set sync_state[history-sync-start]: {err:?}");
+						"Failed to set sync_state[upper-bound]: {err:?}");
 				}
 			})
 		}
 	}
 
-	/// Hook that checkpoints `SyncLabel::First`, only decreasing (never losing a lower bound).
-	fn checkpoint_first_hook<'a>(
+	/// Hook that checkpoints `SyncLabel::LowerBound`, only decreasing.
+	fn checkpoint_lower_bound_hook<'a>(
 		&'a self,
 	) -> impl Fn(SubstrateBlockNumber, H256) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> + 'a
 	{
 		move |num, hash| {
 			Box::pin(async move {
-				if let Err(err) =
-					self.receipt_provider.recede_sync_state(SyncLabel::First, num, Some(hash)).await
+				if let Err(err) = self
+					.receipt_provider
+					.recede_sync_state(SyncLabel::LowerBound, num, Some(hash))
+					.await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to checkpoint sync_state[first]: {err:?}");
+						"Failed to checkpoint sync_state[lower-bound]: {err:?}");
 				}
 			})
-		}
-	}
-
-	/// If the sync pass auto-discovered the first EVM block, persist it.
-	async fn apply_discovered_earliest(&self, result: &SyncBackwardResult) {
-		if let Some(first_evm) = result.discovered_earliest {
-			self.receipt_provider.update_earliest_receipt_block(first_evm);
-			if let Err(err) = self
-				.receipt_provider
-				.recede_sync_state(SyncLabel::EarliestReceiptBlock, first_evm, None)
-				.await
-			{
-				log::warn!(target: LOG_TARGET,
-					"Failed to update sync_state[earliest-receipt-block]: {err:?}");
-			}
 		}
 	}
 
@@ -346,10 +351,8 @@ impl Client {
 					}
 				},
 				None => {
-					let first_evm = block_number + 1;
 					log::info!(target: LOG_TARGET,
-						"🔍 Auto-discovered first EVM block: #{first_evm}");
-					result.discovered_earliest = Some(first_evm);
+						"🔍 Auto-discovered first EVM block: #{}", block_number + 1);
 					break;
 				},
 			}

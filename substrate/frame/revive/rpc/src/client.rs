@@ -397,29 +397,16 @@ impl Client {
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
 
-			// Track sync_state for live subscription progress.
-			// Best uses set (can decrease on reorg); Finalized uses advance (monotonic).
-			match subscription_type {
-				SubscriptionType::BestBlocks => {
-					if let Err(err) = self
-						.receipt_provider
-						.set_sync_state(SyncLabel::Best, block_number, Some(hash))
-						.await
-					{
-						log::warn!(target: LOG_TARGET,
-							"Failed to update sync_state[best]: {err:?}");
-					}
-				},
-				SubscriptionType::FinalizedBlocks => {
-					if let Err(err) = self
-						.receipt_provider
-						.advance_sync_state(SyncLabel::Finalized, block_number, Some(hash))
-						.await
-					{
-						log::warn!(target: LOG_TARGET,
-							"Failed to update sync_state[finalized]: {err:?}");
-					}
-				},
+			// Track finalized block in sync_state (monotonic advance).
+			if subscription_type == SubscriptionType::FinalizedBlocks {
+				if let Err(err) = self
+					.receipt_provider
+					.advance_sync_state(SyncLabel::Finalized, block_number, Some(hash))
+					.await
+				{
+					log::warn!(target: LOG_TARGET,
+						"Failed to update sync_state[finalized]: {err:?}");
+				}
 			}
 
 			// Only broadcast for best blocks to avoid duplicate notifications.

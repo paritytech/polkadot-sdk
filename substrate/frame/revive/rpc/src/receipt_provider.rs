@@ -16,7 +16,7 @@
 // limitations under the License.
 use crate::{
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
+	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
 	client::{SubstrateBlock, SubstrateBlockNumber, SyncCheckpoint},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
@@ -29,45 +29,6 @@ use std::{
 use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
-
-/// Labels used to track sync progress in the `sync_state` table.
-#[derive(Debug, Clone, Copy)]
-pub enum SyncLabel {
-	/// Genesis block hash — used for chain identity verification.
-	Genesis,
-	/// Lowest block that has been synced by the historic sync.
-	First,
-	/// Upper bound of contiguous coverage when the historic sync started.
-	/// Non-zero means sync is in progress (or was interrupted).
-	/// Zero (or absent) means sync completed successfully.
-	HistorySyncStart,
-	/// Latest finalized block, tracked by the live subscription.
-	Finalized,
-	/// Latest best block cached by the live subscription.
-	Best,
-	/// Auto-discovered or CLI-provided first EVM block.
-	EarliestReceiptBlock,
-}
-
-impl SyncLabel {
-	/// The string stored in the database `label` column.
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Self::Genesis => "genesis",
-			Self::First => "first",
-			Self::HistorySyncStart => "history-sync-start",
-			Self::Finalized => "finalized",
-			Self::Best => "best",
-			Self::EarliestReceiptBlock => "earliest-receipt-block",
-		}
-	}
-}
-
-impl std::fmt::Display for SyncLabel {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(self.as_str())
-	}
-}
 
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
@@ -126,11 +87,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<Self, sqlx::Error> {
 		sqlx::migrate!().run(&pool).await?;
 
-		// Load auto-discovered earliest-receipt-block from sync_state (persistent DB resume).
+		// On persistent DB resume, load the sync lower bound as the earliest receipt block.
 		if receipt_extractor.earliest_receipt_block().is_none() {
-			if let Some(checkpoint) =
-				Self::load_sync_state(&pool, SyncLabel::EarliestReceiptBlock).await?
-			{
+			if let Some(checkpoint) = Self::load_sync_state(&pool, SyncLabel::LowerBound).await? {
 				receipt_extractor.update_earliest_receipt_block(checkpoint.block_number);
 			}
 		}
@@ -271,16 +230,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Get the earliest receipt block number.
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.earliest_receipt_block()
-	}
-
-	/// Update the earliest receipt block (e.g. after auto-discovering the first EVM block).
-	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
-		self.receipt_extractor.update_earliest_receipt_block(block_number);
-	}
-
 	/// Read a sync_state row by label (static, usable before `Self` is constructed).
 	async fn load_sync_state(
 		pool: &SqlitePool,
@@ -372,6 +321,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.execute(&self.pool)
 		.await?;
 		Ok(())
+	}
+
+	/// Get the earliest receipt block number, if set (via CLI or auto-discovery).
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.earliest_receipt_block()
 	}
 
 	/// Check if the block is before the earliest block.
@@ -1329,13 +1283,9 @@ mod tests {
 	async fn sync_state_with_null_hash(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
-		// Store without a hash (e.g. earliest-receipt-block)
-		provider
-			.set_sync_state(SyncLabel::EarliestReceiptBlock, 42, None)
-			.await
-			.unwrap();
-		let checkpoint =
-			provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await.unwrap().unwrap();
+		// Store without a hash
+		provider.set_sync_state(SyncLabel::LowerBound, 42, None).await.unwrap();
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 42);
 		assert_eq!(checkpoint.block_hash, None);
 
@@ -1354,7 +1304,10 @@ mod tests {
 			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
 			.await
 			.unwrap();
-		provider.set_sync_state(SyncLabel::First, 100, Some(first_hash)).await.unwrap();
+		provider
+			.set_sync_state(SyncLabel::LowerBound, 100, Some(first_hash))
+			.await
+			.unwrap();
 		provider
 			.set_sync_state(SyncLabel::Finalized, 500, Some(finalized_hash))
 			.await
@@ -1364,7 +1317,7 @@ mod tests {
 		assert_eq!(checkpoint.block_number, 0);
 		assert_eq!(checkpoint.block_hash, Some(genesis_hash));
 
-		let checkpoint = provider.get_sync_state(SyncLabel::First).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 100);
 		assert_eq!(checkpoint.block_hash, Some(first_hash));
 
@@ -1376,25 +1329,22 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn new_loads_earliest_receipt_block_from_db(pool: SqlitePool) -> anyhow::Result<()> {
-		// Pre-seed the sync_state table (migrations already ran for #[sqlx::test])
+	async fn new_loads_lower_bound_from_db(pool: SqlitePool) -> anyhow::Result<()> {
+		// Pre-seed the sync_state table
 		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('earliest-receipt-block', 42, NULL)",
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('sync-lower-bound', 42, NULL)",
 		)
 		.execute(&pool)
 		.await?;
 
-		// Construct via new() — extractor has no earliest_receipt_block yet
 		let extractor = ReceiptExtractor::new_mock();
 		assert_eq!(extractor.earliest_receipt_block(), None);
 
-		let provider =
+		let _provider =
 			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor.clone(), Some(10))
 				.await?;
 
 		// new() should have loaded the value from the database
-		assert_eq!(provider.earliest_receipt_block(), Some(42));
-		// The shared AtomicU32 is also visible through the original extractor handle
 		assert_eq!(extractor.earliest_receipt_block(), Some(42));
 
 		Ok(())
@@ -1406,7 +1356,7 @@ mod tests {
 	) -> anyhow::Result<()> {
 		// Pre-seed the DB with a different value
 		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('earliest-receipt-block', 42, NULL)",
+			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('sync-lower-bound', 42, NULL)",
 		)
 		.execute(&pool)
 		.await?;
@@ -1415,11 +1365,12 @@ mod tests {
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.update_earliest_receipt_block(100);
 
-		let provider =
-			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor, Some(10)).await?;
+		let _provider =
+			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor.clone(), Some(10))
+				.await?;
 
 		// CLI value (100) should take precedence over DB value (42)
-		assert_eq!(provider.earliest_receipt_block(), Some(100));
+		assert_eq!(extractor.earliest_receipt_block(), Some(100));
 
 		Ok(())
 	}
@@ -1461,32 +1412,24 @@ mod tests {
 		let hash_b = H256::repeat_byte(0xBB);
 
 		// First insert creates the row.
-		provider
-			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 100, Some(hash_a))
-			.await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		provider.recede_sync_state(SyncLabel::LowerBound, 100, Some(hash_a)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Lower value recedes.
-		provider
-			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_b))
-			.await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		provider.recede_sync_state(SyncLabel::LowerBound, 50, Some(hash_b)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Higher value is ignored.
-		provider
-			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 200, Some(hash_a))
-			.await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		provider.recede_sync_state(SyncLabel::LowerBound, 200, Some(hash_a)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Equal value is ignored (strict >).
 		let hash_c = H256::repeat_byte(0xCC);
-		provider
-			.recede_sync_state(SyncLabel::EarliestReceiptBlock, 50, Some(hash_c))
-			.await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::EarliestReceiptBlock).await?.unwrap();
+		provider.recede_sync_state(SyncLabel::LowerBound, 50, Some(hash_c)).await?;
+		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		Ok(())

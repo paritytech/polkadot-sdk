@@ -16,8 +16,8 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
-	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
+	BlockInfoProvider, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl,
+	LOG_TARGET, PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, SubscriptionType, SubstrateBlockNumber, connect},
 };
@@ -67,6 +67,10 @@ pub struct CliCommand {
 	pub prune: Option<usize>,
 
 	/// Earliest block number to consider when searching for transaction receipts.
+	/// Must not exceed the current chain head. Not persisted to database.
+	///
+	/// If set higher than the current first_block in DB, blocks between them
+	/// remain in the database but are not served by RPC.
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
 
@@ -207,6 +211,21 @@ fn validate_prune_args(prune: Option<usize>, database_type: DatabaseType) -> any
 	Ok(())
 }
 
+/// Validate that earliest-receipt-block is not beyond the current chain head.
+fn validate_earliest_receipt_block_argument(
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
+	latest_block_number: SubstrateBlockNumber,
+) -> anyhow::Result<()> {
+	if let Some(earliest) = earliest_receipt_block {
+		if earliest > latest_block_number {
+			anyhow::bail!(
+				"--earliest-receipt-block={earliest} is beyond the current chain head (#{latest_block_number})"
+			);
+		}
+	}
+	Ok(())
+}
+
 fn build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	prune: Option<usize>,
@@ -220,6 +239,9 @@ fn build_client(
 	let fut = async {
 		let (api, rpc_client, rpc) = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
+
+		let latest = block_provider.latest_finalized_block().await.number();
+		validate_earliest_receipt_block_argument(earliest_receipt_block, latest)?;
 
 		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
 			let max_retained_blocks = prune.unwrap_or(256);
@@ -563,5 +585,26 @@ mod tests {
 	#[test]
 	fn database_name_absolute_path_is_rejected() {
 		validate_database_name("/tmp/receipts.db").unwrap_err();
+	}
+
+	#[test]
+	fn earliest_receipt_block_none_is_accepted() {
+		validate_earliest_receipt_block_argument(None, 100).unwrap();
+	}
+
+	#[test]
+	fn earliest_receipt_block_at_head_is_accepted() {
+		validate_earliest_receipt_block_argument(Some(100), 100).unwrap();
+	}
+
+	#[test]
+	fn earliest_receipt_block_below_head_is_accepted() {
+		validate_earliest_receipt_block_argument(Some(50), 100).unwrap();
+	}
+
+	#[test]
+	fn earliest_receipt_block_beyond_head_is_rejected() {
+		let err = validate_earliest_receipt_block_argument(Some(101), 100).unwrap_err();
+		assert!(err.to_string().contains("beyond the current chain head"));
 	}
 }

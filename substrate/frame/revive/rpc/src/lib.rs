@@ -28,6 +28,7 @@ use subxt::backend::legacy::rpc_methods::TransactionStatus;
 use thiserror::Error;
 
 mod block_sync;
+pub(crate) use block_sync::SyncLabel;
 pub mod cli;
 pub mod client;
 pub mod example;
