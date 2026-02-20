@@ -2,6 +2,7 @@
 name = "polkadot"
 description = "Implementation of a `https://polkadot.com` node in Rust based on the Substrate framework."
 license = "GPL-3.0-only"
+rust-version = "1.64.0"
 readme = "README.md"
 authors.workspace = true
 edition.workspace = true
