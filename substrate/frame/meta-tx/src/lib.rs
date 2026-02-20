@@ -195,7 +195,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let origin = SystemOrigin::None;
 			let meta_tx_size = meta_tx.encoded_size();
-			ensure!(meta_tx_size == meta_tx_encoded_len as usize, Error::<T>::InvalidLength);
+			ensure!(meta_tx_size <= meta_tx_encoded_len as usize, Error::<T>::InvalidLength);
 			// `info` with worst-case call weight and extension weight.
 			let info = {
 				let mut info = meta_tx.call.get_dispatch_info();

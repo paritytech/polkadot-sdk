@@ -7,4 +7,4 @@ doc:
     Update of weight annotation to `saturating add` instead of `add`.
 crates:
 - name: pallet-meta-tx
-  bump: patch
+  bump: major
