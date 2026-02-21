@@ -117,7 +117,6 @@ use xcm_runtime_apis::{
 	fees::Error as XcmPaymentApiError,
 };
 
-use crate::fellowship::FellowshipTreasuryInstance;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 impl_opaque_keys! {
@@ -266,7 +265,7 @@ impl pallet_migrations::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = pallet_treasury::migration::LazyMigrationV0ToV1<
 		Runtime,
-		FellowshipTreasuryInstance,
+		fellowship::FellowshipTreasuryInstance,
 		fellowship::FellowshipTreasuryLazyMigrationV0ToV1Config,
 	>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.

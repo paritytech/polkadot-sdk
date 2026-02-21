@@ -187,7 +187,7 @@ pub enum AdjustmentDirection {
 /// [`NegativeImbalance`].
 ///
 /// This is a temporary handler, and must be removed once the migration from Currency to
-/// Fungibles (https://github.com/paritytech/polkadot-sdk/issue/226) is completed.
+/// Fungibles (<https://github.com/paritytech/polkadot-sdk/issue/226>) is completed.
 pub struct HandleNegativeImbalanceAsCredit<O, T, I = ()>(PhantomData<(O, T, I)>);
 
 impl<O, T, I: 'static> OnUnbalanced<NegativeImbalance<T, I>>
@@ -210,7 +210,7 @@ where
 /// [`PositiveImbalance`].
 ///
 /// This is a temporary handler, and must be removed once the migration from Currency to
-/// Fungibles (https://github.com/paritytech/polkadot-sdk/issue/226) is completed.
+/// Fungibles (<https://github.com/paritytech/polkadot-sdk/issue/226>) is completed.
 pub struct HandlePositiveImbalanceAsDebt<O, T, I = ()>(PhantomData<(O, T, I)>);
 
 impl<O, T, I: 'static> OnUnbalanced<PositiveImbalance<T, I>>
