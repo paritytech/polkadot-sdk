@@ -717,7 +717,7 @@ fn setup_old_proposal(
 	let treasury_account_id = Treasury::account_id();
 	assert_ok!(Balances::increase_balance(&treasury_account_id, value, Exact));
 
-	let proposal = migration::Proposal { proposer: proposer.clone(), value, beneficiary, bond };
+	let proposal = migration::Proposal { proposer, value, beneficiary, bond };
 	migration::Proposals::<Test, ()>::insert(index, proposal);
 }
 

@@ -355,7 +355,7 @@ pub mod pallet {
 		/// The system in charge of managing the `Currency`.
 		///
 		/// DEPRECATED: This trait is deprecated, and bounty systems should migrate to
-		/// [`Self::Fungible`] instead.
+		/// [`Self::Fungible`][`pallet_treasury::Config::Fungible`] instead.
 		type Currency: Currency<
 				Self::AccountId,
 				Balance = <Self::Fungible as FungibleInspect<Self::AccountId>>::Balance,
