@@ -1169,7 +1169,7 @@ impl pallet_democracy::Config for Runtime {
 	// only do it once and it lasts only for the cool-off period.
 	type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 	type CooloffPeriod = CooloffPeriod;
-	type Slash = Treasury;
+	type Slash = pallet_balances::HandleNegativeImbalanceAsCredit<Treasury, Runtime>;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type MaxVotes = ConstU32<100>;
@@ -1310,20 +1310,27 @@ parameter_types! {
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Runtime>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = MaxApprovals;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type RejectOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
 		pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 	>;
-	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = SpendPeriod;
 	type Burn = Burn;
 	type BurnDestination = ();
 	type SpendFunds = Bounties;
 	type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
-	type MaxApprovals = MaxApprovals;
 	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
 	type AssetKind = NativeOrWithId<u32>;
 	type Beneficiary = AccountId;
@@ -1334,6 +1341,8 @@ impl pallet_treasury::Config for Runtime {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletTreasuryArguments;
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_asset_rate::Config for Runtime {
@@ -1374,6 +1383,8 @@ impl pallet_bounties::Config for Runtime {
 	type ChildBountyManager = ChildBounties;
 	type OnSlash = Treasury;
 	type TransferAllAssets = ();
+	type Currency = Balances;
+	type MaxApprovals = MaxApprovals;
 }
 
 parameter_types! {
@@ -1474,6 +1485,7 @@ impl pallet_tips::Config for Runtime {
 	type MaxTipAmount = ConstU128<{ 500 * DOLLARS }>;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 	type OnSlash = Treasury;
+	type Currency = Balances;
 }
 
 parameter_types! {
@@ -1744,7 +1756,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = Treasury;
+	type Slashed = pallet_balances::HandleNegativeImbalanceAsCredit<Treasury, Runtime>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
 	type OffchainSignature = Signature;
@@ -2324,7 +2336,7 @@ impl pallet_alliance::Config for Runtime {
 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
 	>;
 	type Currency = Balances;
-	type Slashed = Treasury;
+	type Slashed = pallet_balances::HandleNegativeImbalanceAsCredit<Treasury, Runtime>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	#[cfg(not(feature = "runtime-benchmarks"))]
