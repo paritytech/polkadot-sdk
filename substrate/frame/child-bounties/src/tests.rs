@@ -92,8 +92,10 @@ parameter_types! {
 	pub const SpendLimit: Balance = u64::MAX;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub struct TreasuryLazyMigrationV0ToV1Config;
 
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Test>
 	for TreasuryLazyMigrationV0ToV1Config
 {

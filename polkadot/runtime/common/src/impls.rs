@@ -381,8 +381,10 @@ mod tests {
 		pub TreasuryAccount: AccountId = Treasury::account_id();
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
 	pub struct TreasuryLazyMigrationV0ToV1Config;
 
+	#[cfg(feature = "runtime-benchmarks")]
 	impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Test>
 		for TreasuryLazyMigrationV0ToV1Config
 	{

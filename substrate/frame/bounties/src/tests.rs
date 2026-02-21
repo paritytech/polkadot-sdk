@@ -95,8 +95,10 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 pub struct TreasuryLazyMigrationV0ToV1Config<I = ()>(PhantomData<I>);
 
+#[cfg(feature = "runtime-benchmarks")]
 impl<I: 'static> pallet_treasury::migration::LazyMigrationV0ToV1Config<Test, I>
 	for TreasuryLazyMigrationV0ToV1Config<I>
 where
