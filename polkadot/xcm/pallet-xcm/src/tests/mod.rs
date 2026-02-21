@@ -1404,7 +1404,7 @@ fn get_and_wrap_version_works() {
 fn multistage_migration_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		// An entry from a previous runtime with v4 XCM.
-		let v4_location = VersionedLocation::V4(xcm::v3::Junction::Parachain(1001).into());
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1001).into());
 		let v4_version = xcm::v4::VERSION;
 		SupportedVersion::<Test>::insert(v4_version, v4_location.clone(), v4_version);
 		VersionNotifiers::<Test>::insert(v4_version, v4_location.clone(), 1);

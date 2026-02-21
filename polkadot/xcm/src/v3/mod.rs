@@ -306,13 +306,7 @@ impl From<NewMaybeErrorCode> for MaybeErrorCode {
 			NewMaybeErrorCode::Success => MaybeErrorCode::Success,
 			NewMaybeErrorCode::Error(error) => error.to_vec().into(),
 			NewMaybeErrorCode::TruncatedError(error) => {
-				if error.len() > MaxDispatchErrorLen::get() as usize {
-					MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
-				} else {
-					MaybeErrorCode::TruncatedError(
-						BoundedVec::try_from(error.into_inner()).expect("Infallible"),
-					)
-				}
+				MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
 			},
 		}
 	}

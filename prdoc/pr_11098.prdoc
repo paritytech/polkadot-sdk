@@ -1,8 +1,11 @@
 title: Deprecates XCM V3
 doc:
-- audience: Todo
-  description: |-
+- audience: Runtime Dev
+  description: |
+
     # Description
+    XCMv3 has been deprecated. It will be removed when XCMv6 is released.
+    Use version 4 or 5 instead.
 
     Deprecates XCM V3 issue: https://github.com/paritytech/polkadot-sdk/issues/7807
 
@@ -27,13 +30,12 @@ doc:
         * External contributors: Use `/cmd label <label-name>` to add labels
         * Maintainers can also add labels manually
     * [x] I have made corresponding changes to the documentation (if applicable)
-    * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: major
+  bump: minor
 - name: pallet-xcm
-  bump: major
+  bump: minor
 - name: xcm-procedural
-  bump: major
+  bump: minor
 - name: staging-xcm
-  bump: major
+  bump: minor

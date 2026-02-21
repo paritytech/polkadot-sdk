@@ -89,13 +89,7 @@ impl From<OldMaybeErrorCode> for MaybeErrorCode {
 			OldMaybeErrorCode::Success => MaybeErrorCode::Success,
 			OldMaybeErrorCode::Error(error) => error.to_vec().into(),
 			OldMaybeErrorCode::TruncatedError(error) => {
-				if error.len() > MaxDispatchErrorLen::get() as usize {
-					MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
-				} else {
-					MaybeErrorCode::TruncatedError(
-						BoundedVec::try_from(error.into_inner()).expect("Infallible"),
-					)
-				}
+				MaybeErrorCode::TruncatedError(BoundedVec::truncate_from(error.into_inner()))
 			},
 		}
 	}
@@ -329,7 +323,6 @@ pub mod prelude {
 
 parameter_types! {
 	pub MaxPalletNameLen: u32 = 48;
-	// be sure to check v3 if available some v3 code assuemes this to be u128 and produce infallible code.
 	pub MaxDispatchErrorLen: u32 = 128;
 	pub MaxPalletsInfo: u32 = 64;
 }
@@ -1822,7 +1815,7 @@ mod tests {
 			OldInstruction::ClearOrigin,
 			OldInstruction::BuyExecution {
 				fees: (OldHere, 1u128).into(),
-				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)),
+				weight_limit: WeightLimit::Limited(Weight::from_parts(1, 1)).into(),
 			},
 			OldInstruction::DepositAsset {
 				assets: crate::v3::MultiAssetFilter::Wild(crate::v3::WildMultiAsset::AllCounted(1)),
