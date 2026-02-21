@@ -3514,6 +3514,143 @@ pub(crate) mod tests {
 			assert_eq!(displaced.displaced_blocks, vec![c4_hash]);
 		}
 	}
+
+	#[test]
+	fn disconnected_blocks_do_not_become_leaves_and_warp_sync_scenario() {
+		// Simulate a realistic case:
+		//
+		// 1. Import genesis (block #0) normally — becomes a leaf.
+		// 2. Import warp sync proof blocks at #5, #10, #15 with Disconnected state.
+		//    Their parents are NOT in the DB. They must NOT appear as leaves.
+		// 3. Import block #20 as Final. Its parent
+		//    (#19) is not in the DB. Being Final, it updates finalized number to 20.
+		// 4. Import blocks #1..#19 with Normal state (gap sync). Since
+		//    last_finalized_num is now 20 and each block number < 20, the leaf
+		//    condition (number > last_finalized_num || last_finalized_num.is_zero())
+		//    is FALSE — they must NOT become leaves.
+		// 5. Assert throughout and verify displaced_leaves_after_finalizing works
+		//    cleanly with no disconnected proof blocks in the displaced list.
+
+		let backend = Backend::<Block>::new_test(1000, 100);
+		let blockchain = backend.blockchain();
+
+		let insert_block_raw =
+			|number: u64, parent_hash: H256, ext_root: H256, state: NewBlockState| -> H256 {
+				use sp_runtime::testing::Digest;
+				let digest = Digest::default();
+				let header = Header {
+					number,
+					parent_hash,
+					state_root: Default::default(),
+					digest,
+					extrinsics_root: ext_root,
+				};
+				let mut op = backend.begin_operation().unwrap();
+				op.set_block_data(header.clone(), Some(vec![]), None, None, state).unwrap();
+				backend.commit_operation(op).unwrap();
+				header.hash()
+			};
+
+		// --- Step 1: import genesis ---
+		let genesis_hash =
+			insert_header(&backend, 0, Default::default(), None, Default::default());
+		assert_eq!(blockchain.leaves().unwrap(), vec![genesis_hash]);
+
+		// --- Step 2: import disconnected warp sync proof blocks ---
+		// These simulate authority-set-change blocks from the warp sync proof.
+		// Their parents are NOT in the DB.
+		let _proof5_hash =
+			insert_block_raw(5, H256::from([5; 32]), H256::from([50; 32]), NewBlockState::Disconnected);
+		let _proof10_hash =
+			insert_block_raw(10, H256::from([10; 32]), H256::from([100; 32]), NewBlockState::Disconnected);
+		let _proof15_hash =
+			insert_block_raw(15, H256::from([15; 32]), H256::from([150; 32]), NewBlockState::Disconnected);
+
+		// Leaves must still only contain genesis.
+		assert_eq!(blockchain.leaves().unwrap(), vec![genesis_hash]);
+
+		// The disconnected blocks should still be retrievable from the DB.
+		assert!(blockchain.header(_proof5_hash).unwrap().is_some());
+		assert!(blockchain.header(_proof10_hash).unwrap().is_some());
+		assert!(blockchain.header(_proof15_hash).unwrap().is_some());
+
+		// --- Step 3: import warp sync target block #20 as Final ---
+		// Parent (#19) is not in the DB. Use the same low-level approach but with
+		// NewBlockState::Final. Being Final, it will be set as best + finalized.
+		let block20_hash =
+			insert_block_raw(20, H256::from([19; 32]), H256::from([200; 32]), NewBlockState::Final);
+
+		// Block #20 should now be a leaf (it's best and finalized).
+		let leaves = blockchain.leaves().unwrap();
+		assert!(leaves.contains(&block20_hash));
+		// Verify finalized number was updated to 20.
+		assert_eq!(blockchain.info().finalized_number, 20);
+		assert_eq!(blockchain.info().finalized_hash, block20_hash);
+		// Disconnected proof blocks must still not be leaves.
+		assert!(!leaves.contains(&_proof5_hash));
+		assert!(!leaves.contains(&_proof10_hash));
+		assert!(!leaves.contains(&_proof15_hash));
+
+		// --- Step 4: import gap sync blocks #1..#19 with Normal state ---
+		// Since last_finalized_num is 20, each block with number < 20 should NOT
+		// become a leaf (the condition `number > last_finalized_num` is false).
+		// Build the chain: genesis -> #1 -> #2 -> ... -> #19.
+		let mut prev_hash = genesis_hash;
+		let mut gap_hashes = Vec::new();
+		for n in 1..=19 {
+			let h = insert_disconnected_header(&backend, n, prev_hash, Default::default(), false);
+			gap_hashes.push(h);
+			prev_hash = h;
+		}
+
+		// Verify gap sync blocks did NOT create new leaves.
+		let leaves = blockchain.leaves().unwrap();
+		for (i, gap_hash) in gap_hashes.iter().enumerate() {
+			assert!(
+				!leaves.contains(gap_hash),
+				"Gap sync block #{} should not be a leaf, but it is",
+				i + 1,
+			);
+		}
+		// Block #20 should still be a leaf.
+		assert!(leaves.contains(&block20_hash));
+		// Disconnected proof blocks must still not be leaves.
+		assert!(!leaves.contains(&_proof5_hash));
+		assert!(!leaves.contains(&_proof10_hash));
+		assert!(!leaves.contains(&_proof15_hash));
+
+		// --- Step 5: verify displaced_leaves_after_finalizing works cleanly ---
+		// Call it for block #20 to verify no disconnected proof blocks appear
+		// in the displaced list and it completes without errors.
+		{
+			let displaced = blockchain
+				.displaced_leaves_after_finalizing(
+					block20_hash,
+					20,
+					H256::from([19; 32]), // parent hash of block #20
+				)
+				.unwrap();
+			// Disconnected proof blocks were never leaves, so they must not
+			// appear in displaced_leaves.
+			assert!(
+				!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof5_hash),
+			);
+			assert!(
+				!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof10_hash),
+			);
+			assert!(
+				!displaced.displaced_leaves.iter().any(|(_, h)| *h == _proof15_hash),
+			);
+			// None of the gap sync blocks should be displaced leaves either
+			// (they were never added as leaves).
+			for gap_hash in &gap_hashes {
+				assert!(
+					!displaced.displaced_leaves.iter().any(|(_, h)| h == gap_hash),
+				);
+			}
+		}
+	}
+
 	#[test]
 	fn displaced_leaves_after_finalizing_works() {
 		let backend = Backend::<Block>::new_test(1000, 100);
