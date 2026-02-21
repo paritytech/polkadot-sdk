@@ -113,6 +113,7 @@ use xcm::latest::prelude::{
 	NetworkId, Parent, ParentThen, Response, XCM_VERSION,
 };
 
+use crate::governance::TreasuryLazyMigrationV0ToV1Config;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -1100,7 +1101,11 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = ();
+	type Migrations = (pallet_treasury::migration::LazyMigrationV0ToV1<
+		Runtime,
+		(),
+		TreasuryLazyMigrationV0ToV1Config,
+	>);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

@@ -47,34 +47,6 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_treasury`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
-	/// Storage: Treasury ProposalCount (r:1 w:1)
-	/// Proof: Treasury ProposalCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: Treasury Approvals (r:1 w:1)
-	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
-	/// Storage: Treasury Proposals (r:0 w:1)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	fn spend_local() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `42`
-		//  Estimated: `1887`
-		// Minimum execution time: 177_000_000 picoseconds.
-		Weight::from_parts(191_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 1887))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-	/// Storage: Treasury Approvals (r:1 w:1)
-	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
-	fn remove_approval() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `127`
-		//  Estimated: `1887`
-		// Minimum execution time: 80_000_000 picoseconds.
-		Weight::from_parts(82_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 1887))
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(1))
-	}
 	/// Storage: Treasury Deactivated (r:1 w:1)
 	/// Proof: Treasury Deactivated (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
 	/// Storage: Balances InactiveIssuance (r:1 w:1)
@@ -88,7 +60,7 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 	/// Storage: Bounties BountyApprovals (r:1 w:1)
 	/// Proof: Bounties BountyApprovals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
 	/// The range of component `p` is `[0, 99]`.
-	fn on_initialize_proposals(p: u32, ) -> Weight {
+	fn on_initialize() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `331 + p * (251 ±0)`
 		//  Estimated: `3593 + p * (5206 ±0)`
@@ -96,12 +68,8 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(828_616_021, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
 			// Standard Error: 695_351
-			.saturating_add(Weight::from_parts(566_114_524, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().reads((3_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(5))
-			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(p.into())))
-			.saturating_add(Weight::from_parts(0, 5206).saturating_mul(p.into()))
 	}
 	/// Storage: AssetRate ConversionRateToNative (r:1 w:0)
 	/// Proof: AssetRate ConversionRateToNative (max_values: None, max_size: Some(1237), added: 3712, mode: MaxEncodedLen)
@@ -174,5 +142,49 @@ impl<T: frame_system::Config> pallet_treasury::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 5313))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// TODO: Mock weights. Run benchmarks.
+	fn burn_funds() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `42`
+		//  Estimated: `1887`
+		// Minimum execution time: 177_000_000 picoseconds.
+		Weight::from_parts(191_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1887))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	// TODO: Mock weights. Run benchmarks.
+	fn migration_v1_next_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `42`
+		//  Estimated: `1887`
+		// Minimum execution time: 177_000_000 picoseconds.
+		Weight::from_parts(191_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1887))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	// TODO: Mock weights. Run benchmarks.
+	fn migration_v1_spend_approval() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `42`
+		//  Estimated: `1887`
+		// Minimum execution time: 177_000_000 picoseconds.
+		Weight::from_parts(191_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1887))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	// TODO: Mock weights. Run benchmarks.
+	fn migration_v1_remove_proposal() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `42`
+		//  Estimated: `1887`
+		// Minimum execution time: 177_000_000 picoseconds.
+		Weight::from_parts(191_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1887))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 }
