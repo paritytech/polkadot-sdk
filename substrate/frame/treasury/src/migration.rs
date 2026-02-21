@@ -320,8 +320,8 @@ where
 			"Proposals after migration should be less or equal to old proposals"
 		);
 		ensure!(
-			new_approvals_count == old_approvals_count,
-			"Approvals after migration should be less or equal to old proposals"
+			new_approvals_count <= old_approvals_count,
+			"Approvals after migration should be less or equal to old approvals"
 		);
 		Ok(())
 	}
