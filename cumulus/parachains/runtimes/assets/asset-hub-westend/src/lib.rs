@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 
-// Make the WASM binary available.
+extern crate alloc; // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
@@ -37,8 +37,6 @@ mod migrations;
 pub mod staking;
 
 use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
-
-extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
@@ -1273,12 +1271,18 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations =
+	type Migrations = (
 		assets_common::migrations::foreign_assets_reserves::ForeignAssetsReservesMigration<
 			Runtime,
 			ForeignAssetsInstance,
 			migrations::AssetHubWestendForeignAssetsReservesProvider,
-		>;
+		>,
+		pallet_treasury::migration::LazyMigrationV0ToV1<
+			Runtime,
+			(),
+			governance::TreasuryLazyMigrationV0ToV1Config,
+		>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
