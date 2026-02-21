@@ -101,6 +101,17 @@ parameter_types! {
 	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
+pub struct TreasuryLazyMigrationV0ToV1Config<I = ()>(core::marker::PhantomData<I>);
+
+impl<I: 'static> pallet_treasury::migration::LazyMigrationV0ToV1Config<Test, I>
+	for TreasuryLazyMigrationV0ToV1Config<I>
+where
+	Test: pallet_treasury::Config<I, Fungible = pallet_balances::Pallet<Test>>,
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = pallet_balances::Pallet<Test>;
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Fungible = pallet_balances::Pallet<Test>;
@@ -120,6 +131,8 @@ impl pallet_treasury::Config for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
 
 impl pallet_treasury::Config<Instance1> for Test {
@@ -141,6 +154,8 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config<Instance1>;
 }
 
 parameter_types! {

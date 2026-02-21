@@ -50,6 +50,10 @@ pub struct Proposal<AccountId, Balance> {
 	pub bond: Balance,
 }
 
+type ProposalOf<T, I> = Proposal<<T as frame_system::Config>::AccountId, BalanceOf<T, I>>;
+/// A list of proposal indexes for the approved proposals.
+type ApprovalsList<MaxApprovals> = BoundedVec<ProposalIndex, MaxApprovals>;
+
 /// Number of proposals that have been made.
 #[frame_support::storage_alias]
 type ProposalCount<T: Config<I>, I: 'static> =
@@ -67,15 +71,8 @@ pub(crate) type Proposals<T: Config<I>, I: 'static> = StorageMap<
 
 /// Proposal indices that have been approved but not yet awarded.
 #[frame_support::storage_alias]
-pub(crate) type Approvals<T: Config<I> + TreasuryMigrateToV1Config<T, I>, I: 'static> =
-	StorageValue<
-		Pallet<T, I>,
-		BoundedVec<ProposalIndex, <T as TreasuryMigrateToV1Config<T, I>>::MaxApprovals>,
-		ValueQuery,
-	>;
-
-type ProposalOf<T, I> = Proposal<<T as frame_system::Config>::AccountId, BalanceOf<T, I>>;
-type ApprovalsOf<MaxApprovals> = BoundedVec<ProposalIndex, MaxApprovals>;
+pub(crate) type Approvals<T: Config<I>, I: 'static, MaxApprovals> =
+	StorageValue<Pallet<T, I>, ApprovalsList<MaxApprovals>, ValueQuery>;
 
 /// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
 /// Proposals can no longer be created and the `Proposal` and `Approval` storage items will be
@@ -84,7 +81,7 @@ type ApprovalsOf<MaxApprovals> = BoundedVec<ProposalIndex, MaxApprovals>;
 /// `Currency` corresponds to the module that formerly handled [`ReservableCurrency`] operations in
 /// the pallet.
 /// `MigrationHelper` is used to get the `MaxApprovals` from the runtime.
-pub struct MigrationToV1<T, I = ()>(PhantomData<(T, I)>);
+pub struct LazyMigrationV0ToV1<T, I, C>(PhantomData<(T, I, C)>);
 
 #[allow(dead_code)]
 type PositiveImbalanceOf<AccountId, C> = <C as Currency<AccountId>>::PositiveImbalance;
@@ -99,19 +96,20 @@ pub enum MigrationStep<Proposal, Approvals> {
 
 const PALLET_MIGRATIONS_ID: &[u8; 15] = b"pallet-treasury";
 
-impl<T, I: 'static> MigrationToV1<T, I>
+impl<T, I: 'static, C> LazyMigrationV0ToV1<T, I, C>
 where
-	T: Config<I> + TreasuryMigrateToV1Config<T, I>,
+	T: Config<I>,
+	C: LazyMigrationV0ToV1Config<T, I>,
 {
 	/// Having the previous migration step, calculates the next migration step.
 	pub(crate) fn next_step(
-		cursor: Option<MigrationStep<ProposalOf<T, I>, ApprovalsOf<T::MaxApprovals>>>,
-	) -> MigrationStep<ProposalOf<T, I>, ApprovalsOf<T::MaxApprovals>> {
+		cursor: Option<MigrationStep<ProposalOf<T, I>, ApprovalsList<C::MaxApprovals>>>,
+	) -> MigrationStep<ProposalOf<T, I>, ApprovalsList<C::MaxApprovals>> {
 		use MigrationStep::*;
 
 		match cursor {
 			None => {
-				let approvals = Approvals::<T, I>::take();
+				let approvals = Approvals::<T, I, C::MaxApprovals>::take();
 				approvals
 					.split_first()
 					.map(move |(next, rest)| {
@@ -161,7 +159,7 @@ where
 		}
 
 		// Provide the allocation.
-		let imbalance = T::Currency::deposit_creating(&p.beneficiary, p.value);
+		let imbalance = C::Currency::deposit_creating(&p.beneficiary, p.value);
 
 		#[allow(deprecated)]
 		Pallet::<T, I>::deposit_event(Event::Awarded {
@@ -176,7 +174,7 @@ where
 		// Thus we can't spend more than account free balance minus ED;
 		// Thus account is kept alive; qed;
 		if let Err(problem) =
-			T::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
+			C::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
 		{
 			print("Inconsistent state - couldn't settle imbalance for funds spent by treasury");
 			// Nothing else to do here.
@@ -199,7 +197,7 @@ where
 	/// If bond release fails (i.e. balance on hold is less than), then bond remains and we'll
 	/// see what to do manually case by case.
 	pub(crate) fn step_remove_proposal((proposal_index, p): &(ProposalIndex, ProposalOf<T, I>)) {
-		let err_amount = T::Currency::unreserve(&p.proposer, p.bond);
+		let err_amount = C::Currency::unreserve(&p.proposer, p.bond);
 		if err_amount.is_zero() {
 			Proposals::<T, I>::remove(proposal_index);
 			log::info!(
@@ -223,11 +221,12 @@ where
 	}
 }
 
-impl<T, I: 'static> SteppedMigration for MigrationToV1<T, I>
+impl<T, I: 'static, C> SteppedMigration for LazyMigrationV0ToV1<T, I, C>
 where
-	T: Config<I> + TreasuryMigrateToV1Config<T, I>,
+	T: Config<I>,
+	C: LazyMigrationV0ToV1Config<T, I>,
 {
-	type Cursor = MigrationStep<ProposalOf<T, I>, ApprovalsOf<T::MaxApprovals>>;
+	type Cursor = MigrationStep<ProposalOf<T, I>, ApprovalsList<C::MaxApprovals>>;
 	type Identifier = MigrationId<15>;
 
 	fn id() -> Self::Identifier {
@@ -293,7 +292,7 @@ where
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		let value = (
 			Proposals::<T, I>::iter_values().count() as u32,
-			Approvals::<T, I>::get().len() as u32,
+			Approvals::<T, I, C::MaxApprovals>::get().len() as u32,
 		);
 		log::info!(
 			target: LOG_TARGET,
@@ -308,7 +307,7 @@ where
 		let (old_proposals_count, old_approvals_count) =
 			<(u32, u32)>::decode(&mut &state[..]).expect("Known good");
 		let new_proposals_count = Proposals::<T, I>::iter_values().count() as u32;
-		let new_approvals_count = Approvals::<T, I>::get().len() as u32;
+		let new_approvals_count = Approvals::<T, I, C::MaxApprovals>::get().len() as u32;
 
 		log::info!(
 			target: LOG_TARGET,
@@ -328,7 +327,7 @@ where
 	}
 }
 
-pub trait TreasuryMigrateToV1Config<T: Config<I>, I: 'static = ()> {
+pub trait LazyMigrationV0ToV1Config<T: Config<I>, I: 'static = ()> {
 	type MaxApprovals: Get<ProposalIndex> + 'static;
 	type Currency: Currency<T::AccountId, Balance = BalanceOf<T, I>>
 		+ ReservableCurrency<T::AccountId>;

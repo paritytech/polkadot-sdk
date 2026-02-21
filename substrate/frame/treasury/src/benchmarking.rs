@@ -21,7 +21,6 @@
 
 use super::{Pallet as Treasury, *};
 
-use crate::migration::TreasuryMigrateToV1Config;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_err, assert_ok,
@@ -35,6 +34,12 @@ use frame_support::{
 	},
 };
 use sp_core::crypto::FromEntropy;
+
+type MigrationConfig<T, I> = <T as Config<I>>::LazyMigrationV0ToV1Config;
+type CurrencyOf<T, I> =
+	<MigrationConfig<T, I> as migration::LazyMigrationV0ToV1Config<T, I>>::Currency;
+type MaxApprovalsFor<T, I> =
+	<MigrationConfig<T, I> as migration::LazyMigrationV0ToV1Config<T, I>>::MaxApprovals;
 
 /// Trait describing factory functions for dispatchables' parameters.
 pub trait ArgumentsFactory<AssetKind, Beneficiary> {
@@ -84,7 +89,7 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 }
 
 #[allow(dead_code)]
-fn setup_old_proposal<T: Config<I> + TreasuryMigrateToV1Config<T, I>, I: 'static>(
+fn setup_old_proposal<T: Config<I>, I: 'static>(
 	index: u32,
 	proposer: &T::AccountId,
 	bond: BalanceOf<T, I>,
@@ -92,10 +97,13 @@ fn setup_old_proposal<T: Config<I> + TreasuryMigrateToV1Config<T, I>, I: 'static
 	value: BalanceOf<T, I>,
 	approved: bool,
 ) -> migration::Proposal<T::AccountId, BalanceOf<T, I>> {
-	T::Currency::make_free_balance_be(&proposer, bond + T::Currency::minimum_balance());
-	assert_ok!(T::Currency::reserve(&proposer, bond));
+	CurrencyOf::<T, I>::make_free_balance_be(
+		&proposer,
+		bond + CurrencyOf::<T, I>::minimum_balance(),
+	);
+	assert_ok!(CurrencyOf::<T, I>::reserve(&proposer, bond));
 
-	T::Currency::make_free_balance_be(&beneficiary, T::Currency::minimum_balance());
+	CurrencyOf::<T, I>::make_free_balance_be(&beneficiary, CurrencyOf::<T, I>::minimum_balance());
 
 	let proposal = migration::Proposal {
 		proposer: proposer.clone(),
@@ -104,18 +112,17 @@ fn setup_old_proposal<T: Config<I> + TreasuryMigrateToV1Config<T, I>, I: 'static
 		bond,
 	};
 
+	type MigrationConfig<T, I> = <T as Config<I>>::LazyMigrationV0ToV1Config;
+
 	migration::Proposals::<T, I>::insert(index, proposal.clone());
 	if approved {
-		assert_ok!(migration::Approvals::<T, I>::try_append(index));
+		assert_ok!(migration::Approvals::<T, I, MaxApprovalsFor<T, I>>::try_append(index));
 	}
 
 	proposal
 }
 
-#[instance_benchmarks(
-where
-	T: crate::migration::TreasuryMigrateToV1Config<T, I>,
-)]
+#[instance_benchmarks]
 mod benchmarks {
 	use super::*;
 	use crate::migration;
@@ -321,14 +328,16 @@ mod benchmarks {
 
 	#[benchmark]
 	fn migration_v1_next_step() -> Result<(), BenchmarkError> {
+		type MigrationConfig<T, I> = <T as Config<I>>::LazyMigrationV0ToV1Config;
+
 		// Heaviest step is to unwrap the approvals list, so we'll just do that.
-		migration::Approvals::<T, _>::put(BoundedVec::truncate_from(
-			(0..T::MaxApprovals::get()).collect(),
+		migration::Approvals::<T, _, MaxApprovalsFor<T, _>>::put(BoundedVec::truncate_from(
+			(0..MaxApprovalsFor::<T, I>::get()).collect(),
 		));
 
 		#[block]
 		{
-			migration::MigrationToV1::<T, _>::next_step(None);
+			migration::LazyMigrationV0ToV1::<T, _, MigrationConfig<T, _>>::next_step(None);
 		}
 
 		assert_eq!(migration::Proposals::<T, _>::iter().count(), 0);
@@ -347,10 +356,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			migration::MigrationToV1::<T, _>::step_spend_approval(&0);
+			migration::LazyMigrationV0ToV1::<T, _, MigrationConfig<T, _>>::step_spend_approval(&0);
 		}
 
-		assert_eq!(T::Currency::reserved_balance(&proposer), bond);
+		assert_eq!(CurrencyOf::<T, I>::reserved_balance(&proposer), bond);
 		assert_eq!(T::Fungible::reducible_balance(&beneficiary, Preserve, Polite), value);
 		Ok(())
 	}
@@ -373,10 +382,12 @@ mod benchmarks {
 
 		#[block]
 		{
-			migration::MigrationToV1::<T, _>::step_remove_proposal(&(0, proposal));
+			migration::LazyMigrationV0ToV1::<T, _, MigrationConfig<T, _>>::step_remove_proposal(&(
+				0, proposal,
+			));
 		}
 
-		assert_eq!(T::Currency::reserved_balance(&proposer), Zero::zero());
+		assert_eq!(CurrencyOf::<T, I>::reserved_balance(&proposer), Zero::zero());
 		assert_eq!(T::Fungible::reducible_balance(&proposer, Preserve, Polite), bond);
 		assert_eq!(T::Fungible::reducible_balance(&beneficiary, Preserve, Polite), 0u32.into());
 

@@ -259,6 +259,10 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
+		/// Helper type for migration to v1.
+		#[cfg(feature = "runtime-benchmarks")]
+		type LazyMigrationV0ToV1Config: migration::LazyMigrationV0ToV1Config<Self, I>;
+
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
 	}

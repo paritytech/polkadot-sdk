@@ -92,6 +92,15 @@ parameter_types! {
 	pub const SpendLimit: Balance = u64::MAX;
 }
 
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl pallet_treasury::migration::LazyMigrationV0ToV1Config<Test>
+	for TreasuryLazyMigrationV0ToV1Config
+{
+	type MaxApprovals = ConstU32<100>;
+	type Currency = Balances;
+}
+
 impl pallet_treasury::Config for Test {
 	type PalletId = TreasuryPalletId;
 	type Fungible = pallet_balances::Pallet<Test>;
@@ -111,7 +120,10 @@ impl pallet_treasury::Config for Test {
 	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 }
+
 parameter_types! {
 	// This will be 50% of the bounty fee.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);

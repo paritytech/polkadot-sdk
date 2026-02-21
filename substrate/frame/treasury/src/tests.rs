@@ -180,7 +180,9 @@ parameter_types! {
 	pub const MaxApprovals: u32 = 100;
 }
 
-impl migration::TreasuryMigrateToV1Config<Test> for Test {
+pub struct TreasuryLazyMigrationV0ToV1Config;
+
+impl migration::LazyMigrationV0ToV1Config<Test> for TreasuryLazyMigrationV0ToV1Config {
 	type MaxApprovals = MaxApprovals;
 	type Currency = Balances;
 }
@@ -203,6 +205,8 @@ impl Config for Test {
 	type PayoutPeriod = SpendPayoutPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type LazyMigrationV0ToV1Config = TreasuryLazyMigrationV0ToV1Config;
 	type BlockNumberProvider = System;
 }
 
@@ -732,13 +736,16 @@ fn migration_to_v1_works() {
 
 		// All even-numbered proposals have been approved.
 		let approval_index = (0..MaxApprovals::get()).map(|i| i * 2).collect::<Vec<_>>();
-		migration::Approvals::<Test, ()>::put(
+		migration::Approvals::<Test, (), <TreasuryLazyMigrationV0ToV1Config as migration::LazyMigrationV0ToV1Config<Test>>::MaxApprovals>::put(
 			BoundedVec::try_from(approval_index.clone()).unwrap(),
 		);
 
 		let mut meter = WeightMeter::new();
 		let mut cursor = None;
-		while let Ok(Some(c)) = migration::MigrationToV1::<Test>::step(cursor, &mut meter) {
+		while let Ok(Some(c)) =
+			migration::LazyMigrationV0ToV1::<Test, (), TreasuryLazyMigrationV0ToV1Config>::step(
+				cursor, &mut meter,
+			) {
 			cursor = Some(c);
 		}
 
