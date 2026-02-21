@@ -1487,16 +1487,10 @@ fn is_slot_available(
 	);
 
 	// Check if valid on at least one path (handles forks)
-	for path in paths {
+	'paths: for path in paths {
 		// Path is ordered oldest to newest: [oldest_ancestor, ..., relay_parent, ..., leaf]
 		// The leaf is the last element
 		let leaf = path.last().ok_or(AdvertisementError::RelayParentUnknown)?;
-
-		// Find relay_parent's position in the path
-		let relay_parent_idx = path
-			.iter()
-			.position(|h| h == relay_parent)
-			.ok_or(AdvertisementError::RelayParentUnknown)?;
 
 		// Get the claim queue for our core at the leaf
 		let leaf_cq = match state.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&current_core))
@@ -1518,27 +1512,28 @@ fn is_slot_available(
 		// The claim queue length represents scheduling_lookahead
 		let lookahead = leaf_cq.len();
 
-		// Offset is the number of blocks from relay_parent to leaf (exclusive of relay_parent)
-		// This equals the number of blocks that have been produced after relay_parent,
-		// which corresponds to consumed positions in the claim queue
-		let offset = path.len().saturating_sub(1 + relay_parent_idx);
-		let valid_len = lookahead.saturating_sub(offset);
-
-		// Track which claim queue positions are occupied (either by other paras or allocated
-		// candidates)
 		// Mark positions occupied by other paras (not available for our para)
 		let mut occupied = leaf_cq.iter().map(|p| p != &para_id).collect::<bitvec::vec::BitVec>();
 
-		// Allocate positions for all relay parents in the path:
-		// Each relay parent allocates from the rightmost position in its valid range, working
-		// leftward
+		// Allocate positions for each ancestor along the path.
+		//
+		// Ancestors before relay_parent (lower index = older) may have stale claims
+		// from a previous claim queue — overflow is tolerated for those.
+		// At relay_parent we add +1 for the incoming advertisement.
+		// At relay_parent and after (newer), overflow means the incoming ad genuinely
+		// can't fit — fail this path.
+		let mut found_relay_parent = false;
 		for (idx, ancestor) in path.iter().enumerate() {
 			let ancestor_offset = path.len().saturating_sub(1 + idx);
 			let ancestor_valid_len = lookahead.saturating_sub(ancestor_offset);
-			// Count all candidates at this ancestor: seconded + pending + waiting
 			let seconded_pending = state.seconded_and_pending_for_para(ancestor, &para_id);
 			let waiting = state.in_waiting_queue_for_para(ancestor, &para_id);
-			let to_allocate_start = seconded_pending + waiting;
+			let is_relay_parent = ancestor == relay_parent;
+			if is_relay_parent {
+				found_relay_parent = true;
+			}
+			let to_allocate_start =
+				seconded_pending + waiting + if is_relay_parent { 1 } else { 0 };
 			let mut to_allocate = to_allocate_start;
 
 			gum::debug!(
@@ -1549,11 +1544,11 @@ fn is_slot_available(
 				seconded_pending,
 				waiting,
 				to_allocate_start,
+				is_relay_parent,
 				checking_relay_parent = ?relay_parent,
 				"Allocating for ancestor",
 			);
 
-			// Allocate from rightmost free position in this relay_parent's valid range
 			for pos in (0..ancestor_valid_len).rev() {
 				if to_allocate == 0 {
 					break;
@@ -1564,44 +1559,32 @@ fn is_slot_available(
 					to_allocate -= 1;
 				}
 			}
+
+			// Overflow at relay_parent or newer ancestors means the incoming
+			// ad can't fit — try the next path.
+			// Overflow at older ancestors is tolerated (stale claims from CQ
+			// evolution between views).
+			if to_allocate > 0 && found_relay_parent {
+				gum::trace!(
+					target: LOG_TARGET,
+					?ancestor,
+					?relay_parent,
+					?para_id,
+					?leaf,
+					to_allocate,
+					"Allocation overflow at relay parent or newer ancestor",
+				);
+				continue 'paths;
+			}
 		}
-
-		// Check if any free positions remain in our valid range
-		let free_in_our_range = (0..valid_len).filter(|&pos| !occupied[pos]).count();
-
-		gum::trace!(
-			target: LOG_TARGET,
-			?relay_parent,
-			?offset,
-			valid_len,
-			bitfield = ?occupied,
-			"After allocation",
-		);
-
-		if free_in_our_range > 0 {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				?leaf,
-				?offset,
-				valid_len,
-				free_in_our_range,
-				"Slot is available on this path",
-			);
-			return Ok(()); // Room on this path
-		}
-
 		gum::trace!(
 			target: LOG_TARGET,
 			?relay_parent,
 			?para_id,
 			?leaf,
-			?offset,
-			valid_len,
-			free_in_our_range,
-			"No free slot on this path",
+			"Slot is available on this path",
 		);
+		return Ok(());
 	}
 
 	gum::trace!(
