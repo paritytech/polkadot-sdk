@@ -62,16 +62,6 @@ async fn assert_construct_per_relay_parent(
 			tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
 		}
 	);
-
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			parent,
-			RuntimeApiRequest::ClaimQueue(tx),
-		)) if parent == hash => {
-			let _ = tx.send(Ok(test_state.claim_queue.clone()));
-		}
-	);
 }
 
 /// Handle a view update.
@@ -118,16 +108,8 @@ pub(super) async fn update_view(
 			}
 		);
 
-		assert_construct_per_relay_parent(
-			virtual_overseer,
-			test_state,
-			leaf_hash,
-			leaf_number,
-			&mut next_overseer_message,
-		)
-		.await;
-
-		// After constructing per_relay_parent, the code fetches claim queue for the leaf
+		// handle_our_view_change fetches claim queue for the leaf
+		// (stored in leaf_claim_queues for the new offset-based validation)
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -137,6 +119,15 @@ pub(super) async fn update_view(
 				let _ = tx.send(Ok(test_state.claim_queue.clone()));
 			}
 		);
+
+		assert_construct_per_relay_parent(
+			virtual_overseer,
+			test_state,
+			leaf_hash,
+			leaf_number,
+			&mut next_overseer_message,
+		)
+		.await;
 
 		// activate_leaf calls fetch_ancestors
 		assert_matches!(
@@ -600,19 +591,18 @@ fn v1_advertisement_accepted_and_seconded() {
 	});
 }
 
-/// Test that obsolete claim queue positions (corresponding to already-produced blocks) are
-/// rejected. This test demonstrates the bug where para A only appears at position 0 of the claim
-/// queue, but position 0 is obsolete because a child block L already exists.
-/// Expected: Advertisement should be REJECTED (position 0 is obsolete).
-/// Current behavior: ACCEPTED (bug).
+/// Regression test: obsolete claim queue positions are rejected.
+///
+/// With the leaf-based offset model, `is_slot_available` computes
+/// `valid_len = lookahead - offset` for each relay parent. Only the first `valid_len`
+/// positions in the leaf's claim queue are considered. Para A at position 2 with
+/// `valid_len = 2` (offset=1) falls outside the checked range and is correctly rejected.
 #[test]
 fn obsolete_positions_rejected() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set up claim queue at LEAF: [B, B, A]
-	// Para A only appears at position 2
-	// With offset=1, valid range is [0, lookahead-offset-1] = [0, 1]
-	// Para A at position 2 is OUTSIDE valid range → should be rejected
+	// Leaf CQ: [B, B, A]. Path: [R, L] → offset=1, valid_len=2, checks positions [0,1].
+	// Para A only at position 2 → outside valid range → rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -650,33 +640,19 @@ fn obsolete_positions_rejected() {
 		)
 		.await;
 
-		// Advertise collation for Para A at relay_parent R
-		// Para A only appears at position 0 in R's claim queue.
-		// But position 0 at R corresponds to block L (which already exists).
-		// Therefore, this advertisement should be REJECTED.
+		// Advertise collation for Para A at relay_parent R (ancestor of L).
+		// R has offset=1, valid_len=2: only CQ positions [0,1] are checked.
+		// Para A sits at position 2 → not found → rejected.
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xAA));
 		advertise_collation(
 			&mut virtual_overseer,
 			peer,
-			head_r, // relay_parent = R (ancestor)
+			head_r,
 			Some((candidate_hash, Hash::zero())),
 		)
 		.await;
 
-		// BUG: The current code will accept this advertisement and call CanSecond.
-		// Expected: No CanSecond call (should be rejected by ensure_seconding_limit_is_respected).
-		//
-		// Uncomment the following to see the bug:
-		// assert_matches!(
-		// 	overseer_recv(&mut virtual_overseer).await,
-		// 	AllMessages::CandidateBacking(
-		// 		CandidateBackingMessage::CanSecond(request, tx),
-		// 	) => {
-		// 		tx.send(false).expect("receiving side should be alive");
-		// 	}
-		// );
-
-		// After the fix, this should be rejected immediately with no messages.
+		// No CanSecond: rejected by is_slot_available before reaching CandidateBacking.
 		test_helpers::Yield::new().await;
 		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
@@ -684,22 +660,23 @@ fn obsolete_positions_rejected() {
 	});
 }
 
-/// Test that obsolete positions deep in the ancestry are rejected.
-/// With path [R, R+1, R+2, L], positions 0-2 at R are all obsolete.
+/// Regression test: deeply obsolete claim queue positions are rejected.
+///
+/// Path [R, R+1, R+2, L] gives R an offset=3 and valid_len=0 (lookahead=3).
+/// No CQ positions are checked for R, so Para A (at position 0) is rejected.
 #[test]
 fn deep_obsolete_positions_rejected() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set up claim queue: [A, B, B]
-	// Para A only appears at position 0
+	// CQ: [A, B, B]. R at offset=3 → valid_len = 3 - 3 = 0 → no positions checked.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
 			[
-				test_state.chain_ids[0], // Position 0: Para A (will be obsolete)
-				ParaId::from(999),       // Position 1
-				ParaId::from(999),       // Position 2
+				test_state.chain_ids[0], // Position 0: Para A
+				ParaId::from(999),       // Position 1: Para B
+				ParaId::from(999),       // Position 2: Para B
 			]
 			.into_iter(),
 		),
@@ -729,8 +706,8 @@ fn deep_obsolete_positions_rejected() {
 		)
 		.await;
 
-		// Advertise collation for Para A at relay_parent R
-		// With 3 descendants, positions 0-2 at R are all obsolete.
+		// Advertise collation for Para A at relay_parent R.
+		// R at offset=3 → valid_len=0, so no CQ positions are checked → rejected.
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
 		advertise_collation(
 			&mut virtual_overseer,
@@ -740,7 +717,7 @@ fn deep_obsolete_positions_rejected() {
 		)
 		.await;
 
-		// After the fix, this should be rejected immediately.
+		// No CanSecond: rejected by is_slot_available.
 		test_helpers::Yield::new().await;
 		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
@@ -748,22 +725,24 @@ fn deep_obsolete_positions_rejected() {
 	});
 }
 
-/// Test that non-obsolete positions are still accepted.
-/// With claim queue [A, B, A] and path [R, L], position 2 of A is still valid.
+/// Regression test: non-obsolete positions are still accepted.
+///
+/// CQ: [A, B, A]. Path [R, L] → R at offset=1, valid_len=2, checks positions [0,1].
+/// Para A at position 0 is within the valid range → accepted.
 #[test]
 fn non_obsolete_position_accepted() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set up claim queue: [A, B, A]
-	// Para A appears at positions 0 and 2
+	// CQ: [A, B, A]. R at offset=1 → valid_len=2 → positions [0,1] checked.
+	// Para A found at position 0 → accepted.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
 			[
-				test_state.chain_ids[0], // Position 0: Para A (will be obsolete)
+				test_state.chain_ids[0], // Position 0: Para A (within valid range)
 				ParaId::from(999),       // Position 1: Para B
-				test_state.chain_ids[0], // Position 2: Para A (still valid)
+				test_state.chain_ids[0], // Position 2: Para A (outside valid range, not checked)
 			]
 			.into_iter(),
 		),
@@ -791,9 +770,8 @@ fn non_obsolete_position_accepted() {
 		)
 		.await;
 
-		// Advertise collation for Para A at relay_parent R
-		// Position 0 is obsolete, but position 2 is still valid.
-		// This should be ACCEPTED.
+		// Advertise collation for Para A at relay_parent R.
+		// Para A found at position 0 (within valid_len=2) → accepted.
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xCC));
 		advertise_collation(
 			&mut virtual_overseer,
@@ -828,12 +806,14 @@ fn non_obsolete_position_accepted() {
 	});
 }
 
-/// Test that when R is the leaf itself (no children), all positions are valid.
+/// Regression test: the leaf itself has offset=0 and valid_len=lookahead.
+///
+/// All CQ positions are checked, so Para A at position 0 is accepted.
 #[test]
 fn leaf_position_not_obsolete() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set up claim queue: [A, B, B]
+	// CQ: [A, B, B]. Leaf at offset=0 → valid_len=3 → all positions checked.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -869,8 +849,7 @@ fn leaf_position_not_obsolete() {
 		)
 		.await;
 
-		// Advertise collation for Para A at relay_parent R (the leaf)
-		// Since R is the leaf, position 0 is NOT obsolete.
+		// Advertise at the leaf itself: offset=0, valid_len=3 → Para A at pos 0 accepted.
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xDD));
 		advertise_collation(
 			&mut virtual_overseer,
@@ -1570,7 +1549,8 @@ fn advertisement_spam_protection() {
 fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Increase claim queue to length 4 (offset=2 from leaf + 2 advertisements at head_c)
+	// CQ length 4 needed: head_c at offset=2 from leaf gets valid_len = 4 - 2 = 2,
+	// which allows exactly 2 advertisements at head_c.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -2445,10 +2425,8 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 		.await;
 
 		let relay_parent_3 = Hash::from_low_u64_be(relay_parent_2.to_low_u64_be() - 1);
-		// Update claim queue to have capacity for 4 total ads (2 from rp_2, 2 more at rp_3)
-		// With fresh claim queue approach, we need total capacity to match total expected ads
 		*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() =
-			VecDeque::from([para_id_a, para_id_a, para_id_b, para_id_b]);
+			VecDeque::from([para_id_a, para_id_a, para_id_b]);
 		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent_3, 3)]).await;
 
 		submit_second_and_assert(
@@ -2605,12 +2583,8 @@ fn collation_fetching_fairness_handles_old_claims() {
 
 		let relay_parent_4 = Hash::from_low_u64_be(relay_parent_3.to_low_u64_be() - 1);
 
-		// Increase capacity to account for candidates from previous views
-		// Total expected: 2 A (from rp_2) + 1 A (from rp_4) = 3 A
-		//                 1 B (from rp_2) + 1 B (from rp_4) = 2 B
-		// So need: 3 A entries, 2 B entries in claim queue
 		*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() =
-			VecDeque::from([para_id_a, para_id_b, para_id_a, para_id_b, para_id_a]);
+			VecDeque::from([para_id_a, para_id_b, para_id_a]);
 		update_view(&mut virtual_overseer, &mut test_state, vec![(relay_parent_4, 4)]).await;
 
 		submit_second_and_assert(
@@ -2677,8 +2651,9 @@ fn collation_fetching_fairness_handles_old_claims() {
 fn claims_below_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set claim queue length to 3: total capacity 3 for 3 advertisements
-	// (2 at hash_a, 1 at hash_c). 4th should be rejected.
+	// CQ length 3 with 2-block ancestry: hash_a (block 0) → hash_b (block 1, leaf).
+	// hash_a at offset=1 gets valid_len=2, hash_b at offset=0 gets valid_len=3.
+	// Total capacity = 3. We do 2 ads at hash_a + 1 at hash_b = 3, then 4th rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -2697,15 +2672,14 @@ fn claims_below_are_counted_correctly() {
 	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1);
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1);
+		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1 (leaf)
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_b, 1)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2716,7 +2690,7 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// A collation at hash_a claims the spot at hash_a
+		// Two collations at hash_a claim 2 of 3 CQ slots
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2727,7 +2701,6 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// Another collation at hash_a claims the spot at hash_b
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2738,18 +2711,18 @@ fn claims_below_are_counted_correctly() {
 		)
 		.await;
 
-		// Collation at hash_c claims its own spot
+		// Collation at hash_b (leaf) claims the last slot
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
 			ParaId::from(test_state.chain_ids[0]),
-			hash_c,
+			hash_b,
 			collator_a,
 			HeadData(vec![2u8]),
 		)
 		.await;
 
-		// Collation at hash_b should be ignored because the claim queue is satisfied
+		// 4th collation at hash_b should be ignored because the claim queue is full
 		let (ignored_candidate, _) =
 			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![3u8]), hash_b);
 
@@ -2772,8 +2745,9 @@ fn claims_below_are_counted_correctly() {
 fn claims_above_are_counted_correctly() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set claim queue length to 3: exactly 3 slots for the 3 successful advertisements
-	// The test expects 4th advertisement to be rejected (claim queue full)
+	// CQ length 3 with 2-block ancestry: hash_a (block 0) → hash_b (block 1, leaf).
+	// hash_a at offset=1 gets valid_len=2, hash_b at offset=0 gets valid_len=3.
+	// Total capacity = 3. We do 2 ads at hash_b + 1 at hash_a = 3, then 4th rejected.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -2793,14 +2767,13 @@ fn claims_above_are_counted_correctly() {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
-		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1
-		let hash_c = Hash::from_low_u64_be(hash_b.to_low_u64_be() - 1); // block 2
+		let hash_b = Hash::from_low_u64_be(hash_a.to_low_u64_be() - 1); // block 1 (leaf)
 
 		let pair_a = CollatorPair::generate().0;
 		let collator_a = PeerId::random();
 		let para_id_a = test_state.chain_ids[0];
 
-		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_c, 2)]).await;
+		update_view(&mut virtual_overseer, &mut test_state, vec![(hash_b, 1)]).await;
 
 		connect_and_declare_collator(
 			&mut virtual_overseer,
@@ -2811,7 +2784,7 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// A collation at hash_b claims the spot at hash_b
+		// Two collations at hash_b (leaf) claim 2 of 3 CQ slots
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2822,7 +2795,6 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Another collation at hash_b claims the spot at hash_c
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2833,7 +2805,7 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Collation at hash_a claims its own spot
+		// Collation at hash_a claims the last slot
 		submit_second_and_assert(
 			&mut virtual_overseer,
 			keystore.clone(),
@@ -2844,7 +2816,7 @@ fn claims_above_are_counted_correctly() {
 		)
 		.await;
 
-		// Another Collation at hash_a should be ignored because the claim queue is satisfied
+		// Another collation at hash_a should be ignored because the claim queue is full
 		let (ignored_candidate, _) =
 			create_dummy_candidate_and_commitments(para_id_a, HeadData(vec![2u8]), hash_a);
 
@@ -2882,8 +2854,9 @@ fn claims_above_are_counted_correctly() {
 fn claim_fills_last_free_slot() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// Set claim queue length to 3 to cover the depth of the ancestry
-	// (advertising at block 0 when leaf is at block 2 requires offset 2, so need length >= 3)
+	// CQ length 3 to cover the depth of the ancestry.
+	// Path: hash_a(0) → hash_b(1) → hash_c(2, leaf). One ad per relay parent = 3 = capacity.
+	// hash_a: offset=2, valid_len=1; hash_b: offset=1, valid_len=2; hash_c: offset=0, valid_len=3.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
@@ -3426,12 +3399,6 @@ mod ah_stop_gap {
 
 				// activate new relay parent
 				let head = Hash::from_low_u64_be(head.to_low_u64_be() - 1);
-				// Increase claim queue capacity to account for candidates from previous view
-				// Previous view had 3 candidates, new view needs room for 1 more invulnerable
-				*test_state.claim_queue.get_mut(&CoreIndex(0)).unwrap() = VecDeque::from_iter(
-					[ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID]
-						.into_iter(),
-				);
 				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 2)]).await;
 
 				// The race begins again. The permissionless sends another advertisement, which

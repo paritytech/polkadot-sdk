@@ -1554,7 +1554,6 @@ fn is_slot_available(
 			);
 
 			// Allocate from rightmost free position in this relay_parent's valid range
-			// valid_len is always <= lookahead, so min is redundant
 			for pos in (0..ancestor_valid_len).rev() {
 				if to_allocate == 0 {
 					break;
