@@ -144,7 +144,7 @@ jobs:
           - network: collectives-westend
             package: collectives-westend-runtime
             wasm: collectives_westend_runtime.compact.compressed.wasm
-            command_extra_args: "--disable-spec-name-check"            
+            command_extra_args: "--disable-spec-name-check"
             subcommand_extra_args: " --blocktime 6000"
           - network: coretime-westend
             package: coretime-westend-runtime
