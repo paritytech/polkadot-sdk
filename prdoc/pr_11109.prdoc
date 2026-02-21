@@ -64,20 +64,22 @@ crates:
   - name: pallet-bounties
     bump: major
   - name: pallet-child-bounties
-    bump: major
+    bump: minor
   - name: pallet-tips
     bump: major
   - name: asset-hub-westend-runtime
-    bump: patch
+    bump: minor
   - name: collectives-westend-runtime
-    bump: patch
+    bump: minor
   - name: rococo-runtime
-    bump: patch
+    bump: minor
   - name: westend-runtime
-    bump: patch
+    bump: minor
   - name: kitchensink-runtime
     bump: patch
   - name: pallet-staking-async-parachain-runtime
     bump: patch
   - name: pallet-staking-async-rc-runtime
     bump: patch
+  - name: polkadot-runtime-common
+    bump: minor
