@@ -187,7 +187,8 @@ use sp_runtime::{
 };
 
 pub use types::{
-	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags,
+	HandleNegativeImbalanceAsCredit, HandlePositiveImbalanceAsDebt, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -206,11 +207,16 @@ pub mod pallet {
 	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
+		traits::{
+			fungible::{Credit, Debt},
+			tokens::Precision,
+			VariantCount, VariantCountOf,
+		},
 	};
 	use frame_system::pallet_prelude::*;
 
 	pub type CreditOf<T, I> = Credit<<T as frame_system::Config>::AccountId, Pallet<T, I>>;
+	pub type DebtOf<T, I> = Debt<<T as frame_system::Config>::AccountId, Pallet<T, I>>;
 
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
