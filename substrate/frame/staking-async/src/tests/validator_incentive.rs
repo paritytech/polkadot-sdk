@@ -113,3 +113,165 @@ fn set_validator_self_stake_incentive_config_partial_update() {
 		assert_eq!(SelfStakeSlopeFactor::<Test>::get(), Perbill::from_rational(3u32, 4u32));
 	});
 }
+
+#[test]
+fn set_validator_self_stake_incentive_config_rejects_optimum_greater_than_cap() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Setting both with optimum > cap should fail
+		assert_noop!(
+			Staking::set_validator_self_stake_incentive_config(
+				RuntimeOrigin::root(),
+				// optimum
+				ConfigOp::Set(100_000),
+				// hard cap
+				ConfigOp::Set(50_000),
+				ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+			),
+			Error::<Test>::OptimumGreaterThanCap
+		);
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_rejects_setting_optimum_greater_than_existing_cap() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Set initial config with valid values
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(30_000),
+			ConfigOp::Set(100_000),
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		// Try to update optimum to be greater than existing cap should fail
+		assert_noop!(
+			Staking::set_validator_self_stake_incentive_config(
+				RuntimeOrigin::root(),
+				// optimum
+				ConfigOp::Set(150_000),
+				// existing hard cap is 100_000
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+			),
+			Error::<Test>::OptimumGreaterThanCap
+		);
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_rejects_setting_cap_less_than_existing_optimum() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Set initial config with valid values
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(50_000),
+			ConfigOp::Set(100_000),
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		// Try to update cap to be less than existing optimum should fail
+		assert_noop!(
+			Staking::set_validator_self_stake_incentive_config(
+				RuntimeOrigin::root(),
+				// existing optimum is 50_000
+				ConfigOp::Noop,
+				// hard cap
+				ConfigOp::Set(30_000),
+				ConfigOp::Noop,
+			),
+			Error::<Test>::OptimumGreaterThanCap
+		);
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_accepts_equal_values() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Setting both with optimum = cap should succeed
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(50_000),
+			ConfigOp::Set(50_000),
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		assert_eq!(OptimumSelfStake::<Test>::get(), 50_000);
+		assert_eq!(HardCapSelfStake::<Test>::get(), 50_000);
+		assert_eq!(SelfStakeSlopeFactor::<Test>::get(), Perbill::from_rational(1u32, 2u32));
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_allows_removing_parameters() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Set initial config
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(30_000),
+			ConfigOp::Set(100_000),
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		// Removing optimum while keeping cap should succeed (no validation needed)
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Remove,
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+		));
+		assert!(!OptimumSelfStake::<Test>::exists());
+		assert_eq!(HardCapSelfStake::<Test>::get(), 100_000);
+
+		// Set optimum again
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(30_000),
+			ConfigOp::Noop,
+			ConfigOp::Noop,
+		));
+
+		// Removing cap while keeping optimum should succeed (no validation needed)
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop,
+			ConfigOp::Remove,
+			ConfigOp::Noop,
+		));
+		assert_eq!(OptimumSelfStake::<Test>::get(), 30_000);
+		assert!(!HardCapSelfStake::<Test>::exists());
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_allows_setting_optimum_when_cap_is_zero() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Setting optimum when cap is zero (not configured) should succeed
+		// because the config is incomplete and won't be used
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Set(100_000),
+			ConfigOp::Noop, // cap remains 0
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		assert_eq!(OptimumSelfStake::<Test>::get(), 100_000);
+		assert_eq!(HardCapSelfStake::<Test>::get(), 0); // Still zero
+	});
+}
+
+#[test]
+fn set_validator_self_stake_incentive_config_allows_setting_cap_when_optimum_is_zero() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Setting cap when optimum is zero (not configured) should succeed
+		// because the config is incomplete and won't be used
+		assert_ok!(Staking::set_validator_self_stake_incentive_config(
+			RuntimeOrigin::root(),
+			ConfigOp::Noop, // optimum remains 0
+			ConfigOp::Set(100_000),
+			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+		));
+
+		assert_eq!(OptimumSelfStake::<Test>::get(), 0); // Still zero
+		assert_eq!(HardCapSelfStake::<Test>::get(), 100_000);
+	});
+}
