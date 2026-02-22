@@ -61,7 +61,7 @@ impl TestNetwork {
 
 	pub fn start_network(
 		self,
-	) -> (Arc<TestNetworkService>, (impl Stream<Item = Event> + std::marker::Unpin)) {
+	) -> (Arc<TestNetworkService>, impl Stream<Item = Event> + std::marker::Unpin) {
 		let worker = self.network;
 		let service = worker.service().clone();
 		let event_stream = service.event_stream("test");

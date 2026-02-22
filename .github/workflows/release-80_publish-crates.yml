@@ -70,8 +70,9 @@ jobs:
       - name: Derive stable branch from release name
         id: derive_branch
         shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
           echo "Release name: $RELEASE_NAME"
 
           # Extract stable branch by removing the last -N suffix
@@ -114,8 +115,9 @@ jobs:
 
       - name: Create or switch to release branch
         shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
         run: |
-          CRATES_RELEASE_BRANCH="${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}"
 
           if git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
             echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
@@ -152,8 +154,9 @@ jobs:
 
       - name: Save Plan.toml diff
         if: inputs.is_patch
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
           mkdir -p release-artifacts
 
           echo "Saving Plan.toml diff..."
@@ -165,8 +168,9 @@ jobs:
       - name: Parse crate names for release notes
         if: inputs.is_patch
         shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
-          RELEASE_NAME="${{ inputs.release_name }}"
 
           echo "Parsing crate names..."
           python3 scripts/release/parse-crates-names.py \
@@ -178,16 +182,19 @@ jobs:
 
       - name: Commit Plan.toml and crates list
         shell: bash
+        env:
+          IS_PATCH: ${{ inputs.is_patch }}
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
           git add Plan.toml
-          if [ "${{ inputs.is_patch }}" = true ]; then
+          if [ "$IS_PATCH" = true ]; then
             git add scripts/release/templates/crates_list.md.tera
           fi
 
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: update Plan.toml and crates list for ${{ inputs.release_name }}"
+            commit_with_message "chore: update Plan.toml and crates list for $RELEASE_NAME"
             echo "Committed Plan.toml and crates list"
           else
             echo "No changes to commit"
@@ -206,29 +213,33 @@ jobs:
 
       - name: Commit version bumps
         shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
           git add -A
 
           if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: apply version bumps for ${{ inputs.release_name }}"
+            commit_with_message "chore: apply version bumps for $RELEASE_NAME"
             echo "Committed version bumps"
           else
             echo "No changes to commit"
           fi
 
       - name: Push release branch
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
         run: |
-          CRATES_RELEASE_BRANCH="${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}"
           echo "Pushing branch $CRATES_RELEASE_BRANCH..."
           git push origin "$CRATES_RELEASE_BRANCH"
           echo "Successfully pushed $CRATES_RELEASE_BRANCH"
 
       - name: Configure cargo registry
         shell: bash
+        env:
+          REGISTRY: ${{ inputs.registry }}
         run: |
-          REGISTRY="${{ inputs.registry }}"
           echo "Configuring cargo for $REGISTRY..."
           mkdir -p ~/.cargo
 
@@ -248,9 +259,9 @@ jobs:
         shell: bash
         env:
           PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          REGISTRY: ${{ inputs.registry }}
         run: |
-          DRY_RUN="${{ inputs.dry_run }}"
-          REGISTRY="${{ inputs.registry }}"
 
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
