@@ -90,9 +90,13 @@ jobs:
           import_gpg_keys
 
       - name: Build binary
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+          INPUT_PACKAGE: ${{ inputs.package }}
+          INPUT_FEATURES: ${{ inputs.features }}
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
+          ./.github/scripts/release/build-linux-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
@@ -101,25 +105,31 @@ jobs:
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
-          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
         shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          echo "Checking binary  ${{ matrix.binaries }}"
-          check_sha256  ${{ matrix.binaries }}
+          echo "Checking binary  $BINARY_NAME"
+          check_sha256  "$BINARY_NAME"
 
       - name: Check GPG ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
         shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
           . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          check_gpg  ${{ matrix.binaries }}
+          check_gpg  "$BINARY_NAME"
 
       - name: Upload ${{ matrix.binaries }} artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -231,9 +241,13 @@ jobs:
            import_gpg_keys
 
        - name: Build binary
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
+           INPUT_PACKAGE: ${{ inputs.package }}
+           INPUT_FEATURES: ${{ inputs.features }}
          run: |
            git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-           ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
+           ./.github/scripts/release/build-macos-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
 
        - name: Generate artifact attestation
          uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
@@ -242,25 +256,31 @@ jobs:
 
        - name: Sign artifacts
          working-directory: ${{ env.ARTIFACTS_PATH }}
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
-           python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+           python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
 
        - name: Check sha256 ${{ matrix.binaries }}
          working-directory: ${{ env.ARTIFACTS_PATH }}
          shell: bash
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
            .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           echo "Checking binary  ${{ matrix.binaries }}"
-           check_sha256  ${{ matrix.binaries }}
+           echo "Checking binary  $BINARY_NAME"
+           check_sha256  "$BINARY_NAME"
 
        - name: Check GPG ${{ matrix.binaries }}
          working-directory: ${{ env.ARTIFACTS_PATH }}
          shell: bash
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
            . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           check_gpg  ${{ matrix.binaries }}
+           check_gpg  "$BINARY_NAME"
 
        - name: Upload ${{ matrix.binaries }} artifacts
          uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -314,17 +334,21 @@ jobs:
 
     - name: Build polkadot deb package
       shell: bash
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
         VERSION=$(get_polkadot_node_version_from_code)
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh "$INPUT_PACKAGE" "${VERSION}"
 
     - name: Build polkadot rpm package
       shell: bash
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
         VERSION=$(get_polkadot_node_version_from_code)
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh ${{ inputs.package }} ${VERSION}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh "$INPUT_PACKAGE" "${VERSION}"
 
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0

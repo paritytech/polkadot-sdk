@@ -175,10 +175,11 @@ jobs:
 
       - name: Move prdocs to release folder
         shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          VERSION="${{ inputs.version }}"
           echo "Version: $VERSION"
 
           reorder_prdocs "$VERSION"
@@ -302,10 +303,12 @@ jobs:
       - name: Create Pull Request to base release branch
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          FULL_RELEASE: ${{ inputs.version }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
         shell: bash
         run: |
-          BRANCH_NAME="${{ github.ref_name }}"
-          FULL_RELEASE="${{ inputs.version }}"
           echo "Current branch: $BRANCH_NAME"
           echo "Version: $FULL_RELEASE"
 
@@ -319,13 +322,13 @@ jobs:
           TARGET_REPO="paritytech/polkadot-sdk"
 
           # Determine if running from a fork or the main repo
-          if [ "${{ github.repository }}" = "$TARGET_REPO" ]; then
+          if [ "$GH_REPOSITORY" = "$TARGET_REPO" ]; then
             # Same-repo PR: head is just the branch name
             PR_HEAD="$BRANCH_NAME"
             EXTRA_FLAGS=""
           else
             # Cross-fork PR: head needs the fork owner prefix
-            FORK_OWNER="${{ github.repository_owner }}"
+            FORK_OWNER="$GH_REPOSITORY_OWNER"
             PR_HEAD="${FORK_OWNER}:${BRANCH_NAME}"
             EXTRA_FLAGS="--no-maintainer-edit"
           fi
@@ -356,16 +359,18 @@ jobs:
       - name: Add comment about spec_version
         env:
           GH_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
         shell: bash
         run: |
-          BRANCH_NAME="${{ github.ref_name }}"
           TARGET_REPO="paritytech/polkadot-sdk"
 
           # Match the head format used when creating the PR
-          if [ "${{ github.repository }}" = "$TARGET_REPO" ]; then
+          if [ "$GH_REPOSITORY" = "$TARGET_REPO" ]; then
             PR_HEAD="$BRANCH_NAME"
           else
-            FORK_OWNER="${{ github.repository_owner }}"
+            FORK_OWNER="$GH_REPOSITORY_OWNER"
             PR_HEAD="${FORK_OWNER}:${BRANCH_NAME}"
           fi
 
