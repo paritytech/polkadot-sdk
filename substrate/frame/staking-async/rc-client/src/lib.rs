@@ -1056,14 +1056,6 @@ pub mod pallet {
 		/// The balance type used for delivery fee limits.
 		type Balance: BalanceTrait;
 
-		/// Maximum length of encoded session keys.
-		#[pallet::constant]
-		type MaxSessionKeysLength: Get<u32>;
-
-		/// Maximum length of the session keys ownership proof.
-		#[pallet::constant]
-		type MaxSessionKeysProofLength: Get<u32>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -1294,8 +1286,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_keys())]
 		pub fn set_keys(
 			origin: OriginFor<T>,
-			keys: BoundedVec<u8, T::MaxSessionKeysLength>,
-			proof: BoundedVec<u8, T::MaxSessionKeysProofLength>,
+			keys: Vec<u8>,
+			proof: Vec<u8>,
 			max_delivery_and_remote_execution_fee: Option<BalanceOf<T>>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
@@ -1316,7 +1308,7 @@ pub mod pallet {
 			// Forward validated keys to RC (no proof needed, already validated)
 			let fees = T::SendToRelayChain::set_keys(
 				stash.clone(),
-				keys.into_inner(),
+				keys,
 				max_delivery_and_remote_execution_fee,
 			)
 			.map_err(|e| match e {
