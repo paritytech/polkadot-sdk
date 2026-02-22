@@ -87,6 +87,8 @@ pub mod pallet {
 		ErasRewardPoints,
 		/// Pruning single-entry storages: ErasTotalStake and ErasNominatorsSlashable
 		SingleEntryCleanups,
+		/// Pruning ErasValidatorIncentive storage
+		ErasValidatorIncentive,
 		/// Pruning ValidatorSlashInEra storage
 		ValidatorSlashInEra,
 	}
@@ -809,6 +811,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasTotalValidatorWeight<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
+	/// Individual validator self-stake weight for the last [`Config::HistoryDepth`] eras.
+	/// Stored during era planning to avoid recalculating during payouts.
+	#[pallet::storage]
+	pub type ErasValidatorIncentive<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		T::AccountId,
+		BalanceOf<T>,
+		OptionQuery,
+	>;
 
 	/// Mode of era forcing.
 	#[pallet::storage]
@@ -1538,8 +1553,19 @@ pub mod pallet {
 					ErasTotalValidatorWeight::<T>::remove(era);
 					// Also clean up ErasNominatorsSlashable
 					ErasNominatorsSlashable::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentive);
 					T::WeightInfo::prune_era_single_entry_cleanups()
+				},
+				PruningStep::ErasValidatorIncentive => {
+					// Clear ErasValidatorIncentive entries for this era
+					let result = ErasValidatorIncentive::<T>::clear_prefix(era, items_limit, None);
+					let items_deleted = result.backend as u32;
+
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+					}
+
+					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
 				},
 				PruningStep::ValidatorSlashInEra => {
 					// Clear ValidatorSlashInEra entries for this era

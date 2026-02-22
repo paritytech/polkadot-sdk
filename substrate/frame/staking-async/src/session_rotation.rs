@@ -446,6 +446,19 @@ impl<T: Config> Eras<T> {
 
 		ensure!(e2 == e4, "era info presence not consistent");
 
+		// Check validator incentive weight consistency
+		let total_weight = ErasTotalValidatorWeight::<T>::get(era);
+		if !total_weight.is_zero() {
+			let sum_of_individual_weights: BalanceOf<T> =
+				ErasValidatorIncentive::<T>::iter_prefix_values(era)
+					.fold(BalanceOf::<T>::zero(), |acc, w| acc.saturating_add(w));
+
+			ensure!(
+				total_weight == sum_of_individual_weights,
+				"ErasTotalValidatorWeight must equal sum of ErasValidatorIncentive"
+			);
+		}
+
 		if e2 {
 			Ok(())
 		} else {
@@ -1138,6 +1151,9 @@ impl<T: Config> EraElectionPlanner<T> {
 				SelfStakeSlopeFactor::<T>::get(),
 			);
 			total_validator_weight_page = total_validator_weight_page.saturating_add(validator_weight);
+
+			// store individual validator weight for this era.
+			ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, validator_weight);
 
 			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);

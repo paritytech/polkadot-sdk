@@ -522,6 +522,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"ErasNominatorsSlashable should be empty after completing SingleEntryCleanups step"
 					);
 				},
+				ErasValidatorIncentive => {
+					let count = crate::ErasValidatorIncentive::<T>::iter_prefix(1).count();
+					assert_eq!(count, 0, "{expected_step:?} should be empty after completing step");
+				},
 				ValidatorSlashInEra => assert_eq!(
 					crate::ValidatorSlashInEra::<T>::iter_prefix_values(1).count(),
 					0,
