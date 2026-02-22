@@ -476,6 +476,30 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MinCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
+	/// Optimum self-stake threshold for validators.
+	///
+	/// Validators with self-stake below this value receive full weightage in the validator
+	/// self-stake incentive reward curve. Above this threshold, diminishing returns apply based
+	/// on the slope factor.
+	#[pallet::storage]
+	pub type OptimumSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Hard cap on effective validator self-stake.
+	///
+	/// Self-stake above this value receives no additional reward benefit in the validator
+	/// self-stake incentive system (rewards plateau at this level).
+	#[pallet::storage]
+	pub type HardCapSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Slope factor controlling the discouragement rate for self-stake between optimum and cap.
+	///
+	/// Value between 0 and 1:
+	/// - k=1 means no discouragement above optimum
+	/// - k=0 means immediate plateau at optimum
+	/// - k=0.5 provides moderate discouragement
+	#[pallet::storage]
+	pub type SelfStakeSlopeFactor<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
 	/// Whether nominators are slashable or not.
 	///
 	/// - When set to `true` (default), nominators are slashed along with validators and must wait
@@ -2419,6 +2443,47 @@ pub mod pallet {
 			config_op_exp!(AreNominatorsSlashable<T>, are_nominators_slashable);
 			Ok(())
 		}
+
+		/// Update validator self-stake incentive parameters.
+		///
+		/// * `optimum_self_stake`: The target self-stake threshold for validators. Validators with
+		///   self-stake below this value receive full weightage. Above this, diminishing returns
+		///   apply based on the slope factor.
+		/// * `hard_cap_self_stake`: Maximum effective self-stake. Self-stake above this value
+		///   receives no additional reward benefit (rewards plateau).
+		/// * `self_stake_slope_factor`: Controls the discouragement rate between optimum and cap
+		///   (value between 0 and 1). k=1 means no discouragement, k=0 means immediate plateau.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// NOTE: Changes take effect in the next era when rewards are calculated.
+		#[pallet::call_index(33)]
+		#[pallet::weight(T::DbWeight::get().writes(3))]
+		pub fn set_validator_self_stake_incentive_config(
+			origin: OriginFor<T>,
+			optimum_self_stake: ConfigOp<BalanceOf<T>>,
+			hard_cap_self_stake: ConfigOp<BalanceOf<T>>,
+			self_stake_slope_factor: ConfigOp<Perbill>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			macro_rules! config_op_exp {
+				($storage:ty, $op:ident) => {
+					match $op {
+						ConfigOp::Noop => (),
+						ConfigOp::Set(v) => <$storage>::put(v),
+						ConfigOp::Remove => <$storage>::kill(),
+					}
+				};
+			}
+
+			config_op_exp!(OptimumSelfStake<T>, optimum_self_stake);
+			config_op_exp!(HardCapSelfStake<T>, hard_cap_self_stake);
+			config_op_exp!(SelfStakeSlopeFactor<T>, self_stake_slope_factor);
+
+			Ok(())
+		}
+
 		/// Declare a `controller` to stop participating as either a validator or nominator.
 		///
 		/// Effects will be felt at the beginning of the next era.
