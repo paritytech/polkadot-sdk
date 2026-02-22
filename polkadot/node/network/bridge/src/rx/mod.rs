@@ -1040,8 +1040,9 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 					NetworkBridgeEvent::PeerViewChange(peer, peer_data.view.clone())
 				}
 			},
-			WireMessage::ProtocolMessage(message) =>
-				NetworkBridgeEvent::PeerMessage(peer, message.into()),
+			WireMessage::ProtocolMessage(message) => {
+				NetworkBridgeEvent::PeerMessage(peer, message.into())
+			},
 		})
 	}
 

@@ -2372,8 +2372,9 @@ impl State {
 				// We assume `candidate_bitfield` length for the core bitfield and we just check
 				// against `MAX_BITFIELD_SIZE` later.
 				AssignmentCertKindV2::RelayVRFModulo { .. } => candidate_bitfield.len(),
-				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-					core_bitfield.len(),
+				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+					core_bitfield.len()
+				},
 			};
 
 			let candidate_bitfield_bits = candidate_bitfield.len();
@@ -2687,7 +2688,7 @@ impl ApprovalDistribution {
 		session_info_provider: &mut RuntimeInfo,
 	) -> bool {
 		match message {
-			FromOrchestra::Communication { msg } =>
+			FromOrchestra::Communication { msg } => {
 				Self::handle_incoming(
 					approval_voting_sender,
 					network_sender,
@@ -2700,7 +2701,8 @@ impl ApprovalDistribution {
 					self.clock.as_ref(),
 					session_info_provider,
 				)
-				.await,
+				.await
+			},
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems

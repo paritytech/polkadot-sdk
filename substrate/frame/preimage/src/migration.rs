@@ -130,15 +130,17 @@ pub mod v1 {
 					v0::OldRequestStatus::Unrequested(deposit) => match deposit {
 						Some(deposit) => OldRequestStatus::Unrequested { deposit, len },
 						// `None` depositor becomes system-requested.
-						None =>
-							OldRequestStatus::Requested { deposit: None, count: 1, len: Some(len) },
+						None => {
+							OldRequestStatus::Requested { deposit: None, count: 1, len: Some(len) }
+						},
 					},
 					v0::OldRequestStatus::Requested(0) => {
 						log::error!(target: TARGET, "preimage has counter of zero: {:?}", hash);
 						continue;
 					},
-					v0::OldRequestStatus::Requested(count) =>
-						OldRequestStatus::Requested { deposit: None, count, len: Some(len) },
+					v0::OldRequestStatus::Requested(count) => {
+						OldRequestStatus::Requested { deposit: None, count, len: Some(len) }
+					},
 				};
 				log::trace!(target: TARGET, "Moving preimage {:?} with len {}", hash, len);
 

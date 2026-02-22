@@ -350,8 +350,9 @@ where
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, weight } =>
-				(tip, who, initial_payment, weight),
+			Pre::Charge { tip, who, initial_payment, weight } => {
+				(tip, who, initial_payment, weight)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
 				return Ok(refund);

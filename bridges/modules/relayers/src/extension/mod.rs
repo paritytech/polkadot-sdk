@@ -407,11 +407,12 @@ where
 					"Has registered reward"
 				);
 			},
-			RelayerAccountAction::Slash(relayer, slash_account) =>
+			RelayerAccountAction::Slash(relayer, slash_account) => {
 				RelayersPallet::<R, C::BridgeRelayersPalletInstance>::slash_and_deregister(
 					&relayer,
 					ExplicitOrAccountParams::Params(slash_account),
-				),
+				)
+			},
 		}
 
 		Ok(Weight::zero())

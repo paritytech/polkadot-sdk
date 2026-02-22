@@ -137,7 +137,7 @@ fn default_parachains_host_configuration(
 				(1u8 << (FeatureIndex::CandidateReceiptV2 as usize)),
 		),
 		scheduler_params: SchedulerParams {
-			lookahead: 3,
+			lookahead: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()

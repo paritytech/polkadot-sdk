@@ -1067,8 +1067,9 @@ impl ConsensusLog {
 		digest_item: &sp_runtime::DigestItem,
 	) -> Result<Option<Self>, codec::Error> {
 		match digest_item {
-			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID =>
-				Ok(Some(Self::decode(&mut &encoded[..])?)),
+			sp_runtime::DigestItem::Consensus(id, encoded) if id == &POLKADOT_ENGINE_ID => {
+				Ok(Some(Self::decode(&mut &encoded[..])?))
+			},
 			_ => Ok(None),
 		}
 	}
@@ -1104,33 +1105,38 @@ impl DisputeStatement {
 		session: SessionIndex,
 	) -> Result<Vec<u8>, ()> {
 		match self {
-			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: true, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 			DisputeStatement::Valid(ValidDisputeStatementKind::BackingSeconded(
 				inclusion_parent,
 			)) => Ok(CompactStatement::Seconded(candidate_hash).signing_payload(&SigningContext {
 				session_index: session,
 				parent_hash: *inclusion_parent,
 			})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) =>
+			DisputeStatement::Valid(ValidDisputeStatementKind::BackingValid(inclusion_parent)) => {
 				Ok(CompactStatement::Valid(candidate_hash).signing_payload(&SigningContext {
 					session_index: session,
 					parent_hash: *inclusion_parent,
-				})),
-			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) =>
-				Ok(ApprovalVote(candidate_hash).signing_payload(session)),
+				}))
+			},
+			DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking) => {
+				Ok(ApprovalVote(candidate_hash).signing_payload(session))
+			},
 			DisputeStatement::Valid(
 				ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes),
-			) =>
+			) => {
 				if candidate_hashes.contains(&candidate_hash) {
 					Ok(ApprovalVoteMultipleCandidates(candidate_hashes).signing_payload(session))
 				} else {
 					Err(())
-				},
-			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) =>
+				}
+			},
+			DisputeStatement::Invalid(InvalidDisputeStatementKind::Explicit) => {
 				Ok(ExplicitDisputeStatement { valid: false, candidate_hash, session }
-					.signing_payload()),
+					.signing_payload())
+			},
 		}
 	}
 
@@ -1349,10 +1355,12 @@ impl ValidityAttestation {
 		signing_context: &SigningContext<H>,
 	) -> Vec<u8> {
 		match *self {
-			ValidityAttestation::Implicit(_) =>
-				(CompactStatement::Seconded(candidate_hash), signing_context).encode(),
-			ValidityAttestation::Explicit(_) =>
-				(CompactStatement::Valid(candidate_hash), signing_context).encode(),
+			ValidityAttestation::Implicit(_) => {
+				(CompactStatement::Seconded(candidate_hash), signing_context).encode()
+			},
+			ValidityAttestation::Explicit(_) => {
+				(CompactStatement::Valid(candidate_hash), signing_context).encode()
+			},
 		}
 	}
 }
@@ -2427,8 +2435,9 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 				}
 			},
 			CandidateDescriptorVersion::V2 => {},
-			CandidateDescriptorVersion::Unknown =>
-				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
+			CandidateDescriptorVersion::Unknown => {
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version))
+			},
 		}
 
 		// Check the core index

@@ -413,21 +413,24 @@ impl View {
 
 			match rx.await {
 				Ok(Ok(Some(header))) => header,
-				Ok(Ok(None)) =>
+				Ok(Ok(None)) => {
 					return Err(FetchError::BlockHeaderUnavailable(
 						leaf_hash,
 						BlockHeaderUnavailableReason::Unknown,
-					)),
-				Ok(Err(e)) =>
+					))
+				},
+				Ok(Err(e)) => {
 					return Err(FetchError::BlockHeaderUnavailable(
 						leaf_hash,
 						BlockHeaderUnavailableReason::Internal(e),
-					)),
-				Err(_) =>
+					))
+				},
+				Err(_) => {
 					return Err(FetchError::BlockHeaderUnavailable(
 						leaf_hash,
 						BlockHeaderUnavailableReason::SubsystemUnavailable,
-					)),
+					))
+				},
 			}
 		};
 
@@ -467,21 +470,24 @@ impl View {
 
 					let header = match rx.await {
 						Ok(Ok(Some(header))) => header,
-						Ok(Ok(None)) =>
+						Ok(Ok(None)) => {
 							return Err(FetchError::BlockHeaderUnavailable(
 								next_ancestor_hash,
 								BlockHeaderUnavailableReason::Unknown,
-							)),
-						Ok(Err(e)) =>
+							))
+						},
+						Ok(Err(e)) => {
 							return Err(FetchError::BlockHeaderUnavailable(
 								next_ancestor_hash,
 								BlockHeaderUnavailableReason::Internal(e),
-							)),
-						Err(_) =>
+							))
+						},
+						Err(_) => {
 							return Err(FetchError::BlockHeaderUnavailable(
 								next_ancestor_hash,
 								BlockHeaderUnavailableReason::SubsystemUnavailable,
-							)),
+							))
+						},
 					};
 
 					self.block_info_storage.insert(

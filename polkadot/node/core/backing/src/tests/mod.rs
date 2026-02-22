@@ -51,8 +51,9 @@ struct TestLeaf {
 
 fn table_statement_to_primitive(statement: TableStatement) -> Statement {
 	match statement {
-		TableStatement::Seconded(committed_candidate_receipt) =>
-			Statement::Seconded(committed_candidate_receipt),
+		TableStatement::Seconded(committed_candidate_receipt) => {
+			Statement::Seconded(committed_candidate_receipt)
+		},
 		TableStatement::Valid(candidate_hash) => Statement::Valid(candidate_hash),
 	}
 }

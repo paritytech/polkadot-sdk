@@ -16,21 +16,21 @@
 // limitations under the License.
 
 use crate::{
+	ClientError,
 	client::Balance,
 	subxt_client::{self, SrcChainConfig},
-	ClientError,
 };
 use futures::TryFutureExt;
 use pallet_revive::{
-	evm::{
-		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, ReceiptGasInfo,
-		Trace, H160, U256,
-	},
 	DryRunConfig, EthTransactInfo,
+	evm::{
+		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
+		ReceiptGasInfo, Trace, U256,
+	},
 };
 use sp_core::H256;
 use sp_timestamp::Timestamp;
-use subxt::{error::MetadataError, ext::subxt_rpcs::UserError, Error::Metadata, OnlineClient};
+use subxt::{Error::Metadata, OnlineClient, error::MetadataError, ext::subxt_rpcs::UserError};
 
 const LOG_TARGET: &str = "eth-rpc::runtime_api";
 
@@ -73,8 +73,9 @@ impl RuntimeApi {
 		block: BlockNumberOrTagOrHash,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
 		let timestamp_override = match block {
-			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) =>
-				Some(Timestamp::current().as_millis()),
+			BlockNumberOrTagOrHash::BlockTag(BlockTag::Pending) => {
+				Some(Timestamp::current().as_millis())
+			},
 			_ => None,
 		};
 

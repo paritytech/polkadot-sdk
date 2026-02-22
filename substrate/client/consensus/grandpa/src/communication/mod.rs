@@ -505,10 +505,11 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> Future for NetworkBridge<B, N, S> 
 				Poll::Ready(Some((to, packet))) => {
 					self.gossip_engine.lock().send_message(to, packet.encode());
 				},
-				Poll::Ready(None) =>
+				Poll::Ready(None) => {
 					return Poll::Ready(Err(Error::Network(
 						"Neighbor packet worker stream closed.".into(),
-					))),
+					)))
+				},
 				Poll::Pending => break,
 			}
 		}
@@ -518,17 +519,19 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> Future for NetworkBridge<B, N, S> 
 				Poll::Ready(Some(PeerReport { who, cost_benefit })) => {
 					self.gossip_engine.lock().report(who, cost_benefit);
 				},
-				Poll::Ready(None) =>
+				Poll::Ready(None) => {
 					return Poll::Ready(Err(Error::Network(
 						"Gossip validator report stream closed.".into(),
-					))),
+					)))
+				},
 				Poll::Pending => break,
 			}
 		}
 
 		match self.gossip_engine.lock().poll_unpin(cx) {
-			Poll::Ready(()) =>
-				return Poll::Ready(Err(Error::Network("Gossip engine future finished.".into()))),
+			Poll::Ready(()) => {
+				return Poll::Ready(Err(Error::Network("Gossip engine future finished.".into())))
+			},
 			Poll::Pending => {},
 		}
 
@@ -666,10 +669,12 @@ fn incoming_global<B: BlockT>(
 		})
 		.filter_map(move |(notification, msg)| {
 			future::ready(match msg {
-				GossipMessage::Commit(msg) =>
-					process_commit(msg, notification, &gossip_engine, &gossip_validator, &voters),
-				GossipMessage::CatchUp(msg) =>
-					process_catch_up(msg, notification, &gossip_engine, &gossip_validator, &voters),
+				GossipMessage::Commit(msg) => {
+					process_commit(msg, notification, &gossip_engine, &gossip_validator, &voters)
+				},
+				GossipMessage::CatchUp(msg) => {
+					process_catch_up(msg, notification, &gossip_engine, &gossip_validator, &voters)
+				},
 				_ => {
 					debug!(target: LOG_TARGET, "Skipping unknown message type");
 					None

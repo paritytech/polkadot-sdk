@@ -191,8 +191,9 @@ impl RuntimeBlob {
 	/// Consumes this runtime blob and serializes it.
 	pub fn serialize(self) -> Vec<u8> {
 		match self.0 {
-			BlobKind::WebAssembly(raw_module) =>
-				serialize(raw_module).expect("serializing into a vec should succeed; qed"),
+			BlobKind::WebAssembly(raw_module) => {
+				serialize(raw_module).expect("serializing into a vec should succeed; qed")
+			},
 			BlobKind::PolkaVM(ref blob) => blob.1.to_vec(),
 		}
 	}

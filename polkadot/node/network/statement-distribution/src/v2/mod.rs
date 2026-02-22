@@ -494,7 +494,7 @@ pub(crate) async fn handle_network_update<Context>(
 		NetworkBridgeEvent::PeerMessage(peer_id, message) => match message {
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
-			) =>
+			) => {
 				handle_incoming_statement(
 					ctx,
 					state,
@@ -504,18 +504,21 @@ pub(crate) async fn handle_network_update<Context>(
 					reputation,
 					metrics,
 				)
-				.await,
+				.await
+			},
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(inner),
 			) => handle_incoming_manifest(ctx, state, peer_id, inner, reputation, metrics).await,
 			net_protocol::StatementDistributionMessage::V3(
 				protocol_v3::StatementDistributionMessage::BackedCandidateKnown(inner),
-			) =>
+			) => {
 				handle_incoming_acknowledgement(ctx, state, peer_id, inner, reputation, metrics)
-					.await,
+					.await
+			},
 		},
-		NetworkBridgeEvent::PeerViewChange(peer_id, view) =>
-			handle_peer_view_update(ctx, state, peer_id, view, metrics).await,
+		NetworkBridgeEvent::PeerViewChange(peer_id, view) => {
+			handle_peer_view_update(ctx, state, peer_id, view, metrics).await
+		},
 		NetworkBridgeEvent::OurViewChange(_view) => {
 			// handled by `handle_activated_leaf`
 		},
@@ -1161,10 +1164,12 @@ pub(crate) async fn share_local_statement<Context>(
 	// Two possibilities: either the statement is `Seconded` or we already
 	// have the candidate. Sanity: check the para-id is valid.
 	let expected = match statement.payload() {
-		FullStatementWithPVD::Seconded(ref c, _) =>
-			Some((c.descriptor.para_id(), c.descriptor.relay_parent())),
-		FullStatementWithPVD::Valid(hash) =>
-			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent())),
+		FullStatementWithPVD::Seconded(ref c, _) => {
+			Some((c.descriptor.para_id(), c.descriptor.relay_parent()))
+		},
+		FullStatementWithPVD::Valid(hash) => {
+			state.candidates.get_confirmed(&hash).map(|c| (c.para_id(), c.relay_parent()))
+		},
 	};
 
 	let is_seconded = match statement.payload() {
@@ -1789,8 +1794,9 @@ fn handle_cluster_statement(
 			Ok(ClusterAccept::Ok) => true,
 			Ok(ClusterAccept::WithPrejudice) => false,
 			Err(ClusterRejectIncoming::ExcessiveSeconded) => return Err(COST_EXCESSIVE_SECONDED),
-			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =>
-				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
+			Err(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) => {
+				return Err(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED)
+			},
 			Err(ClusterRejectIncoming::NotInGroup) => {
 				// sanity: shouldn't be possible; we already filtered this
 				// out above.
@@ -1989,12 +1995,13 @@ async fn provide_candidate_to_grid<Context>(
 	for (v, action) in actions {
 		let p = match connected_validator_peer(authorities, per_session, v) {
 			None => continue,
-			Some(p) =>
+			Some(p) => {
 				if peers.get(&p).map_or(false, |d| d.knows_relay_parent(&relay_parent)) {
 					(p, peers.get(&p).expect("Qed, was checked above").protocol_version.into())
 				} else {
 					continue;
-				},
+				}
+			},
 		};
 
 		match action {
@@ -2940,8 +2947,9 @@ pub(crate) async fn receive_response(response_manager: &mut ResponseManager) -> 
 /// this API must call `dispatch_requests`.
 pub(crate) async fn next_retry(request_manager: &mut RequestManager) {
 	match request_manager.next_retry_time() {
-		Some(instant) =>
-			futures_timer::Delay::new(instant.saturating_duration_since(Instant::now())).await,
+		Some(instant) => {
+			futures_timer::Delay::new(instant.saturating_duration_since(Instant::now())).await
+		},
 		None => futures::future::pending().await,
 	}
 }

@@ -90,7 +90,7 @@ impl std::str::FromStr for Select {
 		match s {
 			"all" | "All" => Ok(Select::All),
 			"none" | "None" => Ok(Select::None),
-			_ =>
+			_ => {
 				if s.starts_with("rr-") {
 					let count = s
 						.split_once('-')
@@ -108,7 +108,8 @@ impl std::str::FromStr for Select {
 				} else {
 					let pallets = s.split(',').map(|x| x.as_bytes().to_vec()).collect::<Vec<_>>();
 					Ok(Select::Only(pallets))
-				},
+				}
+			},
 		}
 	}
 }

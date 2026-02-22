@@ -1222,10 +1222,12 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 				let mut decoded_messages = Vec::new();
 				while !data.is_empty() {
 					let message_bytes = match decoded_format {
-						XcmpMessageFormat::ConcatenatedVersionedXcm =>
-							Self::take_first_concatenated_xcm(data, &mut WeightMeter::new()),
-						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =>
-							Self::take_first_concatenated_opaque_xcm(data),
+						XcmpMessageFormat::ConcatenatedVersionedXcm => {
+							Self::take_first_concatenated_xcm(data, &mut WeightMeter::new())
+						},
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+							Self::take_first_concatenated_opaque_xcm(data)
+						},
 						unexpected_format => {
 							panic!("Unexpected XCMP format: {unexpected_format:?}!")
 						},

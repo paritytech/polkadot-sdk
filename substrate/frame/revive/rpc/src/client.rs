@@ -21,18 +21,18 @@ pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
 
 use crate::{
-	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo,
+	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
-	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256,
-	},
 	EthTransactError,
+	evm::{
+		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, decode_revert_reason,
+	},
 };
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
@@ -40,16 +40,16 @@ use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
+	Config, OnlineClient,
 	backend::{
-		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
+		legacy::{LegacyRpcMethods, rpc_methods::SystemHealth},
 		rpc::{
-			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 		},
 	},
 	config::{HashFor, Header},
 	ext::subxt_rpcs::rpc_params,
-	Config, OnlineClient,
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -142,8 +142,9 @@ impl From<ClientError> for ErrorObjectOwned {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
 			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
+			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -153,10 +154,12 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::TransactError(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }

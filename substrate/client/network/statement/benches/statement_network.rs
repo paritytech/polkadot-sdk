@@ -21,7 +21,7 @@ use futures::{stream, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
 	utils::LruHashSet,
-	NetworkPeers, ObservedRole,
+	NetworkPeers,
 };
 use sc_network_statement::{
 	config::{MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
@@ -198,7 +198,15 @@ fn build_handler(
 	);
 	let client = Arc::new(client);
 	let keystore = Arc::new(sc_keystore::LocalKeystore::in_memory());
-	let statement_store = Store::new(&path, Default::default(), client, keystore, None).unwrap();
+	let statement_store = Store::new(
+		&path,
+		Default::default(),
+		client,
+		keystore,
+		None,
+		Box::new(sp_core::testing::TaskExecutor::new()),
+	)
+	.unwrap();
 	let statement_store = Arc::new(statement_store);
 
 	let (queue_sender, queue_receiver) = async_channel::bounded::<(
@@ -211,10 +219,7 @@ fn build_handler(
 	let mut peers = HashMap::new();
 	peers.insert(
 		peer_id,
-		Peer::new_for_testing(
-			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
-			ObservedRole::Full,
-		),
+		Peer::new_for_testing(LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap())),
 	);
 
 	for _ in 0..num_threads {
