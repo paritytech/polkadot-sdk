@@ -408,8 +408,20 @@ impl Index {
 		purged
 	}
 
-	fn take_recent(&mut self) -> HashSet<Hash> {
-		std::mem::take(&mut self.recent)
+	fn take_recent(&mut self, max: usize) -> HashSet<Hash> {
+		if max >= self.recent.len() {
+			return std::mem::take(&mut self.recent);
+		}
+		let mut taken = HashSet::with_capacity(max);
+		self.recent.retain(|hash| {
+			if taken.len() < max {
+				taken.insert(*hash);
+				false
+			} else {
+				true
+			}
+		});
+		taken
 	}
 
 	fn make_expired(&mut self, hash: &Hash, current_time: u64) -> bool {
@@ -990,9 +1002,9 @@ impl StatementStore for Store {
 		Ok(result)
 	}
 
-	fn take_recent_statements(&self) -> Result<Vec<(Hash, Statement)>> {
+	fn take_recent_statements(&self, max: usize) -> Result<Vec<(Hash, Statement)>> {
 		let mut index = self.index.write();
-		let recent = index.take_recent();
+		let recent = index.take_recent(max);
 		let mut result = Vec::with_capacity(recent.len());
 		for hash in recent {
 			let Some(encoded) =
@@ -1653,25 +1665,64 @@ mod tests {
 		let _ = store.submit(statement1.clone(), StatementSource::Local);
 		let _ = store.submit(statement2.clone(), StatementSource::Local);
 
-		let recent1 = store.take_recent_statements().unwrap();
+		let recent1 = store.take_recent_statements(usize::MAX).unwrap();
 		let (recent1_hashes, recent1_statements): (Vec<_>, Vec<_>) = recent1.into_iter().unzip();
 		let expected1 = vec![statement0, statement1, statement2];
 		assert!(expected1.iter().all(|s| recent1_hashes.contains(&s.hash())));
 		assert!(expected1.iter().all(|s| recent1_statements.contains(s)));
 
 		// Recent statements are cleared.
-		let recent2 = store.take_recent_statements().unwrap();
+		let recent2 = store.take_recent_statements(usize::MAX).unwrap();
 		assert_eq!(recent2.len(), 0);
 
 		store.submit(statement3.clone(), StatementSource::Network);
 
-		let recent3 = store.take_recent_statements().unwrap();
+		let recent3 = store.take_recent_statements(usize::MAX).unwrap();
 		let (recent3_hashes, recent3_statements): (Vec<_>, Vec<_>) = recent3.into_iter().unzip();
 		let expected3 = vec![statement3];
 		assert!(expected3.iter().all(|s| recent3_hashes.contains(&s.hash())));
 		assert!(expected3.iter().all(|s| recent3_statements.contains(s)));
 
 		// Recent statements are cleared, but statements remain in the store.
+		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
+	fn take_recent_statements_respects_max() {
+		let (store, _temp) = test_store();
+		let statement0 = signed_statement(0);
+		let statement1 = signed_statement(1);
+		let statement2 = signed_statement(2);
+		let statement3 = signed_statement(3);
+
+		let _ = store.submit(statement0.clone(), StatementSource::Local);
+		let _ = store.submit(statement1.clone(), StatementSource::Local);
+		let _ = store.submit(statement2.clone(), StatementSource::Local);
+		let _ = store.submit(statement3.clone(), StatementSource::Local);
+
+		// Take only 2 of 4
+		let batch1 = store.take_recent_statements(2).unwrap();
+		assert_eq!(batch1.len(), 2);
+
+		// Take 2 more should get the remaining 2
+		let batch2 = store.take_recent_statements(2).unwrap();
+		assert_eq!(batch2.len(), 2);
+
+		// Nothing left
+		let batch3 = store.take_recent_statements(2).unwrap();
+		assert_eq!(batch3.len(), 0);
+
+		// No duplicates across batches
+		let all_hashes: Vec<_> =
+			batch1.iter().chain(batch2.iter()).map(|(h, _)| *h).collect();
+		let unique: std::collections::HashSet<_> = all_hashes.iter().collect();
+		assert_eq!(all_hashes.len(), unique.len());
+
+		// All 4 original statements were returned
+		let expected = [statement0, statement1, statement2, statement3];
+		assert!(expected.iter().all(|s| all_hashes.contains(&s.hash())));
+
+		// Statements remain in the store
 		assert_eq!(store.statements().unwrap().len(), 4);
 	}
 

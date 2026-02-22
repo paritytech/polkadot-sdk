@@ -326,7 +326,6 @@ impl StatementHandlerPrototype {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
-			pending_propagation: Vec::new(),
 		};
 
 		Ok(handler)
@@ -581,8 +580,6 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Pending statement send operations, polled by the main loop.
 	pending_sends: PendingSends,
-	/// Buffer for statements that exceeded the per-cycle propagation limit.
-	pending_propagation: Vec<(Hash, Statement)>,
 }
 
 /// Peer information
@@ -778,7 +775,6 @@ where
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
-			pending_propagation: Vec::new(),
 		}
 	}
 
@@ -1146,20 +1142,13 @@ where
 			return;
 		}
 
-		let mut statements = std::mem::take(&mut self.pending_propagation);
-
-		if let Ok(recent) = self.statement_store.take_recent_statements() {
-			statements.extend(recent);
-		}
-
-		if statements.is_empty() {
-			return;
-		}
-
-		// Save overflow to the buffer for the next cycle
-		if statements.len() > MAX_STATEMENTS_PER_PROPAGATION {
-			self.pending_propagation = statements.split_off(MAX_STATEMENTS_PER_PROPAGATION);
-		}
+		let statements = match self
+			.statement_store
+			.take_recent_statements(MAX_STATEMENTS_PER_PROPAGATION)
+		{
+			Ok(s) if !s.is_empty() => s,
+			_ => return,
+		};
 
 		self.do_propagate_statements(&statements);
 	}
@@ -1562,10 +1551,16 @@ mod tests {
 
 		fn take_recent_statements(
 			&self,
+			max: usize,
 		) -> sp_statement_store::Result<
 			Vec<(sp_statement_store::Hash, sp_statement_store::Statement)>,
 		> {
-			Ok(self.recent_statements.lock().unwrap().drain().collect())
+			let mut recent = self.recent_statements.lock().unwrap();
+			if max >= recent.len() {
+				return Ok(recent.drain().collect());
+			}
+			let keys: Vec<_> = recent.keys().copied().take(max).collect();
+			Ok(keys.into_iter().filter_map(|k| recent.remove(&k).map(|v| (k, v))).collect())
 		}
 
 		fn statement(
@@ -1730,7 +1725,6 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
-			pending_propagation: Vec::new(),
 		};
 		(
 			handler,
@@ -2022,7 +2016,6 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
-			pending_propagation: Vec::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2091,7 +2084,6 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
-			pending_propagation: Vec::new(),
 		};
 		(
 			handler,
@@ -2548,7 +2540,8 @@ mod tests {
 		let handle = tokio::spawn(handler.run());
 
 		// Advance time to trigger propagate_timeout (fires at 1 second intervals)
-		tokio::time::advance(std::time::Duration::from_secs(2)).await;
+		// With 600 statements and a batch limit of 256, we need 3 ticks (256+256+88)
+		tokio::time::advance(std::time::Duration::from_secs(4)).await;
 		tokio::task::yield_now().await;
 
 		// Collect sent notifications (time-boxed)

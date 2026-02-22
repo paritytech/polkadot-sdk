@@ -572,8 +572,14 @@ impl sp_statement_store::StatementStore for BenchStatementStore {
 
 	fn take_recent_statements(
 		&self,
+		max: usize,
 	) -> sp_statement_store::Result<Vec<(sp_statement_store::Hash, Statement)>> {
-		Ok(self.recent_statements.lock().unwrap().drain().collect())
+		let mut recent = self.recent_statements.lock().unwrap();
+		if max >= recent.len() {
+			return Ok(recent.drain().collect());
+		}
+		let keys: Vec<_> = recent.keys().copied().take(max).collect();
+		Ok(keys.into_iter().filter_map(|k| recent.remove(&k).map(|v| (k, v))).collect())
 	}
 
 	fn statement(
