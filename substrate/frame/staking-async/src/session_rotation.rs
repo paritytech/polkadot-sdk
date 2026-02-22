@@ -377,6 +377,13 @@ impl<T: Config> Eras<T> {
 		});
 	}
 
+	/// Update the total validator self-stake weight for all the elected validators in the era.
+	pub(crate) fn add_total_validator_weight(era: EraIndex, weight: BalanceOf<T>) {
+		<ErasTotalValidatorWeight<T>>::mutate(era, |total_weight| {
+			*total_weight += weight;
+		});
+	}
+
 	/// Check if the rewards for the given era and page index have been claimed.
 	pub(crate) fn is_rewards_claimed(era: EraIndex, validator: &T::AccountId, page: Page) -> bool {
 		ClaimedRewards::<T>::get(era, validator).contains(&page)
@@ -471,13 +478,14 @@ impl<T: Config> Eras<T> {
 		// `ErasValidatorReward` is set at active era n for era n-1
 		let e3 = ErasValidatorReward::<T>::contains_key(era);
 		let e4 = ErasTotalStake::<T>::contains_key(era);
+		let e5 = ErasTotalValidatorWeight::<T>::contains_key(era);
 
 		// these two are only populated conditionally, so we only check them for lack of existence
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
 		// Check if era info is consistent - if not, era is in partial pruning state
-		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+		if !vec![e0, e1, e2, e3, e4, e5, e6, e7].windows(2).all(|w| w[0] == w[1]) {
 			return Err("era info absence not consistent - partial pruning state".into());
 		}
 
@@ -1103,6 +1111,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	) -> BoundedVec<T::AccountId, MaxWinnersPerPageOf<T::ElectionProvider>> {
 		// populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake_page: BalanceOf<T> = Zero::zero();
+		let mut total_validator_weight_page: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
 		let mut total_backers = 0u32;
 
@@ -1119,6 +1128,16 @@ impl<T: Config> EraElectionPlanner<T> {
 			// accumulate total stake and backer count for bookkeeping.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			total_backers += exposure.others.len() as u32;
+
+			// calculate and accumulate validator self-stake weight for incentive distribution.
+			let validator_weight = validator_incentive::calculate_self_stake_weight(
+				exposure.own,
+				OptimumSelfStake::<T>::get(),
+				HardCapSelfStake::<T>::get(),
+				SelfStakeSlopeFactor::<T>::get(),
+			);
+			total_validator_weight_page = total_validator_weight_page.saturating_add(validator_weight);
+
 			// set or update staker exposure for this era.
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 		});
@@ -1130,6 +1149,9 @@ impl<T: Config> EraElectionPlanner<T> {
 
 		// adds to total stake in this era.
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
+
+		// adds to total validator self-stake weight for incentive distribution.
+		Eras::<T>::add_total_validator_weight(new_planned_era, total_validator_weight_page);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in

@@ -795,6 +795,13 @@ pub mod pallet {
 	pub type ErasTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
+	/// The total validator self-stake weight for the last [`Config::HistoryDepth`] eras.
+	/// Used for distributing validator self-stake incentive rewards proportionally.
+	/// If total hasn't been set or has been removed then 0 weight is returned.
+	#[pallet::storage]
+	pub type ErasTotalValidatorWeight<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
 	/// Mode of era forcing.
 	#[pallet::storage]
 	pub type ForceEra<T> = StorageValue<_, Forcing, ValueQuery>;
@@ -1520,6 +1527,7 @@ pub mod pallet {
 				},
 				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
+					ErasTotalValidatorWeight::<T>::remove(era);
 					// Also clean up ErasNominatorsSlashable
 					ErasNominatorsSlashable::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
