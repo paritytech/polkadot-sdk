@@ -78,7 +78,6 @@
 
 use crate::{reward::EraRewardManager, *};
 use alloc::{boxed::Box, vec::Vec};
-use sp_staking::ValidatorIncentiveCalculator;
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
@@ -89,6 +88,7 @@ use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
+	StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -1144,13 +1144,14 @@ impl<T: Config> EraElectionPlanner<T> {
 			total_backers += exposure.others.len() as u32;
 
 			// calculate and accumulate validator self-stake weight for incentive distribution.
-			let validator_weight = T::ValidatorIncentiveCalculator::calculate_weight(
+			let validator_weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(
 				exposure.own,
 				OptimumSelfStake::<T>::get(),
 				HardCapSelfStake::<T>::get(),
 				SelfStakeSlopeFactor::<T>::get(),
 			);
-			total_validator_weight_page = total_validator_weight_page.saturating_add(validator_weight);
+			total_validator_weight_page =
+				total_validator_weight_page.saturating_add(validator_weight);
 
 			// store individual validator weight for this era.
 			ErasValidatorIncentive::<T>::insert(new_planned_era, &stash, validator_weight);

@@ -194,7 +194,6 @@ mod pallet;
 pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
-pub mod validator_incentive;
 pub mod weights;
 
 extern crate alloc;

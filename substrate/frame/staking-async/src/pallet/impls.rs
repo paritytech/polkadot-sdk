@@ -52,7 +52,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake, StakerRewardCalculator,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -415,19 +415,20 @@ impl<T: Config> Pallet<T> {
 		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
-		// total commission validator takes across all nominator pages
-		let validator_total_commission_payout =
-			validator_commission.mul_floor(validator_total_payout);
 
-		let validator_leftover_payout =
-			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
-		// Now let's calculate how this is split to the validator.
-		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
-		let validator_staking_payout = validator_exposure_part.mul_floor(validator_leftover_payout);
+		// Use the StakerRewardCalculator trait to calculate reward distribution
+		let reward_split = T::StakerRewardCalculator::calculate_staker_reward(
+			validator_total_payout,
+			validator_commission,
+			exposure.own(),
+			exposure.total(),
+		);
+
+		// For this page, calculate validator and nominator portions
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
-		// validator commission is paid out in fraction across pages proportional to the page stake.
-		let validator_commission_payout =
-			page_stake_part.mul_floor(validator_total_commission_payout);
+
+		// Validator gets their share proportional to page stake
+		let validator_payout_for_page = page_stake_part.mul_floor(reward_split.validator_payout);
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -435,9 +436,6 @@ impl<T: Config> Pallet<T> {
 			page,
 			next: Eras::<T>::get_next_claimable_page(era, &stash),
 		});
-
-		// Calculate total validator payout (staking + commission)
-		let validator_total = validator_staking_payout + validator_commission_payout;
 
 		// Track the number of payout ops to nominators. Note:
 		// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
@@ -449,9 +447,9 @@ impl<T: Config> Pallet<T> {
 			Self::payout_from_provider(
 				era,
 				&stash,
-				validator_total,
+				validator_payout_for_page,
 				&exposure,
-				validator_leftover_payout,
+				reward_split.nominator_payout,
 			)
 		} else {
 			// LEGACY: Only used to support old (History Depth) eras which are already finalised
@@ -468,7 +466,12 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 
-			Self::payout_legacy_mint(&stash, validator_total, &exposure, validator_leftover_payout)
+			Self::payout_legacy_mint(
+				&stash,
+				validator_payout_for_page,
+				&exposure,
+				reward_split.nominator_payout,
+			)
 		};
 
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
@@ -500,8 +503,12 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Payout nominators
+		// Calculate each nominator's reward based on their share of total nominator stake
+		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
 		for nominator in exposure.others().iter() {
-			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+			// Calculate this nominator's share of total nominator payout
+			let nominator_exposure_part =
+				Perbill::from_rational(nominator.value, total_nominator_stake);
 			// Use mul_floor to ensure we round down and never exceed total_nominator_payout
 			let nominator_reward: BalanceOf<T> =
 				nominator_exposure_part.mul_floor(total_nominator_payout);
@@ -547,8 +554,12 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Payout nominators
+		// Calculate each nominator's reward based on their share of total nominator stake
+		let total_nominator_stake = exposure.total().saturating_sub(exposure.own());
 		for nominator in exposure.others().iter() {
-			let nominator_exposure_part = Perbill::from_rational(nominator.value, exposure.total());
+			// Calculate this nominator's share of total nominator payout
+			let nominator_exposure_part =
+				Perbill::from_rational(nominator.value, total_nominator_stake);
 			// Use mul_floor to ensure we round down and never exceed total_nominator_payout
 			let nominator_reward: BalanceOf<T> =
 				nominator_exposure_part.mul_floor(total_nominator_payout);

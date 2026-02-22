@@ -136,3 +136,88 @@ impl<T: Config> EraRewardManager<T> {
 		Self::destroy(era, EraPotType::ValidatorSelfStake);
 	}
 }
+
+/// Default implementation of the staker reward calculator.
+///
+/// Implements:
+/// - Sqrt-based piecewise reward curve for validator self-stake incentives
+/// - Standard staking reward distribution (commission + proportional stake split)
+pub struct DefaultStakerRewardCalculator;
+
+impl<AccountId, Balance> sp_staking::StakerRewardCalculator<AccountId, Balance>
+	for DefaultStakerRewardCalculator
+where
+	AccountId: Clone,
+	Balance: sp_runtime::traits::AtLeast32BitUnsigned + Copy + Into<u128> + From<u128>,
+{
+	fn calculate_validator_incentive_weight(
+		self_stake: Balance,
+		optimum: Balance,
+		cap: Balance,
+		slope_factor: Perbill,
+	) -> Balance {
+		// If self-stake is zero, return zero weight
+		if self_stake.is_zero() {
+			return Balance::zero();
+		}
+
+		// If config is not set (both optimum and cap are zero), return zero weight
+		if optimum.is_zero() && cap.is_zero() {
+			return Balance::zero();
+		}
+
+		// Convert to u128 for sqrt calculation
+		let self_stake_u128: u128 = self_stake.into();
+		let optimum_u128: u128 = optimum.into();
+		let cap_u128: u128 = cap.into();
+
+		// Calculate weight based on piecewise function
+		let weight_u128 = if self_stake <= optimum {
+			// Below optimum: w(s) = √s
+			sp_arithmetic::helpers_128bit::sqrt(self_stake_u128)
+		} else if self_stake <= cap {
+			// Between optimum and cap: w(s) = √(T + k² × (s - T))
+			let k_squared = slope_factor.square();
+			let excess = self_stake_u128.saturating_sub(optimum_u128);
+			let k_squared_times_excess = k_squared.mul_floor(excess);
+			let arg = optimum_u128.saturating_add(k_squared_times_excess);
+			sp_arithmetic::helpers_128bit::sqrt(arg)
+		} else {
+			// Above cap: w(s) = √(T + k² × (C - T)) (plateau)
+			let k_squared = slope_factor.square();
+			let excess = cap_u128.saturating_sub(optimum_u128);
+			let k_squared_times_excess = k_squared.mul_floor(excess);
+			let arg = optimum_u128.saturating_add(k_squared_times_excess);
+			sp_arithmetic::helpers_128bit::sqrt(arg)
+		};
+
+		// Convert back to Balance
+		Balance::from(weight_u128)
+	}
+
+	fn calculate_staker_reward(
+		validator_total_reward: Balance,
+		validator_commission: Perbill,
+		validator_own_stake: Balance,
+		total_stake: Balance,
+	) -> sp_staking::StakerRewardResult<Balance> {
+		// Calculate total commission the validator takes
+		let validator_commission_payout = validator_commission.mul_floor(validator_total_reward);
+
+		// Calculate leftover after commission
+		let leftover = validator_total_reward.saturating_sub(validator_commission_payout);
+
+		// Calculate validator's staking payout (their share of the leftover based on own stake)
+		let validator_exposure_part = Perbill::from_rational(validator_own_stake, total_stake);
+		let validator_staking_payout = validator_exposure_part.mul_floor(leftover);
+
+		// Calculate total validator payout (staking + commission)
+		let validator_payout = validator_staking_payout.saturating_add(validator_commission_payout);
+
+		// Calculate total nominator payout as remainder to avoid double rounding
+		// This ensures validator_payout + nominator_payout = commission + leftover exactly
+		let nominator_payout = leftover.saturating_sub(validator_staking_payout);
+
+		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
+	}
+}

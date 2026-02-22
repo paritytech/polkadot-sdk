@@ -860,12 +860,25 @@ where
 	}
 }
 
-/// Trait for calculating validator self-stake incentive weights.
+/// Result of staker reward calculation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StakerRewardResult<Balance> {
+	/// Total payout for the validator (staking reward + commission)
+	pub validator_payout: Balance,
+	/// Total payout for all nominators (to be split proportionally by caller)
+	pub nominator_payout: Balance,
+}
+
+/// Trait for calculating staking rewards including validator incentives.
 ///
-/// This trait allows runtimes to customize how validator self-stake is weighted
-/// for the purpose of distributing self-stake incentive rewards.
-pub trait ValidatorIncentiveCalculator<Balance> {
+/// This trait allows runtimes to customize both:
+/// - How validator self-stake is weighted for self-stake incentive rewards
+/// - How staking rewards are distributed between validators and nominators
+pub trait StakerRewardCalculator<AccountId, Balance> {
 	/// Calculate the reward weight for a validator's self-stake.
+	///
+	/// Used for distributing validator self-stake incentive rewards proportionally
+	/// based on the sqrt-based piecewise curve.
 	///
 	/// # Arguments
 	/// * `self_stake` - The validator's self-stake amount
@@ -875,12 +888,33 @@ pub trait ValidatorIncentiveCalculator<Balance> {
 	///
 	/// # Returns
 	/// The weight to be used for distributing rewards proportionally.
-	fn calculate_weight(
+	fn calculate_validator_incentive_weight(
 		self_stake: Balance,
 		optimum: Balance,
 		cap: Balance,
 		slope_factor: Perbill,
 	) -> Balance;
+
+	/// Calculate how staking rewards are distributed between validator and nominators.
+	///
+	/// This implements the standard staking reward distribution:
+	/// 1. Apply validator commission
+	/// 2. Split remaining between validator and nominators based on stake
+	///
+	/// # Arguments
+	/// * `validator_total_reward` - Total reward allocated to this validator and their nominators
+	/// * `validator_commission` - The validator's commission rate
+	/// * `validator_own_stake` - The validator's own stake amount
+	/// * `total_stake` - Total stake (validator + all nominators)
+	///
+	/// # Returns
+	/// Total payout for validator (staking + commission) and total for all nominators
+	fn calculate_staker_reward(
+		validator_total_reward: Balance,
+		validator_commission: Perbill,
+		validator_own_stake: Balance,
+		total_stake: Balance,
+	) -> StakerRewardResult<Balance>;
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

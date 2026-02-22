@@ -390,12 +390,16 @@ pub mod pallet {
 		/// another way (such as pools).
 		type Filter: Contains<Self::AccountId>;
 
-		/// Calculator for validator self-stake incentive weights.
+		/// Calculator for staker rewards including validator self-stake incentives.
 		///
-		/// This determines how validator self-stake is weighted for distributing
-		/// self-stake incentive rewards.
+		/// This determines:
+		/// - How validator self-stake is weighted for distributing self-stake incentive rewards
+		/// - How staking rewards are distributed between validators and nominators
 		#[pallet::no_default_bounds]
-		type ValidatorIncentiveCalculator: sp_staking::ValidatorIncentiveCalculator<BalanceOf<Self>>;
+		type StakerRewardCalculator: sp_staking::StakerRewardCalculator<
+			Self::AccountId,
+			BalanceOf<Self>,
+		>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -453,7 +457,7 @@ pub mod pallet {
 			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
-			type ValidatorIncentiveCalculator = crate::validator_incentive::DefaultValidatorIncentiveCalculator;
+			type StakerRewardCalculator = crate::reward::DefaultStakerRewardCalculator;
 			type WeightInfo = ();
 		}
 	}

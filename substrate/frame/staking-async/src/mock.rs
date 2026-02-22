@@ -471,7 +471,7 @@ impl crate::pallet::pallet::Config for Test {
 	type RewardProvider = Dap;
 	type UnclaimedRewardSink = Dap;
 	type EraPotAccountProvider = SequentialTest;
-	type ValidatorIncentiveCalculator = crate::validator_incentive::DefaultValidatorIncentiveCalculator;
+	type StakerRewardCalculator = crate::reward::DefaultStakerRewardCalculator;
 	type WeightInfo = ();
 }
 
