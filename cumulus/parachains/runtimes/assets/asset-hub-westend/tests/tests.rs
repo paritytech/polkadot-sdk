@@ -2468,4 +2468,97 @@ mod remote_test {
 			println!("Total claimed,{}.{:02} DOT", total_whole, total_fraction);
 		});
 	}
+
+	/// Check if SubPoolsStorage for pool 12 exists at the raw storage level.
+	///
+	/// This test checks if the raw storage bytes exist but perhaps can't be decoded,
+	/// vs the storage genuinely not existing in the snapshot.
+	///
+	/// Run with:
+	/// ```bash
+	/// SNAP=~/github/snaps/pah.snap cargo test -p asset-hub-westend-runtime check_raw_subpools_storage -- --ignored --nocapture
+	/// ```
+	#[tokio::test]
+	#[ignore]
+	async fn check_raw_subpools_storage() {
+		use pallet_nomination_pools::SubPoolsStorage;
+		use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
+
+		let snap_path =
+			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
+
+		println!("Loading snapshot from: {}", snap_path);
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::OfflineOrElseOnline(
+				OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path.clone()) },
+				OnlineConfig {
+					transport_uris: vec!["ws://localhost:9944".to_string()],
+					state_snapshot: Some(SnapshotConfig::new(snap_path)),
+					..Default::default()
+				},
+			))
+			.build()
+			.await
+			.expect("Failed to load snapshot");
+
+		ext.execute_with(|| {
+			println!("\n🔍 Checking raw storage for pool 12 SubPoolsStorage...\n");
+
+			// Storage key for SubPoolsStorage for pool 12
+			// Format: twox128("NominationPools") + twox128("SubPoolsStorage") + twox64(12) + 12
+			let storage_key = hex_literal::hex!(
+				"7a6d38deaa01cb6e76ee69889f169627a09a44dda6e50da0e42409e84ea3daa4ef8763d79d01484e0c000000"
+			);
+
+			// Format as hex string
+			let key_hex = storage_key.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+			println!("Storage key: 0x{}", key_hex);
+
+			// Try to get raw storage
+			let raw_value = sp_io::storage::get(&storage_key);
+
+			match raw_value {
+				Some(bytes) => {
+					println!("✅ Raw storage EXISTS!");
+					println!("  Length: {} bytes", bytes.len());
+					let preview_len = bytes.len().min(100);
+					let bytes_hex = bytes[..preview_len].iter().map(|b| format!("{:02x}", b)).collect::<String>();
+					println!("  First {} bytes: 0x{}", preview_len, bytes_hex);
+
+					// Try to decode it
+					use codec::Decode;
+					use pallet_nomination_pools::SubPools;
+					match SubPools::<Runtime>::decode(&mut &bytes[..]) {
+						Ok(subpools) => {
+							println!("✅ Successfully decoded SubPools!");
+							println!("  no_era points: {}", subpools.no_era.points);
+							println!("  no_era balance: {}", subpools.no_era.balance);
+							println!("  with_era entries: {}", subpools.with_era.len());
+						}
+						Err(e) => {
+							println!("❌ Failed to decode: {:?}", e);
+							println!("  This suggests a decoding issue, not missing storage!");
+						}
+					}
+				}
+				None => {
+					println!("❌ Raw storage DOES NOT EXIST at this key!");
+					println!("  The storage is genuinely missing from the snapshot.");
+				}
+			}
+
+			// Compare with high-level API
+			println!("\nComparing with SubPoolsStorage::get(12):");
+			match SubPoolsStorage::<Runtime>::get(12) {
+				Some(subpools) => {
+					println!("✅ SubPoolsStorage::get(12) returned Some");
+					println!("  no_era points: {}", subpools.no_era.points);
+				}
+				None => {
+					println!("❌ SubPoolsStorage::get(12) returned None");
+				}
+			}
+		});
+	}
 }

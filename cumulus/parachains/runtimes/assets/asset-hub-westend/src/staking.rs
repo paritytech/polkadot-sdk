@@ -260,7 +260,7 @@ parameter_types! {
 	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
 	pub const RelaySessionDuration: BlockNumber = 1 * HOURS;
 	// 2 eras for unbonding (12 hours).
-	pub const BondingDuration: sp_staking::EraIndex = 2;
+	pub const BondingDuration: sp_staking::EraIndex = 28;
 	// Nominators can unbond faster when not slashable (2 eras = 12 hours).
 	pub const NominatorFastUnbondDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
