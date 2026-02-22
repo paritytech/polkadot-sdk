@@ -385,7 +385,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn schedule_retry(
+	fn schedule_retry_periodic(
 		s: Linear<1, { T::MaxScheduledPerBucket::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let bucket: BucketFor<T> = BUCKET.into();
@@ -393,10 +393,12 @@ mod benchmarks {
 		fill_schedule::<T>(bucket, s)?;
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let period: BucketFor<T> = 1_u32.into();
-		let retry_config =
-			RetryConfig { total_retries: 10, remaining: 10, period, try_same_bucket_first: false };
-		Retries::<T>::insert(address, retry_config);
+		let retry_config = RetryConfig {
+			total_retries: 10,
+			remaining: 10,
+			strategy: RetryStrategy::Periodic(1_u32.into()),
+		};
+		Retries::<T>::insert(address, retry_config.clone());
 		let (bucket, index) = address;
 		let task = Agenda::<T>::get(bucket)[index as usize].clone().unwrap();
 		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
@@ -418,8 +420,7 @@ mod benchmarks {
 			Some(RetryConfig {
 				total_retries: 10,
 				remaining: 9,
-				period,
-				try_same_bucket_first: false,
+				strategy: RetryStrategy::Periodic(1_u32.into()),
 			})
 		);
 
@@ -427,7 +428,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn schedule_retry_try_same_bucket(
+	fn schedule_retry_same_bucket(
 		s: Linear<1, { T::MaxScheduledPerBucket::get() - 1 }>,
 	) -> Result<(), BenchmarkError> {
 		let bucket: BucketFor<T> = BUCKET.into();
@@ -436,17 +437,19 @@ mod benchmarks {
 		fill_schedule::<T>(bucket, T::MaxScheduledPerBucket::get())?;
 		let name = u32_to_name(T::MaxScheduledPerBucket::get() - 1);
 		let address = Lookup::<T>::get(name).unwrap();
-		let period: BucketFor<T> = 1_u32.into();
-		let retry_config =
-			RetryConfig { total_retries: 10, remaining: 10, period, try_same_bucket_first: true };
-		Retries::<T>::insert(address, retry_config);
+		let retry_config = RetryConfig {
+			total_retries: 10,
+			remaining: 10,
+			strategy: RetryStrategy::SameBucket,
+		};
+		Retries::<T>::insert(address, retry_config.clone());
 		let (bucket, index) = address;
 		let task = Agenda::<T>::get(bucket)[index as usize].clone().unwrap();
 
-		// Fill the target bucket (bucket + period) with `s` items so place_task
+		// Fill the fallback bucket (bucket + 1) with `s` items so place_task
 		// must scan through them. One slot remains for the retry task.
-		let target_bucket = bucket + One::one();
-		fill_schedule_offset::<T>(target_bucket, s, T::MaxScheduledPerBucket::get())?;
+		let next_bucket = bucket + One::one();
+		fill_schedule_offset::<T>(next_bucket, s, T::MaxScheduledPerBucket::get())?;
 
 		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 
@@ -461,9 +464,53 @@ mod benchmarks {
 			);
 		}
 
-		// Same bucket was full, so retry goes to target_bucket (bucket + period).
+		// Same bucket was full, so retry goes to next_bucket (bucket + 1).
 		// It's appended after the `s` items already there.
-		assert!(Retries::<T>::get((target_bucket, s)).is_some());
+		assert!(Retries::<T>::get((next_bucket, s)).is_some());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn schedule_retry_exponential_backoff(
+		s: Linear<1, { T::MaxScheduledPerBucket::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let bucket: BucketFor<T> = BUCKET.into();
+
+		fill_schedule::<T>(bucket, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let retry_config = RetryConfig {
+			total_retries: 10,
+			remaining: 10,
+			strategy: RetryStrategy::ExponentialBackoff,
+		};
+		Retries::<T>::insert(address, retry_config.clone());
+		let (bucket, index) = address;
+		let task = Agenda::<T>::get(bucket)[index as usize].clone().unwrap();
+		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
+
+		#[block]
+		{
+			Pallet::<T>::schedule_retry(
+				&mut weight_counter,
+				bucket,
+				index,
+				&task,
+				retry_config,
+			);
+		}
+
+		// First attempt (attempt=0): target = bucket + 2^0 = bucket + 1
+		let target_bucket = bucket + One::one();
+		assert_eq!(
+			Retries::<T>::get((target_bucket, 0)),
+			Some(RetryConfig {
+				total_retries: 10,
+				remaining: 9,
+				strategy: RetryStrategy::ExponentialBackoff,
+			})
+		);
 
 		Ok(())
 	}
@@ -478,29 +525,25 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (bucket, index) = address;
 		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-		// Duration in ms (converted to 1 bucket period internally)
-		let duration: TimeFor<T> = bucket_resolution;
-		let stored_period: BucketFor<T> = One::one();
+		let strategy = RetryStrategy::Periodic(bucket_resolution);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, (bucket, index), 10, duration, false);
+		_(RawOrigin::Root, (bucket, index), 10, strategy);
 
 		assert_eq!(
 			Retries::<T>::get((bucket, index)),
 			Some(RetryConfig {
 				total_retries: 10,
 				remaining: 10,
-				period: stored_period,
-				try_same_bucket_first: false,
+				strategy: RetryStrategy::Periodic(One::one()),
 			})
 		);
 		assert_last_event::<T>(
 			Event::RetrySet {
 				task: address,
 				id: None,
-				period: stored_period,
 				retries: 10,
-				try_same_bucket_first: false,
+				strategy: RetryStrategy::Periodic(One::one()),
 			}
 			.into(),
 		);
@@ -518,28 +561,25 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (bucket, index) = address;
 		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-		let duration: TimeFor<T> = bucket_resolution;
-		let stored_period: BucketFor<T> = One::one();
+		let strategy = RetryStrategy::Periodic(bucket_resolution);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, name, 10, duration, false);
+		_(RawOrigin::Root, name, 10, strategy);
 
 		assert_eq!(
 			Retries::<T>::get((bucket, index)),
 			Some(RetryConfig {
 				total_retries: 10,
 				remaining: 10,
-				period: stored_period,
-				try_same_bucket_first: false,
+				strategy: RetryStrategy::Periodic(One::one()),
 			})
 		);
 		assert_last_event::<T>(
 			Event::RetrySet {
 				task: address,
 				id: Some(name),
-				period: stored_period,
 				retries: 10,
-				try_same_bucket_first: false,
+				strategy: RetryStrategy::Periodic(One::one()),
 			}
 			.into(),
 		);
@@ -557,10 +597,14 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (bucket, index) = address;
 		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-		let duration: TimeFor<T> = bucket_resolution;
 		assert!(
-			Pallet::<T>::set_retry(RawOrigin::Root.into(), (bucket, index), 10, duration, false)
-				.is_ok()
+			Pallet::<T>::set_retry(
+				RawOrigin::Root.into(),
+				(bucket, index),
+				10,
+				RetryStrategy::Periodic(bucket_resolution),
+			)
+			.is_ok()
 		);
 
 		#[extrinsic_call]
@@ -582,10 +626,14 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (bucket, index) = address;
 		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-		let duration: TimeFor<T> = bucket_resolution;
 		assert!(
-			Pallet::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, duration, false)
-				.is_ok()
+			Pallet::<T>::set_retry_named(
+				RawOrigin::Root.into(),
+				name,
+				10,
+				RetryStrategy::Periodic(bucket_resolution),
+			)
+			.is_ok()
 		);
 
 		#[extrinsic_call]

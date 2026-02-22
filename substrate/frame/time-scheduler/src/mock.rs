@@ -226,11 +226,14 @@ impl WeightInfo for TestWeightInfo {
 	fn cancel_named(_s: u32) -> Weight {
 		Weight::from_parts(50, 0)
 	}
-	fn schedule_retry(_s: u32) -> Weight {
+	fn schedule_retry_periodic(_s: u32) -> Weight {
 		Weight::from_parts(100000, 0)
 	}
-	fn schedule_retry_try_same_bucket(_s: u32) -> Weight {
+	fn schedule_retry_same_bucket(_s: u32) -> Weight {
 		Weight::from_parts(200000, 0)
+	}
+	fn schedule_retry_exponential_backoff(_s: u32) -> Weight {
+		Weight::from_parts(100000, 0)
 	}
 	fn set_retry() -> Weight {
 		Weight::from_parts(50, 0)

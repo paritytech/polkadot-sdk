@@ -87,8 +87,8 @@
 //! This means:
 //! - Tasks cannot be scheduled with finer granularity than the bucket resolution.
 //! - Periodic durations must be at least one bucket (`>= BucketResolution`).
-//! - Retry durations follow the same rules. If `try_same_bucket_first` is enabled,
-//!   retries first attempt the current bucket before advancing by the retry duration.
+//! - Retry strategies: `SameBucket` retries in the current bucket, `Periodic(duration)`
+//!   advances by a fixed interval, and `ExponentialBackoff` doubles the delay each attempt.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -157,13 +157,33 @@ pub struct RetryConfig<Period> {
 	pub total_retries: u8,
 	/// Amount of retries left.
 	pub remaining: u8,
-	/// Number of buckets to advance between retry attempts.
-	/// See [`Period`] for details on the bucket-based retry semantics.
-	pub period: Period,
-	/// If true, always try the same bucket first before advancing by `period`.
-	/// This allows retrying within the same bucket on first failure, then
-	/// using `period` for subsequent retries if the same bucket is full.
-	pub try_same_bucket_first: bool,
+	/// The strategy for scheduling retries
+	pub strategy: RetryStrategy<Period>,
+}
+
+/// The strategy for scheduling retries of a failed task.
+///
+/// If the target bucket is full, falls back to the next bucket. If that is also full,
+/// the retry is dropped.
+#[derive(
+	Clone,
+	Copy,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub enum RetryStrategy<Period> {
+	/// Retry in the same bucket. Falls back to `bucket + 1` if full.
+	SameBucket,
+	/// Retry after a fixed duration (ms). Must be >= `BucketResolution`.
+	Periodic(Period),
+	/// Retry with exponential backoff: `2^attempt` buckets ahead (1, 2, 4, 8, ...).
+	ExponentialBackoff,
 }
 
 /// Information regarding an item to be executed in the future.
@@ -373,16 +393,11 @@ pub mod pallet {
 		/// Dispatched some task.
 		Dispatched { task: TaskAddress<BucketFor<T>>, id: Option<TaskName>, result: DispatchResult },
 		/// Set a retry configuration for some task.
-		///
-		/// `period` is the number of buckets to advance between retries (not a time duration).
-		/// The actual retry delay is `period * BucketResolution`.
-		/// If `try_same_bucket_first` is true, retries will first attempt the same bucket.
 		RetrySet {
 			task: TaskAddress<BucketFor<T>>,
 			id: Option<TaskName>,
-			period: BucketFor<T>,
 			retries: u8,
-			try_same_bucket_first: bool,
+			strategy: RetryStrategy<BucketFor<T>>,
 		},
 		/// Cancel a retry configuration for some task.
 		RetryCancelled { task: TaskAddress<BucketFor<T>>, id: Option<TaskName> },
@@ -570,11 +585,15 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set a retry configuration for a task. On failure, retries up to `retries` times
-		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
+		/// Set a retry configuration for a task so that, in case its scheduled run fails, it will
+		/// be retried according to the given `strategy`, for a total amount of `retries` retries
+		/// or until it succeeds.
 		///
-		/// If `try_same_bucket_first` is true, retries first attempt the current bucket before
-		/// falling back to `duration` buckets ahead.
+		/// Strategies:
+		/// - `SameBucket`: retry in the same bucket, falling back to the next bucket if full.
+		/// - `Periodic(duration)`: retry `duration` ms ahead (must be >= `BucketResolution`),
+		///   falling back to the next bucket if the target is full.
+		/// - `ExponentialBackoff`: retry with exponential backoff (1, 2, 4, 8... buckets ahead).
 		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
@@ -590,13 +609,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			task: TaskAddress<BucketFor<T>>,
 			retries: u8,
-			duration: TimeFor<T>,
-			try_same_bucket_first: bool,
+			strategy: RetryStrategy<TimeFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
-			let period = duration / bucket_resolution;
+			let bucket_strategy = Self::convert_strategy(strategy)?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = task;
 			let agenda = Agenda::<T>::get(bucket);
@@ -610,47 +626,33 @@ pub mod pallet {
 				RetryConfig {
 					total_retries: retries,
 					remaining: retries,
-					period,
-					try_same_bucket_first,
+					strategy: bucket_strategy,
 				},
 			);
 			Self::deposit_event(Event::RetrySet {
 				task,
 				id: None,
-				period,
 				retries,
-				try_same_bucket_first,
+				strategy: bucket_strategy,
 			});
 			Ok(())
 		}
 
-		/// Set a retry configuration for a named task. On failure, retries up to `retries` times
-		/// with `duration` ms between attempts. Duration must be >= `BucketResolution`.
+		/// Set a retry configuration for a named task so that, in case its scheduled run fails, it
+		/// will be retried according to the given `strategy`, for a total amount of `retries`
+		/// retries or until it succeeds.
 		///
-		/// If `try_same_bucket_first` is true, retries first attempt the current bucket before
-		/// falling back to `duration` buckets ahead.
-		///
-		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
-		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
-		/// normally while the task is retrying.
-		///
-		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
-		/// clones of the original task. Their retry configuration will be derived from the
-		/// original task's configuration, but will have a lower value for `remaining` than the
-		/// original `total_retries`.
+		/// See [`Self::set_retry`] for strategy details.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
 			origin: OriginFor<T>,
 			id: TaskName,
 			retries: u8,
-			duration: TimeFor<T>,
-			try_same_bucket_first: bool,
+			strategy: RetryStrategy<TimeFor<T>>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
-			let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
-			ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
-			let period = duration / bucket_resolution;
+			let bucket_strategy = Self::convert_strategy(strategy)?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (bucket, index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			let agenda = Agenda::<T>::get(bucket);
@@ -664,16 +666,14 @@ pub mod pallet {
 				RetryConfig {
 					total_retries: retries,
 					remaining: retries,
-					period,
-					try_same_bucket_first,
+					strategy: bucket_strategy,
 				},
 			);
 			Self::deposit_event(Event::RetrySet {
 				task: (bucket, index),
 				id: Some(id),
-				period,
 				retries,
-				try_same_bucket_first,
+				strategy: bucket_strategy,
 			});
 			Ok(())
 		}
@@ -730,8 +730,15 @@ impl<T: Config> Pallet<T> {
 		when: TimeFor<T>,
 		what: ScheduledOf<T>,
 	) -> Result<TaskAddress<BucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
-		let maybe_name = what.maybe_id;
 		let bucket = Self::timestamp_to_bucket(when);
+		Self::place_task_in_bucket(bucket, what)
+	}
+
+	fn place_task_in_bucket(
+		bucket: BucketFor<T>,
+		what: ScheduledOf<T>,
+	) -> Result<TaskAddress<BucketFor<T>>, (DispatchError, ScheduledOf<T>)> {
+		let maybe_name = what.maybe_id;
 		let index = Self::push_to_agenda(bucket, what)?;
 		let address = (bucket, index);
 		if let Some(name) = maybe_name {
@@ -1273,9 +1280,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedule a retry for a task that failed.
 	///
-	/// If `try_same_bucket_first` is true, first attempts the same bucket, then falls back
-	/// to `period` buckets ahead. Otherwise, directly schedules `period` buckets ahead.
-	/// If the target bucket is full, falls back to the next bucket.
+	/// The retry target bucket depends on the strategy:
+	/// - `SameBucket`: try current `bucket`, fall back to `bucket + 1`.
+	/// - `Periodic(period)`: try `bucket + period`, fall back to `bucket + period + 1`.
+	/// - `ExponentialBackoff`: try `bucket + 2^attempt`, fall back to `target + 1`.
+	///   Where `attempt = total_retries - remaining` (0-indexed).
 	fn schedule_retry(
 		weight: &mut WeightMeter,
 		bucket: BucketFor<T>,
@@ -1284,10 +1293,13 @@ impl<T: Config> Pallet<T> {
 		retry_config: RetryConfig<BucketFor<T>>,
 	) {
 		let max_scheduled = T::MaxScheduledPerBucket::get();
-		let retry_weight = if retry_config.try_same_bucket_first {
-			T::WeightInfo::schedule_retry_try_same_bucket(max_scheduled)
-		} else {
-			T::WeightInfo::schedule_retry(max_scheduled)
+		let retry_weight = match retry_config.strategy {
+			RetryStrategy::SameBucket =>
+				T::WeightInfo::schedule_retry_same_bucket(max_scheduled),
+			RetryStrategy::Periodic(_) =>
+				T::WeightInfo::schedule_retry_periodic(max_scheduled),
+			RetryStrategy::ExponentialBackoff =>
+				T::WeightInfo::schedule_retry_exponential_backoff(max_scheduled),
 		};
 		if weight.try_consume(retry_weight).is_err() {
 			Self::deposit_event(Event::RetryFailed {
@@ -1297,51 +1309,79 @@ impl<T: Config> Pallet<T> {
 			return;
 		}
 
-		let RetryConfig { total_retries, mut remaining, period, try_same_bucket_first } =
-			retry_config;
+		let RetryConfig { total_retries, mut remaining, strategy } = retry_config;
 		remaining = match remaining.checked_sub(1) {
 			Some(n) => n,
 			None => return,
 		};
 
-		let new_retry_config =
-			RetryConfig { total_retries, remaining, period, try_same_bucket_first };
+		let new_retry_config = RetryConfig { total_retries, remaining, strategy };
 
-		// If try_same_bucket_first, attempt same bucket first
-		if try_same_bucket_first {
-			let same_bucket_time = bucket.saturating_mul(T::BucketResolution::get().into());
-			if let Ok(address) = Self::place_task(same_bucket_time, task.as_retry()) {
-				Retries::<T>::insert(address, new_retry_config);
-				return;
-			}
-		}
+		let target_bucket = match strategy {
+			RetryStrategy::SameBucket => bucket,
+			RetryStrategy::Periodic(period) => bucket.saturating_add(period),
+			RetryStrategy::ExponentialBackoff => {
+				// attempt = total_retries - remaining (0-indexed, after decrement)
+				let attempt = total_retries.saturating_sub(remaining).saturating_sub(1);
+				let offset: BucketFor<T> = 1u32.checked_shl(attempt as u32)
+					.unwrap_or(u32::MAX)
+					.into();
+				bucket.saturating_add(offset)
+			},
+		};
 
-		// Try target bucket (current + period)
-		let target_bucket = bucket.saturating_add(period);
-		let target_time = target_bucket.saturating_mul(T::BucketResolution::get().into());
-		match Self::place_task(target_time, task.as_retry()) {
+		match Self::place_task_in_bucket(target_bucket, task.as_retry()) {
 			Ok(address) => {
 				Retries::<T>::insert(address, new_retry_config);
 			},
-			Err((_, retry_task)) => {
-				// Target bucket is full, try the next bucket
-				let next_bucket = target_bucket.saturating_add(1u32.into());
-				let next_bucket_time =
-					next_bucket.saturating_mul(T::BucketResolution::get().into());
-				match Self::place_task(next_bucket_time, retry_task) {
-					Ok(address) => {
-						Retries::<T>::insert(address, new_retry_config);
-					},
-					Err((_, task)) => {
-						// Next bucket also full, give up
-						T::Preimages::drop(&task.call);
-						Self::deposit_event(Event::RetryFailed {
-							task: (bucket, agenda_index),
-							id: task.maybe_id,
-						});
-					},
-				}
+			Err((_, task)) => match strategy {
+				// SameBucket targets the bucket the task just executed in, which is
+				// likely full. Fall back to the next bucket for "retry ASAP" semantics.
+				// Periodic/ExponentialBackoff target future buckets that are unlikely
+				// to be full, so no fallback is needed.
+				RetryStrategy::SameBucket => {
+					let next_bucket = target_bucket.saturating_add(1u32.into());
+					match Self::place_task_in_bucket(next_bucket, task) {
+						Ok(address) => {
+							Retries::<T>::insert(address, new_retry_config);
+						},
+						Err((_, task)) => {
+							// TODO: Leave task in storage somewhere for it to
+							// be rescheduled manually.
+							T::Preimages::drop(&task.call);
+							Self::deposit_event(Event::RetryFailed {
+								task: (bucket, agenda_index),
+								id: task.maybe_id,
+							});
+						},
+					}
+				},
+				_ => {
+					// TODO: Leave task in storage somewhere for it to be
+					// rescheduled manually.
+					T::Preimages::drop(&task.call);
+					Self::deposit_event(Event::RetryFailed {
+						task: (bucket, agenda_index),
+						id: task.maybe_id,
+					});
+				},
 			},
+		}
+	}
+
+	/// Convert a `RetryStrategy<TimeFor<T>>` (duration-based) to `RetryStrategy<BucketFor<T>>`
+	/// (bucket-based). Validates that `Periodic` durations are >= `BucketResolution`.
+	fn convert_strategy(
+		strategy: RetryStrategy<TimeFor<T>>,
+	) -> Result<RetryStrategy<BucketFor<T>>, DispatchError> {
+		let bucket_resolution: TimeFor<T> = T::BucketResolution::get().into();
+		match strategy {
+			RetryStrategy::SameBucket => Ok(RetryStrategy::SameBucket),
+			RetryStrategy::Periodic(duration) => {
+				ensure!(duration >= bucket_resolution, Error::<T>::DurationTooSmall);
+				Ok(RetryStrategy::Periodic(duration / bucket_resolution))
+			},
+			RetryStrategy::ExponentialBackoff => Ok(RetryStrategy::ExponentialBackoff),
 		}
 	}
 
@@ -1362,8 +1402,7 @@ impl<T: Config> Pallet<T> {
 
 use time_schedule::v1::TaskName;
 
-impl<T: Config>
-	time_schedule::v1::Anon<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+impl<T: Config> time_schedule::v1::Anon<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
@@ -1402,8 +1441,7 @@ impl<T: Config>
 	}
 }
 
-impl<T: Config>
-	time_schedule::v1::Named<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
+impl<T: Config> time_schedule::v1::Named<TimeFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
 	type Address = TaskAddress<BucketFor<T>>;
