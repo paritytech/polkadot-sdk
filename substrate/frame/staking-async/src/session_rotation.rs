@@ -78,6 +78,7 @@
 
 use crate::{reward::EraRewardManager, *};
 use alloc::{boxed::Box, vec::Vec};
+use sp_staking::ValidatorIncentiveCalculator;
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
@@ -1130,7 +1131,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			total_backers += exposure.others.len() as u32;
 
 			// calculate and accumulate validator self-stake weight for incentive distribution.
-			let validator_weight = validator_incentive::calculate_self_stake_weight(
+			let validator_weight = T::ValidatorIncentiveCalculator::calculate_weight(
 				exposure.own,
 				OptimumSelfStake::<T>::get(),
 				HardCapSelfStake::<T>::get(),

@@ -860,6 +860,29 @@ where
 	}
 }
 
+/// Trait for calculating validator self-stake incentive weights.
+///
+/// This trait allows runtimes to customize how validator self-stake is weighted
+/// for the purpose of distributing self-stake incentive rewards.
+pub trait ValidatorIncentiveCalculator<Balance> {
+	/// Calculate the reward weight for a validator's self-stake.
+	///
+	/// # Arguments
+	/// * `self_stake` - The validator's self-stake amount
+	/// * `optimum` - The optimum self-stake threshold
+	/// * `cap` - The hard cap on effective self-stake
+	/// * `slope_factor` - The slope factor controlling discouragement rate (0-1)
+	///
+	/// # Returns
+	/// The weight to be used for distributing rewards proportionally.
+	fn calculate_weight(
+		self_stake: Balance,
+		optimum: Balance,
+		cap: Balance,
+		slope_factor: Perbill,
+	) -> Balance;
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
 
 #[cfg(test)]

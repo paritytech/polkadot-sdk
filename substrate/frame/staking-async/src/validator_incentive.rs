@@ -32,45 +32,40 @@
 
 use crate::*;
 
-/// Calculate the reward weight for a given self-stake amount.
+/// Default implementation of the validator self-stake incentive calculator.
 ///
-/// Returns the weight w(s) according to the piecewise reward curve.
-/// This weight is used to distribute validator self-stake incentive rewards proportionally.
-///
-/// # Arguments
-/// * `self_stake` - The validator's self-stake amount
-/// * `optimum` - The optimum self-stake threshold (T)
-/// * `cap` - The hard cap on self-stake (C)
-/// * `slope_factor` - The slope factor k (as Perbill, between 0 and 1)
-///
-/// # Returns
-/// The weight w(s) as a Balance. Returns 0 if self_stake is 0.
-pub fn calculate_self_stake_weight<Balance>(
-	_self_stake: Balance,
-	_optimum: Balance,
-	_cap: Balance,
-	_slope_factor: Perbill,
-) -> Balance
+/// Implements the sqrt-based piecewise reward curve.
+pub struct DefaultValidatorIncentiveCalculator;
+
+impl<Balance> sp_staking::ValidatorIncentiveCalculator<Balance> for DefaultValidatorIncentiveCalculator
 where
 	Balance: sp_runtime::traits::AtLeast32BitUnsigned + Copy,
 {
-	// TODO: Implement the piecewise reward curve calculation
-	// For now, return 0 as a placeholder
-	Balance::zero()
+	fn calculate_weight(
+		_self_stake: Balance,
+		_optimum: Balance,
+		_cap: Balance,
+		_slope_factor: Perbill,
+	) -> Balance {
+		// TODO: Implement the piecewise reward curve calculation
+		// For now, return 0 as a placeholder
+		Balance::zero()
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use sp_runtime::Perbill;
+	use sp_staking::ValidatorIncentiveCalculator;
 
 	#[test]
 	fn placeholder_test() {
 		// Placeholder test - will be implemented with the actual calculation logic
-		let weight = calculate_self_stake_weight::<u128>(
-			30_000,
-			30_000,
-			100_000,
+		let weight = DefaultValidatorIncentiveCalculator::calculate_weight(
+			30_000u128,
+			30_000u128,
+			100_000u128,
 			Perbill::from_rational(1u32, 2u32),
 		);
 		assert_eq!(weight, 0); // Placeholder expectation
