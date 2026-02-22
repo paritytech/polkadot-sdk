@@ -1447,6 +1447,8 @@ pub mod pallet {
 		/// This is an internal error caused by a potential bug. If observed, please create an
 		/// issue in `https://github.com/paritytech/polkadot-sdk/issues`.
 		LegacyMintingDisabled,
+		/// Optimum self-stake cannot be greater than hard cap.
+		OptimumGreaterThanCap,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2508,6 +2510,24 @@ pub mod pallet {
 			self_stake_slope_factor: ConfigOp<Perbill>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Validate that optimum <= cap if both will be set after this operation
+			let new_optimum = match optimum_self_stake {
+				ConfigOp::Noop => OptimumSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			let new_cap = match hard_cap_self_stake {
+				ConfigOp::Noop => HardCapSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			// Only validate if both will be non-zero (both configured)
+			if !new_optimum.is_zero() && !new_cap.is_zero() {
+				ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
+			}
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
