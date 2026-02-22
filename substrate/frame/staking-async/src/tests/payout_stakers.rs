@@ -87,7 +87,7 @@ fn rewards_with_nominator_should_work() {
 					era: 1,
 					stash: 101,
 					dest: RewardDestination::Account(101),
-					amount: 999
+					amount: 1000
 				},
 				Event::PayoutStarted { era_index: 1, validator_stash: 21, page: 0, next: None },
 				Event::RewardedFromProvider {
@@ -100,7 +100,7 @@ fn rewards_with_nominator_should_work() {
 					era: 1,
 					stash: 101,
 					dest: RewardDestination::Account(101),
-					amount: 499
+					amount: 500
 				}
 			]
 		);
@@ -332,7 +332,7 @@ fn nominating_and_rewards_should_work() {
 						era: 2,
 						stash: 3,
 						dest: RewardDestination::Account(333),
-						amount: 2499
+						amount: 2500
 					},
 					Event::PayoutStarted { era_index: 2, validator_stash: 41, page: 0, next: None },
 					Event::RewardedFromProvider {
@@ -345,7 +345,7 @@ fn nominating_and_rewards_should_work() {
 						era: 2,
 						stash: 1,
 						dest: RewardDestination::Stash,
-						amount: 1749
+						amount: 1751
 					}
 				]
 			);

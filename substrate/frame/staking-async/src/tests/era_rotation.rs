@@ -428,6 +428,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ErasValidatorReward,
 			ErasRewardPoints,
 			SingleEntryCleanups,
+			ErasValidatorIncentive,
 			ValidatorSlashInEra,
 		];
 
