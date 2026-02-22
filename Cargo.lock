@@ -22933,7 +22933,6 @@ dependencies = [
  "frame-support",
  "hex-literal",
  "parity-scale-codec",
- "rlp 0.6.1",
  "scale-info",
  "snowbridge-beacon-primitives",
  "sp-core 28.0.0",

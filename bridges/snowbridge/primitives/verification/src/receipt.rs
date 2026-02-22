@@ -3,7 +3,10 @@
 use alloy_consensus::ReceiptEnvelope;
 use alloy_primitives::{Bytes, B256};
 use alloy_rlp::Decodable;
-use alloy_trie::{proof::ProofVerificationError, proof::verify_proof, Nibbles};
+use alloy_trie::{
+	proof::{verify_proof, ProofVerificationError},
+	Nibbles,
+};
 use sp_core::H256;
 use sp_std::prelude::*;
 
@@ -21,11 +24,9 @@ pub fn verify_receipt_proof(
 	// already cryptographically verified during this traversal.
 	let value = match verify_proof(root, key, None, proof_nodes.iter()) {
 		Ok(()) => return None, // Exclusion proof - key does not exist
-		Err(ProofVerificationError::ValueMismatch {
-			got: Some(v),
-			expected: None,
-			..
-		}) => v.to_vec(),
+		Err(ProofVerificationError::ValueMismatch { got: Some(v), expected: None, .. }) => {
+			v.to_vec()
+		},
 		Err(_) => return None,
 	};
 
@@ -33,8 +34,8 @@ pub fn verify_receipt_proof(
 }
 
 fn receipt_trie_key(tx_index: u64) -> Nibbles {
-	let encoded_index = rlp::encode(&tx_index);
-	Nibbles::unpack(encoded_index.as_ref())
+	let encoded_index = alloy_rlp::encode(&tx_index);
+	Nibbles::unpack(encoded_index.as_slice())
 }
 
 #[cfg(test)]
@@ -98,7 +99,9 @@ mod tests {
 	/// nested Extension nodes, then verifies the generated proof.
 	#[test]
 	fn test_verify_receipt_proof_with_extension_extension() {
-		use alloy_trie::{hash_builder::HashBuilder, nodes::TrieNode, proof::ProofRetainer, Nibbles};
+		use alloy_trie::{
+			hash_builder::HashBuilder, nodes::TrieNode, proof::ProofRetainer, Nibbles,
+		};
 
 		// Extract receipt value from existing proof (leaf node value)
 		let leaf_node = hex!("f901ae20b901aaf901a70183bb444eb9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000001000000000000000000000000000100000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000002000000000000000000081000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000f89df89b94dac17f958d2ee523a2206206994597c13d831ec7f863a0ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3efa00000000000000000000000002e514404ff6823f1b46a8318a709251db414e5e1a000000000000000000000000055021c55847c00d764357a352e5803237d328954a0000000000000000000000000000000000000000000000000000000000201c370");
@@ -109,9 +112,9 @@ mod tests {
 
 		// Keys that share prefix [8,2,0,1,0] - may produce Extension->Extension in some trie
 		// implementations. These correspond to tx indices 263, 264, 265 (RLP encoding).
-		let key_263 = Nibbles::unpack(&rlp::encode(&263u64));
-		let key_264 = Nibbles::unpack(&rlp::encode(&264u64));
-		let key_265 = Nibbles::unpack(&rlp::encode(&265u64));
+		let key_263 = Nibbles::unpack(alloy_rlp::encode(&263u64).as_slice());
+		let key_264 = Nibbles::unpack(alloy_rlp::encode(&264u64).as_slice());
+		let key_265 = Nibbles::unpack(alloy_rlp::encode(&265u64).as_slice());
 
 		let retainer = ProofRetainer::new(vec![key_263.clone()]);
 		let mut hb = HashBuilder::default().with_proof_retainer(retainer);
