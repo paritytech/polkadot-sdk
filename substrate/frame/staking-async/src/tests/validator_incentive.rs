@@ -55,10 +55,13 @@ fn set_validator_self_stake_incentive_config_works() {
 #[test]
 fn set_validator_self_stake_incentive_config_requires_admin() {
 	ExtBuilder::default().build_and_execute(|| {
+		// as setup in mock
+		let admin = 1;
+
 		// Non-admin origin should fail
 		assert_noop!(
 			Staking::set_validator_self_stake_incentive_config(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed(2),
 				ConfigOp::Set(30_000),
 				ConfigOp::Set(100_000),
 				ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
@@ -66,9 +69,9 @@ fn set_validator_self_stake_incentive_config_requires_admin() {
 			DispatchError::BadOrigin
 		);
 
-		// Admin origin (root in test config) should work
+		// Admin origin should work
 		assert_ok!(Staking::set_validator_self_stake_incentive_config(
-			RuntimeOrigin::root(),
+			RuntimeOrigin::signed(admin),
 			ConfigOp::Set(30_000),
 			ConfigOp::Set(100_000),
 			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),

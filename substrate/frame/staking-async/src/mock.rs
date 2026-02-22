@@ -53,6 +53,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Dap: pallet_dap,
 	}
 );
 
