@@ -14437,12 +14437,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parity-bytes"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
-
-[[package]]
 name = "parity-db"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21468,15 +21462,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd31f59f6fe2b0c055371bb2f16d7f0aa7d8881676c04a55b1596d1a17cd10a4"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde-value"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22053,7 +22038,6 @@ dependencies = [
  "rlp 0.6.1",
  "scale-info",
  "serde",
- "snowbridge-ethereum",
  "snowbridge-milagro-bls",
  "sp-core 28.0.0",
  "sp-io",
@@ -22084,29 +22068,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "tracing",
-]
-
-[[package]]
-name = "snowbridge-ethereum"
-version = "0.3.0"
-dependencies = [
- "alloy-consensus",
- "alloy-core",
- "alloy-primitives",
- "alloy-rlp",
- "ethabi-decode",
- "ethbloom",
- "ethereum-types",
- "hex-literal",
- "parity-bytes",
- "parity-scale-codec",
- "rlp 0.6.1",
- "scale-info",
- "serde",
- "serde-big-array",
- "sp-io",
- "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -22219,6 +22180,7 @@ dependencies = [
 name = "snowbridge-pallet-ethereum-client"
 version = "0.2.0"
 dependencies = [
+ "alloy-primitives",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -22230,7 +22192,6 @@ dependencies = [
  "serde_json",
  "snowbridge-beacon-primitives",
  "snowbridge-core",
- "snowbridge-ethereum",
  "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-verification-primitives",
  "sp-core 28.0.0",
@@ -22288,6 +22249,7 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]
@@ -22330,6 +22292,7 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-verification-primitives",
  "sp-core 28.0.0",
  "sp-std 14.0.0",
 ]
@@ -22553,8 +22516,14 @@ dependencies = [
 name = "snowbridge-verification-primitives"
 version = "0.2.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
  "frame-support",
+ "hex-literal",
  "parity-scale-codec",
+ "rlp 0.6.1",
  "scale-info",
  "snowbridge-beacon-primitives",
  "sp-core 28.0.0",
