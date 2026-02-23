@@ -39,7 +39,7 @@ use pallet_revive::{
 use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use storage_api::StorageApi;
 use subxt::{
 	Config, OnlineClient,
@@ -221,7 +221,6 @@ impl From<ClientError> for ErrorObjectOwned {
 		}
 	}
 }
-
 
 /// A client that connects to a substrate node and provides Ethereum-compatible RPC functionality.
 #[derive(Clone)]
@@ -439,7 +438,6 @@ impl Client {
 		})
 		.await
 	}
-
 
 	/// Get the block hash for the given block number or tag.
 	pub async fn block_hash_for_tag(

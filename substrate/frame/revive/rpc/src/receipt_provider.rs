@@ -433,7 +433,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			// Temporary DB: evict oldest entries from both memory and DB.
+			// If we have more blocks than we should keep, remove the oldest ones by count
+			// (not by block number range, to handle gaps correctly)
 			while block_number_to_hash.len() > keep_latest_n_blocks {
 				// Remove the block with the smallest number (first in BTreeMap)
 				if let Some((_, block_map)) = block_number_to_hash.pop_first() {
