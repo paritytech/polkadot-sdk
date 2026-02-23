@@ -409,8 +409,8 @@ impl VmBinaryModule {
 		let [_, b1, b2, b3] = size.to_be_bytes();
 		let code = vec![
 			PUSH3, b1, b2, b3, // push runtime code size
-			PUSH1, 0,           // push memory offset 0
-			RETURN,             // return `size` bytes from memory as runtime code
+			PUSH1, 0,      // push memory offset 0
+			RETURN, // return `size` bytes from memory as runtime code
 		];
 		Self::new(code)
 	}
