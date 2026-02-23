@@ -1419,11 +1419,11 @@ mod session_keys {
 		SetKeysExecutionCost,
 	};
 	use codec::Encode;
-	use frame_support::{assert_noop, BoundedVec};
+	use frame_support::assert_noop;
 	use rc_client::AHStakingInterface;
 
-	type Keys = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysLength>;
-	type Proof = BoundedVec<u8, <T as rc_client::Config>::MaxSessionKeysProofLength>;
+	type Keys = Vec<u8>;
+	type Proof = Vec<u8>;
 
 	/// Helper to create properly encoded session keys and ownership proof.
 	fn make_session_keys_and_proof(owner: AccountId) -> (Keys, Proof) {
@@ -1437,7 +1437,7 @@ mod session_keys {
 			// GIVEN: Account 1 is a validator with delivery fees configured
 			let validator: AccountId = 1;
 			let (keys, proof) = make_session_keys_and_proof(validator);
-			let keys_raw: Vec<u8> = keys.clone().into_inner();
+			let keys_raw: Vec<u8> = keys.clone();
 			let delivery_fee: u128 = 50;
 			XcmDeliveryFee::set(delivery_fee);
 			let execution_cost = SetKeysExecutionCost::get();
