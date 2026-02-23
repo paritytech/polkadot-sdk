@@ -370,6 +370,20 @@ impl<B: Backend> State<B> {
 					reject_info.maybe_output_head_hash,
 				);
 			},
+			CanSecond::NoKeepSlot(maybe_slash, reject_info) => {
+				gum::debug!(
+					target: LOG_TARGET,
+					?maybe_slash,
+					?reject_info,
+					"Cannot second collation, keeping slot for parallel fetch",
+				);
+
+				if let Some(slash) = maybe_slash {
+					self.peer_manager
+						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
+						.await;
+				}
+			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -586,6 +600,21 @@ impl<B: Backend> State<B> {
 						reject_info.maybe_candidate_hash.as_ref(),
 						reject_info.maybe_output_head_hash,
 					);
+				},
+				CanSecond::NoKeepSlot(maybe_slash, reject_info) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						relay_parent = ?reject_info.relay_parent,
+						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
+						para_id = ?reject_info.para_id,
+						"Cannot second unblocked collation, keeping slot for parallel fetch"
+					);
+
+					if let Some(slash) = maybe_slash {
+						self.peer_manager
+							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
+							.await;
+					}
 				},
 				CanSecond::BlockedOnParent(parent, reject_info) => {
 					gum::warn!(
