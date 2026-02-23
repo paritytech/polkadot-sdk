@@ -22,7 +22,7 @@
 // suppress the expected warning.
 #![allow(unused)]
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
 	short_weierstrass::{Affine as SWAffine, SWCurveConfig},
@@ -31,7 +31,7 @@ use ark_ec::{
 };
 use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
-	scale::{Decode, Encode},
+	scale::{Decode, Encode, Output},
 	ArkScaleMaxEncodedLen, MaxEncodedLen,
 };
 use sp_runtime_interface::RIType;
@@ -45,6 +45,24 @@ type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
 
 /// Convenience alias for a big integer represented as a sequence of `u64` limbs.
 pub type BigInteger = Vec<u64>;
+
+/// `Output` adapter for `&mut [u8]`, which doesn't natively implement it in `no_std`.
+struct SliceOutput<'a> {
+	buf: &'a mut [u8],
+	offset: usize,
+}
+
+impl<'a> Output for SliceOutput<'a> {
+	fn write(&mut self, bytes: &[u8]) {
+		self.buf[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+		self.offset += bytes.len();
+	}
+
+	fn push_byte(&mut self, byte: u8) {
+		self.buf[self.offset] = byte;
+		self.offset += 1;
+	}
+}
 
 /// Error type for host call operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,13 +133,13 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
+pub fn encode_into<T: CanonicalSerialize>(val: T, buf: &mut [u8]) -> Result<(), Error> {
 	let val = ArkScale::from(val);
 	// Size hint uses arkworks `serialized_size`, which is accurate
 	if val.size_hint() > buf.len() {
 		return Err(Error::Encode);
 	}
-	val.encode_to(&mut buf);
+	val.encode_to(&mut SliceOutput { buf, offset: 0 });
 	Ok(())
 }
 
