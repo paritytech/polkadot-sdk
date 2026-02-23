@@ -126,7 +126,7 @@ pub const MAX_TOPICS: usize = 4;
 pub const MAX_ANY_TOPICS: usize = 128;
 
 /// Statement allowance limits for an account.
-#[derive(Encode, Decode, TypeInfo, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct StatementAllowance {
 	/// Maximum number of statements allowed
 	pub max_count: u32,
@@ -138,6 +138,27 @@ impl StatementAllowance {
 	/// Create a new statement allowance.
 	pub fn new(max_count: u32, max_size: u32) -> Self {
 		Self { max_count, max_size }
+	}
+
+	/// Saturating addition of statement allowances.
+	pub const fn saturating_add(self, rhs: StatementAllowance) -> StatementAllowance {
+		StatementAllowance {
+			max_count: self.max_count.saturating_add(rhs.max_count),
+			max_size: self.max_size.saturating_add(rhs.max_size),
+		}
+	}
+
+	/// Saturating subtraction of statement allowances.
+	pub const fn saturating_sub(self, rhs: StatementAllowance) -> StatementAllowance {
+		StatementAllowance {
+			max_count: self.max_count.saturating_sub(rhs.max_count),
+			max_size: self.max_size.saturating_sub(rhs.max_size),
+		}
+	}
+
+	/// Check if the statement allowance is depleted.
+	pub fn is_depleted(&self) -> bool {
+		self.max_count == 0 || self.max_size == 0
 	}
 }
 
@@ -155,6 +176,32 @@ pub fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
 	let mut key = STATEMENT_ALLOWANCE_PREFIX.to_vec();
 	key.extend_from_slice(account_id.as_ref());
 	key
+}
+
+/// Increase the statement allowance by the given amount.
+pub fn increase_allowance_by(account_id: impl AsRef<[u8]>, by: StatementAllowance) {
+	let key = statement_allowance_key(account_id);
+	let mut allowance: StatementAllowance = frame_support::storage::unhashed::get_or_default(&key);
+	allowance = allowance.saturating_add(by);
+	frame_support::storage::unhashed::put(&key, &allowance);
+}
+
+/// Decrease the statement allowance by the given amount.
+pub fn decrease_allowance_by(account_id: impl AsRef<[u8]>, by: StatementAllowance) {
+	let key = statement_allowance_key(account_id);
+	let mut allowance: StatementAllowance = frame_support::storage::unhashed::get_or_default(&key);
+	allowance = allowance.saturating_sub(by);
+	if allowance.is_depleted() {
+		frame_support::storage::unhashed::kill(&key);
+	} else {
+		frame_support::storage::unhashed::put(&key, &allowance);
+	}
+}
+
+/// Get the statement allowance for the given account.
+pub fn get_allowance(account_id: impl AsRef<[u8]>) -> StatementAllowance {
+	let key = statement_allowance_key(account_id);
+	frame_support::storage::unhashed::get_or_default(&key)
 }
 
 #[cfg(feature = "std")]
