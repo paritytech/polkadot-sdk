@@ -3,10 +3,10 @@ doc:
 - audience: Node Dev
   description: |
     Changes the statement subscription RPC to return `StatementEvent` instead of raw `Bytes`.
-    When a subscription is initiated, the endpoint now first sends a `NumMatchingStatements`
-    event with the count of matching statements already in the store, followed by
-    `NewStatements` batches. Existing statements are sent in chunks to avoid exceeding the
-    RPC max JSON response size limit.
+    When a subscription is initiated, the endpoint now sends NewStatements event batches
+    with matching statements already in the store. If there are not statements in the store
+    an empty batch is sent.
+
 crates:
 - name: sp-statement-store
   bump: minor

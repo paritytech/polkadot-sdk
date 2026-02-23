@@ -628,13 +628,6 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
-				// Skip the initial NumMatchingStatements item.
-				let _ = timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-					.await
-					.map_err(|_| anyhow!("Timeout waiting for known count"))?
-					.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-					.map_err(|e| anyhow!("Subscription error: {}", e))?;
-
 				let item =
 					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
 						.await
@@ -643,7 +636,6 @@ impl Participant {
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
 				let mut batch = match item {
 					StatementEvent::NewStatements(batch) => batch,
-					other => return Err(anyhow!("Expected NewStatements, got: {:?}", other)),
 				};
 				if batch.len() != 1 {
 					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
@@ -716,13 +708,6 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
-				// Skip the initial NumMatchingStatements item.
-				let _ = timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-					.await
-					.map_err(|_| anyhow!("Timeout waiting for known count"))?
-					.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-					.map_err(|e| anyhow!("Subscription error: {}", e))?;
-
 				let item =
 					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
 						.await
@@ -731,7 +716,6 @@ impl Participant {
 						.map_err(|e| anyhow!("Subscription error: {}", e))?;
 				let mut batch = match item {
 					StatementEvent::NewStatements(batch) => batch,
-					other => return Err(anyhow!("Expected NewStatements, got: {:?}", other)),
 				};
 				if batch.len() != 1 {
 					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
@@ -1035,35 +1019,20 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					let mut futures: FuturesUnordered<_> = subscriptions
 						.into_iter()
 						.map(|(msg_idx, topic_str, mut subscription)| async move {
-							// Skip NumMatchingStatements, then wait for Statement.
-							loop {
-								match timeout(total_timeout, subscription.next()).await {
-									Ok(Some(Ok(StatementEvent::NewStatements(_)))) => {
-										return Ok((msg_idx, topic_str))
-									},
-									Ok(Some(Ok(StatementEvent::NumMatchingStatements(_)))) => {
-										continue
-									},
-									Ok(Some(Err(e))) => {
-										return Err(anyhow!(
-											"Subscription error for message {}: {}",
-											msg_idx,
-											e
-										))
-									},
-									Ok(None) => {
-										return Err(anyhow!(
-											"Subscription ended unexpectedly for message {}",
-											msg_idx
-										))
-									},
-									Err(_) => {
-										return Err(anyhow!(
-											"Timeout waiting for message {}",
-											msg_idx
-										))
-									},
-								}
+							match timeout(total_timeout, subscription.next()).await {
+								Ok(Some(Ok(StatementEvent::NewStatements(_)))) => {
+									Ok((msg_idx, topic_str))
+								},
+								Ok(Some(Err(e))) => Err(anyhow!(
+									"Subscription error for message {}: {}",
+									msg_idx,
+									e
+								)),
+								Ok(None) => Err(anyhow!(
+									"Subscription ended unexpectedly for message {}",
+									msg_idx
+								)),
+								Err(_) => Err(anyhow!("Timeout waiting for message {}", msg_idx)),
 							}
 						})
 						.collect();

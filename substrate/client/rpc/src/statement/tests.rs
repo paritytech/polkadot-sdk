@@ -152,20 +152,17 @@ async fn subscribe_works() {
 		.await
 		.expect("Failed to subscribe");
 
+	// An empty NewStatements is sent when no existing statements match the filter.
 	let result = match_any_with_random.next::<StatementEvent>().await;
-	let result = result.expect("Bytes").expect("Success").0;
-	assert!(
-		matches!(result, StatementEvent::NumMatchingStatements(0)),
-		"Expected no statements for random topic, got: {:?}",
-		result
-	);
+	let StatementEvent::NewStatements(batch) = result.expect("Bytes").expect("Success").0;
+	assert!(batch.is_empty(), "Expected empty batch for random topic, got: {:?}", batch);
 
 	let res = tokio::time::timeout(
 		std::time::Duration::from_secs(5),
 		match_any_with_random.next::<StatementEvent>(),
 	)
 	.await;
-	assert!(res.is_err(), "expected no message for random topic");
+	assert!(res.is_err(), "expected no more messages for random topic");
 
 	let match_all_with_random = TopicFilter::MatchAll(
 		vec![first_topic, Topic::from([7u8; 32])].try_into().expect("Two topics"),
@@ -175,48 +172,34 @@ async fn subscribe_works() {
 		.await
 		.expect("Failed to subscribe");
 
+	// An empty NewStatements is sent when no existing statements match the filter.
 	let result = match_all_with_random.next::<StatementEvent>().await;
-	let result = result.expect("Bytes").expect("Success").0;
-	assert!(
-		matches!(result, StatementEvent::NumMatchingStatements(0)),
-		"Expected no statements for random topic, got: {:?}",
-		result
-	);
+	let StatementEvent::NewStatements(batch) = result.expect("Bytes").expect("Success").0;
+	assert!(batch.is_empty(), "Expected empty batch for random topic, got: {:?}", batch);
 
 	let res = tokio::time::timeout(
 		std::time::Duration::from_secs(5),
 		match_all_with_random.next::<StatementEvent>(),
 	)
 	.await;
-	assert!(res.is_err(), "expected no message for random topic");
+	assert!(res.is_err(), "expected no more messages for random topic");
 }
 
 async fn check_submitted(
 	mut expected: Vec<sp_statement_store::Statement>,
-	num_existing: Option<u32>,
+	_num_existing: Option<u32>,
 	mut subscription: Subscription,
 ) {
-	let result = subscription.next::<StatementEvent>().await;
-	let result = result.expect("Bytes").expect("Success").0;
-
-	if let StatementEvent::NumMatchingStatements(count) = result {
-		assert!(
-			num_existing.is_none() || num_existing == Some(count),
-			"Expected number of existing statements to be {}, got {}",
-			num_existing.unwrap_or(0),
-			count
-		);
-	}
-
 	while !expected.is_empty() {
-		let result = subscription.next::<StatementEvent>().await;
-		let result = result.expect("Bytes").expect("Success").0;
-
-		let result = match result {
-			StatementEvent::NewStatements(bytes) => bytes,
-			_ => panic!("Expected statement"),
-		};
-
+		let StatementEvent::NewStatements(result) =
+			subscription.next::<StatementEvent>().await.expect("Bytes").expect("Success").0;
+		if let Some(num_existing) = _num_existing {
+			assert_eq!(
+				result.len() as u32,
+				num_existing,
+				"Expected NumMatchingStatements with count of existing statements"
+			);
+		}
 		for result in result {
 			let new_statement = sp_statement_store::Statement::decode(&mut &result.0[..])
 				.expect("Decode statement");
@@ -306,14 +289,10 @@ async fn send_in_chunks_single_small_statement() {
 	let statement = vec![1u8, 2, 3];
 	send_in_chunks(vec![statement.clone()], sender).await;
 
-	let event = receiver.try_recv().expect("Should receive one chunk");
-	match event {
-		StatementEvent::NewStatements(bytes) => {
-			assert_eq!(bytes.len(), 1);
-			assert_eq!(bytes[0].0, statement);
-		},
-		other => panic!("Expected NewStatements, got: {:?}", other),
-	}
+	let StatementEvent::NewStatements(bytes) =
+		receiver.try_recv().expect("Should receive one chunk");
+	assert_eq!(bytes.len(), 1);
+	assert_eq!(bytes[0].0, statement);
 	assert!(receiver.try_recv().is_err(), "No more messages expected");
 }
 
@@ -323,15 +302,11 @@ async fn send_in_chunks_multiple_small_statements_fit_in_one_chunk() {
 	let statements: Vec<Vec<u8>> = (0..10).map(|i| vec![i; 100]).collect();
 	send_in_chunks(statements.clone(), sender).await;
 
-	let event = receiver.try_recv().expect("Should receive one chunk");
-	match event {
-		StatementEvent::NewStatements(bytes) => {
-			assert_eq!(bytes.len(), 10);
-			for (i, b) in bytes.iter().enumerate() {
-				assert_eq!(b.0, statements[i]);
-			}
-		},
-		other => panic!("Expected NewStatements, got: {:?}", other),
+	let StatementEvent::NewStatements(bytes) =
+		receiver.try_recv().expect("Should receive one chunk");
+	assert_eq!(bytes.len(), 10);
+	for (i, b) in bytes.iter().enumerate() {
+		assert_eq!(b.0, statements[i]);
 	}
 	assert!(receiver.try_recv().is_err(), "No more messages expected");
 }
@@ -346,21 +321,16 @@ async fn send_in_chunks_splits_large_statements() {
 	send_in_chunks(statements.clone(), sender).await;
 
 	let mut all_received = Vec::new();
-	while let Ok(event) = receiver.try_recv() {
-		match event {
-			StatementEvent::NewStatements(bytes) => {
-				// Each chunk's total JSON estimate must not exceed MAX_CHUNK_BYTES_LIMIT
-				let json_size: usize = bytes.iter().map(|b| b.0.len() * 2).sum();
-				assert!(
-					json_size <= MAX_CHUNK_BYTES_LIMIT,
-					"Chunk JSON size {} exceeds limit {}",
-					json_size,
-					MAX_CHUNK_BYTES_LIMIT
-				);
-				all_received.extend(bytes);
-			},
-			other => panic!("Expected NewStatements, got: {:?}", other),
-		}
+	while let Ok(StatementEvent::NewStatements(bytes)) = receiver.try_recv() {
+		// Each chunk's total JSON estimate must not exceed MAX_CHUNK_BYTES_LIMIT
+		let json_size: usize = bytes.iter().map(|b| b.0.len() * 2).sum();
+		assert!(
+			json_size <= MAX_CHUNK_BYTES_LIMIT,
+			"Chunk JSON size {} exceeds limit {}",
+			json_size,
+			MAX_CHUNK_BYTES_LIMIT
+		);
+		all_received.extend(bytes);
 	}
 	assert_eq!(all_received.len(), 5);
 	for (i, b) in all_received.iter().enumerate() {
@@ -389,15 +359,11 @@ async fn send_in_chunks_oversized_statement_between_normal_ones() {
 	send_in_chunks(vec![small1.clone(), oversized, small2.clone()], sender).await;
 
 	// The oversized statement is skipped; small1 and small2 are sent together in one chunk.
-	let event = receiver.try_recv().expect("Should receive chunk with both small statements");
-	match event {
-		StatementEvent::NewStatements(bytes) => {
-			assert_eq!(bytes.len(), 2);
-			assert_eq!(bytes[0].0, small1);
-			assert_eq!(bytes[1].0, small2);
-		},
-		other => panic!("Expected NewStatements, got: {:?}", other),
-	}
+	let StatementEvent::NewStatements(bytes) =
+		receiver.try_recv().expect("Should receive chunk with both small statements");
+	assert_eq!(bytes.len(), 2);
+	assert_eq!(bytes[0].0, small1);
+	assert_eq!(bytes[1].0, small2);
 	assert!(receiver.try_recv().is_err(), "No more messages expected");
 }
 
@@ -413,11 +379,8 @@ async fn send_in_chunks_boundary_exact_fit() {
 	send_in_chunks(vec![s1.clone(), s2.clone(), s3.clone()], sender).await;
 
 	let mut chunks = Vec::new();
-	while let Ok(event) = receiver.try_recv() {
-		match event {
-			StatementEvent::NewStatements(bytes) => chunks.push(bytes),
-			other => panic!("Expected NewStatements, got: {:?}", other),
-		}
+	while let Ok(StatementEvent::NewStatements(bytes)) = receiver.try_recv() {
+		chunks.push(bytes);
 	}
 
 	assert_eq!(chunks.len(), 3, "Each statement should be its own chunk");

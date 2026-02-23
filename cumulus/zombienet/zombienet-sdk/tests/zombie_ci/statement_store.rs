@@ -46,18 +46,6 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	// First item should be NumMatchingStatements(0) since nothing is in the store yet.
-	let first_item =
-		tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
-			.await
-			.expect("Should not timeout")
-			.expect("Should receive")
-			.expect("Should not error");
-	assert!(
-		matches!(first_item, StatementEvent::NumMatchingStatements(0)),
-		"Expected NumMatchingStatements(0), got: {first_item:?}",
-	);
-
 	// Submit the statement to charlie.
 	let _: SubmitResult =
 		charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
@@ -74,7 +62,6 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
 			batch.remove(0)
 		},
-		other => panic!("Expected StatementEvent::NewStatements, got: {other:?}"),
 	};
 	assert_eq!(statement_bytes, statement);
 	// Now make sure no more statements are received.

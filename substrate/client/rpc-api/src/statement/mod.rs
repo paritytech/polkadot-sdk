@@ -38,10 +38,10 @@ pub trait StatementApi {
 	/// # Returns
 	///
 	/// Returns a stream of `StatementEvent` values.
-	/// When a subscription is initiated the endpoint will first return a
-	/// `NumMatchingStatements` item with the count of matching statements already in the store,
-	/// followed by `Statement` items for each matching statement. Subsequent matching statements
-	/// will be pushed to the client as they are added to the store.
+	/// When a subscription is initiated the endpoint will first return all matching statements
+	/// already in the store in batches as `StatementEvent::NewStatements`.
+	/// If there are no statements in the store matching the filter, an empty batch of statements is
+	/// sent.
 	#[subscription(
 		name = "statement_subscribeStatement" => "statement_statement",
 		unsubscribe = "statement_unsubscribeStatement",

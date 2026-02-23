@@ -476,7 +476,6 @@ mod tests {
 				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
 				batch.remove(0)
 			},
-			other => panic!("Expected StatementEvent::NewStatements, got: {:?}", other),
 		}
 	}
 	#[test]

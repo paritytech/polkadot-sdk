@@ -181,10 +181,6 @@ pub enum StatementEvent {
 	/// A batch of statements matching the subscription filter. Each entry is a SCALE-encoded
 	/// statement.
 	NewStatements(Vec<Bytes>),
-	/// The number of statements present in the store matching the subscription filter at the time
-	/// of subscription. This is sent immediately upon subscription, before any matching statements
-	/// are sent.
-	NumMatchingStatements(u32),
 }
 
 /// Result type for `Error`
