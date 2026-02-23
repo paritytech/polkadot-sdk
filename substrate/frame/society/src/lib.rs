@@ -1457,6 +1457,26 @@ pub mod pallet {
 
 			Ok(Pays::No.into())
 		}
+
+		/// Kick a member from the society. Callable only by the Signed origin of the Founder.
+		/// The member is suspended and moved to the suspended members list.
+		///
+		/// Parameters:
+		/// - `who`: The member to be suspended.
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::kick_member())]
+		pub fn kick_member(
+			origin: OriginFor<T>,
+			who: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			ensure!(
+				Some(ensure_signed(origin)?) == Founder::<T, I>::get(),
+				Error::<T, I>::NotFounder
+			);
+			let who = T::Lookup::lookup(who)?;
+			Self::suspend_member(&who)?;
+			Ok(())
+		}
 	}
 }
 

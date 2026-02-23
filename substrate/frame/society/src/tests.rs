@@ -1660,3 +1660,23 @@ fn intake_idempotency() {
 		assert_eq!(Balances::free_balance(20), 50);
 	});
 }
+
+#[test]
+fn kick_member_works() {
+	EnvBuilder::new().execute(|| {
+		// Add 20 as a regular member
+		place_members([20]);
+		assert!(Members::<Test>::contains_key(20));
+
+		// Not founder cannot kick
+		assert_noop!(Society::kick_member(Origin::signed(20), 20), Error::<Test>::NotFounder);
+
+		// Founder can kick, 10 is the founder in the setup
+		assert_ok!(Society::kick_member(Origin::signed(10), 20));
+		assert!(!Members::<Test>::contains_key(20));
+		assert!(SuspendedMembers::<Test>::contains_key(20));
+
+		// Cannot kick non-member
+		assert_noop!(Society::kick_member(Origin::signed(10), 20), Error::<Test>::NotMember);
+	});
+}

@@ -92,6 +92,7 @@ pub trait WeightInfo {
 	fn cleanup_candidacy() -> Weight;
 	fn cleanup_challenge() -> Weight;
 	fn poke_deposit() -> Weight;
+	fn kick_member() -> Weight;
 }
 
 /// Weights for `pallet_society` using the Substrate node and recommended hardware.
