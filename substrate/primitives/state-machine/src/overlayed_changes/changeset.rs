@@ -1508,4 +1508,188 @@ mod test {
 		let encoded = changeset.get(&key).unwrap().value().unwrap();
 		assert_eq!(&initial_data, encoded);
 	}
+
+	/// Simulates `spawn_child` scenario: a child changeset is created when the parent is
+	/// already at transaction depth N. The child's dirty_keys matches the parent's depth,
+	/// but storage_root_dirty_keys (delta tracker) starts at depth 0.
+	///
+	/// Pre-existing commit/rollback calls for levels that existed before spawn are no-ops
+	/// on both dirty_keys (empty sets) and the delta tracker (no layers) — safe because
+	/// no keys were added at those levels.
+	#[test]
+	fn spawn_child_delta_tracker_depth_mismatch() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// Build up parent to transaction depth 3.
+		parent.set(b"p0".to_vec(), Some(b"v0".to_vec()), Some(0));
+		parent.start_transaction();
+		parent.set(b"p1".to_vec(), Some(b"v1".to_vec()), Some(1));
+		parent.start_transaction();
+		parent.set(b"p2".to_vec(), Some(b"v2".to_vec()), Some(2));
+		parent.start_transaction();
+		assert_eq!(parent.transaction_depth(), 3);
+
+		// Spawn child — dirty_keys has 3 empty sets, delta tracker has 0 layers.
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 3);
+
+		// Child adds keys within the current depth.
+		child.set(b"c0".to_vec(), Some(b"cv0".to_vec()), Some(0));
+		child.set(b"c1".to_vec(), Some(b"cv1".to_vec()), Some(1));
+
+		// Take delta — should see the child's keys.
+		let delta = child.take_delta();
+		let delta_keys: std::collections::HashSet<Vec<u8>> =
+			delta.values().cloned().collect();
+		assert!(delta_keys.contains(&b"c0".to_vec()));
+		assert!(delta_keys.contains(&b"c1".to_vec()));
+		assert_eq!(delta_keys.len(), 2);
+
+		// Now unwind the pre-existing transaction depth (commits for levels that
+		// existed before spawn). These should be no-ops for the delta tracker.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		// Child should still work correctly after unwinding.
+		child.set(b"c2".to_vec(), Some(b"cv2".to_vec()), Some(2));
+		let delta2 = child.take_delta();
+		let delta_keys2: std::collections::HashSet<Vec<u8>> =
+			delta2.values().cloned().collect();
+		assert!(delta_keys2.contains(&b"c2".to_vec()));
+		assert_eq!(delta_keys2.len(), 1);
+	}
+
+	#[test]
+	fn spawn_child_delta_tracker_with_rollback() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// Parent at depth 2.
+		parent.start_transaction();
+		parent.start_transaction();
+
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 2);
+
+		// Child starts its own transaction and adds keys.
+		child.start_transaction();
+		child.set(b"a".to_vec(), Some(b"va".to_vec()), Some(0));
+
+		let delta = child.take_delta();
+		let delta_keys: std::collections::HashSet<Vec<u8>> =
+			delta.values().cloned().collect();
+		assert!(delta_keys.contains(&b"a".to_vec()));
+
+		// Rollback the child's own transaction — "a" is removed from changeset,
+		// but the delta tracker's snapshot for "a" is also discarded (lived in the
+		// rolled-back layer). Whether "a" reappears in future deltas depends on
+		// whether the tracker's parent layers still have it as dirty.
+		child.rollback_transaction().unwrap();
+
+		// Add a new key after rollback.
+		child.set(b"b".to_vec(), Some(b"vb".to_vec()), Some(1));
+		let delta2 = child.take_delta();
+		let delta_keys2: std::collections::HashSet<Vec<u8>> =
+			delta2.values().cloned().collect();
+		// "a" does NOT reappear — it was added inside the rolled-back transaction,
+		// so both the changeset and the delta tracker's dirty entry for "a" are gone.
+		assert!(!delta_keys2.contains(&b"a".to_vec()));
+		assert!(delta_keys2.contains(&b"b".to_vec()));
+
+		// Unwind pre-existing depth — no-ops on delta tracker.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		child.set(b"c".to_vec(), Some(b"vc".to_vec()), Some(2));
+		let delta3 = child.take_delta();
+		let delta_keys3: std::collections::HashSet<Vec<u8>> =
+			delta3.values().cloned().collect();
+		assert!(delta_keys3.contains(&b"c".to_vec()));
+		assert_eq!(delta_keys3.len(), 1);
+	}
+
+	/// Like spawn_child_delta_tracker_depth_mismatch but no take_delta before commits.
+	/// All keys should accumulate and appear in a single take_delta after unwinding.
+	#[test]
+	fn spawn_child_delta_tracker_no_delta_before_commits() {
+		let mut parent = OverlayedChangeSet::default();
+
+		parent.start_transaction();
+		parent.start_transaction();
+		parent.start_transaction();
+		assert_eq!(parent.transaction_depth(), 3);
+
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 3);
+
+		child.set(b"c0".to_vec(), Some(b"cv0".to_vec()), Some(0));
+		child.set(b"c1".to_vec(), Some(b"cv1".to_vec()), Some(1));
+
+		// No take_delta here — unwind all pre-existing depth directly.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		// Add another key after unwinding.
+		child.set(b"c2".to_vec(), Some(b"cv2".to_vec()), Some(2));
+
+		// All three keys should appear in a single delta.
+		let delta = child.take_delta();
+		let delta_keys: std::collections::HashSet<Vec<u8>> =
+			delta.values().cloned().collect();
+		assert!(delta_keys.contains(&b"c0".to_vec()));
+		assert!(delta_keys.contains(&b"c1".to_vec()));
+		assert!(delta_keys.contains(&b"c2".to_vec()));
+		assert_eq!(delta_keys.len(), 3);
+	}
+
+	/// Rollback after spawn_child should discard keys added in the rolled-back
+	/// transaction. Currently FAILS because the delta tracker doesn't have matching
+	/// layers — rollback is a no-op and rolled-back keys leak into future deltas.
+	#[test]
+	fn spawn_child_rollback_should_discard_delta_keys() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// p.start_transaction x 5
+		for _ in 0..5 {
+			parent.start_transaction();
+		}
+
+		// c = p.spawn_child — dirty_keys depth=5, delta tracker depth=0
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 5);
+
+		// p.set_child_storage x 3 (at depth 5)
+		child.set(b"a".to_vec(), Some(b"va".to_vec()), Some(0));
+		child.set(b"b".to_vec(), Some(b"vb".to_vec()), Some(1));
+		child.set(b"c".to_vec(), Some(b"vc".to_vec()), Some(2));
+
+		// p.commit_transaction x 3 (depth 5→4→3→2)
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		assert_eq!(child.transaction_depth(), 2);
+
+		// p.set_child_storage x 2 (at depth 2)
+		child.set(b"d".to_vec(), Some(b"vd".to_vec()), Some(3));
+		child.set(b"e".to_vec(), Some(b"ve".to_vec()), Some(4));
+
+		// p.rollback_transaction — should discard d, e (added at depth 2)
+		// and keep a, b, c (committed down to depth 1)
+		child.rollback_transaction().unwrap();
+		assert_eq!(child.transaction_depth(), 1);
+
+		let delta = child.take_delta();
+		let delta_keys: std::collections::HashSet<Vec<u8>> =
+			delta.values().cloned().collect();
+
+		// a, b, c were committed past depth 2 — should survive rollback
+		assert!(delta_keys.contains(&b"a".to_vec()));
+		assert!(delta_keys.contains(&b"b".to_vec()));
+		assert!(delta_keys.contains(&b"c".to_vec()));
+
+		// d, e were added at depth 2 and rolled back — should NOT appear
+		assert!(!delta_keys.contains(&b"d".to_vec()), "d should have been discarded by rollback");
+		assert!(!delta_keys.contains(&b"e".to_vec()), "e should have been discarded by rollback");
+	}
 }
