@@ -313,7 +313,7 @@ where
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		let Some(who) = origin.as_system_origin_signer() else {
-			return Ok((ValidTransaction::default(), Val::NoCharge, origin))
+			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
@@ -350,11 +350,12 @@ where
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, weight } =>
-				(tip, who, initial_payment, weight),
+			Pre::Charge { tip, who, initial_payment, weight } => {
+				(tip, who, initial_payment, weight)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
-				return Ok(refund)
+				return Ok(refund);
 			},
 		};
 

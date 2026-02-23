@@ -1,0 +1,30 @@
+title: Add `DecodeWithMemTracking` derive to `CompactProof`
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Add `DecodeWithMemTracking` derive to `CompactProof` in `substrate/primitives/trie/src/storage_proof.rs`.
+
+    `StorageProof` already derived `DecodeWithMemTracking` but `CompactProof` in the same file was missed.
+
+    ## Integration
+
+    No integration changes required for downstream projects. `CompactProof` now implements `DecodeWithMemTracking`, which is a strictly additive trait implementation. Existing code using `CompactProof` will continue to work as before.
+
+    ## Review Notes
+
+    Single-line change adding `DecodeWithMemTracking` to the derive macro list on `CompactProof`:
+
+    ```diff
+    -#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
+    +#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+     pub struct CompactProof {
+         pub encoded_nodes: Vec<Vec<u8>>,
+     }
+    ```
+
+    `CompactProof` only contains `Vec<Vec<u8>>`, which already implements `DecodeWithMemTracking`, so the derive works without any manual implementation.
+crates:
+- name: sp-trie
+  bump: patch

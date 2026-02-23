@@ -103,7 +103,7 @@ pub mod pallet {
 impl<T: Config> pallet_session::SessionManager<T::ValidatorId> for Pallet<T> {
 	fn new_session(new_index: SessionIndex) -> Option<Vec<T::ValidatorId>> {
 		if new_index <= 1 {
-			return None
+			return None;
 		}
 
 		let mut validators = Session::<T>::validators();

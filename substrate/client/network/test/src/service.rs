@@ -61,7 +61,7 @@ impl TestNetwork {
 
 	pub fn start_network(
 		self,
-	) -> (Arc<TestNetworkService>, (impl Stream<Item = Event> + std::marker::Unpin)) {
+	) -> (Arc<TestNetworkService>, impl Stream<Item = Event> + std::marker::Unpin) {
 		let worker = self.network;
 		let service = worker.service().clone();
 		let event_stream = service.event_stream("test");
@@ -212,6 +212,7 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			archive_blocks: false,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -364,7 +365,7 @@ async fn notifications_state_consistent() {
 		iterations += 1;
 		if iterations >= 1_000 {
 			assert!(something_happened);
-			break
+			break;
 		}
 
 		// Start by sending a notification from node1 to node2 and vice-versa. Part of the
@@ -392,10 +393,12 @@ async fn notifications_state_consistent() {
 			// forever while nothing at all happens on the network.
 			let continue_test = futures_timer::Delay::new(Duration::from_millis(20));
 			match future::select(future::select(next1, next2), continue_test).await {
-				future::Either::Left((future::Either::Left((Some(ev), _)), _)) =>
-					future::Either::Left(ev),
-				future::Either::Left((future::Either::Right((Some(ev), _)), _)) =>
-					future::Either::Right(ev),
+				future::Either::Left((future::Either::Left((Some(ev), _)), _)) => {
+					future::Either::Left(ev)
+				},
+				future::Either::Left((future::Either::Right((Some(ev), _)), _)) => {
+					future::Either::Right(ev)
+				},
 				future::Either::Right(_) => continue,
 				_ => break,
 			}
@@ -630,7 +633,7 @@ async fn fallback_name_working() {
 				},
 				NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 					assert_eq!(negotiated_fallback, None);
-					break
+					break;
 				},
 				_ => {},
 			}
@@ -645,7 +648,7 @@ async fn fallback_name_working() {
 			},
 			NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 				assert_eq!(negotiated_fallback, Some(PROTOCOL_NAME.into()));
-				break
+				break;
 			},
 			_ => {},
 		}

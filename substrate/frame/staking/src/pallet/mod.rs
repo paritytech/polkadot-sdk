@@ -1189,17 +1189,17 @@ pub mod pallet {
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
 
 			if StakingLedger::<T>::is_bonded(StakingAccount::Stash(stash.clone())) {
-				return Err(Error::<T>::AlreadyBonded.into())
+				return Err(Error::<T>::AlreadyBonded.into());
 			}
 
 			// An existing controller cannot become a stash.
 			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
-				return Err(Error::<T>::AlreadyPaired.into())
+				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
 			// Reject a bond which is considered to be _dust_.
 			if value < asset::existential_deposit::<T>() {
-				return Err(Error::<T>::InsufficientBond.into())
+				return Err(Error::<T>::InsufficientBond.into());
 			}
 
 			let stash_balance = asset::free_to_stake::<T>(&stash);
@@ -1982,7 +1982,7 @@ pub mod pallet {
 
 			if Nominators::<T>::contains_key(&stash) && Nominators::<T>::get(&stash).is_none() {
 				Self::chill_stash(&stash);
-				return Ok(())
+				return Ok(());
 			}
 
 			if caller != controller {

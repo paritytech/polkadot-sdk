@@ -1,0 +1,21 @@
+title: '[pallet-revive] Fix gas_cost and weight_cost for nested calls in execution tracer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR fixes `gasCost` and `weightCost` calculations in execution tracing (structLogs) for opcodes that spawn child calls (CALL, DELEGATECALL, CREATE, etc.). Previously,  was  and  reflected pre-execution state rather than actual consumption for any parent call.
+
+    This PR:
+      - Computes  and `weightCost` in  as the cost of executing the opcode itself, excluding gas/weight consumed by child calls
+      - Tracks child call consumption via a `PendingStep` stack and subtracts it when the parent opcode completes
+      - Adds test coverage for nested call gas tracking in both EVM and PVM modes
+
+
+    ## Difference from Ethereum/Geth
+      In Geth's opcode tracing,  for CALL-like opcodes includes the opcode's intrinsic cost plus all gas forwarded to child calls. In **our implementation**, `gasCost` reports only the opcode's intrinsic cost, **excluding forwarded gas**. The intrinsic cost includes:
+      - The *CALL opcode's base cost
+      - Post-call costs such as copying return data back to the caller's memory (e.g., CopyToContract)
+crates:
+- name: pallet-revive
+  bump: major

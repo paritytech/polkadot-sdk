@@ -22,7 +22,6 @@
 //! Many of the traits defined in [`traits`] have auto-implementations on tuples as well. Usually,
 //! the tuple is a function of number of pallets in the runtime. By default, the traits are
 //! implemented for tuples of up to 64 items.
-//
 // If you have more pallets in your runtime, or for any other reason need more, enabled `tuples-96`
 // or the `tuples-128` complication flag. Note that these features *will increase* the compilation
 // of this crate.
@@ -173,7 +172,6 @@ impl TypeId for PalletId {
 /// 1. Use the `verbatim` prefix type. This prefix type uses the given identifier as the
 /// `prefix`:
 #[doc = docify::embed!("src/tests/storage_alias.rs", verbatim_attribute)]
-///
 /// 2. Use the `pallet_name` prefix type. This prefix type uses the name of the pallet as
 /// configured in    [`construct_runtime!`] as the `prefix`:
 #[doc = docify::embed!("src/tests/storage_alias.rs", pallet_name_attribute)]

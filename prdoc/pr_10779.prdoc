@@ -1,0 +1,16 @@
+title: "remote-externalities: Support downloading from multiple RPC servers in parallel + major refactoring"
+doc:
+- audience: Node Dev
+  description: |
+    Major refactoring of frame-remote-externalities to support downloading state from multiple
+    RPC servers in parallel. This improves reliability and performance when fetching remote state.
+
+    Breaking changes:
+    - `OnlineConfig::transports` field renamed to `transport_uris`
+    - Various internal API changes
+
+crates:
+- name: frame-remote-externalities
+  bump: major
+- name: pallet-state-trie-migration
+  bump: patch

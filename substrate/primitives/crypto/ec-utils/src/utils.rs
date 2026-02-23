@@ -20,26 +20,91 @@
 // As not all functions are used by each elliptic curve and some elliptic
 // curve may be excluded by the build we resort to `#[allow(unused)]` to
 // suppress the expected warning.
+#![allow(unused)]
 
 use alloc::vec::Vec;
 use ark_ec::{
 	pairing::{MillerLoopOutput, Pairing},
-	short_weierstrass::{Affine as SWAffine, Projective as SWProjective, SWCurveConfig},
-	twisted_edwards::{Affine as TEAffine, Projective as TEProjective, TECurveConfig},
-	CurveConfig, VariableBaseMSM,
+	short_weierstrass::{Affine as SWAffine, SWCurveConfig},
+	twisted_edwards::{Affine as TEAffine, TECurveConfig},
+	CurveGroup,
 };
 use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
 	scale::{Decode, Encode},
+	ArkScaleMaxEncodedLen, MaxEncodedLen,
 };
+use sp_runtime_interface::RIType;
+
+/// Unexpected failure message.
+pub const FAIL_MSG: &str = "Unexpected failure, bad arguments, broken host/runtime contract; qed";
 
 // SCALE encoding parameters shared by all the enabled modules
 const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);
 type ArkScale<T> = ark_scale::ArkScale<T, SCALE_USAGE>;
-type ArkScaleProjective<T> = ark_scale::hazmat::ArkScaleProjective<T>;
+
+/// Convenience alias for a big integer represented as a sequence of `u64` limbs.
+pub type BigInteger = Vec<u64>;
+
+/// Error type for host call operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+	/// Encoding error due to small output buffer.
+	Encode = 1,
+	/// Input data decoding error
+	Decode = 2,
+	/// Input sequences have different lengths.
+	/// Applies to `msm` operations.
+	LengthMismatch = 3,
+	/// Unknown error.
+	Unknown = 255,
+}
 
 #[inline(always)]
-#[allow(unused)]
+pub fn encoded_len<T: CanonicalSerialize + ArkScaleMaxEncodedLen>() -> usize {
+	ArkScale::<T>::max_encoded_len()
+}
+
+#[inline(always)]
+pub fn buffer_for<T: CanonicalSerialize + ArkScaleMaxEncodedLen>() -> Vec<u8> {
+	vec![0_u8; encoded_len::<T>()]
+}
+
+/// Return a `Result<(), Error>` as a single `u32` through the FFI boundary.
+pub struct HostcallResult;
+
+impl RIType for HostcallResult {
+	type FFIType = u32;
+	type Inner = Result<(), Error>;
+}
+
+#[cfg(not(substrate_runtime))]
+impl sp_runtime_interface::host::IntoFFIValue for HostcallResult {
+	fn into_ffi_value(
+		value: Self::Inner,
+		_context: &mut dyn sp_runtime_interface::sp_wasm_interface::FunctionContext,
+	) -> sp_runtime_interface::sp_wasm_interface::Result<Self::FFIType> {
+		Ok(match value {
+			Ok(()) => 0,
+			Err(e) => e as u32,
+		})
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl sp_runtime_interface::wasm::FromFFIValue for HostcallResult {
+	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		match arg {
+			0 => Ok(()),
+			1 => Err(Error::Encode),
+			2 => Err(Error::Decode),
+			3 => Err(Error::LengthMismatch),
+			_ => Err(Error::Unknown),
+		}
+	}
+}
+
+#[inline(always)]
 pub fn encode_iter<T: CanonicalSerialize>(iter: impl Iterator<Item = T>) -> Vec<u8> {
 	encode(iter.collect::<Vec<_>>())
 }
@@ -50,73 +115,221 @@ pub fn encode<T: CanonicalSerialize>(val: T) -> Vec<u8> {
 }
 
 #[inline(always)]
-pub fn decode<T: CanonicalDeserialize>(buf: Vec<u8>) -> Result<T, ()> {
-	ArkScale::<T>::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
+pub fn encode_into<T: CanonicalSerialize>(val: T, mut buf: &mut [u8]) -> Result<(), Error> {
+	let val = ArkScale::from(val);
+	// Size hint uses arkworks `serialized_size`, which is accurate
+	if val.size_hint() > buf.len() {
+		return Err(Error::Encode);
+	}
+	val.encode_to(&mut buf);
+	Ok(())
 }
 
 #[inline(always)]
-pub fn encode_proj_sw<T: SWCurveConfig>(val: &SWProjective<T>) -> Vec<u8> {
-	ArkScaleProjective::from(val).encode()
+pub fn decode<T: CanonicalDeserialize>(mut buf: &[u8]) -> Result<T, Error> {
+	ArkScale::<T>::decode(&mut buf).map_err(|_| Error::Decode).map(|v| v.0)
 }
 
-#[inline(always)]
-pub fn decode_proj_sw<T: SWCurveConfig>(buf: Vec<u8>) -> Result<SWProjective<T>, ()> {
-	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
-}
-
-#[inline(always)]
-pub fn encode_proj_te<T: TECurveConfig>(val: &TEProjective<T>) -> Vec<u8> {
-	ArkScaleProjective::from(val).encode()
-}
-
-#[inline(always)]
-pub fn decode_proj_te<T: TECurveConfig>(buf: Vec<u8>) -> Result<TEProjective<T>, ()> {
-	ArkScaleProjective::decode(&mut &buf[..]).map_err(|_| ()).map(|v| v.0)
-}
-
-#[allow(unused)]
-pub fn multi_miller_loop<T: Pairing>(g1: Vec<u8>, g2: Vec<u8>) -> Result<Vec<u8>, ()> {
+/// Pairing multi Miller loop.
+///
+/// Receives encoded:
+/// - `g1`: `Vec<G1Affine>`.
+/// - `g2`: `Vec<G2Affine>`.
+/// Writes encoded `TargetField` to `out`.
+pub fn multi_miller_loop<T: Pairing>(g1: &[u8], g2: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let g1 = decode::<Vec<<T as Pairing>::G1Affine>>(g1)?;
 	let g2 = decode::<Vec<<T as Pairing>::G2Affine>>(g2)?;
 	let res = T::multi_miller_loop(g1, g2);
-	Ok(encode(res.0))
+	encode_into(res.0, out)
 }
 
-#[allow(unused)]
-pub fn final_exponentiation<T: Pairing>(target: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let target = decode::<<T as Pairing>::TargetField>(target)?;
-	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(())?;
-	Ok(encode(res.0))
+/// Pairing final exponentiation.
+///
+/// Receives encoded `TargetField`.
+/// Writes encoded `TargetField` to `in_out`.
+pub fn final_exponentiation<T: Pairing>(in_out: &mut [u8]) -> Result<(), Error> {
+	let target = decode::<<T as Pairing>::TargetField>(in_out)?;
+	let res = T::final_exponentiation(MillerLoopOutput(target)).ok_or(Error::Unknown)?;
+	encode_into(res.0, in_out)
 }
 
-#[allow(unused)]
-pub fn msm_sw<T: SWCurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+/// Short Weierstrass multi scalar multiplication.
+///
+/// Expects encoded:
+/// - `bases`: `Vec<SWAffine<SWCurveConfig>>`.
+/// - `scalars`: `Vec<SWCurveConfig::ScalarField>`.
+/// Writes encoded `SWAffine<SWCurveConfig>` to `out`.
+pub fn msm_sw<T: SWCurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<SWAffine<T>>>(bases)?;
-	let scalars = decode::<Vec<<T as CurveConfig>::ScalarField>>(scalars)?;
-	let res = <SWProjective<T> as VariableBaseMSM>::msm(&bases, &scalars).map_err(|_| ())?;
-	Ok(encode_proj_sw(&res))
+	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
+	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?.into_affine();
+	encode_into::<SWAffine<T>>(res, out)
 }
 
-#[allow(unused)]
-pub fn msm_te<T: TECurveConfig>(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+/// Short Weierstrass affine multiplication.
+///
+/// Expects encoded:
+/// - `base`: `SWAffine<SWCurveConfig>`.
+/// - `scalar`: `BigInteger`.
+/// Writes encoded `SWAffine<SWCurveConfig>` to `out`.
+pub fn mul_sw<T: SWCurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
+	let base = decode::<SWAffine<T>>(base)?;
+	let scalar = decode::<BigInteger>(scalar)?;
+	let res = T::mul_affine(&base, &scalar).into_affine();
+	encode_into::<SWAffine<T>>(res, out)
+}
+
+/// Twisted Edwards multi scalar multiplication.
+///
+/// Expects encoded:
+/// - `bases`: `Vec<TEAffine<TECurveConfig>>`.
+/// - `scalars`: `Vec<TECurveConfig::ScalarField>`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+pub fn msm_te<T: TECurveConfig>(bases: &[u8], scalars: &[u8], out: &mut [u8]) -> Result<(), Error> {
 	let bases = decode::<Vec<TEAffine<T>>>(bases)?;
-	let scalars = decode::<Vec<<T as CurveConfig>::ScalarField>>(scalars)?;
-	let res = <TEProjective<T> as VariableBaseMSM>::msm(&bases, &scalars).map_err(|_| ())?;
-	Ok(encode_proj_te(&res))
+	let scalars = decode::<Vec<T::ScalarField>>(scalars)?;
+	let res = T::msm(&bases, &scalars).map_err(|_| Error::LengthMismatch)?.into_affine();
+	encode_into::<TEAffine<T>>(res, out)
 }
 
-#[allow(unused)]
-pub fn mul_projective_sw<T: SWCurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let base = decode_proj_sw::<T>(base)?;
-	let scalar = decode::<Vec<u64>>(scalar)?;
-	let res = <T as SWCurveConfig>::mul_projective(&base, &scalar);
-	Ok(encode_proj_sw(&res))
+/// Twisted Edwards affine multiplication.
+///
+/// Expects encoded:
+/// - `base`: `TEAffine<TECurveConfig>`.
+/// - `scalar`: `BigInteger`.
+/// Writes encoded `TEAffine<TECurveConfig>` to `out`.
+pub fn mul_te<T: TECurveConfig>(base: &[u8], scalar: &[u8], out: &mut [u8]) -> Result<(), Error> {
+	let base = decode::<TEAffine<T>>(base)?;
+	let scalar = decode::<BigInteger>(scalar)?;
+	let res = T::mul_affine(&base, &scalar).into_affine();
+	encode_into::<TEAffine<T>>(res, out)
 }
 
-#[allow(unused)]
-pub fn mul_projective_te<T: TECurveConfig>(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
-	let base = decode_proj_te::<T>(base)?;
-	let scalar = decode::<Vec<u64>>(scalar)?;
-	let res = <T as TECurveConfig>::mul_projective(&base, &scalar);
-	Ok(encode_proj_te(&res))
+#[cfg(test)]
+pub mod testing {
+	use super::*;
+	use ark_ec::{AffineRepr, VariableBaseMSM};
+	use ark_ff::PrimeField;
+	use ark_std::{test_rng, UniformRand};
+
+	pub fn msm_args<P: AffineRepr>(count: usize) -> (Vec<P>, Vec<P::ScalarField>) {
+		let mut rng = test_rng();
+		(0..count).map(|_| (P::rand(&mut rng), P::ScalarField::rand(&mut rng))).unzip()
+	}
+
+	pub fn mul_args<P: AffineRepr>() -> (P, P::ScalarField) {
+		let (p, s) = msm_args::<P>(1);
+		(p[0], s[0])
+	}
+
+	fn pairing_args<E: Pairing>() -> (E::G1Affine, E::G2Affine) {
+		let mut rng = test_rng();
+		(E::G1Affine::rand(&mut rng), E::G2Affine::rand(&mut rng))
+	}
+
+	pub fn mul_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let (p, s) = mul_args::<SubAffine>();
+
+		// This goes implicitly through the hostcall
+		let r1 = (p * s).into_affine();
+
+		// This directly calls into arkworks
+		let p_enc = encode(p);
+		let s_enc = encode(s.into_bigint().as_ref());
+		let mut r2_enc = buffer_for::<SubAffine>();
+		mul_sw::<ArkAffine::Config>(&p_enc, &s_enc, &mut r2_enc).unwrap();
+		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn msm_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::short_weierstrass::SWCurveConfig,
+	{
+		let (bases, scalars) = msm_args::<SubAffine>(10);
+
+		// This goes implicitly through the hostcall
+		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
+
+		// This directly calls into arkworks
+		let bases_enc = encode(&bases[..]);
+		let scalars_enc = encode(&scalars[..]);
+		let mut r2_enc = buffer_for::<SubAffine>();
+		msm_sw::<ArkAffine::Config>(&bases_enc, &scalars_enc, &mut r2_enc).unwrap();
+		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn mul_te_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
+	{
+		let (p, s) = mul_args::<SubAffine>();
+
+		// This goes implicitly through the hostcall
+		let r1 = (p * s).into_affine();
+
+		// This directly calls into arkworks
+		let p_enc = encode(p);
+		let s_enc = encode(s.into_bigint().as_ref());
+		let mut r2_enc = buffer_for::<SubAffine>();
+		mul_te::<ArkAffine::Config>(&p_enc, &s_enc, &mut r2_enc).unwrap();
+		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn msm_te_test<SubAffine, ArkAffine>()
+	where
+		SubAffine: AffineRepr + ArkScaleMaxEncodedLen,
+		ArkAffine: AffineRepr<ScalarField = SubAffine::ScalarField>,
+		ArkAffine::Config: ark_ec::twisted_edwards::TECurveConfig,
+	{
+		let (bases, scalars) = msm_args::<SubAffine>(10);
+
+		// This goes implicitly through the hostcall
+		let r1 = SubAffine::Group::msm(&bases, &scalars).unwrap().into_affine();
+
+		// This directly calls into arkworks
+		let bases_enc = encode(&bases[..]);
+		let scalars_enc = encode(&scalars[..]);
+		let mut r2_enc = buffer_for::<SubAffine>();
+		msm_te::<ArkAffine::Config>(&bases_enc, &scalars_enc, &mut r2_enc).unwrap();
+		let r2 = decode::<SubAffine>(&r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
+
+	pub fn pairing_test<SubPairing, ArkPairing>()
+	where
+		SubPairing: Pairing,
+		<SubPairing as Pairing>::TargetField: ArkScaleMaxEncodedLen,
+		ArkPairing: Pairing,
+	{
+		let (g1, g2) = pairing_args::<SubPairing>();
+
+		// This goes implicitly through the `multi_miller_loop` and `final_exponentiation` hostcalls
+		let r1 = SubPairing::pairing(g1, g2).0;
+
+		// Pairing via direct arkworks calls
+		let g1_enc = encode(vec![g1]);
+		let g2_enc = encode(vec![g2]);
+		let mut r2_enc = buffer_for::<<SubPairing as Pairing>::TargetField>();
+		multi_miller_loop::<ArkPairing>(&g1_enc, &g2_enc, &mut r2_enc).unwrap();
+		final_exponentiation::<ArkPairing>(&mut r2_enc).unwrap();
+		let r2 = decode::<<SubPairing as Pairing>::TargetField>(&r2_enc).unwrap();
+
+		assert_eq!(r1, r2);
+	}
 }

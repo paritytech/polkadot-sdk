@@ -454,7 +454,7 @@ where
 	/// Returns the number of bytes used by all extrinsics in the the pool.
 	#[cfg(test)]
 	pub fn bytes(&self) -> usize {
-		return self.transactions.bytes()
+		return self.transactions.bytes();
 	}
 
 	/// Returns true if provided values would exceed defined limits.
@@ -483,8 +483,9 @@ where
 				transactions.insert(tx_hash, Arc::from(tx));
 				Ok(InsertionInfo::new(tx_hash, source))
 			},
-			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
+			(_, true) => {
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash)))
+			},
 			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
 		trace!(
@@ -668,8 +669,9 @@ where
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) =>
-					None,
+				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
+					None
+				},
 				Err(ref error) => {
 					trace!(
 						target: LOG_TARGET,
@@ -768,7 +770,7 @@ where
 			});
 		};
 
-		//note: here the consistency is assumed: it is expected that transaction will be
+		// note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
 		// is referencing tx as ready.
 		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
@@ -1261,7 +1263,7 @@ mod tx_mem_pool_tests {
 			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
-		//this one should drop 2 xts (size: 1130):
+		// this one should drop 2 xts (size: 1130):
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 1025]).build());
 		let (hash, length) = api.hash_and_length(&xt);
 		assert_eq!(length, 1130);
@@ -1303,7 +1305,7 @@ mod tx_mem_pool_tests {
 			mempool.update_transaction_priority(o.hash(), o.priority()).await;
 		}
 
-		//this one should drop 3 xts (each of size 1129)
+		// this one should drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
 		let (hash, length) = api.hash_and_length(&xt);
 		// overhead is 105, thus length: 105 + 2154
@@ -1375,7 +1377,7 @@ mod tx_mem_pool_tests {
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
-		//this one could drop 3 xts (each of size 1129)
+		// this one could drop 3 xts (each of size 1129)
 		let xt = Arc::from(ExtrinsicBuilder::new_include_data(vec![98 as u8; 2154]).build());
 		let length = api.hash_and_length(&xt).1;
 		// overhead is 105, thus length: 105 + 2154
