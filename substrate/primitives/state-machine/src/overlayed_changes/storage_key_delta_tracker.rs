@@ -15,8 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-//! Provides implementation of tracker of modified storage keys. Intended to be optize process of
-//! computing the pov size which includes the nodes required to compute storage root.
+//! Tracks modified storage keys to optimize PoV size estimation for storage root computation.
 
 use crate::trace;
 use alloc::vec::Vec;
