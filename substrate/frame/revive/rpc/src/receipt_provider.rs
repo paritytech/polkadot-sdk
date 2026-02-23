@@ -78,6 +78,9 @@ impl BlockInfo for SubstrateBlock {
 	}
 }
 
+/// Cap for the in-memory block map in persistent DB mode (evicts from memory only).
+const MAX_CACHED_BLOCKS: usize = 256;
+
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
@@ -430,8 +433,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 		} else {
-			/// Cap for the block map in persistent DB mode (evicts from memory only).
-			const MAX_CACHED_BLOCKS: usize = 256;
 			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
 				block_number_to_hash.pop_first();
 			}
@@ -1489,4 +1490,47 @@ mod tests {
 		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
 		assert!(!provider.is_before_earliest_block(&just_over));
 	}
+
+	#[sqlx::test]
+	async fn persistent_mode_caps_in_memory_map(pool: SqlitePool) -> anyhow::Result<()> {
+		// Persistent DB mode: keep_latest_n_blocks = None
+		let provider = ReceiptProvider {
+			pool,
+			block_provider: MockBlockInfoProvider {},
+			receipt_extractor: ReceiptExtractor::new_mock(),
+			keep_latest_n_blocks: None,
+			block_number_to_hashes: Default::default(),
+		};
+
+		// Insert more than MAX_CACHED_BLOCKS blocks.
+		let start_block: u64 = 1;
+		let n = MAX_CACHED_BLOCKS + 1;
+		let end_block = start_block + n as u64;
+		for i in start_block..end_block {
+			let block = MockBlockInfo { hash: H256::from_low_u64_be(i), number: i as _ };
+			let receipts = vec![(
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash: H256::from_low_u64_be(i),
+					logs: vec![Log {
+						block_hash: block.hash,
+						transaction_hash: H256::from_low_u64_be(i),
+						..Default::default()
+					}],
+					..Default::default()
+				},
+			)];
+			let ethereum_hash = H256::from_low_u64_be(i + 1);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
+		}
+
+		// In-memory map is capped at MAX_CACHED_BLOCKS.
+		assert_eq!(provider.block_number_to_hashes.lock().await.len(), MAX_CACHED_BLOCKS);
+
+		// All blocks are still in the DB (persistent mode doesn't delete from DB).
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
+
+		Ok(())
+	}
+
 }

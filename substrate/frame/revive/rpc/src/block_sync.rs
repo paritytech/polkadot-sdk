@@ -135,10 +135,11 @@ impl Client {
 		Ok(finalized)
 	}
 
-	/// Syncs all historical blocks down to genesis.
-	/// Resumes from where it left off if possible, otherwise starts a fresh backward sync.
-	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are logged and swallowed
-	/// since checkpoint state preserves progress for the next restart.
+	/// Sync historical blocks backward from `upper_boundary` to the earliest receipt block
+	/// or first EVM block.
+	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are swallowed
+	/// to avoid crashing the RPC server, since checkpoint state preserves progress for
+	/// the next restart.
 	pub async fn sync_past_blocks(
 		&self,
 		upper_boundary: Option<SyncCheckpoint>,
@@ -148,7 +149,7 @@ impl Client {
 			Err(err) if err.is_chain_validation_error() => Err(err),
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
-					"🗄️ Sync stopped: {err}. Progress saved, will resume on next restart.");
+					"🗄️ Sync stopped due to {err}.");
 				Ok(())
 			},
 		}
