@@ -14,14 +14,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 //! Historic block syncing logic for the Ethereum-compatible RPC layer.
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, LOG_TARGET, SubstrateBlockNumber},
+	client::{Client, ClientError, SubstrateBlockNumber},
 };
 use pallet_revive::evm::H256;
 use std::{future::Future, pin::Pin};
+
+const LOG_TARGET: &str = "eth-rpc::block-sync";
 
 /// Labels used to track sync progress in the `sync_state` table.
 #[derive(Debug, Clone, Copy)]

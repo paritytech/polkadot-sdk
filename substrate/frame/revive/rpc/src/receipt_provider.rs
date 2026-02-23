@@ -78,8 +78,9 @@ impl BlockInfo for SubstrateBlock {
 	}
 }
 
-/// Cap for the in-memory block map in persistent DB mode (evicts from memory only).
-const MAX_CACHED_BLOCKS: usize = 256;
+/// Default number of recent blocks to keep in the in-memory block map.
+/// Used as the persistent-mode memory cap and the default `--prune` value.
+pub(crate) const DEFAULT_BLOCK_CACHE_SIZE: usize = 256;
 
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
@@ -433,7 +434,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 		} else {
-			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
+			// Memory-only eviction; DB rows are retained for persistent storage.
+			while block_number_to_hash.len() > DEFAULT_BLOCK_CACHE_SIZE {
 				block_number_to_hash.pop_first();
 			}
 		}
@@ -1502,9 +1504,9 @@ mod tests {
 			block_number_to_hashes: Default::default(),
 		};
 
-		// Insert more than MAX_CACHED_BLOCKS blocks.
+		// Insert more than DEFAULT_BLOCK_CACHE_SIZE blocks.
 		let start_block: u64 = 1;
-		let n = MAX_CACHED_BLOCKS + 1;
+		let n = DEFAULT_BLOCK_CACHE_SIZE + 1;
 		let end_block = start_block + n as u64;
 		for i in start_block..end_block {
 			let block = MockBlockInfo { hash: H256::from_low_u64_be(i), number: i as _ };
@@ -1524,13 +1526,19 @@ mod tests {
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 		}
 
-		// In-memory map is capped at MAX_CACHED_BLOCKS.
-		assert_eq!(provider.block_number_to_hashes.lock().await.len(), MAX_CACHED_BLOCKS);
+		// In-memory map is capped at DEFAULT_BLOCK_CACHE_SIZE.
+		let map = provider.block_number_to_hashes.lock().await;
+		assert_eq!(map.len(), DEFAULT_BLOCK_CACHE_SIZE);
+
+		// The oldest block (1) should have been evicted, keeping blocks 2..=MAX+1.
+		assert!(!map.contains_key(&1));
+		assert!(map.contains_key(&2));
+		assert!(map.contains_key(&(DEFAULT_BLOCK_CACHE_SIZE as u32 + 1)));
+		drop(map);
 
 		// All blocks are still in the DB (persistent mode doesn't delete from DB).
 		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 
 		Ok(())
 	}
-
 }
