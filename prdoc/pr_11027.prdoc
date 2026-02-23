@@ -5,4 +5,4 @@ doc:
     are moved to Substrate to unify storage allowance control. '
 crates:
 - name: sp-statement-store
-  bump: minor
+  bump: major
