@@ -7,8 +7,8 @@ RELAYCHAIN_DB="relaychain-db.tgz"
 PARACHAIN_DB="parachain-db.tgz"
 
 # Config
-PARACHAIN_SPEC="$SCRIPT_DIR/warp-sync-parachain-spec.json"
-RELAYCHAIN_SPEC="$SCRIPT_DIR/warp-sync-relaychain-spec.json"
+PARACHAIN_SPEC="$SCRIPT_DIR/warp-sync-parachain-spec-raw.json"
+RELAYCHAIN_SPEC="$SCRIPT_DIR/warp-sync-relaychain-spec-raw.json"
 TARGET_DIR=$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release
 SNAPSHOT_DIR="${ZOMBIENET_SDK_BASE_DIR:-/tmp/zombienet-warp-sync}"
 
@@ -46,7 +46,7 @@ chainspec_parachain() {
     local wasm_path="$TARGET_DIR/wbuild/cumulus-test-runtime/cumulus_test_runtime.wasm"
     [[ -f "$wasm_path" ]] || { echo "Error: WASM runtime not found at $wasm_path" >&2; exit 1; }
 
-    "$TARGET_DIR/chain-spec-builder" create -r "$wasm_path" named-preset development
+    "$TARGET_DIR/chain-spec-builder" create -s -r "$wasm_path" named-preset development
     [[ -f "$PARACHAIN_SPEC" ]] && cp "$PARACHAIN_SPEC" "$PARACHAIN_SPEC.backup"
     mv chain_spec.json "$PARACHAIN_SPEC"
     echo "Created: $PARACHAIN_SPEC"
@@ -55,7 +55,7 @@ chainspec_parachain() {
 chainspec_relaychain() {
     echo "==> Generating relaychain chain spec"
 
-    "$TARGET_DIR/polkadot" build-spec --chain rococo-local --disable-default-bootnode > chain_spec.json
+    "$TARGET_DIR/polkadot" build-spec --chain rococo-local --disable-default-bootnode --raw > chain_spec.json
     [[ -f "$RELAYCHAIN_SPEC" ]] && cp "$RELAYCHAIN_SPEC" "$RELAYCHAIN_SPEC.backup"
     mv chain_spec.json "$RELAYCHAIN_SPEC"
     echo "Created: $RELAYCHAIN_SPEC"
