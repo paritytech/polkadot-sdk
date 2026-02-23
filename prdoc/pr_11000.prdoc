@@ -9,4 +9,8 @@ doc:
     This PR closes https://github.com/paritytech/contract-issues/issues/217 and also _kind of_ fixes https://github.com/paritytech/contract-issues/issues/259 or at least makes it harder to trigger the case in which we observe it, but the underlying issue still exists.
 
     The binary search algorithm implemented in this PR is as close as possible to that used in Geth
-crates: ['pallet-revive', 'pallet-revive-eth-rpc']
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
