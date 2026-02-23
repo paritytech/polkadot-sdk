@@ -578,7 +578,7 @@ mod benchmarks {
 			&mut bids,
 			&vouched,
 			10u32.into(),
-			BidKind::Vouch(member.clone(), 0u32.into())
+			BidKind::Vouch(member.clone(), 0u32.into()),
 		);
 		Bids::<T, I>::put(bids);
 
