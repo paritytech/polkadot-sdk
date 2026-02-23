@@ -675,10 +675,31 @@ impl CollationManager {
 
 		let delay = Self::calculate_delay(best_advertisement.score, highest_rep_of_para);
 
-		if *best_advertisement.timestamp + delay <= now {
+		// Calculate the remaining delay relative to the relay parent's activation time,
+		// not the advertisement's arrival time. This ensures that if a relay parent has been
+		// active long enough, advertisements are fetched immediately regardless of when they
+		// arrived.
+		let activated_at = self
+			.per_relay_parent
+			.get(&best_advertisement.adv.relay_parent)
+			.map(|rp| rp.activated_at)
+			.unwrap_or(now);
+		let elapsed_since_activation = now.duration_since(activated_at);
+		let remaining_delay = delay.saturating_sub(elapsed_since_activation);
+
+		if remaining_delay.is_zero() {
+			gum::debug!(
+				target: LOG_TARGET,
+				peer_id = ?best_advertisement.adv.peer_id,
+				relay_parent = ?best_advertisement.adv.relay_parent,
+				para_id = ?best_advertisement.adv.para_id,
+				?elapsed_since_activation,
+				?delay,
+				"Advertisement arrived late, fetching immediately without additional delay",
+			);
 			Either::Left(Some(*best_advertisement.adv))
 		} else {
-			Either::Right(delay)
+			Either::Right(remaining_delay)
 		}
 	}
 
@@ -948,6 +969,9 @@ struct PerRelayParent {
 	fetched_collations: HashMap<CandidateHash, PeerId>,
 	session_index: SessionIndex,
 	core_index: CoreIndex,
+	// The time at which this relay parent was activated/first seen. Used to calculate
+	// fetch delays relative to leaf activation rather than advertisement arrival.
+	activated_at: Instant,
 }
 
 impl PerRelayParent {
@@ -957,6 +981,7 @@ impl PerRelayParent {
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
+			activated_at: Instant::now(),
 		}
 	}
 
@@ -1572,6 +1597,60 @@ mod tests {
 				),
 				Either::Left(None)
 			);
+		}
+
+		// Late-arriving advertisement processed immediately when leaf was activated long ago.
+		// Even though the peer has a low score (which would normally incur a delay), the delay
+		// has already elapsed since leaf activation, so it should be fetched immediately.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+
+			// Set activated_at far enough in the past that any delay has elapsed.
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY * 2).unwrap();
+
+			// Advertisement arrives now (recent), but the leaf has been active long enough.
+			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+
+			// highest_rep = 100, peer's score = 50, so delay = MAX_FETCH_DELAY * 0.5
+			// But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
+			assert_eq!(
+				collation_manager.pick_best_advertisement(
+					now,
+					relay_parent,
+					&[relay_parent],
+					para_id,
+					score(100),
+					&get_rep,
+				),
+				Either::Left(Some(make_adv(peer_a)))
+			);
+		}
+
+		// Late-arriving advertisement with partial delay elapsed returns remaining delay.
+		{
+			let mut collation_manager = new_collation_manager_instance();
+			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
+
+			// Set activated_at so that only part of the delay has elapsed.
+			// delay = MAX_FETCH_DELAY / 2 (score 50 out of 100)
+			// activated_at = MAX_FETCH_DELAY / 4 ago => remaining = MAX_FETCH_DELAY / 4
+			let per_rp = collation_manager.per_relay_parent.get_mut(&relay_parent).unwrap();
+			per_rp.activated_at = now.checked_sub(MAX_FETCH_DELAY / 4).unwrap();
+
+			per_rp.add_advertisement(make_adv(peer_a), recent_timestamp);
+
+			let result = collation_manager.pick_best_advertisement(
+				now,
+				relay_parent,
+				&[relay_parent],
+				para_id,
+				score(100),
+				&get_rep,
+			);
+
+			assert_eq!(result, Either::Right(MAX_FETCH_DELAY / 4));
 		}
 	}
 }
