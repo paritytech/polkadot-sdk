@@ -30,13 +30,13 @@
 
 - job-name: "zombienet-cumulus-0006-rpc_collator_builds_blocks"
   test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_builds_blocks"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
 - job-name: "zombienet-cumulus-0007-full_node_warp_sync"
   test-filter: "zombie_ci::full_node_warp_sync::full_node_warp_sync"
-  runner-type: "default"
+  runner-type: "large"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 

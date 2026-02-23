@@ -5,12 +5,12 @@ error: The number of pallets exceeds the maximum number of tuple elements. To in
    |     ^^^
 
 error: recursion limit reached while expanding `frame_support::__private::tt_return!`
-   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:1
-    |
-66  | / construct_runtime! {
-67  | |     pub struct Runtime
-68  | |     {
-69  | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+ --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:1
+  |
+ 66 | / construct_runtime! {
+ 67 | |     pub struct Runtime
+ 68 | |     {
+ 69 | |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 ...   |
 181 | | }
     | |_^
