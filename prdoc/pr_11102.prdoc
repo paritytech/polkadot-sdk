@@ -1,0 +1,17 @@
+title: 'polkadot-omni-node-lib: emit warnings for aura authority id type assumptions'
+doc:
+- audience: Node Dev
+  description: |-
+    closes https://github.com/paritytech/polkadot-sdk/issues/11026
+
+    This PR adds explicit warnings at node startup to surface these assumptions:
+
+    - When the chain spec id starts with `asset-hub-polkadot` or `statemint`,
+      the node assumes `ed25519` as the Aura authority id type and now emits a
+      warning documenting this specific assumption.
+    - For all other chains, the node assumes `sr25519` by default and now emits
+      a warning noting that `ed25519` runtimes  are not yet
+      supported.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

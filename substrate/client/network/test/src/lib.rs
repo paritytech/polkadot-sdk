@@ -31,7 +31,10 @@ mod sync;
 use std::{
 	collections::HashMap,
 	pin::Pin,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU32, Ordering},
+		Arc,
+	},
 	task::{Context as FutureContext, Poll},
 	time::Duration,
 };
@@ -586,6 +589,11 @@ where
 		self.verifier.failed_verifications.lock().clone()
 	}
 
+	/// Returns the number of errors while importing blocks.
+	pub fn import_error_count(&self) -> u32 {
+		self.block_import.import_error_count()
+	}
+
 	pub fn has_block(&self, hash: H256) -> bool {
 		self.backend
 			.as_ref()
@@ -619,12 +627,18 @@ impl<T> BlockImportAdapterFull for T where
 #[derive(Clone)]
 pub struct BlockImportAdapter<I> {
 	inner: I,
+	import_errors: Arc<AtomicU32>,
 }
 
 impl<I> BlockImportAdapter<I> {
 	/// Create a new instance of `Self::Full`.
 	pub fn new(inner: I) -> Self {
-		Self { inner }
+		Self { inner, import_errors: Default::default() }
+	}
+
+	/// Returns the number of errors while importing blocks.
+	pub fn import_error_count(&self) -> u32 {
+		self.import_errors.load(Ordering::Relaxed)
 	}
 }
 
@@ -639,14 +653,25 @@ where
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(block).await
+		let result = self.inner.check_block(block).await;
+		if !matches!(
+			result,
+			Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain | ImportResult::KnownBad)
+		) {
+			self.import_errors.fetch_add(1, Ordering::Relaxed);
+		}
+		result
 	}
 
 	async fn import_block(
 		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		self.inner.import_block(block).await
+		let result = self.inner.import_block(block).await;
+		if !matches!(result, Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain)) {
+			self.import_errors.fetch_add(1, Ordering::Relaxed);
+		}
+		result
 	}
 }
 
@@ -963,6 +988,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			archive_blocks: config.blocks_pruning.is_none(),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

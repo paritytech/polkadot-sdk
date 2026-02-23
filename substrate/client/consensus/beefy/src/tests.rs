@@ -54,7 +54,6 @@ use sc_network_test::{
 	PeersFullClient, TestNetFactory,
 };
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
-use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
@@ -74,7 +73,7 @@ use sp_mmr_primitives::{Error as MmrError, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
-	BuildStorage, DigestItem, EncodedJustification, Justifications, Storage,
+	DigestItem, EncodedJustification, Justifications,
 };
 use std::{marker::PhantomData, sync::Arc, task::Poll};
 use substrate_test_runtime_client::{BlockBuilderExt, ClientExt};
@@ -99,17 +98,6 @@ type BeefyBlockImport = crate::BeefyBlockImport<
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Genesis(std::collections::BTreeMap<String, String>);
-impl BuildStorage for Genesis {
-	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-		storage
-			.top
-			.extend(self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())));
-		Ok(())
-	}
-}
 
 #[derive(Default)]
 pub(crate) struct PeerData {
@@ -190,7 +178,7 @@ impl BeefyTestNet {
 				add_mmr_digest(&mut builder, mmr_root);
 			}
 
-			if block_num % session_length == 0 {
+			if block_num.is_multiple_of(session_length) {
 				add_auth_change_digest(&mut builder, validator_set.clone());
 			}
 

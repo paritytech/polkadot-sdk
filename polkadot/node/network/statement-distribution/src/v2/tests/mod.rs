@@ -914,7 +914,7 @@ fn next_group_index(
 	group_size: usize,
 ) -> GroupIndex {
 	let next_group = group_index.0 + 1;
-	let num_groups =
-		validator_count / group_size + if validator_count % group_size > 0 { 1 } else { 0 };
+	let num_groups = validator_count / group_size +
+		if !validator_count.is_multiple_of(group_size) { 1 } else { 0 };
 	GroupIndex::from(next_group % num_groups as u32)
 }

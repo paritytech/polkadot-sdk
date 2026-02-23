@@ -301,7 +301,7 @@ impl AggressionConfig {
 		if let Some(t) = self.l1_threshold {
 			age >= t
 		} else if let Some(t) = self.resend_unfinalized_period {
-			age > 0 && age % t == 0
+			age > 0 && age.is_multiple_of(t)
 		} else {
 			false
 		}
