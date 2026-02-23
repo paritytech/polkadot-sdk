@@ -1680,3 +1680,23 @@ fn kick_member_works() {
 		assert_noop!(Society::kick_member(Origin::signed(10), 20), Error::<Test>::NotMember);
 	});
 }
+
+#[test]
+fn kicked_member_cannot_claim_payout() {
+	EnvBuilder::new().execute(|| {
+		place_members([20, 30]);
+		Payouts::<Test>::mutate(&30, |record| {
+			record.payouts.try_push((1, 100)).unwrap();
+		});
+
+		assert_ok!(Society::kick_member(Origin::signed(10), 30));
+		assert!(SuspendedMembers::<Test>::contains_key(30));
+
+		assert_eq!(
+			Payouts::<Test>::get(30),
+			PayoutRecord { paid: 0, payouts: vec![(1, 50)].try_into().unwrap() }
+		);
+
+		assert_noop!(Society::payout(Origin::signed(30)), Error::<Test>::NotMember);
+	});
+}
