@@ -494,6 +494,7 @@ pub enum SimulationError {
 	EthTransactError(EthTransactError),
 	ConversionError,
 	BlockCapacityExceeded,
+	CallCapacityExceeded,
 	OverflowError,
 	InvalidTransaction,
 	CallReverted,

@@ -96,22 +96,39 @@ impl ResolvedSimulationBlockOverrides {
 /// For the timestamps, the only requirement is that they're equal or monotonically increasing. This
 /// struct enforces all of these requirements by allowing the user to add the blocks one by one and
 /// doing the above checks when each block is added.
-pub struct SimulationBlocks<const BOUND: u32 = 0x100> {
+///
+/// Since simulation is quite a heavy operation, we have the following limits, which are enforced by
+/// this type, on the simulation operations:
+///
+/// 1. There can be a maximum of 256 blocks provided to simulate.
+/// 2. There can be a maximum of 10 calls to simulate across all of the blocks.
+/// 3. There's no limit on the storage overrides to perform since they're not computationally
+///    demanding.
+/// 4. There's no limit on the block overrides to perform since they're not computationally
+///    demanding.
+pub struct SimulationBlocks<
+	const MAX_NUMBER_OF_BLOCKS: u32 = 0x100,
+	const MAX_NUMBER_OF_CALLS: u32 = 0xF,
+> {
 	/// The block number of the last finalized block in the chain.
 	block_number_of_last_finalized_block: U256,
 	/// The block timestamp of the last finalized block in the chain.
 	block_timestamp_of_last_finalized_block: U256,
+	/// The number of calls that have been observed so far across all of the provided blocks.
+	number_of_calls: usize,
 	/// The map which contains all of the blocks and their associated calls. This is a mapping of
 	/// block number to the overrides and the calls that need to be performed in that block with
 	/// that set of overrides.
 	simulation_blocks: BoundedBTreeMap<
 		U256,
 		(ResolvedSimulationBlockOverrides, StateOverrides, Vec<GenericTransaction>),
-		ConstU32<BOUND>,
+		ConstU32<MAX_NUMBER_OF_BLOCKS>,
 	>,
 }
 
-impl<const BOUND: u32> SimulationBlocks<BOUND> {
+impl<const MAX_NUMBER_OF_BLOCKS: u32, const MAX_NUMBER_OF_CALLS: u32>
+	SimulationBlocks<MAX_NUMBER_OF_BLOCKS, MAX_NUMBER_OF_CALLS>
+{
 	/// Creates a new [`SimulationBlocks`] with the given upper bound.
 	pub fn new(
 		block_number_of_last_finalized_block: U256,
@@ -121,6 +138,7 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 			simulation_blocks: Default::default(),
 			block_number_of_last_finalized_block,
 			block_timestamp_of_last_finalized_block,
+			number_of_calls: 0,
 		}
 	}
 
@@ -130,6 +148,14 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 		&mut self,
 		SimulationPayload { block_overrides, state_overrides, calls }: SimulationPayload,
 	) -> Result<(), SimulationError> {
+		let new_number_of_calls = self
+			.number_of_calls
+			.checked_add(calls.len())
+			.ok_or(SimulationError::OverflowError)?;
+		if new_number_of_calls > MAX_NUMBER_OF_CALLS as usize {
+			return Err(SimulationError::CallCapacityExceeded)?;
+		}
+
 		let (last_block_number, ..) = self.last_block_number_and_timestamp();
 		let block_overrides = block_overrides.unwrap_or_default();
 		let state_overrides = state_overrides.unwrap_or_default();
@@ -173,6 +199,7 @@ impl<const BOUND: u32> SimulationBlocks<BOUND> {
 		self.simulation_blocks
 			.try_insert(block_number_override, (resolved_block_override, state_overrides, calls))
 			.map_err(|_| SimulationError::BlockCapacityExceeded)?;
+		self.number_of_calls = new_number_of_calls;
 
 		Ok(())
 	}
