@@ -311,8 +311,7 @@ impl Externalities for BasicExternalities {
 	}
 
 	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
-		// BasicExternalities has no backend with a proof recorder attached,
-		// so PoV size estimation is not supported.
+		unimplemented!("compute_pov_size_for_storage_root not supported for Basic")
 	}
 
 	fn storage_start_transaction(&mut self) {
