@@ -159,7 +159,11 @@ impl Client {
 		upper_boundary: Option<SyncCheckpoint>,
 	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
-		let latest_finalized = self.latest_finalized_block().await.number();
+		let latest_finalized_block = self.latest_finalized_block().await;
+		let latest_finalized = SyncCheckpoint {
+			block_number: latest_finalized_block.number(),
+			block_hash: Some(latest_finalized_block.hash()),
+		};
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
@@ -178,13 +182,13 @@ impl Client {
 			(Some(_), None) => {
 				log::warn!(target: LOG_TARGET,
 					"🗄️ LowerBound exists without UpperBound — possible partial corruption, \
-					 starting fresh sync from #{latest_finalized}");
-				self.fresh_sync(latest_finalized).await?;
+					 starting fresh sync from #{}", latest_finalized.block_number);
+				self.fresh_sync(latest_finalized.block_number).await?;
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{latest_finalized}");
-				self.fresh_sync(latest_finalized).await?;
+					"🗄️ Fresh sync: syncing backward from #{}", latest_finalized.block_number);
+				self.fresh_sync(latest_finalized.block_number).await?;
 			},
 		}
 
@@ -214,7 +218,7 @@ impl Client {
 		&self,
 		db_lower_bound: SyncCheckpoint,
 		db_upper_bound: SyncCheckpoint,
-		latest_finalized: SubstrateBlockNumber,
+		latest_finalized: SyncCheckpoint,
 	) -> Result<(), ClientError> {
 		// Mark sync in-progress. On crash, this value is the safe upper boundary.
 		self.receipt_provider()
@@ -226,18 +230,27 @@ impl Client {
 			.await?;
 
 		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{latest_finalized}",
-			db_lower_bound.block_number, db_upper_bound.block_number);
+			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}",
+			db_lower_bound.block_number, db_upper_bound.block_number, latest_finalized.block_number);
 
-		// Top gap: sync from latest_finalized down to db_upper_bound + 1
-		if db_upper_bound.block_number < latest_finalized {
+		// Top gap: sync from latest_finalized down to db_upper_bound + 1.
+		if db_upper_bound.block_number < latest_finalized.block_number {
 			self.sync_backward(
-				latest_finalized,
+				latest_finalized.block_number,
 				db_upper_bound.block_number.saturating_add(1),
 				None::<NoopSyncHook>,
 				None::<NoopSyncHook>,
 			)
 			.await?;
+
+			// Mark top gap complete so a crash during the bottom gap won't redo it.
+			self.receipt_provider()
+				.set_sync_state(
+					SyncLabel::UpperBound,
+					latest_finalized.block_number,
+					latest_finalized.block_hash,
+				)
+				.await?;
 		}
 
 		// Bottom gap: sync from db_lower_bound - 1 down to earliest-receipt-block (or first EVM
