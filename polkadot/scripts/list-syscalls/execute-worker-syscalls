@@ -56,6 +56,7 @@
 158 (arch_prctl)
 165 (mount)
 166 (umount2)
+186 (gettid)
 200 (tkill)
 202 (futex)
 203 (sched_setaffinity)
