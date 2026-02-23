@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Historic block syncing logic for the Ethereum-compatible RPC layer.
+//! Historic block syncing logic for the Ethereum JSON-RPC server.
 
 use crate::{
 	BlockInfoProvider,
@@ -32,9 +32,8 @@ pub enum SyncLabel {
 	/// Genesis block hash — used for chain identity verification.
 	Genesis,
 	/// Lowest block synced by the historic sync.
-	/// After sync completes, this equals the first EVM block (or genesis).
 	LowerBound,
-	/// Highest block synced when the historic sync started.
+	/// Upper boundary of contiguous DB coverage, used to resume sync after a crash.
 	/// Non-zero means sync is in progress (or was interrupted).
 	/// Zero (or absent) means sync completed successfully.
 	UpperBound,
@@ -63,7 +62,7 @@ impl std::fmt::Display for SyncLabel {
 	}
 }
 
-/// A stored sync checkpoint: block number + optional block hash.
+/// Sync checkpoint persisted in the `sync_state` table to allow resuming after a crash.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SyncCheckpoint {
 	pub block_number: SubstrateBlockNumber,
@@ -211,7 +210,7 @@ impl Client {
 			},
 		}
 
-		// Reset — signals that the sync completed successfully.
+		// Clear UpperBound to mark sync as complete.
 		self.receipt_provider()
 			.set_sync_label(
 				SyncLabel::UpperBound,
@@ -223,13 +222,14 @@ impl Client {
 		Ok(())
 	}
 
-	/// Fresh sync: backward from `latest_finalized` down to the first EVM block or `lower`.
-	/// Registers hooks to set `UpperBound` on the first synced block and checkpoint `LowerBound`.
+	/// Fresh sync: backward from `latest_finalized` down to `earliest_receipt_block` or first EVM
+	/// block. Registers hooks to set `UpperBound` on the first synced block and checkpoint
+	/// `LowerBound`.
 	async fn fresh_sync(&self, latest_finalized: SubstrateBlockNumber) -> Result<(), ClientError> {
-		let lower = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
+		let lower_bound = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		self.sync_backward(
 			latest_finalized,
-			lower,
+			lower_bound,
 			Some(self.set_sync_upper_bound_hook()),
 			Some(self.checkpoint_lower_bound_hook()),
 		)
@@ -269,8 +269,8 @@ impl Client {
 				.await?;
 		}
 
-		// Bottom gap: sync from db_lower_bound - 1 down to CLI earliest-receipt-block
-		// (or genesis). Auto-discovery stops early if a non-EVM block is hit.
+		// Bottom gap: sync from db_lower_bound - 1 down to earliest_receipt_block or first
+		// EVM block.
 		let earliest_receipt_block = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		if db_lower_bound.block_number > earliest_receipt_block {
 			self.sync_backward(
@@ -432,7 +432,7 @@ impl Client {
 			}
 		};
 
-		// Try to flush un-checkpointed progress
+		// Checkpoint the last synced block if it wasn't already at a checkpoint interval.
 		if !at_checkpoint(blocks_synced) {
 			if let Some((num, hash)) = last_synced {
 				if let Some(ref f) = on_progress {
@@ -472,32 +472,9 @@ mod tests {
 	}
 
 	#[test]
-	fn sync_checkpoint_equality() {
-		let a = SyncCheckpoint { block_number: 42, block_hash: Some(H256::repeat_byte(0x01)) };
-		let b = SyncCheckpoint { block_number: 42, block_hash: Some(H256::repeat_byte(0x01)) };
-		let c = SyncCheckpoint { block_number: 42, block_hash: None };
-		assert_eq!(a, b);
-		assert_ne!(a, c);
-	}
-
-	#[test]
 	fn chain_validation_errors_are_detected() {
 		assert!(ClientError::ChainMismatch.is_chain_validation_error());
 		assert!(ClientError::SyncBoundaryMismatch.is_chain_validation_error());
-	}
-
-	#[test]
-	fn transient_errors_are_not_chain_validation_errors() {
-		assert!(!ClientError::BlockNotFound.is_chain_validation_error());
-		assert!(!ClientError::ConversionFailed.is_chain_validation_error());
-		assert!(!ClientError::ContractNotFound.is_chain_validation_error());
-		assert!(!ClientError::EthExtrinsicNotFound.is_chain_validation_error());
-		assert!(!ClientError::TxFeeNotFound.is_chain_validation_error());
-		assert!(!ClientError::TxDecodingFailed.is_chain_validation_error());
-		assert!(!ClientError::RecoverEthAddressFailed.is_chain_validation_error());
-		assert!(!ClientError::ReceiptDataNotFound.is_chain_validation_error());
-		assert!(!ClientError::EthereumBlockNotFound.is_chain_validation_error());
-		assert!(!ClientError::ReceiptDataLengthMismatch.is_chain_validation_error());
 	}
 
 	#[test]

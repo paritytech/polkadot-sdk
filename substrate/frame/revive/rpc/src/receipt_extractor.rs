@@ -60,7 +60,8 @@ pub struct ReceiptExtractor {
 	/// Fetch ethereum block hash.
 	fetch_eth_block_hash: FetchEthBlockHashFn,
 
-	/// CLI-provided earliest block number. Immutable after construction.
+	/// CLI-provided earliest block number to consider when searching for transaction receipts..
+	/// Immutable after construction.
 	earliest_receipt_block: Option<SubstrateBlockNumber>,
 
 	/// Auto-discovered first EVM block on the chain.

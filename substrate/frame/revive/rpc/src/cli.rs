@@ -66,15 +66,15 @@ pub struct CliCommand {
 	pub prune: Option<usize>,
 
 	/// Earliest block number to consider when searching for transaction receipts.
-	/// Must not exceed the current chain head. Not persisted to database.
+	/// Must not exceed the current chain head.
 	///
-	/// If set higher than the current lower bound in the DB, blocks between them
+	/// If set higher than the current lowest block number in the DB, blocks between them
 	/// remain in the database but are not served by RPC.
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
 
-	/// Database storage type: `temporary` uses an in-memory SQLite database (data is lost on
-	/// restart), `persistent` uses an on-disk SQLite database at `{base-path}/{database-name}`.
+	/// Database storage type: `temporary` uses an in-memory SQLite database,
+	/// `persistent` uses an on-disk SQLite database at `{base-path}/{database-name}`.
 	#[clap(long, value_enum, default_value_t = DatabaseType::Temporary)]
 	pub database_type: DatabaseType,
 
@@ -132,7 +132,7 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 /// Resolve the base directory for persistent database storage.
 ///
 /// - If `base_path` is `Some` (explicit `--base-path` or `--dev` temp dir), use it directly.
-/// - If `base_path` is `None`, use the platform default with an optional chain-id subdirectory:
+/// - If `base_path` is `None`, use the platform default:
 ///   - macOS: `~/Library/Application Support/eth-rpc/<chain-id>/`
 ///   - Linux: `~/.local/share/eth-rpc/<chain-id>/`
 ///   - Windows: `%APPDATA%\eth-rpc\<chain-id>\`
@@ -183,16 +183,14 @@ fn validate_database_name(database_name: &str) -> anyhow::Result<()> {
 	if database_name.is_empty() {
 		anyhow::bail!("--database-name must not be empty");
 	}
-	if database_name.contains('\\') {
-		anyhow::bail!("--database-name must not contain backslashes, got: {database_name}");
+	if database_name.contains(['/', '\\']) {
+		anyhow::bail!("--database-name must not contain path separators, got: {database_name}");
 	}
 	let mut components = std::path::Path::new(database_name).components();
-	let is_single_normal = matches!(components.next(), Some(std::path::Component::Normal(_))) &&
-		components.next().is_none();
-	if !is_single_normal {
-		anyhow::bail!(
-			"--database-name must be a plain filename without path separators, got: {database_name}"
-		);
+	if !matches!(components.next(), Some(std::path::Component::Normal(_))) ||
+		components.next().is_some()
+	{
+		anyhow::bail!("--database-name must be a plain filename, got: {database_name}");
 	}
 	Ok(())
 }

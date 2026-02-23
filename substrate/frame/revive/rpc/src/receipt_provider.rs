@@ -92,7 +92,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<Self, sqlx::Error> {
 		sqlx::migrate!().run(&pool).await?;
 
-		// Restore persisted evm_first_block so it's available immediately.
+		// Restore persisted evm_first_block
 		if let Some(checkpoint) = Self::load_sync_state(&pool, SyncLabel::EvmFirstBlock).await? {
 			receipt_extractor.set_evm_first_block(checkpoint.block_number);
 		}
@@ -442,7 +442,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 		} else {
-			// Memory-only eviction; DB rows are retained for persistent storage.
+			// Persistent mode: evict from memory only, DB rows are kept.
 			while block_number_to_hash.len() > DEFAULT_BLOCK_CACHE_SIZE {
 				block_number_to_hash.pop_first();
 			}
