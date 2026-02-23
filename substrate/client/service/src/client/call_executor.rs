@@ -203,10 +203,18 @@ where
 		.map_err(Into::into)
 	}
 
-	fn runtime_version(&self, at_hash: Block::Hash) -> sp_blockchain::Result<RuntimeVersion> {
+	fn runtime_version(
+		&self,
+		at_hash: Block::Hash,
+		call_context: CallContext,
+	) -> sp_blockchain::Result<RuntimeVersion> {
 		let state = self.backend.state_at(at_hash, backend::TrieCacheContext::Untrusted)?;
+		let try_pending_code = match call_context {
+			CallContext::Onchain => TryPendingCode::Yes,
+			CallContext::Offchain => TryPendingCode::No,
+		};
 		let state_runtime_code =
-			sp_state_machine::backend::BackendRuntimeCode::new(&state, TryPendingCode::No);
+			sp_state_machine::backend::BackendRuntimeCode::new(&state, try_pending_code);
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
@@ -266,8 +274,12 @@ where
 	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
-	fn runtime_version(&self, at: Block::Hash) -> Result<sp_version::RuntimeVersion, String> {
-		CallExecutor::runtime_version(self, at).map_err(|e| e.to_string())
+	fn runtime_version(
+		&self,
+		at: Block::Hash,
+		call_context: CallContext,
+	) -> Result<sp_version::RuntimeVersion, String> {
+		CallExecutor::runtime_version(self, at, call_context).map_err(|e| e.to_string())
 	}
 }
 

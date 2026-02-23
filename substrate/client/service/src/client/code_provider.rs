@@ -346,7 +346,9 @@ mod tests {
 			)
 			.expect("Creates a client");
 
-		let version = client.runtime_version_at(client.chain_info().genesis_hash).unwrap();
+		let version = client
+			.runtime_version_at(client.chain_info().genesis_hash, sp_api::CallContext::Offchain)
+			.unwrap();
 
 		assert_eq!(SUBSTITUTE_SPEC_NAME, &*version.spec_name);
 	}
