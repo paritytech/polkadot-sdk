@@ -338,8 +338,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	// | beefy               | ECDSA   | 33 bytes   | 65 bytes  |
 	// | Total               |         | 193 bytes  | 385 bytes |
 	// We add some buffer for SCALE encoding overhead and future expansions
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = weights::pallet_staking_async_rc_client::WeightInfo<Runtime>;
 }
 
