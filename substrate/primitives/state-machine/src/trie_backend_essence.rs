@@ -671,7 +671,7 @@ where
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) {
-		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
 		let backend_storage = &self.backend_storage();
 		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
 
