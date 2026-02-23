@@ -830,7 +830,7 @@ impl<T: Config> Pallet<T> {
 				let encoding = match format {
 					XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
 					XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
-					_ => {
+					XcmpMessageFormat::Signals | XcmpMessageFormat::ConcatenatedEncodedBlob => {
 						// This branch is unreachable.
 						return Err(());
 					},
@@ -999,7 +999,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 			})
 			.collect();
 
-		loop {
+		while !xcmp_messages.is_empty() {
 			let mut processed_xcm_senders = BTreeSet::new();
 			xcmp_messages.retain_mut(|(sender, format, data)| {
 				if data.is_empty() {
@@ -1023,10 +1023,6 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 
 				return true;
 			});
-
-			if xcmp_messages.is_empty() || processed_xcm_senders.is_empty() {
-				break;
-			}
 		}
 
 		meter.consumed()
