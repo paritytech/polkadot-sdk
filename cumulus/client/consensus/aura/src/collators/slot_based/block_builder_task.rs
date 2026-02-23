@@ -46,7 +46,7 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof};
+use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -300,12 +300,10 @@ where
 				connection_helper.update::<P>(slot_info.slot, &authorities).await;
 			}
 
-			let Some(slot_claim) = crate::collators::can_build_upon::<_, _, P>(
+			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
 				slot_info.slot,
-				relay_slot,
 				slot_info.timestamp,
 				initial_parent.hash,
-				included_header_hash,
 				&*para_client,
 				&keystore,
 			)
@@ -437,6 +435,10 @@ where
 					collator_peer_id,
 					relay_parent_data: rp_data.clone(),
 					total_number_of_blocks: number_of_blocks,
+					included_header_hash,
+					relay_slot,
+					para_slot: slot_info.slot,
+					para_client: &*para_client,
 				})
 				.await
 				{
@@ -458,7 +460,18 @@ where
 }
 
 /// Parameters for [`build_collation_for_core`].
-struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, Proposer, CS, CHP> {
+struct BuildCollationParams<
+	'a,
+	Block: BlockT,
+	P: Pair,
+	RelayClient,
+	BI,
+	CIDP,
+	Proposer,
+	CS,
+	CHP,
+	Client,
+> {
 	pov_parent_header: Block::Header,
 	pov_parent_hash: Block::Hash,
 	relay_parent_header: &'a RelayHeader,
@@ -481,12 +494,26 @@ struct BuildCollationParams<'a, Block: BlockT, P: Pair, RelayClient, BI, CIDP, P
 	collator_peer_id: PeerId,
 	relay_parent_data: RelayParentData,
 	total_number_of_blocks: u32,
+	included_header_hash: Block::Hash,
+	relay_slot: cumulus_primitives_aura::Slot,
+	para_slot: cumulus_primitives_aura::Slot,
+	para_client: &'a Client,
 }
 
 /// Build a collation for one core.
 ///
 /// One collation can be composed of multiple blocks.
-async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS, CHP>(
+async fn build_collation_for_core<
+	Block: BlockT,
+	P,
+	RelayClient,
+	BI,
+	CIDP,
+	Proposer,
+	CS,
+	CHP,
+	Client,
+>(
 	BuildCollationParams {
 		pov_parent_header,
 		pov_parent_hash,
@@ -509,7 +536,11 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 		collator_peer_id,
 		relay_parent_data,
 		total_number_of_blocks,
-	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP>,
+		included_header_hash,
+		relay_slot,
+		para_slot,
+		para_client,
+	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -522,6 +553,8 @@ where
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
 {
 	let core_start = Instant::now();
 
@@ -553,6 +586,25 @@ where
 	let mut parent_header = pov_parent_header.clone();
 
 	for block_index in 0..blocks_per_core {
+		// Check if we can build the next block
+		if !crate::collators::can_build_upon::<Block, Client>(
+			parent_hash,
+			included_header_hash,
+			relay_slot,
+			para_slot,
+			para_client,
+		)
+		.await
+		{
+			tracing::debug!(
+				target: LOG_TARGET,
+				?parent_hash,
+				?included_header_hash,
+				"Cannot build next block due to unincluded segment constraints"
+			);
+			break;
+		}
+
 		// TODO: With transaction streaming we do not need to skip anything any more and can just
 		// set `is_last`.
 
@@ -724,6 +776,17 @@ where
 		{
 			tokio::time::sleep(sleep).await;
 		}
+	}
+
+	if blocks.is_empty() {
+		tracing::debug!(
+			target: LOG_TARGET,
+			?core_index,
+			relay_parent = ?relay_parent_hash,
+			"Did not build any blocks, returning"
+		);
+
+		return Ok(None);
 	}
 
 	let proof = StorageProof::merge(proofs);

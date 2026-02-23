@@ -101,87 +101,8 @@ fn duration_now() -> Duration {
 	})
 }
 
-<<<<<<< HEAD
 /// Returns the duration until the next block production slot and the timestamp at this slot.
 fn time_until_next_slot(
-||||||| 9972470602d
-/// Adjust the authoring duration.
-fn adjust_authoring_duration(
-	mut authoring_duration: Duration,
-	next_block: (Duration, Slot),
-	next_slot_change: (Duration, Slot),
-	different_authors: bool,
-) -> Option<Duration> {
-	let (duration, next_block_slot) = next_block;
-	let (duration_until_next_slot, next_slot) = next_slot_change;
-
-	// The authoring of blocks must stop 1 second before the slot ends.
-	let duration_until_deadline =
-		duration_until_next_slot.saturating_sub(BLOCK_PRODUCTION_ADJUSTMENT_MS);
-	tracing::debug!(
-		target: LOG_TARGET,
-		?authoring_duration,
-		?duration,
-		?next_block_slot,
-		?duration_until_next_slot,
-		?next_slot,
-		?duration_until_deadline,
-		?different_authors,
-		"Adjusting authoring duration for slot.",
-	);
-
-	// Ensure no blocks are produced in the last second of the slot,
-	// regardless of authoring duration.
-	if duration_until_deadline == Duration::ZERO {
-		if different_authors {
-			tracing::warn!(
-				target: LOG_TARGET,
-				?duration_until_next_slot,
-				?next_slot,
-				"Not enough time left in the slot to adjust authoring duration. Skipping block production for the slot."
-			);
-
-			return None;
-		}
-
-		// If authors are the same, we can still attempt producing the block
-		// considering the next block duration.
-		return Some(authoring_duration.min(duration));
-	}
-
-	// Clamp the authoring duration to fit into the slot deadline only if authors are different.
-	// For most cases, the deadline is farther in the future than the authoring duration.
-	if different_authors && authoring_duration >= duration_until_deadline {
-		authoring_duration = duration_until_deadline;
-
-		// Ensure we are not going below the minimum interval within a reasonable threshold.
-		// For 12 cores, we might have a scenario where the last 3 blocks are skipped:
-		// - Block 10: next slot change in 1.493s:
-		// 	 - After adjusting the deadline: 1.493s - 1s = 0.493s the block could be produced
-		//     without issues.
-		// - Block 11: next slot change in 0.993s - skipped by the deadline
-		// - Block 12: next slot change in 0.493s - skipped by the deadline
-		if authoring_duration <
-			BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS.saturating_sub(BLOCK_PRODUCTION_THRESHOLD_MS)
-		{
-			tracing::debug!(
-				target: LOG_TARGET,
-				?authoring_duration,
-				?next_slot,
-				"Authoring duration is below minimum. Skipping block production for the slot."
-			);
-			return None;
-		}
-	}
-
-	// The `duration` intends to slightly adjust when then block production
-	// attempt happens. This goes slightly below the `BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS`
-	// threshold.
-	Some(authoring_duration.min(duration))
-}
-
-/// Returns the duration until the next block production should be attempted.
-fn time_until_next_attempt(
 	now: Duration,
 	block_production_interval: Duration,
 	offset: Duration,

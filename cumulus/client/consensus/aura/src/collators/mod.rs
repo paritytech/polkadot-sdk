@@ -211,20 +211,17 @@ async fn claim_queue_at(
 	}
 }
 
-// Checks if we own the slot at the given block and whether there
-// is space in the unincluded segment.
-async fn can_build_upon<Block: BlockT, Client, P>(
+// Checks if we own the slot at the given block.
+async fn claim_slot<Block: BlockT, Client, P>(
 	para_slot: Slot,
-	relay_slot: Slot,
 	timestamp: Timestamp,
 	parent_hash: Block::Hash,
-	included_block: Block::Hash,
 	client: &Client,
 	keystore: &KeystorePtr,
 ) -> Option<SlotClaim<P::Public>>
 where
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraApi<Block, P::Public> + AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
+	Client::Api: AuraApi<Block, P::Public> + ApiExt<Block>,
 	P: Pair,
 	P::Public: Codec,
 	P::Signature: Codec,
@@ -232,27 +229,46 @@ where
 	let runtime_api = client.runtime_api();
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
+	Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+}
 
+// Checks if there is space in the unincluded segment.
+async fn can_build_upon<Block: BlockT, Client>(
+	parent_hash: Block::Hash,
+	included_block: Block::Hash,
+	relay_slot: Slot,
+	para_slot: Slot,
+	client: &Client,
+) -> bool
+where
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
+{
 	// This function is typically called when we want to build block N. At that point, the
 	// unincluded segment in the runtime is unaware of the hash of block N-1. If the unincluded
 	// segment in the runtime is full, but block N-1 is the included block, the unincluded segment
 	// should have length 0 and we can build. Since the hash is not available to the runtime
 	// however, we need this extra check here.
 	if parent_hash == included_block {
-		return Some(SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp));
+		return true;
 	}
 
-	let api_version = runtime_api
+	let runtime_api = client.runtime_api();
+	let api_version = match runtime_api
 		.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
 		.ok()
-		.flatten()?;
+		.flatten()
+	{
+		Some(v) => v,
+		None => return false,
+	};
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
 
 	runtime_api
 		.can_build_upon(parent_hash, included_block, slot)
-		.ok()?
-		.then(|| SlotClaim::unchecked::<P>(author_pub, para_slot, timestamp))
+		.ok()
+		.unwrap_or(false)
 }
 
 /// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
@@ -317,7 +333,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::collators::{can_build_upon, BackingGroupConnectionHelper};
+	use crate::collators::BackingGroupConnectionHelper;
 	use codec::Encode;
 	use cumulus_primitives_aura::Slot;
 	use cumulus_primitives_core::BlockT;
@@ -404,12 +420,10 @@ mod tests {
 		let mut last_hash = genesis_hash;
 
 		// Fill up the unincluded segment tracker in the runtime.
-		while can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			Slot::from(u64::MAX),
+		while claim_slot::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
 			Slot::from(u64::MAX),
 			Timestamp::default(),
 			last_hash,
-			genesis_hash,
 			&*client,
 			&keystore,
 		)
@@ -422,17 +436,9 @@ mod tests {
 
 		// Blocks were built with the genesis hash set as included block.
 		// We call `can_build_upon` with the last built block as the included block.
-		let result = can_build_upon::<_, _, sp_consensus_aura::sr25519::AuthorityPair>(
-			Slot::from(u64::MAX),
-			Slot::from(u64::MAX),
-			Timestamp::default(),
-			last_hash,
-			last_hash,
-			&*client,
-			&keystore,
-		)
-		.await;
-		assert!(result.is_some());
+		let result =
+			can_build_upon::<_, _>(last_hash, last_hash, Slot::from(u64::MAX), Slot::from(u64::MAX), &*client).await;
+		assert!(result);
 	}
 
 	/// Helper to create a mock overseer handle and message recorder
