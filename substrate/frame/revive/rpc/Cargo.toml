@@ -37,8 +37,8 @@ sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 serde = { workspace = true, default-features = true, features = [
-    "alloc",
-    "derive",
+	"alloc",
+	"derive",
 ] }
 serde_json = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
@@ -50,7 +50,7 @@ sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
 subxt = { workspace = true, default-features = true, features = [
-    "reconnecting-rpc-client",
+	"reconnecting-rpc-client",
 ] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
