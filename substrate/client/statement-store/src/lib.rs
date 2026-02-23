@@ -2762,7 +2762,7 @@ mod tests {
 		{
 			let mut index = store.index.write();
 			for s in [&s1, &s2, &s3, &s4, &s5] {
-				index.insert_new(s.hash(), account(4), s);
+				index.insert_new(s.hash(), account(4), s, false);
 			}
 		}
 
@@ -2802,8 +2802,8 @@ mod tests {
 		// Directly insert statements for account with no allowance
 		{
 			let mut index = store.index.write();
-			index.insert_new(h1, account(0), &s1);
-			index.insert_new(h2, account(0), &s2);
+			index.insert_new(h1, account(0), &s1, false);
+			index.insert_new(h2, account(0), &s2, false);
 		}
 
 		assert_eq!(store.index.read().entries.len(), 2);
@@ -2837,8 +2837,8 @@ mod tests {
 		// Directly insert both statements (total 1200 bytes > 1000 limit)
 		{
 			let mut index = store.index.write();
-			index.insert_new(h1, account(2), &s1);
-			index.insert_new(h2, account(2), &s2);
+			index.insert_new(h1, account(2), &s1, false);
+			index.insert_new(h2, account(2), &s2, false);
 		}
 
 		assert_eq!(store.index.read().total_size, 1200);
