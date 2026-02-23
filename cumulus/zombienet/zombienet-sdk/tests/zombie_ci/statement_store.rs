@@ -56,7 +56,6 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	assert!(
 		matches!(first_item, StatementEvent::NumMatchingStatements(0)),
 		"Expected NumMatchingStatements(0), got: {first_item:?}",
-		first_item
 	);
 
 	// Submit the statement to charlie.
