@@ -116,10 +116,10 @@ mod tests {
 		let key_264 = Nibbles::unpack(alloy_rlp::encode(&264u64).as_slice());
 		let key_265 = Nibbles::unpack(alloy_rlp::encode(&265u64).as_slice());
 
-		let retainer = ProofRetainer::new(vec![key_263.clone()]);
+		let retainer = ProofRetainer::new(vec![key_263]);
 		let mut hb = HashBuilder::default().with_proof_retainer(retainer);
 
-		hb.add_leaf(key_263.clone(), &receipt_value);
+		hb.add_leaf(key_263, &receipt_value);
 		hb.add_leaf(key_264, &receipt_value);
 		hb.add_leaf(key_265, &receipt_value);
 
