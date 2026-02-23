@@ -54,7 +54,10 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member, Zero},
+	Saturating,
+};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -237,15 +240,19 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, parent)) =
+			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
 					.await
 			else {
 				continue;
 			};
 
-			let parent_hash = parent.hash;
-			let parent_header = &parent.header;
+			let parent_hash = parent_search_result.best_parent_header.hash();
+			let included_header = parent_search_result.included_header;
+			let parent_header = &parent_search_result.best_parent_header;
+			// Distance from included block to best parent (unincluded segment length).
+			let unincluded_segment_len =
+				parent_header.number().saturating_sub(*included_header.number());
 
 			// Retrieve the core.
 			let core = match determine_core(
@@ -329,7 +336,7 @@ where
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
-						unincluded_segment_len = parent.depth,
+						?unincluded_segment_len,
 						relay_parent = ?relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
 						included_hash = ?included_header_hash,
@@ -344,7 +351,7 @@ where
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				unincluded_segment_len = parent.depth,
+				?unincluded_segment_len,
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
@@ -417,7 +424,7 @@ where
 			let Some(adjusted_authoring_duration) = adjusted_authoring_duration else {
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					unincluded_segment_len = parent.depth,
+					?unincluded_segment_len,
 					relay_parent = ?relay_parent,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,

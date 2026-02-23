@@ -249,7 +249,13 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -264,7 +270,9 @@ impl Index {
 		}
 		let expiry = Expiry(statement.expiry());
 		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.recent.insert(hash);
+		if is_recent {
+			self.recent.insert(hash);
+		}
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -571,7 +579,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, true);
 		Ok(evicted)
 	}
 }
@@ -705,7 +713,7 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, false);
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
@@ -806,6 +814,7 @@ impl Store {
 	// Statements are considered expired when their priority (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
 	fn check_expiration(&self) {
+		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 
 		let (needs_expiry, num_accounts_checked) = {
@@ -849,6 +858,8 @@ impl Store {
 			(needs_expiry, num_accounts_checked)
 		};
 
+		let mut expired = 0;
+
 		for hash in needs_expiry {
 			if let Err(e) = self.remove(&hash) {
 				log::debug!(
@@ -858,6 +869,7 @@ impl Store {
 					e
 				);
 			} else {
+				expired += 1;
 				log::trace!(
 					target: LOG_TARGET,
 					"Marked statement {:?} as expired",
@@ -865,21 +877,44 @@ impl Store {
 				);
 			}
 		}
+
 		let mut index = self.index.write();
 		let new_len = index
 			.accounts_to_check_for_expiry_stmts
 			.len()
 			.saturating_sub(num_accounts_checked);
 		index.accounts_to_check_for_expiry_stmts.truncate(new_len);
+
+		drop(_start_check_expiration_timer);
+
+		self.metrics.report(|metrics| {
+			metrics.statements_expired_total.inc_by(expired);
+		});
 	}
 
 	/// Perform periodic store maintenance
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		let (deleted, active_count, expired_count): (Vec<_>, usize, usize) = {
+		let (
+			deleted,
+			active_count,
+			expired_count,
+			total_size,
+			accounts_count,
+			capacity_statements,
+			capacity_bytes,
+		): (Vec<_>, usize, usize, usize, usize, usize, usize) = {
 			let mut index = self.index.write();
 			let deleted = index.maintain(self.timestamp());
-			(deleted, index.entries.len(), index.expired.len())
+			(
+				deleted,
+				index.entries.len(),
+				index.expired.len(),
+				index.total_size,
+				index.accounts.len(),
+				index.options.max_total_statements,
+				index.options.max_total_size,
+			)
 		};
 		let deleted: Vec<_> =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), None)).collect();
@@ -889,6 +924,16 @@ impl Store {
 		} else {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
+
+		self.metrics.report(|metrics| {
+			metrics.statements_total.set(active_count as u64);
+			metrics.bytes_total.set(total_size as u64);
+			metrics.accounts_total.set(accounts_count as u64);
+			metrics.expired_total.set(expired_count as u64);
+			metrics.capacity_statements.set(capacity_statements as u64);
+			metrics.capacity_bytes.set(capacity_bytes as u64);
+		});
+
 		log::trace!(
 			target: LOG_TARGET,
 			"Completed store maintenance. Purged: {}, Active: {}, Expired: {}",
@@ -1142,6 +1187,7 @@ impl StatementStore for Store {
 
 	/// Submit a statement to the store. Validates the statement and returns validation result.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
 		if self.timestamp() >= statement.get_expiration_timestamp_secs().into() {
@@ -1150,6 +1196,7 @@ impl StatementStore for Store {
 				"Statement is already expired: {:?}",
 				HexDisplay::from(&hash),
 			);
+			self.metrics.report(|metrics| metrics.validations_invalid.inc());
 			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
 		}
 		let encoded_size = statement.encoded_size();
@@ -1161,6 +1208,7 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
+			self.metrics.report(|metrics| metrics.validations_invalid.inc());
 			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
@@ -1255,7 +1303,12 @@ impl StatementStore for Store {
 			let evicted =
 				match index.insert(hash, &statement, &account_id, &validation, current_time) {
 					Ok(evicted) => evicted,
-					Err(reason) => return SubmitResult::Rejected(reason),
+					Err(reason) => {
+						self.metrics.report(|metrics| {
+							metrics.rejections.with_label_values(&[reason.label()]).inc();
+						});
+						return SubmitResult::Rejected(reason);
+					},
 				};
 
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));

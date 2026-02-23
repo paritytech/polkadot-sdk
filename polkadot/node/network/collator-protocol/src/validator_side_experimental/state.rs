@@ -23,7 +23,7 @@ use crate::{
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
-		peer_manager::Backend,
+		peer_manager::{Backend, PersistentDb},
 		Metrics, PeerManager,
 	},
 	LOG_TARGET,
@@ -616,5 +616,20 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
 		self.collation_manager.advertisements()
+	}
+}
+
+// Specific implementation for PersistentDb to support disk persistence.
+impl State<PersistentDb> {
+	/// Persist the reputation database to disk asynchronously (fire-and-forget).
+	/// Called on periodic timer.
+	pub fn background_persist_reputations(&mut self) {
+		self.peer_manager.persist_to_disk_async();
+	}
+
+	/// Persist the reputation database to disk and wait for completion.
+	/// Called on graceful shutdown.
+	pub async fn persist_reputations(&mut self) {
+		self.peer_manager.persist_and_wait().await;
 	}
 }

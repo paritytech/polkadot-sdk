@@ -291,10 +291,17 @@ where
 				query!(validation_code(para, assumption), sender)
 					.map(|sender| Request::ValidationCode(para, assumption, sender))
 			},
-			Request::ValidationCodeByHash(validation_code_hash, sender) => {
-				query!(validation_code_by_hash(validation_code_hash), sender)
-					.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender))
-			},
+			Request::ValidationCodeByHash(validation_code_hash, sender) => if let Some(code) = self
+				.requests_cache
+				.validation_code_by_hash((relay_parent, validation_code_hash))
+			{
+				self.metrics.on_cached_request();
+				let _ = sender.send(Ok(Some(code.clone())));
+				None
+			} else {
+				Some(sender)
+			}
+			.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender)),
 			Request::CandidatePendingAvailability(para, sender) => {
 				query!(candidate_pending_availability(para), sender)
 					.map(|sender| Request::CandidatePendingAvailability(para, sender))

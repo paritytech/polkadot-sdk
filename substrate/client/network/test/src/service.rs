@@ -61,7 +61,7 @@ impl TestNetwork {
 
 	pub fn start_network(
 		self,
-	) -> (Arc<TestNetworkService>, (impl Stream<Item = Event> + std::marker::Unpin)) {
+	) -> (Arc<TestNetworkService>, impl Stream<Item = Event> + std::marker::Unpin) {
 		let worker = self.network;
 		let service = worker.service().clone();
 		let event_stream = service.event_stream("test");
@@ -212,6 +212,7 @@ impl TestNetworkBuilder {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			archive_blocks: false,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
