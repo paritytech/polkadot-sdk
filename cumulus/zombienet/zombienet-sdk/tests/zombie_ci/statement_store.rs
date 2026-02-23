@@ -55,7 +55,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			.expect("Should not error");
 	assert!(
 		matches!(first_item, StatementEvent::NumMatchingStatements(0)),
-		"Expected NumMatchingStatements(0), got: {:?}",
+		"Expected NumMatchingStatements(0), got: {first_item:?}",
 		first_item
 	);
 
@@ -75,7 +75,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
 			batch.remove(0)
 		},
-		other => panic!("Expected StatementEvent::NewStatements, got: {:?}", other),
+		other => panic!("Expected StatementEvent::NewStatements, got: {other:?}"),
 	};
 	assert_eq!(statement_bytes, statement);
 	// Now make sure no more statements are received.
