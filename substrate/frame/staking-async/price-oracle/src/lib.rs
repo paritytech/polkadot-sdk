@@ -85,10 +85,14 @@
 //! - Rest High prio
 //! - [ ] handle validator disabling via a message from RC
 //! - [ ] Slashing for not providing price updates.
-//! - [ ] Decide on the final APIs and parsing methods.
+//! - [ ] Decide on the final APIs and parsing methods. Need more APIs + research free tier usage
+//!   for each
 //! - [ ] Companion/manager binary to manage the OCW storage + submit transactions
 //!
 //! - Rest
+//! - [ ] MaxDeviation metric for offchain workers: If the price they have queried is grossly
+//!   different from one on-chain, then they should skip this endpoint. Default value comes from
+//!   `trait Config`, actual value can be overwritten in the offchain-database.
 //! - [ ] OCWs should not overlap, add the lock mechanism from EPMB
 //! - [ ] OCW-fork: Maybe the OCW should include the block has on top of which it is built, such
 //!   that we are sure we won't include a transaction from an OCW instance running on a fork on the
