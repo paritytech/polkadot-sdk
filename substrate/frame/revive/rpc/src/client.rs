@@ -188,7 +188,7 @@ impl ClientError {
 	}
 }
 
-pub(crate) const LOG_TARGET: &str = "eth-rpc::client";
+const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
 
 const REVERT_CODE: i32 = 3;

@@ -92,11 +92,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<Self, sqlx::Error> {
 		sqlx::migrate!().run(&pool).await?;
 
-		// On persistent DB resume, load the sync lower bound as the earliest receipt block.
-		if receipt_extractor.earliest_receipt_block().is_none() {
-			if let Some(checkpoint) = Self::load_sync_state(&pool, SyncLabel::LowerBound).await? {
-				receipt_extractor.update_earliest_receipt_block(checkpoint.block_number);
-			}
+		// Restore persisted evm_first_block so it's available immediately.
+		if let Some(checkpoint) = Self::load_sync_state(&pool, SyncLabel::EvmFirstBlock).await? {
+			receipt_extractor.set_evm_first_block(checkpoint.block_number);
 		}
 
 		Ok(Self {
@@ -235,9 +233,36 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Update the in-memory earliest receipt block bound.
-	pub fn update_earliest_receipt_block(&self, block_number: SubstrateBlockNumber) {
-		self.receipt_extractor.update_earliest_receipt_block(block_number);
+	/// Set the auto-discovered first EVM block (in-memory + persisted to DB).
+	pub async fn set_evm_first_block(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<(), ClientError> {
+		self.receipt_extractor.set_evm_first_block(block_number);
+		self.set_sync_state(SyncLabel::EvmFirstBlock, block_number, None).await
+	}
+
+	#[cfg(test)]
+	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.evm_first_block()
+	}
+
+	/// Get the CLI-provided earliest receipt block, if set.
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.earliest_receipt_block()
+	}
+
+	/// Check if the block is before the earliest block (CLI or auto-discovered first EVM block).
+	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
+		match at {
+			BlockNumberOrTag::U256(block_number) => {
+				if *block_number > U256::from(u32::MAX) {
+					return false;
+				}
+				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
+			},
+			BlockNumberOrTag::BlockTag(_) => false,
+		}
 	}
 
 	/// Read a sync_state row by label (static, usable before `Self` is constructed).
@@ -334,25 +359,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.execute(&self.pool)
 		.await?;
 		Ok(())
-	}
-
-	/// Get the earliest receipt block number, if set (via CLI or auto-discovery).
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.earliest_receipt_block()
-	}
-
-	/// Check if the block is before the earliest block.
-	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
-		match at {
-			BlockNumberOrTag::U256(block_number) => {
-				if *block_number > U256::from(u32::MAX) {
-					// Block number exceeds SubstrateBlockNumber range, can't be before earliest.
-					return false;
-				}
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
-			},
-			BlockNumberOrTag::BlockTag(_) => false,
-		}
 	}
 
 	/// Fetch receipts from the given block.
@@ -1287,11 +1293,32 @@ mod tests {
 	}
 
 	#[test]
-	fn earliest_receipt_block_passthrough() {
+	fn evm_first_block_passthrough() {
 		let extractor = ReceiptExtractor::new_mock();
-		assert_eq!(extractor.earliest_receipt_block(), None);
-		extractor.update_earliest_receipt_block(50);
-		assert_eq!(extractor.earliest_receipt_block(), Some(50));
+		assert_eq!(extractor.evm_first_block(), None);
+		extractor.set_evm_first_block(50);
+		assert_eq!(extractor.evm_first_block(), Some(50));
+	}
+
+	#[sqlx::test]
+	async fn evm_first_block_loaded_on_startup(pool: SqlitePool) -> anyhow::Result<()> {
+		// Simulate a previous run that persisted evm-first-block.
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		provider.set_sync_state(SyncLabel::EvmFirstBlock, 42, None).await.unwrap();
+		assert_eq!(provider.evm_first_block(), None); // not loaded yet in this instance
+
+		// Simulate restart: construct a new ReceiptProvider against the same DB.
+		let provider2 = ReceiptProvider::new(
+			pool,
+			MockBlockInfoProvider {},
+			ReceiptExtractor::new_mock(),
+			Some(10),
+		)
+		.await?;
+
+		// The persisted value should have been restored.
+		assert_eq!(provider2.evm_first_block(), Some(42));
+		Ok(())
 	}
 
 	#[sqlx::test]
@@ -1367,53 +1394,6 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn new_loads_lower_bound_from_db(pool: SqlitePool) -> anyhow::Result<()> {
-		// Pre-seed the sync_state table
-		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('sync-lower-bound', 42, NULL)",
-		)
-		.execute(&pool)
-		.await?;
-
-		let extractor = ReceiptExtractor::new_mock();
-		assert_eq!(extractor.earliest_receipt_block(), None);
-
-		let _provider =
-			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor.clone(), Some(10))
-				.await?;
-
-		// new() should have loaded the value from the database
-		assert_eq!(extractor.earliest_receipt_block(), Some(42));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn new_does_not_override_cli_earliest_receipt_block(
-		pool: SqlitePool,
-	) -> anyhow::Result<()> {
-		// Pre-seed the DB with a different value
-		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES ('sync-lower-bound', 42, NULL)",
-		)
-		.execute(&pool)
-		.await?;
-
-		// Extractor already has a CLI-provided value
-		let extractor = ReceiptExtractor::new_mock();
-		extractor.update_earliest_receipt_block(100);
-
-		let _provider =
-			ReceiptProvider::new(pool, MockBlockInfoProvider {}, extractor.clone(), Some(10))
-				.await?;
-
-		// CLI value (100) should take precedence over DB value (42)
-		assert_eq!(extractor.earliest_receipt_block(), Some(100));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
 	async fn advance_sync_state_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let hash_a = H256::repeat_byte(0xAA);
@@ -1476,7 +1456,7 @@ mod tests {
 	#[tokio::test]
 	async fn is_before_earliest_block_u256_overflow() {
 		let extractor = ReceiptExtractor::new_mock();
-		extractor.update_earliest_receipt_block(10);
+		extractor.set_evm_first_block(10);
 		let provider = ReceiptProvider {
 			pool: SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
 			block_provider: MockBlockInfoProvider {},

@@ -40,6 +40,8 @@ pub enum SyncLabel {
 	UpperBound,
 	/// Latest finalized block, tracked by the live subscription.
 	LastFinalized,
+	/// Auto-discovered first EVM block on the chain.
+	EvmFirstBlock,
 }
 
 impl SyncLabel {
@@ -50,6 +52,7 @@ impl SyncLabel {
 			Self::LowerBound => "sync-lower-bound",
 			Self::UpperBound => "sync-upper-bound",
 			Self::LastFinalized => "finalized",
+			Self::EvmFirstBlock => "evm-first-block",
 		}
 	}
 }
@@ -69,7 +72,7 @@ pub struct SyncCheckpoint {
 
 /// How often (in blocks) sync progress is checkpointed to the database.
 /// Used by both the backward historic sync and the live finalized-block tracker.
-pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 100;
+pub(crate) const SYNC_CHECKPOINT_INTERVAL: u32 = 128;
 
 /// The future type returned by sync hook callbacks.
 type SyncHookFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
@@ -101,15 +104,25 @@ impl Client {
 		hash: Option<H256>,
 	) -> Result<(), ClientError> {
 		match (num, hash) {
-			(0, None) => Ok(()),
-			(_, None) => Err(ClientError::SyncBoundaryMismatch),
+			(0, None) => {
+				log::trace!(target: LOG_TARGET, "Boundary #{num}: genesis with no hash, OK");
+				Ok(())
+			},
+			(_, None) => {
+				log::error!(target: LOG_TARGET,
+					"Boundary #{num}: non-genesis block has no stored hash");
+				Err(ClientError::SyncBoundaryMismatch)
+			},
 			(_, Some(stored_hash)) => {
-				let block = self
-					.block_provider()
-					.block_by_number(num)
-					.await?
-					.ok_or(ClientError::SyncBoundaryMismatch)?;
+				let block = self.block_provider().block_by_number(num).await?.ok_or_else(|| {
+					log::error!(target: LOG_TARGET,
+							"Boundary #{num}: block not found on chain");
+					ClientError::SyncBoundaryMismatch
+				})?;
 				if block.hash() != stored_hash {
+					log::error!(target: LOG_TARGET,
+						"Boundary #{num}: hash mismatch — stored {stored_hash:?}, \
+						 chain {:?}", block.hash());
 					return Err(ClientError::SyncBoundaryMismatch);
 				}
 				Ok(())
@@ -141,8 +154,7 @@ impl Client {
 	/// Sync historical blocks backward from `upper_boundary` to the earliest receipt block
 	/// or first EVM block.
 	/// Fatal errors (chain/DB mismatch) are propagated; transient errors are swallowed
-	/// to avoid crashing the RPC server, since checkpoint state preserves progress for
-	/// the next restart.
+	/// to avoid crashing the RPC server.
 	pub async fn sync_past_blocks(
 		&self,
 		upper_boundary: Option<SyncCheckpoint>,
@@ -257,8 +269,8 @@ impl Client {
 				.await?;
 		}
 
-		// Bottom gap: sync from db_lower_bound - 1 down to earliest-receipt-block (or first EVM
-		// block)
+		// Bottom gap: sync from db_lower_bound - 1 down to CLI earliest-receipt-block
+		// (or genesis). Auto-discovery stops early if a non-EVM block is hit.
 		let earliest_receipt_block = self.receipt_provider().earliest_receipt_block().unwrap_or(0);
 		if db_lower_bound.block_number > earliest_receipt_block {
 			self.sync_backward(
@@ -390,10 +402,13 @@ impl Client {
 					}
 				},
 				None => {
-					let first_evm = block_number.saturating_add(1);
-					log::info!(target: LOG_TARGET,
-						"🔍 Auto-discovered first EVM block: #{first_evm}");
-					self.receipt_provider().update_earliest_receipt_block(first_evm);
+					let evm_first_block = block_number.saturating_add(1);
+					if let Err(err) =
+						self.receipt_provider().set_evm_first_block(evm_first_block).await
+					{
+						log::warn!(target: LOG_TARGET,
+							"Failed to persist evm-first-block: {err:?}");
+					}
 					break Ok(());
 				},
 			}
@@ -419,7 +434,7 @@ impl Client {
 			}
 		};
 
-		// Flush un-checkpointed progress regardless of success/failure.
+		// Try to flush un-checkpointed progress
 		if !at_checkpoint(blocks_synced) {
 			if let Some((num, hash)) = last_synced {
 				if let Some(ref f) = on_progress {
@@ -446,6 +461,7 @@ mod tests {
 		assert_eq!(SyncLabel::LowerBound.as_str(), "sync-lower-bound");
 		assert_eq!(SyncLabel::UpperBound.as_str(), "sync-upper-bound");
 		assert_eq!(SyncLabel::LastFinalized.as_str(), "finalized");
+		assert_eq!(SyncLabel::EvmFirstBlock.as_str(), "evm-first-block");
 	}
 
 	#[test]
@@ -454,6 +470,7 @@ mod tests {
 		assert_eq!(format!("{}", SyncLabel::LowerBound), "sync-lower-bound");
 		assert_eq!(format!("{}", SyncLabel::UpperBound), "sync-upper-bound");
 		assert_eq!(format!("{}", SyncLabel::LastFinalized), "finalized");
+		assert_eq!(format!("{}", SyncLabel::EvmFirstBlock), "evm-first-block");
 	}
 
 	#[test]

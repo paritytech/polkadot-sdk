@@ -68,7 +68,7 @@ pub struct CliCommand {
 	/// Earliest block number to consider when searching for transaction receipts.
 	/// Must not exceed the current chain head. Not persisted to database.
 	///
-	/// If set higher than the current first_block in DB, blocks between them
+	/// If set higher than the current lower bound in the DB, blocks between them
 	/// remain in the database but are not served by RPC.
 	#[clap(long)]
 	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
