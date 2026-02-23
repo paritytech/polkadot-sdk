@@ -255,7 +255,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				let block_hash: Option<Vec<u8>> = row.get("block_hash");
 				Ok(Some(SyncCheckpoint {
 					block_number,
-					block_hash: block_hash.map(|b| H256::from_slice(&b)),
+					block_hash: block_hash.filter(|b| b.len() == 32).map(|b| H256::from_slice(&b)),
 				}))
 			},
 			None => Ok(None),
@@ -359,7 +359,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.extract_from_block(block).await
 	}
 
-	/// Extract and insert receipts from the given block.
+	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
+	/// Used for historic sync where fork detection is unnecessary.
+	pub async fn insert_block_receipts_past(
+		&self,
+		block: &SubstrateBlock,
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		let receipts = self.receipts_from_block(block).await?;
+		self.insert_into_db(block, &receipts, ethereum_hash).await
+	}
+
+	/// Extract receipts from the given block, insert them, and update the block cache.
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -370,7 +381,22 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
-	/// Prune older blocks.
+	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
+	///
+	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
+	/// us create Mock `SubstrateBlock`
+	async fn insert(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
+		self.prune_blocks(block.number(), &block_map).await?;
+		self.insert_into_db(block, receipts, ethereum_hash).await
+	}
+
+	/// Handle fork detection (always) and DB pruning (temporary mode only).
 	async fn prune_blocks(
 		&self,
 		block_number: SubstrateBlockNumber,
@@ -396,13 +422,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			// If we have more blocks than we should keep, remove the oldest ones by count
-			// (not by block number range, to handle gaps correctly)
+			// Temporary DB: evict oldest entries from both memory and DB.
 			while block_number_to_hash.len() > keep_latest_n_blocks {
 				// Remove the block with the smallest number (first in BTreeMap)
 				if let Some((_, block_map)) = block_number_to_hash.pop_first() {
 					to_remove.push(block_map);
 				}
+			}
+		} else {
+			/// Cap for the block map in persistent DB mode (evicts from memory only).
+			const MAX_CACHED_BLOCKS: usize = 256;
+			while block_number_to_hash.len() > MAX_CACHED_BLOCKS {
+				block_number_to_hash.pop_first();
 			}
 		}
 
@@ -417,11 +448,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Insert receipts into the provider.
-	///
-	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
-	/// us create Mock `SubstrateBlock`
-	async fn insert(
+	/// Insert receipts into the database without updating the in-memory block cache.
+	async fn insert_into_db(
 		&self,
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
@@ -430,12 +458,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let substrate_block_hash = block.hash();
 		let substrate_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
-		let ethereum_hash_ref = ethereum_hash.as_ref();
-		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
-
-		self.prune_blocks(block.number(), &block_map).await?;
 
 		// Check if mapping already exists (eg. added when processing best block and we are now
 		// processing finalized block)
@@ -448,6 +472,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
 		if !result.exists {
+			let ethereum_hash_ref = ethereum_hash.as_ref();
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 				let transaction_index = receipt.transaction_index.as_u32() as i32;
@@ -504,6 +529,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 			// Insert block mapping from Ethereum to Substrate hash
+			let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
 			self.insert_block_mapping(&block_map).await?;
 		}
 

@@ -226,8 +226,8 @@ impl Client {
 			.await?;
 
 		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{}..#{}, \
-			 chain head is #{latest_finalized}", db_lower_bound.block_number, db_upper_bound.block_number);
+			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{latest_finalized}",
+			db_lower_bound.block_number, db_upper_bound.block_number);
 
 		// Top gap: sync from latest_finalized down to db_upper_bound + 1
 		if db_upper_bound.block_number < latest_finalized {
@@ -346,7 +346,7 @@ impl Client {
 			match ethereum_hash {
 				Some(hash) => {
 					if let Err(err) =
-						self.receipt_provider().insert_block_receipts(&block, &hash).await
+						self.receipt_provider().insert_block_receipts_past(&block, &hash).await
 					{
 						log::error!(target: LOG_TARGET,
 							"⚠️ Insert failed for #{block_number}: {err:?}, stopping");
