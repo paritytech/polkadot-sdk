@@ -2452,9 +2452,13 @@ impl<T: Config> Pallet<T> {
 							.iter()
 							.enumerate()
 							.map(|(index, outcome)| {
-								let signed_transaction =
+								let Ok(signed_transaction) =
 									TransactionSigned::decode(&outcome.encoded_payload)
-										.expect("Can't fail");
+								else {
+									unreachable!(
+										"The payload was encoded by us so decoding can't fail; qed"
+									)
+								};
 								crate::evm::TransactionInfo {
 									block_hash,
 									block_number: block.number,
@@ -3112,7 +3116,7 @@ impl<T: Config> Pallet<T> {
 
 		let event_count_before = frame_system::Pallet::<T>::event_count() as usize;
 		let (mut outcome, receipt_details) = block_storage::with_receipt_context(|| {
-			let outcome = with_transaction(
+			let Ok(outcome) = with_transaction(
 				|| -> crate::sp_runtime::TransactionOutcome<Result<_, DispatchError>> {
 					let outcome = do_exec();
 					if outcome.is_success() {
@@ -3121,8 +3125,9 @@ impl<T: Config> Pallet<T> {
 						crate::sp_runtime::TransactionOutcome::Rollback(Ok(outcome))
 					}
 				},
-			)
-			.expect("Can't fail");
+			) else {
+				unreachable!("The closure always returns Ok so with_transaction can't fail; qed")
+			};
 			let details = block_storage::get_receipt_details();
 			(outcome, details)
 		});
