@@ -249,7 +249,13 @@ impl Index {
 		Index { options, ..Default::default() }
 	}
 
-	fn insert_new(&mut self, hash: Hash, account: AccountId, statement: &Statement) {
+	fn insert_new(
+		&mut self,
+		hash: Hash,
+		account: AccountId,
+		statement: &Statement,
+		is_recent: bool,
+	) {
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -264,7 +270,9 @@ impl Index {
 		}
 		let expiry = Expiry(statement.expiry());
 		self.entries.insert(hash, (account, expiry, statement.data_len()));
-		self.recent.insert(hash);
+		if is_recent {
+			self.recent.insert(hash);
+		}
 		self.total_size += statement.data_len();
 		let account_info = self.accounts.entry(account).or_default();
 		account_info.data_size += statement.data_len();
@@ -571,7 +579,7 @@ impl Index {
 		for h in &evicted {
 			self.make_expired(h, current_time);
 		}
-		self.insert_new(hash, *account, statement);
+		self.insert_new(hash, *account, statement, true);
 		Ok(evicted)
 	}
 }
@@ -705,7 +713,7 @@ impl Store {
 							HexDisplay::from(&hash)
 						);
 						if let Some(account_id) = statement.account_id() {
-							index.insert_new(hash, account_id, &statement);
+							index.insert_new(hash, account_id, &statement, false);
 						} else {
 							log::debug!(
 								target: LOG_TARGET,
