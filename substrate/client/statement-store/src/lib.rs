@@ -82,7 +82,7 @@ const CURRENT_VERSION: u32 = 1;
 const LOG_TARGET: &str = "statement-store";
 
 /// The amount of time an expired statement is kept before it is removed from the store entirely.
-pub const DEFAULT_PURGE_AFTER_SEC: u64 = 2 * 24 * 60 * 60; // 48h
+pub const DEFAULT_PURGE_AFTER_SEC: u64 = 8 * 60 * 60; // 8h
 /// The maximum number of statements the statement store can hold.
 pub const DEFAULT_MAX_TOTAL_STATEMENTS: usize = 4 * 1024 * 1024; // ~4 million
 /// The maximum amount of data the statement store can hold, regardless of the number of
@@ -917,11 +917,15 @@ impl Store {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
 		}
 
+		// 32 (Hash) + 8 (u64 timestamp) + ~64 (HashMap)
+		let expired_map_bytes = expired_count as u64 * (32 + 8 + 64);
+
 		self.metrics.report(|metrics| {
 			metrics.statements_total.set(active_count as u64);
 			metrics.bytes_total.set(total_size as u64);
 			metrics.accounts_total.set(accounts_count as u64);
 			metrics.expired_total.set(expired_count as u64);
+			metrics.expired_map_bytes.set(expired_map_bytes);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
 		});

@@ -44,6 +44,11 @@ impl<T: Hash + Eq> LruHashSet<T> {
 		Self { set: LinkedHashSet::new(), limit }
 	}
 
+	/// Returns the number of elements in the set.
+	pub fn len(&self) -> usize {
+		self.set.len()
+	}
+
 	/// Insert element into the set.
 	///
 	/// Returns `true` if this is a new element to the set, `false` otherwise.

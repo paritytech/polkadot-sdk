@@ -72,6 +72,7 @@ pub struct Metrics {
 	pub submit_duration_seconds: Histogram,
 	pub check_expiration_duration_seconds: Histogram,
 	pub statements_expired_total: Counter<U64>,
+	pub expired_map_bytes: Gauge<U64>,
 }
 
 impl Metrics {
@@ -175,6 +176,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sub_statement_store_statements_expired_total",
 					"Total number of statements that expired and were removed",
+				)?,
+				registry,
+			)?,
+			expired_map_bytes: register(
+				Gauge::new(
+					"substrate_sub_statement_store_expired_map_bytes",
+					"Estimated memory usage of the expired statement tracking map in bytes",
 				)?,
 				registry,
 			)?,

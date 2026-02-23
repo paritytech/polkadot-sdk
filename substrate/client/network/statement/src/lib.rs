@@ -109,6 +109,8 @@ struct Metrics {
 	initial_sync_bursts_total: Counter<U64>,
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: Histogram,
+	known_statements_memory_bytes: Gauge<U64>,
+	pending_statements_count: Gauge<U64>,
 }
 
 impl Metrics {
@@ -226,6 +228,20 @@ impl Metrics {
 						"Per-peer total duration of initial sync from start to completion",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+				)?,
+				r,
+			)?,
+			known_statements_memory_bytes: register(
+				Gauge::new(
+					"substrate_sync_statement_known_statements_memory_bytes",
+					"Estimated total memory used by per-peer known statement LRU sets in bytes",
+				)?,
+				r,
+			)?,
+			pending_statements_count: register(
+				Gauge::new(
+					"substrate_sync_statement_pending_count",
+					"Current number of statements pending validation",
 				)?,
 				r,
 			)?,
@@ -538,6 +554,11 @@ where
 					self.propagate_statements().await;
 					self.metrics.as_ref().map(|metrics| {
 						metrics.pending_statements.set(self.pending_statements.len() as u64);
+						metrics.pending_statements_count.set(self.pending_statements.len() as u64);
+						let known_bytes: u64 = self.peers.values()
+							.map(|p| p.known_statements.len() as u64 * (32 + 64))
+							.sum();
+						metrics.known_statements_memory_bytes.set(known_bytes);
 					});
 				},
 				(hash, result) = self.pending_statements.select_next_some() => {
