@@ -40,7 +40,7 @@ jobs:
 
   build-rustdoc:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    timeout-minutes: 40
+    timeout-minutes: 80
     if: ${{ needs.preflight.outputs.changes_rust }}
     needs: [preflight]
     container:
