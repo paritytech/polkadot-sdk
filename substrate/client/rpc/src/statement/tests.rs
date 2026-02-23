@@ -217,7 +217,6 @@ async fn check_submitted(
 			_ => panic!("Expected statement"),
 		};
 
-		println!("Received statement: {:?}", result);
 		for result in result {
 			let new_statement = sp_statement_store::Statement::decode(&mut &result.0[..])
 				.expect("Decode statement");
