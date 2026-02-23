@@ -128,17 +128,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	pub fn start_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "start_transaction {}", self.layers.len());
 		// Push current layer onto stack
-		let old_current = mem::replace(
-			&mut self.current,
-			TransactionLayer {
-				dirty_keys: KeyMap::with_capacity_and_hasher(
-					16,
-					BuildNoHashHasher::<u64>::default(),
-				),
-				snapshot: None,
-				deleted_keys: CapturedSet::default(),
-			},
-		);
+		let old_current = mem::take(&mut self.current);
 		self.layers.push(old_current);
 	}
 
