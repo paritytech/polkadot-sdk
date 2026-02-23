@@ -155,6 +155,20 @@ struct StatementsForAccount {
 	data_size: usize,
 }
 
+impl StatementsForAccount {
+	/// Returns an iterator over statements that have expired by `current_time`.
+	fn expired_by_iter(
+		&self,
+		current_time: u64,
+	) -> impl Iterator<Item = (&PriorityKey, &(Option<Channel>, usize))> {
+		let range = PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
+			hash: Hash::default(),
+			expiry: Expiry(current_time << 32),
+		};
+		self.by_priority.range(range)
+	}
+}
+
 /// Store configuration
 pub struct Options {
 	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
@@ -800,12 +814,7 @@ impl Store {
 		let mut to_evict = Vec::new();
 		let mut expired_count = 0usize;
 		let mut expired_size = 0usize;
-		for (key, (_, len)) in account_rec.by_priority.range(
-			PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
-				hash: Hash::default(),
-				expiry: Expiry(current_time << 32),
-			},
-		) {
+		for (key, (_, len)) in account_rec.expired_by_iter(current_time) {
 			to_evict.push(key.hash);
 			expired_count += 1;
 			expired_size += len;
