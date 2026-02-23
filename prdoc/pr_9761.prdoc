@@ -1,0 +1,10 @@
+title: Handle the XCMP messages in a round-robin fashion
+doc:
+- audience: Runtime Dev
+  description: |-
+    Handle the XCMP messages in a round-robin fashion: enqueue 1 batch per sender until we finish enqueuing or we are out of weight
+
+    This respects the XCMP ordering per sender which should be enough since the `messages-queue` pallet also stores the messages per sender and processes them in a round-robin fashion.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
