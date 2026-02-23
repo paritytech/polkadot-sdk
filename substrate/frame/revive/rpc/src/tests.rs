@@ -321,7 +321,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
-		test_dry_run_of_contract_with_consume_all_gas,
+		test_estimate_gas_of_contract_with_consume_all_gas,
 		test_gas_estimation_for_contract_requiring_binary_search,
 		test_gas_estimation_with_no_funds_no_gas_specified,
 		test_gas_estimation_with_no_funds_and_with_gas_specified
@@ -846,7 +846,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn test_dry_run_of_contract_with_consume_all_gas() -> anyhow::Result<()> {
+async fn test_estimate_gas_of_contract_with_consume_all_gas() -> anyhow::Result<()> {
 	// Arrange
 	let code = pallet_revive_fixtures::compile_module_with_type(
 		"ContractWithConsumeAllGas",
