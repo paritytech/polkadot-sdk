@@ -29,8 +29,8 @@
 //!
 //! 1. Awaits the next production signal from the internal timer
 //! 2. Retrieves the current best relay chain block and identifies a valid parent block (see
-//!    [find_potential_parents][cumulus_client_consensus_common::find_potential_parents] for parent
-//!    selection criteria)
+//!    [find_parent_for_building][cumulus_client_consensus_common::find_parent_for_building] for
+//!    parent selection criteria)
 //! 3. Validates that:
 //!    - The parachain has an assigned core on the relay chain
 //!    - No block has been previously built on the target core
