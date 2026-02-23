@@ -239,7 +239,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_number: SubstrateBlockNumber,
 	) -> Result<(), ClientError> {
 		self.receipt_extractor.set_evm_first_block(block_number);
-		self.set_sync_state(SyncLabel::EvmFirstBlock, block_number, None).await
+		self.set_sync_label(
+			SyncLabel::EvmFirstBlock,
+			SyncCheckpoint { block_number, block_hash: None },
+		)
+		.await
 	}
 
 	#[cfg(test)]
@@ -291,40 +295,38 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 	}
 
-	/// Read a sync_state row by label.
-	pub async fn get_sync_state(
+	/// Read a sync label entry.
+	pub async fn get_sync_label(
 		&self,
 		label: SyncLabel,
 	) -> Result<Option<SyncCheckpoint>, ClientError> {
 		Ok(Self::load_sync_state(&self.pool, label).await?)
 	}
 
-	/// Upsert a sync_state row.
-	pub async fn set_sync_state(
+	/// Upsert a sync label entry.
+	pub async fn set_sync_label(
 		&self,
 		label: SyncLabel,
-		block_number: SubstrateBlockNumber,
-		block_hash: Option<H256>,
+		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
 		sqlx::query(
 			"INSERT OR REPLACE INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?)",
 		)
 		.bind(label.as_str())
-		.bind(block_number as i64)
-		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.bind(checkpoint.block_number as i64)
+		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
 	}
 
-	/// Atomically update a sync_state row only if the new block number is strictly higher.
+	/// Atomically update a sync label entry only if the new block number is strictly higher.
 	///
 	/// Inserts the row if it doesn't exist yet.
-	pub async fn advance_sync_state(
+	pub async fn advance_sync_label(
 		&self,
 		label: SyncLabel,
-		block_number: SubstrateBlockNumber,
-		block_hash: Option<H256>,
+		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
 		sqlx::query(
 			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
@@ -332,21 +334,20 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			 WHERE sync_state.block_number < excluded.block_number",
 		)
 		.bind(label.as_str())
-		.bind(block_number as i64)
-		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.bind(checkpoint.block_number as i64)
+		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
 	}
 
-	/// Atomically update a sync_state row only if the new block number is lower.
+	/// Atomically update a sync label entry only if the new block number is lower.
 	///
 	/// Inserts the row if it doesn't exist yet.
-	pub async fn recede_sync_state(
+	pub async fn recede_sync_label(
 		&self,
 		label: SyncLabel,
-		block_number: SubstrateBlockNumber,
-		block_hash: Option<H256>,
+		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
 		sqlx::query(
 			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
@@ -354,8 +355,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			 WHERE sync_state.block_number > excluded.block_number",
 		)
 		.bind(label.as_str())
-		.bind(block_number as i64)
-		.bind(block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
+		.bind(checkpoint.block_number as i64)
+		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
@@ -1304,7 +1305,13 @@ mod tests {
 	async fn evm_first_block_loaded_on_startup(pool: SqlitePool) -> anyhow::Result<()> {
 		// Simulate a previous run that persisted evm-first-block.
 		let provider = setup_sqlite_provider(pool.clone()).await;
-		provider.set_sync_state(SyncLabel::EvmFirstBlock, 42, None).await.unwrap();
+		provider
+			.set_sync_label(
+				SyncLabel::EvmFirstBlock,
+				SyncCheckpoint { block_number: 42, block_hash: None },
+			)
+			.await
+			.unwrap();
 		assert_eq!(provider.evm_first_block(), None); // not loaded yet in this instance
 
 		// Simulate restart: construct a new ReceiptProvider against the same DB.
@@ -1326,19 +1333,31 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Initially empty
-		assert!(provider.get_sync_state(SyncLabel::Genesis).await.unwrap().is_none());
+		assert!(provider.get_sync_label(SyncLabel::Genesis).await.unwrap().is_none());
 
 		// Set and read back
 		let hash = H256::repeat_byte(0x42);
-		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash)).await.unwrap();
-		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		provider
+			.set_sync_label(
+				SyncLabel::Genesis,
+				SyncCheckpoint { block_number: 0, block_hash: Some(hash) },
+			)
+			.await
+			.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 0);
 		assert_eq!(checkpoint.block_hash, Some(hash));
 
 		// Overwrite
 		let hash2 = H256::repeat_byte(0xAA);
-		provider.set_sync_state(SyncLabel::Genesis, 0, Some(hash2)).await.unwrap();
-		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		provider
+			.set_sync_label(
+				SyncLabel::Genesis,
+				SyncCheckpoint { block_number: 0, block_hash: Some(hash2) },
+			)
+			.await
+			.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_hash, Some(hash2));
 
 		Ok(())
@@ -1349,8 +1368,14 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Store without a hash
-		provider.set_sync_state(SyncLabel::LowerBound, 42, None).await.unwrap();
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await.unwrap().unwrap();
+		provider
+			.set_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 42, block_hash: None },
+			)
+			.await
+			.unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 42);
 		assert_eq!(checkpoint.block_hash, None);
 
@@ -1366,27 +1391,36 @@ mod tests {
 		let finalized_hash = H256::repeat_byte(0x03);
 
 		provider
-			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
+			.set_sync_label(
+				SyncLabel::Genesis,
+				SyncCheckpoint { block_number: 0, block_hash: Some(genesis_hash) },
+			)
 			.await
 			.unwrap();
 		provider
-			.set_sync_state(SyncLabel::LowerBound, 100, Some(first_hash))
+			.set_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 100, block_hash: Some(first_hash) },
+			)
 			.await
 			.unwrap();
 		provider
-			.set_sync_state(SyncLabel::LastFinalized, 500, Some(finalized_hash))
+			.set_sync_label(
+				SyncLabel::LastFinalized,
+				SyncCheckpoint { block_number: 500, block_hash: Some(finalized_hash) },
+			)
 			.await
 			.unwrap();
 
-		let checkpoint = provider.get_sync_state(SyncLabel::Genesis).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 0);
 		assert_eq!(checkpoint.block_hash, Some(genesis_hash));
 
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 100);
 		assert_eq!(checkpoint.block_hash, Some(first_hash));
 
-		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await.unwrap().unwrap();
+		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await.unwrap().unwrap();
 		assert_eq!(checkpoint.block_number, 500);
 		assert_eq!(checkpoint.block_hash, Some(finalized_hash));
 
@@ -1394,60 +1428,100 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn advance_sync_state_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
+	async fn advance_sync_label_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let hash_a = H256::repeat_byte(0xAA);
 		let hash_b = H256::repeat_byte(0xBB);
 
 		// First insert creates the row.
-		provider.advance_sync_state(SyncLabel::LastFinalized, 100, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
+		provider
+			.advance_sync_label(
+				SyncLabel::LastFinalized,
+				SyncCheckpoint { block_number: 100, block_hash: Some(hash_a) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Higher value advances.
-		provider.advance_sync_state(SyncLabel::LastFinalized, 200, Some(hash_b)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
+		provider
+			.advance_sync_label(
+				SyncLabel::LastFinalized,
+				SyncCheckpoint { block_number: 200, block_hash: Some(hash_b) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Lower value is ignored.
-		provider.advance_sync_state(SyncLabel::LastFinalized, 50, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
+		provider
+			.advance_sync_label(
+				SyncLabel::LastFinalized,
+				SyncCheckpoint { block_number: 50, block_hash: Some(hash_a) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		// Equal value is ignored (strict <).
 		let hash_c = H256::repeat_byte(0xCC);
-		provider.advance_sync_state(SyncLabel::LastFinalized, 200, Some(hash_c)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LastFinalized).await?.unwrap();
+		provider
+			.advance_sync_label(
+				SyncLabel::LastFinalized,
+				SyncCheckpoint { block_number: 200, block_hash: Some(hash_c) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
 
 		Ok(())
 	}
 
 	#[sqlx::test]
-	async fn recede_sync_state_only_decreases(pool: SqlitePool) -> anyhow::Result<()> {
+	async fn recede_sync_label_only_decreases(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let hash_a = H256::repeat_byte(0xAA);
 		let hash_b = H256::repeat_byte(0xBB);
 
 		// First insert creates the row.
-		provider.recede_sync_state(SyncLabel::LowerBound, 100, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
+		provider
+			.recede_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 100, block_hash: Some(hash_a) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
 
 		// Lower value recedes.
-		provider.recede_sync_state(SyncLabel::LowerBound, 50, Some(hash_b)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
+		provider
+			.recede_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 50, block_hash: Some(hash_b) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Higher value is ignored.
-		provider.recede_sync_state(SyncLabel::LowerBound, 200, Some(hash_a)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
+		provider
+			.recede_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 200, block_hash: Some(hash_a) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		// Equal value is ignored (strict >).
 		let hash_c = H256::repeat_byte(0xCC);
-		provider.recede_sync_state(SyncLabel::LowerBound, 50, Some(hash_c)).await?;
-		let checkpoint = provider.get_sync_state(SyncLabel::LowerBound).await?.unwrap();
+		provider
+			.recede_sync_label(
+				SyncLabel::LowerBound,
+				SyncCheckpoint { block_number: 50, block_hash: Some(hash_c) },
+			)
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await?.unwrap();
 		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
 
 		Ok(())

@@ -23,7 +23,7 @@ pub(crate) mod storage_api;
 use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	SyncLabel, TracerType, TransactionInfo,
-	block_sync::SYNC_CHECKPOINT_INTERVAL,
+	block_sync::{SYNC_CHECKPOINT_INTERVAL, SyncCheckpoint},
 	subxt_client::{self, SrcChainConfig, revive::calls::types::EthTransact},
 };
 use futures::TryStreamExt;
@@ -419,13 +419,12 @@ impl Client {
 			if subscription_type == SubscriptionType::FinalizedBlocks &&
 				block_number % SYNC_CHECKPOINT_INTERVAL == 0
 			{
-				if let Err(err) = self
-					.receipt_provider
-					.advance_sync_state(SyncLabel::LastFinalized, block_number, Some(hash))
-					.await
+				let cp = SyncCheckpoint { block_number, block_hash: Some(hash) };
+				if let Err(err) =
+					self.receipt_provider.advance_sync_label(SyncLabel::LastFinalized, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to update sync_state[finalized]: {err:?}");
+						"Failed to update sync_label[finalized]: {err:?}");
 				}
 			}
 

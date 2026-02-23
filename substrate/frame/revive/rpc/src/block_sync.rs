@@ -85,7 +85,7 @@ impl Client {
 	async fn validate_chain_identity(&self) -> Result<H256, ClientError> {
 		let genesis_hash: H256 = self.api().genesis_hash();
 
-		if let Some(checkpoint) = self.receipt_provider().get_sync_state(SyncLabel::Genesis).await?
+		if let Some(checkpoint) = self.receipt_provider().get_sync_label(SyncLabel::Genesis).await?
 		{
 			if let Some(stored) = checkpoint.block_hash {
 				if stored != genesis_hash {
@@ -133,7 +133,7 @@ impl Client {
 	/// Returns the upper bound of contiguous DB coverage.
 	/// Must be called before subscriptions start.
 	pub async fn prepare_sync(&self) -> Result<Option<SyncCheckpoint>, ClientError> {
-		let upper_bound = self.receipt_provider().get_sync_state(SyncLabel::UpperBound).await?;
+		let upper_bound = self.receipt_provider().get_sync_label(SyncLabel::UpperBound).await?;
 
 		if let Some(checkpoint) = &upper_bound {
 			if checkpoint.block_number > 0 {
@@ -143,7 +143,7 @@ impl Client {
 			}
 		}
 
-		let finalized = self.receipt_provider().get_sync_state(SyncLabel::LastFinalized).await?;
+		let finalized = self.receipt_provider().get_sync_label(SyncLabel::LastFinalized).await?;
 		if let Some(checkpoint) = &finalized {
 			log::info!(target: LOG_TARGET,
 				"🗄️ No interrupted sync, using last finalized #{} as upper bound", checkpoint.block_number);
@@ -183,10 +183,13 @@ impl Client {
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
-			.set_sync_state(SyncLabel::Genesis, 0, Some(genesis_hash))
+			.set_sync_label(
+				SyncLabel::Genesis,
+				SyncCheckpoint { block_number: 0, block_hash: Some(genesis_hash) },
+			)
 			.await?;
 
-		let lower_boundary = self.receipt_provider().get_sync_state(SyncLabel::LowerBound).await?;
+		let lower_boundary = self.receipt_provider().get_sync_label(SyncLabel::LowerBound).await?;
 
 		match (lower_boundary, upper_boundary) {
 			(Some(lower), Some(upper)) => {
@@ -209,7 +212,12 @@ impl Client {
 		}
 
 		// Reset — signals that the sync completed successfully.
-		self.receipt_provider().set_sync_state(SyncLabel::UpperBound, 0, None).await?;
+		self.receipt_provider()
+			.set_sync_label(
+				SyncLabel::UpperBound,
+				SyncCheckpoint { block_number: 0, block_hash: None },
+			)
+			.await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
 		Ok(())
@@ -238,11 +246,7 @@ impl Client {
 	) -> Result<(), ClientError> {
 		// Mark sync in-progress. On crash, this value is the safe upper boundary.
 		self.receipt_provider()
-			.set_sync_state(
-				SyncLabel::UpperBound,
-				db_upper_bound.block_number,
-				db_upper_bound.block_hash,
-			)
+			.set_sync_label(SyncLabel::UpperBound, db_upper_bound)
 			.await?;
 
 		log::info!(target: LOG_TARGET,
@@ -261,11 +265,7 @@ impl Client {
 
 			// Mark top gap complete so a crash during the bottom gap won't redo it.
 			self.receipt_provider()
-				.set_sync_state(
-					SyncLabel::UpperBound,
-					latest_finalized.block_number,
-					latest_finalized.block_hash,
-				)
+				.set_sync_label(SyncLabel::UpperBound, latest_finalized)
 				.await?;
 		}
 
@@ -293,13 +293,12 @@ impl Client {
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
-				if let Err(err) = self
-					.receipt_provider()
-					.set_sync_state(SyncLabel::UpperBound, num, Some(hash))
-					.await
+				let cp = SyncCheckpoint { block_number: num, block_hash: Some(hash) };
+				if let Err(err) =
+					self.receipt_provider().set_sync_label(SyncLabel::UpperBound, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to set sync_state[upper-bound]: {err:?}");
+						"Failed to set sync_label[upper-bound]: {err:?}");
 				}
 			})
 		}
@@ -311,13 +310,12 @@ impl Client {
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
-				if let Err(err) = self
-					.receipt_provider()
-					.recede_sync_state(SyncLabel::LowerBound, num, Some(hash))
-					.await
+				let cp = SyncCheckpoint { block_number: num, block_hash: Some(hash) };
+				if let Err(err) =
+					self.receipt_provider().recede_sync_label(SyncLabel::LowerBound, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to checkpoint sync_state[lower-bound]: {err:?}");
+						"Failed to checkpoint sync_label[lower-bound]: {err:?}");
 				}
 			})
 		}
