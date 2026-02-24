@@ -2810,8 +2810,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 			}
 		}
 
-		let unfulfilled =
-			unfulfilled.into_iter().filter_map(|para| para).collect::<VecDeque<ParaId>>();
+		let unfulfilled = unfulfilled.into_iter().flatten().collect::<VecDeque<ParaId>>();
 		if unfulfilled.len() > best_unfulfilled.len() {
 			best_unfulfilled = unfulfilled;
 		}
