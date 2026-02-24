@@ -700,8 +700,14 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			self.states.write().insert(hash, new_state);
 
-			self.blockchain
-				.insert(hash, header, justification, body, pending_block.state, pending_block.register_as_leaf)?;
+			self.blockchain.insert(
+				hash,
+				header,
+				justification,
+				body,
+				pending_block.state,
+				pending_block.register_as_leaf,
+			)?;
 		}
 
 		if !operation.aux.is_empty() {
