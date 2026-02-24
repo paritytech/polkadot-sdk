@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tINSERT INTO sync_state (label, block_number, block_hash)\n\t\t\tVALUES ($1, $2, $3)\n\t\t\tON CONFLICT(label) DO UPDATE\n\t\t\t\tSET block_number = excluded.block_number, block_hash = excluded.block_hash\n\t\t\tWHERE sync_state.block_number > excluded.block_number\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "d5cc4d476ef7d69216980eb21b9313864551c521a804282cedd8ac890d57fca3"
+}

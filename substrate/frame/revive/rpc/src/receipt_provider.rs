@@ -274,21 +274,32 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		pool: &SqlitePool,
 		label: SyncLabel,
 	) -> Result<Option<SyncCheckpoint>, sqlx::Error> {
-		let row = sqlx::query("SELECT block_number, block_hash FROM sync_state WHERE label = ?")
-			.bind(label.as_str())
-			.fetch_optional(pool)
-			.await?;
+		let label_str = label.as_str();
+		let row = query!(
+			r#"
+			SELECT block_number, block_hash
+			FROM sync_state
+			WHERE label = $1
+			"#,
+			label_str
+		)
+		.fetch_optional(pool)
+		.await?;
 
 		match row {
 			Some(row) => {
-				let block_number: i64 = row.get("block_number");
-				let block_number: SubstrateBlockNumber = block_number.try_into().map_err(|_| {
-					sqlx::Error::Decode(format!("block_number {block_number} overflows u32").into())
-				})?;
-				let block_hash: Option<Vec<u8>> = row.get("block_hash");
+				let block_number: SubstrateBlockNumber =
+					row.block_number.try_into().map_err(|_| {
+						sqlx::Error::Decode(
+							format!("block_number {} overflows u32", row.block_number).into(),
+						)
+					})?;
 				Ok(Some(SyncCheckpoint {
 					block_number,
-					block_hash: block_hash.filter(|b| b.len() == 32).map(|b| H256::from_slice(&b)),
+					block_hash: row
+						.block_hash
+						.filter(|b| b.len() == 32)
+						.map(|b| H256::from_slice(&b)),
 				}))
 			},
 			None => Ok(None),
@@ -309,12 +320,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		sqlx::query(
-			"INSERT OR REPLACE INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?)",
+		let label_str = label.as_str();
+		let block_number = checkpoint.block_number as i64;
+		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			r#"
+			INSERT OR REPLACE INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			"#,
+			label_str,
+			block_number,
+			block_hash,
 		)
-		.bind(label.as_str())
-		.bind(checkpoint.block_number as i64)
-		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
@@ -328,14 +345,21 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
-			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
-			 WHERE sync_state.block_number < excluded.block_number",
+		let label_str = label.as_str();
+		let block_number = checkpoint.block_number as i64;
+		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			r#"
+			INSERT INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			ON CONFLICT(label) DO UPDATE
+				SET block_number = excluded.block_number, block_hash = excluded.block_hash
+			WHERE sync_state.block_number < excluded.block_number
+			"#,
+			label_str,
+			block_number,
+			block_hash,
 		)
-		.bind(label.as_str())
-		.bind(checkpoint.block_number as i64)
-		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
@@ -349,14 +373,21 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		sqlx::query(
-			"INSERT INTO sync_state (label, block_number, block_hash) VALUES (?, ?, ?) \
-			 ON CONFLICT(label) DO UPDATE SET block_number = excluded.block_number, block_hash = excluded.block_hash \
-			 WHERE sync_state.block_number > excluded.block_number",
+		let label_str = label.as_str();
+		let block_number = checkpoint.block_number as i64;
+		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			r#"
+			INSERT INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			ON CONFLICT(label) DO UPDATE
+				SET block_number = excluded.block_number, block_hash = excluded.block_hash
+			WHERE sync_state.block_number > excluded.block_number
+			"#,
+			label_str,
+			block_number,
+			block_hash,
 		)
-		.bind(label.as_str())
-		.bind(checkpoint.block_number as i64)
-		.bind(checkpoint.block_hash.as_ref().map(|h| h.as_bytes() as &[u8]))
 		.execute(&self.pool)
 		.await?;
 		Ok(())
