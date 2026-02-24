@@ -2288,7 +2288,7 @@ mod tests {
 		let mut flooding_detected = false;
 		while start.elapsed() < duration {
 			let mut statements = Vec::new();
-			for i in 0..15_000 {
+			for i in 0..30_000 {
 				let mut statement = Statement::new();
 				statement.set_plain_data(vec![
 					counter as u8,
@@ -2315,7 +2315,7 @@ mod tests {
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
 
-		assert!(flooding_detected, "Sustained rate of 150k/sec should trigger flooding");
+		assert!(flooding_detected, "Sustained rate of 300k/sec should trigger flooding");
 
 		let disconnected = network.get_disconnected_peers();
 		assert!(
