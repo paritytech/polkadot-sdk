@@ -73,37 +73,6 @@ pub struct ReceiptExtractor {
 }
 
 impl ReceiptExtractor {
-	/// Check if the block is before the effective floor: `max(earliest_receipt_block,
-	/// evm_first_block)`.
-	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let cli = self.earliest_receipt_block.unwrap_or(0);
-		let evm = self.evm_first_block.load(Ordering::Acquire);
-		let floor = cli.max(evm);
-		floor > 0 && block_number < floor
-	}
-
-	/// Set the first EVM block. Only stores if lower than current.
-	pub fn set_evm_first_block(&self, block_number: SubstrateBlockNumber) {
-		if let Err(prev) =
-			self.evm_first_block.fetch_update(Ordering::Release, Ordering::Acquire, |prev| {
-				(prev == 0 || block_number <= prev).then_some(block_number)
-			}) {
-			log::warn!(target: LOG_TARGET,
-				"Failed to update evm_first_block to #{block_number}, current is #{prev}");
-		}
-	}
-
-	#[cfg(test)]
-	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
-		let val = self.evm_first_block.load(Ordering::Acquire);
-		if val > 0 { Some(val) } else { None }
-	}
-
-	/// Get the CLI-provided earliest receipt block, if set.
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.earliest_receipt_block
-	}
-
 	/// Create a new `ReceiptExtractor` with the given native to eth ratio.
 	pub async fn new(
 		api: OnlineClient<SrcChainConfig>,
@@ -185,6 +154,42 @@ impl ReceiptExtractor {
 				signed_tx.recover_eth_address()
 			}),
 		}
+	}
+
+	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
+	pub fn earliest_block(&self) -> SubstrateBlockNumber {
+		let cli = self.earliest_receipt_block.unwrap_or(0);
+		let evm = self.evm_first_block.load(Ordering::Acquire);
+		cli.max(evm)
+	}
+
+	/// Check if the block is before the effective floor: `max(earliest_receipt_block,
+	/// evm_first_block)`.
+	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
+		let floor = self.earliest_block();
+		floor > 0 && block_number < floor
+	}
+
+	/// Get the CLI-provided earliest receipt block, if set.
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		self.earliest_receipt_block
+	}
+
+	/// Set the first EVM block. Only stores if lower than or equal to the current value.
+	pub fn set_evm_first_block(&self, block_number: SubstrateBlockNumber) {
+		if let Err(prev) =
+			self.evm_first_block.fetch_update(Ordering::Release, Ordering::Acquire, |prev| {
+				(prev == 0 || block_number <= prev).then_some(block_number)
+			}) {
+			log::warn!(target: LOG_TARGET,
+				"Failed to update evm_first_block to #{block_number}, current is #{prev}");
+		}
+	}
+
+	/// The auto-discovered first EVM block, or `None` if not yet discovered.
+	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
+		let val = self.evm_first_block.load(Ordering::Acquire);
+		if val > 0 { Some(val) } else { None }
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
