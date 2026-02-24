@@ -47,8 +47,8 @@ pub trait StatementApi {
 	/// subscription stream, but it may receive more if new statements are added to the store that
 	/// match the filter.
 	///
-	///  If there are no statements in the store matching the filter, an
-	/// empty batch of statements is sent.
+	///  If there are no statements in the store matching the filter, an empty batch of statements
+	/// is sent.
 	#[subscription(
 		name = "statement_subscribeStatement" => "statement_statement",
 		unsubscribe = "statement_unsubscribeStatement",

@@ -65,11 +65,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				}
 				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
 				batch.remove(0)
-				break;
 			},
 		};
+		assert_eq!(statement_bytes, statement);
+
+		break;
 	}
-	assert_eq!(statement_bytes, statement);
 	// Now make sure no more statements are received.
 	assert!(tokio::time::timeout(Duration::from_secs(stop_after_secs), subscription.next())
 		.await

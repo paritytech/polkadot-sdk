@@ -628,6 +628,7 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
+				let mut batch;
 				loop {
 					let item =
 						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
@@ -635,16 +636,19 @@ impl Participant {
 							.map_err(|_| anyhow!("Timeout waiting for session key"))?
 							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 							.map_err(|e| anyhow!("Subscription error: {}", e))?;
-					let mut batch = match item {
-						StatementEvent::NewStatements { statements: batch, .. } => batch,
-					};
-					if batch.is_empty() {
+					let StatementEvent::NewStatements { statements, .. } = item;
+					if statements.is_empty() {
 						continue; // Ignore empty batches
+					} else {
+						batch = statements;
+						break;
 					}
 				}
+
 				if batch.len() != 1 {
 					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
 				}
+
 				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
@@ -713,6 +717,7 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
+				let mut batch;
 				loop {
 					let item =
 						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
@@ -720,11 +725,13 @@ impl Participant {
 							.map_err(|_| anyhow!("Timeout waiting for message"))?
 							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
 							.map_err(|e| anyhow!("Subscription error: {}", e))?;
-					let mut batch = match item {
+					batch = match item {
 						StatementEvent::NewStatements { statements: batch, .. } => batch,
 					};
 					if batch.is_empty() {
 						continue; // Ignore empty batches
+					} else {
+						break;
 					}
 				}
 				if batch.len() != 1 {
