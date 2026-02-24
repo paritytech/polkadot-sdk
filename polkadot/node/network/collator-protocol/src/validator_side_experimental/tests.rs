@@ -3298,7 +3298,9 @@ async fn test_escalation_no_candidates_slot_released_on_failure() {
 
 	// Connect a second peer for para 100 — its advertisement will be queued, waiting for
 	// a free slot once first_adv resolves.
-	state.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
 	state.handle_declare(&mut sender, second_peer, 100.into()).await;
 	let (_, second_adv) = dummy_candidate(
 		active_leaf,
@@ -3377,7 +3379,9 @@ async fn test_escalation_launches_parallel_fetch() {
 
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, first_peer, 100.into()).await;
-	state.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
 	state.handle_declare(&mut sender, second_peer, 100.into()).await;
 
 	// Phase 1: first_peer (highest rep) advertises and claims the only para 100 slot.
@@ -3453,7 +3457,9 @@ async fn test_parallel_fetch_winner_keeps_slot() {
 
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, first_peer, 100.into()).await;
-	state.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
 	state.handle_declare(&mut sender, second_peer, 100.into()).await;
 
 	// Phase 1: first_peer launches, claims the only para 100 slot.
@@ -3501,11 +3507,463 @@ async fn test_parallel_fetch_winner_keeps_slot() {
 	// Phase 1 (first_adv) was cancelled. Because the group is already resolved by second_adv's
 	// success, note_fetched returns NoKeepSlot — the slot is NOT released again.
 	state
+		.handle_fetched_collation(&mut sender, (first_adv, Err(CollationFetchError::Cancelled)))
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Phase 1 (initial fetch) succeeds before the escalation timer fires.
+// Verifies that the parallel fetch group is resolved and no escalation fetch is launched
+// for the waiting second_peer.
+async fn test_phase1_succeeds_before_escalation() {
+	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	// Single para 100 slot so Phase 1 consumes it — no free slot for second_peer.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(CoreIndex(0), vec![100.into(), 200.into(), 200.into()]);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
+		if p == first_peer {
+			Some(Score::new(100).unwrap())
+		} else if p == second_peer {
+			Some(Score::new(50).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, first_peer, 100.into()).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, second_peer, 100.into()).await;
+
+	// Phase 1: first_peer (highest rep) claims the only para 100 slot.
+	let (first_ccr, first_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		first_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	test_state.handle_advertisement(&mut state, first_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(first_adv).await;
+	test_state.assert_no_messages().await;
+
+	// second_peer advertises — no free slot, queued but not yet fetched.
+	let (_, second_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(99),
+	);
+	test_state.handle_advertisement(&mut state, second_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Phase 1 succeeds before the escalation timeout — group is resolved.
+	test_state
+		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
+		.await;
+	test_state.assert_no_messages().await;
+
+	// Even after the escalation timeout, no parallel fetch is launched because the group
+	// was already resolved when Phase 1 succeeded.
+	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Phase 1 wins the race after Phase 2 has already been launched (escalation occurred).
+// Verifies that Phase 2's subsequent failure returns NoKeepSlot — the slot is NOT
+// double-released.
+async fn test_phase1_wins_race_after_phase2_launched() {
+	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	// Single para 100 slot so Phase 1 consumes it — forcing escalation.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(CoreIndex(0), vec![100.into(), 200.into(), 200.into()]);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
+		if p == first_peer {
+			Some(Score::new(100).unwrap())
+		} else if p == second_peer {
+			Some(Score::new(50).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, first_peer, 100.into()).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, second_peer, 100.into()).await;
+
+	// Phase 1: first_peer claims the only para 100 slot.
+	let (first_ccr, first_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		first_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	test_state.handle_advertisement(&mut state, first_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(first_adv).await;
+	test_state.assert_no_messages().await;
+
+	// second_peer advertises — no free slot.
+	let (_, second_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(99),
+	);
+	test_state.handle_advertisement(&mut state, second_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Escalation fires: Phase 2 (second_peer) is launched in parallel.
+	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(second_adv).await;
+	test_state.assert_no_messages().await;
+
+	// Phase 1 arrives first and succeeds — resolves the parallel fetch group.
+	test_state
+		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
+		.await;
+	test_state.assert_no_messages().await;
+
+	// Phase 2 subsequently completes (network failure). Since the group was already resolved
+	// by Phase 1's success, note_fetched returns NoKeepSlot — the slot is NOT released again.
+	state
 		.handle_fetched_collation(
 			&mut sender,
-			(first_adv, Err(CollationFetchError::Cancelled)),
+			(
+				second_adv,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
 		)
 		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Both Phase 1 and Phase 2 fail. Verifies that the slot is released by Phase 1's failure
+// and Phase 2's failure is a no-op for slot management (it never held a slot).
+// The parallel fetch group must be cleaned up after the last in-flight fetch completes.
+async fn test_both_fetches_fail_group_cleaned_up() {
+	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	// Single para 100 slot.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(CoreIndex(0), vec![100.into(), 200.into(), 200.into()]);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
+		if p == first_peer {
+			Some(Score::new(100).unwrap())
+		} else if p == second_peer {
+			Some(Score::new(50).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, first_peer, 100.into()).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, second_peer, 100.into()).await;
+
+	// Phase 1: first_peer claims the only para 100 slot.
+	let (_, first_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		first_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	test_state.handle_advertisement(&mut state, first_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(first_adv).await;
+	test_state.assert_no_messages().await;
+
+	// second_peer advertises — no free slot.
+	let (_, second_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(99),
+	);
+	test_state.handle_advertisement(&mut state, second_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Escalation fires: Phase 2 (second_peer) is launched.
+	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(second_adv).await;
+	test_state.assert_no_messages().await;
+
+	// Phase 1 fails. The group is still alive (Phase 2 in-flight) → No returned.
+	// Phase 1's claim queue slot is released.
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				first_adv,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
+		)
+		.await;
+	test_state.assert_no_messages().await;
+
+	// Phase 2 also fails. No other fetches are in-flight → group cleaned up.
+	// Phase 2 never claimed a slot, so release_slot is a no-op.
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				second_adv,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
+		)
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// When the next escalation candidate has zero reputation, the escalation is deferred
+// by ZERO_REP_EXTRA_DELAY instead of launching a parallel fetch immediately.
+async fn test_zero_rep_escalation_delayed() {
+	use crate::validator_side_experimental::parallel_fetch::{
+		ESCALATION_TIMEOUT, ZERO_REP_EXTRA_DELAY,
+	};
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	// Single para 100 slot.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(CoreIndex(0), vec![100.into(), 200.into(), 200.into()]);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let first_peer = peer_id(1);
+	let zero_rep_peer = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
+		if p == first_peer {
+			Some(Score::new(100).unwrap())
+		} else if p == zero_rep_peer {
+			// Zero reputation: present but no history.
+			Some(Score::new(0).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, first_peer, 100.into()).await;
+	state
+		.handle_peer_connected(&mut sender, zero_rep_peer, CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, zero_rep_peer, 100.into()).await;
+
+	// Phase 1: first_peer (high rep) claims the only para 100 slot.
+	let (_, first_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		first_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	test_state.handle_advertisement(&mut state, first_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(first_adv).await;
+	test_state.assert_no_messages().await;
+
+	// zero_rep_peer advertises — no free slot.
+	let (_, zero_rep_adv) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		zero_rep_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(99),
+	);
+	test_state.handle_advertisement(&mut state, zero_rep_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Escalation timer fires. pick_escalation_candidate finds zero_rep_peer.
+	// is_zero_rep = true → deadline extended by ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY.
+	// No parallel fetch is launched.
+	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Even after the extended deadline passes, the zero-rep candidate is still deferred
+	// (each check extends the deadline again). No fetch is ever launched for the zero-rep peer.
+	tokio::time::sleep((ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY) * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// Two different para_ids each have a Phase 1 in-flight. Verifies that their parallel fetch
+// groups escalate independently: both (rp, para_100) and (rp, para_200) launch a Phase 2
+// after ESCALATION_TIMEOUT, without interfering with each other.
+async fn test_multiple_para_ids_escalate_independently() {
+	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	// One slot each for para 100 and para 200.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(CoreIndex(0), vec![100.into(), 200.into()]);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let peer_a = peer_id(1); // para 100, Phase 1
+	let peer_b = peer_id(2); // para 200, Phase 1
+	let peer_c = peer_id(3); // para 100, Phase 2 (escalation)
+	let peer_d = peer_id(4); // para 200, Phase 2 (escalation)
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |p, _para_id| {
+		if p == peer_a || p == peer_b {
+			Some(Score::new(100).unwrap())
+		} else if p == peer_c || p == peer_d {
+			Some(Score::new(50).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	for (peer, para) in [(peer_a, 100u32), (peer_b, 200), (peer_c, 100), (peer_d, 200)] {
+		state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer, para.into()).await;
+	}
+
+	// Phase 1 for para 100 (peer_a) and para 200 (peer_b): both launch, consuming all slots.
+	let (_, adv_a) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		peer_a,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let (_, adv_b) = dummy_candidate(
+		active_leaf,
+		200.into(),
+		peer_b,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	test_state.handle_advertisement(&mut state, adv_a).await;
+	test_state.handle_advertisement(&mut state, adv_b).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_requests([adv_a, adv_b].into()).await;
+	test_state.assert_no_messages().await;
+
+	// peer_c (para 100) and peer_d (para 200) advertise — both queued, no free slots.
+	let (_, adv_c) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		peer_c,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(98),
+	);
+	let (_, adv_d) = dummy_candidate(
+		active_leaf,
+		200.into(),
+		peer_d,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(99),
+	);
+	test_state.handle_advertisement(&mut state, adv_c).await;
+	test_state.handle_advertisement(&mut state, adv_d).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Both groups hit their escalation deadline simultaneously.
+	// Each group independently launches its Phase 2: adv_c for para 100, adv_d for para 200.
+	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_requests([adv_c, adv_d].into()).await;
 	test_state.assert_no_messages().await;
 }
 
