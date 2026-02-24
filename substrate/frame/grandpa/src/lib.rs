@@ -631,10 +631,8 @@ where
 			if res.is_ok() {
 				Stalled::<T>::kill();
 
-				current_set_id = CurrentSetId::<T>::mutate(|s| {
-					*s += 1;
-					*s
-				});
+				current_set_id += 1;
+				CurrentSetId::<T>::set(current_set_id);
 
 				let max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(1);
 				if current_set_id >= max_set_id_session_entries {
