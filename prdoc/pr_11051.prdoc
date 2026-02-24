@@ -6,6 +6,6 @@ crates:
 - name: sc-network-statement
   bump: major
 - name: polkadot-omni-node-lib
-  bump: patch
+  bump: major
 - name: staging-node-cli
   bump: major
