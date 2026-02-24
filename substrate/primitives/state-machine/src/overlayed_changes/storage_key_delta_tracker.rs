@@ -106,6 +106,21 @@ impl<K, H: Default> Default for StorageKeyDeltaTracker<K, H> {
 	}
 }
 
+impl<K, H: Default> StorageKeyDeltaTracker<K, H> {
+	/// Creates a tracker pre-initialized with `depth` empty transaction layers.
+	///
+	/// Used by `spawn_child` to match the parent's transaction depth so that
+	/// commit/rollback operations on pre-existing levels work correctly
+	/// instead of being silent no-ops.
+	pub fn with_transaction_depth(depth: usize) -> Self {
+		Self {
+			layers: (0..depth).map(|_| TransactionLayer::default()).collect(),
+			current: TransactionLayer::default(),
+			hasher: H::default(),
+		}
+	}
+}
+
 impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
@@ -789,5 +804,63 @@ mod tests {
 		debug!(target:LOG_TARGET, ">> after final commit {:?}", tracker);
 		let delta2 = tracker.take_delta();
 		assert!(delta2.is_empty());
+	}
+
+	#[test]
+	fn test_with_transaction_depth_commit() {
+		// Simulates spawn_child: tracker starts with 3 empty layers.
+		let mut tracker = Tracker::with_transaction_depth(3);
+
+		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("b".to_string(), KeyOp::Updated);
+
+		// Commit all 3 pre-existing layers — keys merge down.
+		tracker.commit_transaction();
+		tracker.commit_transaction();
+		tracker.commit_transaction();
+
+		let delta = tracker.take_delta();
+		delta_assert_eq!(delta, ["a", "b"]);
+	}
+
+	#[test]
+	fn test_with_transaction_depth_rollback_discards_keys() {
+		let mut tracker = Tracker::with_transaction_depth(3);
+
+		// Add keys at depth 3 (innermost).
+		tracker.add_key("a".to_string(), KeyOp::Updated);
+
+		// Commit once: depth 3→2. "a" merges into depth 2.
+		tracker.commit_transaction();
+
+		// Add key at depth 2.
+		tracker.add_key("b".to_string(), KeyOp::Updated);
+
+		// Rollback depth 2 — discards "a" (merged in) and "b".
+		tracker.rollback_transaction();
+
+		// Add key at depth 1 after rollback.
+		tracker.add_key("c".to_string(), KeyOp::Updated);
+
+		// Commit depth 1.
+		tracker.commit_transaction();
+
+		// Only "c" survives.
+		let delta = tracker.take_delta();
+		delta_assert_eq!(delta, ["c"]);
+	}
+
+	#[test]
+	fn test_with_transaction_depth_rollback_all() {
+		let mut tracker = Tracker::with_transaction_depth(2);
+
+		tracker.add_key("a".to_string(), KeyOp::Updated);
+
+		// Rollback both layers — discards everything.
+		tracker.rollback_transaction();
+		tracker.rollback_transaction();
+
+		let delta = tracker.take_delta();
+		assert!(delta.is_empty());
 	}
 }
