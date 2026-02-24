@@ -234,6 +234,7 @@ where
 				continue;
 			};
 
+			// Use the slot calculated from relay parent
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
 				rp_data.relay_parent(),
 				relay_chain_slot_duration,
@@ -241,9 +242,6 @@ where
 			) else {
 				continue;
 			};
-
-			// Use the slot calculated from relay parent
-			let slot_info = para_slot;
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
@@ -307,12 +305,12 @@ where
 			let included_header_hash = included_header.hash();
 
 			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent_hash) {
-				connection_helper.update::<P>(slot_info.slot, &authorities).await;
+				connection_helper.update::<P>(para_slot.slot, &authorities).await;
 			}
 
 			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
-				slot_info.slot,
-				slot_info.timestamp,
+				para_slot.slot,
+				para_slot.timestamp,
 				initial_parent_hash,
 				&*para_client,
 				&keystore,
@@ -327,7 +325,7 @@ where
 					included_hash = ?included_header_hash,
 					included_num = %included_header.number(),
 					initial_parent = ?initial_parent_hash,
-					slot = ?slot_info.slot,
+					slot = ?para_slot.slot,
 					"Not eligible to claim slot."
 				);
 				continue;
@@ -342,7 +340,7 @@ where
 				included_hash = ?included_header_hash,
 				included_num = %included_header.number(),
 				initial_parent = ?initial_parent_hash,
-				slot = ?slot_info.slot,
+				slot = ?para_slot.slot,
 				"Claiming slot."
 			);
 
@@ -447,7 +445,7 @@ where
 					total_number_of_blocks: number_of_blocks,
 					included_header_hash,
 					relay_slot,
-					para_slot: slot_info.slot,
+					para_slot: para_slot.slot,
 					para_client: &*para_client,
 				})
 				.await
@@ -564,7 +562,9 @@ where
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block> + cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
+	Client::Api: AuraUnincludedSegmentApi<Block>
+		+ ApiExt<Block>
+		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
 {
 	let core_start = Instant::now();
 

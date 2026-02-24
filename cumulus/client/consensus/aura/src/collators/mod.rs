@@ -431,8 +431,14 @@ mod tests {
 
 		// Blocks were built with the genesis hash set as included block.
 		// We call `can_build_upon` with the last built block as the included block.
-		let result =
-			can_build_upon::<_, _>(last_hash, last_hash, Slot::from(u64::MAX), Slot::from(u64::MAX), &*client).await;
+		let result = can_build_upon::<_, _>(
+			last_hash,
+			last_hash,
+			Slot::from(u64::MAX),
+			Slot::from(u64::MAX),
+			&*client,
+		)
+		.await;
 		assert!(result);
 	}
 

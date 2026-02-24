@@ -367,20 +367,23 @@ where
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2u32 {
-				let Some((slot_now, relay_slot, timestamp)) =
-					get_parachain_slot::<_, _, P::Public>(
-						para_client,
-						parent_hash,
-						&relay_parent_header,
-						params.relay_chain_slot_duration,
-					)
-				else {
+				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				) else {
 					break;
 				};
 
-				let Some(slot_claim) =
-					super::claim_slot::<_, _, P>(slot_now, timestamp, parent_hash, para_client, &keystore)
-						.await
+				let Some(slot_claim) = super::claim_slot::<_, _, P>(
+					slot_now,
+					timestamp,
+					parent_hash,
+					para_client,
+					&keystore,
+				)
+				.await
 				else {
 					break;
 				};

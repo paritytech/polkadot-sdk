@@ -90,7 +90,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 			(1..9).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})

@@ -16,7 +16,6 @@
 // limitations under the License.
 
 mod asset_hub_westend;
-mod multiple_blocks_per_slot;
 mod pov_recovery;
 mod slot_based_authoring;
 mod slot_based_rp_offset;

@@ -187,6 +187,7 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 		&relay_client,
 		5,
 		[(ParaId::from(PARA_ID_1), 3..7), (ParaId::from(PARA_ID_2), 3..7)],
+		[],
 	)
 	.await?;
 

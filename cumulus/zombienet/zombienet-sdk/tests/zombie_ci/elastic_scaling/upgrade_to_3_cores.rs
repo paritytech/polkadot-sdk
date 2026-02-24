@@ -1,6 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_test_runtime::{
 	elastic_scaling::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING,
@@ -32,8 +33,6 @@ const PARA_ID: u32 = 2000;
 async fn elastic_scaling_upgrade_to_3_cores(
 	#[case] async_backing: bool,
 ) -> Result<(), anyhow::Error> {
-	use crate::utils::initialize_network;
-
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
