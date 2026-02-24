@@ -14,14 +14,10 @@
 //! It then configures the relay and broker chains to onboard parachain 100
 //! and verifies it starts producing blocks.
 
-use crate::utils::{
-	env_or_default, initialize_network,
-	CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
-};
+use crate::utils::{env_or_default, initialize_network, CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput,
-	submit_extrinsic_and_wait_for_finalization_success,
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
 };
 use polkadot_primitives::Id as ParaId;
 use zombienet_sdk::{
@@ -29,15 +25,14 @@ use zombienet_sdk::{
 		dynamic::Value, ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
+	tx_helper::parachain::{fetch_genesis_header, fetch_validation_code},
 	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
-	tx_helper::parachain::{fetch_genesis_header, fetch_validation_code}
 };
 
 use serde_json::json;
 
 const CORETIME_PARA_ID: u32 = 1005;
 const TEST_PARA_ID: u32 = 100;
-
 
 /// Coretime smoke test that verifies bulk core assignment and parachain onboarding.
 ///
@@ -104,7 +99,12 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 
 	// Wait for parachain 100  produce blocks
 	log::info!("Waiting for parachain {} to produce blocks", TEST_PARA_ID);
-	assert_para_throughput(&alice_client, 30, [(ParaId::from(CORETIME_PARA_ID), 5..31), (ParaId::from(TEST_PARA_ID), 5..31)]).await?;
+	assert_para_throughput(
+		&alice_client,
+		30,
+		[(ParaId::from(CORETIME_PARA_ID), 5..31), (ParaId::from(TEST_PARA_ID), 5..31)],
+	)
+	.await?;
 	log::info!("Parachain {} is producing blocks", TEST_PARA_ID);
 
 	log::info!("Test finished successfully");

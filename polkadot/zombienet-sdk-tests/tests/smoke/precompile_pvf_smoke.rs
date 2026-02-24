@@ -18,21 +18,24 @@
 //! 5. Re-register dave and verify PVF preparation timing
 
 use crate::utils::{
-	env_or_default, initialize_network,
-	ACTIVE_VALIDATOR_METRIC, CUMULUS_IMAGE_ENV, INTEGRATION_IMAGE_ENV, PARACHAIN_VALIDATOR_METRIC,
+	env_or_default, initialize_network, ACTIVE_VALIDATOR_METRIC, CUMULUS_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV, PARACHAIN_VALIDATOR_METRIC,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput,
-	submit_extrinsic_and_wait_for_finalization_success, wait_for_nth_session_change,
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
+	wait_for_nth_session_change,
 };
 use polkadot_primitives::Id as ParaId;
 use tokio::time::{sleep, Duration};
 use zombienet_sdk::{
 	subxt::{dynamic::Value, OnlineClient, PolkadotConfig},
-	subxt_signer::{ sr25519::dev, DeriveJunction},
+	subxt_signer::{sr25519::dev, DeriveJunction},
+	tx_helper::parachain::{
+		create_deregister_validator_call, create_register_para_call,
+		create_register_validator_call, fetch_genesis_header, fetch_validation_code,
+	},
 	NetworkConfig, NetworkConfigBuilder,
-	tx_helper::parachain::{fetch_genesis_header, fetch_validation_code, create_deregister_validator_call, create_register_validator_call, create_register_para_call}
 };
 
 const PARA_ID: u32 = 2000;
