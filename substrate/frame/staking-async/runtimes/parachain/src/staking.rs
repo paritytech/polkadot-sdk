@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Staking, and election related pallet configurations.
+/// ! Staking, and election related pallet configurations.
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
@@ -487,8 +487,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type ValidatorSetExportSession = ConstU32<4>;
 	type RelayChainSessionKeys = RelayChainSessionKeys;
 	type Balance = Balance;
-	type MaxSessionKeysLength = ConstU32<256>;
-	type MaxSessionKeysProofLength = ConstU32<512>;
 	type WeightInfo = ();
 }
 
@@ -535,12 +533,14 @@ pub struct KeysMessageToXcm;
 impl Convert<rc_client::KeysMessage<AccountId>, Xcm<()>> for KeysMessageToXcm {
 	fn convert(msg: rc_client::KeysMessage<AccountId>) -> Xcm<()> {
 		let encoded_call = match msg {
-			rc_client::KeysMessage::SetKeys { stash, keys } =>
+			rc_client::KeysMessage::SetKeys { stash, keys } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::SetKeysFromAh { stash, keys })
-					.encode(),
-			rc_client::KeysMessage::PurgeKeys { stash } =>
+					.encode()
+			},
+			rc_client::KeysMessage::PurgeKeys { stash } => {
 				RelayChainRuntimePallets::AhClient(AhClientCalls::PurgeKeysFromAh { stash })
-					.encode(),
+					.encode()
+			},
 		};
 		rc_client::build_transact_xcm(encoded_call)
 	}

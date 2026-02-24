@@ -52,7 +52,7 @@ where
 		let before_relevant = header.number < min_block_needed;
 
 		if already_known || before_relevant {
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		}
 	}
 
@@ -61,7 +61,7 @@ where
 	// Early exit if the parent hash is in the DB or no further blocks
 	// are needed.
 	if is_known(&header.parent_hash)? || header.number == min_block_needed {
-		return Ok(ancestry)
+		return Ok(ancestry);
 	}
 
 	'outer: loop {
@@ -133,7 +133,7 @@ where
 			// be skipped. Any failure at this stage means we'll just ignore those blocks
 			// as the chain DB has failed us.
 			if batch_headers.len() != batch_hashes.len() {
-				break 'outer
+				break 'outer;
 			}
 			batch_headers
 		};
@@ -145,13 +145,13 @@ where
 			let is_terminating = header.number == min_block_needed;
 
 			if is_known || !is_relevant {
-				break 'outer
+				break 'outer;
 			}
 
 			ancestry.push((hash, header));
 
 			if is_terminating {
-				break 'outer
+				break 'outer;
 			}
 		}
 	}

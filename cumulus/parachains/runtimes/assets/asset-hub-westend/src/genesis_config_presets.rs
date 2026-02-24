@@ -21,12 +21,13 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::build_struct_json_patch;
+use frame_support::{build_struct_json_patch, sp_runtime::traits::AccountIdConversion};
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use staking::DapPalletId;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -35,6 +36,10 @@ use xcm_builder::GlobalConsensusConvertsFor;
 use xcm_executor::traits::ConvertLocation;
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
+
+fn dap_buffer_account() -> AccountId {
+	DapPalletId::get().into_account_truncating()
+}
 
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -45,10 +50,12 @@ fn asset_hub_westend_genesis(
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
+	// Fund DAP buffer account with ED so it can receive slashes.
+	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
+	balances.push((dap_buffer_account(), ASSET_HUB_WESTEND_ED));
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
-		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
-		},
+		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
@@ -138,7 +145,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			vec![],
 			vec![],
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
 			asset_hub_westend_genesis(
 				// initial collators.
 				vec![
@@ -168,7 +175,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 						10_000_000 * 4096 * 4096,
 					),
 				],
-			),
+			)
+		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],

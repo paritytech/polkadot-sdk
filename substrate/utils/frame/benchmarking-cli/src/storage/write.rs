@@ -59,12 +59,12 @@ impl StorageCmd {
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
 		if self.params.is_validate_block_mode() && self.params.disable_pov_recorder {
-			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder`.".into())
+			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder`.".into());
 		}
 		if self.params.is_validate_block_mode() &&
 			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 		{
-			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into())
+			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into());
 		}
 
 		// Store the time that it took to write each value.
@@ -86,7 +86,7 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
 		if kvs.is_empty() {
-			return Err("Can't process benchmarking with empty storage".into())
+			return Err("Can't process benchmarking with empty storage".into());
 		}
 
 		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
@@ -127,13 +127,13 @@ impl StorageCmd {
 							state_col,
 							None,
 						) {
-							break
+							break;
 						}
 					}
 
 					batched_keys.push((k.to_vec(), new_v.to_vec()));
 					if batched_keys.len() < self.params.batch_size {
-						continue
+						continue;
 					}
 
 					// Write each value in one commit.
@@ -194,12 +194,12 @@ impl StorageCmd {
 								state_col,
 								Some(&info),
 							) {
-								break
+								break;
 							}
 						}
 						batched_keys.push((key.0, new_v.to_vec()));
 						if batched_keys.len() < self.params.batch_size {
-							continue
+							continue;
 						}
 
 						let (size, duration) = if self.params.is_validate_block_mode() {
@@ -428,7 +428,7 @@ fn check_new_value<Block: BlockT>(
 			db.sanitize_key(&mut k);
 			if db.get(col, &k).is_some() {
 				trace!("Benchmark-store key creation: Key collision detected, retry");
-				return false
+				return false;
 			}
 		}
 	}
