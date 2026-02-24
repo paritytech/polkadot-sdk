@@ -142,9 +142,9 @@ pub enum NewBlockState {
 	Best,
 	/// Newly finalized block (implicitly best).
 	Final,
-	/// Block whose parent is not present in the DB. Stored for ancestry lookups
-	/// but not tracked as a leaf — adding it would create an orphan leaf with no
-	/// connection to the rest of the tree.
+	/// Block whose parent is not present in the DB.
+	/// Used for blocks which are needed in the DB but should not be registered as
+	/// leaf.
 	Disconnected,
 }
 
