@@ -51,7 +51,7 @@ pub fn mini_secret_from_entropy(entropy: &[u8], password: &str) -> Result<MiniSe
 
 /// Similar to `mini_secret_from_entropy`, except that it provides the 64-byte seed directly.
 pub fn seed_from_entropy(entropy: &[u8], password: &str) -> Result<[u8; 64], Error> {
-	if entropy.len() < 16 || entropy.len() > 32 || entropy.len() % 4 != 0 {
+	if entropy.len() < 16 || entropy.len() > 32 || !entropy.len().is_multiple_of(4) {
 		return Err(Error::InvalidEntropy);
 	}
 
