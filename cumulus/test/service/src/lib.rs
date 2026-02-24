@@ -144,7 +144,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 
 		// For every 3rd block we immediately signal unavailability to trigger
 		// a retry. The same candidate is never failed multiple times to ensure progress.
-		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
+		if self.counter.is_multiple_of(3) && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
 			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
