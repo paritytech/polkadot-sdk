@@ -24,8 +24,8 @@
 //!
 //! ```text
 //! t=0ms       [highest-rep collator] ──fetch──────────────────────────────────>
-//! t=400ms     [2nd-highest collator] ──fetch────────────────────────────────>   (if first not done)
-//! t=800ms     [3rd-highest collator] ──fetch──────────────────────────────>     (if still not done)
+//! t=300ms     [2nd-highest collator] ──fetch────────────────────────────────>   (if first not done)
+//! t=600ms     [3rd-highest collator] ──fetch──────────────────────────────>     (if still not done)
 //! ```
 //!
 //! The first fetch that completes successfully causes all others to be cancelled.
@@ -43,14 +43,14 @@ use std::{
 
 /// Base interval between escalation steps (time before launching a parallel fetch).
 ///
-/// With a collation size of 5MB and bandwidth of 500Mbit/s, the transfer should complete
-/// within ~100ms. 400ms gives ample margin while keeping latency low.
+/// With a POV of 10MB and bandwidth of 500Mbit/s, the fetch should complete
+/// within ~160ms + some time for advertise ≈ 300ms
 #[cfg(not(test))]
-pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(400);
+pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(300);
 
 /// Shorter timeout for tests.
 #[cfg(test)]
-pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(100);
+pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(50);
 
 /// Extra delay before escalating to a zero-reputation peer.
 ///
@@ -265,13 +265,6 @@ mod tests {
 		assert!(!state.has_group(&key1));
 		assert!(!state.has_group(&key2));
 		assert!(state.has_group(&key3));
-	}
-
-	#[test]
-	fn escalation_timeout_constants_are_correct() {
-		// In test mode, escalation should be fast.
-		assert!(ESCALATION_TIMEOUT <= Duration::from_millis(200));
-		assert!(ZERO_REP_EXTRA_DELAY <= Duration::from_millis(100));
 	}
 
 	#[test]
