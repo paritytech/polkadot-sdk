@@ -80,6 +80,21 @@ fn generate_mock_xcm_page(
 	data
 }
 
+fn check_and_drain_messages(
+	enqueued_messages: &mut Vec<(ParaId, Vec<u8>)>,
+	expected_sender: ParaId,
+	expected_messages: &mut Vec<BoundedVec<u8, MaxXcmpMessageLenOf<Test>>>,
+	count: usize,
+) {
+	assert_eq!(
+		enqueued_messages.drain(..count).collect::<Vec<_>>(),
+		expected_messages
+			.drain(..count)
+			.map(|xcm| (expected_sender, xcm.into_inner()))
+			.collect::<Vec<_>>()
+	);
+}
+
 #[test]
 fn handling_signals_works() {
 	new_test_ext().execute_with(|| {
@@ -101,22 +116,20 @@ fn handling_signals_works() {
 		let channel = get_channel(1000.into());
 		assert_eq!(channel, None);
 
-		// All the signals are processed
+		// Only the first 3 signals are processed
 		let page = (
 			XcmpMessageFormat::Signals,
 			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
 			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
-			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
-			ChannelSignal::Suspend,
 			ChannelSignal::Resume,
 		)
 			.encode();
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		let channel = get_channel(1000.into());
-		assert_eq!(channel, None);
+		let channel = get_channel(1000.into()).unwrap();
+		assert_eq!(channel.state, OutboundState::Suspended);
 	})
 }
 
@@ -203,6 +216,88 @@ fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
 #[test]
 fn test_enqueueing_more_than_a_xcm_batch_works() {
 	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Simple);
+	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Double);
+}
+
+fn basic_round_robin_works(xcm_encoding: XcmEncoding) {
+	new_test_ext().execute_with(|| {
+		EnqueuedMessages::set(vec![]);
+		<QueueConfig<Test>>::set(QueueConfigData {
+			suspend_threshold: XCM_BATCH_SIZE as u32 * 5,
+			drop_threshold: XCM_BATCH_SIZE as u32 * 5,
+			resume_threshold: XCM_BATCH_SIZE as u32 * 5,
+		});
+
+		let sender_1 = 1000.into();
+		let page_1_count = XCM_BATCH_SIZE + 10;
+		let page_1 = generate_mock_xcm_page(0, page_1_count, xcm_encoding);
+		let mut page_1_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(0, page_1_count), XcmEncoding::Simple);
+
+		let sender_2 = 2000.into();
+		let page_2_count = XCM_BATCH_SIZE * 2 + 10;
+		let page_2 = generate_mock_xcm_page(0, page_2_count, xcm_encoding);
+		let mut page_2_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(0, page_2_count), XcmEncoding::Simple);
+
+		let sender_3 = 3000.into();
+		let page_3_count = XCM_BATCH_SIZE + 10;
+		let page_3 = generate_mock_xcm_page(0, page_3_count, xcm_encoding);
+		let mut page_3_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(0, page_3_count), XcmEncoding::Simple);
+
+		let page_4_count = 10;
+		let page_4 = generate_mock_xcm_page(0, page_4_count, xcm_encoding);
+		let mut page_4_xcms =
+			encode_xcm_batch(generate_mock_xcm_batch(0, page_4_count), XcmEncoding::Simple);
+
+		XcmpQueue::handle_xcmp_messages(
+			[
+				(sender_1, 1, page_1.as_slice()),
+				(sender_2, 2, page_2.as_slice()),
+				(sender_3, 3, page_3.as_slice()),
+				(sender_1, 4, page_4.as_slice()),
+			]
+			.into_iter(),
+			Weight::MAX,
+		);
+
+		let mut enqueued_messages = EnqueuedMessages::get();
+		check_and_drain_messages(
+			&mut enqueued_messages,
+			sender_1,
+			&mut page_1_xcms,
+			XCM_BATCH_SIZE,
+		);
+		check_and_drain_messages(
+			&mut enqueued_messages,
+			sender_2,
+			&mut page_2_xcms,
+			XCM_BATCH_SIZE,
+		);
+		check_and_drain_messages(
+			&mut enqueued_messages,
+			sender_3,
+			&mut page_3_xcms,
+			XCM_BATCH_SIZE,
+		);
+		check_and_drain_messages(&mut enqueued_messages, sender_1, &mut page_1_xcms, 10);
+		check_and_drain_messages(
+			&mut enqueued_messages,
+			sender_2,
+			&mut page_2_xcms,
+			XCM_BATCH_SIZE,
+		);
+		check_and_drain_messages(&mut enqueued_messages, sender_3, &mut page_3_xcms, 10);
+		check_and_drain_messages(&mut enqueued_messages, sender_2, &mut page_2_xcms, 10);
+		check_and_drain_messages(&mut enqueued_messages, sender_1, &mut page_4_xcms, 10);
+		assert!(enqueued_messages.is_empty());
+	})
+}
+
+#[test]
+fn test_round_robin_works() {
+	basic_round_robin_works(XcmEncoding::Simple);
 	test_enqueueing_more_than_a_xcm_batch(XcmEncoding::Double);
 }
 

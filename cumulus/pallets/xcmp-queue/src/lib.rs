@@ -801,29 +801,37 @@ impl<T: Config> Pallet<T> {
 		sender: ParaId,
 		format: XcmpMessageFormat,
 		data: &mut &'a [u8],
+		signal_count: &mut usize,
 		known_xcm_senders: &mut BTreeSet<ParaId>,
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		match format {
-			XcmpMessageFormat::Signals => match ChannelSignal::decode(data) {
-				Ok(ChannelSignal::Suspend) => {
-					if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
-						defensive!("Not enough weight to process suspend signal - dropping");
-						return Err(());
-					}
-					Self::suspend_channel(sender)
-				},
-				Ok(ChannelSignal::Resume) => {
-					if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
-						defensive!("Not enough weight to process resume signal - dropping");
-						return Err(());
-					}
-					Self::resume_channel(sender)
-				},
-				Err(_) => {
-					defensive!("Undecodable channel signal - dropping");
+			XcmpMessageFormat::Signals => {
+				*signal_count += 1;
+				if *signal_count > MAX_SIGNALS_PER_PAGE {
 					return Err(());
-				},
+				}
+
+				match ChannelSignal::decode(data) {
+					Ok(ChannelSignal::Suspend) => {
+						if meter.try_consume(T::WeightInfo::suspend_channel()).is_err() {
+							defensive!("Not enough weight to process suspend signal - dropping");
+							return Err(());
+						}
+						Self::suspend_channel(sender)
+					},
+					Ok(ChannelSignal::Resume) => {
+						if meter.try_consume(T::WeightInfo::resume_channel()).is_err() {
+							defensive!("Not enough weight to process resume signal - dropping");
+							return Err(());
+						}
+						Self::resume_channel(sender)
+					},
+					Err(_) => {
+						defensive!("Undecodable channel signal - dropping");
+						return Err(());
+					},
+				}
 			},
 			XcmpMessageFormat::ConcatenatedVersionedXcm |
 			XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
@@ -995,13 +1003,13 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						return None;
 					},
 				};
-				Some((sender, format, data))
+				Some((sender, format, data, 0))
 			})
 			.collect();
 
 		while !xcmp_messages.is_empty() {
 			let mut processed_xcm_senders = BTreeSet::new();
-			xcmp_messages.retain_mut(|(sender, format, data)| {
+			xcmp_messages.retain_mut(|(sender, format, data, signal_count)| {
 				if data.is_empty() {
 					return false;
 				}
@@ -1015,6 +1023,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					*sender,
 					*format,
 					data,
+					signal_count,
 					&mut known_xcm_senders,
 					&mut meter,
 				) {
