@@ -480,6 +480,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 
 	type RcClientInterface = RcClient;
+	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator;
 
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 }
@@ -840,10 +841,6 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
-
-		pallet_dap::GenesisConfig::<Runtime>::default()
-			.assimilate_storage(&mut t)
-			.unwrap();
 
 		let mut state: TestState = t.into();
 

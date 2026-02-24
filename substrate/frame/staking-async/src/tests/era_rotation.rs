@@ -517,10 +517,15 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						!crate::ErasTotalStake::<T>::contains_key(1),
 						"{expected_step:?} should be empty after completing step"
 					);
-					// Also verify ErasNominatorsSlashable is cleaned (piggybacks on this step)
+					// Also verify ErasNominatorsSlashable and ErasValidatorIncentiveAllocation are
+					// cleaned
 					assert!(
 						!crate::ErasNominatorsSlashable::<T>::contains_key(1),
 						"ErasNominatorsSlashable should be empty after completing SingleEntryCleanups step"
+					);
+					assert!(
+						!crate::ErasValidatorIncentiveAllocation::<T>::contains_key(1),
+						"ErasValidatorIncentiveAllocation should be empty after completing SingleEntryCleanups step"
 					);
 				},
 				ErasValidatorIncentive => {
