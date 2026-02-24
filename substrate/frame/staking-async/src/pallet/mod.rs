@@ -85,7 +85,8 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning single-entry storages: ErasTotalStake, ErasTotalValidatorWeight, ErasNominatorsSlashable, and ErasValidatorIncentiveAllocation
+		/// Pruning single-entry storages: ErasTotalStake, ErasTotalValidatorWeight,
+		/// ErasNominatorsSlashable, and ErasValidatorIncentiveAllocation
 		SingleEntryCleanups,
 		/// Pruning ErasValidatorIncentive storage
 		ErasValidatorIncentive,
@@ -797,7 +798,8 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
-	/// Era allocation for validator self-stake incentive for the last [`Config::HistoryDepth`] eras.
+	/// Era allocation for validator self-stake incentive for the last [`Config::HistoryDepth`]
+	/// eras.
 	///
 	/// This value is snapshotted at era end to ensure consistent calculations across all
 	/// validator payouts within the era. Without snapshotting, the allocation would decrease
@@ -805,7 +807,8 @@ pub mod pallet {
 	///
 	/// If not set or removed, 0 is returned.
 	#[pallet::storage]
-	pub type ErasValidatorIncentiveAllocation<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+	pub type ErasValidatorIncentiveAllocation<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.

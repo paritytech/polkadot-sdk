@@ -890,12 +890,17 @@ impl<T: Config> Rotator<T> {
 
 		// Snapshot validator incentive allocation to ensure fair distribution even when
 		// validators claim rewards at different times.
-		Eras::<T>::set_validator_incentive_allocation(ending_era.index, allocation.validator_incentive);
+		Eras::<T>::set_validator_incentive_allocation(
+			ending_era.index,
+			allocation.validator_incentive,
+		);
 
 		#[cfg(any(test, debug_assertions))]
 		if !allocation.validator_incentive.is_zero() {
-			let validator_incentive_pot_account =
-				T::EraPotAccountProvider::era_pot_account(ending_era.index, EraPotType::ValidatorSelfStake);
+			let validator_incentive_pot_account = T::EraPotAccountProvider::era_pot_account(
+				ending_era.index,
+				EraPotType::ValidatorSelfStake,
+			);
 			let actual_balance = T::Currency::balance(&validator_incentive_pot_account);
 
 			if actual_balance != allocation.validator_incentive {

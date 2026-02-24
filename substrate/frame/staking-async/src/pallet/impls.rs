@@ -38,10 +38,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		fungible::Mutate,
-		tokens::Preservation,
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		fungible::Mutate, tokens::Preservation, Defensive, DefensiveSaturating, Get, Imbalance,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -429,7 +427,8 @@ impl<T: Config> Pallet<T> {
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
 
 		// Validator's share from staker rewards (proportional to their stake)
-		let validator_staker_payout_for_page = page_stake_part.mul_floor(reward_split.validator_payout);
+		let validator_staker_payout_for_page =
+			page_stake_part.mul_floor(reward_split.validator_payout);
 
 		// Separately pay validator incentive bonus from validator incentive pot
 		// TODO(ank4n): Impl vesting plus emit event for incentive reward.
@@ -734,11 +733,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if total_weight.is_zero() {
-			log!(
-				warn,
-				"Total validator weight is zero but pot allocation exists for era {}",
-				era
-			);
+			log!(warn, "Total validator weight is zero but pot allocation exists for era {}", era);
 			Self::deposit_event(Event::<T>::Unexpected(
 				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
 			));
@@ -778,7 +773,6 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> BalanceOf<T> {
-
 		let dest = match Self::payee(Stash(stash.clone())) {
 			Some(d) if !matches!(d, RewardDestination::None) => d,
 			_ => {
@@ -839,7 +833,8 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
 	) -> BalanceOf<T> {
-		let amount = match Self::calculate_validator_incentive_for_page(era, stash, page_stake_part) {
+		let amount = match Self::calculate_validator_incentive_for_page(era, stash, page_stake_part)
+		{
 			Some(amt) => amt,
 			None => return Zero::zero(),
 		};
