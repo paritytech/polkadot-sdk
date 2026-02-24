@@ -119,16 +119,20 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_args(vec![
-					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace").into(),
+					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug").into(),
+					("--experimental-collator-protocol").into(),
 				])
 				.with_genesis_overrides(json!({
-					"configuration": {
-						"config": {
-							"scheduler_params": {
-								"group_rotation_frequency": 4,
-							},
-							// Enable V3 candidate descriptors via node_features
-							"node_features": node_features_with_v3,
+					"patch": {
+						"configuration": {
+							"config": {
+								"scheduler_params": {
+									"max_validators_per_core": 5,
+									"group_rotation_frequency": 50,
+								},
+								// Enable V3 candidate descriptors via node_features
+								"node_features": node_features_with_v3,
+							}
 						}
 					}
 				}))
@@ -140,7 +144,7 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 			p.with_id(2000)
 				.with_default_command("test-parachain")
 				.with_default_args(vec![
-					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace").into(),
+					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace,basic-authorship=debug").into(),
 					// Use slot-based collator which supports V3 scheduling
 					("--authoring=slot-based").into(),
 				])
@@ -159,30 +163,165 @@ async fn scheduling_v3_test() -> Result<(), anyhow::Error> {
 	let para_node = network.get_node("collator-2000")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+	tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
 
 	// Wait for V3 candidates to be backed
 	// We expect at least 3 V3 candidates within 20 relay chain blocks after session change
-	assert_v3_candidates_backed(&relay_client, ParaId::from(2000), 3, 20).await?;
+	assert_v3_candidates_backed(&relay_client, ParaId::from(2000), 5, 20).await?;
 
 	// Also verify finality is progressing on the parachain
 	// Allow up to 5 blocks lag - this is more lenient to avoid flaky failures
 	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
 
 	log::info!("V3 scheduling test finished successfully");
-
 	Ok(())
 }
 
-/// Test that legacy V1 parachains continue to work when V3 is enabled on the relay chain.
+/// Asserts that legacy (V1/V2) candidates are being produced and backed for a given parachain.
+///
+/// Waits for `min_legacy_candidates` non-V3 candidates to be backed within `max_blocks` relay
+/// chain blocks. Returns the count of V1 and V2 candidates observed.
+async fn assert_legacy_candidates_backed(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	min_legacy_candidates: u32,
+	max_blocks: u32,
+) -> Result<(u32, u32), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+
+	// Wait for the first session change - block production starts after that
+	wait_for_first_session_change(&mut blocks_sub).await?;
+
+	let mut v1_count = 0u32;
+	let mut v2_count = 0u32;
+	let mut block_count = 0u32;
+
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!("Finalized relay chain block {}", block.number());
+		let events = block.events().await?;
+
+		let receipts = find_candidate_backed_events(&events)?;
+
+		for receipt in receipts {
+			if receipt.descriptor.para_id() != para_id {
+				continue;
+			}
+
+			let version = receipt.descriptor.version(true); // true = v3_enabled
+			log::info!(
+				"Para {} candidate backed: version={:?}, relay_parent={:?}",
+				para_id,
+				version,
+				receipt.descriptor.relay_parent(),
+			);
+
+			match version {
+				CandidateDescriptorVersion::V1 => v1_count += 1,
+				CandidateDescriptorVersion::V2 => v2_count += 1,
+				CandidateDescriptorVersion::V3 => {
+					log::warn!("Unexpected V3 candidate for legacy para {para_id}");
+				},
+				CandidateDescriptorVersion::Unknown => {
+					log::warn!("Unknown candidate descriptor version for para {para_id}");
+				},
+			}
+		}
+
+		block_count += 1;
+		let legacy_total = v1_count + v2_count;
+
+		if legacy_total >= min_legacy_candidates {
+			log::info!(
+				"Successfully detected {legacy_total} legacy candidates (V1={v1_count}, V2={v2_count}) for para {para_id} in {block_count} blocks"
+			);
+			return Ok((v1_count, v2_count));
+		}
+
+		if block_count >= max_blocks {
+			break;
+		}
+	}
+
+	let legacy_total = v1_count + v2_count;
+	Err(anyhow!(
+		"Only found {legacy_total} legacy candidates (V1={v1_count}, V2={v2_count}, needed {min_legacy_candidates}) for para {para_id} in {block_count} blocks"
+	))
+}
+
+/// Asserts that candidates of the expected version are being backed for a given parachain.
+///
+/// Waits for `min_candidates` candidates matching `expected_version` to be backed within
+/// `max_blocks` relay chain blocks.
+async fn assert_candidates_version(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	expected_version: CandidateDescriptorVersion,
+	v3_enabled: bool,
+	min_candidates: u32,
+	max_blocks: u32,
+) -> Result<(), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+
+	wait_for_first_session_change(&mut blocks_sub).await?;
+
+	let mut matched = 0u32;
+	let mut total = 0u32;
+	let mut block_count = 0u32;
+
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!("Finalized relay chain block {}", block.number());
+
+		for receipt in find_candidate_backed_events(&block.events().await?)? {
+			if receipt.descriptor.para_id() != para_id {
+				continue;
+			}
+
+			total += 1;
+			let version = receipt.descriptor.version(v3_enabled);
+			log::info!(
+				"Para {} candidate backed: version={:?}, relay_parent={:?}",
+				para_id,
+				version,
+				receipt.descriptor.relay_parent(),
+			);
+
+			if version == expected_version {
+				matched += 1;
+			}
+		}
+
+		block_count += 1;
+
+		if matched >= min_candidates {
+			log::info!(
+				"Found {matched}/{total} {:?} candidates for para {para_id} in {block_count} blocks",
+				expected_version,
+			);
+			return Ok(());
+		}
+
+		if block_count >= max_blocks {
+			break;
+		}
+	}
+
+	Err(anyhow!(
+		"Only found {matched} {:?} candidates (needed {min_candidates}) out of {total} total for para {para_id} in {block_count} blocks",
+		expected_version,
+	))
+}
+
+/// Test that V2 candidates are correctly backed when only the V2 node feature is enabled.
 #[tokio::test(flavor = "multi_thread")]
-async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
+async fn v2_candidates_still_working_test() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	// Enable V3 on relay chain
-	// Format: {"bits": N, "data": [bytes]} - bitvec serialization
-	let node_features_with_v3 = json!({"bits": 8, "data": [0b00011000]});
+	// Only V2 (bit 3) enabled, no V3
+	let node_features_v2_only = json!({"bits": 8, "data": [0b00001000]});
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -190,7 +329,7 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_args(vec![
-					("-lparachain=debug,runtime=debug,parachain::network-bridge-net=trace,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace").into(),
+					("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {
@@ -198,7 +337,7 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 							"scheduler_params": {
 								"group_rotation_frequency": 4,
 							},
-							"node_features": node_features_with_v3,
+							"node_features": node_features_v2_only,
 						}
 					}
 				}))
@@ -206,15 +345,13 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 
 			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
-		// Use sync-backing chain which produces legacy V1 candidates
 		.with_parachain(|p| {
-			p.with_id(2500)
+			p.with_id(2200)
 				.with_default_command("test-parachain")
-				.with_chain("sync-backing")
 				.with_default_args(vec![
-					("-lparachain=debug,aura=debug,cumulus-collator=debug,parachain::collator-protocol=trace,parachain::collator-protocol::stats=trace").into(),
+					("-lparachain=debug,aura=debug,cumulus-collator=debug").into(),
 				])
-				.with_collator(|n| n.with_name("collator-2500"))
+				.with_collator(|n| n.with_name("collator-2200"))
 		})
 		.build()
 		.map_err(|e| {
@@ -226,22 +363,22 @@ async fn v3_backwards_compatibility_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2500")?;
-
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// Use the standard throughput assertion - legacy parachain should still work
-	cumulus_zombienet_sdk_helpers::assert_para_throughput(
+	assert_candidates_version(
 		&relay_client,
-		15,
-		[(ParaId::from(2500), 5..12)],
+		ParaId::from(2200),
+		CandidateDescriptorVersion::V2,
+		false, // v3 not enabled
+		3,
+		20,
 	)
 	.await?;
 
-	// Verify finality on the parachain
-	assert_finality_lag(&para_node.wait_client().await?, 3).await?;
+	let para_node = network.get_node("collator-2200")?;
+	assert_finality_lag(&para_node.wait_client().await?, 5).await?;
 
-	log::info!("V3 backwards compatibility test finished successfully");
+	log::info!("V2 candidates still working test finished successfully");
 
 	Ok(())
 }

@@ -1367,11 +1367,13 @@ impl AdvertisementError {
 		use AdvertisementError::*;
 		match self {
 			ProtocolMisuse => Some(COST_PROTOCOL_MISUSE),
-			SchedulingParentNotActiveLeaf |
-			SchedulingParentUnknown |
-			UndeclaredCollator |
-			Invalid(_) => Some(COST_UNEXPECTED_MESSAGE),
-			UnknownPeer | SecondedLimitReached | BlockedByBacking => None,
+			SchedulingParentUnknown | UndeclaredCollator | Invalid(_) => {
+				Some(COST_UNEXPECTED_MESSAGE)
+			},
+			UnknownPeer |
+			SecondedLimitReached |
+			BlockedByBacking |
+			SchedulingParentNotActiveLeaf => None,
 		}
 	}
 }

@@ -684,6 +684,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								CandidateDescriptorV2::new_v3(
 									para_id,
 									relay_parent,
+									relay_parent, // scheduling_parent
 									core_idx,
 									self.target_session,
 									persisted_validation_data_hash,
@@ -691,7 +692,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 									Default::default(),
 									head_data.hash(),
 									validation_code_hash,
-									relay_parent, // scheduling_parent
 								)
 							},
 							CandidateDescriptorVersionConfig::V1 |
