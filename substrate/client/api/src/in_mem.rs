@@ -847,16 +847,16 @@ mod tests {
 		let just2 = None;
 		let just3 = Some(Justifications::from((ID1, vec![3])));
 		blockchain
-			.insert(header(0).hash(), header(0), just0, None, NewBlockState::Final)
+			.insert(header(0).hash(), header(0), just0, None, NewBlockState::Final, true)
 			.unwrap();
 		blockchain
-			.insert(header(1).hash(), header(1), just1, None, NewBlockState::Final)
+			.insert(header(1).hash(), header(1), just1, None, NewBlockState::Final, true)
 			.unwrap();
 		blockchain
-			.insert(header(2).hash(), header(2), just2, None, NewBlockState::Best)
+			.insert(header(2).hash(), header(2), just2, None, NewBlockState::Best, true)
 			.unwrap();
 		blockchain
-			.insert(header(3).hash(), header(3), just3, None, NewBlockState::Final)
+			.insert(header(3).hash(), header(3), just3, None, NewBlockState::Final, true)
 			.unwrap();
 		blockchain
 	}
