@@ -483,10 +483,13 @@ impl CollationManager {
 						escalated_groups.insert(key);
 					},
 					None => {
-						// No more candidates available for escalation.
-						// Push the deadline far into the future so we don't keep
-						// re-checking until a new advertisement arrives.
-						self.parallel_state.note_escalated(&key, now + Duration::from_secs(3600));
+						// No escalation candidates right now (the only advertised collation
+						// is already in-flight). Keep the group alive so that:
+						// 1. If the in-flight fetch fails, note_fetched can correctly
+						//    release the claim queue slot (has_group = true → No path).
+						// 2. If a new advertisement arrives before then, we will
+						//    escalate to it on the next timer tick.
+						self.parallel_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
 						escalated_groups.insert(key);
 					},
 				}
