@@ -49,7 +49,10 @@ pub trait StorageProofSize {
 	/// then returns the updated proof size.
 	#[version(2)]
 	fn storage_proof_size(&mut self, state_version: PassAs<StateVersion, u8>) -> u64 {
-		self.compute_pov_size_for_storage_root(state_version);
+		if self.extension::<ProofSizeExt>().is_some() {
+			self.compute_pov_size_for_storage_root(state_version);
+		}
+
 		self.extension::<ProofSizeExt>()
 			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
 	}
