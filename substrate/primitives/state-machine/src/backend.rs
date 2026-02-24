@@ -20,8 +20,8 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{
-	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
-	StorageKey, StorageValue, UsageInfo,
+	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, DeltaKeyOp,
+	StorageCollection, StorageKey, StorageValue, UsageInfo,
 };
 use alloc::vec::Vec;
 use codec::Encode;
@@ -271,7 +271,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Does not include child storage updates.
 	fn compute_pov_size_for_storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) where
 		H::Out: Ord;
@@ -280,7 +280,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) where
 		H::Out: Ord;
@@ -349,29 +349,26 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// trie nodes for given child_deltas.
 	fn compute_pov_size_for_storage_root_full<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		child_deltas: impl Iterator<
-			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
+			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], DeltaKeyOp)>),
 		>,
 		state_version: StateVersion,
 	) where
 		H::Out: Ord + Encode,
 	{
-		let mut child_roots: Vec<_> = Default::default();
+		let mut child_roots: Vec<Vec<u8>> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
 			self.compute_pov_size_for_child_storage_root(child_info, child_delta, state_version);
-			let prefixed_storage_key = child_info.prefixed_storage_key();
-			// At "estimation phase" we don't know if child trie is empty or not. Let's assume worst
-			// case - removal of the child storage root value from the main trie:
-			child_roots.push((prefixed_storage_key.into_inner(), None::<&[u8]>));
+			child_roots.push(child_info.prefixed_storage_key().into_inner());
 		}
-		self.compute_pov_size_for_storage_root(
-			delta
-				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
-				.chain(child_roots.iter().map(|(k, _)| (&k[..], None::<&[u8]>))),
-			state_version,
-		);
+		// At "estimation phase" we don't know if child trie is empty or not. Let's assume
+		// worst case - removal of the child storage root value from the main trie:
+		let mut delta_and_child_roots: Vec<_> = delta.collect();
+		delta_and_child_roots
+			.extend(child_roots.iter().map(|k| (k.as_slice(), DeltaKeyOp::Deleted)));
+		self.compute_pov_size_for_storage_root(delta_and_child_roots.into_iter(), state_version);
 	}
 
 	/// Register stats from overlay of state machine.

@@ -47,6 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
+pub use storage_key_delta_tracker::DeltaKeyOp;
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -681,21 +682,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode + codec::Codec,
 	{
 		let snapshot = self.top.take_delta();
-		let delta = self
-			.top
-			.changes_for_delta_keys(&snapshot)
-			.into_iter()
-			.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
-		let child_delta = self.children.values_mut().map(|v| {
-			let child_snapshot = v.0.take_delta();
-			(
-				&v.1,
-				v.0.changes_for_delta_keys(&child_snapshot)
-					.into_iter()
-					.map(|(k, v)| (&k[..], v.map(|v| &v[..]))),
-			)
-		});
+		let child_snapshots: Vec<_> = self
+			.children
+			.values_mut()
+			.map(|v| (&v.1, v.0.take_delta()))
+			.collect();
+
+		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
+		let child_delta = child_snapshots
+			.iter()
+			.map(|(info, snap)| (*info, snap.values().map(|(k, op)| (&k[..], *op))));
 
 		backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
 	}

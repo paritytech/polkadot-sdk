@@ -33,22 +33,27 @@ use std::collections::HashSet;
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "storage_key_delta_tracker";
 
-/// Operation type for a key
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeyOp {
+/// Operation type for a key in the delta tracker.
+///
+/// Carried through the pipeline from the delta tracker to the trie layer,
+/// determining whether a key should be read (Updated) or removed (Deleted)
+/// during PoV size estimation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum DeltaKeyOp {
 	/// Key was updated/inserted
 	Updated,
 	/// Key was deleted
 	Deleted,
 }
 
-type KeyMap<K> = HashMap<u64, (K, KeyOp), BuildNoHashHasher<u64>>;
+type KeyMap<K> = HashMap<u64, (K, DeltaKeyOp), BuildNoHashHasher<u64>>;
 type CapturedSet = HashSet<u64, BuildNoHashHasher<u64>>;
 
-/// Incremental snapshot result: map of base hash -> key for all new keys since last snapshot.
+/// Incremental snapshot result: map of base hash -> (key, op) for all new keys since last snapshot.
 ///
-/// Base hash value can be ignored.
-pub type DeltaKeys<K> = HashMap<u64, K, BuildNoHashHasher<u64>>;
+/// Base hash value shall be ignored. The `DeltaKeyOp` indicates whether the key was updated or
+/// deleted, allowing the trie layer to decide whether to read or remove the key.
+pub type DeltaKeys<K> = HashMap<u64, (K, DeltaKeyOp), BuildNoHashHasher<u64>>;
 
 #[cfg(feature = "std")]
 pub type DefaultHashBuilder = foldhash::fast::RandomState;
@@ -131,7 +136,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	/// A key added as `Deleted` prevents future `Updated` operations on the same key
 	/// from appearing in snapshots. If a key is captured as `Updated` in one snapshot,
 	/// it can still appear as `Deleted` in a subsequent snapshot.
-	pub fn add_key(&mut self, key: K, op: KeyOp)
+	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
 		K: Hash,
 		H: BuildHasher,
@@ -192,7 +197,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 			HashMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default());
 		let mut new_deleted_keys = CapturedSet::default();
 
-		let mut process_key = |hash: u64, key: K, op: KeyOp| {
+		let mut process_key = |hash: u64, key: K, op: DeltaKeyOp| {
 			let is_deleted = self.current.deleted_keys.contains(&hash) ||
 				self.layers.iter().any(|layer| layer.deleted_keys.contains(&hash));
 
@@ -200,9 +205,9 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 				return
 			}
 
-			if op == KeyOp::Deleted {
+			if op == DeltaKeyOp::Deleted {
 				new_deleted_keys.insert(hash);
-				delta.insert(hash, key);
+				delta.insert(hash, (key, op));
 			} else {
 				let is_captured = self
 					.layers
@@ -211,7 +216,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 					self.current.snapshot.as_ref().is_some_and(|s| s.contains(&hash));
 
 				if !is_captured {
-					delta.insert(hash, key);
+					delta.insert(hash, (key, op));
 				}
 			}
 		};
@@ -253,7 +258,7 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 
 #[cfg(test)]
 mod tests {
-	use super::{KeyOp, LOG_TARGET};
+	use super::{DeltaKeyOp, LOG_TARGET};
 	use tracing::debug;
 
 	macro_rules! delta_assert_eq {
@@ -262,7 +267,19 @@ mod tests {
                 let expected: ::std::collections::HashSet<String> =
                     [$($val),*].iter().cloned().map(String::from).collect();
                 let actual: ::std::collections::HashSet<String> =
-                    $delta.values().cloned().collect();
+                    $delta.values().map(|(k, _)| k.clone()).collect();
+                assert_eq!(actual, expected);
+            }
+        };
+    }
+
+	macro_rules! delta_assert_eq_with_ops {
+        ($delta:expr, [$(($key:expr, $op:expr)),* $(,)?]) => {
+            {
+                let expected: ::std::collections::HashSet<(String, DeltaKeyOp)> =
+                    [$(($key.to_string(), $op)),*].into_iter().collect();
+                let actual: ::std::collections::HashSet<(String, DeltaKeyOp)> =
+                    $delta.values().map(|(k, op)| (k.clone(), *op)).collect();
                 assert_eq!(actual, expected);
             }
         };
@@ -288,11 +305,11 @@ mod tests {
 	#[test]
 	fn test_simple_snapshot() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b"]);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["c"]);
 	}
@@ -300,15 +317,15 @@ mod tests {
 	#[test]
 	fn test_nested_tx_and_rollback() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let d1 = tracker.take_delta();
 		delta_assert_eq!(d1, ["a", "b"]);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("e".to_string(), KeyOp::Updated);
+		tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("f".to_string(), KeyOp::Updated);
+		tracker.add_key("f".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["c", "e", "f"]);
 		tracker.rollback_transaction();
@@ -319,22 +336,22 @@ mod tests {
 	#[test]
 	fn test_nested_tx_and_commit() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("d".to_string(), KeyOp::Updated);
-		tracker.add_key("e".to_string(), KeyOp::Updated);
+		tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("f".to_string(), KeyOp::Updated);
+		tracker.add_key("f".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b", "c", "d", "e", "f"]);
 		tracker.start_transaction();
-		tracker.add_key("g".to_string(), KeyOp::Updated);
+		tracker.add_key("g".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
-		tracker.add_key("h".to_string(), KeyOp::Updated);
+		tracker.add_key("h".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
-		tracker.add_key("i".to_string(), KeyOp::Updated);
+		tracker.add_key("i".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["g", "h", "i",]);
@@ -343,9 +360,9 @@ mod tests {
 	#[test]
 	fn test_commit_merges_dirty_keys() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("x".to_string(), KeyOp::Updated);
+		tracker.add_key("x".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("y".to_string(), KeyOp::Updated);
+		tracker.add_key("y".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["x", "y"]);
@@ -354,11 +371,11 @@ mod tests {
 	#[test]
 	fn test_commit_merges_dirty_keys2() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("x".to_string(), KeyOp::Updated);
+		tracker.add_key("x".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["x"]);
 		tracker.start_transaction();
-		tracker.add_key("y".to_string(), KeyOp::Updated);
+		tracker.add_key("y".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["y"]);
@@ -367,13 +384,13 @@ mod tests {
 	#[test]
 	fn test_open_commit_and_rollback_combined() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.rollback_transaction();
-		tracker.add_key("d".to_string(), KeyOp::Updated);
+		tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b", "d"]);
@@ -382,26 +399,26 @@ mod tests {
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested00() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
 		{
-			tracker.add_key("b".to_string(), KeyOp::Updated);
+			tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 			tracker.start_transaction();
 			{
 				tracker.start_transaction();
 				{
-					tracker.add_key("c".to_string(), KeyOp::Updated);
+					tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 					let delta = tracker.take_delta();
 					delta_assert_eq!(delta, ["a", "b", "c"]);
 				}
 				tracker.rollback_transaction();
-				tracker.add_key("d".to_string(), KeyOp::Updated);
+				tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
 				let delta = tracker.take_delta();
 				delta_assert_eq!(delta, ["a", "b", "d"]);
-				tracker.add_key("d0".to_string(), KeyOp::Updated);
+				tracker.add_key("d0".to_string(), DeltaKeyOp::Updated);
 			}
 			tracker.rollback_transaction();
-			tracker.add_key("e".to_string(), KeyOp::Updated);
+			tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
 		}
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
@@ -411,26 +428,26 @@ mod tests {
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested01() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
 		{
-			tracker.add_key("b".to_string(), KeyOp::Updated);
+			tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 			tracker.start_transaction();
 			{
 				tracker.start_transaction();
 				{
-					tracker.add_key("c".to_string(), KeyOp::Updated);
+					tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 					let delta = tracker.take_delta();
 					delta_assert_eq!(delta, ["a", "b", "c"]);
 				}
 				tracker.commit_transaction();
-				tracker.add_key("d".to_string(), KeyOp::Updated);
+				tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
 				let delta = tracker.take_delta();
 				delta_assert_eq!(delta, ["d"]);
-				tracker.add_key("d0".to_string(), KeyOp::Updated);
+				tracker.add_key("d0".to_string(), DeltaKeyOp::Updated);
 			}
 			tracker.rollback_transaction();
-			tracker.add_key("e".to_string(), KeyOp::Updated);
+			tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
 		}
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
@@ -440,26 +457,26 @@ mod tests {
 	#[test]
 	fn test_open_commit_and_rollback_combined_nested02() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
 		{
-			tracker.add_key("b".to_string(), KeyOp::Updated);
+			tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 			tracker.start_transaction();
 			{
 				tracker.start_transaction();
 				{
-					tracker.add_key("c".to_string(), KeyOp::Updated);
+					tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 					let delta = tracker.take_delta();
 					delta_assert_eq!(delta, ["a", "b", "c"]);
 				}
 				tracker.commit_transaction();
-				tracker.add_key("d".to_string(), KeyOp::Updated);
+				tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
 				let delta = tracker.take_delta();
 				delta_assert_eq!(delta, ["d"]);
-				tracker.add_key("d0".to_string(), KeyOp::Updated);
+				tracker.add_key("d0".to_string(), DeltaKeyOp::Updated);
 			}
 			tracker.rollback_transaction();
-			tracker.add_key("e".to_string(), KeyOp::Updated);
+			tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
 		}
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
@@ -469,13 +486,13 @@ mod tests {
 	#[test]
 	fn test_simple_snapshot_uniq() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b"]);
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["c"]);
 	}
@@ -484,15 +501,15 @@ mod tests {
 	fn test_simple_snapshot_uniq2() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b"]);
 		tracker.commit_transaction();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["c"]);
@@ -502,15 +519,15 @@ mod tests {
 	fn test_simple_snapshot_uniq3() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b"]);
 		tracker.rollback_transaction();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["a", "b", "c"]);
@@ -520,15 +537,15 @@ mod tests {
 	fn test_simple_snapshot_uniq4() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b", "c"]);
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
@@ -539,20 +556,20 @@ mod tests {
 	fn test_simple_snapshot_uniq5() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a", "b", "c"]);
 		tracker.start_transaction();
-		tracker.add_key("d".to_string(), KeyOp::Updated);
-		tracker.add_key("e".to_string(), KeyOp::Updated);
-		tracker.add_key("f".to_string(), KeyOp::Updated);
+		tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("f".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["d", "e", "f"]);
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
 		assert!(delta2.is_empty());
 	}
@@ -560,10 +577,10 @@ mod tests {
 	#[test]
 	fn test_rollback_without_snapshot() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("b".to_string(), KeyOp::Updated);
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 		tracker.rollback_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a"]);
@@ -572,7 +589,7 @@ mod tests {
 	#[test]
 	fn test_empty_transaction_commit() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
@@ -582,7 +599,7 @@ mod tests {
 	#[test]
 	fn test_empty_transaction_rollback() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
 		tracker.rollback_transaction();
 		let delta = tracker.take_delta();
@@ -592,10 +609,10 @@ mod tests {
 	#[test]
 	fn test_transaction_snapshot_rollback_root_visibility() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("root1".to_string(), KeyOp::Updated);
-		tracker.add_key("root2".to_string(), KeyOp::Updated);
+		tracker.add_key("root1".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("root2".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("tx1".to_string(), KeyOp::Updated);
+		tracker.add_key("tx1".to_string(), DeltaKeyOp::Updated);
 		let snap1 = tracker.take_delta();
 		delta_assert_eq!(snap1, ["root1", "root2", "tx1"]);
 		tracker.rollback_transaction();
@@ -607,22 +624,22 @@ mod tests {
 	#[test]
 	fn test_deep_nesting_snapshots_at_every_level() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("l0".to_string(), KeyOp::Updated);
+		tracker.add_key("l0".to_string(), DeltaKeyOp::Updated);
 		let s0 = tracker.take_delta();
 		delta_assert_eq!(s0, ["l0"]);
 
 		tracker.start_transaction();
-		tracker.add_key("l1".to_string(), KeyOp::Updated);
+		tracker.add_key("l1".to_string(), DeltaKeyOp::Updated);
 		let s1 = tracker.take_delta();
 		delta_assert_eq!(s1, ["l1"]);
 
 		tracker.start_transaction();
-		tracker.add_key("l2".to_string(), KeyOp::Updated);
+		tracker.add_key("l2".to_string(), DeltaKeyOp::Updated);
 		let s2 = tracker.take_delta();
 		delta_assert_eq!(s2, ["l2"]);
 
 		tracker.start_transaction();
-		tracker.add_key("l3".to_string(), KeyOp::Updated);
+		tracker.add_key("l3".to_string(), DeltaKeyOp::Updated);
 		let s3 = tracker.take_delta();
 		delta_assert_eq!(s3, ["l3"]);
 
@@ -638,10 +655,10 @@ mod tests {
 	fn test_duplicate_keys_in_same_transaction() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("dup".to_string(), KeyOp::Updated);
-		tracker.add_key("dup".to_string(), KeyOp::Updated);
-		tracker.add_key("dup".to_string(), KeyOp::Updated);
-		tracker.add_key("unique".to_string(), KeyOp::Updated);
+		tracker.add_key("dup".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("dup".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("dup".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("unique".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["dup", "unique"]);
@@ -651,13 +668,13 @@ mod tests {
 	fn test_updated_then_deleted_same_transaction() {
 		// Updated then Deleted in same transaction - both should appear
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta1 = tracker.take_delta();
-		delta_assert_eq!(delta1, ["a"]);
+		delta_assert_eq_with_ops!(delta1, [("a", DeltaKeyOp::Updated)]);
 
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta2 = tracker.take_delta();
-		delta_assert_eq!(delta2, ["a"]);
+		delta_assert_eq_with_ops!(delta2, [("a", DeltaKeyOp::Deleted)]);
 	}
 
 	#[test]
@@ -665,27 +682,27 @@ mod tests {
 		// Updated then Deleted across transactions
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta1 = tracker.take_delta();
-		delta_assert_eq!(delta1, ["a"]);
+		delta_assert_eq_with_ops!(delta1, [("a", DeltaKeyOp::Updated)]);
 
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
-		delta_assert_eq!(delta2, ["a"]);
+		delta_assert_eq_with_ops!(delta2, [("a", DeltaKeyOp::Deleted)]);
 	}
 
 	#[test]
 	fn test_deleted_then_updated_filters_updated() {
 		// Deleted then Updated - Updated should be filtered
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta1 = tracker.take_delta();
-		delta_assert_eq!(delta1, ["a"]);
+		delta_assert_eq_with_ops!(delta1, [("a", DeltaKeyOp::Deleted)]);
 
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
 		assert!(delta2.is_empty());
 	}
@@ -694,8 +711,8 @@ mod tests {
 	fn test_deleted_then_updated_no_snapshot_between() {
 		// Deleted then Updated before snapshot - only Deleted appears
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a"]);
 	}
@@ -704,9 +721,9 @@ mod tests {
 	fn test_updated_in_parent_deleted_in_child() {
 		// Updated in parent, Deleted in child transaction
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a"]); // Only one "a" - the Deleted one wins
 		tracker.commit_transaction();
@@ -715,12 +732,12 @@ mod tests {
 	#[test]
 	fn test_deleted_in_parent_updated_in_child_rollback() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta1 = tracker.take_delta();
 		delta_assert_eq!(delta1, ["a"]);
 
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		tracker.rollback_transaction();
 
 		let delta2 = tracker.take_delta();
@@ -730,15 +747,15 @@ mod tests {
 	#[test]
 	fn test_multiple_updated_then_deleted() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta1 = tracker.take_delta();
 		delta_assert_eq!(delta1, ["a"]);
 
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
 		assert!(delta2.is_empty());
 
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta3 = tracker.take_delta();
 		delta_assert_eq!(delta3, ["a"]);
 	}
@@ -746,10 +763,10 @@ mod tests {
 	#[test]
 	fn test_updated_then_deleted_in_child_snapshot_then_rollback() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta1 = tracker.take_delta();
 		delta_assert_eq!(delta1, ["a"]); // Both Updated and Deleted captured
 
@@ -762,12 +779,12 @@ mod tests {
 	#[test]
 	fn test_updated_then_deleted_in_child_snapshot_then_rollback_2() {
 		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), super::KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a"]); // Updated key appears again
 
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), super::KeyOp::Deleted);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta = tracker.take_delta();
 		delta_assert_eq!(delta, ["a"]); // Both Updated and Deleted captured
 
@@ -780,22 +797,22 @@ mod tests {
 	fn delta_tracks_across_multiple_commit_cycles() {
 		let mut tracker = Tracker::default();
 		tracker.start_transaction();
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["a", "b"]);
 
 		tracker.start_transaction();
-		tracker.add_key("c".to_string(), KeyOp::Updated);
-		tracker.add_key("d".to_string(), KeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("d".to_string(), DeltaKeyOp::Updated);
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
 		delta_assert_eq!(delta2, ["c", "d"]);
 
 		tracker.start_transaction();
-		tracker.add_key("e".to_string(), KeyOp::Updated);
-		tracker.add_key("f".to_string(), KeyOp::Updated);
+		tracker.add_key("e".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("f".to_string(), DeltaKeyOp::Updated);
 		debug!(target:LOG_TARGET, ">> before commit {:?}", tracker);
 		tracker.commit_transaction();
 		debug!(target:LOG_TARGET, ">> after commit {:?}", tracker);
@@ -815,8 +832,8 @@ mod tests {
 		// Simulates spawn_child: tracker starts with 3 empty layers.
 		let mut tracker = Tracker::with_transaction_depth(3);
 
-		tracker.add_key("a".to_string(), KeyOp::Updated);
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 
 		// Commit all 3 pre-existing layers — keys merge down.
 		tracker.commit_transaction();
@@ -832,19 +849,19 @@ mod tests {
 		let mut tracker = Tracker::with_transaction_depth(3);
 
 		// Add keys at depth 3 (innermost).
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 
 		// Commit once: depth 3→2. "a" merges into depth 2.
 		tracker.commit_transaction();
 
 		// Add key at depth 2.
-		tracker.add_key("b".to_string(), KeyOp::Updated);
+		tracker.add_key("b".to_string(), DeltaKeyOp::Updated);
 
 		// Rollback depth 2 — discards "a" (merged in) and "b".
 		tracker.rollback_transaction();
 
 		// Add key at depth 1 after rollback.
-		tracker.add_key("c".to_string(), KeyOp::Updated);
+		tracker.add_key("c".to_string(), DeltaKeyOp::Updated);
 
 		// Commit depth 1.
 		tracker.commit_transaction();
@@ -858,7 +875,7 @@ mod tests {
 	fn test_with_transaction_depth_rollback_all() {
 		let mut tracker = Tracker::with_transaction_depth(2);
 
-		tracker.add_key("a".to_string(), KeyOp::Updated);
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 
 		// Rollback both layers — discards everything.
 		tracker.rollback_transaction();

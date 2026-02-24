@@ -21,7 +21,7 @@
 use crate::{
 	backend::{IterArgs, StorageIterator},
 	trie_backend::TrieCacheProvider,
-	warn, StorageKey, StorageValue,
+	warn, DeltaKeyOp, StorageKey, StorageValue,
 };
 #[cfg(feature = "std")]
 use alloc::sync::Arc;
@@ -656,11 +656,24 @@ where
 		(root, write_overlay)
 	}
 
+	/// Partition delta keys into updated and deleted sets.
+	fn partition_delta<'a>(
+		delta: Vec<(&'a [u8], DeltaKeyOp)>,
+	) -> (Vec<&'a [u8]>, Vec<&'a [u8]>) {
+		delta.into_iter().fold((Vec::new(), Vec::new()), |(mut read, mut removed), (k, op)| {
+			match op {
+				DeltaKeyOp::Updated => read.push(k),
+				DeltaKeyOp::Deleted => removed.push(k),
+			}
+			(read, removed)
+		})
+	}
+
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
 	/// This function performs two operations to ensure accurate proof size calculation:
-	/// 1. Reads all keys that will be inserted or updated (those with `Some` values in the delta)
-	/// 2. Removes/touches all keys that will be deleted (those with `None` values in the delta)
+	/// 1. Reads all keys that will be inserted or updated (`DeltaKeyOp::Updated`)
+	/// 2. Removes/touches all keys that will be deleted (`DeltaKeyOp::Deleted`)
 	/// All accessed trie nodes are recorded by the recorder, enabling accurate proof size
 	/// estimation for block production and validation.
 	///
@@ -668,7 +681,7 @@ where
 	/// the trie nodes that would be affected by the given delta for proof size estimation.
 	pub fn compute_pov_size_for_storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
@@ -678,28 +691,25 @@ where
 		let mut delta = delta.into_iter().collect::<Vec<_>>();
 		delta.sort();
 
-		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
-			delta.into_iter().partition(|(_, v)| v.is_some());
+		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = {
 				match state_version {
-					StateVersion::V0 =>
-						read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
-							&eph,
-							self.root,
-							keys_to_be_read,
-							recorder,
-							cache,
-						),
-					StateVersion::V1 =>
-						read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
-							&eph,
-							self.root,
-							keys_to_be_read,
-							recorder,
-							cache,
-						),
+					StateVersion::V0 => read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
+						&eph,
+						self.root,
+						keys_to_be_read,
+						recorder,
+						cache,
+					),
+					StateVersion::V1 => read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+						&eph,
+						self.root,
+						keys_to_be_read,
+						recorder,
+						cache,
+					),
 				}
 			};
 
@@ -712,7 +722,7 @@ where
 			let res = {
 				match state_version {
 					StateVersion::V0 =>
-						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
+						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
 							&mut eph,
 							self.root,
 							keys_to_be_removed,
@@ -720,7 +730,7 @@ where
 							cache,
 						),
 					StateVersion::V1 =>
-						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 							&mut eph,
 							self.root,
 							keys_to_be_removed,
@@ -799,7 +809,7 @@ where
 	pub fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		let default_root = match child_info.child_type() {
@@ -819,13 +829,12 @@ where
 		let mut delta = delta.into_iter().collect::<Vec<_>>();
 		delta.sort();
 
-		let (keys_to_be_read, keys_to_be_removed): (Vec<_>, Vec<_>) =
-			delta.into_iter().partition(|(_, v)| v.is_some());
+		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		let _ =
 			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
 				StateVersion::V0 =>
-					child_read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+					child_read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&eph,
 						child_root,
@@ -834,7 +843,7 @@ where
 						cache,
 					),
 				StateVersion::V1 =>
-					child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+					child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&eph,
 						child_root,
@@ -847,7 +856,7 @@ where
 		let _ =
 			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
 				StateVersion::V0 =>
-					child_remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+					child_remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&mut eph,
 						child_root,
@@ -856,7 +865,7 @@ where
 						cache,
 					),
 				StateVersion::V1 =>
-					child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+					child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 						child_info.keyspace(),
 						&mut eph,
 						child_root,

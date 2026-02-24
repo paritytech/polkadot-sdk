@@ -140,17 +140,6 @@ impl StorageEntry {
 		}
 	}
 
-	/// Returns reference to value without materializing.
-	///
-	/// For `Append` entries, the caller must ensure entries have been materialized first,
-	/// otherwise the returned data may be in an inconsistent state.
-	fn as_option_ref(&self) -> Option<&StorageValue> {
-		match self {
-			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
-			StorageEntry::Remove => None,
-		}
-	}
-
 	/// Return as an [`Option<StorageValue>`].
 	fn as_option(&mut self) -> Option<&StorageValue> {
 		self.materialize_in_place();
@@ -545,9 +534,9 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 		self.storage_root_dirty_keys.add_key(
 			key.clone(),
 			if deleted {
-				storage_key_delta_tracker::KeyOp::Deleted
+				storage_key_delta_tracker::DeltaKeyOp::Deleted
 			} else {
-				storage_key_delta_tracker::KeyOp::Updated
+				storage_key_delta_tracker::DeltaKeyOp::Updated
 			},
 		);
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
@@ -762,28 +751,6 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 }
 
 impl OverlayedChangeSet {
-	/// Returns changes for the given delta keys, materializing any `Append` entries first.
-	pub fn changes_for_delta_keys(
-		&mut self,
-		keys: &storage_key_delta_tracker::DeltaKeys<StorageKey>,
-	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
-		// First pass: materialize any Append entries
-		for key in keys {
-			if let Some(entry) = self.changes.get_mut(key.1) {
-				let _trigger = entry.value();
-			}
-		}
-
-		// Second pass: collect references (safe now that entries are materialized)
-		keys.iter()
-			.filter_map(|key| {
-				self.changes
-					.get_key_value(key.1)
-					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_ref())))
-			})
-			.collect()
-	}
-
 	/// Rollback the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
@@ -1009,6 +976,26 @@ mod test {
 
 	type Changes<'a> = Vec<(&'a [u8], (Option<&'a [u8]>, Vec<u32>))>;
 	type Drained<'a> = Vec<(&'a [u8], Option<&'a [u8]>)>;
+
+	macro_rules! assert_delta_contains {
+		($delta:expr, $key:expr) => {
+			assert!(
+				$delta.values().any(|(k, _)| k == $key),
+				"delta does not contain key {:?}",
+				$key,
+			);
+		};
+	}
+
+	macro_rules! assert_delta_not_contains {
+		($delta:expr, $key:expr) => {
+			assert!(
+				!$delta.values().any(|(k, _)| k == $key),
+				"delta unexpectedly contains key {:?}",
+				$key,
+			);
+		};
+	}
 
 	fn assert_changes(is: &mut OverlayedChangeSet, expected: &Changes) {
 		let is: Changes = is
@@ -1547,10 +1534,9 @@ mod test {
 
 		// Take delta — should see the child's keys.
 		let delta = child.take_delta();
-		let delta_keys: std::collections::HashSet<Vec<u8>> = delta.values().cloned().collect();
-		assert!(delta_keys.contains(&b"c0".to_vec()));
-		assert!(delta_keys.contains(&b"c1".to_vec()));
-		assert_eq!(delta_keys.len(), 2);
+		assert_delta_contains!(delta, b"c0");
+		assert_delta_contains!(delta, b"c1");
+		assert_eq!(delta.len(), 2);
 
 		// Now unwind the pre-existing transaction depth (commits for levels that
 		// existed before spawn). These should be no-ops for the delta tracker.
@@ -1561,9 +1547,8 @@ mod test {
 		// Child should still work correctly after unwinding.
 		child.set(b"c2".to_vec(), Some(b"cv2".to_vec()), Some(2));
 		let delta2 = child.take_delta();
-		let delta_keys2: std::collections::HashSet<Vec<u8>> = delta2.values().cloned().collect();
-		assert!(delta_keys2.contains(&b"c2".to_vec()));
-		assert_eq!(delta_keys2.len(), 1);
+		assert_delta_contains!(delta2, b"c2");
+		assert_eq!(delta2.len(), 1);
 	}
 
 	#[test]
@@ -1582,8 +1567,7 @@ mod test {
 		child.set(b"a".to_vec(), Some(b"va".to_vec()), Some(0));
 
 		let delta = child.take_delta();
-		let delta_keys: std::collections::HashSet<Vec<u8>> = delta.values().cloned().collect();
-		assert!(delta_keys.contains(&b"a".to_vec()));
+		assert_delta_contains!(delta, b"a");
 
 		// Rollback the child's own transaction — "a" is removed from changeset,
 		// but the delta tracker's snapshot for "a" is also discarded (lived in the
@@ -1594,11 +1578,10 @@ mod test {
 		// Add a new key after rollback.
 		child.set(b"b".to_vec(), Some(b"vb".to_vec()), Some(1));
 		let delta2 = child.take_delta();
-		let delta_keys2: std::collections::HashSet<Vec<u8>> = delta2.values().cloned().collect();
 		// "a" does NOT reappear — it was added inside the rolled-back transaction,
 		// so both the changeset and the delta tracker's dirty entry for "a" are gone.
-		assert!(!delta_keys2.contains(&b"a".to_vec()));
-		assert!(delta_keys2.contains(&b"b".to_vec()));
+		assert_delta_not_contains!(delta2, b"a");
+		assert_delta_contains!(delta2, b"b");
 
 		// Unwind pre-existing depth — no-ops on delta tracker.
 		child.commit_transaction().unwrap();
@@ -1606,9 +1589,8 @@ mod test {
 
 		child.set(b"c".to_vec(), Some(b"vc".to_vec()), Some(2));
 		let delta3 = child.take_delta();
-		let delta_keys3: std::collections::HashSet<Vec<u8>> = delta3.values().cloned().collect();
-		assert!(delta_keys3.contains(&b"c".to_vec()));
-		assert_eq!(delta_keys3.len(), 1);
+		assert_delta_contains!(delta3, b"c");
+		assert_eq!(delta3.len(), 1);
 	}
 
 	/// Like spawn_child_delta_tracker_depth_mismatch but no take_delta before commits.
@@ -1638,11 +1620,10 @@ mod test {
 
 		// All three keys should appear in a single delta.
 		let delta = child.take_delta();
-		let delta_keys: std::collections::HashSet<Vec<u8>> = delta.values().cloned().collect();
-		assert!(delta_keys.contains(&b"c0".to_vec()));
-		assert!(delta_keys.contains(&b"c1".to_vec()));
-		assert!(delta_keys.contains(&b"c2".to_vec()));
-		assert_eq!(delta_keys.len(), 3);
+		assert_delta_contains!(delta, b"c0");
+		assert_delta_contains!(delta, b"c1");
+		assert_delta_contains!(delta, b"c2");
+		assert_eq!(delta.len(), 3);
 	}
 
 	/// Realistic spawn_child scenario: child spawned at depth 5, keys added,
@@ -1687,16 +1668,15 @@ mod test {
 		assert_eq!(child.transaction_depth(), 1);
 
 		let delta = child.take_delta();
-		let delta_keys: std::collections::HashSet<Vec<u8>> = delta.values().cloned().collect();
 
 		// a, b, c survived — they were committed past the rollback point
-		assert!(delta_keys.contains(&b"a".to_vec()));
-		assert!(delta_keys.contains(&b"b".to_vec()));
-		assert!(delta_keys.contains(&b"c".to_vec()));
-		assert!(delta_keys.contains(&b"c1".to_vec()));
+		assert_delta_contains!(delta, b"a");
+		assert_delta_contains!(delta, b"b");
+		assert_delta_contains!(delta, b"c");
+		assert_delta_contains!(delta, b"c1");
 
 		// d, e were in the rolled-back transaction — should NOT appear
-		assert!(!delta_keys.contains(&b"d".to_vec()), "d should have been discarded by rollback");
-		assert!(!delta_keys.contains(&b"e".to_vec()), "e should have been discarded by rollback");
+		assert_delta_not_contains!(delta, b"d");
+		assert_delta_not_contains!(delta, b"e");
 	}
 }
