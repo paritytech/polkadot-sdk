@@ -1337,6 +1337,8 @@ mod tests {
 	async fn evm_first_block_loaded_on_startup(pool: SqlitePool) -> anyhow::Result<()> {
 		// Simulate a previous run that persisted evm-first-block.
 		let provider = setup_sqlite_provider(pool.clone()).await;
+		assert_eq!(provider.evm_first_block(), None);
+
 		provider
 			.set_sync_label(
 				SyncLabel::EvmFirstBlock,
@@ -1344,7 +1346,6 @@ mod tests {
 			)
 			.await
 			.unwrap();
-		assert_eq!(provider.evm_first_block(), None); // not loaded yet in this instance
 
 		// Simulate restart: construct a new ReceiptProvider against the same DB.
 		let provider2 = ReceiptProvider::new(

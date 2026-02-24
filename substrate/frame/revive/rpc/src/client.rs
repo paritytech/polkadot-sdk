@@ -423,7 +423,7 @@ impl Client {
 					self.receipt_provider.advance_sync_label(SyncLabel::LastFinalized, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to update sync_label[finalized]: {err:?}");
+						"Failed to update sync_label[{}]: {err:?}", SyncLabel::LastFinalized);
 				}
 			}
 

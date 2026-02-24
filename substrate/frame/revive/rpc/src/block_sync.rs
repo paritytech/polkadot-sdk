@@ -35,7 +35,7 @@ pub enum SyncLabel {
 	LowerBound,
 	/// Upper boundary of contiguous DB coverage, used to resume sync after a crash.
 	/// Non-zero means sync is in progress (or was interrupted).
-	/// Zero (or absent) means sync completed successfully.
+	/// Zero means sync completed; absent means sync never started.
 	UpperBound,
 	/// Latest finalized block, tracked by the live subscription.
 	LastFinalized,
@@ -298,7 +298,7 @@ impl Client {
 					self.receipt_provider().set_sync_label(SyncLabel::UpperBound, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to set sync_label[upper-bound]: {err:?}");
+						"Failed to set sync_label[{}]: {err:?}", SyncLabel::UpperBound);
 				}
 			})
 		}
@@ -315,7 +315,7 @@ impl Client {
 					self.receipt_provider().recede_sync_label(SyncLabel::LowerBound, cp).await
 				{
 					log::warn!(target: LOG_TARGET,
-						"Failed to checkpoint sync_label[lower-bound]: {err:?}");
+						"Failed to checkpoint sync_label[{}]: {err:?}", SyncLabel::LowerBound);
 				}
 			})
 		}
