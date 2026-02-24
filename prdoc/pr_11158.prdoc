@@ -1,4 +1,4 @@
-title: 'ci: add timeout guard to check-runtime and check people-westend too'
+title: 'Add timeout + people-westend to check-runtime CI'
 doc:
 - audience: Runtime Dev
   description: |-
