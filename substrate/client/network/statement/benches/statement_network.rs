@@ -22,13 +22,13 @@ use futures::{stream, FutureExt, Stream, StreamExt};
 use sc_network::{
 	service::traits::{NotificationEvent, NotificationService},
 	utils::LruHashSet,
-	NetworkPeers,
+	NetworkPeers, ObservedRole,
 };
 use sc_network_statement::{
 	config::{
-        DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
-        STATEMENTS_BURST_COEFFICIENT
-    },
+		DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
+		STATEMENTS_BURST_COEFFICIENT,
+	},
 	OnStatementsRequest, Peer, PeersState, PendingState, StatementHandler,
 	StatementHandlerPrototype, StatementProcessResult, WorkerEvent,
 };
@@ -39,7 +39,7 @@ use sp_core::Pair;
 use sp_statement_store::{Hash, Statement, StatementSource, StatementStore};
 use std::{
 	collections::HashMap,
-	num::NonZeroUsize,
+	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
 	sync::{Arc, RwLock},
 	time::Duration,
@@ -395,8 +395,8 @@ fn build_handler(
 		on_statements_sender,
 		worker_event_receiver,
 		pending_state,
-        NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-            .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 	);
 	(handler, peer_id, temp_dir)
 }
@@ -808,7 +808,10 @@ fn setup_run_loop_bench_per_peer(
 			peer_id,
 			Peer::new_for_testing(
 				LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
-				ObservedRole::Full,
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+					.expect("burst capacity is nonzero"),
 			),
 		);
 		network.set_peer_role(peer_id, ObservedRole::Full);
@@ -861,6 +864,8 @@ fn setup_run_loop_bench_per_peer(
 		statements_queue_sender,
 		worker_event_receiver,
 		pending_state,
+		NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+			.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 	);
 
 	(
@@ -1107,10 +1112,12 @@ fn bench_run_loop_propagation(c: &mut Criterion) {
 							"fastest_peer" => metrics.min_peer_time,
 							"avg_peer" => metrics.avg_peer_time,
 							"median_peer" => metrics.median_peer_time,
-							"fastest_fast_peer" =>
-								metrics.fast_peer_min.unwrap_or(metrics.min_peer_time),
-							"slowest_fast_peer" =>
-								metrics.fast_peer_max.unwrap_or(metrics.max_peer_time),
+							"fastest_fast_peer" => {
+								metrics.fast_peer_min.unwrap_or(metrics.min_peer_time)
+							},
+							"slowest_fast_peer" => {
+								metrics.fast_peer_max.unwrap_or(metrics.max_peer_time)
+							},
 							_ => metrics.max_peer_time,
 						};
 

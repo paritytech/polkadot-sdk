@@ -38,7 +38,7 @@ use governor::{
 	Quota, RateLimiter,
 };
 use prometheus_endpoint::{
-    exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
+	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
 	Registry, U64,
 };
 use sc_network::{
@@ -65,7 +65,7 @@ use std::{
 	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
 	sync::{Arc, RwLock},
-    time::Instant,
+	time::Instant,
 };
 use tokio::time::timeout;
 pub mod config;
@@ -359,9 +359,8 @@ impl StatementHandlerPrototype {
 			},
 		};
 
-		let metrics =
-			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
-
+		// Spawn the statement store submission workers.
+		// These workers validate statements and send results directly to the main loop.
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
 			let validation_results_sender = results_queue_sender.clone();
@@ -434,7 +433,7 @@ impl StatementHandlerPrototype {
 			sync_event_stream: sync_event_stream.fuse(),
 			peers,
 			statement_store,
-            statements_per_second,
+			statements_per_second,
 			metrics,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
@@ -502,14 +501,41 @@ impl StatementHandlerPrototype {
 
 		log::trace!(target: LOG_TARGET, "Worker processing {} statements from {}", statements.len(), who);
 
+		let is_flooding = {
+			let Ok(guard) = shared_peers.read() else {
+				log::error!(target: LOG_TARGET, "shared_peers lock poisoned");
+				return;
+			};
+			guard
+				.get(&who)
+				.map_or(false, |peer| peer.rate_limiter.is_flooding(statements.len()))
+		};
+		if is_flooding {
+			log::warn!(
+				target: LOG_TARGET,
+				"Peer {} exceeded statement rate limit ({} statements in batch). Disconnecting.",
+				who,
+				statements.len(),
+			);
+			if let Some(metrics) = metrics {
+				metrics.statement_flooding_detected.inc();
+			}
+			let _ = event_sender.send(WorkerEvent::PeerFlooding { peer: who }).await;
+			return;
+		}
+
 		// Track aggregated reputation change for this peer.
 		let mut aggregated_reputation: i32 = 0;
 
-		// Pre-compute hashes for all statements upfront.
-		let statements_with_hashes: Vec<(Hash, Statement)> =
-			statements.into_iter().map(|s| { let h = s.hash(); (h, s) }).collect();
+		let statements_with_hashes: Vec<(Hash, Statement)> = statements
+			.into_iter()
+			.map(|s| {
+				let h = s.hash();
+				(h, s)
+			})
+			.collect();
 
-		// Pass 1: Filter by known_statements (single peers write lock).
+		// Filter by known_statements
 		// We can't punish peers for sending us statements we already know from them,
 		// because there might be a race between us sending them the statement and them
 		// sending it to us. So we just skip duplicates from the same peer.
@@ -532,7 +558,6 @@ impl StatementHandlerPrototype {
 			result
 		};
 
-		// Pass 2: Filter by pending_statements_peers (single state read lock).
 		let after_pending_filter: Vec<(Hash, Statement)> = {
 			let Ok(state) = shared_state.read() else {
 				log::error!(target: LOG_TARGET, "shared_state lock poisoned");
@@ -561,7 +586,7 @@ impl StatementHandlerPrototype {
 				.collect()
 		};
 
-		// Pass 3: Filter by statement store (NO LOCK — may involve I/O).
+		// Filter by statement store if we already have this statement (from another peer)
 		let to_submit: Vec<(Hash, Statement)> = after_pending_filter
 			.into_iter()
 			.filter(|(hash, _)| {
@@ -582,59 +607,51 @@ impl StatementHandlerPrototype {
 			})
 			.collect();
 
-		// Pass 4: Submit to validation queue (single state write lock).
+		// Submit to validation queue.
 		if !to_submit.is_empty() {
 			let Ok(mut state) = shared_state.write() else {
 				log::error!(target: LOG_TARGET, "shared_state lock poisoned");
-				// Fall through to send aggregated reputation below.
 				return;
 			};
 
-			if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
-				log::debug!(
-					target: LOG_TARGET,
-					"Worker: Ignoring statements, exceeded MAX_PENDING_STATEMENTS limit",
-				);
-				if let Some(metrics) = metrics {
-					metrics.ignored_statements.inc();
+			for (hash, s) in to_submit {
+				// Check pending limit.
+				if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
+					log::debug!(
+						target: LOG_TARGET,
+						"Worker: Ignoring statement, exceeded MAX_PENDING_STATEMENTS limit",
+					);
+					if let Some(metrics) = metrics {
+						metrics.ignored_statements.inc();
+					}
+					break;
 				}
-			} else {
-				for (hash, s) in to_submit {
-					// Re-check the limit for each statement within the batch.
-					if state.pending_statements_peers.len() > MAX_PENDING_STATEMENTS {
-						if let Some(metrics) = metrics {
-							metrics.ignored_statements.inc();
-						}
-						break;
-					}
 
-					match state.pending_statements_peers.entry(hash) {
-						Entry::Vacant(entry) => match submit_queue_sender.try_send((hash, s)) {
-							Ok(()) => {
-								entry.insert(HashSet::from_iter([who]));
-							},
-							Err(async_channel::TrySendError::Full(_)) => {
-								log::debug!(
-									target: LOG_TARGET,
-									"Worker: Dropped statement because validation channel is full",
-								);
-							},
-							Err(async_channel::TrySendError::Closed(_)) => {
-								log::trace!(
-									target: LOG_TARGET,
-									"Worker: Dropped statement because validation channel is closed",
-								);
-							},
+				match state.pending_statements_peers.entry(hash) {
+					Entry::Vacant(entry) => match submit_queue_sender.try_send((hash, s)) {
+						Ok(()) => {
+							entry.insert(HashSet::from_iter([who]));
 						},
-						Entry::Occupied(mut entry) => {
-							// We might have raced with another worker thread adding the same
-							// peer.
-							if !entry.get_mut().insert(who) {
-								aggregated_reputation = aggregated_reputation
-									.saturating_add(rep::DUPLICATE_STATEMENT.value);
-							}
+						Err(async_channel::TrySendError::Full(_)) => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Worker: Dropped statement because validation channel is full",
+							);
 						},
-					}
+						Err(async_channel::TrySendError::Closed(_)) => {
+							log::trace!(
+								target: LOG_TARGET,
+								"Worker: Dropped statement because validation channel is closed",
+							);
+						},
+					},
+					Entry::Occupied(mut entry) => {
+						//  We might have raced with another worker thread adding the same peer.
+						if !entry.get_mut().insert(who) {
+							aggregated_reputation = aggregated_reputation
+								.saturating_add(rep::DUPLICATE_STATEMENT.value);
+						}
+					},
 				}
 			}
 		}
@@ -684,9 +701,9 @@ pub struct StatementHandler<
 	/// All connected peers (shared with worker thread for direct known_statements updates).
 	peers: PeersState,
 	statement_store: Arc<dyn StatementStore>,
-    /// Maximum statements per second per peer.
-    statements_per_second: NonZeroU32,
-    /// Prometheus metrics (shared with worker thread).
+	/// Maximum statements per second per peer.
+	statements_per_second: NonZeroU32,
+	/// Prometheus metrics (shared with worker thread).
 	metrics: Option<Arc<Metrics>>,
 	/// Timeout for sending next statement batch during initial sync.
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
@@ -790,6 +807,8 @@ pub enum WorkerEvent {
 	StatementResult(StatementProcessResult),
 	/// A reputation change should be applied.
 	ReputationChange(ReputationChange),
+	/// A peer exceeded the statement rate limit and should be disconnected.
+	PeerFlooding { peer: PeerId },
 }
 
 /// Shared state for pending statements, protected by RwLock.
@@ -908,7 +927,7 @@ where
 		statements_queue_sender: async_channel::Sender<OnStatementsRequest>,
 		results_queue_receiver: async_channel::Receiver<WorkerEvent>,
 		pending_state: Arc<RwLock<PendingState>>,
-        statements_per_second: NonZeroU32,
+		statements_per_second: NonZeroU32,
 	) -> Self {
 		Self {
 			protocol_name,
@@ -922,7 +941,7 @@ where
 			sync_event_stream,
 			peers,
 			statement_store,
-            statements_per_second,
+			statements_per_second,
 			metrics: None,
 			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
@@ -935,6 +954,30 @@ where
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn pending_state(&self) -> &Arc<RwLock<PendingState>> {
 		&self.pending_state
+	}
+
+	#[cfg(test)]
+	fn on_statements(&mut self, who: PeerId, statements: Vec<Statement>) {
+		let is_flooding = {
+			let Ok(guard) = self.peers.read() else {
+				return;
+			};
+			guard
+				.get(&who)
+				.map_or(false, |peer| peer.rate_limiter.is_flooding(statements.len()))
+		};
+		if is_flooding {
+			self.network.report_peer(who, rep::STATEMENT_FLOODING);
+			self.network.disconnect_peer(who, self.protocol_name.clone());
+			{
+				let Ok(mut guard) = self.peers.write() else {
+					return;
+				};
+				guard.remove(&who);
+			}
+			self.pending_initial_syncs.remove(&who);
+			self.initial_sync_peer_queue.retain(|p| *p != who);
+		}
 	}
 
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -976,6 +1019,19 @@ where
 						},
 						Some(WorkerEvent::ReputationChange(ReputationChange { peer, change })) => {
 							self.network.report_peer(peer, change);
+						},
+						Some(WorkerEvent::PeerFlooding { peer }) => {
+							self.network.report_peer(peer, rep::STATEMENT_FLOODING);
+							self.network.disconnect_peer(peer, self.protocol_name.clone());
+							{
+								let Ok(mut guard) = self.peers.write() else {
+									log::error!(target: LOG_TARGET, "peers lock poisoned");
+									continue;
+								};
+								guard.remove(&peer);
+							}
+							self.pending_initial_syncs.remove(&peer);
+							self.initial_sync_peer_queue.retain(|p| *p != peer);
 						},
 						None => {
 							// Worker channel closed, shutting down.
@@ -1099,25 +1155,25 @@ where
 					let _was_in = guard.insert(
 						peer,
 						Peer {
-                            known_statements: LruHashSet::new(
-                                NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
-                            ),
-                            rate_limiter: PeerRateLimiter::new(
-                                self.statements_per_second,
-                                NonZeroU32::new(
-                                    self.statements_per_second.get() *
-                                        config::STATEMENTS_BURST_COEFFICIENT,
-                                )
-                                    .expect("burst capacity is nonzero"),
-                            ),
+							known_statements: LruHashSet::new(
+								NonZeroUsize::new(MAX_KNOWN_STATEMENTS)
+									.expect("Constant is nonzero"),
+							),
+							rate_limiter: PeerRateLimiter::new(
+								self.statements_per_second,
+								NonZeroU32::new(
+									self.statements_per_second.get() *
+										config::STATEMENTS_BURST_COEFFICIENT,
+								)
+								.expect("burst capacity is nonzero"),
+							),
 						},
 					);
 					debug_assert!(_was_in.is_none());
+					self.metrics.as_ref().map(|metrics| {
+						metrics.peers_connected.set(guard.len() as u64);
+					});
 				}
-
-				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.set(self.peers.len() as u64);
-				});
 
 				if !self.sync.is_major_syncing() {
 					let hashes = self.statement_store.statement_hashes();
@@ -1134,15 +1190,15 @@ where
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-                let Ok(mut guard) = self.peers.write() else {
-                    log::error!(target: LOG_TARGET, "peers lock poisoned");
-                    return;
-                };
-                {
-                    let _peer = self.peers.remove(&peer);
-				    debug_assert!(_peer.is_some());
+				let Ok(mut guard) = self.peers.write() else {
+					log::error!(target: LOG_TARGET, "peers lock poisoned");
+					return;
+				};
+				{
+					let _peer = guard.remove(&peer);
+					debug_assert!(_peer.is_some());
 				}
-                if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
 					self.metrics.as_ref().map(|metrics| {
 						metrics.initial_sync_peers_active.dec();
 						metrics
@@ -1152,13 +1208,14 @@ where
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 				self.metrics.as_ref().map(|metrics| {
-					metrics.peers_connected.set(self.peers.len() as u64);
+					metrics.peers_connected.set(guard.len() as u64);
 				});
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
 				self.metrics.as_ref().map(|metrics| {
 					metrics.bytes_received_total.inc_by(bytes_received);
+					metrics.statements_received.inc();
 				});
 
 				// Accept statements only when node is not major syncing
@@ -1336,13 +1393,11 @@ where
 			return;
 		}
 
-		let statements = match self
-			.statement_store
-			.take_recent_statements(MAX_STATEMENTS_PER_PROPAGATION)
-		{
-			Ok(s) if !s.is_empty() => s,
-			_ => return,
-		};
+		let statements =
+			match self.statement_store.take_recent_statements(MAX_STATEMENTS_PER_PROPAGATION) {
+				Ok(s) if !s.is_empty() => s,
+				_ => return,
+			};
 
 		self.do_propagate_statements(&statements);
 	}
@@ -1958,9 +2013,9 @@ mod tests {
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
 			metrics: None,
-            statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-                .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-            initial_sync_timeout: Box::pin(futures::future::pending()),
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2251,9 +2306,9 @@ mod tests {
 			peers: Arc::new(RwLock::new(HashMap::new())),
 			statement_store: Arc::new(statement_store.clone()),
 			metrics: None,
-            statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-                .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-            initial_sync_timeout: Box::pin(futures::future::pending()),
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2290,7 +2345,17 @@ mod tests {
 			let peer_id = PeerId::random();
 			peers_map.insert(
 				peer_id,
-				Peer { known_statements: LruHashSet::new(NonZeroUsize::new(10000).unwrap()) },
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(10000).unwrap()),
+					rate_limiter: PeerRateLimiter::new(
+						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+						NonZeroU32::new(
+							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+						)
+						.expect("burst capacity is nonzero"),
+					),
+				},
 			);
 			peer_ids.push(peer_id);
 		}
@@ -2319,6 +2384,8 @@ mod tests {
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
 			metrics: None,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			initial_sync_timeout: Box::pin(
 				tokio::time::sleep(std::time::Duration::from_millis(100)).fuse(),
 			),
@@ -2749,10 +2816,16 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_peer_disconnected_on_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_results_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
 		let mut flood_statements = Vec::new();
 		for i in 0..600_000 {
@@ -2781,7 +2854,10 @@ mod tests {
 		);
 
 		// Verify peer state was cleaned up
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+		assert!(
+			!handler.peers.read().unwrap().contains_key(&peer_id),
+			"Peer should be removed from peers map"
+		);
 		assert!(
 			!handler.pending_initial_syncs.contains_key(&peer_id),
 			"Peer should be removed from pending_initial_syncs"
@@ -2794,10 +2870,16 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_legitimate_traffic_not_flagged() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_results_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
 		let start = std::time::Instant::now();
 		let duration = std::time::Duration::from_secs(5);
@@ -2838,15 +2920,24 @@ mod tests {
 			disconnected
 		);
 
-		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+		assert!(
+			handler.peers.read().unwrap().contains_key(&peer_id),
+			"Peer should still be connected"
+		);
 	}
 
 	#[tokio::test]
 	async fn test_just_over_rate_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_results_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
 		let mut statements = Vec::new();
 		for i in 0..260_000 {
@@ -2880,15 +2971,24 @@ mod tests {
 			disconnected
 		);
 
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+		assert!(
+			!handler.peers.read().unwrap().contains_key(&peer_id),
+			"Peer should be removed from peers map"
+		);
 	}
 
 	#[tokio::test]
 	async fn test_burst_of_250k_statements_allowed() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_results_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
 		let mut statements = Vec::new();
 		for i in 0..250_000 {
@@ -2914,17 +3014,23 @@ mod tests {
 		);
 
 		assert!(
-			handler.peers.contains_key(&peer_id),
+			handler.peers.read().unwrap().contains_key(&peer_id),
 			"Peer should still be connected after 250k burst"
 		);
 	}
 
 	#[tokio::test]
 	async fn test_sustained_rate_above_limit_triggers_flooding() {
-		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
-			build_handler();
+		let (
+			mut handler,
+			_statement_store,
+			network,
+			_notification_service,
+			_queue_receiver,
+			_results_sender,
+		) = build_handler();
 
-		let peer_id = *handler.peers.keys().next().unwrap();
+		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 
 		let mut counter = 0u32;
 
@@ -2970,7 +3076,10 @@ mod tests {
 			disconnected
 		);
 
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+		assert!(
+			!handler.peers.read().unwrap().contains_key(&peer_id),
+			"Peer should be removed from peers map"
+		);
 	}
 
 	#[tokio::test(start_paused = true)]
@@ -3284,11 +3393,8 @@ mod tests {
 
 		// Collect sent notifications
 		let mut received: Vec<(PeerId, Vec<u8>)> = Vec::new();
-		loop {
-			match notification_receiver.try_recv() {
-				Ok(notif) => received.push(notif),
-				Err(_) => break,
-			}
+		while let Ok(notif) = notification_receiver.try_recv() {
+			received.push(notif);
 		}
 
 		// Abort the run loop
@@ -3345,7 +3451,17 @@ mod tests {
 			peer_ids.push(peer_id);
 			peers.write().unwrap().insert(
 				peer_id,
-				Peer { known_statements: LruHashSet::new(NonZeroUsize::new(10_000).unwrap()) },
+				Peer {
+					known_statements: LruHashSet::new(NonZeroUsize::new(10_000).unwrap()),
+					rate_limiter: PeerRateLimiter::new(
+						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+						NonZeroU32::new(
+							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+						)
+						.expect("burst capacity is nonzero"),
+					),
+				},
 			);
 		}
 

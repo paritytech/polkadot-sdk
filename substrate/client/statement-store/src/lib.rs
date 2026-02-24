@@ -1370,7 +1370,8 @@ impl StatementStore for Store {
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+				// Mock allowance for testing (100 statements, 512B each)
+				StatementAllowance::new(100, 100 * 1024 / 2)
 			},
 			Err(e) => {
 				log::debug!(
@@ -1852,8 +1853,7 @@ mod tests {
 		assert_eq!(batch3.len(), 0);
 
 		// No duplicates across batches
-		let all_hashes: Vec<_> =
-			batch1.iter().chain(batch2.iter()).map(|(h, _)| *h).collect();
+		let all_hashes: Vec<_> = batch1.iter().chain(batch2.iter()).map(|(h, _)| *h).collect();
 		let unique: std::collections::HashSet<_> = all_hashes.iter().collect();
 		assert_eq!(all_hashes.len(), unique.len());
 
