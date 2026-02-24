@@ -404,7 +404,7 @@ impl VmBinaryModule {
 	// Creates EVM init code that returns `size` bytes of runtime code (all STOP opcodes).
 	// EVM memory is zero-initialized, so RETURN(0, size) produces `size` bytes of 0x00.
 	// The runtime code is what gets stored in PristineCode and loaded on every call.
-	pub fn evm_sized(size: u32) -> Self {
+	pub fn evm_init_code_for_runtime_size(size: u32) -> Self {
 		use revm::bytecode::opcode::{PUSH1, PUSH3, RETURN};
 		let [_, b1, b2, b3] = size.to_be_bytes();
 		let code = vec![

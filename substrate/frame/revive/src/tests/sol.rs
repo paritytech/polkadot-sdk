@@ -180,7 +180,7 @@ fn eth_contract_too_large() {
 	// Create EVM init code that is one byte larger than the EIP-3860 limit.
 	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
 	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
-	let mut code = VmBinaryModule::evm_sized(0).code;
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
 	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
