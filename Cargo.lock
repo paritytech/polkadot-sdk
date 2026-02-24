@@ -20671,6 +20671,7 @@ dependencies = [
  "async-trait",
  "criterion",
  "futures",
+ "governor",
  "log",
  "parity-scale-codec",
  "sc-keystore",
