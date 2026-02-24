@@ -414,6 +414,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
 	statement_network_workers: usize,
+	statement_rate_limit: u32,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -796,6 +797,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
 		statement_network_workers,
+		statement_rate_limit,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
@@ -848,6 +850,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				mixnet_config,
 				cli.no_hardware_benchmarks,
 				cli.statement_network_workers,
+				cli.statement_rate_limit,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -859,6 +862,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				mixnet_config,
 				cli.no_hardware_benchmarks,
 				cli.statement_network_workers,
+				cli.statement_rate_limit,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -947,6 +951,7 @@ mod tests {
 						None,
 						false,
 						1,
+						50_000,
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -1163,6 +1168,7 @@ mod tests {
 						None,
 						false,
 						1,
+						50_000,
 						|_, _| (),
 					)?;
 				Ok(sc_service_test::TestNetComponents::new(
