@@ -1,0 +1,10 @@
+title: 'ci: add timeout guard to check-runtime and check people-westend too'
+doc:
+- audience: Runtime Dev
+  description: |-
+    @polkadot-api/check-runtime hangs in case the RPC endpoint is not reachable. A timeout is added to handle this case gracefully.
+
+    Driven-by:  add  support for metadata has extension on `people-westend`  and add it to the list of chains to check.
+crates:
+- name: people-westend-runtime
+  bump: patch
