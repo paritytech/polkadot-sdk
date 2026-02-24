@@ -18,13 +18,26 @@
 //! Functions that deal contract addresses.
 
 use crate::{Config, Error, HoldReason, OriginalAccount, ensure};
-use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use codec::{CountedInput, Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::traits::{fungible::MutateHold, tokens::Precision};
+use frame_support::{
+	dispatch_context::with_context,
+	traits::{fungible::MutateHold, tokens::Precision},
+};
 use sp_core::{Get, H160};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{AccountId32, DispatchResult, Saturating};
+use sp_runtime::{AccountId32, DispatchError, DispatchResult, Saturating};
 
+/// Ephemeral mapping context for H160 to AccountId32 conversions.
+/// Used to provide temporary address mappings during dispatch execution.
+pub struct MappingContext(pub BTreeMap<H160, AccountId32>);
+
+impl Default for MappingContext {
+	fn default() -> Self {
+		MappingContext(BTreeMap::new())
+	}
+}
 /// Map between the native chain account id `T` and an Ethereum [`H160`].
 ///
 /// This trait exists only to emulate specialization for different concrete
@@ -124,6 +137,16 @@ where
 	}
 
 	fn to_account_id(address: &H160) -> AccountId32 {
+		// Check dispatch context first (for ephemeral mappings from call_with_mapping)
+		if let Some(account_id) = with_context::<MappingContext, _>(|ctx| {
+			ctx.get().and_then(|m| m.0.get(address).cloned())
+		})
+		.flatten()
+		{
+			return account_id;
+		}
+
+		// Fall back to persistent storage
 		<OriginalAccount<T>>::get(address).unwrap_or_else(|| Self::to_fallback_account_id(address))
 	}
 
@@ -212,6 +235,44 @@ pub fn is_eth_derived(account_id: &AccountId32) -> bool {
 	&account_bytes[20..] == &[0xEE; 12]
 }
 
+/// Replace scale encoded account ids in `data` at the given `offsets` with their 20-byte
+/// H160 representations, returning the rewritten data and the ephemeral mapping context.
+///
+/// Each offset must point to a valid scale encoded `T::AccountId` within `data`.
+/// The returned data will be shorter when the encoded account id is larger than 20 bytes.
+pub fn replace_address_mappings<T: Config>(
+	data: &[u8],
+	offsets: &[u32],
+) -> Result<(Vec<u8>, MappingContext), DispatchError> {
+	let mut mapping_context = MappingContext::default();
+	let mut replacements = Vec::with_capacity(offsets.len());
+	for &offset in offsets {
+		let offset = offset as usize;
+		ensure!(offset < data.len(), <Error<T>>::InvalidMappingOffset);
+		let mut slice = &data[offset..];
+		let mut input = CountedInput::new(&mut slice);
+		let account_id =
+			T::AccountId::decode(&mut input).map_err(|_| <Error<T>>::InvalidMappingOffset)?;
+		let encoded_len = input.count() as usize;
+		let h160 = T::AddressMapper::to_address(&account_id);
+		let account_id32 = AccountId32::decode(&mut account_id.encode().as_slice())
+			.map_err(|_| <Error<T>>::InvalidMappingOffset)?;
+		mapping_context.0.insert(h160, account_id32);
+		replacements.push((offset, encoded_len, h160));
+	}
+
+	replacements.sort_by_key(|&(off, _, _)| off);
+	let mut new_data = Vec::with_capacity(data.len());
+	let mut cursor = 0usize;
+	for &(off, len, ref h160) in &replacements {
+		new_data.extend_from_slice(&data[cursor..off]);
+		new_data.extend_from_slice(h160.as_bytes());
+		cursor = off + len;
+	}
+	new_data.extend_from_slice(&data[cursor..]);
+	Ok((new_data, mapping_context))
+}
+
 impl<T> AddressMapper<T> for H160Mapper<T>
 where
 	T: Config,
@@ -270,9 +331,9 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 mod test {
 	use super::*;
 	use crate::{
-		AddressMapper, Error,
+		AddressMapper, Error, Pallet,
 		test_utils::*,
-		tests::{ExtBuilder, Test},
+		tests::{ExtBuilder, RuntimeOrigin, Test},
 	};
 	use frame_support::{
 		assert_err,
@@ -418,6 +479,67 @@ mod test {
 				),
 				0
 			);
+		});
+	}
+
+	#[test]
+	fn call_with_mapping_invalid_offset() {
+		ExtBuilder::default().build().execute_with(|| {
+			let data = vec![5u8; 32];
+			// offset 1 means we need bytes 1..33, but data is only 32 bytes
+			assert_err!(
+				Pallet::<Test>::call_with_mapping(
+					RuntimeOrigin::signed(ALICE),
+					ALICE_ADDR,
+					0u32.into(),
+					WEIGHT_LIMIT,
+					deposit_limit::<Test>(),
+					data,
+					vec![1u32].try_into().unwrap(),
+				),
+				Error::<Test>::InvalidMappingOffset,
+			);
+		});
+	}
+
+	#[test]
+	fn call_with_mapping_empty_data_invalid() {
+		ExtBuilder::default().build().execute_with(|| {
+			// empty data with offset 0 should fail (need 32 bytes)
+			assert_err!(
+				Pallet::<Test>::call_with_mapping(
+					RuntimeOrigin::signed(ALICE),
+					ALICE_ADDR,
+					0u32.into(),
+					WEIGHT_LIMIT,
+					deposit_limit::<Test>(),
+					vec![],
+					vec![0u32].try_into().unwrap(),
+				),
+				Error::<Test>::InvalidMappingOffset,
+			);
+		});
+	}
+
+	#[test]
+	fn mapping_context_lookup_works() {
+		// Verify that MappingContext is checked by to_account_id before storage
+		ExtBuilder::default().build().execute_with(|| {
+			// Without context, EVE_ADDR resolves to EVE_FALLBACK (not mapped in storage)
+			assert_eq!(<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR), EVE_FALLBACK,);
+
+			// With context set, EVE_ADDR resolves to EVE
+			let result = frame_support::dispatch_context::run_in_context(|| {
+				// Set the mapping context
+				frame_support::dispatch_context::with_context::<MappingContext, _>(|c| {
+					let mut ctx = MappingContext::default();
+					ctx.0.insert(EVE_ADDR, EVE);
+					c.set(ctx);
+				});
+				// Now check lookup (separate with_context call)
+				<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR)
+			});
+			assert_eq!(result, EVE);
 		});
 	}
 }

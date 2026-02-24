@@ -424,6 +424,42 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_mapping(n: Linear<0, 256>) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+		let value = Pallet::<T>::min_balance();
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
+		let data: Vec<u8> = (0..n).flat_map(|_| [42u8; 32]).collect();
+		let offsets: Vec<u32> = (0..n).map(|i| i * 32).collect();
+		let mappings = BoundedVec::<u32, ConstU32<256>>::try_from(offsets).unwrap();
+		#[extrinsic_call]
+		_(origin, instance.address, value, Weight::MAX, storage_deposit, data, mappings);
+		instance.info()?;
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn instantiate_with_mapping(n: Linear<0, 256>) -> Result<(), BenchmarkError> {
+		let salt = [42u8; 32];
+		let value = Pallet::<T>::min_balance();
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let origin = RawOrigin::Signed(caller.clone());
+		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
+		let storage_deposit = default_deposit_limit::<T>();
+		let hash = Contracts::<T>::bare_upload_code(origin.clone().into(), code, storage_deposit)?
+			.code_hash;
+		let data: Vec<u8> = (0..n).flat_map(|_| [42u8; 32]).collect();
+		let offsets: Vec<u32> = (0..n).map(|i| i * 32).collect();
+		let mappings = BoundedVec::<u32, ConstU32<256>>::try_from(offsets).unwrap();
+		#[extrinsic_call]
+		_(origin, value, Weight::MAX, storage_deposit, hash, data, Some(salt), mappings);
+		Ok(())
+	}
+
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {

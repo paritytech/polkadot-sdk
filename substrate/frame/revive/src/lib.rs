@@ -67,7 +67,7 @@ use frame_support::{
 		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
 		Pays, PostDispatchInfo, RawOrigin,
 	},
-	ensure,
+	dispatch_context, ensure,
 	pallet_prelude::DispatchClass,
 	traits::{
 		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OriginTrait,
@@ -613,6 +613,10 @@ pub mod pallet {
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
+		/// An invalid byte offset was provided in the mappings parameter of
+		/// `call_with_mapping` or `instantiate_with_mapping`. The offset must point to a
+		/// valid 32-byte slot within the calldata.
+		InvalidMappingOffset = 0x42,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1437,6 +1441,156 @@ pub mod pallet {
 					result: call_result,
 				}
 			})
+		}
+
+		/// Call a contract with ephemeral address mappings.
+		///
+		/// This extrinsic allows users to pass 32-byte AccountId32 addresses inline in contract
+		/// call data without requiring a separate `map_account` transaction. The mappings are
+		/// ephemeral (dispatch-context scoped) and automatically cleaned up after the call.
+		///
+		/// # Parameters
+		///
+		/// * `dest`: The Ethereum address of the contract to call.
+		/// * `value`: The balance to transfer from the `origin` to the contract.
+		/// * `weight_limit`: The weight limit enforced when executing the call.
+		/// * `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved
+		///   from the caller to pay for the storage consumed.
+		/// * `data`: The input data to pass to the contract, containing 32-byte AccountId32
+		///   addresses at specified offsets.
+		/// * `mappings`: A vector of byte offsets in `data` where 32-byte AccountId32 addresses are
+		///   located. Each offset must satisfy: `offset + 32 <= data.len()`.
+		#[pallet::call_index(13)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::call()
+				.saturating_add(*weight_limit)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(mappings.len() as u32))
+		)]
+		pub fn call_with_mapping(
+			origin: OriginFor<T>,
+			dest: H160,
+			#[pallet::compact] value: BalanceOf<T>,
+			weight_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			data: Vec<u8>,
+			mappings: BoundedVec<u32, ConstU32<256>>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
+
+			let (data, mapping_context) = address::replace_address_mappings::<T>(&data, &mappings)?;
+
+			// Store mappings in dispatch context and call bare_call
+			let output = dispatch_context::with_context::<address::MappingContext, _>(|ctx| {
+				ctx.set(mapping_context);
+
+				Self::bare_call(
+					origin.clone(),
+					dest,
+					Pallet::<T>::convert_native_to_evm(value),
+					TransactionLimits::WeightAndDeposit {
+						weight_limit,
+						deposit_limit: storage_deposit_limit,
+					},
+					data,
+					&ExecConfig::new_substrate_tx(),
+				)
+			})
+			.unwrap_or_else(|| {
+				// If not in dispatch context, this shouldn't happen in normal operation
+				ContractResult {
+					result: Err(<Error<T>>::ContractReverted.into()),
+					..Default::default()
+				}
+			});
+
+			let mut output = output;
+			if let Ok(return_value) = &output.result &&
+				return_value.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
+			}
+			dispatch_result(
+				output.result,
+				output.weight_consumed,
+				<T as Config>::WeightInfo::call(),
+			)
+		}
+
+		/// Instantiate a new contract with ephemeral address mappings.
+		///
+		/// This extrinsic allows users to instantiate contracts with 32-byte AccountId32
+		/// addresses inline in constructor data without requiring a separate `map_account`
+		/// transaction. The mappings are ephemeral (dispatch-context scoped) and automatically
+		/// cleaned up after instantiation.
+		///
+		/// # Parameters
+		///
+		/// * `value`: The balance to transfer from the `origin` to the new contract.
+		/// * `weight_limit`: The weight limit enforced when executing the instantiation.
+		/// * `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved
+		///   from the caller to pay for the storage consumed.
+		/// * `code_hash`: The hash of the contract code to instantiate.
+		/// * `data`: The constructor input data, containing 32-byte AccountId32 addresses at
+		///   specified offsets.
+		/// * `salt`: Optional salt for deterministic address derivation.
+		/// * `mappings`: A vector of byte offsets in `data` where 32-byte AccountId32 addresses are
+		///   located. Each offset must satisfy: `offset + 32 <= data.len()`.
+		#[pallet::call_index(14)]
+		#[pallet::weight(
+			<T as Config>::WeightInfo::instantiate(data.len() as u32)
+				.saturating_add(*weight_limit)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(mappings.len() as u32))
+		)]
+		pub fn instantiate_with_mapping(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			weight_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			code_hash: sp_core::H256,
+			data: Vec<u8>,
+			salt: Option<[u8; 32]>,
+			mappings: BoundedVec<u32, ConstU32<256>>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_non_contract_if_signed(&origin)?;
+			let data_len = data.len() as u32;
+
+			let (data, mapping_context) = address::replace_address_mappings::<T>(&data, &mappings)?;
+
+			// Store mappings in dispatch context and call bare_instantiate
+			let mut output = dispatch_context::with_context::<address::MappingContext, _>(|ctx| {
+				ctx.set(mapping_context);
+
+				Self::bare_instantiate(
+					origin,
+					Pallet::<T>::convert_native_to_evm(value),
+					TransactionLimits::WeightAndDeposit {
+						weight_limit,
+						deposit_limit: storage_deposit_limit,
+					},
+					Code::Existing(code_hash),
+					data,
+					salt,
+					&ExecConfig::new_substrate_tx(),
+				)
+			})
+			.unwrap_or_else(|| {
+				// If not in dispatch context, this shouldn't happen in normal operation
+				ContractResult {
+					result: Err(<Error<T>>::ContractReverted.into()),
+					..Default::default()
+				}
+			});
+
+			if let Ok(retval) = &output.result &&
+				retval.result.did_revert()
+			{
+				output.result = Err(<Error<T>>::ContractReverted.into());
+			}
+			dispatch_result(
+				output.result.map(|result| result.result),
+				output.weight_consumed,
+				<T as Config>::WeightInfo::instantiate(data_len),
+			)
 		}
 
 		/// Upload new `code` without instantiating a contract from it.

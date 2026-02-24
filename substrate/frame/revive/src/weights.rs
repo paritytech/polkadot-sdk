@@ -171,6 +171,8 @@ pub trait WeightInfo {
 	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
+	fn call_with_mapping(n: u32) -> Weight;
+	fn instantiate_with_mapping(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1461,6 +1463,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
+	fn call_with_mapping(_n: u32) -> Weight {
+		Weight::zero()
+	}
+	fn instantiate_with_mapping(_n: u32) -> Weight {
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -2749,5 +2757,11 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(21, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	fn call_with_mapping(_n: u32) -> Weight {
+		Weight::zero()
+	}
+	fn instantiate_with_mapping(_n: u32) -> Weight {
+		Weight::zero()
 	}
 }
