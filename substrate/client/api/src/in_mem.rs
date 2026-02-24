@@ -48,6 +48,7 @@ use crate::{
 struct PendingBlock<B: BlockT> {
 	block: StoredBlock<B>,
 	state: NewBlockState,
+	register_as_leaf: bool,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -159,6 +160,7 @@ impl<Block: BlockT> Blockchain<Block> {
 		justifications: Option<Justifications>,
 		body: Option<Vec<<Block as BlockT>::Extrinsic>>,
 		new_state: NewBlockState,
+		register_as_leaf: bool,
 	) -> sp_blockchain::Result<()> {
 		let number = *header.number();
 		if new_state.is_best() {
@@ -167,7 +169,7 @@ impl<Block: BlockT> Blockchain<Block> {
 
 		{
 			let mut storage = self.storage.write();
-			if !matches!(new_state, NewBlockState::Disconnected) {
+			if register_as_leaf {
 				storage.leaves.import(hash, number, *header.parent_hash());
 			}
 			storage.blocks.insert(hash, StoredBlock::new(header, body, justifications));
@@ -517,10 +519,14 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		_indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
+		register_as_leaf: bool,
 	) -> sp_blockchain::Result<()> {
 		assert!(self.pending_block.is_none(), "Only one block per operation is allowed");
-		self.pending_block =
-			Some(PendingBlock { block: StoredBlock::new(header, body, justifications), state });
+		self.pending_block = Some(PendingBlock {
+			block: StoredBlock::new(header, body, justifications),
+			state,
+			register_as_leaf,
+		});
 		Ok(())
 	}
 
@@ -694,7 +700,8 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			self.states.write().insert(hash, new_state);
 
-			self.blockchain.insert(hash, header, justification, body, pending_block.state)?;
+			self.blockchain
+				.insert(hash, header, justification, body, pending_block.state, pending_block.register_as_leaf)?;
 		}
 
 		if !operation.aux.is_empty() {

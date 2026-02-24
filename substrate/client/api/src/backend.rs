@@ -142,10 +142,6 @@ pub enum NewBlockState {
 	Best,
 	/// Newly finalized block (implicitly best).
 	Final,
-	/// Block whose parent is not present in the DB.
-	/// Used for blocks which are needed in the DB but should not be registered as
-	/// leaf.
-	Disconnected,
 }
 
 impl NewBlockState {
@@ -153,7 +149,7 @@ impl NewBlockState {
 	pub fn is_best(self) -> bool {
 		match self {
 			NewBlockState::Best | NewBlockState::Final => true,
-			NewBlockState::Normal | NewBlockState::Disconnected => false,
+			NewBlockState::Normal => false,
 		}
 	}
 
@@ -161,7 +157,7 @@ impl NewBlockState {
 	pub fn is_final(self) -> bool {
 		match self {
 			NewBlockState::Final => true,
-			NewBlockState::Best | NewBlockState::Normal | NewBlockState::Disconnected => false,
+			NewBlockState::Best | NewBlockState::Normal => false,
 		}
 	}
 }
@@ -186,6 +182,7 @@ pub trait BlockImportOperation<Block: BlockT> {
 		indexed_body: Option<Vec<Vec<u8>>>,
 		justifications: Option<Justifications>,
 		state: NewBlockState,
+		register_as_leaf: bool,
 	) -> sp_blockchain::Result<()>;
 
 	/// Inject storage data into the database.

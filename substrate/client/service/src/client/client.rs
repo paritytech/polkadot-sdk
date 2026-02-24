@@ -394,7 +394,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state)?;
+			op.set_block_data(header, Some(body), None, None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -696,17 +696,15 @@ where
 
 		let leaf_state = if finalized {
 			NewBlockState::Final
-		} else if origin == BlockOrigin::WarpSync {
-			// Warp sync proof blocks have no parent in the DB, so adding them as leaves would
-			// create orphan leaves that are never cleaned up until the gap closes. At that point
-			// displaced_leaves_after_finalizing would have to walk the entire chain for each
-			// orphan leaf, causing a multi-minute stall under the import lock.
-			NewBlockState::Disconnected
 		} else if is_new_best {
 			NewBlockState::Best
 		} else {
 			NewBlockState::Normal
 		};
+
+		// Warp sync imported blocks shall be stored in the DB, but they should not be registered
+		// as leaves.
+		let register_as_leaf = origin != BlockOrigin::WarpSync;
 
 		let tree_route = if is_new_best && info.best_hash != parent_hash && parent_exists {
 			let route_from_best =
@@ -730,6 +728,7 @@ where
 			indexed_body,
 			justifications,
 			leaf_state,
+			register_as_leaf,
 		)?;
 
 		operation.op.insert_aux(aux)?;
