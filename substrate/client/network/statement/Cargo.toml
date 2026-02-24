@@ -23,6 +23,7 @@ array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
+governor = { workspace = true }
 log = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }

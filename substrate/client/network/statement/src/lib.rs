@@ -31,9 +31,15 @@ use crate::config::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 #[cfg(any(test, feature = "test-helpers"))]
 use futures::future::pending;
-use futures::{future::FusedFuture, prelude::*, stream::FuturesUnordered};
+use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
+use governor::{
+	clock::DefaultClock,
+	state::{InMemoryState, NotKeyed},
+	Quota, RateLimiter,
+};
 use prometheus_endpoint::{
-	prometheus, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError, Registry, U64,
+    exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
+	Registry, U64,
 };
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
@@ -56,15 +62,18 @@ use sp_statement_store::{
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
-	num::NonZeroUsize,
+	num::{NonZeroU32, NonZeroUsize},
 	pin::Pin,
 	sync::{Arc, RwLock},
+    time::Instant,
 };
 use tokio::time::timeout;
 pub mod config;
 
 /// A set of statements.
 pub type Statements = Vec<Statement>;
+/// Future resolving to statement import result.
+pub type StatementImportFuture = oneshot::Receiver<SubmitResult>;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
@@ -81,6 +90,8 @@ mod rep {
 	pub const INVALID_STATEMENT: Rep = Rep::new(-(1 << 12), "Invalid statement");
 	/// Reputation change when a peer sends us a duplicate statement.
 	pub const DUPLICATE_STATEMENT: Rep = Rep::new(-(1 << 7), "Duplicate statement");
+	/// Reputation change when a peer floods us with statements.
+	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
 }
 
 const LOG_TARGET: &str = "statement-gossip";
@@ -103,6 +114,16 @@ pub struct Metrics {
 	propagated_statements_chunks: Histogram,
 	pending_statements: Gauge<U64>,
 	ignored_statements: Counter<U64>,
+	peers_connected: Gauge<U64>,
+	statements_received: Counter<U64>,
+	bytes_sent_total: Counter<U64>,
+	bytes_received_total: Counter<U64>,
+	sent_latency_seconds: Histogram,
+	initial_sync_statements_sent: Counter<U64>,
+	initial_sync_bursts_total: Counter<U64>,
+	initial_sync_peers_active: Gauge<U64>,
+	initial_sync_duration_seconds: Histogram,
+	statement_flooding_detected: Counter<U64>,
 }
 
 impl Metrics {
@@ -135,7 +156,7 @@ impl Metrics {
 						"substrate_sync_propagated_statements_chunks",
 						"Distribution of chunk sizes when propagating statements",
 					)
-					.buckets(prometheus::exponential_buckets(1.0, 2.0, 14)?),
+					.buckets(exponential_buckets(1.0, 2.0, 14)?),
 				)?,
 				r,
 			)?,
@@ -150,6 +171,83 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_ignored_statements",
 					"Number of statements ignored due to exceeding MAX_PENDING_STATEMENTS limit",
+				)?,
+				r,
+			)?,
+			peers_connected: register(
+				Gauge::new(
+					"substrate_sync_statement_peers_connected",
+					"Number of peers connected using the statement protocol",
+				)?,
+				r,
+			)?,
+			statements_received: register(
+				Counter::new(
+					"substrate_sync_statements_received",
+					"Total number of statements received from peers",
+				)?,
+				r,
+			)?,
+			bytes_sent_total: register(
+				Counter::new(
+					"substrate_sync_statement_bytes_sent_total",
+					"Total bytes sent for statement protocol messages",
+				)?,
+				r,
+			)?,
+			bytes_received_total: register(
+				Counter::new(
+					"substrate_sync_statement_bytes_received_total",
+					"Total bytes received for statement protocol messages",
+				)?,
+				r,
+			)?,
+			sent_latency_seconds: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sync_statement_sent_latency_seconds",
+						"Time to send statement messages to peers",
+					)
+					// Buckets from 1μs to ~1s covering microsecond to millisecond range.
+					.buckets(vec![0.000_001, 0.000_01, 0.000_1, 0.001, 0.01, 0.1, 1.0]),
+				)?,
+				r,
+			)?,
+			initial_sync_statements_sent: register(
+				Counter::new(
+					"substrate_sync_initial_sync_statements_sent",
+					"Total statements sent during initial sync bursts to newly connected peers",
+				)?,
+				r,
+			)?,
+			initial_sync_bursts_total: register(
+				Counter::new(
+					"substrate_sync_initial_sync_bursts_total",
+					"Total number of initial sync burst rounds processed",
+				)?,
+				r,
+			)?,
+			initial_sync_peers_active: register(
+				Gauge::new(
+					"substrate_sync_initial_sync_peers_active",
+					"Number of peers currently being synced via initial sync",
+				)?,
+				r,
+			)?,
+			initial_sync_duration_seconds: register(
+				Histogram::with_opts(
+					HistogramOpts::new(
+						"substrate_sync_initial_sync_duration_seconds",
+						"Per-peer total duration of initial sync from start to completion",
+					)
+					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+				)?,
+				r,
+			)?,
+			statement_flooding_detected: register(
+				Counter::new(
+					"substrate_sync_statement_flooding_detected",
+					"Number of peers disconnected for exceeding statement rate limits",
 				)?,
 				r,
 			)?,
@@ -214,6 +312,7 @@ impl StatementHandlerPrototype {
 		metrics_registry: Option<&Registry>,
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 		mut num_submission_workers: usize,
+		statements_per_second: u32,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 
@@ -247,8 +346,22 @@ impl StatementHandlerPrototype {
 			num_submission_workers = 1;
 		}
 
-		// Spawn the statement store submission workers.
-		// These workers validate statements and send results directly to the main loop.
+		let statements_per_second = match NonZeroU32::new(statements_per_second) {
+			Some(rate) => rate,
+			None => {
+				log::warn!(
+					target: LOG_TARGET,
+					"statements_per_second is 0, defaulting to {}",
+					DEFAULT_STATEMENTS_PER_SECOND
+				);
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero")
+			},
+		};
+
+		let metrics =
+			if let Some(r) = metrics_registry { Some(Metrics::register(r)?) } else { None };
+
 		for _ in 0..num_submission_workers {
 			let store = statement_store.clone();
 			let validation_results_sender = results_queue_sender.clone();
@@ -321,6 +434,7 @@ impl StatementHandlerPrototype {
 			sync_event_stream: sync_event_stream.fuse(),
 			peers,
 			statement_store,
+            statements_per_second,
 			metrics,
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
@@ -570,7 +684,9 @@ pub struct StatementHandler<
 	/// All connected peers (shared with worker thread for direct known_statements updates).
 	peers: PeersState,
 	statement_store: Arc<dyn StatementStore>,
-	/// Prometheus metrics (shared with worker thread).
+    /// Maximum statements per second per peer.
+    statements_per_second: NonZeroU32,
+    /// Prometheus metrics (shared with worker thread).
 	metrics: Option<Arc<Metrics>>,
 	/// Timeout for sending next statement batch during initial sync.
 	initial_sync_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
@@ -582,17 +698,48 @@ pub struct StatementHandler<
 	pending_sends: PendingSends,
 }
 
+/// Per-peer rate limiter using a token bucket algorithm.
+///
+/// The token bucket allows short bursts up to the per-second limit while enforcing
+/// the average rate over time.
+#[derive(Debug)]
+struct PeerRateLimiter {
+	limiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
+}
+
+impl PeerRateLimiter {
+	fn new(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
+		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
+		Self { limiter: RateLimiter::direct(quota) }
+	}
+
+	/// Check if receiving `count` statements would exceed the rate limit.
+	fn is_flooding(&self, count: usize) -> bool {
+		if count > u32::MAX as usize {
+			return true;
+		}
+
+		let Some(n) = NonZeroU32::new(count as u32) else {
+			return false;
+		};
+		!matches!(self.limiter.check_n(n), Ok(Ok(())))
+	}
+}
+
 /// Peer information
 #[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
 #[derive(Debug)]
 pub struct Peer {
 	/// Holds a set of statements known to this peer.
 	known_statements: LruHashSet<Hash>,
+	/// Rate limiter for statement flooding protection.
+	rate_limiter: PeerRateLimiter,
 }
 
 /// Tracks pending initial sync state for a peer (hashes only, statements fetched on-demand).
 struct PendingInitialSync {
 	hashes: Vec<Hash>,
+	started_at: Instant,
 }
 
 /// Message sent from main loop to on_statements worker thread.
@@ -733,8 +880,12 @@ fn find_sendable_chunk(statements: &[&Statement]) -> ChunkResult {
 impl Peer {
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
-	pub fn new_for_testing(known_statements: LruHashSet<Hash>) -> Self {
-		Self { known_statements }
+	pub fn new_for_testing(
+		known_statements: LruHashSet<Hash>,
+		statements_per_second: NonZeroU32,
+		burst: NonZeroU32,
+	) -> Self {
+		Self { known_statements, rate_limiter: PeerRateLimiter::new(statements_per_second, burst) }
 	}
 }
 
@@ -757,6 +908,7 @@ where
 		statements_queue_sender: async_channel::Sender<OnStatementsRequest>,
 		results_queue_receiver: async_channel::Receiver<WorkerEvent>,
 		pending_state: Arc<RwLock<PendingState>>,
+        statements_per_second: NonZeroU32,
 	) -> Self {
 		Self {
 			protocol_name,
@@ -770,6 +922,7 @@ where
 			sync_event_stream,
 			peers,
 			statement_store,
+            statements_per_second,
 			metrics: None,
 			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
@@ -867,18 +1020,27 @@ where
 			ChunkResult::Send(0) => SendChunkResult::Empty,
 			ChunkResult::Send(chunk_end) => {
 				let chunk = &statements[..chunk_end];
-				if let Err(e) = timeout(
+				let encoded = chunk.encode();
+				let bytes_to_send = encoded.len() as u64;
+
+				let sent_latency_timer =
+					self.metrics.as_ref().map(|m| m.sent_latency_seconds.start_timer());
+				let send_result = timeout(
 					SEND_TIMEOUT,
-					self.notification_service.send_async_notification(peer, chunk.encode()),
+					self.notification_service.send_async_notification(peer, encoded),
 				)
-				.await
-				{
+				.await;
+				drop(sent_latency_timer);
+
+				if let Err(e) = send_result {
 					log::debug!(target: LOG_TARGET, "Failed to send notification to {peer}: {e:?}");
 					return SendChunkResult::Failed;
 				}
+
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", chunk.len(), peer);
 				self.metrics.as_ref().map(|metrics| {
 					metrics.propagated_statements.inc_by(chunk.len() as u64);
+					metrics.bytes_sent_total.inc_by(bytes_to_send);
 					metrics.propagated_statements_chunks.observe(chunk.len() as f64);
 				});
 				SendChunkResult::Sent(chunk_end)
@@ -937,36 +1099,68 @@ where
 					let _was_in = guard.insert(
 						peer,
 						Peer {
-							known_statements: LruHashSet::new(
-								NonZeroUsize::new(MAX_KNOWN_STATEMENTS)
-									.expect("Constant is nonzero"),
-							),
+                            known_statements: LruHashSet::new(
+                                NonZeroUsize::new(MAX_KNOWN_STATEMENTS).expect("Constant is nonzero"),
+                            ),
+                            rate_limiter: PeerRateLimiter::new(
+                                self.statements_per_second,
+                                NonZeroU32::new(
+                                    self.statements_per_second.get() *
+                                        config::STATEMENTS_BURST_COEFFICIENT,
+                                )
+                                    .expect("burst capacity is nonzero"),
+                            ),
 						},
 					);
 					debug_assert!(_was_in.is_none());
 				}
 
+				self.metrics.as_ref().map(|metrics| {
+					metrics.peers_connected.set(self.peers.len() as u64);
+				});
+
 				if !self.sync.is_major_syncing() {
 					let hashes = self.statement_store.statement_hashes();
 					if !hashes.is_empty() {
-						self.pending_initial_syncs.insert(peer, PendingInitialSync { hashes });
+						self.pending_initial_syncs.insert(
+							peer,
+							PendingInitialSync { hashes, started_at: Instant::now() },
+						);
 						self.initial_sync_peer_queue.push_back(peer);
+						self.metrics.as_ref().map(|metrics| {
+							metrics.initial_sync_peers_active.inc();
+						});
 					}
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
-				let Ok(mut guard) = self.peers.write() else {
-					log::error!(target: LOG_TARGET, "peers lock poisoned");
-					return;
-				};
-				{
-					let _peer = guard.remove(&peer);
-					debug_assert!(_peer.is_some());
+                let Ok(mut guard) = self.peers.write() else {
+                    log::error!(target: LOG_TARGET, "peers lock poisoned");
+                    return;
+                };
+                {
+                    let _peer = self.peers.remove(&peer);
+				    debug_assert!(_peer.is_some());
 				}
-				self.pending_initial_syncs.remove(&peer);
+                if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
+					self.metrics.as_ref().map(|metrics| {
+						metrics.initial_sync_peers_active.dec();
+						metrics
+							.initial_sync_duration_seconds
+							.observe(pending.started_at.elapsed().as_secs_f64());
+					});
+				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.peers_connected.set(self.peers.len() as u64);
+				});
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
+				let bytes_received = notification.len() as u64;
+				self.metrics.as_ref().map(|metrics| {
+					metrics.bytes_received_total.inc_by(bytes_received);
+				});
+
 				// Accept statements only when node is not major syncing
 				if self.sync.is_major_syncing() {
 					log::trace!(
@@ -1153,6 +1347,16 @@ where
 		self.do_propagate_statements(&statements);
 	}
 
+	/// Record initial sync completion metrics for a peer being removed.
+	fn record_initial_sync_completion(&self, started_at: Instant) {
+		self.metrics.as_ref().map(|metrics| {
+			metrics.initial_sync_peers_active.dec();
+			metrics
+				.initial_sync_duration_seconds
+				.observe(started_at.elapsed().as_secs_f64());
+		});
+	}
+
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
 	async fn process_initial_sync_burst(&mut self) {
 		if self.sync.is_major_syncing() {
@@ -1167,8 +1371,14 @@ where
 			return;
 		};
 
+		self.metrics.as_ref().map(|metrics| {
+			metrics.initial_sync_bursts_total.inc();
+		});
+
 		if entry.get().hashes.is_empty() {
+			let started_at = entry.get().started_at;
 			entry.remove();
+			self.record_initial_sync_completion(started_at);
 			return;
 		}
 
@@ -1188,7 +1398,9 @@ where
 			Ok(r) => r,
 			Err(e) => {
 				log::debug!(target: LOG_TARGET, "Failed to fetch statements for initial sync: {e:?}");
+				let started_at = entry.get().started_at;
 				entry.remove();
+				self.record_initial_sync_completion(started_at);
 				return;
 			},
 		};
@@ -1202,11 +1414,16 @@ where
 		let to_send: Vec<_> = statements.iter().map(|(_, stmt)| stmt).collect();
 		match self.send_statement_chunk(&peer_id, &to_send).await {
 			SendChunkResult::Failed => {
-				self.pending_initial_syncs.remove(&peer_id);
+				if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
+					self.record_initial_sync_completion(pending.started_at);
+				}
 				return;
 			},
 			SendChunkResult::Sent(sent) => {
 				debug_assert_eq!(to_send.len(), sent);
+				self.metrics.as_ref().map(|metrics| {
+					metrics.initial_sync_statements_sent.inc_by(sent as u64);
+				});
 				// Mark statements as known
 				if let Ok(mut guard) = self.peers.write() {
 					if let Some(peer) = guard.get_mut(&peer_id) {
@@ -1225,7 +1442,9 @@ where
 		if has_more {
 			self.initial_sync_peer_queue.push_back(peer_id);
 		} else {
-			self.pending_initial_syncs.remove(&peer_id);
+			if let Some(pending) = self.pending_initial_syncs.remove(&peer_id) {
+				self.record_initial_sync_completion(pending.started_at);
+			}
 		}
 	}
 }
@@ -1239,15 +1458,23 @@ mod tests {
 	#[derive(Clone)]
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
+		disconnected_peers: Arc<Mutex<Vec<PeerId>>>,
 	}
 
 	impl TestNetwork {
 		fn new() -> Self {
-			Self { reported_peers: Arc::new(Mutex::new(Vec::new())) }
+			Self {
+				reported_peers: Arc::new(Mutex::new(Vec::new())),
+				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
+			}
 		}
 
 		fn get_reports(&self) -> Vec<(PeerId, sc_network::ReputationChange)> {
 			self.reported_peers.lock().unwrap().clone()
+		}
+
+		fn get_disconnected_peers(&self) -> Vec<PeerId> {
+			self.disconnected_peers.lock().unwrap().clone()
 		}
 	}
 
@@ -1273,8 +1500,8 @@ mod tests {
 			unimplemented!()
 		}
 
-		fn disconnect_peer(&self, _: PeerId, _: sc_network::ProtocolName) {
-			unimplemented!()
+		fn disconnect_peer(&self, peer: PeerId, _: sc_network::ProtocolName) {
+			self.disconnected_peers.lock().unwrap().push(peer);
 		}
 
 		fn accept_unreserved_peers(&self) {
@@ -1701,7 +1928,17 @@ mod tests {
 		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
 		peers.write().unwrap().insert(
 			peer_id,
-			Peer { known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()) },
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(100).unwrap()),
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("burst capacity is nonzero"),
+				),
+			},
 		);
 
 		let handler = StatementHandler {
@@ -1721,7 +1958,9 @@ mod tests {
 			peers,
 			statement_store: Arc::new(statement_store.clone()),
 			metrics: None,
-			initial_sync_timeout: Box::pin(futures::future::pending()),
+            statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+                .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+            initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2012,7 +2251,9 @@ mod tests {
 			peers: Arc::new(RwLock::new(HashMap::new())),
 			statement_store: Arc::new(statement_store.clone()),
 			metrics: None,
-			initial_sync_timeout: Box::pin(futures::future::pending()),
+            statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+                .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+            initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2504,6 +2745,232 @@ mod tests {
 
 		// No more pending
 		assert!(!handler.pending_initial_syncs.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn test_peer_disconnected_on_flooding() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut flood_statements = Vec::new();
+		for i in 0..600_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![i as u8, (i >> 8) as u8, (i >> 16) as u8]);
+			flood_statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, flood_statements);
+
+		let reports = network.get_reports();
+		assert!(
+			reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
+			"Expected STATEMENT_FLOODING reputation change, but got: {:?}",
+			reports
+		);
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			disconnected.contains(&peer_id),
+			"Expected peer {} to be disconnected, but it wasn't. Disconnected peers: {:?}",
+			peer_id,
+			disconnected
+		);
+
+		// Verify peer state was cleaned up
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+		assert!(
+			!handler.pending_initial_syncs.contains_key(&peer_id),
+			"Peer should be removed from pending_initial_syncs"
+		);
+		assert!(
+			!handler.initial_sync_peer_queue.contains(&peer_id),
+			"Peer should be removed from initial_sync_peer_queue"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_legitimate_traffic_not_flagged() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let start = std::time::Instant::now();
+		let duration = std::time::Duration::from_secs(5);
+		let mut counter = 0u32;
+
+		while start.elapsed() < duration {
+			let mut statements = Vec::new();
+			for i in 0..5_000 {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					counter as u8,
+					(counter >> 8) as u8,
+					(counter >> 16) as u8,
+					i as u8,
+				]);
+				statements.push(statement);
+				counter = counter.wrapping_add(1);
+			}
+
+			handler.on_statements(peer_id, statements);
+
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+
+		let reports = network.get_reports();
+		assert!(
+			!reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
+			"Legitimate traffic should not trigger flooding detection. Reports: {:?}",
+			reports
+		);
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			!disconnected.contains(&peer_id),
+			"Legitimate traffic should not cause disconnection. Disconnected peers: {:?}",
+			disconnected
+		);
+
+		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+	}
+
+	#[tokio::test]
+	async fn test_just_over_rate_limit_triggers_flooding() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut statements = Vec::new();
+		for i in 0..260_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![
+				i as u8,
+				(i >> 8) as u8,
+				(i >> 16) as u8,
+				(i >> 24) as u8,
+			]);
+			statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, statements);
+
+		let reports = network.get_reports();
+		let expected_burst = DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT;
+		assert!(
+			reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
+			"Sending 260,000 statements should trigger flooding (burst limit: {}). Reports: {:?}",
+			expected_burst,
+			reports
+		);
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			disconnected.contains(&peer_id),
+			"Peer should be disconnected after exceeding rate limit. Disconnected: {:?}",
+			disconnected
+		);
+
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
+	}
+
+	#[tokio::test]
+	async fn test_burst_of_250k_statements_allowed() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut statements = Vec::new();
+		for i in 0..250_000 {
+			let mut statement = Statement::new();
+			statement.set_plain_data(vec![
+				i as u8,
+				(i >> 8) as u8,
+				(i >> 16) as u8,
+				(i >> 24) as u8,
+			]);
+			statements.push(statement);
+		}
+
+		handler.on_statements(peer_id, statements);
+
+		let reports = network.get_reports();
+		assert!(
+			!reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING),
+			"250k burst should be allowed (burst = rate × 5). Reports: {:?}",
+			reports
+		);
+
+		assert!(
+			handler.peers.contains_key(&peer_id),
+			"Peer should still be connected after 250k burst"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_sustained_rate_above_limit_triggers_flooding() {
+		let (mut handler, _statement_store, network, _notification_service, _queue_receiver) =
+			build_handler();
+
+		let peer_id = *handler.peers.keys().next().unwrap();
+
+		let mut counter = 0u32;
+
+		let start = std::time::Instant::now();
+		let duration = std::time::Duration::from_secs(5);
+
+		let mut flooding_detected = false;
+		while start.elapsed() < duration {
+			let mut statements = Vec::new();
+			for i in 0..30_000 {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![
+					counter as u8,
+					(counter >> 8) as u8,
+					(counter >> 16) as u8,
+					i as u8,
+				]);
+				statements.push(statement);
+				counter = counter.wrapping_add(1);
+			}
+
+			handler.on_statements(peer_id, statements);
+
+			// Check if flooding was detected
+			let reports = network.get_reports();
+			if reports
+				.iter()
+				.any(|(id, rep)| *id == peer_id && *rep == rep::STATEMENT_FLOODING)
+			{
+				flooding_detected = true;
+				break;
+			}
+
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+
+		assert!(flooding_detected, "Sustained rate of 300k/sec should trigger flooding");
+
+		let disconnected = network.get_disconnected_peers();
+		assert!(
+			disconnected.contains(&peer_id),
+			"Peer should be disconnected after sustained high rate. Disconnected: {:?}",
+			disconnected
+		);
+
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 
 	#[tokio::test(start_paused = true)]

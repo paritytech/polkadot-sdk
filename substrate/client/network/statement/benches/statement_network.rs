@@ -25,7 +25,10 @@ use sc_network::{
 	NetworkPeers,
 };
 use sc_network_statement::{
-	config::{MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS},
+	config::{
+        DEFAULT_STATEMENTS_PER_SECOND, MAX_KNOWN_STATEMENTS, MAX_PENDING_STATEMENTS,
+        STATEMENTS_BURST_COEFFICIENT
+    },
 	OnStatementsRequest, Peer, PeersState, PendingState, StatementHandler,
 	StatementHandlerPrototype, StatementProcessResult, WorkerEvent,
 };
@@ -317,7 +320,13 @@ fn build_handler(
 	let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
 	peers.write().unwrap().insert(
 		peer_id,
-		Peer::new_for_testing(LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap())),
+		Peer::new_for_testing(
+			LruHashSet::new(NonZeroUsize::new(MAX_KNOWN_STATEMENTS).unwrap()),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
+		),
 	);
 
 	// Channel for worker events back to main loop.
@@ -386,6 +395,8 @@ fn build_handler(
 		on_statements_sender,
 		worker_event_receiver,
 		pending_state,
+        NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+            .expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 	);
 	(handler, peer_id, temp_dir)
 }
