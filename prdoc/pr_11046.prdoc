@@ -3,12 +3,12 @@ title: 'Collator protocol revamp: Change collation hold-off timing to start at l
 doc:
 - audience: Node Dev
   description: |-
-    #11022
+    https://github.com/paritytech/polkadot-sdk/issues/11022
 
     The hold-off delay should be measured from when the relay parent (leaf) is activated, not when the advertisement message arrives. This prevents artificially delaying messages that already arrived late.
 
 
-     ## Changes
+     Changes
       - Calculate remaining hold-off time from leaf activation, not message arrival
       - Process immediately if hold-off window has already elapsed
       - Add test to ensure late-arriving collations skip artificial delay
