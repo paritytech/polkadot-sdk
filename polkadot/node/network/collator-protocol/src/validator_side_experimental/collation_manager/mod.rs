@@ -653,8 +653,13 @@ impl CollationManager {
 			.iter()
 			// Only check advertisements for relay parents within the view of this leaf.
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
-			.flat_map(|per_rp| per_rp.eligible_advertisements(para_id, leaf))
-			.filter_map(|(adv, adv_timestamp)| {
+			.flat_map(|per_rp| {
+				let activated_at = per_rp.activated_at;
+				per_rp
+					.eligible_advertisements(para_id, leaf)
+					.map(move |(adv, timestamp)| (adv, timestamp, activated_at))
+			})
+			.filter_map(|(adv, adv_timestamp, activated_at)| {
 				// Check that we're not already fetching this advertisement.
 				if self.fetching.contains(adv) {
 					return None;
@@ -664,6 +669,7 @@ impl CollationManager {
 					adv,
 					score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
 					timestamp: adv_timestamp,
+					activated_at,
 				})
 			})
 			.collect::<BTreeSet<_>>();
@@ -679,12 +685,7 @@ impl CollationManager {
 		// not the advertisement's arrival time. This ensures that if a relay parent has been
 		// active long enough, advertisements are fetched immediately regardless of when they
 		// arrived.
-		let activated_at = self
-			.per_relay_parent
-			.get(&best_advertisement.adv.relay_parent)
-			.map(|rp| rp.activated_at)
-			.unwrap_or(now);
-		let elapsed_since_activation = now.duration_since(activated_at);
+		let elapsed_since_activation = now.duration_since(best_advertisement.activated_at);
 		let remaining_delay = delay.saturating_sub(elapsed_since_activation);
 
 		if remaining_delay.is_zero() {
@@ -695,7 +696,7 @@ impl CollationManager {
 				para_id = ?best_advertisement.adv.para_id,
 				?elapsed_since_activation,
 				?delay,
-				"Advertisement arrived late, fetching immediately without additional delay",
+				"Delay elapsed for leaf; initiating fetch."
 			);
 			Either::Left(Some(*best_advertisement.adv))
 		} else {
@@ -944,6 +945,8 @@ struct AcceptedAdvertisement<'a> {
 	adv: &'a Advertisement,
 	score: Score,
 	timestamp: &'a Instant,
+	/// The time at which the relay parent was activated
+	activated_at: Instant,
 }
 
 impl<'a> Ord for AcceptedAdvertisement<'a> {
@@ -969,8 +972,8 @@ struct PerRelayParent {
 	fetched_collations: HashMap<CandidateHash, PeerId>,
 	session_index: SessionIndex,
 	core_index: CoreIndex,
-	// The time at which this relay parent was activated/first seen. Used to calculate
-	// fetch delays relative to leaf activation rather than advertisement arrival.
+	// The time at which this relay parent was activated. Used to calculate fetch
+	// delays relative to leaf activation.
 	activated_at: Instant,
 }
 
@@ -1314,10 +1317,18 @@ mod tests {
 
 		// Different scores - higher score comes first (is "less").
 		{
-			let high_score =
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let low_score =
-				AcceptedAdvertisement { adv: &adv_2, score: score(50), timestamp: &now };
+			let high_score = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let low_score = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(50),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			assert_eq!(high_score.cmp(&low_score), Ordering::Less,);
 			assert_eq!(low_score.cmp(&high_score), Ordering::Greater);
@@ -1325,8 +1336,18 @@ mod tests {
 
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
-			let earlier = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let later = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &later };
+			let earlier = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let later = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(100),
+				timestamp: &later,
+				activated_at: now,
+			};
 
 			assert_eq!(earlier.cmp(&later), Ordering::Less);
 			assert_eq!(later.cmp(&earlier), Ordering::Greater);
@@ -1334,8 +1355,18 @@ mod tests {
 
 		// Same score, same timestamp - falls back to advertisement comparison.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let acc_2 = AcceptedAdvertisement {
+				adv: &adv_2,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			// Result depends on advertisement Ord, but must be consistent and not Equal.
 			let cmp_result = acc_1.cmp(&acc_2);
@@ -1345,8 +1376,18 @@ mod tests {
 
 		// Same advertisement, same score, same timestamp - should be Equal.
 		{
-			let acc_1 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
-			let acc_2 = AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &now };
+			let acc_1 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
+			let acc_2 = AcceptedAdvertisement {
+				adv: &adv_1,
+				score: score(100),
+				timestamp: &now,
+				activated_at: now,
+			};
 
 			assert_eq!(acc_1.cmp(&acc_2), Ordering::Equal);
 		}
@@ -1357,10 +1398,30 @@ mod tests {
 			let adv_4 = make_adv(PeerId::random());
 
 			let advertisements = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(50), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_2, score: score(200), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_4, score: score(150), timestamp: &later },
+				AcceptedAdvertisement {
+					adv: &adv_1,
+					score: score(50),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_2,
+					score: score(200),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_3,
+					score: score(100),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_4,
+					score: score(150),
+					timestamp: &later,
+					activated_at: now,
+				},
 			]
 			.into_iter()
 			.collect::<BTreeSet<_>>();
@@ -1374,9 +1435,24 @@ mod tests {
 			let adv_3 = make_adv(PeerId::random());
 
 			let advertisements: BTreeSet<_> = [
-				AcceptedAdvertisement { adv: &adv_1, score: score(100), timestamp: &later },
-				AcceptedAdvertisement { adv: &adv_2, score: score(100), timestamp: &now },
-				AcceptedAdvertisement { adv: &adv_3, score: score(50), timestamp: &now },
+				AcceptedAdvertisement {
+					adv: &adv_1,
+					score: score(100),
+					timestamp: &later,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_2,
+					score: score(100),
+					timestamp: &now,
+					activated_at: now,
+				},
+				AcceptedAdvertisement {
+					adv: &adv_3,
+					score: score(50),
+					timestamp: &now,
+					activated_at: now,
+				},
 			]
 			.into_iter()
 			.collect();
@@ -1599,9 +1675,8 @@ mod tests {
 			);
 		}
 
-		// Late-arriving advertisement processed immediately when leaf was activated long ago.
-		// Even though the peer has a low score (which would normally incur a delay), the delay
-		// has already elapsed since leaf activation, so it should be fetched immediately.
+		// Low-score peer has its advertisement fetched immediately if it arrives after the delay
+		// timer for the leaf has expired.
 		{
 			let mut collation_manager = new_collation_manager_instance();
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
@@ -1628,7 +1703,7 @@ mod tests {
 			);
 		}
 
-		// Late-arriving advertisement with partial delay elapsed returns remaining delay.
+		// Advertisement with partial delay elapsed returns remaining delay.
 		{
 			let mut collation_manager = new_collation_manager_instance();
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(50));
