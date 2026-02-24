@@ -7,4 +7,4 @@ doc:
     Driven-by: add support for metadata-hash extension on `people-westend`  and add it to the list of chains to check.
 crates:
 - name: people-westend-runtime
-  bump: patch
+  bump: minor
