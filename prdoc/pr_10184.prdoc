@@ -39,7 +39,7 @@ doc:
 
 crates:
   - name: polkadot-primitives
-    bump: minor
+    bump: patch
   - name: polkadot-runtime-parachains
     bump: major
   - name: rococo-runtime
@@ -49,12 +49,14 @@ crates:
   - name: polkadot-test-runtime
     bump: major
   - name: cumulus-pallet-parachain-system
-    bump: patch
+    bump: none
   - name: polkadot-parachain-bin
-    bump: patch
+    bump: none
   - name: asset-hub-rococo-runtime
-    bump: patch
+    bump: none
   - name: asset-hub-westend-runtime
-    bump: patch
+    bump: none
   - name: emulated-integration-tests-common
+    bump: none
+  - name: polkadot
     bump: patch
