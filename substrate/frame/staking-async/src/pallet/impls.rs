@@ -24,9 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, EraPotAccountProvider, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	Nominations, NominationsQuota, PagedExposure, PositiveImbalanceOf, RewardDestination,
-	SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, EraPotAccountProvider, EraPotType, Exposure, Forcing, LedgerIntegrityState,
+	MaxNominationsOf, Nominations, NominationsQuota, PagedExposure, PositiveImbalanceOf,
+	RewardDestination, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -38,6 +38,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
+		fungible::Mutate,
+		tokens::Preservation,
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
 	},
@@ -424,11 +426,15 @@ impl<T: Config> Pallet<T> {
 			exposure.total(),
 		);
 
-		// For this page, calculate validator and nominator portions
 		let page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
 
-		// Validator gets their share proportional to page stake
-		let validator_payout_for_page = page_stake_part.mul_floor(reward_split.validator_payout);
+		// Validator's share from staker rewards (proportional to their stake)
+		let validator_staker_payout_for_page = page_stake_part.mul_floor(reward_split.validator_payout);
+
+		// Separately pay validator incentive bonus from validator incentive pot
+		// TODO(ank4n): Impl vesting plus emit event for incentive reward.
+		let _validator_incentive_paid =
+			Self::pay_validator_incentive_for_page(era, &stash, page_stake_part);
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -447,7 +453,7 @@ impl<T: Config> Pallet<T> {
 			Self::payout_from_provider(
 				era,
 				&stash,
-				validator_payout_for_page,
+				validator_staker_payout_for_page,
 				&exposure,
 				reward_split.nominator_payout,
 			)
@@ -468,7 +474,7 @@ impl<T: Config> Pallet<T> {
 
 			Self::payout_legacy_mint(
 				&stash,
-				validator_payout_for_page,
+				validator_staker_payout_for_page,
 				&exposure,
 				reward_split.nominator_payout,
 			)
@@ -601,11 +607,20 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
-		// noop if amount is zero
 		if amount.is_zero() {
 			return None;
 		}
-		let dest = Self::payee(Stash(stash.clone()))?;
+
+		let dest = match Self::payee(Stash(stash.clone())) {
+			Some(d) => d,
+			None => {
+				defensive!("Staker missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorMissingPayee { era },
+				));
+				return None;
+			},
+		};
 
 		let payout_account = match &dest {
 			RewardDestination::Stash => stash.clone(),
@@ -692,6 +707,144 @@ impl<T: Config> Pallet<T> {
 				}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
+	}
+
+	/// Calculate validator incentive amount for a single page.
+	///
+	/// Computes the validator's share of the incentive pot based on their weight,
+	/// then pro-rates it for this specific page.
+	///
+	/// Returns the calculated amount, or None if no incentive is due.
+	fn calculate_validator_incentive_for_page(
+		era: EraIndex,
+		stash: &T::AccountId,
+		page_stake_part: Perbill,
+	) -> Option<BalanceOf<T>> {
+		let era_incentive_budget = Eras::<T>::get_validator_incentive_allocation(era);
+		if era_incentive_budget.is_zero() {
+			return None;
+		}
+
+		let (validator_weight, total_weight) = match (
+			ErasValidatorIncentive::<T>::get(era, stash),
+			ErasTotalValidatorWeight::<T>::get(era),
+		) {
+			(Some(w), t) => (w, t),
+			_ => return None,
+		};
+
+		if total_weight.is_zero() {
+			log!(
+				warn,
+				"Total validator weight is zero but pot allocation exists for era {}",
+				era
+			);
+			Self::deposit_event(Event::<T>::Unexpected(
+				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+			));
+			return None;
+		}
+
+		if validator_weight.is_zero() {
+			return None;
+		}
+
+		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
+		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
+
+		if validator_incentive_for_page.is_zero() {
+			return None;
+		}
+
+		Some(validator_incentive_for_page)
+	}
+
+	/// Transfer validator incentive to the destination account.
+	///
+	/// Note: Validator incentive is never restaked, even for RewardDestination::Staked.
+	/// It is always paid as liquid balance to the stash account.
+	///
+	/// TODO(ank4n): Replace with vesting transfer.
+	/// Future implementation should:
+	/// 1. Create a vesting schedule for the stash account
+	/// 2. Lock the funds in the vesting pallet
+	/// 3. Emit an event indicating vesting creation
+	/// 4. Return the vested amount
+	///
+	/// Returns the amount transferred if successful, 0 otherwise.
+	fn transfer_validator_incentive(
+		era: EraIndex,
+		stash: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> BalanceOf<T> {
+
+		let dest = match Self::payee(Stash(stash.clone())) {
+			Some(d) if !matches!(d, RewardDestination::None) => d,
+			_ => {
+				defensive!("Validator missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorMissingPayee { era },
+				));
+				return Zero::zero();
+			},
+		};
+
+		let payout_account = match &dest {
+			RewardDestination::Stash => stash.clone(),
+			RewardDestination::Staked => stash.clone(),
+			RewardDestination::Account(ref dest_account) => dest_account.clone(),
+			RewardDestination::None => {
+				defensive!("Unreachable: None already filtered above");
+				return Zero::zero();
+			},
+			#[allow(deprecated)]
+			RewardDestination::Controller => Self::bonded(stash).unwrap_or_else(|| stash.clone()),
+		};
+
+		let validator_incentive_pot_account =
+			T::EraPotAccountProvider::era_pot_account(era, EraPotType::ValidatorSelfStake);
+
+		if let Err(e) = T::Currency::transfer(
+			&validator_incentive_pot_account,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
+			log!(
+				warn,
+				"Failed to transfer validator incentive ({:?}) to {:?}: {:?}",
+				amount,
+				payout_account,
+				e
+			);
+			defensive!("Validator incentive transfer failed");
+			Self::deposit_event(Event::<T>::Unexpected(
+				UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+			));
+			return Zero::zero();
+		}
+
+		amount
+	}
+
+	/// Pay validator incentive bonus for a single page.
+	///
+	/// Calculates the validator's incentive amount and transfers it from the validator
+	/// incentive pot. This is a convenience wrapper that combines calculation and transfer.
+	///
+	/// Returns the amount paid if successful, 0 otherwise.
+	fn pay_validator_incentive_for_page(
+		era: EraIndex,
+		stash: &T::AccountId,
+		page_stake_part: Perbill,
+	) -> BalanceOf<T> {
+		let amount = match Self::calculate_validator_incentive_for_page(era, stash, page_stake_part) {
+			Some(amt) => amt,
+			None => return Zero::zero(),
+		};
+
+		Self::transfer_validator_incentive(era, stash, amount)
 	}
 
 	/// Remove all associated data of a stash account from the staking system.
@@ -2175,7 +2328,9 @@ impl<T: Config> Pallet<T> {
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
 				// ensure `LastValidatorEra` is correctly set
-				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+				// If election for planning era is already completed, but era is not switched yet,
+				// `LastValidatorEra` would be `era + 1`.
+				if LastValidatorEra::<T>::get(&validator).unwrap_or_default() < era {
 					log!(
 						warn,
 						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",

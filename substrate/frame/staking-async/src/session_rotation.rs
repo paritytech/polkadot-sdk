@@ -81,7 +81,7 @@ use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
+	traits::{fungible::Inspect, Defensive, DefensiveMax, DefensiveSaturating, TryCollect},
 	weights::WeightMeter,
 };
 use pallet_staking_async_rc_client::RcClientInterface;
@@ -369,6 +369,14 @@ impl<T: Config> Eras<T> {
 
 	pub(crate) fn get_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
+	}
+
+	pub(crate) fn set_validator_incentive_allocation(era: EraIndex, amount: BalanceOf<T>) {
+		ErasValidatorIncentiveAllocation::<T>::insert(era, amount);
+	}
+
+	pub(crate) fn get_validator_incentive_allocation(era: EraIndex) -> BalanceOf<T> {
+		ErasValidatorIncentiveAllocation::<T>::get(era)
 	}
 
 	/// Update the total exposure for all the elected validators in the era.
@@ -878,8 +886,29 @@ impl<T: Config> Rotator<T> {
 			);
 		}
 
-		// Set ending era reward (needed for payout calculation)
 		Eras::<T>::set_validators_reward(ending_era.index, allocation.staker_rewards);
+
+		// Snapshot validator incentive allocation to ensure fair distribution even when
+		// validators claim rewards at different times.
+		Eras::<T>::set_validator_incentive_allocation(ending_era.index, allocation.validator_incentive);
+
+		#[cfg(any(test, debug_assertions))]
+		if !allocation.validator_incentive.is_zero() {
+			let validator_incentive_pot_account =
+				T::EraPotAccountProvider::era_pot_account(ending_era.index, EraPotType::ValidatorSelfStake);
+			let actual_balance = T::Currency::balance(&validator_incentive_pot_account);
+
+			if actual_balance != allocation.validator_incentive {
+				log!(
+					warn,
+					"Validator incentive pot balance mismatch for era {}: expected {:?}, got {:?}",
+					ending_era.index,
+					allocation.validator_incentive,
+					actual_balance
+				);
+				defensive!("Validator incentive pot balance mismatch");
+			}
+		}
 
 		// Update DisableLegacyMintingEra to prevent legacy minting.
 		// This only updates if the new value is lower than the existing one (write-once semantics)
