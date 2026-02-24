@@ -1,0 +1,17 @@
+title: '[pallet-revive]: implement EIP-150 63/64 gas rule'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements the EIP-150 gas rule in pallet-revive. The rule limits subcalls to receive at most 63/64ths of the parent's remaining resources, retaining 1/64th as a safety margin. The rule is implemented for both Ethereum and Substrate execution modes and all three CallResources types (NoLimits, Ethereum, WeightDeposit).
+
+    #### Key changes:
+
+    1. Cap nested meter resources to 63/64 of parent's remaining at subcall boundaries (not applied for top-level calls).
+    2. Track peak Weight and BalanceOf<T> across call boundaries via Peak<V> and update weight_required() and deposit_required() to include 63/64 overhead, so that dry-run can return accurate results.
+    3. Add eip_150 module with apply (63/64) and overhead (ceil/63) functions for Weight and Balance types.
+
+    Dry-run peak tracking
+    Each meter carries an eip_150_peak: the minimum starting value needed so all descendant subcalls get enough resources. When a child is absorbed, the parent updates: peak = max(peak, consumed + child_required + child_overhead). For subcalls the overhead includes the frame's own ceil(needed/63); for top-level calls only children's overhead is counted.
+crates:
+- name: pallet-revive
+  bump: minor
