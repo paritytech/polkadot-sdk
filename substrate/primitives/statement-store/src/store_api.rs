@@ -178,9 +178,18 @@ pub enum SubmitResult {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "event", content = "data", rename_all = "camelCase"))]
 pub enum StatementEvent {
-	/// A batch of statements matching the subscription filter. Each entry is a SCALE-encoded
-	/// statement.
-	NewStatements(Vec<Bytes>),
+	/// A batch of statements matching the subscription filter.
+	NewStatements {
+		/// A batch of statements matching the subscription filter, each entry is a SCALE-encoded
+		/// statement.
+		statements: Vec<Bytes>,
+		/// An optional count of how many more matching statements are in the store after this
+		/// batch. This guarantees to the client that it will receive at least this many more
+		/// statements in the subscription stream, but it may receive more if new statements are
+		/// added to the store that match the filter.
+		#[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+		remaining: Option<u32>,
+	},
 }
 
 /// Result type for `Error`

@@ -1348,7 +1348,12 @@ impl StatementStoreSubscriptionApi for Store {
 		let (subscription_sender, subscription_stream) =
 			self.subscription_manager.subscribe(topic_filter);
 		if existing_statements.is_empty() {
-			subscription_sender.send_blocking(StatementEvent::NewStatements(vec![])).ok();
+			subscription_sender
+				.send_blocking(StatementEvent::NewStatements {
+					statements: vec![],
+					remaining: Some(0),
+				})
+				.ok();
 		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}

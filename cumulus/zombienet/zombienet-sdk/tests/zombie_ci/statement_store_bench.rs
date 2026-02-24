@@ -628,15 +628,20 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
-				let item =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for session key"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let mut batch = match item {
-					StatementEvent::NewStatements(batch) => batch,
-				};
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for session key"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					let mut batch = match item {
+						StatementEvent::NewStatements { statements: batch, .. } => batch,
+					};
+					if batch.is_empty() {
+						continue; // Ignore empty batches
+					}
+				}
 				if batch.len() != 1 {
 					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
 				}
@@ -708,15 +713,20 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
-				let item =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for message"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let mut batch = match item {
-					StatementEvent::NewStatements(batch) => batch,
-				};
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for message"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					let mut batch = match item {
+						StatementEvent::NewStatements { statements: batch, .. } => batch,
+					};
+					if batch.is_empty() {
+						continue; // Ignore empty batches
+					}
+				}
 				if batch.len() != 1 {
 					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
 				}
@@ -1020,7 +1030,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						.into_iter()
 						.map(|(msg_idx, topic_str, mut subscription)| async move {
 							match timeout(total_timeout, subscription.next()).await {
-								Ok(Some(Ok(StatementEvent::NewStatements(_)))) => {
+								Ok(Some(Ok(StatementEvent::NewStatements { .. }))) => {
 									Ok((msg_idx, topic_str))
 								},
 								Ok(Some(Err(e))) => Err(anyhow!(

@@ -80,7 +80,14 @@ async fn send_in_chunks(
 		if chunk.is_empty() {
 			break;
 		}
-		if let Err(e) = subscription_sender.send(StatementEvent::NewStatements(chunk)).await {
+		let remaining = iter.len();
+		if let Err(e) = subscription_sender
+			.send(StatementEvent::NewStatements {
+				statements: chunk,
+				remaining: Some(remaining as u32),
+			})
+			.await
+		{
 			log::warn!(
 				target: LOG_TARGET,
 				"Failed to send existing statement in subscription: {:?}", e

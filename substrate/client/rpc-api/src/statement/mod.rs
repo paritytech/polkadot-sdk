@@ -40,8 +40,15 @@ pub trait StatementApi {
 	/// Returns a stream of `StatementEvent` values.
 	/// When a subscription is initiated the endpoint will first return all matching statements
 	/// already in the store in batches as `StatementEvent::NewStatements`.
-	/// If there are no statements in the store matching the filter, an empty batch of statements is
-	/// sent.
+	///
+	/// NewStatements includes an Optional field `remaining` which indicates how many more
+	/// statements are left to be sent in the initial batch of existing statements. The field
+	/// guarantees to the client that it will receive at least this many more statements in the
+	/// subscription stream, but it may receive more if new statements are added to the store that
+	/// match the filter.
+	///
+	///  If there are no statements in the store matching the filter, an
+	/// empty batch of statements is sent.
 	#[subscription(
 		name = "statement_subscribeStatement" => "statement_statement",
 		unsubscribe = "statement_unsubscribeStatement",

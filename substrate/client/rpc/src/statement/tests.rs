@@ -154,7 +154,8 @@ async fn subscribe_works() {
 
 	// An empty NewStatements is sent when no existing statements match the filter.
 	let result = match_any_with_random.next::<StatementEvent>().await;
-	let StatementEvent::NewStatements(batch) = result.expect("Bytes").expect("Success").0;
+	let StatementEvent::NewStatements { statements: batch, .. } =
+		result.expect("Bytes").expect("Success").0;
 	assert!(batch.is_empty(), "Expected empty batch for random topic, got: {:?}", batch);
 
 	let res = tokio::time::timeout(
@@ -174,7 +175,8 @@ async fn subscribe_works() {
 
 	// An empty NewStatements is sent when no existing statements match the filter.
 	let result = match_all_with_random.next::<StatementEvent>().await;
-	let StatementEvent::NewStatements(batch) = result.expect("Bytes").expect("Success").0;
+	let StatementEvent::NewStatements { statements: batch, .. } =
+		result.expect("Bytes").expect("Success").0;
 	assert!(batch.is_empty(), "Expected empty batch for random topic, got: {:?}", batch);
 
 	let res = tokio::time::timeout(
@@ -191,7 +193,7 @@ async fn check_submitted(
 	mut subscription: Subscription,
 ) {
 	while !expected.is_empty() {
-		let StatementEvent::NewStatements(result) =
+		let StatementEvent::NewStatements { statements: result, .. } =
 			subscription.next::<StatementEvent>().await.expect("Bytes").expect("Success").0;
 		if let Some(num_existing) = _num_existing {
 			assert_eq!(
@@ -289,7 +291,7 @@ async fn send_in_chunks_single_small_statement() {
 	let statement = vec![1u8, 2, 3];
 	send_in_chunks(vec![statement.clone()], sender).await;
 
-	let StatementEvent::NewStatements(bytes) =
+	let StatementEvent::NewStatements { statements: bytes, .. } =
 		receiver.try_recv().expect("Should receive one chunk");
 	assert_eq!(bytes.len(), 1);
 	assert_eq!(bytes[0].0, statement);
@@ -302,7 +304,7 @@ async fn send_in_chunks_multiple_small_statements_fit_in_one_chunk() {
 	let statements: Vec<Vec<u8>> = (0..10).map(|i| vec![i; 100]).collect();
 	send_in_chunks(statements.clone(), sender).await;
 
-	let StatementEvent::NewStatements(bytes) =
+	let StatementEvent::NewStatements { statements: bytes, .. } =
 		receiver.try_recv().expect("Should receive one chunk");
 	assert_eq!(bytes.len(), 10);
 	for (i, b) in bytes.iter().enumerate() {
@@ -321,7 +323,7 @@ async fn send_in_chunks_splits_large_statements() {
 	send_in_chunks(statements.clone(), sender).await;
 
 	let mut all_received = Vec::new();
-	while let Ok(StatementEvent::NewStatements(bytes)) = receiver.try_recv() {
+	while let Ok(StatementEvent::NewStatements { statements: bytes, .. }) = receiver.try_recv() {
 		// Each chunk's total JSON estimate must not exceed MAX_CHUNK_BYTES_LIMIT
 		let json_size: usize = bytes.iter().map(|b| b.0.len() * 2).sum();
 		assert!(
@@ -359,7 +361,7 @@ async fn send_in_chunks_oversized_statement_between_normal_ones() {
 	send_in_chunks(vec![small1.clone(), oversized, small2.clone()], sender).await;
 
 	// The oversized statement is skipped; small1 and small2 are sent together in one chunk.
-	let StatementEvent::NewStatements(bytes) =
+	let StatementEvent::NewStatements { statements: bytes, .. } =
 		receiver.try_recv().expect("Should receive chunk with both small statements");
 	assert_eq!(bytes.len(), 2);
 	assert_eq!(bytes[0].0, small1);
@@ -379,7 +381,7 @@ async fn send_in_chunks_boundary_exact_fit() {
 	send_in_chunks(vec![s1.clone(), s2.clone(), s3.clone()], sender).await;
 
 	let mut chunks = Vec::new();
-	while let Ok(StatementEvent::NewStatements(bytes)) = receiver.try_recv() {
+	while let Ok(StatementEvent::NewStatements { statements: bytes, .. }) = receiver.try_recv() {
 		chunks.push(bytes);
 	}
 
