@@ -58,15 +58,13 @@ use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
 use sp_blockchain::HeaderBackend;
-use sp_core::{
-	crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Bytes, Decode, Encode,
-};
+use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, BlockHash, Channel, DecryptionKey, FilterDecision, Hash, InvalidReason,
 	OptimizedTopicFilter, Proof, RejectionReason, Result, SignatureVerificationResult, Statement,
-	StatementAllowance, SubmitResult, Topic,
+	StatementAllowance, StatementEvent, SubmitResult, Topic,
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
@@ -1465,7 +1463,8 @@ impl StatementStoreSubscriptionApi for Store {
 	fn subscribe_statement(
 		&self,
 		topic_filter: OptimizedTopicFilter,
-	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<Bytes>, SubscriptionStatementsStream)> {
+	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>
+	{
 		// Keep the index read lock until after we have subscribed to avoid missing statements.
 		let mut existing_statements = Vec::new();
 		let index = self.index.read();
@@ -1478,6 +1477,14 @@ impl StatementStoreSubscriptionApi for Store {
 		)?;
 		let (subscription_sender, subscription_stream) =
 			self.subscription_manager.subscribe(topic_filter);
+		if existing_statements.is_empty() {
+			subscription_sender
+				.send_blocking(StatementEvent::NewStatements {
+					statements: vec![],
+					remaining: Some(0),
+				})
+				.ok();
+		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
 	}
 }
