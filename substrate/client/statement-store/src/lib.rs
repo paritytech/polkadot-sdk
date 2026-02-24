@@ -103,11 +103,12 @@ const MAX_EXPIRY_TIME_PER_ITERATION: Duration = Duration::from_millis(100);
 /// Number of subscription filter worker tasks.
 const NUM_FILTER_WORKERS: usize = 1;
 
-const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
+const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(29);
 
-// Period between checking for expired statements. Different from maintenance period to avoid
-// keeping the lock for too long for maintenance tasks.
-const CHECK_EXPIRATION_PERIOD: std::time::Duration = std::time::Duration::from_secs(33);
+// Period between enforcing limits (checking for expired statements and making sure statements stay
+// within allowances). Different from maintenance period to avoid keeping the lock for too long for
+// maintenance tasks.
+const ENFORCE_LIMITS_PERIOD: std::time::Duration = std::time::Duration::from_secs(31);
 
 mod col {
 	pub const META: u8 = 0;
@@ -152,6 +153,20 @@ struct StatementsForAccount {
 	channels: HashMap<Channel, ChannelEntry>,
 	// Sum of all `Data` field sizes.
 	data_size: usize,
+}
+
+impl StatementsForAccount {
+	/// Returns an iterator over statements that have expired by `current_time`.
+	fn expired_by_iter(
+		&self,
+		current_time: u64,
+	) -> impl Iterator<Item = (&PriorityKey, &(Option<Channel>, usize))> {
+		let range = PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..PriorityKey {
+			hash: Hash::default(),
+			expiry: Expiry(current_time << 32),
+		};
+		self.by_priority.range(range)
+	}
 }
 
 /// Store configuration
@@ -611,11 +626,11 @@ impl Store {
 			Some("statement-store"),
 			Box::pin(async move {
 				let mut maintenance_interval = tokio::time::interval(MAINTENANCE_PERIOD);
-				let mut check_expiration_interval = tokio::time::interval(CHECK_EXPIRATION_PERIOD);
+				let mut enforce_limits_interval = tokio::time::interval(ENFORCE_LIMITS_PERIOD);
 				loop {
 					futures::select! {
 						_ = maintenance_interval.tick().fuse() => {worker_store.maintain();}
-						_ = check_expiration_interval.tick().fuse() => {worker_store.check_expiration();}
+						_ = enforce_limits_interval.tick().fuse() => {worker_store.enforce_limits();}
 					}
 				}
 			}),
@@ -797,27 +812,100 @@ impl Store {
 		Ok(result)
 	}
 
-	// Checks for expired statements and marks them as expired in the index.
+	// Collects expired and over-allowance statement hashes for a single account.
+	fn collect_evictions(
+		&self,
+		account: &AccountId,
+		account_rec: &StatementsForAccount,
+		current_time: u64,
+	) -> Vec<Hash> {
+		let mut to_evict = Vec::new();
+		let mut expired_count = 0usize;
+		let mut expired_size = 0usize;
+		for (key, (_, len)) in account_rec.expired_by_iter(current_time) {
+			to_evict.push(key.hash);
+			expired_count += 1;
+			expired_size += len;
+		}
+
+		// Enforce allowances for remaining (non-expired) statements
+		let allowance = match (self.read_allowance_fn)(account, None) {
+			Ok(Some(allowance)) => allowance,
+			Ok(None) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"No allowance found for account {:?}, treating as zero allowance",
+					HexDisplay::from(account)
+				);
+				StatementAllowance { max_count: 0, max_size: 0 }
+			},
+			Err(e) => {
+				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+				// Skip allowance enforcement for this account on error
+				return to_evict;
+			},
+		};
+
+		// Calculate remaining count and size after expiring statements
+		let mut remaining_count = account_rec.by_priority.len() - expired_count;
+		let mut remaining_size = account_rec.data_size - expired_size;
+
+		// Evict lowest priority statements that exceed allowance
+		if remaining_count > allowance.max_count as usize ||
+			remaining_size > allowance.max_size as usize
+		{
+			log::debug!(
+				target: LOG_TARGET,
+				"Account {:?} exceeds allowance: count={}/{}, size={}/{}",
+				HexDisplay::from(account),
+				remaining_count,
+				allowance.max_count,
+				remaining_size,
+				allowance.max_size
+			);
+
+			// Skip expired statements (they're at the beginning due to BTreeMap ordering)
+			for (key, (_, len)) in account_rec.by_priority.iter().skip(expired_count) {
+				if remaining_count <= allowance.max_count as usize &&
+					remaining_size <= allowance.max_size as usize
+				{
+					break;
+				}
+				to_evict.push(key.hash);
+				remaining_count -= 1;
+				remaining_size -= len;
+				log::debug!(
+					target: LOG_TARGET,
+					"Evicting statement {:?} due to allowance enforcement",
+					HexDisplay::from(&key.hash)
+				);
+			}
+		}
+
+		to_evict
+	}
+
+	// Checks for expired statements and enforces allowances, marking violating statements
+	// as expired in the index.
 	//
-	// This function performs incremental expiration checking to avoid blocking the store
-	// for too long. It processes accounts in batches and stops when any of these limits
-	// are reached:
-	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire
+	// This function performs incremental checking to avoid blocking the store for too long.
+	// It processes accounts in batches and stops when any of these limits are reached:
+	// - `MAX_EXPIRY_STATEMENTS_PER_ITERATION` statements found to expire/evict
 	// - `MAX_EXPIRY_ACCOUNTS_PER_ITERATION` accounts checked
 	// - `MAX_EXPIRY_TIME_MS_PER_ITERATION` milliseconds elapsed
 	//
 	// The function maintains a list of accounts to check (`accounts_to_check_for_expiry_stmts`).
 	// When this list is empty, it repopulates it with all current accounts and returns early,
-	// deferring the actual expiration check to the next call. This ensures the expiration
-	// process eventually covers all accounts across multiple invocations.
+	// deferring the actual check to the next call. This ensures the process eventually covers
+	// all accounts across multiple invocations.
 	//
 	// Statements are considered expired when their priority (which encodes the expiration
 	// timestamp in the upper 32 bits) is less than the current timestamp.
-	fn check_expiration(&self) {
+	fn enforce_limits(&self) {
 		let _start_check_expiration_timer = self.metrics.start_check_expiration_timer();
 		let current_time = self.timestamp();
 
-		let (needs_expiry, num_accounts_checked) = {
+		let (to_evict, num_accounts_checked) = {
 			let index = self.index.upgradable_read();
 			if index.accounts_to_check_for_expiry_stmts.is_empty() {
 				let existing_accounts = index.accounts.keys().cloned().collect::<Vec<_>>();
@@ -826,28 +914,17 @@ impl Store {
 				return;
 			}
 
-			let mut needs_expiry = Vec::new();
+			let mut to_evict = Vec::new();
 			let mut num_accounts_checked = 0;
 			let start = Instant::now();
 
 			for account in index.accounts_to_check_for_expiry_stmts.iter().rev() {
 				num_accounts_checked += 1;
 				if let Some(account_rec) = index.accounts.get(account) {
-					needs_expiry.extend(
-						account_rec
-							.by_priority
-							.range(
-								PriorityKey { hash: Hash::default(), expiry: Expiry(0) }..
-									PriorityKey {
-										hash: Hash::default(),
-										expiry: Expiry(current_time << 32),
-									},
-							)
-							.map(|key| key.0.hash),
-					);
+					to_evict.extend(self.collect_evictions(account, account_rec, current_time));
 				}
 
-				if needs_expiry.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
+				if to_evict.len() >= MAX_EXPIRY_STATEMENTS_PER_ITERATION ||
 					num_accounts_checked >= MAX_EXPIRY_ACCOUNTS_PER_ITERATION ||
 					start.elapsed() >= MAX_EXPIRY_TIME_PER_ITERATION
 				{
@@ -855,12 +932,12 @@ impl Store {
 				}
 			}
 
-			(needs_expiry, num_accounts_checked)
+			(to_evict, num_accounts_checked)
 		};
 
 		let mut expired = 0;
 
-		for hash in needs_expiry {
+		for hash in to_evict {
 			if let Err(e) = self.remove(&hash) {
 				log::debug!(
 					target: LOG_TARGET,
@@ -1444,6 +1521,8 @@ mod tests {
 			let account_bytes = &key.0[21..53];
 			let account_id: u64 = u64::from_le_bytes(account_bytes[0..8].try_into().unwrap());
 			let allowance = match account_id {
+				// Account 0 has no allowance (used to test eviction of all statements)
+				0 => return Ok(None),
 				1 => StatementAllowance::new(1, 1000),
 				2 => StatementAllowance::new(2, 1000),
 				3 => StatementAllowance::new(3, 1000),
@@ -1658,7 +1737,7 @@ mod tests {
 		let (store, _temp) = test_store();
 		let statement0 = signed_statement(0);
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
-		let unsigned = statement(0, 1, None, 0);
+		let unsigned = statement(1, 1, None, 0);
 		assert_eq!(store.submit(unsigned, StatementSource::Network), SubmitResult::New);
 	}
 
@@ -2255,7 +2334,7 @@ mod tests {
 		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// First call to check_expiration should populate the list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Now accounts_to_check_for_expiry_stmts should contain all 3 accounts
 		let accounts = store.index.read().accounts_to_check_for_expiry_stmts.clone();
@@ -2294,14 +2373,14 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 2);
 
 		// First check_expiration populates the account list
-		store.check_expiration();
+		store.enforce_limits();
 		assert!(!store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 
 		// Advance time past the expiry of the first statement
 		store.set_time(1000);
 
 		// Second check_expiration should find and expire the statement
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Check the expired statement is now in the expired list
 		let index = store.index.read();
@@ -2338,7 +2417,7 @@ mod tests {
 		store.submit(stmt3, StatementSource::Network);
 
 		// First call populates the list
-		store.check_expiration();
+		store.enforce_limits();
 		assert_eq!(
 			store.index.read().accounts_to_check_for_expiry_stmts.len(),
 			3,
@@ -2349,7 +2428,7 @@ mod tests {
 		store.set_time(300);
 
 		// Second call should check accounts, expire statements, and remove checked accounts
-		store.check_expiration();
+		store.enforce_limits();
 
 		// The list should now be empty (all accounts checked and removed)
 		assert!(
@@ -2376,11 +2455,11 @@ mod tests {
 		}
 
 		// First call populates the list
-		store.check_expiration();
+		store.enforce_limits();
 		assert_eq!(store.index.read().accounts_to_check_for_expiry_stmts.len(), 5);
 
 		// Second call checks accounts and truncates the list (even though nothing expires)
-		store.check_expiration();
+		store.enforce_limits();
 
 		// The list should now be empty - accounts are removed after being checked
 		assert!(
@@ -2419,11 +2498,11 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 3);
 
 		// First check_expiration populates the account list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time to 250 (stmt1 should expire since 250 > 200)
 		store.set_time(250);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2434,11 +2513,11 @@ mod tests {
 		}
 
 		// Repopulate the account list for next check
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time to 400 (stmt2 should also expire since 400 > 300)
 		store.set_time(400);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2449,9 +2528,9 @@ mod tests {
 		}
 
 		// Repopulate and check again at time 600 (stmt3 should expire since 600 > 500)
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(600);
-		store.check_expiration();
+		store.enforce_limits();
 
 		{
 			let index = store.index.read();
@@ -2474,10 +2553,10 @@ mod tests {
 		store.submit(stmt, StatementSource::Network);
 
 		// Populate the account list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Check expiration - nothing should happen
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Statement should still be there
 		let index = store.index.read();
@@ -2506,9 +2585,9 @@ mod tests {
 		}
 
 		// Populate and then expire
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify account is removed after its only statement expires
 		{
@@ -2543,9 +2622,9 @@ mod tests {
 		}
 
 		// Populate and then expire
-		store.check_expiration();
+		store.enforce_limits();
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify indexes are cleared
 		{
@@ -2570,10 +2649,10 @@ mod tests {
 		store.set_time(1000);
 
 		// With no statements, check_expiration should not panic
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Second call should also work (empty repopulation)
-		store.check_expiration();
+		store.enforce_limits();
 
 		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 		assert_eq!(store.index.read().entries.len(), 0);
@@ -2597,11 +2676,11 @@ mod tests {
 		assert_eq!(store.index.read().entries.len(), 1);
 
 		// Populate the accounts list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time past the expiration timestamp
 		store.set_time(2000);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Statement SHOULD be expired because check_expiration now compares
 		// Expiry(2000 << 32) against Expiry(1001 << 32 | 1), and
@@ -2631,11 +2710,11 @@ mod tests {
 		assert!(db_entry.is_some(), "Statement should be in col::STATEMENTS after submit");
 
 		// Populate the accounts list
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Advance time past expiry and run check_expiration
 		store.set_time(300);
-		store.check_expiration();
+		store.enforce_limits();
 
 		// Verify in-memory state is updated correctly
 		{
@@ -2658,5 +2737,121 @@ mod tests {
 
 		let expired_entry = store.db.get(col::EXPIRED, &hash).unwrap();
 		assert!(expired_entry.is_some(), "Expiration info should be written to col::EXPIRED");
+	}
+
+	#[test]
+	fn enforce_allowances_evicts_excess_statements() {
+		// This test verifies that check_expiration correctly evicts statements
+		// when statements exceed the current allowance. We directly insert into
+		// the index (bypassing submit's validation) to simulate statements that
+		// existed before allowances were reduced.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 4 has allowance (4 statements, 1000 bytes) from TestClient
+		let s1 = statement(4, 10, None, 100); // lowest priority - will be evicted
+		let s2 = statement(4, 20, None, 100);
+		let s3 = statement(4, 30, None, 100);
+		let s4 = statement(4, 40, None, 100);
+		let s5 = statement(4, 50, None, 100); // highest priority
+
+		let h1 = s1.hash();
+		let h5 = s5.hash();
+
+		// Directly insert into index, bypassing `submit`'s allowance check
+		{
+			let mut index = store.index.write();
+			for s in [&s1, &s2, &s3, &s4, &s5] {
+				index.insert_new(s.hash(), account(4), s, false);
+			}
+		}
+
+		// Verify initial state - all 5 should be present
+		assert_eq!(store.index.read().entries.len(), 5);
+		assert_eq!(store.index.read().total_size, 500);
+
+		// Run check_expiration which handles both expiration and allowance enforcement
+		// First call populates the accounts list, second call processes them
+		// Since account 4 has max_count=4, one statement should be evicted
+		store.enforce_limits();
+		store.enforce_limits();
+
+		// Should evict the lowest priority statement (s1)
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 4, "Should have 4 statements after eviction");
+		assert!(!index.entries.contains_key(&h1), "Lowest priority should be evicted");
+		assert!(index.entries.contains_key(&h5), "Highest priority should remain");
+		assert_eq!(index.total_size, 400);
+
+		// Evicted statement should be marked as expired
+		assert!(index.expired.contains_key(&h1));
+	}
+
+	#[test]
+	fn enforce_allowances_evicts_all_when_no_allowance_found() {
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 0 has NO allowance in TestClient
+		let s1 = statement(0, 10, None, 100);
+		let s2 = statement(0, 20, None, 150);
+
+		let h1 = s1.hash();
+		let h2 = s2.hash();
+
+		// Directly insert statements for account with no allowance
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(0), &s1, false);
+			index.insert_new(h2, account(0), &s2, false);
+		}
+
+		assert_eq!(store.index.read().entries.len(), 2);
+
+		// Run check_expiration - should evict ALL statements since no allowance exists
+		// First call populates the accounts list, second call processes them
+		store.enforce_limits();
+		store.enforce_limits();
+
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
+		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
+		assert!(index.expired.contains_key(&h1));
+		assert!(index.expired.contains_key(&h2));
+	}
+
+	#[test]
+	fn enforce_allowances_based_on_size() {
+		// This test verifies that check_expiration evicts based on size limits.
+		let (mut store, _temp) = test_store();
+		store.set_time(0);
+
+		// Account 2 has allowance (2, 1000) from TestClient
+		// Insert 2 statements that together exceed 1000 bytes
+		let s1 = statement(2, 10, None, 600); // lowest priority
+		let s2 = statement(2, 20, None, 600); // higher priority
+
+		let h1 = s1.hash();
+		let h2 = s2.hash();
+
+		// Directly insert both statements (total 1200 bytes > 1000 limit)
+		{
+			let mut index = store.index.write();
+			index.insert_new(h1, account(2), &s1, false);
+			index.insert_new(h2, account(2), &s2, false);
+		}
+
+		assert_eq!(store.index.read().total_size, 1200);
+
+		// Run check_expiration - should evict s1 to get under 1000 bytes
+		// First call populates the accounts list, second call processes them
+		store.enforce_limits();
+		store.enforce_limits();
+
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 1);
+		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
+		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
+		assert_eq!(index.total_size, 600);
 	}
 }
