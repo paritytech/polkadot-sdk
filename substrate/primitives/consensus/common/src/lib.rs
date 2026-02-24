@@ -82,6 +82,9 @@ pub enum BlockOrigin {
 	/// Gap sync occurs after warp sync completes, downloading blocks between genesis
 	/// and the warp sync target to fill in the historical chain.
 	GapSync,
+	/// Block imported from a state sync snapshot; is_verified indicates whether the 
+	/// snapshot has been cryptographically verified.
+	StateSync { is_verified: bool },
 }
 
 /// Environment for a Consensus instance.
