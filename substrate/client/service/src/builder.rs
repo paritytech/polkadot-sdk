@@ -144,26 +144,33 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts(config, telemetry, executor).map(|parts| parts.0)
+	new_full_parts(config, telemetry, executor, pruning_filters).map(|parts| parts.0)
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	enable_import_proof_recording: bool,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	let backend = new_db_backend(config.db_config())?;
+	let mut db_config = config.db_config();
+	db_config.pruning_filters = pruning_filters;
+	let backend = new_db_backend(db_config)?;
 
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
@@ -181,17 +188,22 @@ where
 		enable_import_proof_recording,
 	)
 }
+
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false)
+	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
 }
 
 /// Create the initial parts of a full node.
@@ -375,7 +387,10 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.build()
 }
 
-/// Create an instance of default DB-backend backend.
+/// Create an instance of the default DB-backend.
+///
+/// Pruning filters can be configured via `settings.pruning_filters`.
+/// If any filter returns `true` for a block's justifications, the block will not be pruned.
 pub fn new_db_backend<Block>(
 	settings: DatabaseSettings,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
@@ -1058,6 +1073,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		config.blocks_pruning.is_archive(),
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1334,6 +1350,9 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
+	/// block history.
+	pub archive_blocks: bool,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1366,6 +1385,7 @@ where
 		spawn_handle,
 		metrics_registry,
 		metrics,
+		archive_blocks,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1386,6 +1406,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		archive_blocks,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1453,6 +1474,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	archive_blocks: bool,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1522,6 +1544,7 @@ where
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		archive_blocks,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

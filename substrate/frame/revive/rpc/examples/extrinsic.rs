@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use pallet_revive_eth_rpc::subxt_client::{
-	self, revive::calls::types::InstantiateWithCode, SrcChainConfig,
+	self, SrcChainConfig, revive::calls::types::InstantiateWithCode,
 };
 use sp_weights::Weight;
 use subxt::OnlineClient;

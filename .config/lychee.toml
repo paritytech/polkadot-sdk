@@ -30,6 +30,7 @@ exclude = [
 	"http://visitme/",
 	"https://visitme/",
 	# TODO meta issue: <https://github.com/paritytech/polkadot-sdk/issues/134>
+	"http://try-runtime.polkadot.io:443",
 	"https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
 	"https://github.com/ipfs/js-ipfs-bitswap/blob/",

@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
-	OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
+	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
 };
 use cumulus_test_service::runtime::{Block, Hash, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
@@ -241,6 +241,15 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		&self,
 		_: PHash,
 		_: &Vec<Vec<u8>>,
+	) -> RelayChainResult<sc_client_api::StorageProof> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn prove_child_read(
+		&self,
+		_: PHash,
+		_: &ChildInfo,
+		_: &[Vec<u8>],
 	) -> RelayChainResult<sc_client_api::StorageProof> {
 		unimplemented!("Not needed for test")
 	}

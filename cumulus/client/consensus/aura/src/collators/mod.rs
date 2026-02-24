@@ -25,7 +25,9 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT};
+use cumulus_primitives_core::{
+	relay_chain::Header as RelayHeader, BlockT, KeyToIncludeInRelayProof, RelayProofRequest,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
@@ -271,21 +273,18 @@ where
 		.unwrap_or(false)
 }
 
-/// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
-/// we can build on.
+/// Use [`cumulus_client_consensus_common::find_parent_for_building`] to find the best parachain
+/// block to build on.
 ///
-/// Once a list of potential parents is retrieved, return the last one of the
-/// longest chain that passes `filter_parent`. If no parent matches the filter `included_block` is
-/// returned.
-///
-/// Returns `(included_block, parent)`.
+/// If the best parent does not pass `filter_parent`, falls back to building on the included
+/// block.
 async fn find_parent<Block>(
 	relay_parent: RelayHash,
 	para_id: ParaId,
 	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
 	filter_parent: impl Fn(&Block::Header) -> bool,
-) -> Option<(<Block as BlockT>::Header, consensus_common::PotentialParent<Block>)>
+) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
@@ -296,38 +295,34 @@ where
 			.await
 			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
 			.saturating_sub(1) as usize,
-		ignore_alternative_branches: true,
 	};
 
-	let potential_parents = cumulus_client_consensus_common::find_potential_parents::<Block>(
+	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		parent_search_params,
 		para_backend,
 		relay_client,
 	)
-	.await;
-
-	let mut potential_parents = match potential_parents {
+	.await
+	{
+		Ok(Some(result)) => result,
+		Ok(None) => return None,
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				?relay_parent,
 				err = ?e,
-				"Could not fetch potential parents to build upon"
+				"Could not find parent to build upon"
 			);
-
 			return None;
 		},
-		Ok(x) => x,
 	};
 
-	potential_parents.sort_by_key(|p| p.depth);
-
-	let included_block = potential_parents.iter().find(|x| x.depth == 0)?.clone();
-
-	match potential_parents.into_iter().rev().find(|parent| filter_parent(&parent.header)) {
-		Some(res) => Some((included_block.header, res)),
-		None => Some((included_block.header.clone(), included_block)),
+	// If the best parent doesn't pass the filter, fall back to the included block.
+	if !filter_parent(&result.best_parent_header) {
+		result.best_parent_header = result.included_header.clone();
 	}
+
+	Some(result)
 }
 
 #[cfg(test)]
@@ -668,6 +663,31 @@ mod tests {
 		// Should not send any message if authorities list is empty
 		assert_eq!(messages_recorder.lock().unwrap().len(), 0);
 	}
+}
+
+/// Fetches relay chain storage proof requests from the parachain runtime.
+///
+/// Queries the runtime API to determine which relay chain storage keys
+/// (both top-level and child trie keys) should be included in the relay chain state proof.
+///
+/// Falls back to an empty request if the runtime API call fails or is not implemented.
+pub(crate) fn get_relay_proof_request<Block, Client>(
+	client: &Client,
+	parent_hash: Block::Hash,
+) -> RelayProofRequest
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: KeyToIncludeInRelayProof<Block>,
+{
+	client.runtime_api().keys_to_prove(parent_hash).unwrap_or_else(|e| {
+		tracing::debug!(
+			target: crate::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay proof requests from runtime, using empty request"
+		);
+		Default::default()
+	})
 }
 
 /// Holds a relay parent and its descendants.

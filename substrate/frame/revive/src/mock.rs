@@ -22,7 +22,7 @@
 use frame_system::pallet_prelude::OriginFor;
 use sp_core::{H160, U256};
 
-use crate::{exec::Origin, pallet, DelegateInfo, ExecReturnValue};
+use crate::{DelegateInfo, ExecReturnValue, exec::Origin, pallet};
 
 /// A trait that provides hooks for mocking EVM contract calls and callers.
 /// This is useful for testing and simulating contract interactions within foundry forge tests.

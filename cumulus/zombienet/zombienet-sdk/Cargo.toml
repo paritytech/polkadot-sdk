@@ -36,3 +36,4 @@ rstest = { workspace = true }
 
 [features]
 zombie-ci = []
+generate-snapshots = []

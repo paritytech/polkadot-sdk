@@ -18,6 +18,7 @@
 
 use codec::Codec;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
+use cumulus_primitives_core::KeyToIncludeInRelayProof;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::{
 	app_crypto::{AppCrypto, AppPair, AppSignature, Pair},
@@ -53,6 +54,7 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	sp_api::ApiExt<Block>
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
+	+ KeyToIncludeInRelayProof<Block>
 	+ Sized
 where
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
@@ -68,7 +70,8 @@ impl<T, Block: BlockT, AuraId: AuraIdT> AuraRuntimeApi<Block, AuraId> for T
 where
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
-		+ AuraUnincludedSegmentApi<Block>,
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 }

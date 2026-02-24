@@ -56,7 +56,10 @@ use sp_core::crypto::Pair;
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Member};
+use sp_runtime::{
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, Member},
+	Saturating,
+};
 use sp_trie::{
 	proof_size_extension::{ProofSizeExt, RecordingProofSizeProvider},
 	recorder::IgnoredNodes,
@@ -139,7 +142,8 @@ where
 		+ RelayParentOffsetApi<Block>
 		+ AuraUnincludedSegmentApi<Block>
 		+ TargetBlockRate<Block>
-		+ BlockBuilder<Block>,
+		+ BlockBuilder<Block>
+		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -244,7 +248,7 @@ where
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
-			let Some((included_header, initial_parent)) = crate::collators::find_parent(
+			let Some(parent_search_result) = crate::collators::find_parent(
 				relay_parent,
 				para_id,
 				&*para_backend,
@@ -261,6 +265,12 @@ where
 			else {
 				continue;
 			};
+
+			let included_header = parent_search_result.included_header;
+			let initial_parent_hash = parent_search_result.best_parent_header.hash();
+			let initial_parent_header = parent_search_result.best_parent_header;
+			let unincluded_segment_len =
+				initial_parent_header.number().saturating_sub(*included_header.number());
 
 			let Ok(max_pov_size) = relay_chain_data_cache
 				.get_mut_relay_chain_data(relay_parent)
@@ -284,7 +294,7 @@ where
 			// on-chain data.
 			collator
 				.collator_service()
-				.check_block_status(initial_parent.hash, &initial_parent.header);
+				.check_block_status(initial_parent_hash, &initial_parent_header);
 
 			let Ok(relay_slot) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
@@ -296,14 +306,14 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent.hash) {
+			if let Ok(authorities) = para_client.runtime_api().authorities(initial_parent_hash) {
 				connection_helper.update::<P>(slot_info.slot, &authorities).await;
 			}
 
 			let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
 				slot_info.slot,
 				slot_info.timestamp,
-				initial_parent.hash,
+				initial_parent_hash,
 				&*para_client,
 				&keystore,
 			)
@@ -311,12 +321,12 @@ where
 			else {
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					unincluded_segment_len = initial_parent.depth,
+					?unincluded_segment_len,
 					relay_parent = ?relay_parent,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,
 					included_num = %included_header.number(),
-					initial_parent = ?initial_parent.hash,
+					initial_parent = ?initial_parent_hash,
 					slot = ?slot_info.slot,
 					"Not eligible to claim slot."
 				);
@@ -325,13 +335,13 @@ where
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
-				unincluded_segment_len = initial_parent.depth,
+				?unincluded_segment_len,
 				relay_parent = ?relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
 				included_hash = ?included_header_hash,
 				included_num = %included_header.number(),
-				initial_parent = ?initial_parent.hash,
+				initial_parent = ?initial_parent_hash,
 				slot = ?slot_info.slot,
 				"Claiming slot."
 			);
@@ -365,12 +375,12 @@ where
 			};
 
 			let number_of_blocks =
-				match para_client.runtime_api().target_block_rate(initial_parent.hash) {
+				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
 					Err(error) => {
 						tracing::debug!(
 							target: crate::LOG_TARGET,
-							block = ?initial_parent.hash,
+							block = ?initial_parent_hash,
 							?error,
 							"Failed to fetch `slot_schedule`, assuming one block per core"
 						);
@@ -405,8 +415,8 @@ where
 				"Core configuration",
 			);
 
-			let mut pov_parent_header = initial_parent.header;
-			let mut pov_parent_hash = initial_parent.hash;
+			let mut pov_parent_header = initial_parent_header;
+			let mut pov_parent_hash = initial_parent_hash;
 			let block_time = Duration::from_secs(6) / number_of_blocks;
 
 			for blocks_per_core in blocks_per_cores {
@@ -554,7 +564,7 @@ where
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block>,
+	Client::Api: AuraUnincludedSegmentApi<Block> + ApiExt<Block> + cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
 {
 	let core_start = Instant::now();
 
@@ -634,6 +644,9 @@ where
 			"Preparing to build block"
 		);
 
+		let relay_proof_request =
+			crate::collators::get_relay_proof_request::<Block, Client>(para_client, parent_hash);
+
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data_with_rp_offset(
 				relay_parent_hash,
@@ -641,6 +654,7 @@ where
 				parent_hash,
 				slot_claim.timestamp(),
 				Some(relay_parent_data.clone()),
+				relay_proof_request,
 				collator_peer_id,
 			)
 			.await
