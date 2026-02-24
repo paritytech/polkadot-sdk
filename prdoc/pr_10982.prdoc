@@ -8,3 +8,5 @@ doc:
 crates:
 - name: pallet-meta-tx
   bump: major
+- name: westend-runtime
+  bump: major
