@@ -30,7 +30,7 @@ use sp_core::{
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
 	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
-	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	DeltaKeyOp, IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
@@ -466,7 +466,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn compute_pov_size_for_storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
@@ -477,7 +477,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 	fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {

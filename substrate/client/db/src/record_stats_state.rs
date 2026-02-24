@@ -26,7 +26,8 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
+	BackendTransaction, DeltaKeyOp, IterArgs, StorageIterator, StorageKey, StorageValue,
+	TrieBackend,
 };
 use sp_trie::MerkleValue;
 use std::sync::Arc;
@@ -203,7 +204,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 
 	fn compute_pov_size_for_storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state.compute_pov_size_for_storage_root(delta, state_version)
@@ -212,7 +213,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 	fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state

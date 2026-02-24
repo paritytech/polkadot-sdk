@@ -25,7 +25,7 @@ use sc_client_db::{DbHash, DbState, DbStateBuilder};
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_state_machine::Backend as StateBackend;
+use sp_state_machine::{Backend as StateBackend, DeltaKeyOp};
 use sp_storage::{ChildInfo, StateVersion};
 use sp_trie::{recorder::Recorder, PrefixedMemoryDB};
 use std::{
@@ -299,7 +299,7 @@ impl StorageCmd {
 
 				let trigger_changes = &changes[start_idx..end_idx];
 				let trigger_delta =
-					trigger_changes.iter().map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())));
+					trigger_changes.iter().map(|(key, _)| (key.as_ref(), DeltaKeyOp::Updated));
 
 				match child_info {
 					Some(info) => {

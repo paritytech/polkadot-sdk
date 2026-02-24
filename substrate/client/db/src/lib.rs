@@ -88,7 +88,7 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
+	BackendTransaction, ChildStorageCollection, DBValue, DeltaKeyOp, IndexOperation, IterArgs,
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, UsageInfo as StateUsageInfo,
 };
@@ -277,7 +277,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 
 	fn compute_pov_size_for_storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state.compute_pov_size_for_storage_root(delta, state_version)
@@ -286,7 +286,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	fn compute_pov_size_for_child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
 	) {
 		self.state
