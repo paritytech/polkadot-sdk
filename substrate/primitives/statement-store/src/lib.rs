@@ -160,7 +160,7 @@ pub fn statement_allowance_key(account_id: impl AsRef<[u8]>) -> Vec<u8> {
 #[cfg(feature = "std")]
 pub use store_api::{
 	Error, FilterDecision, InvalidReason, OptimizedTopicFilter, RejectionReason, Result,
-	StatementSource, StatementStore, SubmitResult, TopicFilter,
+	StatementEvent, StatementSource, StatementStore, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]
