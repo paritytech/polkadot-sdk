@@ -50,7 +50,11 @@ type CapturedSet = HashSet<u64, BuildNoHashHasher<u64>>;
 /// Base hash value can be ignored.
 pub type DeltaKeys<K> = HashMap<u64, K, BuildNoHashHasher<u64>>;
 
-pub type DefaultHashBuilder = foldhash::fast::FixedState;
+#[cfg(feature = "std")]
+pub type DefaultHashBuilder = foldhash::fast::RandomState;
+
+#[cfg(not(feature = "std"))]
+pub type DefaultHashBuilder = sp_trie::RandomState;
 
 /// Tracks storage key modifications with transaction support and incremental delta extraction.
 ///
