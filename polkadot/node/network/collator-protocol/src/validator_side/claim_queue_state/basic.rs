@@ -501,10 +501,8 @@ impl ClaimQueueState {
 	/// Returns `true` if there is a free spot in claim queue (free claim) for `para_id` at
 	/// `relay_parent` or if there is an existing claim for the provided candidate at
 	/// `relay_parent`.
-	///
-	/// Note: No longer used directly in validator_side after leaf-based refactoring,
-	/// but still used by PerLeafClaimQueueState (for validator_side_experimental).
-	pub(crate) fn has_or_can_claim_at(
+	#[cfg(test)]
+	pub(super) fn has_or_can_claim_at(
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,

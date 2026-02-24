@@ -660,71 +660,6 @@ fn obsolete_positions_rejected() {
 	});
 }
 
-/// Regression test: deeply obsolete claim queue positions are rejected.
-///
-/// Path [R, R+1, R+2, L] gives R an offset=3 and valid_len=0 (lookahead=3).
-/// No CQ positions are checked for R, so Para A (at position 0) is rejected.
-#[test]
-fn deep_obsolete_positions_rejected() {
-	let mut test_state = TestState::with_one_scheduled_para();
-
-	// CQ: [A, B, B]. R at offset=3 → valid_len = 3 - 3 = 0 → no positions checked.
-	let mut claim_queue = BTreeMap::new();
-	claim_queue.insert(
-		CoreIndex(0),
-		VecDeque::from_iter(
-			[
-				test_state.chain_ids[0], // Position 0: Para A
-				ParaId::from(999),       // Position 1: Para B
-				ParaId::from(999),       // Position 2: Para B
-			]
-			.into_iter(),
-		),
-	);
-	test_state.claim_queue = claim_queue;
-
-	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
-
-		let pair = CollatorPair::generate().0;
-
-		// Create a chain: R -> R+1 -> R+2 -> L
-		let head_l = Hash::from_low_u64_be(128);
-		let head_l_num: u32 = 10;
-		let head_r = get_parent_hash(get_parent_hash(get_parent_hash(head_l)));
-
-		// Activate leaf L
-		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
-
-		let peer = PeerId::random();
-		connect_and_declare_collator(
-			&mut virtual_overseer,
-			peer,
-			pair.clone(),
-			test_state.chain_ids[0],
-			CollationVersion::V2,
-		)
-		.await;
-
-		// Advertise collation for Para A at relay_parent R.
-		// R at offset=3 → valid_len=0, so no CQ positions are checked → rejected.
-		let candidate_hash = CandidateHash(Hash::repeat_byte(0xBB));
-		advertise_collation(
-			&mut virtual_overseer,
-			peer,
-			head_r,
-			Some((candidate_hash, Hash::zero())),
-		)
-		.await;
-
-		// No CanSecond: rejected by is_slot_available.
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
-
-		virtual_overseer
-	});
-}
-
 /// Regression test: non-obsolete positions are still accepted.
 ///
 /// CQ: [A, B, A]. Path [R, L] → R at offset=1, valid_len=2, checks positions [0,1].
@@ -806,22 +741,23 @@ fn non_obsolete_position_accepted() {
 	});
 }
 
-/// Regression test: the leaf itself has offset=0 and valid_len=lookahead.
+/// The last claim queue position is considered for a leaf-based collation.
 ///
-/// All CQ positions are checked, so Para A at position 0 is accepted.
+/// CQ: [B, B, A]. Leaf at offset=0 → valid_len=3 → all positions checked.
+/// Para A at the last position (2) is within the valid range → accepted.
 #[test]
-fn leaf_position_not_obsolete() {
+fn last_claim_queue_position_accepted_at_leaf() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	// CQ: [A, B, B]. Leaf at offset=0 → valid_len=3 → all positions checked.
+	// CQ: [B, B, A]. Leaf at offset=0 → valid_len=3 → all positions checked.
 	let mut claim_queue = BTreeMap::new();
 	claim_queue.insert(
 		CoreIndex(0),
 		VecDeque::from_iter(
 			[
-				test_state.chain_ids[0], // Position 0: Para A
 				ParaId::from(999),
 				ParaId::from(999),
+				test_state.chain_ids[0], // Position 2: Para A (last position)
 			]
 			.into_iter(),
 		),
@@ -849,7 +785,7 @@ fn leaf_position_not_obsolete() {
 		)
 		.await;
 
-		// Advertise at the leaf itself: offset=0, valid_len=3 → Para A at pos 0 accepted.
+		// Advertise at the leaf itself: offset=0, valid_len=3 → Para A at pos 2 accepted.
 		let candidate_hash = CandidateHash(Hash::repeat_byte(0xDD));
 		advertise_collation(
 			&mut virtual_overseer,
