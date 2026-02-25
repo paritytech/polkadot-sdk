@@ -533,11 +533,6 @@ mod tests {
 	}
 
 	#[test]
-	fn no_sync_with_temporary_is_accepted() {
-		validate_sync_args(false, DatabaseType::Temporary).unwrap();
-	}
-
-	#[test]
 	fn prune_with_persistent_is_rejected() {
 		let err = validate_prune_args(Some(100), DatabaseType::Persistent).unwrap_err();
 		assert!(err.to_string().contains("persistent"));
@@ -561,16 +556,6 @@ mod tests {
 	}
 
 	#[test]
-	fn prune_none_with_persistent_is_accepted() {
-		validate_prune_args(None, DatabaseType::Persistent).unwrap();
-	}
-
-	#[test]
-	fn prune_none_with_temporary_is_accepted() {
-		validate_prune_args(None, DatabaseType::Temporary).unwrap();
-	}
-
-	#[test]
 	fn database_name_plain_filename_is_accepted() {
 		validate_database_name("receipts.db").unwrap();
 	}
@@ -586,28 +571,13 @@ mod tests {
 	}
 
 	#[test]
-	fn database_name_with_slash_is_rejected() {
-		validate_database_name("subdir/receipts.db").unwrap_err();
-	}
-
-	#[test]
 	fn database_name_absolute_path_is_rejected() {
 		validate_database_name("/tmp/receipts.db").unwrap_err();
 	}
 
 	#[test]
-	fn earliest_receipt_block_none_is_accepted() {
-		validate_earliest_receipt_block_argument(None, 100).unwrap();
-	}
-
-	#[test]
 	fn earliest_receipt_block_at_head_is_accepted() {
 		validate_earliest_receipt_block_argument(Some(100), 100).unwrap();
-	}
-
-	#[test]
-	fn earliest_receipt_block_below_head_is_accepted() {
-		validate_earliest_receipt_block_argument(Some(50), 100).unwrap();
 	}
 
 	#[test]

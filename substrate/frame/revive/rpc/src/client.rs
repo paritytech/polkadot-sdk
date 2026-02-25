@@ -741,7 +741,7 @@ impl Client {
 		at: BlockNumberOrTag,
 		config: TracerType,
 	) -> Result<Vec<TransactionTrace>, ClientError> {
-		if self.receipt_provider.is_before_earliest_block(&at) {
+		if self.receipt_provider.is_before_effective_earliest_block(&at) {
 			return Ok(vec![]);
 		}
 

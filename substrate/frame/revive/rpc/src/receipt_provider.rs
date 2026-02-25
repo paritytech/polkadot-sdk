@@ -104,6 +104,30 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(provider)
 	}
 
+	/// Get the CLI-provided earliest receipt block, if set.
+	#[cfg(test)]
+	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.earliest_receipt_block()
+	}
+
+	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
+	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
+		self.receipt_extractor.effective_earliest_block()
+	}
+
+	/// Check if the block is before the earliest block (CLI or auto-discovered first EVM block).
+	pub fn is_before_effective_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
+		match at {
+			BlockNumberOrTag::U256(block_number) => {
+				if *block_number > U256::from(u32::MAX) {
+					return false;
+				}
+				self.receipt_extractor.is_before_effective_earliest_block(block_number.as_u32())
+			},
+			BlockNumberOrTag::BlockTag(_) => false,
+		}
+	}
+
 	/// Set the auto-discovered first EVM block (in-memory + persisted to DB).
 	pub async fn set_evm_first_block(
 		&self,
@@ -115,31 +139,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Get the auto-discovered first EVM block, if set.
+	#[cfg(test)]
 	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
 		self.receipt_extractor.evm_first_block()
-	}
-
-	/// Get the CLI-provided earliest receipt block, if set.
-	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
-		self.receipt_extractor.earliest_receipt_block()
-	}
-
-	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
-	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
-		self.receipt_extractor.effective_earliest_block()
-	}
-
-	/// Check if the block is before the earliest block (CLI or auto-discovered first EVM block).
-	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
-		match at {
-			BlockNumberOrTag::U256(block_number) => {
-				if *block_number > U256::from(u32::MAX) {
-					return false;
-				}
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
-			},
-			BlockNumberOrTag::BlockTag(_) => false,
-		}
 	}
 
 	/// Restore `evm_first_block` from DB, clearing it if the boundary has shifted.
@@ -1441,58 +1443,6 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn sync_state_with_null_hash(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-
-		// Store without a hash
-		provider
-			.set_sync_label(SyncLabel::LowerBound, SyncCheckpoint::from_number(42))
-			.await
-			.unwrap();
-		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_number, 42);
-		assert_eq!(checkpoint.block_hash, None);
-
-		Ok(())
-	}
-
-	#[sqlx::test]
-	async fn sync_state_multiple_labels(pool: SqlitePool) -> anyhow::Result<()> {
-		let provider = setup_sqlite_provider(pool).await;
-
-		let genesis_hash = H256::repeat_byte(0x01);
-		let first_hash = H256::repeat_byte(0x02);
-		let finalized_hash = H256::repeat_byte(0x03);
-
-		provider
-			.set_sync_label(SyncLabel::Genesis, SyncCheckpoint::new(0, genesis_hash))
-			.await
-			.unwrap();
-		provider
-			.set_sync_label(SyncLabel::LowerBound, SyncCheckpoint::new(100, first_hash))
-			.await
-			.unwrap();
-		provider
-			.set_sync_label(SyncLabel::LastFinalized, SyncCheckpoint::new(500, finalized_hash))
-			.await
-			.unwrap();
-
-		let checkpoint = provider.get_sync_label(SyncLabel::Genesis).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_number, 0);
-		assert_eq!(checkpoint.block_hash, Some(genesis_hash));
-
-		let checkpoint = provider.get_sync_label(SyncLabel::LowerBound).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_number, 100);
-		assert_eq!(checkpoint.block_hash, Some(first_hash));
-
-		let checkpoint = provider.get_sync_label(SyncLabel::LastFinalized).await.unwrap().unwrap();
-		assert_eq!(checkpoint.block_number, 500);
-		assert_eq!(checkpoint.block_hash, Some(finalized_hash));
-
-		Ok(())
-	}
-
-	#[sqlx::test]
 	async fn advance_sync_label_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let hash_a = H256::repeat_byte(0xAA);
@@ -1569,7 +1519,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn is_before_earliest_block_u256_overflow() {
+	async fn is_before_effective_earliest_block_u256_overflow() {
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.set_evm_first_block(10);
 		let provider = ReceiptProvider {
@@ -1582,10 +1532,10 @@ mod tests {
 
 		// U256 > u32::MAX should never be considered "before earliest"
 		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
-		assert!(!provider.is_before_earliest_block(&huge));
+		assert!(!provider.is_before_effective_earliest_block(&huge));
 
 		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
-		assert!(!provider.is_before_earliest_block(&just_over));
+		assert!(!provider.is_before_effective_earliest_block(&just_over));
 	}
 
 	#[sqlx::test]

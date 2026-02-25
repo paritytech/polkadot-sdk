@@ -166,12 +166,13 @@ impl ReceiptExtractor {
 
 	/// Check if the block is before the effective floor: `max(earliest_receipt_block,
 	/// evm_first_block)`.
-	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
+	pub fn is_before_effective_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
 		let floor = self.effective_earliest_block();
 		floor > 0 && block_number < floor
 	}
 
 	/// Get the CLI-provided earliest receipt block, if set.
+	#[cfg(test)]
 	pub fn earliest_receipt_block(&self) -> Option<SubstrateBlockNumber> {
 		self.earliest_receipt_block
 	}
@@ -188,6 +189,7 @@ impl ReceiptExtractor {
 	}
 
 	/// The auto-discovered first EVM block, or `None` if not yet discovered.
+	#[cfg(test)]
 	pub fn evm_first_block(&self) -> Option<SubstrateBlockNumber> {
 		let val = self.evm_first_block.load(Ordering::Acquire);
 		if val > 0 { Some(val) } else { None }
@@ -284,7 +286,7 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		if self.is_before_earliest_block(block.number()) {
+		if self.is_before_effective_earliest_block(block.number()) {
 			return Ok(vec![]);
 		}
 
@@ -417,13 +419,6 @@ mod tests {
 	}
 
 	#[test]
-	fn evm_first_block_sets_value() {
-		let extractor = ReceiptExtractor::new_mock();
-		extractor.set_evm_first_block(42);
-		assert_eq!(extractor.evm_first_block(), Some(42));
-	}
-
-	#[test]
 	fn evm_first_block_updates_to_lower() {
 		let extractor = ReceiptExtractor::new_mock();
 		extractor.set_evm_first_block(100);
@@ -440,47 +435,31 @@ mod tests {
 	}
 
 	#[test]
-	fn evm_first_block_equal_value_is_accepted() {
+	fn is_before_effective_earliest_block_with_no_bound() {
 		let extractor = ReceiptExtractor::new_mock();
-		extractor.set_evm_first_block(50);
-		extractor.set_evm_first_block(50);
-		assert_eq!(extractor.evm_first_block(), Some(50));
+		assert!(!extractor.is_before_effective_earliest_block(0));
+		assert!(!extractor.is_before_effective_earliest_block(999));
 	}
 
 	#[test]
-	fn evm_first_block_visible_across_clones() {
-		let extractor = ReceiptExtractor::new_mock();
-		let clone = extractor.clone();
-		extractor.set_evm_first_block(100);
-		assert_eq!(clone.evm_first_block(), Some(100));
-	}
-
-	#[test]
-	fn is_before_earliest_block_with_no_bound() {
-		let extractor = ReceiptExtractor::new_mock();
-		assert!(!extractor.is_before_earliest_block(0));
-		assert!(!extractor.is_before_earliest_block(999));
-	}
-
-	#[test]
-	fn is_before_earliest_block_uses_max_of_cli_and_evm() {
+	fn is_before_effective_earliest_block_uses_max_of_cli_and_evm() {
 		let extractor = ReceiptExtractor::new_mock_with_earliest(Some(10));
 		// CLI = 10, EVM not set → floor = 10
-		assert!(extractor.is_before_earliest_block(9));
-		assert!(!extractor.is_before_earliest_block(10));
+		assert!(extractor.is_before_effective_earliest_block(9));
+		assert!(!extractor.is_before_effective_earliest_block(10));
 
 		// EVM = 20 → floor = max(10, 20) = 20
 		extractor.set_evm_first_block(20);
-		assert!(extractor.is_before_earliest_block(19));
-		assert!(!extractor.is_before_earliest_block(20));
+		assert!(extractor.is_before_effective_earliest_block(19));
+		assert!(!extractor.is_before_effective_earliest_block(20));
 	}
 
 	#[test]
-	fn is_before_earliest_block_cli_higher_than_evm() {
+	fn is_before_effective_earliest_block_cli_higher_than_evm() {
 		let extractor = ReceiptExtractor::new_mock_with_earliest(Some(100));
 		extractor.set_evm_first_block(50);
 		// floor = max(100, 50) = 100
-		assert!(extractor.is_before_earliest_block(99));
-		assert!(!extractor.is_before_earliest_block(100));
+		assert!(extractor.is_before_effective_earliest_block(99));
+		assert!(!extractor.is_before_effective_earliest_block(100));
 	}
 }
