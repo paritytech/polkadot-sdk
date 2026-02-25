@@ -67,7 +67,7 @@ path = "src/bin/prepare-worker.rs"
 
 [dependencies]
 color-eyre = { workspace = true }
-tikv-jemallocator = { optional = true, features = ["unprefixed_malloc_on_supported_platforms"], workspace = true }
+polkadot-jemalloc-shim = { workspace = true }
 
 # Crates in our workspace, defined as dependencies so we can pass them feature flags.
 polkadot-cli = { features = ["rococo-native", "westend-native"], workspace = true, default-features = true }
@@ -80,7 +80,7 @@ polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-core-pvf-execute-worker = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tikv-jemallocator = { workspace = true, features = ["unprefixed_malloc_on_supported_platforms"] }
+polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -99,13 +99,7 @@ try-runtime = ["polkadot-cli/try-runtime"]
 fast-runtime = ["polkadot-cli/fast-runtime"]
 runtime-metrics = ["polkadot-cli/runtime-metrics"]
 pyroscope = ["polkadot-cli/pyroscope"]
-jemalloc-allocator = [
-	"dep:tikv-jemallocator",
-	"polkadot-cli/jemalloc-allocator",
-	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
-	"polkadot-node-core-pvf/jemalloc-allocator",
-	"polkadot-overseer/jemalloc-allocator",
-]
+jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
 
 # Generate the metadata hash needed for CheckMetadataHash
 # in the builtin test runtimes (westend and rococo).

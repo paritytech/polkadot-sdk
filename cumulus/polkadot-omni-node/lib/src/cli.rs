@@ -218,10 +218,16 @@ pub struct Cli<Config: CliConfig> {
 
 	/// Enable the statement store.
 	///
-	/// The statement store is a store for statements validated using the runtime API
-	/// `validate_statement`. It should be enabled for chains that provide this runtime API.
+	/// The statement store reads the storage of the chain to determine if users are allowed to
+	/// store statements or not.
 	#[arg(long)]
 	pub enable_statement_store: bool,
+
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = 1)]
+	pub statement_network_workers: usize,
 
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
@@ -268,6 +274,7 @@ impl<Config: CliConfig> Cli<Config> {
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			enable_statement_store: self.enable_statement_store,
+			statement_network_workers: self.statement_network_workers,
 			storage_monitor: self.storage_monitor.clone(),
 		}
 	}

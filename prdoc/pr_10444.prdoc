@@ -1,0 +1,36 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Improve `charge_transaction_payment benchmark` ergonomics
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a `setup_benchmark_environment()` hook to allow runtimes to configure
+      required state before running the benchmark (e.g., setting block author for
+      fee distribution). Also fixes `amount_to_endow` calculation to use actual
+      computed fee and ensure it meets the existential deposit.
+
+crates:
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch

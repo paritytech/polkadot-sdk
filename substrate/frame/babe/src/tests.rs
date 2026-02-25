@@ -494,7 +494,7 @@ fn report_equivocation_current_session_works() {
 		// check that the balances of all other validators are left intact.
 		for validator in &validators {
 			if *validator == offending_validator_id {
-				continue
+				continue;
 			}
 
 			assert_eq!(Balances::total_balance(validator), 10_000_000);
