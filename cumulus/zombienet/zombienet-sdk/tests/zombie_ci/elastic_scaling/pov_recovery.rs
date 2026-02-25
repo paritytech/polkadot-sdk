@@ -165,8 +165,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						.with_limit_cpu(2)
 						.with_limit_memory("4G")
 				})
-				.with_collator(|n| {
-					n.with_name("recovery-target").validator(false).with_args(vec![
+				.with_fullnode(|n| {
+					n.with_name("recovery-target").with_args(vec![
 						("-lparachain::availability=trace,sync=debug,parachain=debug,cumulus-pov-recovery=debug,cumulus-consensus=debug").into(),
 						("--disable-block-announcements").into(),
 						("--in-peers", "0").into(),

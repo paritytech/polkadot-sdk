@@ -397,7 +397,7 @@ where
 				.map(|_| {
 					// We distribute the left over blocks across the cores.
 					raw_blocks_per_core +
-						if left_over_blocks > 1 {
+						if left_over_blocks > 0 {
 							left_over_blocks -= 1;
 							1
 						} else {
