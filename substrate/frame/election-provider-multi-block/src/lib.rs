@@ -751,7 +751,20 @@ pub mod pallet {
 				weight_meter.remaining()
 			);
 			if weight_meter.can_consume(combined_weight) {
-				combined_exec(weight_meter);
+				use cumulus_primitives_storage_weight_reclaim::StorageWeightReclaimer;
+				let mut reclaimer = StorageWeightReclaimer::new(weight_meter);
+				// pass a dummy weight meter here, as we no longer want it to be consumed.
+				combined_exec(&mut WeightMeter::new());
+				// and consume it here.
+				weight_meter.consume(combined_weight);
+				// then try and reclaim what you can.
+				let _reclaimed = reclaimer.reclaim_with_meter(weight_meter).defensive();
+				crate::log!(
+					debug,
+					" weight left post refund: {:?}, reclaimed: {:?}",
+					weight_meter.remaining().proof_size(),
+					_reclaimed
+				);
 			} else {
 				Self::deposit_event(Event::UnexpectedPhaseTransitionOutOfWeight {
 					from: current_phase,
