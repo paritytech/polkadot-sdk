@@ -1,0 +1,12 @@
+title: 'Add regression test for #6384'
+doc:
+- audience: Node Dev
+  description: |-
+    Resolves https://github.com/paritytech/polkadot-sdk/issues/6397
+
+    This PR adds comprehensive regression tests to ensure the coretime scheduler works correctly with under-assigned cores (cores that don't have the full 57600 parts assigned). The tests validate the behavior when schedules are split across multiple messages and only partial assignments are received.
+
+    Polkadot Address: 121HJWZtD13GJQPD82oEj3gSeHqsRYm1mFgRALu4L96kfPD1
+crates:
+- name: polkadot-runtime-parachains
+  bump: minor
