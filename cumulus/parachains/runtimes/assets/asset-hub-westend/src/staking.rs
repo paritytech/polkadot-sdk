@@ -329,8 +329,10 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainSessionKeys = RelayChainSessionKeys;
 	type Balance = Balance;
 	// Hardcoded anti-spam threshold: 10k WND active bond to set session keys.
-	// Prevents unbounded relay chain storage growth via bond-validate-setkeys-chill loops.
-	type MinSetKeysBond = ConstU128<{ 10_000 * UNITS }>;
+	// Prevents unbounded relay chain storage growth via bond-validate-set_keys-chill loops.
+	// For a testnet like Westend AH though, we just prioritize ease of testing so we set it
+	// ridiculously low. On Polkadot, this should be set to a more meaningful value.
+	type MinSetKeysBond = ConstU128<{ 10 * UNITS }>;
 	// | Key                 | Crypto  | Public Key | Signature |
 	// |---------------------|---------|------------|-----------|
 	// | grandpa             | Ed25519 | 32 bytes   | 64 bytes  |
