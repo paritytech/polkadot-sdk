@@ -51,7 +51,10 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	wait_for_runtime_upgrade(&collator_client).await?;
 
 	let slot_duration = get_slot_duration(&collator_client).await?;
-	assert_ne!(initial_slot_duration, slot_duration, "Slot duration should have changed between the runtime upgrades");
+	assert_ne!(
+		initial_slot_duration, slot_duration,
+		"Slot duration should have changed between the runtime upgrades"
+	);
 	assert_eq!(
 		slot_duration, 18000,
 		"Expected slot duration to be 18000 ms (18 seconds), but got {} ms",
