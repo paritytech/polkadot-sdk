@@ -149,6 +149,12 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCE
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
+/// Maximum claim queue offset.
+const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
+
+/// Scheduling V3 candidates flag.
+const SCHEDULING_V3_ENABLED: bool = false;
+
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
@@ -169,10 +175,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 16,
 	system_version: 1,
 };
-
-const RELAY_PARENT_OFFSET: u32 = 0;
-const MAX_CLAIM_QUEUE_OFFSET: u8 = 1;
-const SCHEDULING_V3_ENABLED: bool = false;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
