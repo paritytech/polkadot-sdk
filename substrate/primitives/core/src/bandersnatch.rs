@@ -107,7 +107,7 @@ impl TraitPair for Pair {
 	/// The slice must be 32 bytes long or it will return an error.
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Pair, SecretStringError> {
 		if seed_slice.len() != SEED_SERIALIZED_SIZE {
-			return Err(SecretStringError::InvalidSeedLength)
+			return Err(SecretStringError::InvalidSeedLength);
 		}
 		let mut seed = [0; SEED_SERIALIZED_SIZE];
 		seed.copy_from_slice(seed_slice);
@@ -136,7 +136,7 @@ impl TraitPair for Pair {
 			if let DeriveJunction::Hard(cc) = p {
 				seed = derive_hard(seed, cc);
 			} else {
-				return Err(DeriveError::SoftKeyInPath)
+				return Err(DeriveError::SoftKeyInPath);
 			}
 		}
 		Ok((Self::from_seed(&seed), Some(seed)))
@@ -171,10 +171,10 @@ impl TraitPair for Pair {
 	fn verify<M: AsRef<[u8]>>(signature: &Signature, data: M, public: &Public) -> bool {
 		let Ok(signature) = bandersnatch::IetfProof::deserialize_compressed(&signature.0[..])
 		else {
-			return false
+			return false;
 		};
 		let Ok(public) = bandersnatch::Public::deserialize_compressed(&public.0[..]) else {
-			return false
+			return false;
 		};
 		let gs = BandersnatchSuite::generator() * signature.s;
 		let yc = public.0 * signature.c;
@@ -347,12 +347,12 @@ pub mod vrf {
 			let Ok(public) =
 				bandersnatch::Public::deserialize_compressed_unchecked(self.as_slice())
 			else {
-				return false
+				return false;
 			};
 			let Ok(proof) =
 				ark_vrf::ietf::Proof::deserialize_compressed_unchecked(signature.proof.as_slice())
 			else {
-				return false
+				return false;
 			};
 			public
 				.verify(data.vrf_input.0, signature.pre_output.0, &data.aux_data, &proof)
@@ -584,7 +584,7 @@ pub mod ring_vrf {
 			let Ok(proof) =
 				bandersnatch::RingProof::deserialize_compressed_unchecked(self.proof.as_slice())
 			else {
-				return false
+				return false;
 			};
 			bandersnatch::Public::verify(
 				data.vrf_input.0,

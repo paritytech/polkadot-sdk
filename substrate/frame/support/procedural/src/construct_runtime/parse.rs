@@ -96,22 +96,25 @@ impl Parse for RuntimeDeclaration {
 		let pallets_token = pallets.token;
 
 		match convert_pallets(pallets.content.inner.into_iter().collect())? {
-			PalletsConversion::Implicit(pallets) =>
-				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
-			PalletsConversion::Explicit(pallets) =>
+			PalletsConversion::Implicit(pallets) => {
+				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets }))
+			},
+			PalletsConversion::Explicit(pallets) => {
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
-			PalletsConversion::ExplicitExpanded(pallets) =>
+				}))
+			},
+			PalletsConversion::ExplicitExpanded(pallets) => {
 				Ok(RuntimeDeclaration::ExplicitExpanded(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
+				}))
+			},
 		}
 	}
 }
@@ -709,7 +712,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 
 			// Check parts are correctly specified
 			match &pallet.specified_parts {
-				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) =>
+				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) => {
 					for part in parts {
 						if !available_parts.contains(part.keyword.name()) {
 							let msg = format!(
@@ -727,7 +730,8 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 							);
 							return Err(syn::Error::new(part.keyword.span(), msg));
 						}
-					},
+					}
+				},
 				SpecifiedParts::All => (),
 			}
 

@@ -1,0 +1,5 @@
+title: pin solc version to 0.8.30 in tests-misc.yml
+doc:
+- audience: Runtime Dev
+  description: pin solc version to 0.8.30 in tests-misc.yml
+crates: []

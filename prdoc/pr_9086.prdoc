@@ -1,0 +1,8 @@
+title: Make HRMP advancement rule more restrictive
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR improves `check_enough_messages_included()` and makes the advancement rule more restrictive for HRMP.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major

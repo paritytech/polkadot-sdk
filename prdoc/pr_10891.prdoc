@@ -1,0 +1,25 @@
+title: 'collator-protocol: Re-advertise collations when peer authority IDs are updated'
+doc:
+- audience: Node Dev
+  description: |-
+    The collator protocol contained a race-condition which could manifest as "Collation wasn't advertised".
+
+    A given peer ("A") can connect before the new authority keys are received via `UpdatedAuthorityIds` (nk -- new key).
+
+    - T0: peer A connects`PeerConnected`
+    - T1: peer A sends its current view `PeerViewChange`
+      - Peer A wants the block N
+    - T2: `validator_group.should_advertise_to`: checks peer A for key nK (the new key)
+      -  We don't have this key stored and therefore return `ShouldAdvertiseTo::NotAuthority`
+    - T3: `UpdatedAuthorityIds` arrives with (peer A, [nK])
+
+    At this point, we have the collation, peer A wants to collation, we know peer A is an authority but we never send the collation back. Then, the collation will expire with "Collation wasn't advertised".
+
+    To close the gap, the `UpdatedAuthorityIds` events will trigger a re-advertisement of collations
+    - note: if the advertisement was already sent, the logic does not resend it (achieved in should_advertise_to).
+
+    Part of the stabilization of:
+    - https://github.com/paritytech/polkadot-sdk/issues/10425
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

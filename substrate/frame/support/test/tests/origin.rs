@@ -53,7 +53,7 @@ mod nested {
 			Clone,
 			PartialEq,
 			Eq,
-			RuntimeDebug,
+			Debug,
 			Encode,
 			Decode,
 			DecodeWithMemTracking,
@@ -131,15 +131,7 @@ pub mod module {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	pub struct Origin<T>(pub PhantomData<T>);
 

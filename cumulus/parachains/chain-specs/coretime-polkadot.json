@@ -15,7 +15,8 @@
     "/dns/coretime-polkadot-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWFsQphSqvqjVyKcEdR1D7LPcXHqjmy6ASuJrTr5isk9JU",
     "/dns/coretime-polkadot-01.bootnode.stkd.io/tcp/30633/wss/p2p/12D3KooWFG9WQQTf3MX3YQypZjJtoJM5zCQgJcqYdxxTStsbhZGU",
     "/dns/coretime-polkadot.boot.rotko.net/tcp/31051/p2p/12D3KooWPk5pR5QxWGVJ1YVWnXd4rkVTZ194iay58rAfcSHDpky3",
-    "/dns/coretime-polkadot.boot.rotko.net/tcp/30435/wss/p2p/12D3KooWPk5pR5QxWGVJ1YVWnXd4rkVTZ194iay58rAfcSHDpky3"
+    "/dns/coretime-polkadot.boot.rotko.net/tcp/30435/wss/p2p/12D3KooWPk5pR5QxWGVJ1YVWnXd4rkVTZ194iay58rAfcSHDpky3",
+    "/dns/boot-coretime-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWF2uEx9xYFCJVe8ZdjKXSxsJgL47c5TyW8opEuicpxrnx"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
