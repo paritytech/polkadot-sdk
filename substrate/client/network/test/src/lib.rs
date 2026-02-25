@@ -31,7 +31,10 @@ mod sync;
 use std::{
 	collections::HashMap,
 	pin::Pin,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicU32, Ordering},
+		Arc,
+	},
 	task::{Context as FutureContext, Poll},
 	time::Duration,
 };
@@ -71,7 +74,7 @@ use sc_network_sync::{
 	strategy::{
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		warp::{
-			AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncConfig,
+			EncodedProof, VerificationResult, Verifier as WarpVerifier, WarpSyncConfig,
 			WarpSyncProvider,
 		},
 	},
@@ -91,7 +94,7 @@ use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
-	Justification, Justifications,
+	Digest, Justification, Justifications,
 };
 use substrate_test_runtime_client::Sr25519Keyring;
 pub use substrate_test_runtime_client::{
@@ -363,7 +366,7 @@ where
 		at: BlockId<Block>,
 		count: usize,
 		origin: BlockOrigin,
-		mut edit_block: F,
+		edit_block: F,
 		headers_only: bool,
 		inform_sync_about_new_best_block: bool,
 		announce_block: bool,
@@ -372,14 +375,44 @@ where
 	where
 		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
 	{
+		self.generate_blocks_at_with_inherent_digests(
+			at,
+			count,
+			origin,
+			edit_block,
+			|_| Digest::default(),
+			headers_only,
+			inform_sync_about_new_best_block,
+			announce_block,
+			fork_choice,
+		)
+	}
+
+	pub fn generate_blocks_at_with_inherent_digests<F, G>(
+		&mut self,
+		at: BlockId<Block>,
+		count: usize,
+		origin: BlockOrigin,
+		mut edit_block: F,
+		mut inherent_digests: G,
+		headers_only: bool,
+		inform_sync_about_new_best_block: bool,
+		announce_block: bool,
+		fork_choice: ForkChoiceStrategy,
+	) -> Vec<H256>
+	where
+		F: FnMut(BlockBuilder<Block, PeersFullClient>) -> Block,
+		G: FnMut(usize) -> Digest,
+	{
 		let mut hashes = Vec::with_capacity(count);
 		let full_client = self.client.as_client();
 		let mut at = full_client.block_hash_from_id(&at).unwrap().unwrap();
-		for _ in 0..count {
+		for i in 0..count {
 			let builder = BlockBuilderBuilder::new(&*full_client)
 				.on_parent_block(at)
 				.fetch_parent_block_number(&*full_client)
 				.unwrap()
+				.with_inherent_digests(inherent_digests(i))
 				.build()
 				.unwrap();
 			let block = edit_block(builder);
@@ -556,6 +589,11 @@ where
 		self.verifier.failed_verifications.lock().clone()
 	}
 
+	/// Returns the number of errors while importing blocks.
+	pub fn import_error_count(&self) -> u32 {
+		self.block_import.import_error_count()
+	}
+
 	pub fn has_block(&self, hash: H256) -> bool {
 		self.backend
 			.as_ref()
@@ -589,12 +627,18 @@ impl<T> BlockImportAdapterFull for T where
 #[derive(Clone)]
 pub struct BlockImportAdapter<I> {
 	inner: I,
+	import_errors: Arc<AtomicU32>,
 }
 
 impl<I> BlockImportAdapter<I> {
 	/// Create a new instance of `Self::Full`.
 	pub fn new(inner: I) -> Self {
-		Self { inner }
+		Self { inner, import_errors: Default::default() }
+	}
+
+	/// Returns the number of errors while importing blocks.
+	pub fn import_error_count(&self) -> u32 {
+		self.import_errors.load(Ordering::Relaxed)
 	}
 }
 
@@ -609,14 +653,25 @@ where
 		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(block).await
+		let result = self.inner.check_block(block).await;
+		if !matches!(
+			result,
+			Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain | ImportResult::KnownBad)
+		) {
+			self.import_errors.fetch_add(1, Ordering::Relaxed);
+		}
+		result
 	}
 
 	async fn import_block(
 		&self,
 		block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
-		self.inner.import_block(block).await
+		let result = self.inner.import_block(block).await;
+		if !matches!(result, Ok(ImportResult::Imported(_) | ImportResult::AlreadyInChain)) {
+			self.import_errors.fetch_add(1, Ordering::Relaxed);
+		}
+		result
 	}
 }
 
@@ -656,6 +711,29 @@ impl<B: BlockT> VerifierAdapter<B> {
 
 struct TestWarpSyncProvider<B: BlockT>(Arc<dyn HeaderBackend<B>>);
 
+struct TestVerifier<B: BlockT> {
+	genesis_hash: B::Hash,
+}
+
+impl<B: BlockT> WarpVerifier<B> for TestVerifier<B> {
+	fn verify(
+		&mut self,
+		proof: &EncodedProof,
+	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
+		let EncodedProof(encoded) = proof;
+		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
+		Ok(VerificationResult::Complete(header, Default::default()))
+	}
+
+	fn next_proof_context(&self) -> B::Hash {
+		self.genesis_hash
+	}
+
+	fn status(&self) -> Option<String> {
+		None
+	}
+}
+
 impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	fn generate(
 		&self,
@@ -665,18 +743,10 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 		let best_header = self.0.header(info.best_hash).unwrap().unwrap();
 		Ok(EncodedProof(best_header.encode()))
 	}
-	fn verify(
-		&self,
-		proof: &EncodedProof,
-		_set_id: SetId,
-		_authorities: AuthorityList,
-	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
-		let EncodedProof(encoded) = proof;
-		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
-	}
-	fn current_authorities(&self) -> AuthorityList {
-		Default::default()
+
+	fn create_verifier(&self) -> Box<dyn WarpVerifier<B>> {
+		let genesis_hash = self.0.info().genesis_hash;
+		Box::new(TestVerifier { genesis_hash })
 	}
 }
 
@@ -918,6 +988,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			archive_blocks: config.blocks_pruning.is_none(),
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(
@@ -1043,10 +1114,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 			if peer.sync_service.is_major_syncing() ||
 				peer.sync_service.status().await.unwrap().queued_blocks != 0
 			{
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 			match (highest, peer.client.info().best_hash) {
 				(None, b) => highest = Some(b),
@@ -1062,10 +1133,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 		let peers = self.peers_mut();
 		for peer in peers {
 			if peer.sync_service.status().await.unwrap().queued_blocks != 0 {
-				return false
+				return false;
 			}
 			if peer.sync_service.num_sync_requests().await.unwrap() != 0 {
-				return false
+				return false;
 			}
 		}
 
@@ -1086,7 +1157,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				.await;
 
 				if self.is_in_sync().await {
-					break
+					break;
 				}
 			}
 		})
@@ -1106,7 +1177,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			.await;
 
 			if self.is_idle().await {
-				break
+				break;
 			}
 		}
 	}
@@ -1125,11 +1196,11 @@ pub trait TestNetFactory: Default + Sized + Send {
 						Poll::Ready(())
 					})
 					.await;
-					continue 'outer
+					continue 'outer;
 				}
 			}
 
-			break
+			break;
 		}
 	}
 
@@ -1147,7 +1218,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 					let net_poll_future = peer.network.next_action();
 					pin_mut!(net_poll_future);
 					if let Poll::Pending = net_poll_future.poll(cx) {
-						break
+						break;
 					}
 				}
 				trace!(target: "sync", "-- Polling complete {}: {}", i, peer.id());

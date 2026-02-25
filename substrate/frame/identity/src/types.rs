@@ -21,16 +21,13 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
-	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, PartialEqNoBound,
 };
 use scale_info::{
 	build::{Fields, Variants},
 	Path, Type, TypeInfo,
 };
-use sp_runtime::{
-	traits::{Member, Zero},
-	RuntimeDebug,
-};
+use sp_runtime::traits::{Member, Zero};
 
 /// An identifier for a single name registrar/identity verification service.
 pub type RegistrarIndex = u32;
@@ -39,7 +36,7 @@ pub type RegistrarIndex = u32;
 /// than 32-bytes then it will be truncated when encoding.
 ///
 /// Can also be `None`.
-#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq, RuntimeDebug, MaxEncodedLen)]
+#[derive(Clone, DecodeWithMemTracking, Eq, PartialEq, Debug, MaxEncodedLen)]
 pub enum Data {
 	/// No data here.
 	None,
@@ -198,7 +195,7 @@ impl Default for Data {
 	DecodeWithMemTracking,
 	Eq,
 	PartialEq,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	TypeInfo,
 )]
@@ -265,9 +262,7 @@ pub trait IdentityInformationProvider:
 ///
 /// NOTE: This is stored separately primarily to facilitate the addition of extra fields in a
 /// backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
-)]
+#[derive(CloneNoBound, Encode, Eq, MaxEncodedLen, PartialEqNoBound, DebugNoBound, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(MaxJudgements))]
 pub struct Registration<
@@ -314,7 +309,7 @@ impl<
 }
 
 /// Information concerning a registrar.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, MaxEncodedLen, TypeInfo)]
 pub struct RegistrarInfo<
 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,

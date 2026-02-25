@@ -4,10 +4,12 @@
 
 pub mod converter;
 pub mod message;
+pub mod processor;
 pub mod traits;
 
 pub use converter::*;
 pub use message::*;
+pub use processor::*;
 pub use traits::*;
 
 const LOG_TARGET: &str = "snowbridge-inbound-queue-primitives";

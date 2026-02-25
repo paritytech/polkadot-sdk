@@ -77,8 +77,8 @@ fn fatp_limits_ready_count_works() {
 	let event = new_best_block_event(&pool, None, header01.hash());
 	block_on(pool.maintain(event));
 
-	//note: we need Charlie to be first as the oldest is removed.
-	//For 3x alice, all tree would be removed.
+	// note: we need Charlie to be first as the oldest is removed.
+	// For 3x alice, all tree would be removed.
 	//(alice,bob,charlie would work too)
 	let xt0 = uxt(Charlie, 500);
 	let xt1 = uxt(Alice, 200);
@@ -92,10 +92,10 @@ fn fatp_limits_ready_count_works() {
 
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(Result::is_ok));
-	//charlie was not included into view:
+	// charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
-	//todo: can we do better? We don't have API to check if event was processed internally.
+	// todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
 	while block_on(pool.mempool_len()).0 == 3 {
 		sleep(std::time::Duration::from_millis(1));
@@ -106,7 +106,7 @@ fn fatp_limits_ready_count_works() {
 	}
 	assert_eq!(block_on(pool.mempool_len()).0, 2);
 
-	//branch with alice transactions:
+	// branch with alice transactions:
 	let header02b = api.push_block(2, vec![xt1.clone(), xt2.clone()], true);
 	let event = new_best_block_event(&pool, Some(header01.hash()), header02b.hash());
 	block_on(pool.maintain(event));
@@ -114,7 +114,7 @@ fn fatp_limits_ready_count_works() {
 	assert_pool_status!(header02b.hash(), &pool, 0, 0);
 	assert_ready_iterator!(header02b.hash(), pool, []);
 
-	//branch with alice/charlie transactions shall also work:
+	// branch with alice/charlie transactions shall also work:
 	let header02a = api.push_block(2, vec![xt0.clone(), xt1.clone()], true);
 	api.set_nonce(header02a.hash(), Alice.into(), 201);
 	let event = new_best_block_event(&pool, Some(header02b.hash()), header02a.hash());
@@ -153,7 +153,7 @@ fn fatp_limits_ready_count_works_for_submit_at() {
 	assert!(results[1].as_ref().is_ok());
 	assert!(results[2].as_ref().is_ok());
 	assert_eq!(block_on(pool.mempool_len()).0, 2);
-	//charlie was not included into view:
+	// charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
 }
@@ -187,7 +187,7 @@ fn fatp_limits_ready_count_works_for_submit_and_watch() {
 	assert!(result0.is_ok());
 	assert!(result1.is_ok());
 	assert_eq!(block_on(pool.mempool_len()).1, 2);
-	//charlie was not included into view:
+	// charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1]);
 }
@@ -216,9 +216,9 @@ fn fatp_limits_future_count_works() {
 	block_on(pool.submit_one(header01.hash(), SOURCE, xt2.clone())).unwrap();
 	block_on(pool.submit_one(header01.hash(), SOURCE, xt3.clone())).unwrap();
 
-	//charlie was not included into view due to limits:
+	// charlie was not included into view due to limits:
 	assert_pool_status!(header01.hash(), &pool, 0, 2);
-	//todo: can we do better? We don't have API to check if event was processed internally.
+	// todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
 	while block_on(pool.mempool_len()).0 != 2 {
 		sleep(std::time::Duration::from_millis(1));
@@ -229,7 +229,7 @@ fn fatp_limits_future_count_works() {
 	}
 
 	let header02 = api.push_block(2, vec![xt0], true);
-	api.set_nonce(header02.hash(), Alice.into(), 201); //redundant
+	api.set_nonce(header02.hash(), Alice.into(), 201); // redundant
 	let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
 	block_on(pool.maintain(event));
 
@@ -451,7 +451,7 @@ fn fatp_limits_watcher_empty_and_full_view_immediately_drops() {
 	let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
 	let result5 = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).map(|_| ());
 
-	//xt5 hits internal mempool limit
+	// xt5 hits internal mempool limit
 	assert!(matches!(result5.unwrap_err().0, TxPoolError::ImmediatelyDropped));
 
 	assert_pool_status!(header02e.hash(), &pool, 2, 0);
@@ -539,7 +539,7 @@ fn fatp_limits_watcher_empty_and_full_view_drops_with_event() {
 	let xt3_status = futures::executor::block_on_stream(xt3_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(xt3_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
-	//xt5 got dropped
+	// xt5 got dropped
 	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
@@ -588,7 +588,7 @@ fn fatp_limits_ready_size_works() {
 
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(Result::is_ok));
-	//charlie was not included into view:
+	// charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 3, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1, xt2]);
 
@@ -629,7 +629,7 @@ fn fatp_limits_future_size_works() {
 	let _ = block_on(pool.submit_one(header01.hash(), SOURCE, xt2.clone())).unwrap();
 	let _ = block_on(pool.submit_one(header01.hash(), SOURCE, xt3.clone())).unwrap();
 
-	//todo: can we do better? We don't have API to check if event was processed internally.
+	// todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
 	while block_on(pool.mempool_len()).0 == 4 {
 		sleep(std::time::Duration::from_millis(1));
@@ -717,19 +717,19 @@ fn fatp_limits_watcher_ready_transactions_are_not_droped_when_view_is_dropped() 
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 	assert!(!pool.status_all().contains_key(&header02.hash()));
 
-	//view 01 was dropped
+	// view 01 was dropped
 	assert!(pool.ready_at(header01.hash()).now_or_never().is_none());
 	assert_eq!(block_on(pool.mempool_len()).1, 6);
 
 	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
 
-	//no revalidation has happened yet, all txs are kept
+	// no revalidation has happened yet, all txs are kept
 	assert_eq!(block_on(pool.mempool_len()).1, 6);
 
-	//view 03 is still there
+	// view 03 is still there
 	assert!(!pool.status_all().contains_key(&header03.hash()));
 
-	//view 02 was dropped
+	// view 02 was dropped
 	assert!(pool.ready_at(header02.hash()).now_or_never().is_none());
 
 	let mut prev_header = header03;
@@ -740,7 +740,7 @@ fn fatp_limits_watcher_ready_transactions_are_not_droped_when_view_is_dropped() 
 		prev_header = header;
 	}
 
-	//now revalidation has happened, all txs are dropped
+	// now revalidation has happened, all txs are dropped
 	assert_eq!(block_on(pool.mempool_len()).1, 0);
 }
 
@@ -805,7 +805,7 @@ fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header04.hash())));
 	assert_eq!(pool.active_views_count(), 1);
 	assert_eq!(pool.inactive_views_count(), 0);
-	//todo: can we do better? We don't have API to check if event was processed internally.
+	// todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
 	while block_on(pool.mempool_len()).1 != 2 {
 		sleep(std::time::Duration::from_millis(1));

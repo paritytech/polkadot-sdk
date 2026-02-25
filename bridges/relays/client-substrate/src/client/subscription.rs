@@ -113,7 +113,7 @@ impl<T: 'static + Clone + DeserializeOwned + Send> SubscriptionBroadcaster<T> {
 	pub fn new(subscription: Subscription<T>) -> StdResult<Self, Subscription<T>> {
 		// It doesn't make sense to further broadcast a broadcasted subscription.
 		if subscription.is_broadcasted {
-			return Err(subscription)
+			return Err(subscription);
 		}
 
 		let desc = subscription.desc().clone();
@@ -197,7 +197,7 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 		None => {
 			// it means that the last subscriber/factory has been dropped, so we need to
 			// exit too
-			return log_task_exit(subscription.desc(), "client has stopped")
+			return log_task_exit(subscription.desc(), "client has stopped");
 		},
 	};
 

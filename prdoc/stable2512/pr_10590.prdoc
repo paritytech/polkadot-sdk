@@ -1,0 +1,14 @@
+title: 'sc-client-db: Make `jemalloc` optional'
+doc:
+- audience: Node Dev
+  description: |-
+    This changes `sc-client-db` to not always enable `jemalloc` by default for rocksdb. Instead it is now controlled by `jemalloc-allocator` feature. This is now also forwarded up to `polkadot` via `polkadot-cli` and `sc-service`. There we ultimately decide if `jemalloc` should be enabled or not.
+crates:
+- name: polkadot
+  bump: minor
+- name: polkadot-cli
+  bump: minor
+- name: sc-client-db
+  bump: minor
+- name: sc-service
+  bump: minor

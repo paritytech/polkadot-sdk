@@ -1,0 +1,28 @@
+title: Disable polkavm logging in `pallet-revive`
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds configurable control over PolkaVM logging in `pallet-revive` to address performance degradation (details: https://github.com/paritytech/polkadot-sdk/issues/8760#issuecomment-3499548774)
+
+      - Upgrades PolkaVM to v0.30.0 which provides `set_imperfect_logger_filtering_workaround()`
+      - Adds `pvm_logs` flag to `DebugSettings` to control PolkaVM interpreter logging
+      - Disables PolkaVM logs by default (when `pvm_logs=false`), enabling them only when explicitly configured
+      - Fixes performance issue where excessive PolkaVM logging was impacting block proposal times
+
+      The logging can be re-enabled via debug settings when needed for troubleshooting.
+
+    Additionally:
+    - PolkaVM has been bumped globally across whole codebase.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: patch
+- name: substrate-wasm-builder
+  bump: minor
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-polkavm
+  bump: minor

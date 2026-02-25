@@ -77,6 +77,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// NOTE: make sure this benchmark is being run with the correct `type Solver` in `MinerConfig`.
 	#[benchmark(extra, pov_mode = Measured)]
 	fn mine_solution(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
 		#[cfg(test)]

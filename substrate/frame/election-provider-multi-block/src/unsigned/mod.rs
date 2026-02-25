@@ -381,69 +381,69 @@ mod validate_unsigned {
 	use crate::{mock::*, types::*, verifier::Verifier};
 
 	#[test]
-	fn retracts_weak_score_accepts_threshold_better() {
-		ExtBuilder::unsigned()
-			.solution_improvement_threshold(sp_runtime::Perbill::from_percent(10))
-			.build_and_execute(|| {
-				roll_to_snapshot_created();
+	fn retracts_weak_score_accepts_better() {
+		ExtBuilder::mock_signed().build_and_execute(|| {
+			roll_to_snapshot_created();
 
-				let solution = mine_full_solution().unwrap();
-				load_mock_signed_and_start(solution.clone());
-				roll_to_full_verification();
+			let base_minimal_stake = 55;
+			let solution = mine_full_solution().unwrap();
+			load_mock_signed_and_start(solution.clone());
+			roll_to_full_verification();
 
-				// Some good solution is queued now.
-				assert_eq!(
-					<VerifierPallet as Verifier>::queued_score(),
-					Some(ElectionScore {
-						minimal_stake: 55,
-						sum_stake: 130,
-						sum_stake_squared: 8650
-					})
-				);
+			// Some good solution is queued now.
+			assert_eq!(
+				<VerifierPallet as Verifier>::queued_score(),
+				Some(ElectionScore {
+					minimal_stake: base_minimal_stake,
+					sum_stake: 130,
+					sum_stake_squared: 8650
+				})
+			);
 
-				roll_to_unsigned_open();
+			roll_to_unsigned_open();
 
-				// this is just worse
-				let attempt =
-					fake_solution(ElectionScore { minimal_stake: 20, ..Default::default() });
-				let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
-				assert_eq!(
-					UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
-					TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
-				);
+			// This is just worse.
+			let attempt = fake_solution(ElectionScore {
+				minimal_stake: base_minimal_stake - 1,
+				..Default::default()
+			});
+			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			assert_eq!(
+				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
+			);
 
-				// this is better, but not enough better.
-				let insufficient_improvement = 55 * 105 / 100;
-				let attempt = fake_solution(ElectionScore {
-					minimal_stake: insufficient_improvement,
-					..Default::default()
-				});
-				let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
-				assert_eq!(
-					UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
-					TransactionValidityError::Invalid(InvalidTransaction::Custom(2)),
-				);
+			// This is better, but the number of winners is incorrect.
+			let attempt = fake_solution(ElectionScore {
+				minimal_stake: base_minimal_stake + 1,
+				..Default::default()
+			});
+			let call = Call::submit_unsigned { paged_solution: Box::new(attempt) };
+			assert_eq!(
+				UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(4)),
+			);
 
-				// note that we now have to use a solution with 2 winners, just to pass all of the
-				// snapshot independent checks.
-				let mut paged = raw_paged_from_supports(
-					vec![vec![
-						(40, Support { total: 10, voters: vec![(3, 5)] }),
-						(30, Support { total: 10, voters: vec![(3, 5)] }),
-					]],
-					0,
-				);
-				let sufficient_improvement = 55 * 115 / 100;
-				paged.score =
-					ElectionScore { minimal_stake: sufficient_improvement, ..Default::default() };
-				let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
-				assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok());
-			})
+			// Note that we now have to use a solution with 2 winners, just to pass all of the
+			// snapshot independent checks.
+			let mut paged = raw_paged_from_supports(
+				vec![vec![
+					(40, Support { total: 10, voters: vec![(3, 5)] }),
+					(30, Support { total: 10, voters: vec![(3, 5)] }),
+				]],
+				0,
+			);
+
+			paged.score =
+				ElectionScore { minimal_stake: base_minimal_stake + 1, ..Default::default() };
+			let call = Call::submit_unsigned { paged_solution: Box::new(paged) };
+			assert!(UnsignedPallet::validate_unsigned(TransactionSource::Local, &call).is_ok());
+		})
 	}
 
 	#[test]
 	fn retracts_wrong_round() {
-		ExtBuilder::unsigned().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			roll_to_unsigned_open();
 
 			let mut attempt =
@@ -461,7 +461,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_too_many_pages_unsigned() {
-		ExtBuilder::unsigned().build_and_execute(|| {
+		ExtBuilder::mock_signed().build_and_execute(|| {
 			// NOTE: unsigned solutions should have just 1 page, regardless of the configured
 			// page count.
 			roll_to_unsigned_open();
@@ -491,7 +491,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_winner_count() {
-		ExtBuilder::unsigned().desired_targets(2).build_and_execute(|| {
+		ExtBuilder::mock_signed().desired_targets(2).build_and_execute(|| {
 			roll_to_unsigned_open();
 
 			let paged = raw_paged_from_supports(
@@ -511,7 +511,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_phase() {
-		ExtBuilder::unsigned().signed_phase(5, 6).build_and_execute(|| {
+		ExtBuilder::mock_signed().signed_phase(5, 6).build_and_execute(|| {
 			let solution = raw_paged_solution_low_score();
 			let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
@@ -561,7 +561,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn priority_is_set() {
-		ExtBuilder::unsigned()
+		ExtBuilder::mock_signed()
 			.miner_tx_priority(20)
 			.desired_targets(0)
 			.build_and_execute(|| {
@@ -591,7 +591,7 @@ mod call {
 
 	#[test]
 	fn unsigned_submission_e2e() {
-		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::mock_signed().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			roll_to_unsigned_open();
 
@@ -619,7 +619,7 @@ mod call {
 		expected = "Invalid unsigned submission must produce invalid block and deprive validator from their authoring reward."
 	)]
 	fn unfeasible_solution_panics() {
-		let (mut ext, pool) = ExtBuilder::unsigned().build_offchainify();
+		let (mut ext, pool) = ExtBuilder::mock_signed().build_offchainify();
 		ext.execute_with_sanity_checks(|| {
 			roll_to_unsigned_open();
 

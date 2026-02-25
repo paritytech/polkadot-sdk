@@ -5,12 +5,11 @@
 // can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
@@ -39,11 +38,13 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
@@ -73,27 +74,14 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
 
 	// Assign two extra cores to adder-2000.
-	relay_client
-		.tx()
-		.sign_and_submit_then_watch_default(
-			&create_assign_core_call(&[(0, 2000), (1, 2000)]),
-			&alice,
-		)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-
-	log::info!("2 more cores assigned to adder-2000");
+	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)]
-			.into_iter()
-			.collect(),
+		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)],
 	)
 	.await?;
 

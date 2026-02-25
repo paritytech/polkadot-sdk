@@ -38,7 +38,7 @@ use rococo_westend_system_emulated_network::penpal_emulated_chain::PARA_ID_B;
 use snowbridge_core::{reward::MessageId, AssetMetadata, TokenIdOf};
 use snowbridge_inbound_queue_primitives::v2::{
 	EthereumAsset::{ForeignTokenERC20, NativeTokenERC20},
-	Message, Network, XcmPayload,
+	Message, Network, Payload,
 };
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
@@ -79,7 +79,7 @@ fn register_token_v2() {
 			nonce: 1,
 			origin,
 			assets: vec![],
-			xcm: XcmPayload::CreateAsset { token, network: Network::Polkadot },
+			payload: Payload::CreateAsset { token, network: Network::Polkadot },
 			claimer: Some(claimer_bytes),
 			// Used to pay the asset creation deposit.
 			value: 9_000_000_000_000u128,
@@ -119,7 +119,7 @@ fn register_token_v2() {
 					owner: *owner == bridge_owner,
 				},
 				// Check that excess fees were paid to the claimer
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == receiver.clone().into(),
 				},
@@ -190,7 +190,7 @@ fn send_token_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -231,12 +231,12 @@ fn send_token_v2() {
 					id: *id == topic_id.into(),
 				},
 				// Check that the token was received and issued as a foreign asset on AssetHub
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == token_location,
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 				// Check that excess fees were paid to the claimer, which was set by the UX
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == receiver.clone().into(),
 				},
@@ -300,7 +300,7 @@ fn send_weth_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -334,12 +334,12 @@ fn send_weth_v2() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Check that the token was received and issued as a foreign asset on AssetHub
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == weth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 				// Check that excess fees were paid to the beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
@@ -457,7 +457,7 @@ fn register_and_send_token_in_one_transaction_fails() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -610,7 +610,7 @@ fn send_token_to_penpal_v2() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 3_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -649,12 +649,12 @@ fn send_token_to_penpal_v2() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Ether was issued to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == penpal_sov_on_ah,
 				},
 				// Token was issued to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == token_location,
 					owner: *owner == penpal_sov_on_ah,
 				},
@@ -684,12 +684,12 @@ fn send_token_to_penpal_v2() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Token was issued to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == token_location,
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
 				// Leftover fees was deposited to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == beneficiary_acc_bytes.into(),
 				},
@@ -794,7 +794,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 3_500_000_000_000u128,
@@ -822,7 +822,7 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 
 		assert_expected_events!(
 			AssetHubWestend,
-			vec![RuntimeEvent::Assets(pallet_assets::Event::Burned{..}) => {},]
+			vec![RuntimeEvent::Assets(pallet_assets::Event::Withdrawn{..}) => {},]
 		);
 
 		assert_expected_events!(
@@ -833,11 +833,11 @@ fn send_foreign_erc20_token_back_to_polkadot() {
 					pallet_message_queue::Event::Processed { success: true, .. }
 				) => {},
 				// Check that the native token burnt from some reserved account
-				RuntimeEvent::Assets(pallet_assets::Event::Burned { owner, .. }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Withdrawn { who: owner, .. }) => {
 					owner: *owner == ethereum_sovereign.clone().into(),
 				},
 				// Check that the token was minted to beneficiary
-				RuntimeEvent::Assets(pallet_assets::Event::Issued { owner, .. }) => {
+				RuntimeEvent::Assets(pallet_assets::Event::Deposited { who: owner, .. }) => {
 					owner: *owner == AssetHubWestendReceiver::get(),
 				},
 			]
@@ -890,7 +890,7 @@ fn invalid_xcm_traps_funds_on_ah() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(instructions.to_vec()),
+			payload: Payload::Raw(instructions.to_vec()),
 			claimer: Some(claimer_bytes),
 			value: 1_500_000_000_000u128,
 			execution_fee: 1_500_000_000_000u128,
@@ -957,7 +957,7 @@ fn invalid_claimer_does_not_fail_the_message() {
 			nonce: 1,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_message_xcm.encode()),
+			payload: Payload::Raw(versioned_message_xcm.encode()),
 			// Set an invalid claimer
 			claimer: Some(hex!("2b7ce7bc7e87e4d6619da21487c7a53f").to_vec()),
 			value: 1_500_000_000_000u128,
@@ -989,12 +989,12 @@ fn invalid_claimer_does_not_fail_the_message() {
 			AssetHubWestend,
 			vec![
 				// Token was issued to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == weth_location(),
 					owner: *owner == beneficiary_acc.into(),
 				},
 				// Leftover fees deposited to beneficiary
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == beneficiary_acc.into(),
 				},

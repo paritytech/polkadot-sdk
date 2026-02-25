@@ -45,7 +45,7 @@ pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Clone,
 	Copy,
 	PartialEq,
@@ -98,7 +98,7 @@ impl PartsOf57600 {
 ///
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 struct Schedule<N> {
 	// Original assignments
 	assignments: Vec<(CoreAssignment, PartsOf57600)>,
@@ -120,7 +120,7 @@ struct Schedule<N> {
 /// Contains pointers to first and last schedule into `CoreSchedules` for that core and keeps track
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
 	queue: Option<QueueDescriptor<N>>,
@@ -133,7 +133,7 @@ struct CoreDescriptor<N> {
 /// Schedules in `CoreSchedules` form a queue. `Schedule::next_schedule` always pointing to the next
 /// item.
 #[derive(Encode, Decode, TypeInfo, Copy, Clone)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 struct QueueDescriptor<N> {
 	/// First scheduled item, that is not yet active.
 	first: N,
@@ -142,7 +142,7 @@ struct QueueDescriptor<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
 struct WorkState<N> {
 	/// Assignments with current state.
 	///
@@ -167,7 +167,7 @@ struct WorkState<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
+#[cfg_attr(test, derive(PartialEq, Debug, Clone, Copy))]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///
@@ -290,8 +290,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn report_processed(assignment: Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::report_processed(para_id, core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::report_processed(para_id, core_index)
+			},
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -303,8 +304,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// - `assignment`: The on demand assignment.
 	fn push_back_assignment(assignment: Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index)
+			},
 			Assignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if
@@ -324,8 +326,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn assignment_duplicated(assignment: &Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index)
+			},
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -350,30 +353,30 @@ impl<T: Config> Pallet<T> {
 
 		let Some(queue) = descriptor.queue else {
 			// No queue.
-			return
+			return;
 		};
 
 		let mut next_scheduled = queue.first;
 
 		if next_scheduled > now {
 			// Not yet ready.
-			return
+			return;
 		}
 
 		// Update is needed:
 		let update = loop {
 			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
-				break None
+				break None;
 			};
 			// Still good?
 			if update.end_hint.map_or(true, |e| e > now) {
-				break Some(update)
+				break Some(update);
 			}
 			// Move on if possible:
 			if let Some(n) = update.next_schedule {
 				next_scheduled = n;
 			} else {
-				break None
+				break None;
 			}
 		};
 

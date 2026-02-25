@@ -399,7 +399,7 @@ impl ChainScraper {
 
 		// If head_number <= target_ancestor + 1 the ancestry will be empty.
 		if self.last_observed_blocks.get(&head).is_some() || head_number <= target_ancestor + 1 {
-			return Ok(ancestors)
+			return Ok(ancestors);
 		}
 
 		loop {
@@ -416,7 +416,7 @@ impl ChainScraper {
 						hashes.len(),
 						head_number,
 					);
-					return Ok(ancestors)
+					return Ok(ancestors);
 				},
 			};
 			// The reversed order is parent, grandparent, etc. excluding the head.
@@ -429,7 +429,7 @@ impl ChainScraper {
 					block_number <= target_ancestor ||
 					ancestors.len() >= Self::ANCESTRY_SIZE_LIMIT as usize
 				{
-					return Ok(ancestors)
+					return Ok(ancestors);
 				}
 
 				ancestors.push(*hash);
@@ -443,7 +443,7 @@ impl ChainScraper {
 				None => break,
 			}
 		}
-		return Ok(ancestors)
+		return Ok(ancestors);
 	}
 
 	pub fn get_blocks_including_candidate(

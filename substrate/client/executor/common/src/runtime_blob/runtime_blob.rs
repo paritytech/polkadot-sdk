@@ -135,7 +135,7 @@ impl RuntimeBlob {
 				.entries_mut()
 				.push(ExportEntry::new(memory_name, Internal::Memory(0)));
 
-			break
+			break;
 		}
 
 		Ok(())
@@ -157,7 +157,7 @@ impl RuntimeBlob {
 			.ok_or_else(|| WasmError::Other("no memory section found".into()))?;
 
 		if memory_section.entries().is_empty() {
-			return Err(WasmError::Other("memory section is empty".into()))
+			return Err(WasmError::Other("memory section is empty".into()));
 		}
 		for memory_ty in memory_section.entries_mut() {
 			let initial = memory_ty.limits().initial();
@@ -191,8 +191,9 @@ impl RuntimeBlob {
 	/// Consumes this runtime blob and serializes it.
 	pub fn serialize(self) -> Vec<u8> {
 		match self.0 {
-			BlobKind::WebAssembly(raw_module) =>
-				serialize(raw_module).expect("serializing into a vec should succeed; qed"),
+			BlobKind::WebAssembly(raw_module) => {
+				serialize(raw_module).expect("serializing into a vec should succeed; qed")
+			},
 			BlobKind::PolkaVM(ref blob) => blob.1.to_vec(),
 		}
 	}

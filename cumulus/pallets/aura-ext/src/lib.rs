@@ -40,6 +40,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
 pub mod migration;
+#[cfg(test)]
 mod test;
 
 pub use consensus_hook::FixedVelocityConsensusHook;
@@ -124,7 +125,7 @@ where
 	T: Config,
 	I: ExecuteBlock<Block>,
 {
-	fn execute_block(mut block: Block::LazyBlock) {
+	fn verify_and_remove_seal(block: &mut <Block as BlockT>::LazyBlock) {
 		let header = block.header_mut();
 		// We need to fetch the authorities before we execute the block, to get the authorities
 		// before any potential update.
@@ -162,7 +163,9 @@ where
 		{
 			panic!("Invalid AuRa seal");
 		}
+	}
 
-		I::execute_block(block);
+	fn execute_verified_block(block: Block::LazyBlock) {
+		I::execute_verified_block(block);
 	}
 }
