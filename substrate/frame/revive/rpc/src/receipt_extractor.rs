@@ -66,6 +66,7 @@ pub struct ReceiptExtractor {
 
 	/// Auto-discovered first EVM block on the chain.
 	/// Set once during backward sync when the first non-EVM block is encountered.
+	/// Uses `0` as sentinel for "not yet discovered".
 	evm_first_block: Arc<AtomicU32>,
 
 	/// Recover the ethereum address from a transaction signature.
@@ -157,7 +158,7 @@ impl ReceiptExtractor {
 	}
 
 	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
-	pub fn earliest_block(&self) -> SubstrateBlockNumber {
+	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
 		let cli = self.earliest_receipt_block.unwrap_or(0);
 		let evm = self.evm_first_block.load(Ordering::Acquire);
 		cli.max(evm)
@@ -166,7 +167,7 @@ impl ReceiptExtractor {
 	/// Check if the block is before the effective floor: `max(earliest_receipt_block,
 	/// evm_first_block)`.
 	pub fn is_before_earliest_block(&self, block_number: SubstrateBlockNumber) -> bool {
-		let floor = self.earliest_block();
+		let floor = self.effective_earliest_block();
 		floor > 0 && block_number < floor
 	}
 

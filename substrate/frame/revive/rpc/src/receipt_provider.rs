@@ -125,8 +125,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// The effective earliest block: `max(earliest_receipt_block, evm_first_block)`.
-	pub fn earliest_block(&self) -> SubstrateBlockNumber {
-		self.receipt_extractor.earliest_block()
+	pub fn effective_earliest_block(&self) -> SubstrateBlockNumber {
+		self.receipt_extractor.effective_earliest_block()
 	}
 
 	/// Check if the block is before the earliest block (CLI or auto-discovered first EVM block).

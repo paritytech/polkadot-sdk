@@ -1087,7 +1087,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let evm_first = client.receipt_provider().get_sync_label(SyncLabel::EvmFirstBlock).await?;
 	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
 	assert_eq!(client.receipt_provider().evm_first_block(), None);
-	assert_eq!(client.receipt_provider().earliest_block(), 0);
+	assert_eq!(client.receipt_provider().effective_earliest_block(), 0);
 
 	log::debug!(
 		target: LOG_TARGET,
@@ -1363,7 +1363,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 		target: LOG_TARGET,
 		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
 		finalized2.number(),
-		client2.receipt_provider().earliest_block(),
+		client2.receipt_provider().effective_earliest_block(),
 	);
 
 	Ok(())
@@ -1393,7 +1393,7 @@ async fn test_block_sync_earliest_receipt_block() -> anyhow::Result<()> {
 		"earliest_receipt_block should be set"
 	);
 	assert_eq!(
-		client.receipt_provider().earliest_block(),
+		client.receipt_provider().effective_earliest_block(),
 		earliest,
 		"earliest_block should equal earliest_receipt_block before sync"
 	);
@@ -1427,9 +1427,9 @@ async fn test_block_sync_earliest_receipt_block() -> anyhow::Result<()> {
 
 	assert!(earliest > 1, "earliest must be > 1 for this check");
 	assert_eq!(
-		client.receipt_provider().earliest_block(),
+		client.receipt_provider().effective_earliest_block(),
 		earliest,
-		"earliest_block() should equal earliest_receipt_block after sync"
+		"effective_earliest_block() should equal earliest_receipt_block after sync"
 	);
 
 	// Blocks below `earliest` should NOT have ethereum hash mappings.
