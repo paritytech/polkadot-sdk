@@ -21,6 +21,7 @@ use crate::{foreign_assets::pallet, weights::WeightInfo};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	defensive,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	weights::WeightMeter,
 };
@@ -132,11 +133,15 @@ where
 							asset_id,
 							asset_index
 						),
-						Err(()) => log::error!(
-							target: LOG_TARGET,
-							"Failed to migrate asset {:?}",
-							asset_id
-						),
+						Err(()) => {
+							// qed: we already checked that the index does *not* exist
+							defensive!("insert_asset_mapping failed during migration; this should be unreachable unless NextAssetIndex overflowed u32::MAX");
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to migrate asset {:?}",
+								asset_id
+							);
+						},
 					}
 				} else {
 					log::debug!(
