@@ -431,7 +431,6 @@ impl<T: Config> Pallet<T> {
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
 		// Separately pay validator incentive bonus from validator incentive pot
-		// TODO(ank4n): Impl vesting plus emit event for incentive reward.
 		let _validator_incentive_paid =
 			Self::pay_validator_incentive_for_page(era, &stash, page_stake_part);
 
@@ -818,6 +817,14 @@ impl<T: Config> Pallet<T> {
 			));
 			return Zero::zero();
 		}
+
+		// Emit event for successful validator incentive payout
+		Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+			era,
+			validator_stash: stash.clone(),
+			dest,
+			amount,
+		});
 
 		amount
 	}

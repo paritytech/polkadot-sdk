@@ -1361,6 +1361,17 @@ pub mod pallet {
 			dest: RewardDestination<T::AccountId>,
 			amount: BalanceOf<T>,
 		},
+		/// The validator has been paid their self-stake incentive bonus.
+		///
+		/// This is separate from staker rewards (`RewardedFromProvider`) and represents
+		/// an additional bonus paid from the validator incentive pot based on the validator's
+		/// self-stake weight.
+		ValidatorIncentivePaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
