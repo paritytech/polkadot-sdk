@@ -1485,10 +1485,12 @@ async fn second_unblocked_collations<Context>(
 ///
 /// ## Capacity Accounting
 ///
-/// - **Total capacity:** Para's occurrences in the leaf's entire claim queue
-/// - **Consumed:** Sum of all seconded/pending/waiting candidates for this para across ALL relay
-///   parents in the path (they all draw from the same capacity pool)
-/// - **Check:** consumed < total_capacity
+/// Uses a **position-based bitfield** approach rather than simple counting:
+/// - A BitVec tracks which CQ positions are occupied (by other paras or already-allocated work)
+/// - For each ancestor in the path, we allocate its seconded/pending candidates to free positions
+///   within that ancestor's valid range `[0, lookahead - offset)`
+/// - At the relay_parent itself, we additionally try to allocate +1 for the incoming advertisement
+/// - If allocation overflows at relay_parent or any newer ancestor, the path is rejected
 ///
 /// ## Fork Handling
 ///

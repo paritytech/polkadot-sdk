@@ -2374,45 +2374,10 @@ async fn test_collation_response_out_of_view() {
 	assert!(db.witnessed_slash().is_none());
 }
 
-#[tokio::test]
-// Test that v2 candidates are rejected if the node feature is disabled.
-async fn test_v2_descriptor_without_feature_enabled() {
-	let mut test_state = TestState::default();
-	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-
-	let db = MockDb::default();
-	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
-	let mut sender = test_state.sender.clone();
-
-	let peer_id = PeerId::random();
-
-	// Build a v2 candidate.
-	let (ccr, adv) = dummy_candidate(
-		active_leaf,
-		100.into(),
-		peer_id,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		dummy_pvd().hash(),
-	);
-
-	let receipt = ccr.to_plain();
-
-	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
-	state.handle_declare(&mut sender, peer_id, 100.into()).await;
-
-	test_state.handle_advertisement(&mut state, adv).await;
-
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_collation_request(adv).await;
-
-	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
-	state.handle_fetched_collation(&mut sender, (adv, res)).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
-	test_state.assert_no_messages().await;
-}
+// TODO(https://github.com/paritytech/polkadot-sdk/issues/10883?issue=paritytech%7Cpolkadot-sdk%7C11084): Add
+// test_v3_descriptor_without_feature_enabled — verify V3 descriptors are rejected when v3_enabled
+// is false. The previous test_v2_descriptor_without_feature_enabled was removed because V2 is now
+// always enabled.
 
 #[rstest]
 #[tokio::test]
