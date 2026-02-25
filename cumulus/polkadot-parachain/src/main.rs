@@ -19,6 +19,10 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+#[cfg(target_os = "linux")]
+extern crate polkadot_jemalloc_shim;
+
 mod chain_spec;
 
 use polkadot_omni_node_lib::{
