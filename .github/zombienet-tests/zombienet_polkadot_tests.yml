@@ -257,3 +257,4 @@
   test-filter: "functional::collators_reputation_persistence"
   runner-type: "default"
   use-zombienet-sdk: true
+

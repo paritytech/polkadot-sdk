@@ -604,7 +604,7 @@ async fn distribute_collation<Context>(
 			v.iter().any(|block_hash| {
 				state.implicit_view.as_ref().map(|implicit_view| {
 					implicit_view
-						.known_allowed_relay_parents_under(block_hash, Some(id))
+						.known_allowed_relay_parents_under(block_hash)
 						.unwrap_or_default()
 						.contains(&candidate_relay_parent)
 				}) == Some(true)
@@ -717,16 +717,14 @@ fn has_assigned_cores(
 fn list_of_backing_validators_in_view(
 	implicit_view: &Option<ImplicitView>,
 	per_relay_parent: &HashMap<Hash, PerRelayParent>,
-	para_id: ParaId,
 	pending_collation: bool,
 ) -> Vec<AuthorityDiscoveryId> {
 	let mut backing_validators = HashSet::new();
 	let Some(implicit_view) = implicit_view else { return vec![] };
 
 	for leaf in implicit_view.leaves() {
-		let allowed_ancestry = implicit_view
-			.known_allowed_relay_parents_under(leaf, Some(para_id))
-			.unwrap_or_default();
+		let allowed_ancestry =
+			implicit_view.known_allowed_relay_parents_under(leaf).unwrap_or_default();
 
 		for allowed_relay_parent in allowed_ancestry {
 			let Some(relay_parent) = per_relay_parent.get(allowed_relay_parent) else { continue };
@@ -771,7 +769,7 @@ async fn update_validator_connections<Context>(
 		// to the network bridge passing an empty list of validator ids. Otherwise, it will keep
 		// connecting to the last requested validators until a new request is issued.
 		let validator_ids = if cores_assigned {
-			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, false)
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, false)
 		} else {
 			Vec::new()
 		};
@@ -793,7 +791,7 @@ async fn update_validator_connections<Context>(
 		}
 
 		let validator_ids =
-			list_of_backing_validators_in_view(implicit_view, per_relay_parent, para_id, true);
+			list_of_backing_validators_in_view(implicit_view, per_relay_parent, true);
 
 		gum::trace!(
 			target: LOG_TARGET,
@@ -944,7 +942,7 @@ async fn process_msg<Context>(
 		},
 		CollateOn(id) => {
 			state.collating_on = Some(id);
-			state.implicit_view = Some(ImplicitView::new(Some(id)));
+			state.implicit_view = Some(ImplicitView::new());
 		},
 		DistributeCollation {
 			candidate_receipt,
@@ -1295,8 +1293,7 @@ async fn advertise_collations_for_relay_parents<Context>(
 				.implicit_view
 				.as_ref()
 				.and_then(|implicit_view| {
-					implicit_view
-						.known_allowed_relay_parents_under(&relay_parent, state.collating_on)
+					implicit_view.known_allowed_relay_parents_under(&relay_parent)
 				})
 				.unwrap_or_default(),
 			false => {
@@ -1589,9 +1586,8 @@ async fn handle_our_view_change<Context>(
 		);
 
 		process_block_events(ctx, &mut state.collation_tracker, *leaf, block_number, para_id).await;
-		let allowed_ancestry = implicit_view
-			.known_allowed_relay_parents_under(leaf, state.collating_on)
-			.unwrap_or_default();
+		let allowed_ancestry =
+			implicit_view.known_allowed_relay_parents_under(leaf).unwrap_or_default();
 
 		// Get the peers that already reported us this head, but we didn't know it at this
 		// point.

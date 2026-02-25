@@ -1522,7 +1522,7 @@ mod tests {
 		) -> sp_blockchain::Result<Option<sc_client_api::StorageData>> {
 			use sp_statement_store::StatementAllowance;
 
-			assert_eq!(&key.0[0..21], b":statement-allowance:" as &[u8],);
+			assert_eq!(&key.0[0..21], b":statement_allowance:" as &[u8],);
 
 			// Extract account ID (32 bytes) from the storage key
 			let account_bytes = &key.0[21..53];
