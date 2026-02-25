@@ -1462,7 +1462,7 @@ mod session_keys {
 	fn set_keys_insufficient_bond() {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 
 			// GIVEN: MinSetKeysBond is set higher than the validator's active bond (100)
 			MinSetKeysBond::set(101);
@@ -1473,7 +1473,6 @@ mod session_keys {
 				rc_client::Pallet::<T>::set_keys(
 					RuntimeOrigin::signed(validator),
 					keys.clone(),
-					proof.clone(),
 					None,
 				),
 				rc_client::Error::<T>::InsufficientBond
@@ -1487,7 +1486,6 @@ mod session_keys {
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys.clone(),
-				proof.clone(),
 				None,
 			));
 		});
@@ -1498,13 +1496,12 @@ mod session_keys {
 		ExtBuilder::default().local_queue().build().execute_with(|| {
 			// GIVEN: MinSetKeysBond is 0 (default in tests) — check is disabled
 			let validator: AccountId = 1;
-			let (keys, proof) = make_session_keys_and_proof(validator);
+			let keys = make_session_keys();
 
 			// WHEN/THEN: set_keys succeeds regardless of bond amount
 			assert_ok!(rc_client::Pallet::<T>::set_keys(
 				RuntimeOrigin::signed(validator),
 				keys,
-				proof,
 				None,
 			));
 		});
