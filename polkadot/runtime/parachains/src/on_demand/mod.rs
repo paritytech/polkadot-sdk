@@ -115,7 +115,7 @@ impl<N> OrderQueue<N> {
 	{
 		let mut popped = BTreeSet::new();
 		let mut remaining_orders = Vec::with_capacity(self.queue.len());
-		for order in mem::take(&mut self.queue).into_iter() {
+		for order in mem::take(&mut self.queue) {
 			// Order is ready 2 blocks later (asynchronous backing):
 			let ready_at = order.ordered_at.saturating_plus_one().saturating_plus_one();
 			let is_ready = ready_at <= now;
@@ -542,9 +542,10 @@ where
 			});
 
 			let now = <frame_system::Pallet<T>>::block_number();
-			if let Err(p) = order_status.queue.try_push(now, para_id) {
-				log::error!(target: LOG_TARGET, "Placing order failed (queue too long): {:?}, but size has been checked above!", p);
-			};
+			order_status
+				.queue
+				.try_push(now, para_id)
+				.defensive_map_err(|_| Error::<T>::QueueFull)?;
 
 			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced {
 				para_id,
