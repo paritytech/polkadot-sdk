@@ -106,6 +106,7 @@ macro_rules! versioned_type {
 		$(#[$attr])*
 		pub enum $n {
 			$(#[$index3])*
+			#[deprecated(note = "XCMv3 is deprecated; use V4 or V5 instead.")]
 			V3($v3),
 			$(#[$index4])*
 			V4($v4),

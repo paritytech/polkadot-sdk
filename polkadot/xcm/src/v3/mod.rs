@@ -15,10 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Version 3 of the Cross-Consensus Message format data structures.
-
 //!
 //! WARNING: DEPRECATED, please use version 4 or 5.
-//!
 
 use super::v4::{
 	Instruction as NewInstruction, MaybeErrorCode as NewMaybeErrorCode,

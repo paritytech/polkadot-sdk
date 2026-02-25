@@ -84,8 +84,8 @@ impl Default for MaybeErrorCode {
 	}
 }
 impl From<OldMaybeErrorCode> for MaybeErrorCode {
-	fn from(new: OldMaybeErrorCode) -> Self {
-		match new {
+	fn from(old: OldMaybeErrorCode) -> Self {
+		match old {
 			OldMaybeErrorCode::Success => MaybeErrorCode::Success,
 			OldMaybeErrorCode::Error(error) => error.to_vec().into(),
 			OldMaybeErrorCode::TruncatedError(error) => {
@@ -121,8 +121,8 @@ pub enum OriginKind {
 }
 
 impl From<OldOriginKind> for OriginKind {
-	fn from(new: OldOriginKind) -> Self {
-		match new {
+	fn from(old: OldOriginKind) -> Self {
+		match old {
 			OldOriginKind::Native => Self::Native,
 			OldOriginKind::SovereignAccount => Self::SovereignAccount,
 			OldOriginKind::Superuser => Self::Superuser,
