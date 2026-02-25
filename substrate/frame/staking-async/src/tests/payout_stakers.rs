@@ -1756,11 +1756,12 @@ fn test_runtime_api_pending_rewards() {
 			individual: bounded_btree_map![validator_one => 1, validator_two => 1, validator_three => 1],
 		};
 		ErasRewardPoints::<T>::insert(0, reward);
-
-		// build exposure
+		// Build exposure
 		let mut individual_exposures: Vec<IndividualExposure<AccountId, Balance>> = vec![];
 		for i in 0..=MaxExposurePageSize::get() {
-			individual_exposures.push(IndividualExposure { who: i.into(), value: stake });
+			let nominator: AccountId = (10_000 + i).into();
+			bond(nominator, stake);
+			individual_exposures.push(IndividualExposure { who: nominator, value: stake });
 		}
 		let exposure = Exposure::<AccountId, Balance> {
 			total: stake * (MaxExposurePageSize::get() as Balance + 2),
