@@ -42,8 +42,7 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	// surcharge (EXTRA_EVENT_CHARGE_PER_BYTE) that can exceed 2300 gas worth of
 	// evm_opcode weight. We take the max of the pure gas-based stipend and an
 	// event-based stipend that covers one DepositEvent plus opcode overhead.
-	let overhead =
-		<EVMGas as Token<T>>::weight(&EVMGas(CALL_STIPEND / STIPEND_OVERHEAD_DIVISOR));
+	let overhead = <EVMGas as Token<T>>::weight(&EVMGas(CALL_STIPEND / STIPEND_OVERHEAD_DIVISOR));
 	let event_weight = <RuntimeCosts as Token<T>>::weight(&RuntimeCosts::DepositEvent {
 		num_topic: STIPEND_LOG_TOPICS,
 		len: STIPEND_LOG_DATA_LEN,
