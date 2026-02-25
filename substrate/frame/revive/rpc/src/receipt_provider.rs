@@ -168,12 +168,15 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		};
 
 		// Stale if evm_first no longer has an EVM hash, or its predecessor now does.
-		let is_stale = !has_evm_hash(evm_first).await
-			|| (evm_first > 1 && has_evm_hash(evm_first - 1).await);
+		// Note: evm_first >= 1 is guaranteed by the filter above.
+		let current_has_evm = has_evm_hash(evm_first).await;
+		let predecessor_has_evm = has_evm_hash(evm_first - 1).await;
 
-		if is_stale {
+		if !current_has_evm || predecessor_has_evm {
 			log::warn!(target: LOG_TARGET,
-				"🗄️ Stored evm-first-block=#{evm_first} is stale, clearing.");
+				"🗄️ Stored evm-first-block=#{evm_first} is stale \
+				 (has_evm={current_has_evm}, predecessor_has_evm={predecessor_has_evm}), \
+				 clearing.");
 			if let Err(e) = self
 				.set_sync_label(
 					SyncLabel::EvmFirstBlock,
@@ -1394,7 +1397,9 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn load_and_validate_evm_first_block_clears_stale(pool: SqlitePool) -> anyhow::Result<()> {
+	async fn load_and_validate_evm_first_block_clears_stale(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Persist evm_first_block = 42.

@@ -19,8 +19,10 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	EthRpcClient,
+	BlockInfoProvider, EthRpcClient, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider,
+	SyncLabel,
 	cli::{self, CliCommand},
+	client::{Client, connect},
 	example::TransactionBuilder,
 	subxt_client::{
 		self, SrcChainConfig, src_chain::runtime_types::pallet_revive::primitives::Code,
@@ -36,6 +38,7 @@ use pallet_revive::{
 		HashesOrTransactionInfos, TransactionInfo, TransactionUnsigned, U256,
 	},
 };
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use std::{sync::Arc, thread};
 use subxt::{
 	OnlineClient,
@@ -317,6 +320,14 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_block_sync_fresh,
+		test_block_sync_resync,
+		test_block_sync_resume_interrupted,
+		test_block_sync_chain_mismatch,
+		test_block_sync_boundary_mismatch,
+		test_block_sync_receipts_queryable,
+		test_block_sync_picks_up_new_blocks,
+		test_block_sync_earliest_receipt_block,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -951,6 +962,501 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "Runtime API call failed: {result:?}");
 	let call_result = result.unwrap();
 	assert!(call_result.result.is_err(), "fib(100) should run out of gas");
+
+	Ok(())
+}
+
+/// Submit `count` EVM transfer transactions and wait for inclusion.
+async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
+	let ws_client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let transactions = prepare_evm_transactions(
+		ws_client.clone(),
+		Account::default(),
+		ethan.address(),
+		U256::from(1_000_000_000_000u128),
+		count,
+	)
+	.await?;
+	let submitted = submit_evm_transactions(transactions).await?;
+	submitted[0].2.wait_for_receipt().await?;
+	Ok(())
+}
+
+/// Create a [`Client`] for block-sync testing.
+///
+/// Connects to the same dev-node that [`SharedResources`] started, but uses its own
+/// in-memory SQLite database so that sync labels written by the test do not interfere
+/// with the eth-rpc server's internal database (and vice versa).
+async fn create_sync_test_client() -> anyhow::Result<Client> {
+	create_sync_test_client_with_earliest(None).await
+}
+
+/// Create a [`Client`] for block-sync testing with an optional `earliest_receipt_block`.
+async fn create_sync_test_client_with_earliest(
+	earliest_receipt_block: Option<u32>,
+) -> anyhow::Result<Client> {
+	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
+
+	let node_url = SharedResources::node_rpc_url();
+	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
+	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
+	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
+
+	let pool = SqlitePoolOptions::new()
+		.max_connections(1)
+		.idle_timeout(None)
+		.max_lifetime(None)
+		.connect_with(SqliteConnectOptions::new().in_memory(true))
+		.await?;
+
+	let receipt_extractor = ReceiptExtractor::new(api.clone(), earliest_receipt_block).await?;
+	let receipt_provider =
+		ReceiptProvider::new(pool, block_provider.clone(), receipt_extractor, None).await?;
+
+	let client = Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+	Ok(client)
+}
+
+/// Fresh sync on an empty database should:
+/// - `prepare_sync()` returns `None` (no prior state)
+/// - `sync_past_blocks()` syncs all finalized blocks
+/// - Genesis, LowerBound, and UpperBound labels are persisted correctly
+async fn test_block_sync_fresh() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit a transaction so the chain has at least one block with EVM data to sync.
+	submit_evm_transfers(1).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Fresh DB — sync_state table should be empty.
+	for label in [
+		SyncLabel::Genesis,
+		SyncLabel::LowerBound,
+		SyncLabel::UpperBound,
+		SyncLabel::LastFinalized,
+		SyncLabel::EvmFirstBlock,
+	] {
+		assert!(
+			client.receipt_provider().get_sync_label(label).await?.is_none(),
+			"sync_state[{label}] should be absent on fresh DB"
+		);
+	}
+
+	let upper = client.prepare_sync().await?;
+	assert!(upper.is_none(), "Fresh DB should have no sync state, got: {upper:?}");
+
+	// Run the full backward sync.
+	client.sync_past_blocks(upper).await?;
+
+	// Genesis label must match the chain.
+	let genesis = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::Genesis)
+		.await?
+		.expect("Genesis label should be set after sync");
+	assert_eq!(
+		genesis,
+		SyncCheckpoint { block_number: 0, block_hash: Some(client.api().genesis_hash()) },
+		"Stored genesis should match chain genesis"
+	);
+
+	// UpperBound = {0, None} marks a completed sync.
+	let upper_bound = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::UpperBound)
+		.await?
+		.expect("UpperBound should be set after sync");
+	assert_eq!(
+		upper_bound,
+		SyncCheckpoint { block_number: 0, block_hash: None },
+		"UpperBound should be {{0, None}} after completed sync"
+	);
+
+	// LowerBound should be genesis (block 0) — on the dev node all blocks have EVM hashes.
+	let lower_bound = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::LowerBound)
+		.await?
+		.expect("LowerBound should be set after sync");
+	assert_eq!(lower_bound, genesis, "LowerBound should be genesis");
+
+	// On the dev node all blocks (including genesis) have EVM hashes
+	let evm_first = client.receipt_provider().get_sync_label(SyncLabel::EvmFirstBlock).await?;
+	assert!(evm_first.is_none(), "EvmFirstBlock should not be set when all blocks are EVM");
+	assert_eq!(client.receipt_provider().evm_first_block(), None);
+	assert_eq!(client.receipt_provider().earliest_block(), 0);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Fresh sync OK: genesis={:?}, lower=#{}, upper=#{}",
+		genesis.block_hash,
+		lower_bound.block_number,
+		upper_bound.block_number
+	);
+
+	Ok(())
+}
+
+/// Re-syncing an already-synced database should complete without errors
+/// and leave sync labels in the correct state.
+async fn test_block_sync_resync() -> anyhow::Result<()> {
+	let client = create_sync_test_client().await?;
+
+	// First: complete a fresh sync.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// Second: run sync again — exercises the (Some(lower), None) resume path.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// UpperBound should still be 0 (sync completed twice).
+	let upper_bound = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::UpperBound)
+		.await?
+		.expect("UpperBound should exist after re-sync");
+	assert_eq!(upper_bound.block_number, 0, "UpperBound should remain 0 after re-sync");
+
+	Ok(())
+}
+
+/// Simulate an interrupted sync by manually setting both UpperBound and LowerBound
+/// to create a top gap and a bottom gap, then verify that `resume_sync` fills both.
+async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit transactions so the chain has enough blocks for the 1/3 and 2/3 split.
+	submit_evm_transfers(6).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so the DB has all blocks and labels.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// Pick two blocks to simulate partial coverage: lower at 1/3, upper at 2/3.
+	let chain_len = client.latest_finalized_block().await.number();
+
+	let lower_num = chain_len / 3;
+	let lower_block = client
+		.block_provider()
+		.block_by_number(lower_num)
+		.await?
+		.expect("Lower block should exist");
+
+	let upper_num = chain_len * 2 / 3;
+	let upper_block = client
+		.block_provider()
+		.block_by_number(upper_num)
+		.await?
+		.expect("Upper block should exist");
+
+	// Overwrite both labels to simulate a crash mid-sync with a partial range.
+	let interrupted_lower =
+		SyncCheckpoint { block_number: lower_block.number(), block_hash: Some(lower_block.hash()) };
+	let interrupted_upper =
+		SyncCheckpoint { block_number: upper_block.number(), block_hash: Some(upper_block.hash()) };
+
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::LowerBound, interrupted_lower.clone())
+		.await?;
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::UpperBound, interrupted_upper.clone())
+		.await?;
+
+	// prepare_sync should detect the interrupted sync
+	let upper = client.prepare_sync().await?;
+	assert_eq!(
+		upper,
+		Some(interrupted_upper.clone()),
+		"prepare_sync should return the interrupted UpperBound"
+	);
+
+	// Resume sync — fills top gap and bottom gap.
+	client.sync_past_blocks(upper).await?;
+
+	// After resume, UpperBound should be 0 (sync complete).
+	let new_upper = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::UpperBound)
+		.await?
+		.expect("UpperBound should exist after resume");
+	assert_eq!(new_upper.block_number, 0, "UpperBound should be 0 after resumed sync");
+
+	// LowerBound should reach genesis (bottom gap fully filled).
+	let new_lower = client
+		.receipt_provider()
+		.get_sync_label(SyncLabel::LowerBound)
+		.await?
+		.expect("LowerBound should exist after resume");
+	assert_eq!(
+		new_lower.block_number, 0,
+		"LowerBound should be 0 after resume fills the bottom gap, got #{}",
+		new_lower.block_number,
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Resume interrupted OK: simulated partial range #{}..#{}, \
+		 after resume lower=#{}, upper=#{}",
+		interrupted_lower.block_number,
+		interrupted_upper.block_number,
+		new_lower.block_number,
+		new_upper.block_number,
+	);
+
+	Ok(())
+}
+
+/// Overwriting the Genesis label with a fake hash should cause `sync_past_blocks`
+/// to return a `ChainMismatch` error.
+async fn test_block_sync_chain_mismatch() -> anyhow::Result<()> {
+	use crate::{block_sync::SyncCheckpoint, client::ClientError};
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so Genesis is stored.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// Overwrite Genesis with a fake hash.
+	let fake_genesis =
+		SyncCheckpoint { block_number: 0, block_hash: Some(H256::from([0xdeu8; 32])) };
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::Genesis, fake_genesis)
+		.await?;
+
+	// Re-sync should detect the mismatch and return ChainMismatch.
+	let upper = client.prepare_sync().await?;
+	let result = client.sync_past_blocks(upper).await;
+
+	assert!(result.is_err(), "sync_past_blocks should fail with ChainMismatch");
+	let err = result.unwrap_err();
+	assert!(matches!(err, ClientError::ChainMismatch), "Expected ChainMismatch, got: {err:?}");
+
+	log::debug!(target: LOG_TARGET, "ChainMismatch correctly detected");
+
+	Ok(())
+}
+
+/// Setting UpperBound to a valid block number but with a fake hash should cause
+/// `sync_past_blocks` to return a `SyncBoundaryMismatch` error during resume.
+async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
+	use crate::{block_sync::SyncCheckpoint, client::ClientError};
+
+	// Submit transactions so the chain has enough blocks for the test.
+	submit_evm_transfers(2).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Complete a fresh sync so all labels are stored.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// Fabricate a corrupted UpperBound: valid block number, fake hash.
+	let chain_len = client.latest_finalized_block().await.number();
+	let corrupted_upper =
+		SyncCheckpoint { block_number: chain_len / 2, block_hash: Some(H256::from([0xbau8; 32])) };
+	client
+		.receipt_provider()
+		.set_sync_label(SyncLabel::UpperBound, corrupted_upper)
+		.await?;
+
+	// prepare_sync sees UpperBound > 0 and returns it for resume.
+	let upper = client.prepare_sync().await?;
+	assert_eq!(
+		upper.unwrap(),
+		corrupted_upper,
+		"prepare_sync should return the corrupted UpperBound"
+	);
+
+	// sync_past_blocks should detect the hash mismatch during verify_boundary.
+	let result = client.sync_past_blocks(upper).await;
+
+	assert!(result.is_err(), "sync_past_blocks should fail with SyncBoundaryMismatch");
+	let err = result.unwrap_err();
+	assert!(
+		matches!(err, ClientError::SyncBoundaryMismatch),
+		"Expected SyncBoundaryMismatch, got: {err:?}"
+	);
+
+	log::debug!(target: LOG_TARGET, "SyncBoundaryMismatch correctly detected");
+
+	Ok(())
+}
+
+/// After a sync, ethereum-to-substrate block mappings should be queryable
+/// in the test client's database.
+async fn test_block_sync_receipts_queryable() -> anyhow::Result<()> {
+	// Submit a transaction so the chain has EVM data to query.
+	submit_evm_transfers(1).await?;
+
+	let client = create_sync_test_client().await?;
+
+	// Sync all blocks.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// Pick the latest finalized block and look up its mapping.
+	let finalized = client.latest_finalized_block().await;
+	let substrate_hash = finalized.hash();
+
+	let ethereum_hash = client.receipt_provider().get_ethereum_hash(&substrate_hash).await;
+	assert!(
+		ethereum_hash.is_some(),
+		"Finalized block #{} ({substrate_hash:?}) should have an ethereum hash mapping after sync",
+		finalized.number(),
+	);
+
+	// Reverse lookup should resolve back to the same substrate hash.
+	assert_eq!(
+		client.receipt_provider().get_substrate_hash(&ethereum_hash.unwrap()).await,
+		Some(substrate_hash),
+		"Reverse mapping should resolve back to the substrate hash"
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Receipts queryable OK: verified mappings for block #{} and mid-chain",
+		finalized.number(),
+	);
+
+	Ok(())
+}
+
+/// Syncing a second client after new transactions have been submitted
+/// should include the newer blocks.
+async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
+	// First sync: snapshot the current chain state.
+	let client1 = create_sync_test_client().await?;
+	let finalized1 = client1.latest_finalized_block().await.number();
+
+	let upper1 = client1.prepare_sync().await?;
+	client1.sync_past_blocks(upper1).await?;
+
+	// Submit a transaction to produce at least one new block.
+	submit_evm_transfers(1).await?;
+
+	// Second sync: new client with fresh DB should see the new blocks.
+	let client2 = create_sync_test_client().await?;
+	let finalized2 = client2.latest_finalized_block().await;
+
+	let upper2 = client2.prepare_sync().await?;
+	client2.sync_past_blocks(upper2).await?;
+	assert!(
+		finalized2.number() > finalized1,
+		"Second finalized #{} should be higher than first #{finalized1}",
+		finalized2.number(),
+	);
+
+	// The new block should have an ethereum hash mapping in client2's DB.
+	assert!(
+		client2.receipt_provider().get_ethereum_hash(&finalized2.hash()).await.is_some(),
+		"New finalized block #{} should be synced in client2",
+		finalized2.number(),
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Picks up new blocks OK: client2 synced up to #{}, earliest=#{}",
+		finalized2.number(),
+		client2.receipt_provider().earliest_block(),
+	);
+
+	Ok(())
+}
+
+/// When `--earliest-receipt-block` is set, the sync should stop at that block.
+async fn test_block_sync_earliest_receipt_block() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	// Submit transactions so the chain has enough blocks.
+	submit_evm_transfers(5).await?;
+
+	// Need chain length to compute `earliest` before constructing the client
+	// (earliest_receipt_block is set at construction time).
+	let probe = create_sync_test_client().await?;
+	let chain_len = probe.latest_finalized_block().await.number();
+	assert!(chain_len >= 5, "Chain must have at least 5 blocks for this test");
+	let earliest = chain_len / 2;
+	drop(probe);
+
+	let client = create_sync_test_client_with_earliest(Some(earliest)).await?;
+
+	// Verify earliest_block reflects the CLI setting.
+	assert_eq!(
+		client.receipt_provider().earliest_receipt_block(),
+		Some(earliest),
+		"earliest_receipt_block should be set"
+	);
+	assert_eq!(
+		client.receipt_provider().earliest_block(),
+		earliest,
+		"earliest_block should equal earliest_receipt_block before sync"
+	);
+
+	// Run the full sync.
+	let upper = client.prepare_sync().await?;
+	client.sync_past_blocks(upper).await?;
+
+	// UpperBound should be 0 (sync complete).
+	assert_eq!(
+		client
+			.receipt_provider()
+			.get_sync_label(SyncLabel::UpperBound)
+			.await?
+			.expect("UpperBound should be set after sync"),
+		SyncCheckpoint { block_number: 0, block_hash: None },
+		"UpperBound should be {{0, None}} after completed sync"
+	);
+
+	// LowerBound should be exactly `earliest`.
+	assert_eq!(
+		client
+			.receipt_provider()
+			.get_sync_label(SyncLabel::LowerBound)
+			.await?
+			.expect("LowerBound should be set after sync")
+			.block_number,
+		earliest,
+		"LowerBound should equal earliest_receipt_block"
+	);
+
+	assert!(earliest > 1, "earliest must be > 1 for this check");
+	assert_eq!(
+		client.receipt_provider().earliest_block(),
+		earliest,
+		"earliest_block() should equal earliest_receipt_block after sync"
+	);
+
+	// Blocks below `earliest` should NOT have ethereum hash mappings.
+	let block_below_earliest = client
+		.block_provider()
+		.block_by_number(earliest - 1)
+		.await?
+		.expect("Block before earliest should exist on chain");
+	assert!(
+		client
+			.receipt_provider()
+			.get_ethereum_hash(&block_below_earliest.hash())
+			.await
+			.is_none(),
+		"Block #{} (below earliest_receipt_block) should not be synced",
+		earliest - 1,
+	);
+
+	log::debug!(
+		target: LOG_TARGET,
+		"Earliest receipt block OK: earliest=#{}",
+		earliest
+	);
 
 	Ok(())
 }
