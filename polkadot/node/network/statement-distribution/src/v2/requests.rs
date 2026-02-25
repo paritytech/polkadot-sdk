@@ -583,12 +583,13 @@ impl UnhandledResponse {
 		// it could also happen in the case that we had a request in-flight
 		// and the request entry was garbage-collected on outdated relay parent.
 		let entry = match manager.requests.get_mut(&identifier) {
-			None =>
+			None => {
 				return ResponseValidationOutput {
 					requested_peer,
 					reputation_changes: Vec::new(),
 					request_status: CandidateRequestStatus::Outdated,
-				},
+				}
+			},
 			Some(e) => e,
 		};
 

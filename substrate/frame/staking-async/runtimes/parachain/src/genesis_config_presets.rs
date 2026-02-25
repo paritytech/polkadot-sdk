@@ -29,6 +29,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::AccountIdConversion;
 use sp_staking::StakerStatus;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,

@@ -607,8 +607,9 @@ fn handle_child_process(
 			Ok(None) => Err(PrepareError::IoErr("error communicating over closed channel".into())),
 			Err(err) => Err(PrepareError::IoErr(stringify_panic_payload(err))),
 		},
-		WaitOutcome::Pending =>
-			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+		WaitOutcome::Pending => {
+			unreachable!("we run wait_while until the outcome is no longer pending; qed")
+		},
 	};
 
 	send_child_response(&mut pipe_write, result);

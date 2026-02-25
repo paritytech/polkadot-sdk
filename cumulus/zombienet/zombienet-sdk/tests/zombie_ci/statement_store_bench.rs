@@ -8,9 +8,18 @@ use codec::{Decode, Encode};
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, info, trace};
 use sc_statement_store::{DEFAULT_MAX_TOTAL_SIZE, DEFAULT_MAX_TOTAL_STATEMENTS};
-use sp_core::{blake2_256, sr25519, Bytes, Pair};
-use sp_statement_store::{Channel, Statement, SubmitResult, Topic, TopicFilter};
-use std::{cell::Cell, collections::HashMap, sync::Arc, time::Duration};
+use sp_core::{blake2_256, hexdisplay::HexDisplay, sr25519, Bytes, Pair};
+use sp_statement_store::{
+	statement_allowance_key, Channel, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	Topic, TopicFilter,
+};
+use std::{
+	cell::Cell,
+	collections::HashMap,
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::Duration,
+};
 use tokio::{sync::Barrier, time::timeout};
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
@@ -23,6 +32,7 @@ const MESSAGE_SIZE: usize = 512;
 const MESSAGE_COUNT: usize = 1;
 const RETRY_DELAY_MS: u64 = 500;
 const SUBSCRIBE_TIMEOUT_SECS: u64 = 200;
+const RPC_POOL_SIZE: usize = 10000;
 
 /// Single-node benchmark.
 ///
@@ -43,17 +53,22 @@ async fn statement_store_one_node_bench() -> Result<(), anyhow::Error> {
 	);
 
 	let collator_names = ["alice", "bob"];
-	let network = spawn_network(&collator_names).await?;
+	let network = spawn_network(&collator_names, PARTICIPANT_SIZE).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
-	info!("Created single RPC client for target node: {}", target_node);
+
+	let mut rpc_pool = Vec::with_capacity(RPC_POOL_SIZE);
+	for _ in 0..RPC_POOL_SIZE {
+		rpc_pool.push(node.rpc().await?);
+	}
+	info!("Created RPC connection pool with {} connections to {}", RPC_POOL_SIZE, target_node);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		participants.push(Participant::new(i as u32, node.rpc().await?));
+		participants.push(Participant::new(i as u32, rpc_pool[i % RPC_POOL_SIZE].clone()));
 	}
 
 	let handles: Vec<_> = participants
@@ -92,21 +107,33 @@ async fn statement_store_many_nodes_bench() -> Result<(), anyhow::Error> {
 	);
 
 	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	let network = spawn_network(&collator_names).await?;
+	let network = spawn_network(&collator_names, PARTICIPANT_SIZE).await?;
 
 	info!("Starting statement store benchmark with {} participants", PARTICIPANT_SIZE);
 
-	let mut rpc_clients = Vec::new();
+	let mut rpc_pools: Vec<Vec<RpcClient>> = Vec::new();
+
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
-		rpc_clients.push(node);
+		let mut pool = Vec::with_capacity(RPC_POOL_SIZE);
+		for _ in 0..RPC_POOL_SIZE {
+			pool.push(node.rpc().await?);
+		}
+		rpc_pools.push(pool);
 	}
-	info!("Created RPC clients for {} collator nodes", rpc_clients.len());
+
+	info!(
+		"Created RPC connection pool: {} connections x {} nodes = {} total",
+		RPC_POOL_SIZE,
+		collator_names.len(),
+		RPC_POOL_SIZE * collator_names.len()
+	);
 
 	let mut participants = Vec::with_capacity(PARTICIPANT_SIZE as usize);
 	for i in 0..(PARTICIPANT_SIZE) as usize {
-		let client_idx = i % collator_names.len();
-		participants.push(Participant::new(i as u32, rpc_clients[client_idx].rpc().await?));
+		let node_idx = i % collator_names.len();
+		let conn_idx = (i / collator_names.len()) % RPC_POOL_SIZE;
+		participants.push(Participant::new(i as u32, rpc_pools[node_idx][conn_idx].clone()));
 	}
 	info!(
 		"{} participants were distributed across {} nodes: {} participants per node",
@@ -150,29 +177,36 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	let network = spawn_network(&collator_names).await?;
-
-	let target_node = collator_names[0];
-	let node = network.get_node(target_node)?;
-	info!("Created single RPC client for target node: {}", target_node);
-
 	let total_tasks = 64 * 1024;
 	let payload_size = 1024;
 	let submit_capacity =
 		DEFAULT_MAX_TOTAL_STATEMENTS.min(DEFAULT_MAX_TOTAL_SIZE / payload_size) as u64;
 	let statements_per_task = submit_capacity / total_tasks as u64;
+
+	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
+	let network = spawn_network(&collator_names, total_tasks).await?;
+
+	let target_node = collator_names[0];
+	let node = network.get_node(target_node)?;
+	let mut rpc_pool = Vec::with_capacity(RPC_POOL_SIZE);
+	for _ in 0..RPC_POOL_SIZE {
+		rpc_pool.push(node.rpc().await?);
+	}
+	info!("Created RPC connection pool with {} connections to {}", RPC_POOL_SIZE, target_node);
+
 	let num_collators = collator_names.len() as u64;
 	let propogation_capacity = submit_capacity * (num_collators - 1); // 5x per node
 	let start_time = std::time::Instant::now();
 
-	info!("Starting memory stress benchmark with {} tasks, each submitting {} statements of {}B payload, total submit capacity per node: {}, total propagation capacity: {}",
-		total_tasks, statements_per_task, payload_size, submit_capacity, propogation_capacity);
+	info!(
+		"Starting memory stress benchmark with {} tasks, each submitting {} statements of {}B payload, total submit capacity per node: {}, total propagation capacity: {}",
+		total_tasks, statements_per_task, payload_size, submit_capacity, propogation_capacity
+	);
 
-	for _ in 0..total_tasks {
-		let rpc_client = node.rpc().await?;
+	for idx in 0..total_tasks {
+		let rpc_client = rpc_pool[idx as usize % RPC_POOL_SIZE].clone();
 		tokio::spawn(async move {
-			let (keyring, _) = sr25519::Pair::generate();
+			let keyring = get_keypair(idx);
 			let public = keyring.public().0;
 
 			for statement_count in 0..statements_per_task {
@@ -198,7 +232,10 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 					};
 
 					if err.to_string().contains("Statement store error: Store is full") {
-						info!("Statement store is full, {}/{} statements submitted, `statements_per_task` overestimated", statement_count, statements_per_task);
+						info!(
+							"Statement store is full, {}/{} statements submitted, `statements_per_task` overestimated",
+							statement_count, statements_per_task
+						);
 						break;
 					}
 
@@ -297,7 +334,10 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 		let total_submitted: u64 = submitted_metrics.iter().map(|(_, count, _)| *count).sum();
 		if total_submitted == submit_capacity * num_collators {
-			info!("Reached total submit capacity of {} statements per node in {}s, benchmark completed successfully", submit_capacity, elapsed);
+			info!(
+				"Reached total submit capacity of {} statements per node in {}s, benchmark completed successfully",
+				submit_capacity, elapsed
+			);
 			break;
 		}
 	}
@@ -305,24 +345,85 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Spawns a network using a custom chain spec (people-westend-spec.json) which validates any signed
-/// statement in the statement-store without additional verification.
-async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+/// Creates a custom chain spec with injected statement allowances.
+///
+/// Returns the path to the temporary chain spec file.
+///
+/// The chain spec template generates by:
+/// `polkadot-parachain build-spec --chain people-westend-local --raw`
+fn create_chain_spec_with_allowances(
+	participant_count: u32,
+	base_dir: &Path,
+) -> Result<PathBuf, anyhow::Error> {
+	let chain_spec_template = include_str!("people-westend-local-spec.json");
+	let mut chain_spec: serde_json::Value = serde_json::from_str(chain_spec_template)
+		.map_err(|e| anyhow!("Failed to parse chain spec JSON: {}", e))?;
+	let genesis = chain_spec
+		.get_mut("genesis")
+		.and_then(|g| g.get_mut("raw"))
+		.and_then(|r| r.get_mut("top"))
+		.and_then(|t| t.as_object_mut())
+		.ok_or_else(|| anyhow!("Failed to access genesis.raw.top in chain spec"))?;
+
+	// Use static maximum values for benchmarks
+	let allowance = StatementAllowance { max_count: 100_000, max_size: 1_000_000 };
+	let allowance_hex = format!("0x{}", HexDisplay::from(&allowance.encode()));
+	info!("Injecting statement allowance: {:}", allowance_hex);
+	for idx in 0..participant_count {
+		let keypair = get_keypair(idx);
+		let account_id = keypair.public();
+
+		let storage_key = statement_allowance_key(account_id.0);
+		let storage_key_hex = format!("0x{}", HexDisplay::from(&storage_key));
+
+		genesis.insert(storage_key_hex, serde_json::Value::String(allowance_hex.clone()));
+	}
+
+	let chain_spec_path = base_dir.join("people-westend-custom.json");
+	let chain_spec_json = serde_json::to_string_pretty(&chain_spec)
+		.map_err(|e| anyhow!("Failed to serialize chain spec: {}", e))?;
+
+	std::fs::write(&chain_spec_path, chain_spec_json)
+		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
+
+	info!("Created custom chain spec at: {}", chain_spec_path.display());
+
+	Ok(chain_spec_path)
+}
+
+/// Spawns a network using a custom chain spec with injected statement allowances.
+pub async fn spawn_network(
+	collators: &[&str],
+	participant_count: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(collators.len() >= 2);
 	let images = zombienet_sdk::environment::get_images_from_env();
+
+	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
+		.ok()
+		.map(PathBuf::from)
+		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
+	std::fs::create_dir_all(&base_dir)
+		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
+
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	// Headroom for the ~5,000 subscriptions that
+	// actually end up on each pooled conn (500 participants * 10 subscriptions each)
+	let max_subs_per_conn = PARTICIPANT_SIZE / RPC_POOL_SIZE as u32 * 16;
+
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_node(|node| node.with_name("validator-0"))
-				.with_node(|node| node.with_name("validator-1"))
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
 		})
 		.with_parachain(|p| {
 			let p = p
 				.with_id(2400)
-				.with_chain("people-westend-local")
+				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![
@@ -331,6 +432,9 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 					"-linfo,statement-store=info,statement-gossip=info".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", PARTICIPANT_SIZE + 1000).as_str().into(),
+					format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}")
+						.as_str()
+						.into(),
 				])
 				// Have to set outside of the loop below, so that `p` has the right type.
 				.with_collator(|n| n.with_name(collators[0]));
@@ -339,9 +443,8 @@ async fn spawn_network(collators: &[&str]) -> Result<Network<LocalFileSystem>, a
 				.iter()
 				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
-		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-			Ok(val) => global_settings.with_base_dir(val),
-			_ => global_settings,
+		.with_global_settings(|global_settings| {
+			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
 		})
 		.build()
 		.map_err(|e| {
@@ -457,7 +560,7 @@ impl Participant {
 
 	fn new(idx: u32, rpc_client: RpcClient) -> Self {
 		debug!(target: &format!("participant_{idx}"), "Initializing participant {}", idx);
-		let (keyring, _) = sr25519::Pair::generate();
+		let keyring = get_keypair(idx);
 		let (session_key, _) = sr25519::Pair::generate();
 
 		let group_start = (idx / GROUP_SIZE) * GROUP_SIZE;
@@ -547,7 +650,7 @@ impl Participant {
 		for idx in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_public_key(), topic_idx(*idx)].try_into().expect("Two topics")
@@ -561,13 +664,28 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(idx, mut subscription)| async move {
-				let statement_bytes =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for session key"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				let mut batch;
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for session key"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					let StatementEvent::NewStatements { statements, .. } = item;
+					if statements.is_empty() {
+						continue; // Ignore empty batches
+					} else {
+						batch = statements;
+						break;
+					}
+				}
+
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let session_key = sr25519::Public::from_raw(
@@ -619,7 +737,7 @@ impl Participant {
 		for &(sender_idx, sender_session_key) in &pending {
 			let subscription = self
 				.rpc_client
-				.subscribe::<Bytes>(
+				.subscribe::<StatementEvent>(
 					"statement_subscribeStatement",
 					rpc_params![TopicFilter::MatchAll(
 						vec![topic_message(), topic_pair(&sender_session_key, &own_session_key)]
@@ -635,13 +753,27 @@ impl Participant {
 		let mut futures: FuturesUnordered<_> = subscriptions
 			.into_iter()
 			.map(|(sender_idx, mut subscription)| async move {
-				let statement_bytes =
-					timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
-						.await
-						.map_err(|_| anyhow!("Timeout waiting for message"))?
-						.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
-						.map_err(|e| anyhow!("Subscription error: {}", e))?;
-				let statement = Statement::decode(&mut &statement_bytes[..])
+				let mut batch;
+				loop {
+					let item =
+						timeout(Duration::from_secs(SUBSCRIBE_TIMEOUT_SECS), subscription.next())
+							.await
+							.map_err(|_| anyhow!("Timeout waiting for message"))?
+							.ok_or_else(|| anyhow!("Subscription ended unexpectedly"))?
+							.map_err(|e| anyhow!("Subscription error: {}", e))?;
+					batch = match item {
+						StatementEvent::NewStatements { statements: batch, .. } => batch,
+					};
+					if batch.is_empty() {
+						continue; // Ignore empty batches
+					} else {
+						break;
+					}
+				}
+				if batch.len() != 1 {
+					return Err(anyhow!("Expected exactly one statement, got: {}", batch.len()));
+				}
+				let statement = Statement::decode(&mut &batch.remove(0)[..])
 					.map_err(|e| anyhow!("Failed to decode statement: {}", e))?;
 				let data = statement.data().ok_or_else(|| anyhow!("Statement missing data"))?;
 				let req = StatementMessage::decode(&mut &data[..])
@@ -731,6 +863,10 @@ fn channel_message(sender: &sr25519::Public, receiver: &sr25519::Public) -> Chan
 	blake2_256(&data)
 }
 
+pub fn get_keypair(idx: u32) -> sr25519::Pair {
+	sr25519::Pair::from_string(&format!("//StatementBench//{idx}"), None).expect("Valid seed")
+}
+
 struct LatencyBenchConfig {
 	num_rounds: usize,
 	num_nodes: usize,
@@ -777,7 +913,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		(0..config.num_nodes).map(|i| format!("collator{i}")).collect();
 	let collator_names: Vec<&str> = collator_names.iter().map(|s| s.as_str()).collect();
 
-	let network = spawn_network(&collator_names).await?;
+	let network = spawn_network(&collator_names, config.num_clients).await?;
 
 	info!("Starting Latency benchmark");
 	info!("");
@@ -792,11 +928,23 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	}
 	info!("");
 
-	let mut rpc_clients = Vec::new();
+	let clients_per_node = config.num_clients as usize / config.num_nodes;
+	let pool_size_per_node = RPC_POOL_SIZE.min(clients_per_node);
+	let mut rpc_pools: Vec<Vec<RpcClient>> = Vec::new();
 	for &name in &collator_names {
 		let node = network.get_node(name)?;
-		rpc_clients.push(node);
+		let mut pool = Vec::with_capacity(pool_size_per_node);
+		for _ in 0..pool_size_per_node {
+			pool.push(node.rpc().await?);
+		}
+		rpc_pools.push(pool);
 	}
+	info!(
+		"Created RPC connection pool: {} connections x {} nodes = {} total",
+		pool_size_per_node,
+		collator_names.len(),
+		pool_size_per_node * collator_names.len()
+	);
 
 	let barrier = Arc::new(Barrier::new(config.num_clients as usize));
 	let sync_start = std::time::Instant::now();
@@ -806,16 +954,15 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 		.duration_since(std::time::UNIX_EPOCH)
 		.unwrap()
 		.as_micros() as u64;
-	let test_run_id = Arc::new(test_run_id);
 
 	let handles: Vec<_> = (0..config.num_clients)
 		.map(|client_id| {
 			let config = Arc::clone(&config);
 			let barrier = Arc::clone(&barrier);
-			let test_run_id = Arc::clone(&test_run_id);
-			let (keyring, _) = sr25519::Pair::generate();
+			let keyring = get_keypair(client_id);
 			let node_idx = (client_id as usize) % config.num_nodes;
-			let rpc_node = rpc_clients[node_idx].clone();
+			let conn_idx = (client_id as usize / config.num_nodes) % pool_size_per_node;
+			let rpc_client = rpc_pools[node_idx][conn_idx].clone();
 			let neighbour_id = (client_id + 1) % config.num_clients;
 			let neighbour_node_idx = (neighbour_id as usize) % config.num_nodes;
 			if node_idx == neighbour_node_idx && config.num_nodes > 1 {
@@ -826,7 +973,6 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 			tokio::spawn(async move {
 				barrier.wait().await;
-				let rpc_client = rpc_node.rpc().await?;
 
 				if client_id == 0 {
 					let sync_time = sync_start.elapsed();
@@ -851,8 +997,8 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 
 					let mut subscriptions = Vec::new();
 					for msg_idx in 0..config.messages_per_client() as u32 {
-						let topic_str =
-							format!("{}-{}-{}-{}", *test_run_id, neighbour_id, round, msg_idx);
+						let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
+
 						if client_id == 0 {
 							info!("Subscribed {msg_idx} message(s) {topic_str:?}");
 						}
@@ -860,7 +1006,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						let topic: Topic = blake2_256(topic_str.as_bytes()).into();
 
 						let subscription = rpc_client
-							.subscribe::<Bytes>(
+							.subscribe::<StatementEvent>(
 								"statement_subscribeStatement",
 								rpc_params![TopicFilter::MatchAll(
 									vec![topic].try_into().expect("Single topic")
@@ -871,7 +1017,10 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 							.map_err(|e| {
 								anyhow!(
 									"Client {}: Failed to subscribe for message {} from neighbour {}: {}",
-									client_id, msg_idx, neighbour_id, e
+									client_id,
+									msg_idx,
+									neighbour_id,
+									e
 								)
 							})?;
 						subscriptions.push((msg_idx, topic_str, subscription));
@@ -882,7 +1031,6 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					}
 
 					// Step 2: Send messages
-					let send_start = std::time::Instant::now();
 					let mut msg_idx: u32 = 0;
 
 					if client_id == 0 {
@@ -893,20 +1041,19 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						for _ in 0..count {
 							let mut statement = Statement::new();
 
-							let topic_str =
-								format!("{}-{}-{}-{}", *test_run_id, client_id, round, msg_idx);
-							let topic: Topic = blake2_256(topic_str.as_bytes()).into();
+							let topic_str = format!("{test_run_id}-{client_id}-{round}-{msg_idx}");
+							let topic = blake2_256(topic_str.as_bytes());
 							let channel = blake2_256(msg_idx.to_le_bytes().as_ref());
 
 							// Use timestamp for priority
-							let timestamp_micros = std::time::SystemTime::now()
+							let timestamp_ms = std::time::SystemTime::now()
 								.duration_since(std::time::UNIX_EPOCH)
 								.unwrap()
-								.as_micros() as u32;
+								.as_millis() as u32;
 
 							statement.set_channel(channel);
-							statement.set_expiry_from_parts(u32::MAX, timestamp_micros);
-							statement.set_topic(0, topic);
+							statement.set_expiry_from_parts(u32::MAX, timestamp_ms);
+							statement.set_topic(0, topic.into());
 							statement.set_plain_data(vec![0u8; size]);
 							statement.sign_sr25519_private(&keyring);
 
@@ -923,7 +1070,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 					}
 
 					let sent_count = msg_idx;
-					let send_duration = send_start.elapsed();
+					let send_duration = round_start.elapsed();
 
 					// Step 3: Wait for subscriptions to receive messages
 					let receive_start = std::time::Instant::now();
@@ -941,7 +1088,9 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 						.into_iter()
 						.map(|(msg_idx, topic_str, mut subscription)| async move {
 							match timeout(total_timeout, subscription.next()).await {
-								Ok(Some(Ok(_statement_bytes))) => Ok((msg_idx, topic_str)),
+								Ok(Some(Ok(StatementEvent::NewStatements { .. }))) => {
+									Ok((msg_idx, topic_str))
+								},
 								Ok(Some(Err(e))) => Err(anyhow!(
 									"Subscription error for message {}: {}",
 									msg_idx,

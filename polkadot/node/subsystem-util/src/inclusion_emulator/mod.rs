@@ -724,8 +724,9 @@ pub fn validate_commitments(
 	if commitments.new_validation_code.is_some() {
 		match constraints.upgrade_restriction {
 			None => {},
-			Some(UpgradeRestriction::Present) =>
-				return Err(FragmentValidityError::CodeUpgradeRestricted),
+			Some(UpgradeRestriction::Present) => {
+				return Err(FragmentValidityError::CodeUpgradeRestricted)
+			},
 		}
 	}
 

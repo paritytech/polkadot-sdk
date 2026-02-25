@@ -123,8 +123,9 @@ pub enum Direction {
 impl Direction {
 	fn set_reserved(&mut self, new_reserved: Reserved) {
 		match self {
-			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) =>
-				*reserved = new_reserved,
+			Direction::Inbound(ref mut reserved) | Direction::Outbound(ref mut reserved) => {
+				*reserved = new_reserved
+			},
 		}
 	}
 }
@@ -1011,7 +1012,7 @@ impl Stream for Peerset {
 			log::trace!(target: LOG_TARGET, "{}: received command {action:?}", self.protocol);
 
 			match action {
-				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
+				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) => {
 					match self.peers.remove(&peer) {
 						Some(PeerState::Connected { direction }) => {
 							log::trace!(
@@ -1089,7 +1090,8 @@ impl Stream for Peerset {
 						None => {
 							log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
 						},
-					},
+					}
+				},
 				PeersetCommand::DisconnectPeer { peer } => {
 					log::debug!(
 						target: LOG_TARGET,

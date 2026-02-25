@@ -257,8 +257,9 @@ where
 		let parent = match parent {
 			Some(parent) => parent,
 			// Nothing to compare against, always report.
-			None =>
-				return Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() })),
+			None => {
+				return Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() }))
+			},
 		};
 
 		let parent_rt = match self.client.runtime_version_at(parent) {
@@ -712,10 +713,12 @@ where
 		// create a channel to propagate error messages
 		let mut handle_events = |event| match event {
 			NotificationType::InitialEvents(events) => Ok(events),
-			NotificationType::NewBlock(notification) =>
-				self.handle_import_blocks(notification, &startup_point),
-			NotificationType::Finalized(notification) =>
-				self.handle_finalized_blocks(notification, &startup_point),
+			NotificationType::NewBlock(notification) => {
+				self.handle_import_blocks(notification, &startup_point)
+			},
+			NotificationType::Finalized(notification) => {
+				self.handle_finalized_blocks(notification, &startup_point)
+			},
 			NotificationType::MethodResponse(notification) => Ok(vec![notification]),
 		};
 

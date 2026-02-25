@@ -136,23 +136,29 @@ impl<B: BlockT> BlockCollection<B> {
 					// the range start.
 					(Some((start, &BlockRangeState::Downloading { ref len, downloading })), _)
 						if downloading < max_parallel && *start >= first_different =>
-						(*start..*start + *len, downloading),
+					{
+						(*start..*start + *len, downloading)
+					},
 					// If there is a gap between ranges requested, download this gap unless the peer
 					// has common number above the gap start
 					(Some((start, r)), Some((next_start, _)))
 						if *start + r.len() < *next_start &&
 							*start + r.len() >= first_different =>
-						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0),
+					{
+						(*start + r.len()..cmp::min(*next_start, *start + r.len() + count), 0)
+					},
 					// Download `count` blocks after the last range requested unless the peer
 					// has common number above this new range
-					(Some((start, r)), None) if *start + r.len() >= first_different =>
-						(*start + r.len()..*start + r.len() + count, 0),
+					(Some((start, r)), None) if *start + r.len() >= first_different => {
+						(*start + r.len()..*start + r.len() + count, 0)
+					},
 					// If there are no ranges currently requested, download `count` blocks after
 					// `common` number
 					(None, None) => (first_different..first_different + count, 0),
 					// If the first range starts above `common + 1`, download the gap at the start
-					(None, Some((start, _))) if *start > first_different =>
-						(first_different..cmp::min(first_different + count, *start), 0),
+					(None, Some((start, _))) if *start > first_different => {
+						(first_different..cmp::min(first_different + count, *start), 0)
+					},
 					// Move on to the next range pair
 					_ => {
 						prev = next;
