@@ -178,6 +178,8 @@ pub fn expand_outer_dispatch(
 					);
 				}
 
+				#system_path::Pallet::<#runtime>::check_dispatch_guard(&origin, &self)?;
+
 				#scrate::traits::UnfilteredDispatchable::dispatch_bypass_filter(self, origin)
 			}
 		}
