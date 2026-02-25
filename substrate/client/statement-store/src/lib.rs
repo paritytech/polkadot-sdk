@@ -1363,15 +1363,22 @@ impl StatementStore for Store {
 				_ => None,
 			}),
 		) {
-			Ok(Some(allowance)) => allowance,
+			Ok(Some(allowance)) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Account {} successfully passed validation with allowance {:?}",
+					HexDisplay::from(&account_id),
+					allowance,
+				);
+				allowance
+			},
 			Ok(None) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				// Mock allowance for testing (100 statements, 512B each)
-				StatementAllowance::new(100, 100 * 1024 / 2)
+				return SubmitResult::Rejected(RejectionReason::NoAllowance);
 			},
 			Err(e) => {
 				log::debug!(

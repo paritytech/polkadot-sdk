@@ -897,7 +897,7 @@ fn statements_for_notifications(min_notifications: usize) -> usize {
 /// Calculate expected number of notification chunks for given statement count.
 fn expected_chunks(num_statements: usize) -> usize {
 	let statements_per_chunk = MAX_NOTIFICATION_SIZE / APPROX_ENCODED_STATEMENT_SIZE;
-	(num_statements + statements_per_chunk - 1) / statements_per_chunk // ceiling division
+	num_statements.div_ceil(statements_per_chunk)
 }
 
 /// Result of a peer consumer task with timing information

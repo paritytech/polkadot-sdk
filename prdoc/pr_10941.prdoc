@@ -1,0 +1,19 @@
+title: "Parallelise statement network processing and bound propagation"
+doc:
+- audience: Node Dev
+  description: |
+    Parallelises the statement network protocol processing by introducing
+    concurrent worker pools for incoming statement handling and submission.
+    Shared state is protected by RwLock for concurrent access. Bounds the
+    number of statements propagated per cycle (MAX_STATEMENTS_PER_PROPAGATION = 256)
+    and limits in-flight peer sends (MAX_PENDING_SENDS = 4096) to prevent
+    unbounded work in the main loop. The StatementStore::take_recent_statements
+    trait method now accepts a max: usize parameter.
+
+crates:
+- name: sc-network-statement
+  bump: major
+- name: sp-statement-store
+  bump: major
+- name: sc-statement-store
+  bump: patch
