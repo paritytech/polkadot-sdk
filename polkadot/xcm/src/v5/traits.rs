@@ -179,6 +179,7 @@ pub enum Error {
 	ExceedsStackLimit,
 }
 
+#[allow(deprecated)]
 impl TryFrom<OldError> for Error {
 	type Error = ();
 	fn try_from(old_error: OldError) -> result::Result<Error, ()> {
@@ -228,6 +229,7 @@ impl TryFrom<OldError> for Error {
 	}
 }
 
+#[allow(deprecated)]
 impl From<SendError> for Error {
 	fn from(e: SendError) -> Self {
 		match e {
