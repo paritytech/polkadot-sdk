@@ -44,7 +44,7 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	let initial_slot_duration = get_slot_duration(&collator_client).await?;
 
 	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
-	let call = create_runtime_upgrade_call(&wasm);
+	let call = create_runtime_upgrade_call(wasm);
 	submit_extrinsic_and_wait_for_finalization_success(&collator_client, &call, &dev::alice())
 		.await?;
 
