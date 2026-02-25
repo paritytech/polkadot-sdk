@@ -142,7 +142,7 @@ where
 			}
 
 			// Perform the actual migration step
-			let (next, _weight) = Self::migrate_asset_step(maybe_last_key);
+			let (next, _weight) = Self::migrate_asset_step(next_asset);
 
 			cursor = Some(next);
 		}
@@ -241,20 +241,12 @@ where
 		iter.next()
 	}
 
-	/// Performs a single step of the migration.
+	/// Performs a single step of the migration using the already-peeked next asset.
 	/// Returns the new migration state and the weight consumed.
 	fn migrate_asset_step(
-		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
+		next_asset: Option<<T as pallet_assets::Config<I>>::AssetId>,
 	) -> (MigrationState<<T as pallet_assets::Config<I>>::AssetId>, Weight) {
-		let mut iter = if let Some(last_key) = maybe_last_key {
-			pallet_assets::Asset::<T, I>::iter_keys_from(
-				pallet_assets::Asset::<T, I>::hashed_key_for(last_key),
-			)
-		} else {
-			pallet_assets::Asset::<T, I>::iter_keys()
-		};
-
-		if let Some(asset_id) = iter.next() {
+		if let Some(asset_id) = next_asset {
 			// Insert the bidirectional mapping with a new sequential index
 			match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
 				Ok(asset_index) => {
