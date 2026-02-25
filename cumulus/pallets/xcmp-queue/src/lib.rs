@@ -809,6 +809,10 @@ impl<T: Config> Pallet<T> {
 			XcmpMessageFormat::Signals => {
 				*signal_count += 1;
 				if *signal_count > MAX_SIGNALS_PER_PAGE {
+					tracing::error!(
+						"Already processed {} signals for HRMP page. Dropping the rest.",
+						MAX_SIGNALS_PER_PAGE
+					);
 					return Err(());
 				}
 
