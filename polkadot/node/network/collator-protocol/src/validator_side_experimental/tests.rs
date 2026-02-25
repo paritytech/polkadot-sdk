@@ -3792,12 +3792,11 @@ async fn test_both_fetches_fail_group_cleaned_up() {
 }
 
 #[tokio::test]
-// When the next escalation candidate has zero reputation, the escalation is deferred
-// by ZERO_REP_EXTRA_DELAY instead of launching a parallel fetch immediately.
-async fn test_zero_rep_escalation_delayed() {
-	use crate::validator_side_experimental::parallel_fetch::{
-		ESCALATION_TIMEOUT, ZERO_REP_EXTRA_DELAY,
-	};
+// When the escalation candidate has zero reputation but a fetch is already in-flight,
+// the escalation launches immediately, no deferral. Zero-rep postponement only applies
+// when no fetch has ever been started for the group.
+async fn test_zero_rep_escalation_launches_immediately() {
+	use crate::validator_side_experimental::parallel_fetch::ESCALATION_TIMEOUT;
 
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -3847,7 +3846,7 @@ async fn test_zero_rep_escalation_delayed() {
 	test_state.assert_collation_request(first_adv).await;
 	test_state.assert_no_messages().await;
 
-	// zero_rep_peer advertises — no free slot.
+	// zero_rep_peer advertisesm, no free slot yet.
 	let (_, zero_rep_adv) = dummy_candidate(
 		active_leaf,
 		100.into(),
@@ -3860,17 +3859,10 @@ async fn test_zero_rep_escalation_delayed() {
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// Escalation timer fires. pick_escalation_candidate finds zero_rep_peer.
-	// is_zero_rep = true → deadline extended by ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY.
-	// No parallel fetch is launched.
+	// Escalation fires: zero-rep candidate launches immediately (a fetch is already in-flight).
 	tokio::time::sleep(ESCALATION_TIMEOUT * 2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_no_messages().await;
-
-	// Even after the extended deadline passes, the zero-rep candidate is still deferred
-	// (each check extends the deadline again). No fetch is ever launched for the zero-rep peer.
-	tokio::time::sleep((ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY) * 2).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(zero_rep_adv).await;
 	test_state.assert_no_messages().await;
 }
 

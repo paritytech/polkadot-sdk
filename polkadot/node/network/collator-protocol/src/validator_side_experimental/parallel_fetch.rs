@@ -29,11 +29,6 @@
 //! ```
 //!
 //! The first fetch that completes successfully causes all others to be cancelled.
-//!
-//! ## Zero-reputation delay
-//!
-//! When the next escalation candidate has zero reputation (no history), the escalation is
-//! postponed by [`ZERO_REP_EXTRA_DELAY`] to avoid wasting bandwidth on unknown collators.
 
 use polkadot_primitives::{Hash, Id as ParaId};
 use std::{
@@ -51,17 +46,6 @@ pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(300);
 /// Shorter timeout for tests.
 #[cfg(test)]
 pub const ESCALATION_TIMEOUT: Duration = Duration::from_millis(50);
-
-/// Extra delay before escalating to a zero-reputation peer.
-///
-/// Gives time for a higher-reputation peer to advertise before committing bandwidth
-/// to an unknown collator.
-#[cfg(not(test))]
-pub const ZERO_REP_EXTRA_DELAY: Duration = Duration::from_millis(300);
-
-/// Shorter delay for tests.
-#[cfg(test)]
-pub const ZERO_REP_EXTRA_DELAY: Duration = Duration::from_millis(50);
 
 /// Key identifying a parallel fetch group.
 pub type GroupKey = (Hash, ParaId);
@@ -86,7 +70,7 @@ impl ParallelFetchState {
 	///
 	/// If the group doesn't exist yet, creates it with an escalation deadline of
 	/// `now + ESCALATION_TIMEOUT`. If it already exists (parallel fetch was launched),
-	/// this is a no-op — use [`note_escalated`] to update the deadline instead.
+	/// this is a no-op, use [`note_escalated`] to update the deadline instead.
 	pub fn note_launched(&mut self, key: GroupKey, now: Instant) {
 		self.groups
 			.entry(key)
@@ -96,7 +80,6 @@ impl ParallelFetchState {
 	/// Updates the escalation deadline for an existing group.
 	///
 	/// Called after launching a parallel fetch to schedule the next escalation.
-	/// The `next_escalation_at` should account for zero-rep extra delay if applicable.
 	pub fn note_escalated(&mut self, key: &GroupKey, next_escalation_at: Instant) {
 		if let Some(state) = self.groups.get_mut(key) {
 			state.next_escalation_at = next_escalation_at;
@@ -265,27 +248,6 @@ mod tests {
 		assert!(!state.has_group(&key1));
 		assert!(!state.has_group(&key2));
 		assert!(state.has_group(&key3));
-	}
-
-	#[test]
-	fn zero_rep_delay_extends_escalation() {
-		let mut state = ParallelFetchState::default();
-		let key = make_key(1, 100);
-		let now = Instant::now();
-
-		state.note_launched(key, now);
-
-		// Simulate discovering next candidate is zero-rep:
-		// extend deadline by ZERO_REP_EXTRA_DELAY.
-		let extended = now + ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY;
-		state.note_escalated(&key, extended);
-
-		// At the normal escalation time, not ready yet.
-		let at_normal = now + ESCALATION_TIMEOUT;
-		assert!(state.ready_for_escalation(at_normal).is_empty());
-
-		// At the extended time, ready.
-		assert_eq!(state.ready_for_escalation(extended), vec![key]);
 	}
 
 	#[test]

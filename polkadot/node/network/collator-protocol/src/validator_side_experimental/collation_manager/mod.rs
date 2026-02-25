@@ -26,7 +26,7 @@ use crate::{
 			MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
-		parallel_fetch::{self, ParallelFetchState, ESCALATION_TIMEOUT, ZERO_REP_EXTRA_DELAY},
+		parallel_fetch::{self, ParallelFetchState, ESCALATION_TIMEOUT},
 	},
 	LOG_TARGET,
 };
@@ -55,7 +55,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeSet, HashMap, VecDeque},
+	collections::{BTreeSet, HashMap, HashSet, VecDeque},
 	time::{Duration, Instant},
 };
 
@@ -357,7 +357,7 @@ impl CollationManager {
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
 		// Track which groups we've already escalated to avoid duplicates across leaves.
-		let mut escalated_groups = std::collections::HashSet::<parallel_fetch::GroupKey>::new();
+		let mut escalated_groups = HashSet::<parallel_fetch::GroupKey>::new();
 
 		for leaf in &leaves {
 			let free_slots = self.claim_queue_state.free_slots(leaf);
@@ -445,50 +445,32 @@ impl CollationManager {
 				);
 
 				match candidate {
-					Some((adv, score)) => {
-						let is_zero_rep = u16::from(score) == 0;
-						if is_zero_rep {
-							// Zero-rep peer: extend the deadline and try again later.
-							let extended = now + ESCALATION_TIMEOUT + ZERO_REP_EXTRA_DELAY;
-							// Only extend if the current deadline is before the extended
-							// one (avoid extending past a previously set delay).
-							self.parallel_state.note_escalated(&key, extended);
-							let remaining = extended.duration_since(now);
-							let min_delay = maybe_min_delay.get_or_insert(remaining);
-							maybe_min_delay = Some(std::cmp::min(*min_delay, remaining));
-							gum::trace!(
-								target: LOG_TARGET,
-								?leaf,
-								?para_id,
-								relay_parent = ?rp,
-								peer_id = ?adv.peer_id,
-								"Delaying parallel fetch escalation for zero-rep peer",
-							);
-						} else {
-							// Non-zero rep: launch immediately.
-							gum::debug!(
-								target: LOG_TARGET,
-								?leaf,
-								?para_id,
-								relay_parent = ?adv.relay_parent,
-								peer_id = ?adv.peer_id,
-								"Launching parallel fetch (escalation)",
-							);
-							let req = self.fetching.launch(&adv, create_timer_fn());
-							requests.push(req);
-							// Schedule the next escalation.
-							let next = now + ESCALATION_TIMEOUT;
-							self.parallel_state.note_escalated(&key, next);
-						}
+					Some((adv, _score)) => {
+						// A fetch is already in-flight for this group, so launch the
+						// escalation candidate.
+						gum::debug!(
+							target: LOG_TARGET,
+							?leaf,
+							?para_id,
+							relay_parent = ?adv.relay_parent,
+							peer_id = ?adv.peer_id,
+							"Launching parallel fetch (escalation)",
+						);
+
+						let req = self.fetching.launch(&adv, create_timer_fn());
+						requests.push(req);
+						// Schedule the next escalation.
+						let next = now + ESCALATION_TIMEOUT;
+						self.parallel_state.note_escalated(&key, next);
 						escalated_groups.insert(key);
 					},
 					None => {
 						// No escalation candidates right now (the only advertised collation
 						// is already in-flight). Keep the group alive so that:
-						// 1. If the in-flight fetch fails, note_fetched can correctly
-						//    release the claim queue slot (has_group = true → No path).
-						// 2. If a new advertisement arrives before then, we will
-						//    escalate to it on the next timer tick.
+						// 1. If the in-flight fetch fails, note_fetched can correctly release the
+						//    claim queue slot (has_group = true → No path).
+						// 2. If a new advertisement arrives before then, we will escalate to it on
+						//    the next timer tick.
 						self.parallel_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
 						escalated_groups.insert(key);
 					},

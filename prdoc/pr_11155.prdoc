@@ -1,7 +1,9 @@
-title: '[WIP] Collator protocol revamp: parallel fetching'
+title: 'Collator protocol revamp: parallel fetching'
 doc:
 - audience: Node Dev
   description: |-
+    https://github.com/paritytech/polkadot-sdk/issues/11023
+  
     Implement parallel collation fetching with reputation-based escalation
 
      Changes

@@ -109,7 +109,7 @@ impl Score {
 		self.0 = self.0.saturating_sub(val);
 	}
 
-	/// Returns the ration (self / rhs) between the current score and rhs.
+	/// Returns the ratio (self / rhs) between the current score and rhs.
 	pub fn ratio(&self, rhs: &Self) -> f32 {
 		self.0 as f32 / rhs.0 as f32
 	}
