@@ -1062,15 +1062,13 @@ pub mod pallet {
 		/// The balance type used for delivery fee limits.
 		type Balance: BalanceTrait;
 
-<<<<<<< HEAD
 		/// Maximum length of encoded session keys.
 		#[pallet::constant]
 		type MaxSessionKeysLength: Get<u32>;
-=======
+
 		/// Minimum active bond required to call `set_keys`. Set to 0 to disable.
 		#[pallet::constant]
 		type MinSetKeysBond: Get<BalanceOf<Self>>;
->>>>>>> 79bc8a96 (Add MinSetKeysBond check in rc_client::set_keys (#11168))
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

@@ -6,8 +6,11 @@ doc:
    is insufficient. Set to 0 to disable.
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
+  validate: false
 - name: pallet-staking-async-rc-client
-  bump: major
+  bump: patch
+  validate: false
 - name: pallet-staking-async
-  bump: major
+  bump: patch
+  validate: false
