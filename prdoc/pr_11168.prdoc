@@ -1,0 +1,16 @@
+title: Add MinSetKeysBond check in rc_client::set_keys to prevent relay chain storage
+  spam
+doc:
+- audience: Runtime Dev
+  description: "With minValidatorBond = 0, an attacker can bond ED then loop validate\
+    \ \u2192 set_keys \u2192 chill to store unlimited session keys on the relay chain\
+    \ at negligible cost.\nAdd a configurable MinSetKeysBond threshold (hardcoded\
+    \ to 10k DOT/WND on asset-hub-westend) that rejects set_keys when active bond\
+    \ is insufficient.\nSet to 0 to disable (useful e.g. for asset-hub-kusama)."
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async
+  bump: major
