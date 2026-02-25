@@ -5202,7 +5202,7 @@ dependencies = [
  "sp-consensus-slots",
  "sp-core 28.0.0",
  "sp-keyring",
- "sp-runtime",
+ "sp-runtime 31.0.1",
  "sp-statement-store",
  "tokio",
  "zombienet-configuration",

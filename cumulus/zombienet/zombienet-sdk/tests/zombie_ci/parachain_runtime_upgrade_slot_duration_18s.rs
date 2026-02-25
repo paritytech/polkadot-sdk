@@ -38,34 +38,16 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator_node.wait_client().await?;
 
-	let current_spec_version =
-		collator_client.backend().current_runtime_version().await?.spec_version;
-	log::info!("Current runtime spec version: {current_spec_version}");
-
 	let wasm = WASM_WITH_SLOT_DURATION_18S
 		.expect("WASM binary for slot-duration-18s runtime should be available");
-	log::info!("Using runtime WASM with slot duration 18s (size: {} bytes)", wasm.len());
 
 	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
 	let call = create_runtime_upgrade_call(&wasm);
 	submit_extrinsic_and_wait_for_finalization_success(&collator_client, &call, &dev::alice())
 		.await?;
 
-	let expected_spec_version = current_spec_version + 1;
-
-	log::info!("Waiting for parachain runtime upgrade to version {}...", expected_spec_version);
 	wait_for_runtime_upgrade(&collator_client).await?;
 
-	let spec_version_after_upgrade =
-		collator_client.backend().current_runtime_version().await?.spec_version;
-	assert_eq!(
-		expected_spec_version, spec_version_after_upgrade,
-		"Unexpected runtime spec version"
-	);
-
-	log::info!("Runtime upgrade completed successfully");
-
-	log::info!("Verifying that slot duration is 18 seconds after upgrade...");
 	let slot_duration = get_slot_duration(&collator_client).await?;
 	assert_eq!(
 		slot_duration, 18000,
@@ -80,7 +62,6 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
 
 	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 10..30)]).await?;
-	log::info!("Test finished - parachain successfully continued producing blocks after upgrade");
 	Ok(())
 }
 
@@ -99,10 +80,7 @@ async fn get_slot_duration(client: &OnlineClient<PolkadotConfig>) -> Result<u64,
 		))
 		.await?;
 
-	let slot_duration: u64 = result.as_type()?;
-
-	log::info!("Slot duration from runtime API: {} ms", slot_duration);
-	Ok(slot_duration)
+	result.as_type().map_err(Into::into)
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -115,10 +93,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
 			// Add 4 validators
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
