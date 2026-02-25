@@ -41,6 +41,8 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	let wasm = WASM_WITH_SLOT_DURATION_18S
 		.expect("WASM binary for slot-duration-18s runtime should be available");
 
+	let initial_slot_duration = get_slot_duration(&collator_client).await?;
+
 	log::info!("Performing runtime upgrade for parachain {}", PARA_ID);
 	let call = create_runtime_upgrade_call(&wasm);
 	submit_extrinsic_and_wait_for_finalization_success(&collator_client, &call, &dev::alice())
@@ -49,6 +51,7 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	wait_for_runtime_upgrade(&collator_client).await?;
 
 	let slot_duration = get_slot_duration(&collator_client).await?;
+	assert_ne!(initial_slot_duration, slot_duration, "Slot duration should have changed between the runtime upgrades");
 	assert_eq!(
 		slot_duration, 18000,
 		"Expected slot duration to be 18000 ms (18 seconds), but got {} ms",
