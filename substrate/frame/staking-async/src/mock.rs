@@ -642,6 +642,11 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
+
+	/// Should NEVER be used in normal tests!
+	///
+	/// This disables try_state invariant checks, which can hide real bugs in your test setup.
+	/// Only use this when intentionally testing corruption scenarios or recovery mechanisms.
 	pub(crate) fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
