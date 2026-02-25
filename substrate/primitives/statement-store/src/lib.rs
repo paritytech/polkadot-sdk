@@ -163,7 +163,7 @@ impl StatementAllowance {
 }
 
 /// Storage key prefix for per-account statement allowances.
-pub const STATEMENT_ALLOWANCE_PREFIX: &[u8] = b":statement-allowance:";
+pub const STATEMENT_ALLOWANCE_PREFIX: &[u8] = b":statement_allowance:";
 
 /// Constructs a per-account statement allowance storage key.
 ///
