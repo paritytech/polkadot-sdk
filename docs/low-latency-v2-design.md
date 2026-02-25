@@ -6,8 +6,15 @@
 |-------|-------|
 | **Authors** | eskimor |
 | **Status** | Review |
-| **Version** | 1 |
+| **Version** | 1.1 |
 | **Related Designs** | [Speculative Messaging](speculative-messaging-design.md) |
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 1.1 | **Scheduling parent: last finished slot instead of active leaf.** The original design required the scheduling parent to be an active leaf. This does not work as intended as in reality both are slot/time-based and race each other, so the active leaf of the current slot may not exist yet. Fixed to require the relay chain block of the last *finished* slot instead, which gives the collator a full 6s time window. Affected sections: [Backing Group Selection](#backing-group-selectionlast-finished-slot), scheduling parent diagrams, threat mitigations. |
+| 1.0 | Initial version. |
 
 ---
 
@@ -300,7 +307,7 @@ to be able to blame and punish the collators: No excuses!
 │  │ Relay Parent: Block N (can be old/finalized)                      │        │
 │  │   └─> Execution context only (messages, config, etc.)             │        │
 │  │                                                                   │        │
-│  │ + Scheduling Parent: Block M (recent leaf)                        │        │
+│  │ + Scheduling Parent: Block M (last finished slot's block)         │        │
 │  │   └─> Scheduling context (backing group, core, secondary checkers)│        │
 │  │                                                                   │        │
 │  │ + Acknowledgement Signatures                                      │        │
@@ -760,7 +767,7 @@ Relay Chain Blocks:
           • Messages available                        • Backing group selection
           • Configuration (old)                       • Core assignment
           • Randomness                                • Session validators
-          • Can be finalized/old                      • Must be recent leaf
+          • Can be finalized/old                      • Must be from last finished relay chain slot
           
 Candidate Descriptor v3:
 ┌──────────────────────────────────────────────────────────────┐
@@ -901,34 +908,49 @@ allows for two important properties:
 
 The header chain and the internal scheduling parent were introduced to enable
 the relay parent to be older than the scheduling parent. We can let backers
-enforce the scheduling parent to be an active leaf and cheaply replicate the
-functionality of building on older relay parents. Additional
-benefit/side-effect: Via the scheduling parent we can enforce building on older
-relay parents cheaper, as we no longer need to include a proof of the current
-relay chain authorities for verification.
+enforce the scheduling parent to match the relay chain block of the last
+finished slot and cheaply replicate the functionality of building on older relay
+parents. Additional benefit/side-effect: Via the scheduling parent we can
+enforce building on older relay parents cheaper, as we no longer need to include
+a proof of the current relay chain authorities for verification.
 
 ### Handling on the Relay Chain
 
-#### Backing Group Selection—Back to Strict Leaf Handling
+#### Backing Group Selection—Last Finished Slot
 
 For candidates making use of the new candidate descriptor, the backing group
 will no longer be selected by the relay parent, but by the scheduling parent.
 
 The backers will check the provided scheduling parent in the candidate
-descriptor to be equal to one of the tips of the chain: We are back to an
-unambiguous backing group selection for a particular candidate.
+descriptor to correspond to a relay chain block from the last **finished** relay
+chain slot. This gives us an unambiguous backing group selection for a particular
+candidate.
 
-This is similar to what we had with synchronous backing with regards to the
-relay parent. The difference is that, because the scheduling parent is
-independent from parachain blocks, collators are still able to produce blocks
-ahead of time, just at submission time, they need to check for the most current
-leaf and pack the already produced blocks into a candidate accordingly.
+**Why not an active leaf?** Parachain block production is time/slot-based, not
+triggered by relay chain block arrival. Both the parachain and the relay chain
+start producing their respective blocks at the beginning of the slot. This means
+that requiring the scheduling parent to be a current active leaf would have us
+racing with relay chain block production—the current slot's relay chain block
+likely does not exist yet when the collator needs to submit its candidate. The
+only way it could work is if parachain blocks are built much faster than relay
+chain blocks, which is not a valid assumption.
 
-Another difference to synchronous backing is that this restriction only applies
-to what backers are supposed to accept. Afterwards, the collation stays valid,
-according to the system we already have in place for asynchronous backing, with
-the only difference that the scheduling parent is now the relevant relay chain
-block to determine the lifetime, instead of the relay parent.
+**Determining the last finished slot's block:** Look at the active leaves. For
+each leaf, check what slot it belongs to. If the leaf is from a previous
+(already finished) slot—it qualifies as a valid scheduling parent. If the leaf
+is from the current (in-progress) slot, follow parent hashes until reaching a
+block from a finished slot.
+
+Because the scheduling parent is independent from parachain blocks, collators
+are still able to produce blocks ahead of time, just at submission time, they
+need to determine the last finished slot's relay chain block and pack the
+already produced blocks into a candidate accordingly.
+
+Note that this restriction only applies to what backers are supposed to accept.
+Afterwards, the collation stays valid, according to the system we already have
+in place for asynchronous backing, with the only difference that the scheduling
+parent is now the relevant relay chain block to determine the lifetime, instead
+of the relay parent.
 
 #### Sessions and Session Boundaries
 
@@ -1428,11 +1450,12 @@ Mitigations:
 - Pre-PVF: Backers can prefer delivering POVs to the next eligible block author
   \- proven by a Pre-PVF. The Pre-PVF would be the same entry point as we use in
   the POV for providing scheduling information. 
-- Determine submission/collation rights only by most current active leaf: This
-  allows forcing block submissions on a timely basis, otherwise one loses the
-  submission right and it is the next block producers turn to submit collations.
-  Strict leaf handling also makes Pre-PVF checks more effective, as then really
-  only legitimate requests will be prioritized. 
+- Determine submission/collation rights only by the relay chain block of the
+  last finished slot: This allows forcing block submissions on a timely basis,
+  otherwise one loses the submission right and it is the next block producers
+  turn to submit collations. Strict last-finished-slot handling also makes
+  Pre-PVF checks more effective, as then really only legitimate requests will be
+  prioritized. 
 
 ## Submit different block {#submit-different-block}
 
