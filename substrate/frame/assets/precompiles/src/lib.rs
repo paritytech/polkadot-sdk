@@ -58,6 +58,7 @@ pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
 pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
+	/// Need to charge DbWeigh read before calling this method.
 	fn asset_id_from_address(address: &[u8; 20]) -> Result<Self::AssetId, Error>;
 }
 
@@ -155,6 +156,9 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		use frame_support::traits::Get;
+		// Charge for the potential storage read in `asset_id_from_address`.
+		env.charge(<Runtime as frame_system::Config>::DbWeight::get().reads(1))?;
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 
 		match input {
