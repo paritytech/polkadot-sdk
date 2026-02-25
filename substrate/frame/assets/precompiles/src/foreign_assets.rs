@@ -50,7 +50,10 @@ pub mod pallet {
 		type ForeignAssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
 	}
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// The next available asset index for foreign assets.
