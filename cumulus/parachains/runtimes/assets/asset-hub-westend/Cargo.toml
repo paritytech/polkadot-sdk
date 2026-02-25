@@ -214,13 +214,14 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks",
+	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks"
 ]
 try-runtime = [
+	"asset-test-utils/try-runtime",
 	"assets-common/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
@@ -286,10 +287,10 @@ try-runtime = [
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
-	"asset-test-utils/try-runtime",
-	"westend-runtime/try-runtime"
+	"westend-runtime/try-runtime",
 ]
 std = [
+	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -409,7 +410,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"alloy-core/std"
 ]
 
 fast-runtime = []
