@@ -88,11 +88,12 @@ impl ParseRuntimeVersion {
 	fn parse_expr(init_expr: &Expr) -> Result<(ParseRuntimeVersion, Vec<Warning>)> {
 		let init_expr = match init_expr {
 			Expr::Struct(ref e) => e,
-			_ =>
+			_ => {
 				return Err(Error::new(
 					init_expr.span(),
 					"expected a struct initializer expression",
-				)),
+				))
+			},
 		};
 
 		let mut parsed = ParseRuntimeVersion::default();
@@ -106,8 +107,9 @@ impl ParseRuntimeVersion {
 	fn parse_field_value(&mut self, field_value: &FieldValue) -> Result<Vec<Warning>> {
 		let field_name = match field_value.member {
 			syn::Member::Named(ref ident) => ident,
-			syn::Member::Unnamed(_) =>
-				return Err(Error::new(field_value.span(), "only named members must be used")),
+			syn::Member::Unnamed(_) => {
+				return Err(Error::new(field_value.span(), "only named members must be used"))
+			},
 		};
 
 		fn parse_once<T>(
@@ -163,11 +165,12 @@ impl ParseRuntimeVersion {
 	fn parse_num_literal(expr: &Expr) -> Result<u32> {
 		let lit = match *expr {
 			Expr::Lit(ExprLit { lit: Lit::Int(ref lit), .. }) => lit,
-			_ =>
+			_ => {
 				return Err(Error::new(
 					expr.span(),
 					"only numeric literals (e.g. `10`) are supported here",
-				)),
+				))
+			},
 		};
 		lit.base10_parse::<u32>()
 	}
@@ -175,11 +178,12 @@ impl ParseRuntimeVersion {
 	fn parse_num_literal_u8(expr: &Expr) -> Result<u8> {
 		let lit = match *expr {
 			Expr::Lit(ExprLit { lit: Lit::Int(ref lit), .. }) => lit,
-			_ =>
+			_ => {
 				return Err(Error::new(
 					expr.span(),
 					"only numeric literals (e.g. `10`) are supported here",
-				)),
+				))
+			},
 		};
 		lit.base10_parse::<u8>()
 	}

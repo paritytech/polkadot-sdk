@@ -1383,8 +1383,9 @@ pub mod pallet {
 					let validators = shared::ActiveValidatorKeys::<T>::get();
 					let validator_public = match validators.get(validator_index) {
 						Some(pk) => pk,
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
 					};
 
 					let signing_payload = stmt.signing_payload();
@@ -1399,10 +1400,12 @@ pub mod pallet {
 
 					match active_vote.has_vote(validator_index) {
 						Some(false) => (),
-						Some(true) =>
-							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into(),
-						None =>
-							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
+						Some(true) => {
+							return InvalidTransaction::Custom(INVALID_TX_DOUBLE_VOTE).into()
+						},
+						None => {
+							return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into()
+						},
 					}
 
 					ValidTransaction::with_tag_prefix("PvfPreCheckingVote")
@@ -1417,7 +1420,7 @@ pub mod pallet {
 						.propagate(true)
 						.build()
 				},
-				Call::apply_authorized_force_set_current_code { para, new_code } =>
+				Call::apply_authorized_force_set_current_code { para, new_code } => {
 					match Self::validate_code_is_authorized(new_code, para) {
 						Ok(authorized_code) => {
 							let now = frame_system::Pallet::<T>::block_number();
@@ -1430,9 +1433,11 @@ pub mod pallet {
 								.propagate(true)
 								.build()
 						},
-						Err(_) =>
-							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into(),
-					},
+						Err(_) => {
+							return InvalidTransaction::Custom(INVALID_TX_UNAUTHORIZED_CODE).into()
+						},
+					}
+				},
 				_ => InvalidTransaction::Call.into(),
 			}
 		}

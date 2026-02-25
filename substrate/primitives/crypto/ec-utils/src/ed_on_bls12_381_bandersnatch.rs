@@ -15,30 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Elliptic Curves host functions to handle some of the *Arkworks* *Ed-on-BLS12-381-Bandersnatch*
-//! computationally expensive operations.
+//! *Ed-on-BLS12-381-Bandersnatch* types and host functions.
 
-use crate::utils;
+use crate::utils::{self, HostcallResult, FAIL_MSG};
 use alloc::vec::Vec;
-use ark_ec::CurveConfig;
+use ark_ec::{AffineRepr, CurveConfig, CurveGroup};
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
 use sp_runtime_interface::{
-	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	pass_by::{PassFatPointerAndRead, PassFatPointerAndWrite},
 	runtime_interface,
 };
 
-/// Curve hooks jumping into [`host_calls`] host functions.
-#[derive(Copy, Clone)]
-pub struct HostHooks;
-
 /// Group configuration.
 pub type BandersnatchConfig = ark_ed_on_bls12_381_bandersnatch_ext::BandersnatchConfig<HostHooks>;
+
 /// Group configuration for Twisted Edwards form (equal to [`BandersnatchConfig`]).
 pub type EdwardsConfig = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsConfig<HostHooks>;
 /// Twisted Edwards form point affine representation.
 pub type EdwardsAffine = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsAffine<HostHooks>;
 /// Twisted Edwards form point projective representation.
 pub type EdwardsProjective = ark_ed_on_bls12_381_bandersnatch_ext::EdwardsProjective<HostHooks>;
+
 /// Group configuration for Short Weierstrass form (equal to [`BandersnatchConfig`]).
 pub type SWConfig = ark_ed_on_bls12_381_bandersnatch_ext::SWConfig<HostHooks>;
 /// Short Weierstrass form point affine representation.
@@ -46,55 +43,67 @@ pub type SWAffine = ark_ed_on_bls12_381_bandersnatch_ext::SWAffine<HostHooks>;
 /// Short Weierstrass form point projective representation.
 pub type SWProjective = ark_ed_on_bls12_381_bandersnatch_ext::SWProjective<HostHooks>;
 
+/// Group scalar field (Fr).
+pub type ScalarField = <BandersnatchConfig as CurveConfig>::ScalarField;
+
+/// Curve hooks jumping into [`host_calls`] host functions.
+#[derive(Copy, Clone)]
+pub struct HostHooks;
+
 impl CurveHooks for HostHooks {
-	fn msm_te(
-		bases: &[EdwardsAffine],
-		scalars: &[<EdwardsConfig as CurveConfig>::ScalarField],
-	) -> EdwardsProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_te_msm(
-			utils::encode(bases),
-			utils::encode(scalars),
+	fn msm_te(bases: &[EdwardsAffine], scalars: &[ScalarField]) -> EdwardsProjective {
+		let mut out = utils::buffer_for::<EdwardsAffine>();
+		host_calls::ed_on_bls12_381_bandersnatch_msm(
+			&utils::encode(bases),
+			&utils::encode(scalars),
+			&mut out,
 		)
-		.and_then(|res| utils::decode_proj_te(res))
-		.unwrap_or_default()
+		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 
 	fn mul_projective_te(base: &EdwardsProjective, scalar: &[u64]) -> EdwardsProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_te_mul_projective(
-			utils::encode_proj_te(base),
-			utils::encode(scalar),
+		let mut out = utils::buffer_for::<EdwardsAffine>();
+		host_calls::ed_on_bls12_381_bandersnatch_mul(
+			&utils::encode(base.into_affine()),
+			&utils::encode(scalar),
+			&mut out,
 		)
-		.and_then(|res| utils::decode_proj_te(res))
-		.unwrap_or_default()
+		.and_then(|_| utils::decode::<EdwardsAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 
-	fn msm_sw(
-		bases: &[SWAffine],
-		scalars: &[<SWConfig as CurveConfig>::ScalarField],
-	) -> SWProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_msm(
-			utils::encode(bases),
-			utils::encode(scalars),
+	fn msm_sw(bases: &[SWAffine], scalars: &[ScalarField]) -> SWProjective {
+		let mut out = utils::buffer_for::<SWAffine>();
+		host_calls::ed_on_bls12_381_bandersnatch_msm_sw(
+			&utils::encode(bases),
+			&utils::encode(scalars),
+			&mut out,
 		)
-		.and_then(|res| utils::decode_proj_sw(res))
-		.unwrap_or_default()
+		.and_then(|_| utils::decode::<SWAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 
 	fn mul_projective_sw(base: &SWProjective, scalar: &[u64]) -> SWProjective {
-		host_calls::ed_on_bls12_381_bandersnatch_sw_mul_projective(
-			utils::encode_proj_sw(base),
-			utils::encode(scalar),
+		let mut out = utils::buffer_for::<SWAffine>();
+		host_calls::ed_on_bls12_381_bandersnatch_mul_sw(
+			&utils::encode(base.into_affine()),
+			&utils::encode(scalar),
+			&mut out,
 		)
-		.and_then(|res| utils::decode_proj_sw(res))
-		.unwrap_or_default()
+		.and_then(|_| utils::decode::<SWAffine>(&out))
+		.expect(FAIL_MSG)
+		.into_group()
 	}
 }
 
-/// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve
-/// related types from within the runtime.
+/// Interfaces for working with *Arkworks* *Ed-on-BLS12-381-Bandersnatch* elliptic curve related
+/// types from within the runtime.
 ///
-/// All types are (de-)serialized through the wrapper types from the `ark-scale` trait,
-/// with `ark_scale::{ArkScale, ArkScaleProjective}`.
+/// All types are (de-)serialized through the wrapper types from `ark-scale`.
 ///
 /// `ArkScale`'s `Usage` generic parameter is expected to be set to "not-validated"
 /// and "not-compressed".
@@ -102,53 +111,83 @@ impl CurveHooks for HostHooks {
 pub trait HostCalls {
 	/// Twisted Edwards multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
-	///   - `scalars`: `ArkScale<Vec<EdwardsConfig::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_msm(
-		bases: PassFatPointerAndRead<Vec<u8>>,
-		scalars: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
+	/// Receives encoded:
+	/// - `bases`: `Vec<EdwardsAffine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Writes encoded: `EdwardsAffine` to `out`.
+	fn ed_on_bls12_381_bandersnatch_msm(
+		bases: PassFatPointerAndRead<&[u8]>,
+		scalars: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars, out)
 	}
 
-	/// Twisted Edwards projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
+	/// Twisted Edwards affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<EdwardsProjective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
-	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
-		base: PassFatPointerAndRead<Vec<u8>>,
-		scalar: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
+	/// Receives encoded:
+	/// - `base`: `EdwardsAffine`.
+	/// - `scalar`: `BigInteger`.
+	/// Writes encoded `EdwardsAffine` to `out`.
+	fn ed_on_bls12_381_bandersnatch_mul(
+		base: PassFatPointerAndRead<&[u8]>,
+		scalar: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::mul_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar, out)
 	}
 
 	/// Short Weierstrass multi scalar multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `bases`: `ArkScale<Vec<SWAffine>>`.
-	///   - `scalars`: `ArkScale<Vec<SWConfig::ScalarField>>`.
-	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_msm(
-		bases: PassFatPointerAndRead<Vec<u8>>,
-		scalars: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
+	/// Receives encoded:
+	/// - `bases`: `Vec<SWAffine>`.
+	/// - `scalars`: `Vec<ScalarField>`.
+	/// Writes encoded `SWAffine` to `out`.
+	fn ed_on_bls12_381_bandersnatch_msm_sw(
+		bases: PassFatPointerAndRead<&[u8]>,
+		scalars: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars, out)
 	}
 
-	/// Short Weierstrass projective multiplication for *Ed-on-BLS12-381-Bandersnatch*.
+	/// Short Weierstrass affine multiplication for *Ed-on-BLS12-381-Bandersnatch*.
 	///
-	/// - Receives encoded:
-	///   - `base`: `ArkScaleProjective<SWProjective>`.
-	///   - `scalar`: `ArkScale<Vec<u64>>`.
-	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
-	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: PassFatPointerAndRead<Vec<u8>>,
-		scalar: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
-		utils::mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
+	/// Receives encoded:
+	/// - `base`: `SWAffine`.
+	/// - `scalar`: `BigInteger`.
+	/// Writes encoded `SWAffine` to `out`.
+	fn ed_on_bls12_381_bandersnatch_mul_sw(
+		base: PassFatPointerAndRead<&[u8]>,
+		scalar: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> HostcallResult {
+		utils::mul_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar, out)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::utils::testing::*;
+
+	#[test]
+	fn mul_works() {
+		mul_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
+	}
+
+	#[test]
+	fn msm_works() {
+		msm_te_test::<EdwardsAffine, ark_ed_on_bls12_381_bandersnatch::EdwardsAffine>();
+	}
+
+	#[test]
+	fn mul_works_sw() {
+		mul_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
+	}
+
+	#[test]
+	fn msm_works_sw() {
+		msm_test::<SWAffine, ark_ed_on_bls12_381_bandersnatch::SWAffine>();
 	}
 }

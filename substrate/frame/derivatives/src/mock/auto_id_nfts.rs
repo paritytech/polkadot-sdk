@@ -56,6 +56,14 @@ impl Create<WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<NftFullId>>>
 impl AssetDefinition for PredefinedIdNfts {
 	type Id = (CollectionAutoId, NftLocalId);
 }
+impl Inspect<CanCreate> for PredefinedIdNfts {
+	fn inspect(id: &Self::Id, _: CanCreate) -> Result<bool, DispatchError> {
+		let nft_exists =
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::contains_key(id);
+
+		Ok(!nft_exists)
+	}
+}
 impl Update<ChangeOwnerFrom<AccountId>> for PredefinedIdNfts {
 	fn update(
 		id: &Self::Id,
@@ -66,16 +74,18 @@ impl Update<ChangeOwnerFrom<AccountId>> for PredefinedIdNfts {
 
 		unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::try_mutate(id, |owner| {
 			match owner {
-				Some(current_owner) =>
+				Some(current_owner) => {
 					if *current_owner == check_owner {
 						*owner = Some(*new_owner);
 						Ok(())
 					} else {
 						Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::NoPermission
 							.into())
-					},
-				None =>
-					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into()),
+					}
+				},
+				None => {
+					Err(unique_items::Error::<Test, PredefinedIdNftsInstance>::UnknownItem.into())
+				},
 			}
 		})
 	}
