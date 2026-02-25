@@ -50,7 +50,7 @@ pub enum VersionedLocatableAccount {
 ///
 /// # Example
 ///
-///,ignore
+/// ,ignore
 /// type FundingSource = PalletIdAsFundingSource<
 ///     TreasuryPalletId,
 ///     Runtime,
@@ -140,10 +140,12 @@ impl<A, F, C> LocalPay<F, A, C> {
 	{
 		// only applicable for the local accounts
 		let account_id = match who {
-			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() =>
-				&account_id.clone().try_into().map_err(|_| ())?,
-			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() =>
-				account_id,
+			VersionedLocatableAccount::V4 { location, account_id } if location.is_here() => {
+				&account_id.clone().try_into().map_err(|_| ())?
+			},
+			VersionedLocatableAccount::V5 { location, account_id } if location.is_here() => {
+				account_id
+			},
 			_ => return Err(()),
 		};
 		C::convert_location(account_id).ok_or(())
@@ -157,10 +159,12 @@ impl<A, F, C> LocalPay<F, A, C> {
 				let v5_asset_id: xcm::v5::AssetId = v4_asset_id.try_into().map_err(|_| ())?;
 				Ok(v5_asset_id.0)
 			},
-			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() =>
-				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ()),
-			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() =>
-				Ok(asset_id.clone().0),
+			VersionedLocatableAsset::V4 { location, asset_id } if location.is_here() => {
+				asset_id.clone().try_into().map(|a: xcm::v5::AssetId| a.0).map_err(|_| ())
+			},
+			VersionedLocatableAsset::V5 { location, asset_id } if location.is_here() => {
+				Ok(asset_id.clone().0)
+			},
 			_ => Err(()),
 		}
 	}

@@ -279,7 +279,9 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 			match T::Bridges::exporter_for(network, remote_location, message) {
 				Some((bridge_hub_location, maybe_payment))
 					if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-					(bridge_hub_location, maybe_payment),
+				{
+					(bridge_hub_location, maybe_payment)
+				},
 				_ => {
 					tracing::trace!(
 						target: LOG_TARGET,

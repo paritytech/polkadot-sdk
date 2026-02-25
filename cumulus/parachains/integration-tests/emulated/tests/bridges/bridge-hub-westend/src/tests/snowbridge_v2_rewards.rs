@@ -21,7 +21,7 @@ use pallet_bridge_relayers::{Error::FailedToPayReward, RewardLedger};
 use crate::imports::*;
 
 const INITIAL_FUND: u128 = 5_000_000_000_000;
-//1_000_000_000u128
+// 1_000_000_000u128
 #[test]
 fn claim_rewards_works() {
 	let assethub_location = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
@@ -93,7 +93,7 @@ fn claim_rewards_works() {
 			AssetHubWestend,
 			vec![
 				// Check that the reward was paid on AH
-				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Deposited { asset_id, who: owner, .. }) => {
 					asset_id: *asset_id == eth_location(),
 					owner: *owner == reward_address.clone().into(),
 				},

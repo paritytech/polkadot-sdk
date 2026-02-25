@@ -229,7 +229,7 @@ where
 	L: Into<Leaf<'a>>,
 {
 	if leaf_index >= number_of_leaves {
-		return false
+		return false;
 	}
 
 	let leaf_hash = match leaf.into() {

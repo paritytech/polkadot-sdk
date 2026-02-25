@@ -593,6 +593,7 @@ fn min_commission_works() {
 			ConfigOp::Remove,
 			ConfigOp::Set(Perbill::from_percent(10)),
 			ConfigOp::Noop,
+			ConfigOp::Noop,
 		));
 
 		// can't make it less than 10 now
