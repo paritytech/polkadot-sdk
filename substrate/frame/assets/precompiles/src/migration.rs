@@ -120,13 +120,13 @@ where
 			let next_asset = Self::peek_next_asset(maybe_last_key);
 
 			// Calculate the weight required based on the actual operation
-			let required = match &next_asset {
-				None => W::migrate_asset_step_finished(),
+			let (required, already_mapped) = match &next_asset {
+				None => (W::migrate_asset_step_finished(), false),
 				Some(asset_id) => {
 					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
-						W::migrate_asset_step_skip()
+						(W::migrate_asset_step_skip(), true)
 					} else {
-						W::migrate_asset_step_migrate()
+						(W::migrate_asset_step_migrate(), false)
 					}
 				},
 			};
@@ -142,7 +142,7 @@ where
 			}
 
 			// Perform the actual migration step
-			let (next, _weight) = Self::migrate_asset_step(next_asset);
+			let next = Self::migrate_asset_step(next_asset, already_mapped);
 
 			cursor = Some(next);
 		}
@@ -242,33 +242,42 @@ where
 	}
 
 	/// Performs a single step of the migration using the already-peeked next asset.
-	/// Returns the new migration state and the weight consumed.
+	/// Skips `insert_asset_mapping` when the caller has already determined the asset
+	/// is mapped, so the work stays within the weight that was reserved.
 	fn migrate_asset_step(
 		next_asset: Option<<T as pallet_assets::Config<I>>::AssetId>,
-	) -> (MigrationState<<T as pallet_assets::Config<I>>::AssetId>, Weight) {
+		already_mapped: bool,
+	) -> MigrationState<<T as pallet_assets::Config<I>>::AssetId> {
 		if let Some(asset_id) = next_asset {
-			// Insert the bidirectional mapping with a new sequential index
-			match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
-				Ok(asset_index) => {
-					log::debug!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings",
-						"Migrated asset {:?} to index {:?}",
-						asset_id,
-						asset_index
-					);
-				},
-				Err(()) => {
-					log::warn!(
-						target: "runtime::MigrateForeignAssetPrecompileMappings",
-						"Failed to migrate asset {:?}",
-						asset_id
-					);
-				},
+			if !already_mapped {
+				match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
+					Ok(asset_index) => {
+						log::debug!(
+							target: "runtime::MigrateForeignAssetPrecompileMappings",
+							"Migrated asset {:?} to index {:?}",
+							asset_id,
+							asset_index
+						);
+					},
+					Err(()) => {
+						log::warn!(
+							target: "runtime::MigrateForeignAssetPrecompileMappings",
+							"Failed to migrate asset {:?}",
+							asset_id
+						);
+					},
+				}
+			} else {
+				log::debug!(
+					target: "runtime::MigrateForeignAssetPrecompileMappings",
+					"Skipping already-mapped asset {:?}",
+					asset_id
+				);
 			}
 
-			(MigrationState::Asset(asset_id), W::migrate_asset_step_migrate())
+			MigrationState::Asset(asset_id)
 		} else {
-			(MigrationState::Finished, W::migrate_asset_step_finished())
+			MigrationState::Finished
 		}
 	}
 }
