@@ -197,8 +197,8 @@ pub mod pallet {
 		KeepVotes(Error),
 	}
 
-	#[pallet::origin]                                                                                                                                                                                                        
-	#[derive(                                                                                                                                                                                                                
+	#[pallet::origin]
+	#[derive(
 		Clone, PartialEq, Eq, Debug, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
 	)]
 	pub enum Origin {
@@ -910,7 +910,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::OracleOrigin::ensure_origin(origin)?;
 
-			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint).map_err(|_| Error::<T>::InvalidEndpoint)?;
+			offchain::OracleOffchainWorker::<T>::validate_endpoint(&endpoint)
+				.map_err(|_| Error::<T>::InvalidEndpoint)?;
 			StorageManager::<T>::add_endpoint(asset_id, endpoint.clone())?;
 			Self::deposit_event(Event::<T>::EndpointAdded { asset_id, endpoint });
 

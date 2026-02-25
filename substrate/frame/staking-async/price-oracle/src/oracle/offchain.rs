@@ -708,22 +708,19 @@ mod live_parsing_tests {
 
 		// Sanity: DOT price should be somewhere between $0.01 and $10_000.
 		assert!(
-			price > FixedU128::from_rational(1, 100) &&
-				price < FixedU128::from_rational(10_000, 1),
+			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
 			"CryptoCompare returned an implausible DOT price: {price:?}"
 		);
 	}
 
 	#[test]
 	fn live_binance_free() {
-		let body =
-			curl_get("https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT");
+		let body = curl_get("https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT");
 		let price = Worker::parse_response(&ParsingMethod::BinanceFree, body)
 			.expect("Binance response format has changed — parsing failed");
 
 		assert!(
-			price > FixedU128::from_rational(1, 100) &&
-				price < FixedU128::from_rational(10_000, 1),
+			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
 			"Binance returned an implausible DOT price: {price:?}"
 		);
 	}
@@ -735,8 +732,7 @@ mod live_parsing_tests {
 			.expect("CoinLore response format has changed — parsing failed");
 
 		assert!(
-			price > FixedU128::from_rational(1, 100) &&
-				price < FixedU128::from_rational(10_000, 1),
+			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
 			"CoinLore returned an implausible DOT price: {price:?}"
 		);
 	}

@@ -3,73 +3,73 @@ default_command = "polkadot"
 chain_spec_path = "./rc.json"
 use_stash_for_validators = false
 
-	[[relaychain.nodes]]
-	name = "alice"
-	validator = true
-	rpc_port = 9944
-	args = [
-		"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=debug,runtime::ah-client=debug,xcm=debug",
-	]
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+rpc_port = 9944
+args = [
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=debug,runtime::ah-client=debug,xcm=debug",
+]
 
-	[[relaychain.nodes]]
-	name = "bob"
-	validator = true
-	rpc_port = 9945
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+rpc_port = 9945
 
-	[[relaychain.nodes]]
-	name = "eve"
-	validator = true
-	rpc_port = 9946
+[[relaychain.nodes]]
+name = "eve"
+validator = true
+rpc_port = 9946
 
-	[[relaychain.nodes]]
-	name = "dave"
-	validator = true
-	rpc_port = 9947
+[[relaychain.nodes]]
+name = "dave"
+validator = true
+rpc_port = 9947
 
 [[parachains]]
 id = 1100
 chain_spec_path = "./parachain.json"
 
-	[[parachains.collators]]
-	name = "charlie"
-	rpc_port = 9948
-	args = [
-		"-lruntime=debug",
-	]
+[[parachains.collators]]
+name = "charlie"
+rpc_port = 9948
+args = [
+	"-lruntime=debug",
+]
 
 [[parachains]]
 id = 1101
 chain_spec_path = "./price-oracle-parachain.json"
 force_decorator = "oracle"
 
-	[[parachains.collators]]
-	name = "alice"
-	rpc_port = 9949
-	args = [
-		"-lruntime=info,runtime::price-oracle=trace",
-	]
-	keystore_key_types = ["aura_sr", "orcl_sr"]
+[[parachains.collators]]
+name = "alice"
+rpc_port = 9949
+args = [
+	"-lruntime=info,runtime::price-oracle=trace",
+]
+keystore_key_types = ["aura_sr", "orcl_sr"]
 
-	[[parachains.collators]]
-	name = "bob"
-	rpc_port = 9950
-	args = [
-		"-lruntime=info,runtime::price-oracle=debug",
-	]
-	keystore_key_types = ["aura_sr", "orcl_sr"]
+[[parachains.collators]]
+name = "bob"
+rpc_port = 9950
+args = [
+	"-lruntime=info,runtime::price-oracle=debug",
+]
+keystore_key_types = ["aura_sr", "orcl_sr"]
 
-	[[parachains.collators]]
-	name = "eve"
-	rpc_port = 9951
-	args = [
-		"-lruntime=info,runtime::price-oracle=debug",
-	]
-	keystore_key_types = ["aura_sr", "orcl_sr"]
+[[parachains.collators]]
+name = "eve"
+rpc_port = 9951
+args = [
+	"-lruntime=info,runtime::price-oracle=debug",
+]
+keystore_key_types = ["aura_sr", "orcl_sr"]
 
-	[[parachains.collators]]
-	name = "dave"
-	rpc_port = 9952
-	args = [
-		"-lruntime=info,runtime::price-oracle=debug",
-	]
-	keystore_key_types = ["aura_sr", "orcl_sr"]
+[[parachains.collators]]
+name = "dave"
+rpc_port = 9952
+args = [
+	"-lruntime=info,runtime::price-oracle=debug",
+]
+keystore_key_types = ["aura_sr", "orcl_sr"]

@@ -27,7 +27,10 @@ use crate::{
 	tally::SimpleAverage,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{derive_impl, parameter_types, traits::{EnsureOrigin, Time}};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{EnsureOrigin, Time},
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parking_lot::RwLock;
 use scale_info::TypeInfo;
@@ -250,7 +253,8 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureRootIsAdmin {
 	type Success = pallet_price_oracle::Origin;
 
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		frame_system::EnsureRoot::<AccountId>::try_origin(o).map(|()| pallet_price_oracle::Origin::Admin)
+		frame_system::EnsureRoot::<AccountId>::try_origin(o)
+			.map(|()| pallet_price_oracle::Origin::Admin)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

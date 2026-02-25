@@ -126,7 +126,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			validators: Vec<T::AccountId>,
 		) -> DispatchResult {
-			client_log!(debug, "[client] relay_new_validator_set: validators: {:?}", validators.len());
+			client_log!(
+				debug,
+				"[client] relay_new_validator_set: validators: {:?}",
+				validators.len()
+			);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 			ValidatorSetStorage::<T>::put(ValidatorSet::ToPlan(validators));
 			Ok(())
