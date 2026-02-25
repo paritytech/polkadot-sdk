@@ -985,6 +985,8 @@ fn update_our_view<Context>(
 
 	let v2_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V2.into());
 
+	let v3_collation_peers = filter_by_peer_version(&collation_peers, CollationVersion::V3.into());
+
 	let v3_validation_peers =
 		filter_by_peer_version(&validation_peers, ValidationVersion::V3.into());
 
@@ -1001,6 +1003,13 @@ fn update_our_view<Context>(
 		metrics,
 		notification_sinks,
 	);
+
+	send_collation_message_v3(
+		v3_collation_peers,
+		WireMessage::ViewUpdate(new_view.clone()),
+		metrics,
+		notification_sinks,
+	);;
 
 	send_validation_message_v3(
 		v3_validation_peers,
