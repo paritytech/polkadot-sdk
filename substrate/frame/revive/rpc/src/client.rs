@@ -418,7 +418,7 @@ impl Client {
 			if subscription_type == SubscriptionType::FinalizedBlocks &&
 				block_number % SYNC_CHECKPOINT_INTERVAL == 0
 			{
-				let cp = SyncCheckpoint { block_number, block_hash: Some(hash) };
+				let cp = SyncCheckpoint::new(block_number, hash);
 				if let Err(err) =
 					self.receipt_provider.advance_sync_label(SyncLabel::LastFinalized, cp).await
 				{

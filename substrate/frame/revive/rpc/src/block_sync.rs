@@ -63,10 +63,22 @@ impl std::fmt::Display for SyncLabel {
 }
 
 /// Sync checkpoint persisted in the `sync_state` table to allow resuming after a crash.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SyncCheckpoint {
 	pub block_number: SubstrateBlockNumber,
 	pub block_hash: Option<H256>,
+}
+
+impl SyncCheckpoint {
+	/// Create a checkpoint with a known block hash.
+	pub fn new(block_number: SubstrateBlockNumber, block_hash: H256) -> Self {
+		Self { block_number, block_hash: Some(block_hash) }
+	}
+
+	/// Create a checkpoint with only a block number (no hash).
+	pub fn from_number(block_number: SubstrateBlockNumber) -> Self {
+		Self { block_number, block_hash: None }
+	}
 }
 
 /// How often (in blocks) sync progress is checkpointed to the database.
@@ -175,17 +187,12 @@ impl Client {
 	) -> Result<(), ClientError> {
 		let genesis_hash = self.validate_chain_identity().await?;
 		let latest_finalized_block = self.latest_finalized_block().await;
-		let latest_finalized = SyncCheckpoint {
-			block_number: latest_finalized_block.number(),
-			block_hash: Some(latest_finalized_block.hash()),
-		};
+		let latest_finalized =
+			SyncCheckpoint::new(latest_finalized_block.number(), latest_finalized_block.hash());
 
 		// Store genesis (idempotent).
 		self.receipt_provider()
-			.set_sync_label(
-				SyncLabel::Genesis,
-				SyncCheckpoint { block_number: 0, block_hash: Some(genesis_hash) },
-			)
+			.set_sync_label(SyncLabel::Genesis, SyncCheckpoint::new(0, genesis_hash))
 			.await?;
 
 		let lower_boundary = self.receipt_provider().get_sync_label(SyncLabel::LowerBound).await?;
@@ -212,10 +219,7 @@ impl Client {
 
 		// Clear UpperBound to mark sync as complete.
 		self.receipt_provider()
-			.set_sync_label(
-				SyncLabel::UpperBound,
-				SyncCheckpoint { block_number: 0, block_hash: None },
-			)
+			.set_sync_label(SyncLabel::UpperBound, SyncCheckpoint::from_number(0))
 			.await?;
 
 		log::info!(target: LOG_TARGET, "🗄️ Historic sync complete");
@@ -293,7 +297,7 @@ impl Client {
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
-				let cp = SyncCheckpoint { block_number: num, block_hash: Some(hash) };
+				let cp = SyncCheckpoint::new(num, hash);
 				if let Err(err) =
 					self.receipt_provider().set_sync_label(SyncLabel::UpperBound, cp).await
 				{
@@ -310,7 +314,7 @@ impl Client {
 	) -> impl Fn(SubstrateBlockNumber, H256) -> SyncHookFuture<'a> + 'a {
 		move |num, hash| {
 			Box::pin(async move {
-				let cp = SyncCheckpoint { block_number: num, block_hash: Some(hash) };
+				let cp = SyncCheckpoint::new(num, hash);
 				if let Err(err) =
 					self.receipt_provider().recede_sync_label(SyncLabel::LowerBound, cp).await
 				{

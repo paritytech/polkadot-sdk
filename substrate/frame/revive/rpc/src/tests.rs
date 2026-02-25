@@ -1059,7 +1059,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.expect("Genesis label should be set after sync");
 	assert_eq!(
 		genesis,
-		SyncCheckpoint { block_number: 0, block_hash: Some(client.api().genesis_hash()) },
+		SyncCheckpoint::new(0, client.api().genesis_hash()),
 		"Stored genesis should match chain genesis"
 	);
 
@@ -1071,7 +1071,7 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.expect("UpperBound should be set after sync");
 	assert_eq!(
 		upper_bound,
-		SyncCheckpoint { block_number: 0, block_hash: None },
+		SyncCheckpoint::from_number(0),
 		"UpperBound should be {{0, None}} after completed sync"
 	);
 
@@ -1156,10 +1156,8 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		.expect("Upper block should exist");
 
 	// Overwrite both labels to simulate a crash mid-sync with a partial range.
-	let interrupted_lower =
-		SyncCheckpoint { block_number: lower_block.number(), block_hash: Some(lower_block.hash()) };
-	let interrupted_upper =
-		SyncCheckpoint { block_number: upper_block.number(), block_hash: Some(upper_block.hash()) };
+	let interrupted_lower = SyncCheckpoint::new(lower_block.number(), lower_block.hash());
+	let interrupted_upper = SyncCheckpoint::new(upper_block.number(), upper_block.hash());
 
 	client
 		.receipt_provider()
@@ -1226,8 +1224,7 @@ async fn test_block_sync_chain_mismatch() -> anyhow::Result<()> {
 	client.sync_past_blocks(upper).await?;
 
 	// Overwrite Genesis with a fake hash.
-	let fake_genesis =
-		SyncCheckpoint { block_number: 0, block_hash: Some(H256::from([0xdeu8; 32])) };
+	let fake_genesis = SyncCheckpoint::new(0, H256::from([0xdeu8; 32]));
 	client
 		.receipt_provider()
 		.set_sync_label(SyncLabel::Genesis, fake_genesis)
@@ -1262,8 +1259,7 @@ async fn test_block_sync_boundary_mismatch() -> anyhow::Result<()> {
 
 	// Fabricate a corrupted UpperBound: valid block number, fake hash.
 	let chain_len = client.latest_finalized_block().await.number();
-	let corrupted_upper =
-		SyncCheckpoint { block_number: chain_len / 2, block_hash: Some(H256::from([0xbau8; 32])) };
+	let corrupted_upper = SyncCheckpoint::new(chain_len / 2, H256::from([0xbau8; 32]));
 	client
 		.receipt_provider()
 		.set_sync_label(SyncLabel::UpperBound, corrupted_upper)
@@ -1413,7 +1409,7 @@ async fn test_block_sync_earliest_receipt_block() -> anyhow::Result<()> {
 			.get_sync_label(SyncLabel::UpperBound)
 			.await?
 			.expect("UpperBound should be set after sync"),
-		SyncCheckpoint { block_number: 0, block_hash: None },
+		SyncCheckpoint::from_number(0),
 		"UpperBound should be {{0, None}} after completed sync"
 	);
 
