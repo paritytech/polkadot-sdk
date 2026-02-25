@@ -1161,18 +1161,18 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::LowerBound, interrupted_lower.clone())
+		.set_sync_label(SyncLabel::LowerBound, interrupted_lower)
 		.await?;
 	client
 		.receipt_provider()
-		.set_sync_label(SyncLabel::UpperBound, interrupted_upper.clone())
+		.set_sync_label(SyncLabel::UpperBound, interrupted_upper)
 		.await?;
 
 	// prepare_sync should detect the interrupted sync
 	let upper = client.prepare_sync().await?;
 	assert_eq!(
 		upper,
-		Some(interrupted_upper.clone()),
+		Some(interrupted_upper),
 		"prepare_sync should return the interrupted UpperBound"
 	);
 

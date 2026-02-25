@@ -355,7 +355,7 @@ impl Client {
 		let mut blocks_synced = 0u64;
 		let mut last_synced: Option<(SubstrateBlockNumber, H256)> = None;
 		let at_checkpoint =
-			|synced: u64| synced <= 1 || synced % u64::from(SYNC_CHECKPOINT_INTERVAL) == 0;
+			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(SYNC_CHECKPOINT_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
 			let block_number = block.number();
