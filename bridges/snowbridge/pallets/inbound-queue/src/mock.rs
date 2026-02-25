@@ -185,7 +185,7 @@ impl StaticLookup for MockChannelLookup {
 		if channel_id !=
 			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
-			return None
+			return None;
 		}
 		Some(Channel { agent_id: H256::zero(), para_id: ASSET_HUB_PARAID.into() })
 	}
@@ -201,16 +201,24 @@ impl TransactAsset for SuccessfulTransactor {
 		Ok(())
 	}
 
-	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
+	fn deposit_asset(
+		_what: AssetsInHolding,
+		_who: &Location,
+		_context: Option<&XcmContext>,
+	) -> Result<(), (AssetsInHolding, XcmError)> {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &Asset,
+		what: &Asset,
 		_who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
+	}
+
+	fn mint_asset(what: &Asset, _context: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(xcm_executor::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 
 	fn internal_transfer_asset(
@@ -218,8 +226,8 @@ impl TransactAsset for SuccessfulTransactor {
 		_from: &Location,
 		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
-		Ok(AssetsInHolding::default())
+	) -> Result<Asset, XcmError> {
+		Ok(_what.clone())
 	}
 }
 

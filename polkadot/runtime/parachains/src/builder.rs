@@ -353,7 +353,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		inclusion::CandidatePendingAvailability::<T::Hash, BlockNumberFor<T>>::new(
 			core_idx,                                 // core
 			candidate_hash,                           // hash
-			Self::candidate_descriptor_mock(para_id), /* candidate descriptor */
+			Self::candidate_descriptor_mock(para_id), // candidate descriptor
 			commitments,                              // commitments
 			availability_votes,                       /* availability
 			                                           * votes */
