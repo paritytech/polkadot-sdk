@@ -105,6 +105,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
@@ -144,7 +145,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_021_001,
+	spec_version: 1_021_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -1017,15 +1018,15 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHubLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// just concrete assets according to relay chain.
-					let assets: Vec<Asset> = vec![
-						Asset {
-							id: AssetId(RelayLocation::get()),
-							fun: Fungible(1_000_000 * UNITS),
-						}
-					];
-					assets.into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(RelayLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 

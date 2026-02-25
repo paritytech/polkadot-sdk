@@ -19,12 +19,12 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
+	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
 	exec::CallResources,
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext, RuntimeCosts,
+		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
-	Code, DebugSettings, Error, Pallet, ReentrancyProtection, H160, LOG_TARGET, U256,
 };
 use alloc::{vec, vec::Vec};
 pub use call_helpers::{charge_call_gas, get_memory_in_and_out_ranges};
