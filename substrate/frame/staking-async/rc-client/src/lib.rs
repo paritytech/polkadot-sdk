@@ -872,7 +872,7 @@ pub trait AHStakingInterface {
 	fn is_validator(who: &Self::AccountId) -> bool;
 
 	/// Returns the active bonded amount for a stash, or `None` if not bonded.
-	fn active_bond(who: &Self::AccountId) -> Option<Self::Balance>;
+	fn active_stake(who: &Self::AccountId) -> Option<Self::Balance>;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -1066,13 +1066,7 @@ pub mod pallet {
 		/// The balance type used for delivery fee limits.
 		type Balance: BalanceTrait;
 
-		/// Minimum active bond required to call `set_keys`.
-		///
-		/// Prevents relay chain storage spam: without this, an attacker could bond the
-		/// existential deposit, call `validate → set_keys → chill` in a loop, storing
-		/// unlimited session keys on the relay chain at negligible cost.
-		///
-		/// Set to 0 to disable the check.
+		/// Minimum active bond required to call `set_keys`. Set to 0 to disable.
 		#[pallet::constant]
 		type MinSetKeysBond: Get<BalanceOf<Self>>;
 
@@ -1317,10 +1311,9 @@ pub mod pallet {
 			// Only registered validators can set session keys
 			ensure!(T::AHStakingInterface::is_validator(&stash), Error::<T>::NotValidator);
 
-			// Ensure active bond meets the minimum to prevent RC storage spam
 			let min_bond = T::MinSetKeysBond::get();
 			if !min_bond.is_zero() {
-				let active = T::AHStakingInterface::active_bond(&stash)
+				let active = T::AHStakingInterface::active_stake(&stash)
 					.ok_or(Error::<T>::InsufficientBond)?;
 				ensure!(active >= min_bond, Error::<T>::InsufficientBond);
 			}

@@ -1347,7 +1347,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		Validators::<T>::contains_key(who)
 	}
 
-	fn active_bond(who: &Self::AccountId) -> Option<BalanceOf<T>> {
+	fn active_stake(who: &Self::AccountId) -> Option<BalanceOf<T>> {
 		Self::ledger(StakingAccount::Stash(who.clone())).ok().map(|l| l.active)
 	}
 }
