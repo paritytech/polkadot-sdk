@@ -22,7 +22,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-	traits::Get,
 	weights::WeightMeter,
 };
 
@@ -97,59 +96,63 @@ where
 	}
 
 	fn step(
-		mut cursor: Option<Self::Cursor>,
+		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		// Handle a Finished cursor defensively.
+		if let Some(MigrationState::Finished) = &cursor {
+			log::info!(target: LOG_TARGET, "migration finished");
+			return Ok(None);
+		}
+
+		let required = W::migrate_foreign_asset_step();
+		if meter.remaining().any_lt(required) {
+			return Err(SteppedMigrationError::InsufficientWeight { required });
+		}
+
+		let mut last_key = match &cursor {
+			None => None,
+			Some(MigrationState::Asset(last_asset)) => Some(last_asset.clone()),
+			Some(MigrationState::Finished) => unreachable!("handled above"),
+		};
+
 		loop {
-			// Check if we're already finished
-			if let Some(MigrationState::Finished) = &cursor {
-				log::info!(
-					target: LOG_TARGET,
-					"migration finished"
-				);
-				return Ok(None);
-			}
-
-			// Determine the key to start iteration from
-			let maybe_last_key = match &cursor {
-				None => None,
-				Some(MigrationState::Asset(last_asset)) => Some(last_asset),
-				Some(MigrationState::Finished) => unreachable!(),
-			};
-
-			// Peek at the next asset to determine the required weight for this step.
-			// This allows us to reserve only the weight we actually need.
-			let next_asset = Self::peek_next_asset(maybe_last_key);
-
-			// Calculate the weight required based on the actual operation
-			let (required, already_mapped) = match &next_asset {
-				None => (W::migrate_asset_step_finished(), false),
-				Some(asset_id) => {
-					if pallet::Pallet::<T>::asset_index_of(asset_id).is_some() {
-						(W::migrate_asset_step_skip(), true)
-					} else {
-						(W::migrate_asset_step_migrate(), false)
-					}
-				},
-			};
-
-			// Try to consume the weight for this specific operation
 			if meter.try_consume(required).is_err() {
-				if cursor.is_none() {
-					// First iteration and we can't even start
-					return Err(SteppedMigrationError::InsufficientWeight { required });
-				}
-				// Can't continue, return current progress
 				break;
 			}
 
-			// Perform the actual migration step
-			let next = Self::migrate_asset_step(next_asset, already_mapped);
+			let next_asset = Self::peek_next_asset(last_key.as_ref());
 
-			cursor = Some(next);
+			if let Some(asset_id) = next_asset {
+				if pallet::Pallet::<T>::asset_index_of(&asset_id).is_none() {
+					match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
+						Ok(asset_index) => log::debug!(
+							target: LOG_TARGET,
+							"Migrated asset {:?} to index {:?}",
+							asset_id,
+							asset_index
+						),
+						Err(()) => log::error!(
+							target: LOG_TARGET,
+							"Failed to migrate asset {:?}",
+							asset_id
+						),
+					}
+				} else {
+					log::debug!(
+						target: LOG_TARGET,
+						"Skipping already-mapped asset {:?}",
+						asset_id
+					);
+				}
+				last_key = Some(asset_id);
+			} else {
+				log::info!(target: LOG_TARGET, "migration finished");
+				return Ok(None);
+			}
 		}
 
-		Ok(cursor)
+		Ok(last_key.map(MigrationState::Asset))
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -228,7 +231,7 @@ where
 	W: WeightInfo,
 {
 	/// Peeks at the next asset without performing any migration.
-	/// Used to determine the weight required for the next step.
+	/// Used to determine whether there is another asset to process.
 	fn peek_next_asset(
 		maybe_last_key: Option<&<T as pallet_assets::Config<I>>::AssetId>,
 	) -> Option<<T as pallet_assets::Config<I>>::AssetId> {
@@ -241,45 +244,5 @@ where
 		};
 
 		iter.next()
-	}
-
-	/// Performs a single step of the migration using the already-peeked next asset.
-	/// Skips `insert_asset_mapping` when the caller has already determined the asset
-	/// is mapped, so the work stays within the weight that was reserved.
-	fn migrate_asset_step(
-		next_asset: Option<<T as pallet_assets::Config<I>>::AssetId>,
-		already_mapped: bool,
-	) -> MigrationState<<T as pallet_assets::Config<I>>::AssetId> {
-		if let Some(asset_id) = next_asset {
-			if !already_mapped {
-				match pallet::Pallet::<T>::insert_asset_mapping(&asset_id) {
-					Ok(asset_index) => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Migrated asset {:?} to index {:?}",
-							asset_id,
-							asset_index
-						);
-					},
-					Err(()) => {
-						log::error!(
-							target: LOG_TARGET,
-							"Failed to migrate asset {:?}",
-							asset_id
-						);
-					},
-				}
-			} else {
-				log::debug!(
-					target: LOG_TARGET,
-					"Skipping already-mapped asset {:?}",
-					asset_id
-				);
-			}
-
-			MigrationState::Asset(asset_id)
-		} else {
-			MigrationState::Finished
-		}
 	}
 }

@@ -17,53 +17,71 @@
 
 //! Benchmarks for the foreign asset precompile migration.
 //!
-//! These benchmarks measure the weight of migration operations:
-//! - Migrating a new asset (inserting a new mapping)
-//! - Skipping an already-mapped asset
-//! - Finishing iteration (no more assets)
+//! This benchmark measures the weight of one complete `step()` invocation of the
+//! [`MigrateForeignAssetPrecompileMappings`] stepped migration.
+//!
+//! Inspired by `pallet_revive::benchmarking::v2_migration_step`, the benchmark
+//! calls the actual `step()` function with a single unmapped asset in storage,
+//! capturing the real cost including storage iteration overhead.
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::foreign_assets::pallet::{Config, Pallet};
+use crate::{
+	foreign_assets::pallet::{Config, Pallet},
+	migration::MigrateForeignAssetPrecompileMappings,
+};
 use frame_benchmarking::v2::*;
+use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
+use sp_runtime::traits::StaticLookup;
 
 #[benchmarks(
 	where
+		T: pallet_assets::Config<AssetId = <T as Config>::ForeignAssetId>,
 		T::ForeignAssetId: From<u32>,
 )]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn migrate_asset_step_migrate() {
-		let asset_id: T::ForeignAssetId = 1u32.into();
+	fn migrate_foreign_asset_step() {
+		// Clear any pre-existing assets from genesis so that only our
+		// benchmark asset is present during the migration step.
+		let _ = pallet_assets::Asset::<T>::clear(u32::MAX, None);
 
-		// Ensure no mapping exists
-		assert!(Pallet::<T>::asset_index_of(&asset_id).is_none());
+		// Create one asset in pallet_assets storage.
+		let caller: T::AccountId = whitelisted_caller();
+		let caller_lookup = <T as frame_system::Config>::Lookup::unlookup(caller);
+		let asset_id: <T as pallet_assets::Config>::AssetId = 42u32.into();
+		let asset_id_param: <T as pallet_assets::Config>::AssetIdParameter = asset_id.into();
+
+		pallet_assets::Pallet::<T>::force_create(
+			frame_system::RawOrigin::Root.into(),
+			asset_id_param,
+			caller_lookup,
+			true,
+			1u32.into(),
+		)
+		.unwrap();
+
+		// Verify no precompile mapping exists yet.
+		let foreign_asset_id: T::ForeignAssetId = 42u32.into();
+		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_none());
+
+		let mut meter = WeightMeter::new();
 
 		#[block]
 		{
-			let _ = Pallet::<T>::asset_index_of(&asset_id);
-			let _ = Pallet::<T>::insert_asset_mapping(&asset_id);
+			MigrateForeignAssetPrecompileMappings::<T, (), ()>::step(None, &mut meter).unwrap();
 		}
 
-		// Verify the mapping was created
-		assert!(Pallet::<T>::asset_index_of(&asset_id).is_some());
-	}
-
-	#[benchmark]
-	fn migrate_asset_step_skip() {
-		let asset_id: T::ForeignAssetId = 2u32.into();
-
-		// Pre-create the mapping
-		let _ = Pallet::<T>::insert_asset_mapping(&asset_id);
-		assert!(Pallet::<T>::asset_index_of(&asset_id).is_some());
-
-		#[block]
-		{
-			// Simulate the check that happens when an asset is already mapped
-			let _ = Pallet::<T>::asset_index_of(&asset_id);
-		}
+		// Verify the asset was migrated.
+		assert!(Pallet::<T>::asset_index_of(&foreign_asset_id).is_some());
+		// The step consumes the weight twice: once for migrating the asset and once for
+		// discovering that there are no more assets to migrate.
+		assert_eq!(
+			meter.consumed(),
+			<() as crate::weights::WeightInfo>::migrate_foreign_asset_step() * 2
+		);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test,);

@@ -58,7 +58,7 @@ pub use migration::{MigrateForeignAssetPrecompileMappings, MigrationState};
 pub trait AssetIdExtractor {
 	type AssetId;
 	/// Extracts the asset id from the address.
-ß	fn asset_id_from_address(address: &[u8; 20]) -> Result<Self::AssetId, Error>;
+	fn asset_id_from_address(address: &[u8; 20]) -> Result<Self::AssetId, Error>;
 }
 
 /// The configuration of a pallet-assets precompile.
