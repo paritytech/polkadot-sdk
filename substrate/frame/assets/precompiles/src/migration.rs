@@ -23,7 +23,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	traits::Get,
-	weights::{Weight, WeightMeter},
+	weights::WeightMeter,
 };
 
 const PRECOMPILE_MAPPINGS_MIGRATION_ID: &[u8; 32] = b"foreign-asset-precompile-mapping";
